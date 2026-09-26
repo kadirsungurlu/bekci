@@ -127,7 +127,10 @@ func (s *Server) push(w http.ResponseWriter, r *http.Request) {
 // events canlı olay akışı (Server-Sent Events).
 func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	rc := http.NewResponseController(w)
-	// Bu bağlantı uzun ömürlü; sunucunun genel yazma süre sınırı uygulanmaz.
+	// Bu bağlantı uzun ömürlü; sunucunun genel okuma/yazma süre sınırları
+	// uygulanmaz. (Okuma sınırı dolunca net/http isteğin context'ini iptal
+	// ederek akışı keser.)
+	rc.SetReadDeadline(time.Time{})
 	rc.SetWriteDeadline(time.Time{})
 
 	h := w.Header()

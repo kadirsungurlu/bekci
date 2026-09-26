@@ -1,0 +1,7 @@
+.git
+.gorun.sh
+data
+web/node_modules
+web/dist
+docs
+*.md

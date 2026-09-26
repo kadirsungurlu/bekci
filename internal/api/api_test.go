@@ -406,3 +406,48 @@ func TestEventsStream(t *testing.T) {
 	}
 	t.Fatal("canlı olay gelmedi")
 }
+
+// Üretimdeki gibi okuma/yazma süre sınırı olan sunucuda SSE bağlantısı
+// sınırdan uzun süre açık kalmalı.
+func TestEventsSurviveServerTimeouts(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "t.db"), time.UTC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	hub := engine.NewHub()
+	disp := notify.NewDispatcher(st, log)
+	eng := engine.New(st, disp, hub, log, engine.Config{Unit: time.Millisecond})
+	s := New(st, eng, hub, disp, log, fstest.MapFS{}, "test")
+
+	srv := httptest.NewUnstartedServer(s.Handler())
+	srv.Config.ReadTimeout = 300 * time.Millisecond
+	srv.Config.WriteTimeout = 300 * time.Millisecond
+	srv.Start()
+	defer srv.Close()
+
+	jar, _ := cookiejar.New(nil)
+	e := &env{t: t, srv: srv, client: &http.Client{Jar: jar}}
+	e.mustDo("POST", "/api/auth/setup", map[string]string{"username": "kadir", "password": "cok-gizli-sifre"}, nil, 200)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/events", nil)
+	resp, err := e.client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	time.Sleep(time.Second) // sınırların 3 katı
+	hub.Publish("beat", map[string]int{"monitor_id": 42})
+
+	sc := bufio.NewScanner(resp.Body)
+	for sc.Scan() {
+		if strings.Contains(sc.Text(), `"monitor_id":42`) {
+			return
+		}
+	}
+	t.Fatalf("bağlantı süre sınırında koptu: %v", sc.Err())
+}
