@@ -4,19 +4,33 @@
 
   let { bars }: { bars: Bucket[] } = $props();
 
-  function tip(b: Bucket): string {
+  function tip(b: Bucket, current: boolean): string {
+    const head = hourRange(b.t) + (current ? ' (devam ediyor)' : '');
     const up = bucketUptime(b);
-    if (up === null) return `${hourRange(b.t)}\nVeri yok`;
-    let s = `${hourRange(b.t)}\nUptime ${fmtPct(up)}`;
-    if (b.down > 0) s += ` · ${b.down} hata`;
+    if (up === null) return `${head}\nVeri yok`;
+    let s = `${head}\nUptime ${fmtPct(up)}`;
+    if (b.down > 0) s += ` · ${b.down} hatalı kontrol`;
     if (b.ping >= 0) s += `\nOrt. yanıt ${fmtMs(b.ping)}`;
     return s;
+  }
+
+  /** Hem çalışan hem çalışmayan kontrol olan saatte kırmızının payı (%). */
+  function downShare(b: Bucket): number | null {
+    return b.up > 0 && b.down > 0 ? Math.round((100 * b.down) / (b.up + b.down)) : null;
   }
 </script>
 
 <div class="bars">
-  {#each bars as b (b.t)}
-    <span class="bar {barKind(b)}" data-tip={tip(b)}></span>
+  {#each bars as b, i (b.t)}
+    {@const share = downShare(b)}
+    <!-- Karışık saat oranına göre bölünür (altta kırmızı, üstte yeşil): toparlanma
+         saat bitmeden görünür. -->
+    <span
+      class="bar {share === null ? barKind(b) : 'split'}"
+      class:current={i === bars.length - 1}
+      style={share === null ? undefined : `--down-share: ${share}%`}
+      data-tip={tip(b, i === bars.length - 1)}
+    ></span>
   {/each}
 </div>
 
@@ -46,6 +60,9 @@
   }
   .bar.mixed {
     background: var(--pending);
+  }
+  .bar.split {
+    background: linear-gradient(to top, var(--down) var(--down-share), var(--up) var(--down-share));
   }
   @media (max-width: 640px) {
     /* Dar ekranda son 12 saat */
