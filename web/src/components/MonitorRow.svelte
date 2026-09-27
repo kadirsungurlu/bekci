@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { MonitorView } from '../lib/api';
   import { navigate } from '../lib/router.svelte';
-  import { STATUS_LABELS, fmtDuration, fmtInterval, fmtPct, statusKind } from '../lib/format';
+  import { STATUS_LABELS, fmtDuration, fmtInterval, fmtPct, monitorKind } from '../lib/format';
+  import { session } from '../lib/session.svelte';
   import StatusIcon from './StatusIcon.svelte';
   import TypeBadge from './TypeBadge.svelte';
   import UptimeBars from './UptimeBars.svelte';
@@ -23,12 +24,14 @@
     ondelete: (m: MonitorView) => void;
   } = $props();
 
-  const kind = $derived(statusKind(m.status, m.active));
+  const kind = $derived(monitorKind(m));
 
   const sub = $derived.by(() => {
     switch (kind) {
       case 'paused':
         return STATUS_LABELS.paused;
+      case 'maintenance':
+        return 'Bakımda · bildirim gönderilmez';
       case 'pending':
         // Yeni eklenen, düzenlenen veya yeniden başlatılan monitörde sunucu mesajı
         // temizler; mesaj varsa başarısız kontrol sonrası tekrar deneniyordur.
@@ -67,7 +70,7 @@
       <a {href} onclick={(e) => e.stopPropagation()}>{m.name}</a>
       <TypeBadge type={m.type} />
     </div>
-    <div class="sub c-{kind === 'down' ? 'down' : kind === 'pending' ? 'pending' : 'muted'}" title={sub}>{sub}</div>
+    <div class="sub c-{kind === 'down' ? 'down' : kind === 'pending' ? 'pending' : kind === 'maintenance' ? 'maint' : 'muted'}" title={sub}>{sub}</div>
   </div>
   <div class="interval" title="Kontrol aralığı">
     <Icon name="refresh" size={13} />
@@ -77,6 +80,7 @@
     <UptimeBars bars={m.bars} />
     <div class="pct" class:c-down={m.uptime_24h !== null && m.uptime_24h < 99}>{fmtPct(m.uptime_24h)}</div>
   </div>
+  {#if session.canEdit}
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
   <div class="menu" onclick={(e) => e.stopPropagation()}>
     <button
@@ -116,6 +120,7 @@
       </div>
     {/if}
   </div>
+  {/if}
 </div>
 
 <style>

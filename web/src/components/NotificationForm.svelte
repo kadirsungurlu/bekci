@@ -8,14 +8,7 @@
     type NotificationType,
   } from '../lib/api';
   import { confirmDialog } from '../lib/ui.svelte';
-  import {
-    EMAIL_PORTS,
-    NOTIFY_LABELS,
-    NOTIFY_SCHEMAS,
-    NUMERIC_KEYS,
-    WEBHOOK_EXAMPLE,
-    type Field,
-  } from '../lib/notifyTypes';
+  import { EMAIL_PORTS, NOTIFY_GROUPS, NOTIFY_LABELS, NOTIFY_SCHEMAS, WEBHOOK_EXAMPLE, type Field } from '../lib/notifyTypes';
   import Modal from './Modal.svelte';
   import Icon from './Icon.svelte';
 
@@ -33,11 +26,10 @@
 
   // svelte-ignore state_referenced_locally
   const orig = channel;
-  const TYPES = Object.keys(NOTIFY_LABELS) as NotificationType[];
 
   function defaults(t: NotificationType): Record<string, string> {
     const v: Record<string, string> = {};
-    for (const f of NOTIFY_SCHEMAS[t].fields) v[f.key] = f.def !== undefined ? String(f.def) : '';
+    for (const f of NOTIFY_SCHEMAS[t].fields) v[f.key] = f.def !== undefined ? String(f.def) : f.kind === 'bool' ? 'false' : '';
     return v;
   }
 
@@ -84,7 +76,9 @@
     const cfg: Record<string, unknown> = {};
     for (const f of schema.fields) {
       const raw = values[f.key] ?? '';
-      if (NUMERIC_KEYS.has(f.key)) {
+      if (f.kind === 'bool') {
+        cfg[f.key] = raw === 'true';
+      } else if (f.numeric) {
         // Boş bırakılan e-posta portunu 0 gönder: sunucu güvenlik seçimine göre (465/587/25) doldurur.
         const def = f.key === 'port' ? 0 : typeof f.def === 'number' ? f.def : 0;
         cfg[f.key] = raw.trim() === '' ? def : Number(raw);
@@ -103,7 +97,8 @@
       const v = (values[f.key] ?? '').trim();
       if (f.required && !v) return `${f.label} gerekli.`;
       if (v && f.kind === 'url' && !/^https?:\/\/\S+$/i.test(v)) return `${f.label} geçerli bir http(s) adresi olmalı.`;
-      if (v && NUMERIC_KEYS.has(f.key) && f.kind !== 'select') {
+      if (v && f.pattern && v !== MASK && !f.pattern.test(v)) return f.patternMsg ?? `${f.label} geçersiz.`;
+      if (v && f.numeric && f.kind !== 'select') {
         const n = Number(v);
         if (!Number.isInteger(n)) return `${f.label} bir tam sayı olmalı.`;
         if ((f.min !== undefined && n < f.min) || (f.max !== undefined && n > f.max))
@@ -193,7 +188,11 @@
       <div class="field">
         <label for="nt">Tip</label>
         <select id="nt" class="input" value={type} onchange={(e) => changeType(e.currentTarget.value as NotificationType)}>
-          {#each TYPES as t (t)}<option value={t}>{NOTIFY_LABELS[t]}</option>{/each}
+          {#each NOTIFY_GROUPS as g (g.label)}
+            <optgroup label={g.label}>
+              {#each g.types as t (t)}<option value={t}>{NOTIFY_LABELS[t]}</option>{/each}
+            </optgroup>
+          {/each}
         </select>
       </div>
       <div class="field">
@@ -206,6 +205,16 @@
 
     <div class="grid-2">
       {#each schema.fields as f (type + f.key)}
+        {#if f.kind === 'bool'}
+          <label class="check wide">
+            <input
+              type="checkbox"
+              checked={values[f.key] === 'true'}
+              onchange={(e) => (values[f.key] = e.currentTarget.checked ? 'true' : 'false')}
+            />
+            <span>{f.label}{#if f.help}<small>{f.help}</small>{/if}</span>
+          </label>
+        {:else}
         <div class="field" class:wide={f.wide || f.kind === 'textarea'}>
           <label for="f-{f.key}">
             {f.label}
@@ -252,6 +261,7 @@
             <span class="help">{f.help}</span>
           {/if}
         </div>
+        {/if}
       {/each}
     </div>
 

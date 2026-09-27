@@ -24,14 +24,17 @@
     fmtMs,
     fmtPct,
     fmtRelative,
+    monitorKind,
     nowSec,
-    statusKind,
   } from '../lib/format';
+  import { session } from '../lib/session.svelte';
+  import { GROUP_MODES, typeLabel } from '../lib/monitorTypes';
   import { deleteMonitor, togglePause } from '../lib/actions';
   import StatusIcon from '../components/StatusIcon.svelte';
   import TypeBadge from '../components/TypeBadge.svelte';
   import PingChart from '../components/PingChart.svelte';
   import IncidentTable from '../components/IncidentTable.svelte';
+  import BadgeBuilder from '../components/BadgeBuilder.svelte';
   import Icon from '../components/Icon.svelte';
 
   let { id }: { id: number } = $props();
@@ -54,7 +57,18 @@
   ];
 
   const monitor = $derived(live.byId(id) ?? detail?.monitor ?? null);
-  const kind = $derived(monitor ? statusKind(monitor.status, monitor.active) : 'pending');
+  const kind = $derived(monitor ? monitorKind(monitor) : 'pending');
+  let badgesOpen = $state(false);
+
+  // Grup monitörünün alt monitörleri (izleyicide ayarlar gizli olduğundan boş kalır).
+  const children = $derived.by(() => {
+    if (monitor?.type !== 'group') return [];
+    const ids = Array.isArray(monitor.config?.monitor_ids) ? (monitor.config.monitor_ids as number[]) : [];
+    return ids.map((cid) => ({ id: cid, m: live.byId(cid) }));
+  });
+  const groupMode = $derived(
+    monitor?.type === 'group' ? GROUP_MODES.find((g) => g.v === monitor.config?.mode)?.l ?? GROUP_MODES[0].l : '',
+  );
   const now = $derived(clock.now);
   const isHttps = $derived(monitor?.type === 'http' && /^https:/i.test(monitor.target));
   const pushUrl = $derived(monitor?.push_token ? `${location.origin}/api/push/${monitor.push_token}` : '');
@@ -151,6 +165,8 @@
     switch (kind) {
       case 'paused':
         return 'Kontroller durduruldu';
+      case 'maintenance':
+        return 'Bakım penceresi sürüyor; bildirim gönderilmez';
       case 'pending':
         // Başlatma/düzenleme sonrası sunucu son mesajı temizler: henüz sonuç yok.
         return monitor.last_message ? 'Tekrar deneniyor' : 'İlk kontrol bekleniyor';
@@ -202,25 +218,39 @@
           <TypeBadge type={monitor.type} />
         </div>
         <div class="target">
-          {#if monitor.type === 'http'}
-            <a href={monitor.target} target="_blank" rel="noopener noreferrer">{monitor.target}<Icon name="external" size={13} /></a>
-          {:else if monitor.type === 'push'}
+          {#if monitor.type === 'push'}
             <span class="muted">Push monitörü · beklenen aralık {fmtInterval(monitor.interval)}</span>
+          {:else if !monitor.target}
+            <span class="muted">{typeLabel(monitor.type)} monitörü</span>
+          {:else if monitor.type === 'http'}
+            <a href={monitor.target} target="_blank" rel="noopener noreferrer">{monitor.target}<Icon name="external" size={13} /></a>
+          {:else if monitor.type === 'group'}
+            <span class="muted">Grup · {monitor.target}{groupMode ? ` · ${groupMode}` : ''}</span>
           {:else}
             <span class="text-2 mono">{monitor.target}</span>
           {/if}
         </div>
       </div>
     </div>
-    <div class="actions">
-      <button class="btn" onclick={onToggle} disabled={busy}>
-        <Icon name={monitor.active ? 'pause' : 'play'} size={15} />
-        {monitor.active ? 'Durdur' : 'Başlat'}
-      </button>
-      <a class="btn" href="#/monitors/{monitor.id}/edit"><Icon name="edit" size={15} /> Düzenle</a>
-      <button class="btn danger" onclick={onDelete}><Icon name="trash" size={15} /> Sil</button>
-    </div>
+    {#if session.canEdit}
+      <div class="actions">
+        <button class="btn" onclick={onToggle} disabled={busy}>
+          <Icon name={monitor.active ? 'pause' : 'play'} size={15} />
+          {monitor.active ? 'Durdur' : 'Başlat'}
+        </button>
+        <a class="btn" href="#/monitors/{monitor.id}/edit"><Icon name="edit" size={15} /> Düzenle</a>
+        <button class="btn danger" onclick={onDelete}><Icon name="trash" size={15} /> Sil</button>
+      </div>
+    {/if}
   </div>
+
+  {#if kind === 'maintenance'}
+    <div class="alert maint maint-note">
+      <Icon name="wrench" size={16} />
+      <span>Bu monitör şu anda bir bakım penceresinde. Kesintiler bildirilmez ve uptime hesabına katılmaz.
+        <a href="#/maintenance">Bakım pencereleri</a></span>
+    </div>
+  {/if}
 
   {#if monitor.description}
     <p class="desc">{monitor.description}</p>
@@ -242,11 +272,19 @@
         her {fmtInterval(monitor.interval)}
       </div>
     </div>
-    <div class="card stat">
-      <div class="label">Ortalama yanıt (24 saat)</div>
-      <div class="value">{fmtMs(detail?.avg_ping_24h)}</div>
-      <div class="sub">Son ölçüm: {monitor.last_check_at && kind === 'up' ? fmtMs(monitor.last_ping_ms) : '—'}</div>
-    </div>
+    {#if monitor.type === 'group'}
+      <div class="card stat">
+        <div class="label">Alt monitörler</div>
+        <div class="value">{monitor.target}</div>
+        <div class="sub">{groupMode || 'Bakımdaki ve durdurulmuş alt monitörler sayılmaz'}</div>
+      </div>
+    {:else}
+      <div class="card stat">
+        <div class="label">Ortalama yanıt (24 saat)</div>
+        <div class="value">{fmtMs(detail?.avg_ping_24h)}</div>
+        <div class="sub">Son ölçüm: {monitor.last_check_at && kind === 'up' ? fmtMs(monitor.last_ping_ms) : '—'}</div>
+      </div>
+    {/if}
     {#if isHttps}
       <div class="card stat">
         <div class="label"><Icon name="lock" size={13} /> SSL sertifikası</div>
@@ -319,6 +357,28 @@
     </div>
   </div>
 
+  {#if monitor.type === 'group' && children.length}
+    <div class="card block">
+      <h2 class="card-title">Alt monitörler<span class="dot">.</span></h2>
+      <ul class="kids">
+        {#each children as c (c.id)}
+          <li>
+            {#if c.m}
+              <StatusIcon kind={monitorKind(c.m)} size={22} />
+              <span class="kid">
+                <a href="#/monitors/{c.id}">{c.m.name}</a>
+                <span class="muted small kid-t">{c.m.target}</span>
+              </span>
+            {:else}
+              <span class="muted small">#{c.id} (silinmiş)</span>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+      <p class="help kids-help">Durdurulmuş ve bakımdaki alt monitörler hesaba katılmaz.</p>
+    </div>
+  {/if}
+
   <div class="card block">
     <h2 class="card-title">Olaylar<span class="dot">.</span></h2>
     {#if detail?.open_incident_since}
@@ -327,6 +387,16 @@
       </div>
     {/if}
     <IncidentTable {incidents} {now} emptyText="Bu monitörde henüz olay kaydı yok. Harika!" />
+  </div>
+
+  <div class="card block badges">
+    <button type="button" class="bb-toggle" aria-expanded={badgesOpen} onclick={() => (badgesOpen = !badgesOpen)}>
+      <span class="bb-t"><Icon name="award" size={17} /> Rozetler</span>
+      <span class="chev" class:open={badgesOpen}><Icon name="chevron-down" /></span>
+    </button>
+    {#if badgesOpen}
+      <div class="bb-body"><BadgeBuilder id={monitor.id} https={isHttps} /></div>
+    {/if}
   </div>
 {/if}
 
@@ -513,6 +583,93 @@
   .ongoing {
     margin-bottom: 12px;
   }
+  .maint-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: -6px 0 16px;
+  }
+  .maint-note :global(svg) {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .maint-note a {
+    color: inherit;
+    text-decoration: underline;
+  }
+  .kids {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 8px 16px;
+  }
+  .kids li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .kid {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.35;
+  }
+  .kids a {
+    color: var(--text);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .kid-t {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .kids-help {
+    margin: 12px 0 0;
+  }
+  .badges {
+    padding: 0;
+  }
+  .bb-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: none;
+    border: none;
+    color: var(--text);
+    font: inherit;
+    font-weight: 700;
+    font-size: 1.05rem;
+    padding: 18px 20px;
+    cursor: pointer;
+    border-radius: var(--radius);
+  }
+  .bb-t {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .bb-t :global(svg) {
+    color: var(--accent-text);
+  }
+  .chev {
+    display: inline-flex;
+    color: var(--muted);
+    transition: transform 0.2s;
+  }
+  .chev.open {
+    transform: rotate(180deg);
+  }
+  .bb-body {
+    padding: 0 20px 20px;
+  }
 
   @media (max-width: 900px) {
     .stats {
@@ -558,6 +715,12 @@
     .copybox {
       flex-direction: column;
       align-items: stretch;
+    }
+    .bb-toggle {
+      padding: 16px;
+    }
+    .bb-body {
+      padding: 0 16px 16px;
     }
   }
 </style>

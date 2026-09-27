@@ -1,33 +1,58 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { api, errorMessage, onUnauthorized, type User } from './lib/api';
+  import { api, errorMessage, onPasswordChangeRequired, onUnauthorized, type User } from './lib/api';
   import { live } from './lib/live.svelte';
-  import { router } from './lib/router.svelte';
+  import { publicSlugFromPath, router } from './lib/router.svelte';
+  import { ROLE_LABELS, session } from './lib/session.svelte';
   import { toast } from './lib/ui.svelte';
   import Icon, { type IconName } from './components/Icon.svelte';
   import Toasts from './components/Toasts.svelte';
   import ConfirmDialog from './components/ConfirmDialog.svelte';
   import Tooltip from './components/Tooltip.svelte';
   import Auth from './pages/Auth.svelte';
+  import ForcePassword from './pages/ForcePassword.svelte';
+  import PublicStatus from './pages/PublicStatus.svelte';
   import MonitorList from './pages/MonitorList.svelte';
   import MonitorDetail from './pages/MonitorDetail.svelte';
   import MonitorForm from './pages/MonitorForm.svelte';
   import Incidents from './pages/Incidents.svelte';
   import Notifications from './pages/Notifications.svelte';
   import Settings from './pages/Settings.svelte';
+  import StatusPages from './pages/StatusPages.svelte';
+  import StatusPageEditor from './pages/StatusPageEditor.svelte';
+  import MaintenanceList from './pages/MaintenanceList.svelte';
+  import MaintenanceForm from './pages/MaintenanceForm.svelte';
+  import More from './pages/More.svelte';
 
-  type Phase = 'loading' | 'setup' | 'login' | 'app' | 'error';
+  type Phase = 'loading' | 'public' | 'setup' | 'login' | 'password' | 'app' | 'error';
 
   let phase = $state<Phase>('loading');
-  let user = $state<User | null>(null);
-  let version = $state('');
   let loadError = $state('');
+  let publicSlug = $state('');
 
   async function init() {
     phase = 'loading';
+    // Herkese açık durum sayfası: /durum/<kısa-ad> veya sayfaya bağlı özel alan adı.
+    // Özel alan adında yönetim API'si (ör. /api/auth/state) 404 verdiği için önce bu sorulur.
+    const fromPath = publicSlugFromPath();
+    if (fromPath !== null) {
+      publicSlug = fromPath;
+      phase = 'public';
+      return;
+    }
+    try {
+      const r = await api.publicResolve();
+      if (r.slug) {
+        publicSlug = r.slug;
+        phase = 'public';
+        return;
+      }
+    } catch {
+      /* eski sunucu veya ağ hatası: yönetim paneliyle devam */
+    }
     try {
       const s = await api.authState();
-      version = s.version;
+      session.version = s.version;
       if (s.setup_needed) phase = 'setup';
       else if (!s.user) phase = 'login';
       else enter(s.user);
@@ -38,7 +63,12 @@
   }
 
   function enter(u: User) {
-    user = u;
+    session.set(u);
+    if (u.must_change_password) {
+      live.stop();
+      phase = 'password';
+      return;
+    }
     phase = 'app';
     live.start();
   }
@@ -50,26 +80,70 @@
       /* oturum zaten kapanmış olabilir */
     }
     live.stop();
-    user = null;
+    session.set(null);
     phase = 'login';
   }
 
   onUnauthorized(() => {
-    if (phase !== 'app') return;
+    if (phase !== 'app' && phase !== 'password') return;
     live.stop();
-    user = null;
+    session.set(null);
     phase = 'login';
     toast.info('Oturumunuz sona erdi. Lütfen tekrar giriş yapın.');
   });
 
+  onPasswordChangeRequired(() => {
+    if (phase !== 'app') return;
+    live.stop();
+    if (session.user) session.set({ ...session.user, must_change_password: true });
+    phase = 'password';
+  });
+
   onMount(init);
 
-  const nav: { href: string; label: string; icon: IconName; match: string[] }[] = [
-    { href: '#/', label: 'Monitörler', icon: 'activity', match: ['list', 'new', 'detail', 'edit'] },
-    { href: '#/incidents', label: 'Olaylar', icon: 'zap', match: ['incidents'] },
-    { href: '#/notifications', label: 'Bildirimler', icon: 'bell', match: ['notifications'] },
-    { href: '#/settings', label: 'Ayarlar', icon: 'settings', match: ['settings'] },
-  ];
+  interface NavItem {
+    href: string;
+    label: string;
+    short?: string;
+    icon: IconName;
+    match: string[];
+  }
+
+  const NAV_MONITORS: NavItem = { href: '#/', label: 'Monitörler', icon: 'activity', match: ['list', 'new', 'detail', 'edit'] };
+  const NAV_INCIDENTS: NavItem = { href: '#/incidents', label: 'Olaylar', icon: 'zap', match: ['incidents'] };
+  const NAV_PAGES: NavItem = {
+    href: '#/status-pages',
+    label: 'Durum sayfaları',
+    short: 'Sayfalar',
+    icon: 'layout',
+    match: ['pages', 'page-new', 'page-edit'],
+  };
+  const NAV_MAINT: NavItem = { href: '#/maintenance', label: 'Bakım', icon: 'wrench', match: ['maintenance', 'maint-new', 'maint-edit'] };
+  const NAV_NOTIF: NavItem = { href: '#/notifications', label: 'Bildirimler', icon: 'bell', match: ['notifications'] };
+  const NAV_SETTINGS: NavItem = { href: '#/settings', label: 'Ayarlar', icon: 'settings', match: ['settings'] };
+
+  // İzleyici bildirim kanallarını ve durum sayfalarını yönetemez.
+  const nav = $derived<NavItem[]>(
+    session.canEdit
+      ? [NAV_MONITORS, NAV_INCIDENTS, NAV_PAGES, NAV_MAINT, NAV_NOTIF, NAV_SETTINGS]
+      : [NAV_MONITORS, NAV_INCIDENTS, NAV_MAINT, NAV_SETTINGS],
+  );
+  // Mobil sekme çubuğu en fazla 4 öğe: az kullanılanlar "Daha fazla" altında.
+  const tabs = $derived<NavItem[]>(
+    session.canEdit
+      ? [
+          NAV_MONITORS,
+          NAV_INCIDENTS,
+          NAV_PAGES,
+          {
+            href: '#/more',
+            label: 'Daha fazla',
+            icon: 'menu',
+            match: ['more', 'maintenance', 'maint-new', 'maint-edit', 'notifications', 'settings'],
+          },
+        ]
+      : nav,
+  );
 
   const route = $derived(router.route);
   const downCount = $derived(live.monitors.reduce((n, m) => n + (m.active && m.status === 0 ? 1 : 0), 0));
@@ -87,26 +161,54 @@
         return 'Olaylar';
       case 'notifications':
         return 'Bildirimler';
+      case 'pages':
+      case 'page-new':
+      case 'page-edit':
+      case 'page-preview':
+        return 'Durum sayfaları';
+      case 'maintenance':
+      case 'maint-new':
+      case 'maint-edit':
+        return 'Bakım pencereleri';
       case 'settings':
         return 'Ayarlar';
+      case 'more':
+        return 'Daha fazla';
       default:
         return 'Bulunamadı';
     }
   });
 
   $effect(() => {
+    if (phase === 'public') return; // başlığı sayfanın kendisi belirler
     if (phase === 'app') document.title = `${downCount > 0 ? `(${downCount}) ` : ''}${pageTitle} · Uptime`;
     else if (phase === 'setup') document.title = 'Kurulum · Uptime';
+    else if (phase === 'password') document.title = 'Yeni şifre · Uptime';
     else document.title = 'Giriş · Uptime';
   });
+
+  const editorOnly = $derived(
+    ['notifications', 'pages', 'page-new', 'page-edit', 'page-preview', 'new', 'edit', 'maint-new', 'maint-edit'].includes(route.name),
+  );
 </script>
 
 <Tooltip />
 <Toasts />
 <ConfirmDialog />
 
+{#snippet forbidden()}
+  <div class="card empty">
+    <div class="lock"><Icon name="lock" size={28} /></div>
+    <h3>Bu sayfa için yetkiniz yok</h3>
+    <p>Hesabınız yalnızca görüntüleme yetkisine sahip. Değişiklik yapmanız gerekiyorsa yöneticinize başvurun.</p>
+    <a class="btn primary" href="#/">Monitörlere dön</a>
+  </div>
+{/snippet}
+
 {#if phase === 'loading'}
   <div class="center"><span class="spinner"></span></div>
+{:else if phase === 'public'}
+  <PublicStatus slug={publicSlug} />
 {:else if phase === 'error'}
   <div class="center">
     <div class="card errcard">
@@ -119,13 +221,17 @@
   {#key phase}
     <Auth mode={phase} onDone={enter} />
   {/key}
+{:else if phase === 'password'}
+  <ForcePassword onDone={init} onLogout={logout} />
+{:else if route.name === 'page-preview' && session.canEdit}
+  {#key route.id}<PublicStatus previewId={route.id} />{/key}
 {:else}
   <div class="shell">
     <aside class="sidebar">
       <a class="logo" href="#/"><span class="logo-dot"></span> Uptime</a>
-      <nav>
+      <nav aria-label="Ana menü">
         {#each nav as n (n.href)}
-          <a href={n.href} class:active={n.match.includes(route.name)}>
+          <a href={n.href} class:active={n.match.includes(route.name)} aria-current={n.match.includes(route.name) ? 'page' : undefined}>
             <Icon name={n.icon} />
             <span>{n.label}</span>
             {#if n.href === '#/' && downCount > 0}<span class="count">{downCount}</span>{/if}
@@ -136,7 +242,13 @@
         {#if !live.connected && live.loaded}
           <div class="offline" title="Canlı bağlantı yeniden kuruluyor"><Icon name="wifi-off" size={15} /> <span>Bağlantı yok</span></div>
         {/if}
-        <div class="who"><Icon name="user" size={16} /> <span>{user?.username}</span></div>
+        <a class="who" href="#/settings" title="Hesabım">
+          <Icon name="user" size={16} />
+          <span class="who-t">
+            <span class="who-n">{session.displayName}</span>
+            <span class="who-r">{ROLE_LABELS[session.role]}</span>
+          </span>
+        </a>
         <button class="logout" onclick={logout}><Icon name="logout" size={16} /> Çıkış</button>
       </div>
     </aside>
@@ -153,7 +265,9 @@
 
     <main class="main">
       <div class="content">
-        {#if route.name === 'list'}
+        {#if editorOnly && !session.canEdit}
+          {@render forbidden()}
+        {:else if route.name === 'list'}
           <MonitorList />
         {:else if route.name === 'new'}
           <MonitorForm />
@@ -165,8 +279,22 @@
           <Incidents />
         {:else if route.name === 'notifications'}
           <Notifications />
+        {:else if route.name === 'pages'}
+          <StatusPages />
+        {:else if route.name === 'page-new'}
+          <StatusPageEditor />
+        {:else if route.name === 'page-edit'}
+          {#key route.id}<StatusPageEditor id={route.id} />{/key}
+        {:else if route.name === 'maintenance'}
+          <MaintenanceList />
+        {:else if route.name === 'maint-new'}
+          <MaintenanceForm />
+        {:else if route.name === 'maint-edit'}
+          {#key route.id}<MaintenanceForm id={route.id} />{/key}
         {:else if route.name === 'settings'}
-          <Settings {version} username={user?.username ?? ''} />
+          <Settings tab={route.tab} />
+        {:else if route.name === 'more'}
+          <More onLogout={logout} />
         {:else}
           <div class="card empty">
             <h3>Sayfa bulunamadı</h3>
@@ -177,14 +305,14 @@
       </div>
     </main>
 
-    <nav class="tabbar">
-      {#each nav as n (n.href)}
-        <a href={n.href} class:active={n.match.includes(route.name)}>
+    <nav class="tabbar" aria-label="Ana menü" style="--tabs:{tabs.length}">
+      {#each tabs as n (n.href)}
+        <a href={n.href} class:active={n.match.includes(route.name)} aria-current={n.match.includes(route.name) ? 'page' : undefined}>
           <span class="ti">
             <Icon name={n.icon} size={20} />
             {#if n.href === '#/' && downCount > 0}<span class="count">{downCount}</span>{/if}
           </span>
-          <span>{n.label}</span>
+          <span>{n.short ?? n.label}</span>
         </a>
       {/each}
     </nav>
@@ -206,6 +334,11 @@
   .errcard h2 {
     margin-bottom: 8px;
   }
+  .lock {
+    display: flex;
+    justify-content: center;
+    color: var(--muted);
+  }
 
   .shell {
     min-height: 100vh;
@@ -220,6 +353,7 @@
     flex-direction: column;
     padding: 20px 14px;
     z-index: 20;
+    overflow-y: auto;
   }
   .logo {
     display: flex;
@@ -258,9 +392,17 @@
     font-size: 0.93rem;
     text-decoration: none;
   }
-  .sidebar nav a:hover {
-    background: var(--sidebar-hover);
-    color: var(--text);
+  @media (hover: hover) {
+    .sidebar nav a:hover {
+      background: var(--sidebar-hover);
+      color: var(--text);
+    }
+    .logout:hover {
+      color: var(--down-text-2);
+    }
+    .who:hover .who-n {
+      text-decoration: underline;
+    }
   }
   .sidebar nav a.active {
     background: var(--sidebar-active);
@@ -297,15 +439,29 @@
   .who {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
     color: var(--text-2);
     font-size: 0.9rem;
     overflow: hidden;
+    text-decoration: none;
+    border-radius: 6px;
   }
-  .who span {
+  .who-t {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.3;
+  }
+  .who-n {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: var(--text);
+    font-weight: 600;
+  }
+  .who-r {
+    font-size: 0.76rem;
+    color: var(--muted);
   }
   .logout {
     display: flex;
@@ -319,9 +475,7 @@
     padding: 4px 0;
     cursor: pointer;
     text-align: left;
-  }
-  .logout:hover {
-    color: var(--down-text-2);
+    border-radius: 6px;
   }
   .offline {
     display: inline-flex;
@@ -397,7 +551,7 @@
       bottom: 0;
       z-index: 20;
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(var(--tabs), minmax(0, 1fr));
       background: var(--tabbar-bg);
       backdrop-filter: blur(8px);
       border-top: 1px solid var(--border);
@@ -413,6 +567,13 @@
       font-size: 0.7rem;
       font-weight: 600;
       text-decoration: none;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    .tabbar a > span:last-child {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .tabbar a:focus-visible {
       outline-offset: -2px;

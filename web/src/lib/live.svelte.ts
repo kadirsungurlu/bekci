@@ -4,9 +4,10 @@
 // geldiğinde yalnızca o monitörün nesnesi yenisiyle değiştirilir. Böylece keyed each
 // bloğunda sadece değişen satır yeniden çizilir; yüzlerce monitörde de hızlı kalır.
 
-import { api, errorMessage, type BeatEvent, type MonitorView, type Summary } from './api';
+import { api, errorMessage, STATUS_MAINTENANCE, type BeatEvent, type MonitorView, type Summary } from './api';
 
 type BeatListener = (b: BeatEvent) => void;
+type MaintListener = (id: number) => void;
 
 class Live {
   monitors = $state.raw<MonitorView[]>([]);
@@ -25,6 +26,8 @@ class Live {
   private summaryTimer: ReturnType<typeof setTimeout> | undefined;
   private pending = new Map<number, BeatEvent>();
   private listeners = new Set<BeatListener>();
+  private maintListeners = new Set<MaintListener>();
+  private maintTimer: ReturnType<typeof setTimeout> | undefined;
   private lastRefresh = 0;
   private everConnected = false;
 
@@ -45,6 +48,7 @@ class Live {
     clearTimeout(this.reconnectTimer);
     clearTimeout(this.flushTimer);
     clearTimeout(this.summaryTimer);
+    clearTimeout(this.maintTimer);
     document.removeEventListener('visibilitychange', this.onVisible);
     this.pending.clear();
     this.monitors = [];
@@ -111,14 +115,34 @@ class Live {
       }
     };
     es.onmessage = (ev) => {
-      let msg: { type?: string; data?: BeatEvent };
+      let msg: { type?: string; data?: unknown };
       try {
         msg = JSON.parse(ev.data);
       } catch {
         return;
       }
-      if (msg.type === 'beat' && msg.data) this.handleBeat(msg.data);
+      if (msg.type === 'beat' && msg.data) this.handleBeat(msg.data as BeatEvent);
+      else if (msg.type === 'maintenance') this.handleMaintenance((msg.data as { maintenance_id?: number })?.maintenance_id ?? 0);
     };
+  }
+
+  /** Bakım penceresi değişti: hangi monitörlerin bakımda olduğu değişmiş olabilir. */
+  private handleMaintenance(id: number) {
+    for (const fn of this.maintListeners) {
+      try {
+        fn(id);
+      } catch {
+        /* dinleyici hatası akışı bozmasın */
+      }
+    }
+    clearTimeout(this.maintTimer);
+    this.maintTimer = setTimeout(() => this.refresh(), 300);
+  }
+
+  /** Bakım penceresi eklendiğinde/değiştiğinde çağrılır; aboneliği bitiren fonksiyon döner. */
+  onMaintenance(fn: MaintListener): () => void {
+    this.maintListeners.add(fn);
+    return () => this.maintListeners.delete(fn);
   }
 
   private handleBeat(b: BeatEvent) {
@@ -151,6 +175,7 @@ class Live {
         last_message: b.message,
         last_change_at: b.last_change_at,
         cert_expires_at: b.cert_expires_at || m.cert_expires_at,
+        in_maintenance: b.status === STATUS_MAINTENANCE,
       };
     });
     if (statusChanged) this.refreshSummarySoon();

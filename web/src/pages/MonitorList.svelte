@@ -1,14 +1,15 @@
 <script lang="ts">
-  import { STATUS_DOWN, STATUS_UP, type MonitorView } from '../lib/api';
+  import type { MonitorView } from '../lib/api';
   import { live } from '../lib/live.svelte';
+  import { session } from '../lib/session.svelte';
   import { clock } from '../lib/ui.svelte';
-  import { collator, fmtPct, lower } from '../lib/format';
+  import { collator, fmtPct, lower, monitorKind } from '../lib/format';
   import { deleteMonitor, togglePause } from '../lib/actions';
   import MonitorRow from '../components/MonitorRow.svelte';
   import StatusIcon from '../components/StatusIcon.svelte';
   import Icon from '../components/Icon.svelte';
 
-  type Filter = 'all' | 'down' | 'up' | 'paused';
+  type Filter = 'all' | 'down' | 'up' | 'maint' | 'paused';
   type Sort = 'status' | 'name' | 'uptime';
 
   function load<T extends string>(key: string, allowed: readonly T[], def: T): T {
@@ -28,7 +29,7 @@
   }
 
   let search = $state('');
-  let filter = $state<Filter>(load('uptime.filter', ['all', 'down', 'up', 'paused'] as const, 'all'));
+  let filter = $state<Filter>(load('uptime.filter', ['all', 'down', 'up', 'maint', 'paused'] as const, 'all'));
   let sort = $state<Sort>(load('uptime.sort', ['status', 'name', 'uptime'] as const, 'status'));
   let menuFor = $state<number | null>(null);
 
@@ -39,30 +40,31 @@
     let up = 0,
       down = 0,
       pending = 0,
-      paused = 0;
+      paused = 0,
+      maint = 0;
     for (const m of live.monitors) {
-      if (!m.active) paused++;
-      else if (m.status === STATUS_UP) up++;
-      else if (m.status === STATUS_DOWN) down++;
+      const k = monitorKind(m);
+      if (k === 'paused') paused++;
+      else if (k === 'maintenance') maint++;
+      else if (k === 'up') up++;
+      else if (k === 'down') down++;
       else pending++;
     }
-    return { up, down, pending, paused, total: live.monitors.length };
+    return { up, down, pending, paused, maint, total: live.monitors.length };
   });
 
-  // Önce çalışmayanlar: çalışmayan → bekleyen → çalışan → durdurulan
-  function rank(m: MonitorView): number {
-    if (!m.active) return 3;
-    if (m.status === STATUS_DOWN) return 0;
-    if (m.status === STATUS_UP) return 2;
-    return 1;
-  }
+  // Önce çalışmayanlar: çalışmayan → bekleyen → bakımda → çalışan → durdurulan
+  const RANK = { down: 0, pending: 1, maintenance: 2, up: 3, paused: 4 };
+  const rank = (m: MonitorView) => RANK[monitorKind(m)];
 
   const visible = $derived.by(() => {
     const q = lower(search.trim());
     let list = live.monitors.filter((m) => {
-      if (filter === 'down' && !(m.active && m.status === STATUS_DOWN)) return false;
-      if (filter === 'up' && !(m.active && m.status === STATUS_UP)) return false;
-      if (filter === 'paused' && m.active) return false;
+      const k = monitorKind(m);
+      if (filter === 'down' && k !== 'down') return false;
+      if (filter === 'up' && k !== 'up') return false;
+      if (filter === 'maint' && k !== 'maintenance') return false;
+      if (filter === 'paused' && k !== 'paused') return false;
       if (q && !lower(m.name).includes(q) && !lower(m.target).includes(q)) return false;
       return true;
     });
@@ -85,7 +87,9 @@
 
 <div class="page-head">
   <h1>Monitörler<span class="dot">.</span></h1>
-  <a class="btn primary" href="#/monitors/new"><Icon name="plus" size={16} /> Yeni</a>
+  {#if session.canEdit}
+    <a class="btn primary" href="#/monitors/new"><Icon name="plus" size={16} /> Yeni</a>
+  {/if}
 </div>
 
 {#if !live.loaded}
@@ -108,9 +112,14 @@
 {:else if live.monitors.length === 0}
   <div class="card empty first">
     <div class="pulse-wrap"><StatusIcon kind="up" size={56} pulse /></div>
-    <h3>İlk monitörünüzü ekleyin</h3>
-    <p>Web sitelerinizi, sunucularınızı ve zamanlanmış işlerinizi izlemeye başlayın. Bir sorun olduğunda size hemen haber verelim.</p>
-    <a class="btn primary" href="#/monitors/new"><Icon name="plus" size={16} /> Monitör ekle</a>
+    {#if session.canEdit}
+      <h3>İlk monitörünüzü ekleyin</h3>
+      <p>Web sitelerinizi, sunucularınızı ve zamanlanmış işlerinizi izlemeye başlayın. Bir sorun olduğunda size hemen haber verelim.</p>
+      <a class="btn primary" href="#/monitors/new"><Icon name="plus" size={16} /> Monitör ekle</a>
+    {:else}
+      <h3>Görüntülenecek monitör yok</h3>
+      <p>Hesabınıza henüz monitör atanmamış. Yöneticiniz monitör eklediğinde veya erişim verdiğinde burada görünecek.</p>
+    {/if}
   </div>
 {:else}
   <div class="layout">
@@ -127,6 +136,7 @@
           <option value="all">Tümü ({counts.total})</option>
           <option value="down">Çalışmayanlar ({counts.down})</option>
           <option value="up">Çalışanlar ({counts.up})</option>
+          {#if counts.maint > 0 || filter === 'maint'}<option value="maint">Bakımda ({counts.maint})</option>{/if}
           <option value="paused">Durdurulanlar ({counts.paused})</option>
         </select>
         <select class="input sel" bind:value={sort} aria-label="Sıralama">
@@ -167,17 +177,30 @@
       <div class="card status-card">
         <h2 class="card-title">Mevcut durum<span class="dot">.</span></h2>
         <div class="big">
-          <StatusIcon kind={counts.down > 0 ? 'down' : counts.up + counts.pending > 0 ? 'up' : 'paused'} size={52} pulse />
+          <StatusIcon
+            kind={counts.down > 0 ? 'down' : counts.up + counts.pending > 0 ? 'up' : counts.maint > 0 ? 'maintenance' : 'paused'}
+            size={52}
+            pulse
+          />
           <div>
-            <div class="big-label {counts.down > 0 ? 'c-down' : 'c-up'}">
-              {counts.down > 0 ? `${counts.down} monitör çalışmıyor` : 'Her şey yolunda'}
+            <div class="big-label {counts.down > 0 ? 'c-down' : counts.up + counts.pending === 0 && counts.maint > 0 ? 'c-maint' : 'c-up'}">
+              {counts.down > 0
+                ? `${counts.down} monitör çalışmıyor`
+                : counts.up + counts.pending === 0 && counts.maint > 0
+                  ? 'Bakım sürüyor'
+                  : 'Her şey yolunda'}
             </div>
             <div class="muted small">{counts.total} monitör izleniyor</div>
           </div>
         </div>
-        <div class="counts">
+        <div class="counts" class:four={counts.maint > 0}>
           <div><b class="c-down">{counts.down}</b><span>Çalışmayan</span></div>
           <div><b class="c-up">{counts.up}</b><span>Çalışan</span></div>
+          {#if counts.maint > 0}
+            <button type="button" class="cnt-btn" onclick={() => (filter = 'maint')} title="Bakımdakileri göster">
+              <b class="c-maint">{counts.maint}</b><span>Bakımda</span>
+            </button>
+          {/if}
           <div><b class="c-paused">{counts.paused}</b><span>Durdurulan</span></div>
         </div>
         {#if counts.pending > 0}
@@ -251,9 +274,11 @@
     color: var(--muted);
     cursor: pointer;
   }
-  .clear:hover {
-    color: var(--text);
-    background: var(--card-2);
+  @media (hover: hover) {
+    .clear:hover {
+      color: var(--text);
+      background: var(--card-2);
+    }
   }
   .sel {
     width: auto;
@@ -285,14 +310,6 @@
     text-align: center;
     color: var(--muted);
   }
-  .linkbtn {
-    background: none;
-    border: none;
-    color: var(--accent-text);
-    font: inherit;
-    cursor: pointer;
-    padding: 0 4px;
-  }
 
   .side {
     display: flex;
@@ -318,6 +335,33 @@
     gap: 8px;
     border-top: 1px solid var(--border);
     padding-top: 14px;
+  }
+  .counts.four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+  .cnt-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    border-radius: 6px;
+  }
+  .cnt-btn span {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .cnt-btn b {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.2;
   }
   .counts div {
     display: flex;

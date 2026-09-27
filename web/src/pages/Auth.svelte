@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { api, errorMessage, type User } from '../lib/api';
+  import { tick } from 'svelte';
+  import { api, ApiError, errorMessage, type User } from '../lib/api';
+  import Icon from '../components/Icon.svelte';
 
   let { mode, onDone }: { mode: 'setup' | 'login'; onDone: (u: User) => void } = $props();
 
@@ -8,6 +10,11 @@
   let password2 = $state('');
   let error = $state('');
   let busy = $state(false);
+
+  // İki adımlı doğrulama adımı
+  let challenge = $state('');
+  let code = $state('');
+  let codeInput: HTMLInputElement | undefined = $state();
 
   const USERNAME_RE = /^[a-zA-Z0-9._-]{3,32}$/;
 
@@ -34,7 +41,19 @@
     }
     busy = true;
     try {
-      const res = mode === 'setup' ? await api.setup(u, password) : await api.login(u, password);
+      if (mode === 'setup') {
+        onDone((await api.setup(u, password)).user);
+        return;
+      }
+      const res = await api.login(u, password);
+      if (res.two_factor_required) {
+        challenge = res.challenge;
+        code = '';
+        password = '';
+        await tick();
+        codeInput?.focus();
+        return;
+      }
       onDone(res.user);
     } catch (err) {
       error = errorMessage(err);
@@ -44,59 +63,119 @@
       busy = false;
     }
   }
+
+  async function submitCode(e: SubmitEvent) {
+    e.preventDefault();
+    error = '';
+    const c = code.trim();
+    if (!c) {
+      error = 'Doğrulama kodunu girin.';
+      return;
+    }
+    busy = true;
+    try {
+      const res = await api.login2fa(challenge, c);
+      onDone(res.user);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'challenge_expired') {
+        // Giriş süresi doldu veya çok fazla hatalı deneme: şifre adımına dön.
+        challenge = '';
+      }
+      error = errorMessage(err);
+      code = '';
+    } finally {
+      busy = false;
+    }
+  }
+
+  function back() {
+    challenge = '';
+    code = '';
+    error = '';
+  }
 </script>
 
 <div class="wrap">
   <div class="brand"><span class="logo-dot"></span> Uptime</div>
-  <form class="card auth" onsubmit={submit} novalidate>
-    {#if mode === 'setup'}
-      <h1>Hoş geldiniz<span class="dot">.</span></h1>
-      <p class="muted intro">İlk kurulum: yönetici hesabınızı oluşturun. Bu hesapla giriş yapıp monitörlerinizi yöneteceksiniz.</p>
-    {:else}
-      <h1>Giriş yap<span class="dot">.</span></h1>
-      <p class="muted intro">Devam etmek için hesabınızla giriş yapın.</p>
-    {/if}
-
-    <div class="field">
-      <label for="u">Kullanıcı adı</label>
-      <!-- svelte-ignore a11y_autofocus -->
-      <input
-        id="u"
-        class="input"
-        bind:value={username}
-        autocomplete="username"
-        autocapitalize="none"
-        spellcheck="false"
-        autofocus
-        maxlength="32"
-      />
-      {#if mode === 'setup'}<span class="help">3-32 karakter: harf, rakam, nokta, tire, alt çizgi.</span>{/if}
-    </div>
-    <div class="field">
-      <label for="p">Şifre</label>
-      <input
-        id="p"
-        class="input"
-        type="password"
-        bind:value={password}
-        autocomplete={mode === 'setup' ? 'new-password' : 'current-password'}
-      />
-      {#if mode === 'setup'}<span class="help">En az 8 karakter.</span>{/if}
-    </div>
-    {#if mode === 'setup'}
+  {#if challenge}
+    <form class="card auth" onsubmit={submitCode} novalidate>
+      <div class="shield"><Icon name="shield-check" size={26} /></div>
+      <h1>Doğrulama kodu<span class="dot">.</span></h1>
+      <p class="muted intro">Uygulamanızdaki 6 haneli kodu veya bir kurtarma kodunu girin.</p>
       <div class="field">
-        <label for="p2">Şifre (tekrar)</label>
-        <input id="p2" class="input" type="password" bind:value={password2} autocomplete="new-password" />
+        <label for="code">Doğrulama kodu</label>
+        <input
+          id="code"
+          class="input code"
+          bind:this={codeInput}
+          bind:value={code}
+          autocomplete="one-time-code"
+          inputmode="text"
+          autocapitalize="none"
+          spellcheck="false"
+          maxlength="32"
+          placeholder="123456"
+        />
+        <span class="help">Telefonunuza erişemiyorsanız kurtarma kodlarınızdan birini (ör. abcde-fghij) kullanın.</span>
       </div>
-    {/if}
+      {#if error}<div class="alert error" role="alert">{error}</div>{/if}
+      <button class="btn primary big" type="submit" disabled={busy}>
+        {#if busy}<span class="spinner"></span>{/if}
+        Doğrula ve giriş yap
+      </button>
+      <button type="button" class="linkbtn backlink" onclick={back}><Icon name="chevron-left" size={15} /> Farklı hesapla giriş yap</button>
+    </form>
+  {:else}
+    <form class="card auth" onsubmit={submit} novalidate>
+      {#if mode === 'setup'}
+        <h1>Hoş geldiniz<span class="dot">.</span></h1>
+        <p class="muted intro">İlk kurulum: yönetici hesabınızı oluşturun. Bu hesapla giriş yapıp monitörlerinizi yöneteceksiniz.</p>
+      {:else}
+        <h1>Giriş yap<span class="dot">.</span></h1>
+        <p class="muted intro">Devam etmek için hesabınızla giriş yapın.</p>
+      {/if}
 
-    {#if error}<div class="alert error" role="alert">{error}</div>{/if}
+      <div class="field">
+        <label for="u">Kullanıcı adı</label>
+        <!-- svelte-ignore a11y_autofocus -->
+        <input
+          id="u"
+          class="input"
+          bind:value={username}
+          autocomplete="username"
+          autocapitalize="none"
+          spellcheck="false"
+          autofocus
+          maxlength="32"
+        />
+        {#if mode === 'setup'}<span class="help">3-32 karakter: harf, rakam, nokta, tire, alt çizgi.</span>{/if}
+      </div>
+      <div class="field">
+        <label for="p">Şifre</label>
+        <input
+          id="p"
+          class="input"
+          type="password"
+          bind:value={password}
+          autocomplete={mode === 'setup' ? 'new-password' : 'current-password'}
+        />
+        {#if mode === 'setup'}<span class="help">En az 8 karakter.</span>{/if}
+      </div>
+      {#if mode === 'setup'}
+        <div class="field">
+          <label for="p2">Şifre (tekrar)</label>
+          <input id="p2" class="input" type="password" bind:value={password2} autocomplete="new-password" />
+        </div>
+      {/if}
 
-    <button class="btn primary big" type="submit" disabled={busy}>
-      {#if busy}<span class="spinner"></span>{/if}
-      {mode === 'setup' ? 'Hesabı oluştur' : 'Giriş yap'}
-    </button>
-  </form>
+      {#if error}<div class="alert error" role="alert">{error}</div>{/if}
+
+      <button class="btn primary big" type="submit" disabled={busy}>
+        {#if busy}<span class="spinner"></span>{/if}
+        {mode === 'setup' ? 'Hesabı oluştur' : 'Giriş yap'}
+      </button>
+    </form>
+  {/if}
 </div>
 
 <style>
@@ -144,6 +223,29 @@
   .big {
     height: 44px;
     margin-top: 4px;
+  }
+  .shield {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-soft);
+    color: var(--accent-text);
+  }
+  .code {
+    font-family: var(--mono);
+    font-size: 1.15rem;
+    letter-spacing: 0.12em;
+    height: 46px;
+  }
+  .backlink {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    align-self: center;
+    font-size: 0.88rem;
   }
   @media (max-width: 640px) {
     .auth {

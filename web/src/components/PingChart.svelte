@@ -3,8 +3,20 @@
   // Ham seride (24 saat) her kontrol bir noktadır ve altında durum şeridi çizilir;
   // saatlik/günlük seride ortalama çizgisi ve min–maks bandı gösterilir.
   import type { Series } from '../lib/api';
-  import { STATUS_DOWN, STATUS_PENDING, STATUS_UP } from '../lib/api';
-  import { fmtDay, fmtMs, fmtNum, fmtPct, fmtShortDate, fmtTime, fmtTimeSec, pointStatusLabel, tzDayStart, tzOffset } from '../lib/format';
+  import { STATUS_DOWN, STATUS_MAINTENANCE, STATUS_UP } from '../lib/api';
+  import {
+    fmtDay,
+    fmtMs,
+    fmtNum,
+    fmtPct,
+    fmtShortDate,
+    fmtTime,
+    fmtTimeSec,
+    pointStatusClass,
+    pointStatusLabel,
+    tzDayStart,
+    tzOffset,
+  } from '../lib/format';
 
   let { series, from, to, interval }: { series: Series; from: number; to: number; interval: number } = $props();
 
@@ -147,6 +159,8 @@
     return out;
   });
 
+  const hasMaint = $derived(isRaw && pts.some((p) => p.s === STATUS_MAINTENANCE));
+
   // Ham seride durum şeridi parçaları.
   const strip = $derived.by(() => {
     if (!isRaw) return [];
@@ -166,7 +180,14 @@
     if (cur) out.push(seg(cur));
     return out;
     function seg(c: { s: number; a: number; b: number }) {
-      const color = c.s === STATUS_UP ? 'var(--up)' : c.s === STATUS_DOWN ? 'var(--down)' : 'var(--pending)';
+      const color =
+        c.s === STATUS_UP
+          ? 'var(--up)'
+          : c.s === STATUS_DOWN
+            ? 'var(--down)'
+            : c.s === STATUS_MAINTENANCE
+              ? 'var(--maint)'
+              : 'var(--pending)';
       return { x: xOf(c.a), w: Math.max(1.5, xOf(c.b) - xOf(c.a)), c: color };
     }
   });
@@ -330,7 +351,7 @@
           <div class="tt">{hoverTitle(hp)}</div>
           {#if isRaw}
             <div>
-              <span class="st c-{hp.s === STATUS_UP ? 'up' : hp.s === STATUS_DOWN ? 'down' : hp.s === STATUS_PENDING ? 'pending' : 'paused'}"
+              <span class="st c-{pointStatusClass(hp.s)}"
                 >{pointStatusLabel(hp.s)}</span
               >
               {#if hp.v !== null}· <b>{fmtMs(hp.v)}</b>{/if}
@@ -354,6 +375,14 @@
     <span>En düşük <b>{fmtMs(stats.min)}</b></span>
     <span>Ortalama <b>{fmtMs(stats.avg)}</b></span>
     <span>En yüksek <b>{fmtMs(stats.max)}</b></span>
+    {#if isRaw && pts.length}
+      <span class="legend" aria-hidden="true">
+        <span><i class="lg up"></i>Çalışıyor</span>
+        <span><i class="lg down"></i>Çalışmıyor</span>
+        <span><i class="lg pending"></i>Tekrar deneniyor</span>
+        {#if hasMaint}<span><i class="lg maint"></i>Bakımda</span>{/if}
+      </span>
+    {/if}
   </div>
 {/if}
 
@@ -430,6 +459,36 @@
     background: currentColor;
     margin-right: 5px;
     vertical-align: 1px;
+  }
+  .legend {
+    display: inline-flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-left: auto;
+    font-size: 0.78rem;
+  }
+  .legend > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .lg {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+  .lg.up {
+    background: var(--up);
+  }
+  .lg.down {
+    background: var(--down);
+  }
+  .lg.pending {
+    background: var(--pending);
+  }
+  .lg.maint {
+    background: var(--maint);
   }
   .stats {
     display: flex;
