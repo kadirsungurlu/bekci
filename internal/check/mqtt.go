@@ -102,19 +102,10 @@ func (mqttChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 
 	start := time.Now()
 	client := mqtt.NewClient(opts)
-	connectDone := make(chan error, 1)
-	go func() {
-		token := client.Connect()
-		token.Wait()
-		connectDone <- token.Error()
-	}()
-	select {
-	case err := <-connectDone:
-		if err != nil {
-			return down("Bağlanılamadı: " + err.Error())
-		}
-	case <-ctx.Done():
+	if timedOut, err := mqttConnect(ctx, client); timedOut {
 		return down("Zaman aşımı")
+	} else if err != nil {
+		return down("Bağlanılamadı: " + err.Error())
 	}
 	defer client.Disconnect(250)
 	ping := msSince(start)
@@ -160,5 +151,28 @@ func (mqttChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 		return Result{Up: true, PingMs: ping, Message: "Mesaj alındı: " + truncate(string(payload), 120)}
 	case <-ctx.Done():
 		return down(fmt.Sprintf("%q konusunda mesaj gelmedi (zaman aşımı)", c.Topic))
+	}
+}
+
+// mqttConnect bağlantıyı en fazla ctx süresince bekler. ctx önce biterse
+// (timedOut) bağlanma arka planda sürer; sonradan başarıyla tamamlanırsa
+// bağlantı hemen kapatılır, yoksa istemci ve ağ bağlantısı açık kalıp sızardı.
+func mqttConnect(ctx context.Context, client mqtt.Client) (timedOut bool, err error) {
+	connectDone := make(chan error, 1)
+	go func() {
+		token := client.Connect()
+		token.Wait()
+		connectDone <- token.Error()
+	}()
+	select {
+	case err := <-connectDone:
+		return false, err
+	case <-ctx.Done():
+		go func() {
+			if err := <-connectDone; err == nil {
+				client.Disconnect(0)
+			}
+		}()
+		return true, ctx.Err()
 	}
 }
