@@ -217,9 +217,3 @@ func (s *Store) GetIncidentCapture(ctx context.Context, incidentID int64) (Incid
 	c.Detail = json.RawMessage(data)
 	return c, true, nil
 }
-
-// DeleteIncidentCapturesBefore t'den önce çözülmüş olayların istek/yanıt kayıtlarını siler.
-func (s *Store) DeleteIncidentCapturesBefore(ctx context.Context, t int64) (int64, error) {
-	return s.deleteBefore(ctx, `DELETE FROM incident_captures WHERE incident_id IN
-		(SELECT id FROM incidents WHERE resolved_at IS NOT NULL AND resolved_at < ?)`, t)
-}

@@ -62,10 +62,6 @@ func (s *Store) ListAudit(ctx context.Context, before int64, limit int) ([]Audit
 	return out, rows.Err()
 }
 
-func (s *Store) DeleteAuditBefore(ctx context.Context, t int64) (int64, error) {
-	return s.deleteBefore(ctx, "DELETE FROM audit_log WHERE time < ?", t)
-}
-
 // Secret uygulama genelinde kullanılan rastgele bir sırrı döner; yoksa
 // oluşturup kaydeder (ör. şifreli durum sayfası çerezlerinin imzası).
 func (s *Store) Secret(ctx context.Context, key string, gen func() string) (string, error) {

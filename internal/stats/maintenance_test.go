@@ -143,3 +143,32 @@ func TestServerStatsRetention(t *testing.T) {
 		t.Errorf("uyarı geçmişi: %+v", evs)
 	}
 }
+
+// Çözülmüş olaylar 365 gün sonra silinir; süren olay (eski de olsa) kalır.
+func TestIncidentRetention(t *testing.T) {
+	st := storetest.Open(t, time.UTC)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC)
+	day := func(n int) int64 { return now.AddDate(0, 0, -n).Unix() }
+	var mons []store.Monitor
+	for _, name := range []string{"eski", "yeni", "suren"} {
+		m := store.Monitor{Name: name, Type: "http", Active: true, Interval: 60, RetryInterval: 60, Timeout: 30, Config: json.RawMessage(`{}`)}
+		if err := st.CreateMonitor(ctx, &m, nil); err != nil {
+			t.Fatal(err)
+		}
+		mons = append(mons, m)
+	}
+	st.StartIncident(ctx, mons[0].ID, day(400), "500")
+	st.ResolveIncident(ctx, mons[0].ID, day(366))
+	st.StartIncident(ctx, mons[1].ID, day(370), "500")
+	st.ResolveIncident(ctx, mons[1].ID, day(364))
+	st.StartIncident(ctx, mons[2].ID, day(500), "hâlâ kapalı")
+
+	mt := NewMaintenance(st, slog.New(slog.NewTextHandler(io.Discard, nil)), t.TempDir(), time.UTC)
+	mt.now = func() time.Time { return now }
+	mt.Tick(ctx)
+	list, _ := st.ListIncidents(ctx, store.IncidentFilter{})
+	if len(list) != 2 || list[0].MonitorID != mons[2].ID || list[1].MonitorID != mons[1].ID {
+		t.Fatalf("kalan olaylar: %+v", list)
+	}
+}

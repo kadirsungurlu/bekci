@@ -2,9 +2,13 @@ package store
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // migrations sürüm numarasına göre sırayla uygulanır; uygulanan son sürüm
@@ -207,7 +211,25 @@ func latestMigration() int {
 	return n
 }
 
+// pgMigrateLockKey PostgreSQL'de migration'ları sıraya sokan danışma
+// kilidinin (pg_advisory_lock) ilk anahtarı ("upt1"); ikinci anahtar şema
+// adının özetidir, böylece yalnızca aynı şemayı taşıyan örnekler birbirini bekler.
+const pgMigrateLockKey int32 = 0x75707431
+
+// pgMigrateLockWait kilidi bekleme sınırı (diğer örnek uzun bir migration
+// uyguluyor olabilir).
+const pgMigrateLockWait = 10 * time.Minute
+
 func (s *Store) migrate(ctx context.Context) error {
+	if s.postgres {
+		// Aynı veritabanına aynı anda açılan iki örnek (ör. yuvarlanan
+		// dağıtım) migration'ları birlikte uygulamaya çalışmasın.
+		unlock, err := s.pgMigrateLock(ctx)
+		if err != nil {
+			return err
+		}
+		defer unlock()
+	}
 	version, err := s.schemaVersion(ctx)
 	if err != nil {
 		return err
@@ -215,6 +237,13 @@ func (s *Store) migrate(ctx context.Context) error {
 	latest := latestMigration()
 	if version > latest {
 		return fmt.Errorf("veritabanı sürümü (%d) bu uygulamadan (%d) yeni; eski sürüme geri dönülemez", version, latest)
+	}
+	if version > 0 && version < latest {
+		// Var olan veritabanı güncellenecek: önce yedek. Yedek alınamazsa
+		// migration UYGULANMAZ (yedeksiz şema değişikliği geri alınamaz).
+		if err := s.preMigrateBackup(ctx, version, latest); err != nil {
+			return err
+		}
 	}
 	for v := version + 1; v <= latest; v++ {
 		ddl, ok := migrations[v]
@@ -245,8 +274,70 @@ func (s *Store) migrate(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("migration %d: %w", v, err)
 		}
+		s.opts.Log.Info("migration uygulandı", "version", v)
 	}
 	return nil
+}
+
+// preMigrateBackup var olan bir veritabanında migration'lardan önce yedek
+// alır. SQLite: VACUUM INTO ile (veritabanı açıkken de tutarlı) tek dosya
+// <BackupDir>/pre-migrate-v<eski>-to-v<yeni>-<zaman>.db; gece yedeklerinin
+// döndürmesine girmez, elle silinir. PostgreSQL: dış veritabanının yedeği
+// uygulamanın elinde değildir, yalnızca uyarı yazılır.
+func (s *Store) preMigrateBackup(ctx context.Context, from, to int) error {
+	if s.postgres {
+		s.opts.Log.Warn("PostgreSQL: migration öncesi otomatik yedek ALINMIYOR; gerekirse yedeği veritabanı tarafında alın",
+			"eski_surum", from, "yeni_surum", to)
+		return nil
+	}
+	dir := s.opts.BackupDir
+	if dir == "" {
+		dir = filepath.Join(filepath.Dir(s.path), "backups")
+	}
+	fail := func(err error) error {
+		return fmt.Errorf("migration öncesi yedek alınamadı (%s): %w; migration UYGULANMADI, veritabanı v%d'de kaldı (disk alanını ve klasör izinlerini kontrol edin)", dir, err, from)
+	}
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return fail(err)
+	}
+	path := filepath.Join(dir, fmt.Sprintf("pre-migrate-v%d-to-v%d-%s.db", from, to, time.Now().Format("20060102-150405")))
+	tmp := path + ".tmp"
+	os.Remove(tmp)
+	if _, err := s.db.ExecContext(ctx, "VACUUM INTO ?", tmp); err != nil {
+		os.Remove(tmp)
+		return fail(err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp)
+		return fail(err)
+	}
+	s.opts.Log.Info("migration öncesi yedek alındı", "dosya", path, "eski_surum", from, "yeni_surum", to)
+	return nil
+}
+
+// pgMigrateLock migration danışma kilidini ayrı bir bağlantıda alır; dönen
+// fonksiyon kilidi bırakır. Kilit oturuma bağlıdır: bırakılamazsa bağlantı
+// havuza dönmez, kapatılır (oturum kapanınca kilit de düşer).
+func (s *Store) pgMigrateLock(ctx context.Context) (func(), error) {
+	lctx, cancel := context.WithTimeout(ctx, pgMigrateLockWait)
+	defer cancel()
+	c, err := s.db.db.Conn(lctx)
+	if err != nil {
+		return nil, fmt.Errorf("migration kilidi için bağlantı alınamadı: %w", err)
+	}
+	const key2 = "hashtext(COALESCE(current_schema(), ''))"
+	if _, err := c.ExecContext(lctx, "SELECT pg_advisory_lock($1, "+key2+")", pgMigrateLockKey); err != nil {
+		c.Close()
+		return nil, fmt.Errorf("migration kilidi alınamadı (başka bir örnek migration uyguluyor olabilir): %w", err)
+	}
+	return func() {
+		uctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if _, err := c.ExecContext(uctx, "SELECT pg_advisory_unlock($1, "+key2+")", pgMigrateLockKey); err != nil {
+			c.Raw(func(any) error { return driver.ErrBadConn })
+		}
+		c.Close()
+	}, nil
 }
 
 // schemaVersion uygulanmış son migration: SQLite'ta PRAGMA user_version,

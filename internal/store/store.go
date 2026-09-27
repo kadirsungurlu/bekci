@@ -16,6 +16,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -43,6 +44,16 @@ type Store struct {
 	postgres bool
 	path     string         // SQLite dosya yolu
 	loc      *time.Location // günlük özetlerin gün sınırı bu saat dilimine göre
+	opts     Options
+}
+
+// Options Open'ın isteğe bağlı ayarları.
+type Options struct {
+	// BackupDir migration öncesi SQLite yedeğinin klasörü; boşsa veritabanı
+	// dosyasının yanındaki "backups" klasörü (DATA_DIR/backups).
+	BackupDir string
+	// Log migration kayıtları için; nil ise slog.Default().
+	Log *slog.Logger
 }
 
 // IsPostgresDSN bağlantı adresinin PostgreSQL olup olmadığını söyler.
@@ -53,10 +64,18 @@ func IsPostgresDSN(dsn string) bool {
 // Open veritabanını açar ve migration'ları uygular. target bir PostgreSQL
 // adresi (postgres://…) ya da SQLite dosya yoludur.
 func Open(target string, loc *time.Location) (*Store, error) {
+	return OpenWith(target, loc, Options{})
+}
+
+// OpenWith Open'ın ayarlı biçimi (bkz. Options).
+func OpenWith(target string, loc *time.Location, opts Options) (*Store, error) {
 	if loc == nil {
 		loc = time.Local
 	}
-	s := &Store{loc: loc, postgres: IsPostgresDSN(target)}
+	if opts.Log == nil {
+		opts.Log = slog.Default()
+	}
+	s := &Store{loc: loc, postgres: IsPostgresDSN(target), opts: opts}
 	var (
 		raw *sql.DB
 		err error
@@ -130,6 +149,14 @@ func (s *Store) tx(ctx context.Context, fn func(*Tx) error) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		// fn panik yaparsa işlem geri alınır: aksi halde (SQLite'ta tek olan)
+		// bağlantı açık işlemle kalır ve sonraki tüm yazmalar kilitlenir.
+		if p := recover(); p != nil {
+			raw.Rollback()
+			panic(p)
+		}
+	}()
 	if err := fn(&Tx{tx: raw, pg: s.postgres}); err != nil {
 		raw.Rollback()
 		return err

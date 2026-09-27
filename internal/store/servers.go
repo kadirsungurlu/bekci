@@ -192,15 +192,6 @@ func (s *Store) LastServerStat(ctx context.Context, probeID, before int64) (Stat
 	return r, err
 }
 
-// DeleteServerStatsBefore res çözünürlüğündeki eski satırları siler.
-func (s *Store) DeleteServerStatsBefore(ctx context.Context, res int, before int64) (int64, error) {
-	r, err := s.db.ExecContext(ctx, "DELETE FROM server_stats WHERE res = ? AND time < ?", res, before)
-	if err != nil {
-		return 0, err
-	}
-	return r.RowsAffected()
-}
-
 // Uyarı kuralları --------------------------------------------------------------------
 
 // ServerAlert bir eşik kuralı. Threshold offline için kullanılmaz; Minutes
@@ -409,16 +400,6 @@ func (s *Store) ServerAlertEvents(ctx context.Context, probeID, since int64, lim
 		out = append(out, e)
 	}
 	return out, rows.Err()
-}
-
-// DeleteServerAlertEventsBefore bitmiş eski uyarı kayıtlarını siler.
-func (s *Store) DeleteServerAlertEventsBefore(ctx context.Context, before int64) (int64, error) {
-	r, err := s.db.ExecContext(ctx,
-		"DELETE FROM server_alert_events WHERE started_at < ? AND ended_at IS NOT NULL", before)
-	if err != nil {
-		return 0, err
-	}
-	return r.RowsAffected()
 }
 
 // InitServerDefaults ajanın hiç kuralı yoksa verilen varsayılan kuralları,
