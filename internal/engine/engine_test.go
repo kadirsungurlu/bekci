@@ -369,6 +369,9 @@ func TestResumeResetsLastChange(t *testing.T) {
 	}
 	f.clock = f.clock.Add(time.Hour)
 	r2 := f.runnerFor(t, m.ID)
+	if got, _ := f.st.GetMonitor(ctx, m.ID); got.LastMessage != "" || got.LastChangeAt != 0 {
+		t.Fatalf("yeniden başlatmada eski mesaj/zaman temizlenmeli: %q %d", got.LastMessage, got.LastChangeAt)
+	}
 	if r2.confirmed != unknown {
 		t.Fatalf("yeniden başlatılan monitörün durumu bilinmiyor olmalı: %d", r2.confirmed)
 	}
