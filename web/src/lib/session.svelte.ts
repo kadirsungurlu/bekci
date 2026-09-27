@@ -30,6 +30,8 @@ class Session {
   isAdmin = $derived(this.role === 'admin');
   /** Yalnızca seçili monitörleri gören (müşteri) izleyici: sunucu takibini göremez. */
   restricted = $derived(!!this.user && !this.user.all_monitors);
+  /** Sunucular ekranı: kısıtsız kullanıcıda her zaman, müşteride kendisine sunucu atanmışsa. */
+  canSeeServers = $derived(!!this.user && (this.user.servers ?? !this.restricted));
   displayName = $derived(this.user ? this.user.display_name || this.user.username : '');
 
   set(u: User | null) {

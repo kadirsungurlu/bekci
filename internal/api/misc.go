@@ -241,6 +241,7 @@ func eventVisible(msg []byte, vis visibility) bool {
 		Type string `json:"type"`
 		Data struct {
 			MonitorID int64 `json:"monitor_id"`
+			ID        int64 `json:"id"` // "server" olayında sunucunun kimliği
 		} `json:"data"`
 	}
 	if json.Unmarshal(msg, &ev) != nil {
@@ -251,9 +252,9 @@ func eventVisible(msg []byte, vis visibility) bool {
 	if ev.Type == "maintenance" {
 		return true
 	}
-	// Sunucu takibi müşteri kısıtlı izleyiciye kapalı (servers.go).
+	// Sunucu olayı yalnızca kendisine atanmış sunucu için gider.
 	if ev.Type == "server" {
-		return false
+		return ev.Data.ID != 0 && vis.canServer(ev.Data.ID)
 	}
 	return ev.Data.MonitorID != 0 && vis.can(ev.Data.MonitorID)
 }

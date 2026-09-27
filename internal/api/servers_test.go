@@ -292,6 +292,44 @@ func TestServersAPI(t *testing.T) {
 		customer.mustDo("GET", p, nil, nil, 403)
 	}
 
+	// Sunucu atanmış müşteri: yalnızca kendi sunucusunu görür, başkasınınki
+	// "bulunamadı"; değiştiremez.
+	var own serverSetup
+	admin.mustDo("POST", "/api/servers", map[string]any{"name": "Müşteri sunucusu"}, &own, 201)
+	var cu store.User
+	admin.mustDo("POST", "/api/users", map[string]any{"username": "musteri2", "role": "viewer", "password": "gecici-sifre-1",
+		"all_monitors": false, "monitor_ids": []int64{mon.ID}, "server_ids": []int64{own.Probe.ID}}, &cu, 201)
+	if len(cu.ServerIDs) != 1 || cu.ServerIDs[0] != own.Probe.ID {
+		t.Fatalf("atanan sunucular: %+v", cu.ServerIDs)
+	}
+	admin.mustDo("POST", "/api/users", map[string]any{"username": "musteri3", "role": "viewer", "password": "gecici-sifre-1",
+		"all_monitors": false, "monitor_ids": []int64{mon.ID}, "server_ids": []int64{loc.Probe.ID}}, nil, 400) // kontrol noktası atanamaz
+	c2 := admin.loginAs("musteri2", "gecici-sifre-1")
+	c2.mustDo("POST", "/api/auth/password", map[string]string{"current": "gecici-sifre-1", "new": "kalici-sifre-1"}, nil, 200)
+	var me struct {
+		User struct {
+			Servers bool `json:"servers"`
+		} `json:"user"`
+	}
+	c2.mustDo("GET", "/api/auth/state", nil, &me, 200)
+	if !me.User.Servers {
+		t.Fatal("sunucu atanmış müşteride Sunucular ekranı açık olmalı")
+	}
+	var cl struct {
+		Servers []servers.View `json:"servers"`
+	}
+	c2.mustDo("GET", "/api/servers", nil, &cl, 200)
+	if len(cl.Servers) != 1 || cl.Servers[0].ID != own.Probe.ID {
+		t.Fatalf("müşterinin sunucu listesi: %+v", cl.Servers)
+	}
+	c2.mustDo("GET", fmt.Sprintf("/api/servers/%d", own.Probe.ID), nil, nil, 200)
+	c2.mustDo("GET", fmt.Sprintf("/api/servers/%d/stats?range=1h", own.Probe.ID), nil, nil, 200)
+	for _, p := range []string{fmt.Sprintf("/api/servers/%d", id), fmt.Sprintf("/api/servers/%d/stats?range=1h", id),
+		fmt.Sprintf("/api/servers/%d/events", id)} {
+		c2.mustDo("GET", p, nil, nil, 404)
+	}
+	c2.mustDo("PUT", fmt.Sprintf("/api/servers/%d/alerts", own.Probe.ID), map[string]any{"alerts": []map[string]any{}}, nil, 403)
+
 	// Metrik kapatma: iş listesinde aralık 0, durum "disabled", örnek yok sayılır.
 	var pv probeAdminView
 	admin.mustDo("PUT", fmt.Sprintf("/api/probes/%d", id), map[string]any{"name": "CP Server İstanbul", "metrics": false}, &pv, 200)
@@ -319,15 +357,26 @@ func TestServersAPI(t *testing.T) {
 	// Ajan silinince sunucu da gider.
 	admin.mustDo("DELETE", fmt.Sprintf("/api/probes/%d", id), nil, nil, 200)
 	admin.mustDo("GET", "/api/servers", nil, &list, 200)
-	if len(list.Servers) != 0 {
+	if len(list.Servers) != 1 || list.Servers[0].ID == id {
 		t.Fatalf("silinen ajan: %+v", list.Servers)
+	}
+	// Müşteriye atanmış sunucu silinince atama da gider.
+	admin.mustDo("DELETE", fmt.Sprintf("/api/probes/%d", own.Probe.ID), nil, nil, 200)
+	if u, _ := f.st.UserByID(ctx, cu.ID); len(u.ServerIDs) != 0 {
+		t.Fatalf("silinen sunucu atamada kaldı: %+v", u.ServerIDs)
 	}
 }
 
 func TestServerEventsHiddenFromRestricted(t *testing.T) {
 	msg, _ := json.Marshal(map[string]any{"type": "server", "data": servers.View{ID: 1}})
 	if eventVisible(msg, visibility{ids: map[int64]bool{1: true}}) {
-		t.Fatal("sunucu olayı müşteri kısıtlı izleyiciye gitmemeli")
+		t.Fatal("sunucu olayı, sunucu atanmamış müşteriye gitmemeli (monitör 1 atanmış olsa da)")
+	}
+	if !eventVisible(msg, visibility{servers: map[int64]bool{1: true}}) {
+		t.Fatal("atanmış sunucunun olayı müşteriye gitmeli")
+	}
+	if eventVisible(msg, visibility{servers: map[int64]bool{2: true}}) {
+		t.Fatal("başka sunucunun olayı gitmemeli")
 	}
 }
 

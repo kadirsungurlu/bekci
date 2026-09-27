@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -44,20 +43,22 @@ func init() {
 	})
 }
 
-// serverProbe kimliği verilen sunucuyu okur; kayıt bir kontrol noktasıysa
-// bulunamadı sayılır (iki tür birbirinin ekranında görünmez).
-func (s *Server) serverProbe(ctx context.Context, id int64) (store.Probe, error) {
-	p, err := s.store.GetProbe(ctx, id)
-	if err == nil && p.Kind != store.ProbeKindServer {
+// serverProbe kimliği verilen sunucuyu okur. Kayıt bir kontrol noktasıysa
+// (iki tür birbirinin ekranında görünmez) veya kısıtlı kullanıcıya atanmamışsa
+// bulunamadı sayılır (varlığı da belli olmasın).
+func (s *Server) serverProbe(r *http.Request, id int64) (store.Probe, error) {
+	p, err := s.store.GetProbe(r.Context(), id)
+	if err == nil && (p.Kind != store.ProbeKindServer || !visibleTo(userFrom(r)).canServer(p.ID)) {
 		return store.Probe{}, store.ErrNotFound
 	}
 	return p, err
 }
 
-// serversOnly müşteri kısıtlı izleyiciyi sunucu ekranlarından uzak tutar.
+// serversOnly kendisine hiç sunucu atanmamış müşteri kısıtlı izleyiciyi
+// sunucu ekranlarından uzak tutar; atanmışsa yalnızca onları görür.
 func (s *Server) serversOnly(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if userFrom(r).Restricted() {
+		if u := userFrom(r); u.Restricted() && len(u.ServerIDs) == 0 {
 			writeError(w, http.StatusForbidden, "Sunuculara erişim yetkiniz yok")
 			return
 		}
@@ -71,6 +72,8 @@ func (s *Server) listServers(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
+	vis := visibleTo(userFrom(r))
+	probes = slices.DeleteFunc(probes, func(p store.Probe) bool { return !vis.canServer(p.ID) })
 	rules, err := s.store.AllServerAlerts(r.Context())
 	if err != nil {
 		s.dbError(w, err)
@@ -95,7 +98,7 @@ func (s *Server) getServer(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	p, err := s.serverProbe(r.Context(), id)
+	p, err := s.serverProbe(r, id)
 	if err != nil {
 		s.dbError(w, err)
 		return
@@ -121,7 +124,7 @@ func (s *Server) serverStats(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := s.serverProbe(r.Context(), id); err != nil {
+	if _, err := s.serverProbe(r, id); err != nil {
 		s.dbError(w, err)
 		return
 	}
@@ -157,7 +160,7 @@ func (s *Server) serverEvents(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := s.serverProbe(r.Context(), id); err != nil {
+	if _, err := s.serverProbe(r, id); err != nil {
 		s.dbError(w, err)
 		return
 	}
@@ -261,7 +264,7 @@ func (s *Server) putServerAlerts(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	p, err := s.serverProbe(r.Context(), id)
+	p, err := s.serverProbe(r, id)
 	if err != nil {
 		s.dbError(w, err)
 		return
@@ -292,7 +295,7 @@ func (s *Server) putServerNotifications(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	p, err := s.serverProbe(r.Context(), id)
+	p, err := s.serverProbe(r, id)
 	if err != nil {
 		s.dbError(w, err)
 		return

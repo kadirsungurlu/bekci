@@ -297,7 +297,7 @@
 {#if notFound}
   <div class="card empty">
     <h3>Sunucu bulunamadı</h3>
-    <p>Bu ajan silinmiş olabilir.</p>
+    <p>Sunucu silinmiş ya da hesabınıza açık değil.</p>
     <a class="btn primary" href="#/servers">Sunuculara dön</a>
   </div>
 {:else if !view}

@@ -128,17 +128,19 @@
   const NAV_SETTINGS: NavItem = { href: '#/settings', label: 'Ayarlar', icon: 'settings', match: ['settings'] };
 
   // İzleyici bildirim kanallarını ve durum sayfalarını yönetemez; yalnızca seçili
-  // monitörleri gören (müşteri) izleyici sunucu takibini de göremez.
+  // monitörleri gören (müşteri) izleyici Sunucular'ı kendisine sunucu atanmışsa görür.
   const nav = $derived<NavItem[]>(
     session.canEdit
       ? [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_PAGES, NAV_MAINT, NAV_NOTIF, NAV_SETTINGS]
       : session.restricted
-        ? [NAV_MONITORS, NAV_INCIDENTS, NAV_MAINT, NAV_SETTINGS]
+        ? session.canSeeServers
+          ? [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_MAINT, NAV_SETTINGS]
+          : [NAV_MONITORS, NAV_INCIDENTS, NAV_MAINT, NAV_SETTINGS]
         : [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_MAINT, NAV_SETTINGS],
   );
   // Mobil sekme çubuğu en fazla 4 öğe: az kullanılanlar "Daha fazla" altında.
   const tabs = $derived<NavItem[]>(
-    session.restricted
+    session.restricted && !session.canSeeServers
       ? nav
       : [
           NAV_MONITORS,
@@ -156,7 +158,7 @@
   // Kenar çubuğundaki sorunlu sunucu sayısı için liste uygulama açılınca bir kez
   // yüklenir; sonrası canlı akışla güncellenir.
   $effect(() => {
-    if (phase === 'app' && session.user && !session.restricted) untrack(() => servers.ensure());
+    if (phase === 'app' && session.user && session.canSeeServers) untrack(() => servers.ensure());
   });
 
   const route = $derived(router.route);
@@ -297,7 +299,7 @@
       <div class="content">
         {#if editorOnly && !session.canEdit}
           {@render forbidden()}
-        {:else if (route.name === 'servers' || route.name === 'server') && session.restricted}
+        {:else if (route.name === 'servers' || route.name === 'server') && !session.canSeeServers}
           {@render noServers()}
         {:else if route.name === 'servers'}
           <ServerList />

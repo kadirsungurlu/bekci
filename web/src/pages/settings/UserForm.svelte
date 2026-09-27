@@ -5,6 +5,7 @@
   import { randomPassword } from '../../lib/format';
   import Modal from '../../components/Modal.svelte';
   import MonitorPicker from '../../components/MonitorPicker.svelte';
+  import ServerPicker from '../../components/ServerPicker.svelte';
   import Icon from '../../components/Icon.svelte';
 
   let {
@@ -25,6 +26,7 @@
   let disabled = $state(orig?.disabled ?? false);
   let restricted = $state(orig ? orig.role === 'viewer' && !orig.all_monitors : false);
   let monitorIds = $state<number[]>(orig?.monitor_ids ? [...orig.monitor_ids] : []);
+  let serverIds = $state<number[]>(orig?.server_ids ? [...orig.server_ids] : []);
   let showPw = $state(true);
 
   let error = $state('');
@@ -55,6 +57,7 @@
       disabled,
       all_monitors: !onlySelected,
       monitor_ids: onlySelected ? monitorIds : [],
+      server_ids: onlySelected ? serverIds : [],
     };
     busy = true;
     try {
@@ -119,12 +122,13 @@
         <label class="check">
           <input type="checkbox" bind:checked={restricted} />
           <span>
-            Müşteri erişimi: yalnızca seçili monitörleri görsün
-            <small>Kapalıysa tüm monitörleri görebilir. Açıksa listede, olaylarda ve canlı akışta yalnızca seçtikleriniz görünür.</small>
+            Müşteri erişimi: yalnızca seçili monitörleri ve sunucuları görsün
+            <small>Kapalıysa tüm monitörleri ve sunucuları görebilir. Açıksa listede, olaylarda ve canlı akışta yalnızca seçtikleriniz görünür; sunucu seçilmezse Sunucular sekmesi gizlenir.</small>
           </span>
         </label>
         {#if restricted}
           <MonitorPicker bind:selected={monitorIds} label="Görebileceği monitörler" id="uf-mp" />
+          <ServerPicker bind:selected={serverIds} label="Görebileceği sunucular" id="uf-sp" />
         {/if}
       </div>
     {/if}

@@ -38,12 +38,15 @@ export interface User {
   must_change_password: boolean;
   all_monitors: boolean;
   two_factor_enabled: boolean;
+  /** Sunucular ekranı açık mı (kısıtlı izleyicide kendisine sunucu atanmışsa). Eski sunucuda gelmez. */
+  servers?: boolean;
 }
 
 /** Kullanıcılar sayfasındaki kayıt (yalnızca yönetici). */
 export interface UserRecord extends User {
   disabled: boolean;
   monitor_ids: number[] | null;
+  server_ids?: number[] | null;
   last_login_at: number;
   created_at: number;
 }
@@ -54,6 +57,7 @@ export interface UserInput {
   disabled: boolean;
   all_monitors: boolean;
   monitor_ids: number[];
+  server_ids: number[];
 }
 
 export interface UserCreateInput extends UserInput {

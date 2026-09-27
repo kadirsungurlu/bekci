@@ -162,10 +162,14 @@ type userView struct {
 	MustChangePassword bool   `json:"must_change_password"`
 	AllMonitors        bool   `json:"all_monitors"`
 	TwoFactorEnabled   bool   `json:"two_factor_enabled"`
+	// Servers Sunucular ekranı açık mı: kısıtsız kullanıcıda her zaman, kısıtlı
+	// izleyicide kendisine en az bir sunucu atanmışsa.
+	Servers bool `json:"servers"`
 }
 
 func viewOf(u store.User) userView {
-	return userView{u.ID, u.Username, u.DisplayName, u.Role, u.MustChangePassword, u.AllMonitors || u.Role != store.RoleViewer, u.TwoFactorEnabled}
+	return userView{u.ID, u.Username, u.DisplayName, u.Role, u.MustChangePassword, u.AllMonitors || u.Role != store.RoleViewer,
+		u.TwoFactorEnabled, !u.Restricted() || len(u.ServerIDs) > 0}
 }
 
 func (s *Server) authState(w http.ResponseWriter, r *http.Request) {

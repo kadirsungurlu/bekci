@@ -169,7 +169,7 @@
     <ul class="ro">
       {#each sortRules(rules) as r (r.id)}
         <li class:firing={r.firing} class:off={!r.active}>
-          <span class="rm">{metricLabel(r.metric)}{#if r.metric === 'disk'}<span class="mnt">{mountLabel(r.mount ?? '')}</span>{/if}</span>
+          <span class="rm">{metricLabel(r.metric)}{#if r.metric === 'disk'}<span class="mnt" class:path={!!r.mount}>{mountLabel(r.mount ?? '')}</span>{/if}</span>
           <span class="rs">{sentence(r)}</span>
           {#if r.firing}
             <span class="badge pending">Tetiklendi{r.fired_at ? ` · ${fmtRelative(r.fired_at, clock.now)}` : ''}</span>
@@ -319,9 +319,12 @@
   .mnt {
     font-weight: 500;
     color: var(--text-2);
-    font-family: var(--mono, ui-monospace, monospace);
-    font-size: 0.85em;
+    font-size: 0.9em;
     margin-left: 6px;
+  }
+  .mnt.path {
+    font-family: var(--mono);
+    font-size: 0.85em;
   }
   .rs {
     color: var(--text-2);

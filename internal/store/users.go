@@ -39,6 +39,7 @@ type User struct {
 	MustChangePassword bool    `json:"must_change_password"`
 	AllMonitors        bool    `json:"all_monitors"` // false: sadece MonitorIDs (izleyici/müşteri)
 	MonitorIDs         []int64 `json:"monitor_ids"`
+	ServerIDs          []int64 `json:"server_ids"` // kısıtlıysa görebileceği sunucular (user_servers.go)
 	LastLoginAt        int64   `json:"last_login_at"`
 	CreatedAt          int64   `json:"created_at"`
 	TwoFactorEnabled   bool    `json:"two_factor_enabled"` // TOTP (migration 6, twofactor.go)
@@ -58,7 +59,7 @@ func scanUserRow(sc scanner) (User, error) {
 	err := sc.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role, &u.Disabled,
 		&u.MustChangePassword, &u.AllMonitors, &lastLogin, &u.CreatedAt, &u.PasswordHash, &u.TwoFactorEnabled)
 	u.LastLoginAt = lastLogin.Int64
-	u.MonitorIDs = []int64{}
+	u.MonitorIDs, u.ServerIDs = []int64{}, []int64{}
 	return u, err
 }
 
@@ -71,7 +72,10 @@ func (s *Store) scanUser(ctx context.Context, row *sql.Row) (User, error) {
 		return u, err
 	}
 	if u.Restricted() {
-		u.MonitorIDs, err = s.userMonitorIDs(ctx, u.ID)
+		if u.MonitorIDs, err = s.userMonitorIDs(ctx, u.ID); err != nil {
+			return u, err
+		}
+		u.ServerIDs, err = s.userServerIDs(ctx, u.ID)
 	}
 	return u, err
 }
@@ -152,6 +156,9 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 			if out[i].MonitorIDs, err = s.userMonitorIDs(ctx, out[i].ID); err != nil {
 				return nil, err
 			}
+			if out[i].ServerIDs, err = s.userServerIDs(ctx, out[i].ID); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return out, nil
@@ -171,7 +178,10 @@ func (s *Store) CreateUser(ctx context.Context, u *User, hash string) error {
 		if err != nil {
 			return err
 		}
-		return setUserMonitors(ctx, tx, u.ID, u.MonitorIDs)
+		if err := setUserMonitors(ctx, tx, u.ID, u.MonitorIDs); err != nil {
+			return err
+		}
+		return setUserServers(ctx, tx, u.ID, u.ServerIDs)
 	})
 }
 
@@ -197,7 +207,10 @@ func (s *Store) UpdateUser(ctx context.Context, u *User) error {
 				return err
 			}
 		}
-		return setUserMonitors(ctx, tx, u.ID, u.MonitorIDs)
+		if err := setUserMonitors(ctx, tx, u.ID, u.MonitorIDs); err != nil {
+			return err
+		}
+		return setUserServers(ctx, tx, u.ID, u.ServerIDs)
 	})
 }
 

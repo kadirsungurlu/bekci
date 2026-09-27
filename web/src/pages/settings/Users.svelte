@@ -65,6 +65,7 @@
         disabled: !u.disabled,
         all_monitors: u.all_monitors,
         monitor_ids: u.monitor_ids ?? [],
+        server_ids: u.server_ids ?? [],
       });
       users = users.map((x) => (x.id === u.id ? res : x));
       toast.success(res.disabled ? 'Hesap devre dışı bırakıldı' : 'Hesap etkinleştirildi');
@@ -205,7 +206,9 @@
             <td data-label="Rol">
               <span class="badge {u.role === 'admin' ? 'accent' : ''}">{ROLE_LABELS[u.role]}</span>
               {#if u.role === 'viewer' && !u.all_monitors}
-                <span class="scope" title="Yalnızca seçili monitörleri görür">{u.monitor_ids?.length ?? 0} monitör</span>
+                <span class="scope" title="Yalnızca seçili monitörleri ve sunucuları görür"
+                  >{u.monitor_ids?.length ?? 0} monitör{u.server_ids?.length ? ` · ${u.server_ids.length} sunucu` : ''}</span
+                >
               {/if}
             </td>
             <td data-label="Durum">

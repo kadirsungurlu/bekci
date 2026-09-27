@@ -46,11 +46,15 @@ func (s *Server) listAudit(w http.ResponseWriter, r *http.Request) {
 // visibility istekteki kullanıcının hangi monitörleri görebileceğini döner.
 // all=true ise kısıt yoktur; aksi halde yalnızca ids içindekiler görünür.
 type visibility struct {
-	all bool
-	ids map[int64]bool
+	all     bool
+	ids     map[int64]bool
+	servers map[int64]bool // görebileceği sunucular (kısıtlıysa)
 }
 
 func (v visibility) can(id int64) bool { return v.all || v.ids[id] }
+
+// canServer sunucunun (sunucu takibi) görülebilir olup olmadığını söyler.
+func (v visibility) canServer(id int64) bool { return v.all || v.servers[id] }
 
 func (v visibility) list() []int64 {
 	out := make([]int64, 0, len(v.ids))
@@ -68,7 +72,11 @@ func visibleTo(u store.User) visibility {
 	for _, id := range u.MonitorIDs {
 		ids[id] = true
 	}
-	return visibility{ids: ids}
+	servers := make(map[int64]bool, len(u.ServerIDs))
+	for _, id := range u.ServerIDs {
+		servers[id] = true
+	}
+	return visibility{ids: ids, servers: servers}
 }
 
 // canSeeConfig: monitör ayarları (başlıklar, gövde, şifreler), push token'ı ve
@@ -87,6 +95,7 @@ type userInput struct {
 	Disabled    bool    `json:"disabled"`
 	AllMonitors *bool   `json:"all_monitors"`
 	MonitorIDs  []int64 `json:"monitor_ids"`
+	ServerIDs   []int64 `json:"server_ids"` // kısıtlı izleyicinin görebileceği sunucular
 }
 
 // normalize ortak alanları doğrular ve store.User'a çevirir.
@@ -98,7 +107,7 @@ func (s *Server) normalizeUser(r *http.Request, in *userInput) (store.User, erro
 	if store.RoleRank(in.Role) == 0 {
 		return store.User{}, errors.New("Rol yönetici (admin), editör (editor) veya izleyici (viewer) olmalı")
 	}
-	u := store.User{DisplayName: in.DisplayName, Role: in.Role, Disabled: in.Disabled, AllMonitors: true, MonitorIDs: []int64{}}
+	u := store.User{DisplayName: in.DisplayName, Role: in.Role, Disabled: in.Disabled, AllMonitors: true, MonitorIDs: []int64{}, ServerIDs: []int64{}}
 	// Monitör kısıtı sadece izleyicide anlamlı; diğer roller her şeyi görür.
 	if in.Role == store.RoleViewer && in.AllMonitors != nil && !*in.AllMonitors {
 		u.AllMonitors = false
@@ -112,6 +121,18 @@ func (s *Server) normalizeUser(r *http.Request, in *userInput) (store.User, erro
 			}
 		}
 		u.MonitorIDs = in.MonitorIDs
+		servers, err := s.store.ProbesByIDs(r.Context(), in.ServerIDs)
+		if err != nil {
+			return u, err
+		}
+		for _, id := range in.ServerIDs {
+			if p, ok := servers[id]; !ok || p.Kind != store.ProbeKindServer {
+				return u, errors.New("Seçilen sunuculardan biri bulunamadı")
+			}
+		}
+		if in.ServerIDs != nil {
+			u.ServerIDs = in.ServerIDs
+		}
 	}
 	return u, nil
 }

@@ -70,7 +70,7 @@
           <dd>{session.user.display_name}</dd>
         {/if}
         <dt>Rol</dt>
-        <dd>{ROLE_LABELS[session.role]}{session.user && !session.user.all_monitors ? ' · yalnızca seçili monitörler' : ''}</dd>
+        <dd>{ROLE_LABELS[session.role]}{session.user && !session.user.all_monitors ? (session.canSeeServers ? ' · yalnızca seçili monitörler ve sunucular' : ' · yalnızca seçili monitörler') : ''}</dd>
         <dt>Sürüm</dt>
         <dd class="mono">{session.version || '—'}</dd>
       </dl>
