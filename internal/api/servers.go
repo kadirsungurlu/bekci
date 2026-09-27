@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -184,6 +185,10 @@ type alertInput struct {
 	Active    *bool   `json:"active"`
 }
 
+// diskMountRe disk kuralındaki bölüm: Linux bağlama noktası (/home) veya
+// Windows sürücüsü/klasöre bağlı birim (D:, C:\Veri); denetim karakteri yok.
+var diskMountRe = regexp.MustCompile(`^(/|[A-Za-z]:(\\|$))[^\x00-\x1f]*$`)
+
 // maxAlertRules bir sunucudaki en fazla kural (disk kuralları bölüm başına ayrıdır).
 const maxAlertRules = 40
 
@@ -203,8 +208,8 @@ func validateAlerts(in []alertInput) ([]store.ServerAlert, error) {
 		switch {
 		case a.Metric != servers.MetricDisk:
 			a.Mount = "" // bölüm yalnızca disk kuralında anlamlı
-		case a.Mount != "" && (!strings.HasPrefix(a.Mount, "/") || len([]rune(a.Mount)) > metrics.MaxText):
-			return nil, errors.New("Disk bölümü / ile başlamalı, ör. /home")
+		case a.Mount != "" && (!diskMountRe.MatchString(a.Mount) || len([]rune(a.Mount)) > metrics.MaxText):
+			return nil, errors.New("Disk bölümü / ile ya da sürücü harfiyle başlamalı, ör. /home veya D:")
 		}
 		if key := a.Metric + "\x00" + a.Mount; seen[key] {
 			if a.Mount != "" {
@@ -411,20 +416,23 @@ func (s *Server) serverSetupCommands(server, token string) (dockerAgent, systemd
 // eski sürümler için arayüzde not vardır. İlerleme çubuğu 5.1'de indirmeyi
 // çok yavaşlattığı için kapatılır.
 func windowsAgentCommand(server, token string) string {
+	// İndirme veya kurulum hata verse de (finally) geçici program ve token
+	// oturum ortamından silinir.
 	return strings.Join([]string{
 		"$ErrorActionPreference='Stop'",
 		"$ProgressPreference='SilentlyContinue'",
 		"[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12",
 		"$env:PROBE_SERVER=" + psQuote(server),
 		"$env:PROBE_TOKEN=" + psQuote(token),
-		"$d=Join-Path $env:ProgramFiles 'Uptime'",
-		"New-Item -ItemType Directory -Force -Path $d | Out-Null",
-		"$f=Join-Path $d 'uptime-setup.exe'",
-		`Invoke-WebRequest -UseBasicParsing -Headers @{Authorization="Bearer $env:PROBE_TOKEN"} -Uri "$env:PROBE_SERVER/api/probe/binary?os=windows&arch=amd64" -OutFile $f`,
-		"& $f service install",
-		"$c=$LASTEXITCODE",
-		"Remove-Item $f -Force -ErrorAction SilentlyContinue",
-		"Remove-Item Env:PROBE_TOKEN",
+		"$f=$null; $c=1",
+		"try { " + strings.Join([]string{
+			"$d=Join-Path $env:ProgramFiles 'Uptime'",
+			"New-Item -ItemType Directory -Force -Path $d | Out-Null",
+			"$f=Join-Path $d 'uptime-setup.exe'",
+			`Invoke-WebRequest -UseBasicParsing -Headers @{Authorization="Bearer $env:PROBE_TOKEN"} -Uri "$env:PROBE_SERVER/api/probe/binary?os=windows&arch=amd64" -OutFile $f`,
+			"& $f service install",
+			"$c=$LASTEXITCODE",
+		}, "; ") + " } finally { if ($f) { Remove-Item $f -Force -ErrorAction SilentlyContinue }; Remove-Item Env:PROBE_TOKEN -ErrorAction SilentlyContinue }",
 		`if ($c -ne 0) { throw "Kurulum tamamlanamadı (çıkış kodu $c)" }`,
 	}, "; ")
 }

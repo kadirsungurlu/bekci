@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -114,6 +115,11 @@ func TestServersAPI(t *testing.T) {
 	}
 	admin.mustDo("PUT", fmt.Sprintf("/api/monitors/%d/locations", lm.ID),
 		map[string]any{"include_local": true, "probe_ids": []int64{cp.Probe.ID}, "down_when": "any"}, nil, 400)
+	// Sunucu token'ıyla kontrol sonucu gönderilemez.
+	if code := probeCall(t, admin.srv.URL, cp.Token, "POST", "/api/probe/results",
+		map[string]any{"sent_at": 1, "results": []map[string]any{{"monitor_id": lm.ID, "time": 1, "up": true}}}); code != 403 {
+		t.Fatalf("sunucu token'ıyla sonuç: %d", code)
+	}
 	for _, c := range []string{cp.DockerAgent, cp.Systemd} {
 		if !strings.Contains(c, cp.Token) || !strings.Contains(c, admin.srv.URL) {
 			t.Fatalf("kurulum komutu token/adres içermeli: %s", c)
@@ -323,4 +329,19 @@ func TestServerEventsHiddenFromRestricted(t *testing.T) {
 	if eventVisible(msg, visibility{ids: map[int64]bool{1: true}}) {
 		t.Fatal("sunucu olayı müşteri kısıtlı izleyiciye gitmemeli")
 	}
+}
+
+// probeCall ajan token'ıyla istek yapar ve durum kodunu döner.
+func probeCall(t *testing.T, base, token, method, path string, body any) int {
+	t.Helper()
+	b, _ := json.Marshal(body)
+	req, _ := http.NewRequest(method, base+path, bytes.NewReader(b))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	return resp.StatusCode
 }

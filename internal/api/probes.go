@@ -492,11 +492,14 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 	if metricsOn != old.Metrics {
 		changes = append(changes, map[bool]string{true: "metrik toplama açıldı", false: "metrik toplama kapatıldı"}[metricsOn])
 	}
-	if (active && !old.Active) || (metricsOn && !old.Metrics) {
-		s.servers.Arm(id)
-	}
-	if len(changes) > 0 {
-		s.servers.Publish(r.Context(), id)
+	// Sunucu ekranı yalnızca sunucuları dinler; kontrol noktası oraya yayınlanmaz.
+	if old.Kind == store.ProbeKindServer {
+		if (active && !old.Active) || (metricsOn && !old.Metrics) {
+			s.servers.Arm(id)
+		}
+		if len(changes) > 0 {
+			s.servers.Publish(r.Context(), id)
+		}
 	}
 	s.audit(r, store.User{}, "probe.update", "probe", id, in.Name, strings.Join(changes, ", "))
 	s.respondProbe(w, r, id)
@@ -774,6 +777,11 @@ type probeRejected struct {
 
 func (s *Server) probeResults(w http.ResponseWriter, r *http.Request) {
 	p := probeFrom(r)
+	if p.Kind != store.ProbeKindLocation {
+		// Sunucu ajanına monitör atanamaz; yine de sonuç kabul edilmez.
+		writeError(w, http.StatusForbidden, "Sunucu ajanı kontrol sonucu gönderemez")
+		return
+	}
 	// Bilinmeyen alanlar kabul edilir: yeni sürüm bir kontrol noktası eski bir
 	// sunucuya da sonuç gönderebilsin.
 	var in struct {
@@ -831,8 +839,10 @@ func (s *Server) probeResults(w http.ResponseWriter, r *http.Request) {
 			cr.Cert = &check.CertInfo{NotAfter: time.Unix(res.CertNotAfter, 0), Issuer: cleanProbeText(res.CertIssuer, 200)}
 		}
 		if res.Detail != nil && !cr.Up {
-			res.Detail.Sanitize()
+			// Önce maskele, sonra kırp: kırpma sınırına denk gelen gizli değerin
+			// bir kısmı açıkta kalmasın.
 			check.MaskDetail(mon.Type, mon.Config, res.Detail)
+			res.Detail.Sanitize()
 			cr.Detail = res.Detail
 		}
 		accepted = append(accepted, engine.ProbeResult{MonitorID: res.MonitorID, Time: now.Add(-age), Result: cr})
