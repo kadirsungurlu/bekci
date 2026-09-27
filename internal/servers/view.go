@@ -53,6 +53,8 @@ type View struct {
 	ContainerCount int            `json:"container_count"`
 	TempMax        *float64       `json:"temp_max"`
 	Firing         []string       `json:"firing"`
+	IPLock         bool           `json:"ip_lock"`   // yalnızca kilitli IP'den bağlanabilir mi
+	LockedIP       string         `json:"locked_ip"` // sabitlenmiş IP (boş: henüz bağlanmadı)
 }
 
 // View ajanın görünümü. full=false (liste ve canlı akış) ise son örnekte
@@ -62,6 +64,7 @@ func (s *Service) View(ctx context.Context, p store.Probe, rules []store.ServerA
 		ID: p.ID, Name: p.Name, Active: p.Active, Metrics: p.Metrics, State: State(p, s.now()),
 		Note: p.MetricsNote, Interval: Interval, LastSeenAt: p.LastSeenAt, MetricsAt: p.MetricsAt,
 		Version: p.Version, Host: hostOf(p), Firing: []string{},
+		IPLock: p.IPLock, LockedIP: p.LockedIP,
 	}
 	if st := s.Latest(ctx, p); st != nil {
 		v.ContainerCount = len(st.Containers)

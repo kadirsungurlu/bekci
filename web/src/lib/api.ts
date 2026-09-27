@@ -205,6 +205,10 @@ export interface Probe {
   monitor_count?: number;
   /** Sunucu metrikleri toplanıyor mu (yönetici görünümü; eski sunucularda yok). */
   metrics?: boolean;
+  /** Ajan yalnızca ilk bağlandığı IP'den veri gönderebilir mi (yönetici görünümü). */
+  ip_lock?: boolean;
+  /** Sabitlenmiş IP; boşsa ajan henüz bağlanmadı (yönetici görünümü). */
+  locked_ip?: string;
 }
 
 export interface ProbeSetup {
@@ -717,6 +721,10 @@ export interface ServerView {
   container_count: number;
   temp_max: number | null;
   firing: ServerMetric[] | null;
+  /** Ajan yalnızca ilk bağlandığı IP'den veri gönderebilir mi. */
+  ip_lock: boolean;
+  /** Sabitlenmiş IP; boşsa ajan henüz bağlanmadı. */
+  locked_ip: string;
 }
 
 export interface AlertRule {
@@ -1012,9 +1020,21 @@ export const api = {
   createProbe: (name: string) => post<ProbeSetup>('/api/probes', { name }),
   /** Takip edilecek sunucu ekler (kontrol noktalarından ayrı kayıt). */
   createServer: (name: string) => post<ProbeSetup>('/api/servers', { name }),
-  // metrics yalnızca verildiğinde gönderilir (eski sunucu bilinmeyen alanı reddeder).
-  updateProbe: (id: number, name: string, active: boolean, metrics?: boolean) =>
-    put<Probe>(`/api/probes/${id}`, metrics === undefined ? { name, active } : { name, active, metrics }),
+  // Yalnızca verilen alanlar gönderilir (sunucu bilinmeyen alanı reddeder):
+  // metrics, ip_lock ve reset_ip (kilitli IP'yi sıfırla) isteğe bağlıdır.
+  updateProbe: (
+    id: number,
+    name: string,
+    active: boolean,
+    metrics?: boolean,
+    opts?: { ipLock?: boolean; resetIp?: boolean },
+  ) => {
+    const body: Record<string, unknown> = { name, active };
+    if (metrics !== undefined) body.metrics = metrics;
+    if (opts?.ipLock !== undefined) body.ip_lock = opts.ipLock;
+    if (opts?.resetIp) body.reset_ip = true;
+    return put<Probe>(`/api/probes/${id}`, body);
+  },
   deleteProbe: (id: number) => del<{ ok: boolean }>(`/api/probes/${id}`),
   regenerateProbeToken: (id: number) => post<ProbeSetup>(`/api/probes/${id}/token`),
   monitorLocations: (id: number) => get<MonitorLocations>(`/api/monitors/${id}/locations`),

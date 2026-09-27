@@ -18,6 +18,8 @@
 
   let name = $state('');
   let metrics = $state(true);
+  let ipLock = $state(true);
+  let lockedIp = $state('');
   let error = $state('');
   let busy = $state(false);
 
@@ -26,6 +28,8 @@
     if (open) {
       name = server.name;
       metrics = server.metrics;
+      ipLock = server.ip_lock;
+      lockedIp = server.locked_ip;
       error = '';
     }
   });
@@ -37,9 +41,25 @@
     busy = true;
     error = '';
     try {
-      await api.updateProbe(server.id, n, server.active, metrics);
+      await api.updateProbe(server.id, n, server.active, metrics, { ipLock });
       toast.success('Sunucu kaydedildi');
       open = false;
+      onsaved();
+    } catch (err) {
+      error = errorMessage(err);
+    } finally {
+      busy = false;
+    }
+  }
+
+  // Kilidi sıfırla: ajan bir sonraki bağlantıda yeni IP'ye kilitlenir.
+  async function resetIp() {
+    busy = true;
+    error = '';
+    try {
+      await api.updateProbe(server.id, server.name, server.active, undefined, { resetIp: true });
+      lockedIp = '';
+      toast.success('IP kilidi sıfırlandı');
       onsaved();
     } catch (err) {
       error = errorMessage(err);
@@ -81,6 +101,19 @@
         <small>Kapatılırsa ajan ölçüm göndermeyi bırakır, çevrimdışı uyarısı da gitmez. Geçmiş silinmez.</small>
       </span>
     </label>
+    <label class="check">
+      <input type="checkbox" bind:checked={ipLock} />
+      <span>
+        IP'ye kilitle
+        <small>Ajan yalnızca ilk bağlandığı IP'den veri gönderebilir; sunucu taşınırsa kilidi sıfırlayın.</small>
+      </span>
+    </label>
+    {#if ipLock && lockedIp}
+      <div class="field">
+        <span class="help">Kilitli IP: <strong>{lockedIp}</strong></span>
+        <button type="button" class="btn sm" onclick={resetIp} disabled={busy}>Kilidi sıfırla</button>
+      </div>
+    {/if}
     {#if error}<div class="alert error" role="alert">{error}</div>{/if}
   </form>
   {#snippet footer()}

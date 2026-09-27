@@ -106,12 +106,16 @@
   let editOpen = $state(false);
   let editing = $state<Probe | null>(null);
   let editName = $state('');
+  let editIpLock = $state(true);
+  let editLockedIp = $state('');
   let editError = $state('');
   let editBusy = $state(false);
 
   function openEdit(p: Probe) {
     editing = p;
     editName = p.name;
+    editIpLock = p.ip_lock ?? false;
+    editLockedIp = p.locked_ip ?? '';
     editError = '';
     editOpen = true;
   }
@@ -124,9 +128,26 @@
     if (!n) return (editError = 'Ad gerekli.');
     editBusy = true;
     try {
-      await api.updateProbe(editing.id, n, editing.active);
+      await api.updateProbe(editing.id, n, editing.active, undefined, { ipLock: editIpLock });
       toast.success('Kontrol noktası kaydedildi');
       editOpen = false;
+      load();
+    } catch (err) {
+      editError = errorMessage(err);
+    } finally {
+      editBusy = false;
+    }
+  }
+
+  // Kilidi sıfırla: kontrol noktası bir sonraki bağlantıda yeni IP'ye kilitlenir.
+  async function resetEditIp() {
+    if (!editing) return;
+    editError = '';
+    editBusy = true;
+    try {
+      await api.updateProbe(editing.id, editing.name, editing.active, undefined, { resetIp: true });
+      editLockedIp = '';
+      toast.success('IP kilidi sıfırlandı');
       load();
     } catch (err) {
       editError = errorMessage(err);
@@ -233,7 +254,10 @@
             <td data-label="Son görülme" class="nowrap" title={p.last_seen_at ? fmtDate(p.last_seen_at) : ''}>
               {p.last_seen_at ? fmtRelative(p.last_seen_at, clock.now) : 'Hiç bağlanmadı'}
             </td>
-            <td data-label="Adres" class="mono small">{p.last_ip || '—'}</td>
+            <td data-label="Adres" class="mono small">
+              {p.last_ip || '—'}
+              {#if p.ip_lock}<span class="iplock" title={p.locked_ip ? `${p.locked_ip} IP'sine kilitli` : 'IP kilidi açık; ilk bağlantıda sabitlenir'}><Icon name="lock" size={12} /></span>{/if}
+            </td>
             <td data-label="Sürüm" class="small">{p.version || '—'}</td>
             <td data-label="Monitör">{p.monitor_count ?? 0}</td>
             <td class="act"><RowMenu items={menu(p)} label="{p.name} için işlemler" /></td>
@@ -298,6 +322,19 @@
       <label for="pre-name">Ad</label>
       <input id="pre-name" class="input" maxlength="100" bind:value={editName} />
     </div>
+    <label class="check">
+      <input type="checkbox" bind:checked={editIpLock} />
+      <span>
+        IP'ye kilitle
+        <small>Ajan yalnızca ilk bağlandığı IP'den veri gönderebilir; sunucu taşınırsa kilidi sıfırlayın.</small>
+      </span>
+    </label>
+    {#if editIpLock && editLockedIp}
+      <div class="field">
+        <span class="help">Kilitli IP: <strong>{editLockedIp}</strong></span>
+        <button type="button" class="btn sm" onclick={resetEditIp} disabled={editBusy}>Kilidi sıfırla</button>
+      </div>
+    {/if}
     {#if editError}<div class="alert error" role="alert">{editError}</div>{/if}
   </form>
   {#snippet footer()}
@@ -399,6 +436,12 @@
   }
   .nomargin {
     margin: 0;
+  }
+  .iplock {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-left: 4px;
+    color: var(--muted);
   }
   .spacer {
     flex: 1;

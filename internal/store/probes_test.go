@@ -130,3 +130,71 @@ func TestProbeStore(t *testing.T) {
 		t.Fatalf("atamalar: %v", ids)
 	}
 }
+
+// TestProbeIPLock ajanı ilk bağlandığı IP'ye kilitleme yardımcıları:
+// LockProbeIP (yalnızca boşken sabitler), SetProbeIPLock (aç/kapat, kilitli
+// IP'yi sıfırlar) ve ResetProbeIP (kilidi açık bırakır, IP'yi sıfırlar).
+func TestProbeIPLock(t *testing.T) {
+	s := openTest(t)
+	ctx := context.Background()
+
+	p := Probe{Name: "kilit", Active: true, CreatedAt: 100, Hash: "h1", IPLock: true}
+	if err := s.CreateProbe(ctx, &p); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.GetProbe(ctx, p.ID)
+	if !got.IPLock || got.LockedIP != "" {
+		t.Fatalf("yeni kayıt kilitli ama IP boş olmalı: %+v", got)
+	}
+
+	// İlk bağlantı IP'yi sabitler; ikinci bağlantı (kilit doluyken) değiştirmez.
+	if err := s.LockProbeIP(ctx, p.ID, "1.2.3.4"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.LockProbeIP(ctx, p.ID, "5.6.7.8"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ = s.GetProbe(ctx, p.ID); got.LockedIP != "1.2.3.4" {
+		t.Fatalf("kilitli IP yalnızca boşken yazılmalı: %+v", got)
+	}
+
+	// Sıfırlama: kilit açık kalır, IP boşalır; sonraki bağlantı yeniden sabitler.
+	if err := s.ResetProbeIP(ctx, p.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ = s.GetProbe(ctx, p.ID); !got.IPLock || got.LockedIP != "" {
+		t.Fatalf("sıfırlama sonrası kilit açık, IP boş olmalı: %+v", got)
+	}
+	if err := s.LockProbeIP(ctx, p.ID, "9.9.9.9"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ = s.GetProbe(ctx, p.ID); got.LockedIP != "9.9.9.9" {
+		t.Fatalf("sıfırlamadan sonra yeni IP sabitlenmeli: %+v", got)
+	}
+
+	// Kilidi kapatmak IP'yi sıfırlar; tekrar açmak yeniden silahlar (IP boş).
+	if err := s.SetProbeIPLock(ctx, p.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ = s.GetProbe(ctx, p.ID); got.IPLock || got.LockedIP != "" {
+		t.Fatalf("kilit kapatılınca IP sıfırlanmalı: %+v", got)
+	}
+	// Kilit kapalıyken sabitlensin diye IP yazılıp kilit yeniden açıldığında da sıfırlanır.
+	if err := s.LockProbeIP(ctx, p.ID, "8.8.8.8"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetProbeIPLock(ctx, p.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ = s.GetProbe(ctx, p.ID); !got.IPLock || got.LockedIP != "" {
+		t.Fatalf("kilit açılınca yeniden silahlanmalı (IP boş): %+v", got)
+	}
+
+	// Olmayan kayıt.
+	if err := s.SetProbeIPLock(ctx, 999, true); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("olmayan kayıt (kilit): %v", err)
+	}
+	if err := s.ResetProbeIP(ctx, 999); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("olmayan kayıt (sıfırla): %v", err)
+	}
+}

@@ -379,6 +379,111 @@ func TestProbeScopingAndResults(t *testing.T) {
 	}
 }
 
+// TestProbeIPLock ajanı ilk bağlandığı IP'ye kilitler (Beszel'in fingerprint'ine
+// benzer). clientIP loopback eşten gelen son X-Forwarded-For değerine güvendiği
+// için farklı bir kaynak IP'yi o başlıkla taklit ederiz.
+func TestProbeIPLock(t *testing.T) {
+	f := newFeatureEnv(t)
+	admin := f.env
+	cp := admin.newProbe("Kilit")
+	// Yeni ajan varsayılan olarak IP kilidi açık, henüz sabitlenmemiş gelir.
+	if !cp.Probe.IPLock || cp.Probe.LockedIP != "" {
+		t.Fatalf("yeni ajan kilitli ama IP boş olmalı: %+v", cp.Probe)
+	}
+
+	// job belirtilen kaynak IP'den (boşsa 127.0.0.1) iş listesi ister.
+	job := func(xff string) int {
+		h := bearer(cp.Token)
+		if xff != "" {
+			h["X-Forwarded-For"] = xff
+		}
+		code, _, _ := admin.rawReq("GET", "/api/probe/jobs", h, nil)
+		return code
+	}
+	// lockedIP ajanın güncel sabitlenmiş IP'sini döner.
+	lockedIP := func() string {
+		var list []probeAdminView
+		admin.mustDo("GET", "/api/probes", nil, &list, 200)
+		for _, p := range list {
+			if p.ID == cp.Probe.ID {
+				return p.LockedIP
+			}
+		}
+		t.Fatalf("ajan listede yok")
+		return ""
+	}
+	// update ajanı günceller (ad zorunlu) ve güncel görünümü döner.
+	update := func(body map[string]any) probeAdminView {
+		body["name"] = cp.Probe.Name
+		var v probeAdminView
+		admin.mustDo("PUT", fmt.Sprintf("/api/probes/%d", cp.Probe.ID), body, &v, 200)
+		return v
+	}
+
+	// (a) İlk istek IP'yi (127.0.0.1) sabitler ve başarılı olur.
+	if code := job(""); code != 200 {
+		t.Fatalf("ilk istek: %d", code)
+	}
+	if ip := lockedIP(); ip != "127.0.0.1" {
+		t.Fatalf("ilk istek 127.0.0.1'e kilitlemeli: %q", ip)
+	}
+	// Aynı IP'den tekrar reddedilmemeli.
+	if code := job(""); code != 200 {
+		t.Fatalf("aynı IP reddedildi: %d", code)
+	}
+
+	// (b) Farklı kaynak IP reddedilir; kilitli IP değişmez.
+	if code := job("203.0.113.9"); code != 403 {
+		t.Fatalf("farklı IP: %d, 403 bekleniyordu", code)
+	}
+	if ip := lockedIP(); ip != "127.0.0.1" {
+		t.Fatalf("reddedilen istek kilidi değiştirmemeli: %q", ip)
+	}
+	if code := job(""); code != 200 {
+		t.Fatalf("reddedilen istekten sonra aynı IP: %d", code)
+	}
+
+	// (c) reset_ip ile kilit sıfırlanır; yeni IP kabul edilip yeniden sabitlenir.
+	if v := update(map[string]any{"reset_ip": true}); v.LockedIP != "" {
+		t.Fatalf("sıfırlama sonrası kilitli IP boş olmalı: %+v", v)
+	}
+	if code := job("203.0.113.9"); code != 200 {
+		t.Fatalf("sıfırlamadan sonra yeni IP: %d", code)
+	}
+	if ip := lockedIP(); ip != "203.0.113.9" {
+		t.Fatalf("yeni IP sabitlenmeli: %q", ip)
+	}
+	// Artık eski IP (127.0.0.1) reddedilir.
+	if code := job(""); code != 403 {
+		t.Fatalf("yeniden sabitlemeden sonra eski IP: %d, 403 bekleniyordu", code)
+	}
+
+	// (d) Kilit kapalıyken her IP kabul edilir.
+	if v := update(map[string]any{"ip_lock": false}); v.IPLock || v.LockedIP != "" {
+		t.Fatalf("kilit kapatılınca IP sıfırlanmalı: %+v", v)
+	}
+	if code := job("198.51.100.7"); code != 200 {
+		t.Fatalf("kilit kapalıyken yeni IP: %d", code)
+	}
+	if code := job(""); code != 200 {
+		t.Fatalf("kilit kapalıyken başka IP: %d", code)
+	}
+
+	// (e) Kilidi tekrar açmak yeniden silahlar (kilitli IP temizlenir).
+	if v := update(map[string]any{"ip_lock": true}); !v.IPLock || v.LockedIP != "" {
+		t.Fatalf("kilit yeniden açılınca IP boş olmalı: %+v", v)
+	}
+	if code := job("198.51.100.7"); code != 200 {
+		t.Fatalf("yeniden silahlandıktan sonra ilk IP: %d", code)
+	}
+	if ip := lockedIP(); ip != "198.51.100.7" {
+		t.Fatalf("yeniden silahlandıktan sonra sabitlenen IP: %q", ip)
+	}
+	if code := job("203.0.113.9"); code != 403 {
+		t.Fatalf("yeniden silahlandıktan sonra farklı IP: %d, 403 bekleniyordu", code)
+	}
+}
+
 // Kontrol noktası isteklerinin tarayıcı çerezleriyle ilgisi yok: çerezli
 // istemcinin probe token'ıyla yaptığı istek de probe olarak doğrulanır.
 func TestProbeRequestIgnoresCookie(t *testing.T) {
