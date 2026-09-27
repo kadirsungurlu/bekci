@@ -59,8 +59,8 @@ func TestProbeRegistry(t *testing.T) {
 	if !probeTokenFormat.MatchString(cp.Token) || !strings.HasPrefix(cp.Token, cp.Probe.TokenPrefix) || len(cp.Probe.TokenPrefix) != 12 {
 		t.Fatalf("token biçimi hatalı: %q prefix %q", cp.Token, cp.Probe.TokenPrefix)
 	}
-	wantCmd := "docker run -d --name uptime-probe --restart unless-stopped -e PROBE_SERVER=" + admin.srv.URL +
-		" -e PROBE_TOKEN=" + cp.Token + " ghcr.io/kadir/uptime:latest probe"
+	wantCmd := "docker run -d --name uptime-probe --restart unless-stopped " + probeHardenFlags +
+		"-e PROBE_SERVER=" + admin.srv.URL + " -e PROBE_TOKEN=" + cp.Token + " -e PROBE_ALLOW_INSECURE=1 ghcr.io/kadir/uptime:latest probe"
 	if cp.DockerCommand != wantCmd || cp.ServerURL != admin.srv.URL {
 		t.Fatalf("kurulum komutu:\n%s\n%s bekleniyordu", cp.DockerCommand, wantCmd)
 	}
@@ -401,9 +401,11 @@ func TestProbeRequestIgnoresCookie(t *testing.T) {
 func TestProbeBinaryDownload(t *testing.T) {
 	admin := setupAdmin(t)
 	cp := admin.newProbe("İndirme")
-	if !strings.Contains(cp.DockerCommand, "alpine:3") || !strings.Contains(cp.DockerCommand, "/api/probe/binary") ||
-		!strings.Contains(cp.DockerCommand, "PROBE_TOKEN="+cp.Token) || !strings.Contains(cp.DockerCommand, "exec uptime probe") {
-		t.Errorf("kurulum komutu: %s", cp.DockerCommand)
+	for _, want := range []string{"alpine:3", "/api/probe/binary", "PROBE_TOKEN=" + cp.Token,
+		`exec "$B" probe`, "-v uptime-probe-bin:/opt/uptime", "sha256sum -c -", "--cap-drop ALL", `if [ ! -x "$B" ]`} {
+		if !strings.Contains(cp.DockerCommand, want) {
+			t.Errorf("kurulum komutunda %q yok: %s", want, cp.DockerCommand)
+		}
 	}
 	// Token'sız ve yanlış token'la indirilemez.
 	if code, _, _ := admin.anon().rawReq("GET", "/api/probe/binary", nil, nil); code != 401 {
@@ -478,11 +480,11 @@ func TestProbeBinaryPlatforms(t *testing.T) {
 // Windows kurulum komutunda sunucu adresi ve token tek tırnak içinde; içlerindeki
 // tek tırnak PowerShell kuralına göre ikilenir.
 func TestWindowsAgentCommandQuoting(t *testing.T) {
-	cmd := windowsAgentCommand("https://o'reilly.example", "upr_abc")
+	cmd := windowsAgentCommand("https://o'reilly.example", "upr_abc", "abc123def456")
 	for _, want := range []string{
 		"$env:PROBE_SERVER='https://o''reilly.example'", "$env:PROBE_TOKEN='upr_abc'", "$ProgressPreference='SilentlyContinue'",
 		`-Headers @{Authorization="Bearer $env:PROBE_TOKEN"}`, `"$env:PROBE_SERVER/api/probe/binary?os=windows&arch=amd64"`,
-		"& $f service install", "Remove-Item Env:PROBE_TOKEN",
+		"& $f service install", "Remove-Item Env:PROBE_TOKEN", "Get-FileHash $f -Algorithm SHA256", "ABC123DEF456",
 	} {
 		if !strings.Contains(cmd, want) {
 			t.Errorf("komutta %q yok:\n%s", want, cmd)

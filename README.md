@@ -108,7 +108,7 @@ noktaları → "Yeni kontrol noktası" ile verilen komutu diğer sunucuda çalı
 docker run -d --name uptime-probe --restart unless-stopped -e PROBE_SERVER=https://uptime.kadir.app -e PROBE_TOKEN=upr_… alpine:3 sh -c 'wget -qO /usr/local/bin/uptime --header "Authorization: Bearer $PROBE_TOKEN" "$PROBE_SERVER/api/probe/binary" && chmod +x /usr/local/bin/uptime && exec uptime probe'
 ```
 
-Herkese açık `alpine` imajı açılışta programı ana sunucudan (token ile) indirir;
+Herkese açık `alpine` imajı programı ana sunucudan (token ile) bir kez indirir, SHA-256 ile doğrular ve kalıcı bir birime yazar; yeniden başlatmada tekrar indirmez (sürüm sabit). `http://` adres için `PROBE_ALLOW_INSECURE=1` gerekir.
 git, derleme veya kayıt deposu girişi gerekmez. Her yeniden başlatmada en güncel
 sürüm alınır (`docker restart uptime-probe`). Program linux/amd64 içindir.
 

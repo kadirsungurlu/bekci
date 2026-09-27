@@ -49,6 +49,7 @@ type Config struct {
 	BatchSize     int              // tek istekteki en fazla sonuç (varsayılan 200)
 	MaxBackoff    time.Duration    // tekrar denemeler arası en uzun bekleme (varsayılan 60 birim)
 	NoMetrics     bool             // sunucu metrikleri hiç toplanmaz (METRICS=0), ana sunucu istese de
+	AllowInsecure bool             // true değilse http:// ana sunucu reddedilir (yalnızca PROBE_ALLOW_INSECURE=1)
 	Metrics       MetricsCollector // varsayılan metrics.NewCollector
 	HTTPClient    *http.Client
 	Log           *slog.Logger
@@ -137,6 +138,11 @@ func New(cfg Config) (*Client, error) {
 	u, err := url.Parse(strings.TrimRight(strings.TrimSpace(cfg.Server), "/"))
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return nil, errors.New("PROBE_SERVER geçerli bir http(s) adresi olmalı, ör. https://uptime.kadir.app")
+	}
+	// http token ve monitör ayarlarını açık metin gönderir; kazara güvensiz
+	// kuruluma karşı reddedilir (yalnızca PROBE_ALLOW_INSECURE=1 ile açılır).
+	if u.Scheme == "http" && !cfg.AllowInsecure {
+		return nil, errors.New("PROBE_SERVER https olmalı; şifrelenmemiş http için PROBE_ALLOW_INSECURE=1 gerekir")
 	}
 	if !strings.HasPrefix(cfg.Token, "upr_") {
 		return nil, errors.New("PROBE_TOKEN geçersiz: upr_ ile başlamalı")
@@ -283,7 +289,15 @@ func (c *Client) pollJobs(ctx context.Context) (time.Duration, error) {
 
 // apply iş listesini çalışan işlerle eşitler: kaldırılan veya değişen iş
 // durdurulur, yeni veya değişen iş başlatılır.
+// maxJobs bir ajanda aynı anda en fazla iş; sunucu daha fazlasını gönderse de
+// fazlası yok sayılır (bozuk/kötü niyetli sunucuya karşı kaynak koruması).
+const maxJobs = 5000
+
 func (c *Client) apply(ctx context.Context, jobs []Job) {
+	if len(jobs) > maxJobs {
+		c.log.Warn("iş listesi çok uzun, ilk maxJobs alındı", "gelen", len(jobs), "sinir", maxJobs)
+		jobs = jobs[:maxJobs]
+	}
 	want := map[int64]Job{}
 	for _, j := range jobs {
 		if _, ok := check.Get(j.Type); !ok || j.Type == check.TypePush || j.Type == check.TypeGroup {
@@ -386,7 +400,9 @@ func (c *Client) checkOnce(ctx context.Context, j Job) (out Result, ok bool) {
 		return out, false
 	}
 	defer func() { <-c.sem }()
-	cctx, cancel := context.WithTimeout(ctx, time.Duration(max(j.Timeout, 1))*c.cfg.Unit)
+	// Timeout birim (sn) cinsinden 1-300 arasına sıkıştırılır: sunucu devasa
+	// değer göndererek eşzamanlılık slotunu süresiz tutamaz.
+	cctx, cancel := context.WithTimeout(ctx, time.Duration(min(max(j.Timeout, 1), 300))*c.cfg.Unit)
 	defer cancel()
 	var res check.Result
 	func() {

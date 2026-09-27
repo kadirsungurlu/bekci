@@ -26,6 +26,7 @@ import (
 //	PROBE_SERVER           ana sunucunun adresi, ör. https://uptime.kadir.app
 //	PROBE_TOKEN            arayüzde (Ayarlar → Kontrol noktaları) verilen token (upr_…)
 //	MAX_CONCURRENT_CHECKS  aynı anda en fazla kontrol (varsayılan 20)
+//	PROBE_ALLOW_INSECURE   "1" ise şifrelenmemiş http ana sunucuya izin verilir (önerilmez)
 //	ADDR                   sağlık kontrolü (/healthz) adresi (varsayılan :8080; "-" ise kapalı)
 //	METRICS                "0" ise sunucu metrikleri hiç toplanmaz, ana sunucu istese de
 //	HOST_PROC, HOST_SYS,   Docker içinde çalışırken host'un /proc, /sys, /etc ve kök
@@ -43,7 +44,7 @@ import (
 //	  -e ADDR=- -e PROBE_SERVER=… -e PROBE_TOKEN=upr_… …
 //
 // Windows'ta aynı komut hizmet olarak da çalışır (service_windows.go): kurulum
-// "uptime service install", ayarlar %ProgramData%\Uptime\agent.env dosyasından.
+// "uptime service install", ayarlar %ProgramFiles%\Uptime\agent.env dosyasından.
 func runProbe(log *slog.Logger) error {
 	if ok, err := runProbeService(); ok { // Windows hizmet yöneticisi başlattıysa
 		return err
@@ -62,6 +63,7 @@ func probeMain(ctx context.Context, log *slog.Logger) error {
 		Version:       version,
 		MaxConcurrent: maxChecks,
 		NoMetrics:     slices.Contains([]string{"0", "false", "off", "no"}, strings.ToLower(env("METRICS", "1"))),
+		AllowInsecure: slices.Contains([]string{"1", "true", "on", "yes"}, strings.ToLower(env("PROBE_ALLOW_INSECURE", ""))),
 		Log:           log,
 	})
 	if err != nil {

@@ -170,8 +170,9 @@
             <li><code>--network host</code>, <code>--pid host</code>: ağ trafiği ve yük konteynerin değil, sunucunun kendisinden ölçülür.</li>
             <li><code>-v /:/host:ro,rslave</code>: sunucunun diskleri ve <code>/proc</code>, <code>/sys</code> bilgileri <b>salt okunur</b> bağlanır; hiçbir şey yazılmaz. Sonradan takılan diskler de görünür.</li>
             <li><code>docker.sock:ro</code>: konteyner listesi ve CPU/RAM kullanımları Docker’dan okunur. Docker yoksa bu kısmı silebilirsiniz.</li>
-            <li><code>PROBE_TOKEN</code>: bu sunucuya özel anahtar; kimseyle paylaşmayın.</li>
-            <li>Program açılışta bu panelden indirilir; her yeniden başlatmada en güncel sürüm gelir.</li>
+            <li><code>--cap-drop ALL</code>, <code>--security-opt no-new-privileges</code>, <code>--memory</code>: konteynerin yetkileri ve kaynakları kısıtlanır.</li>
+            <li><code>PROBE_TOKEN</code>: bu sunucuya özel anahtar; kimseyle paylaşmayın (komutu yapıştırdıktan sonra kabuk geçmişini temizlemek iyi olur).</li>
+            <li>Program bir kez indirilip SHA-256 ile doğrulanır ve <code>uptime-agent-bin</code> biriminde saklanır; <b>yeniden başlatmada tekrar indirilmez</b> (sürüm sabit). Güncellemek için: <code>docker rm -f uptime-agent; docker volume rm uptime-agent-bin</code> ardından bu komutu tekrar çalıştırın.</li>
           </ul>
         </details>
       {:else if tab === 'windows'}
@@ -180,7 +181,8 @@
           <ul>
             <li>Programı bu panelden indirip <code>C:\Program Files\Uptime\uptime.exe</code> olarak kaydeder.</li>
             <li><code>uptime-agent</code> adında bir Windows hizmeti kurar ve başlatır; sunucu yeniden başlasa da çalışır, hata olursa kendini yeniden başlatır.</li>
-            <li>Token, yalnızca yöneticilerin okuyabildiği <code>C:\ProgramData\Uptime\agent.env</code> dosyasına yazılır; günlük aynı klasörde (<code>agent.log</code>).</li>
+            <li>İndirilen program, kurulumdan önce SHA-256 ile doğrulanır (uyuşmazsa kurulum durur).</li>
+            <li>Token, yalnızca yöneticilerin okuyabildiği <code>C:\Program Files\Uptime\agent.env</code> dosyasına yazılır; günlük aynı klasörde (<code>agent.log</code>).</li>
             <li>Güncellemek için aynı komutu tekrar çalıştırın. Kaldırmak için: <code>&amp; 'C:\Program Files\Uptime\uptime.exe' service uninstall</code></li>
             <li>Komut token içerir: PowerShell geçmişine yazılmaması için PSReadLine 2.2 veya üstü önerilir (eskilerde geçmiş dosyası kullanıcı klasöründe kalır).</li>
             <li>Windows’ta yük ortalaması yoktur; yük, işlemci kuyruğu uzunluğundan hesaplanan yaklaşık bir değerdir. Sıcaklık ve Docker konteynerleri toplanmaz.</li>
@@ -190,9 +192,9 @@
         <details class="explain">
           <summary>Bu komut ne yapar?</summary>
           <ul>
-            <li>Programı bu panelden indirip <code>/usr/local/bin/uptime</code> olarak kaydeder.</li>
-            <li><code>uptime-agent</code> adında bir systemd hizmeti oluşturur ve başlatır; sunucu yeniden başlasa da çalışır.</li>
-            <li>Kaldırmak için: <code>systemctl disable --now uptime-agent</code></li>
+            <li>Programı bu panelden indirir, SHA-256 ile doğrular ve <code>/usr/local/bin/uptime</code> olarak kaydeder; hizmet yeniden başlarken tekrar indirmez.</li>
+            <li><code>uptime-agent</code> adında bir systemd hizmeti oluşturur ve başlatır; sunucu yeniden başlasa da çalışır. Yetki yükseltme kapalı, bellek sınırlı.</li>
+            <li>Güncellemek için aynı komutu tekrar çalıştırın. Kaldırmak için: <code>systemctl disable --now uptime-agent</code></li>
           </ul>
         </details>
       {/if}

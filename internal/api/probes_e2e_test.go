@@ -52,7 +52,7 @@ func TestProbeEndToEnd(t *testing.T) {
 
 	startProbe := func() (*probe.Client, func()) {
 		c, err := probe.New(probe.Config{
-			Server: admin.srv.URL, Token: cp.Token, Version: "e2e", Unit: time.Millisecond,
+			Server: admin.srv.URL, Token: cp.Token, Version: "e2e", Unit: time.Millisecond, AllowInsecure: true,
 			FlushEvery: 10 * time.Millisecond, MaxBackoff: 50 * time.Millisecond,
 			Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		})

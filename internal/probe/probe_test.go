@@ -113,6 +113,7 @@ func start(t *testing.T, cfg Config) (*Client, func()) {
 	if cfg.Token == "" {
 		cfg.Token = "upr_test"
 	}
+	cfg.AllowInsecure = true // testler httptest (http) kullanır
 	cfg.Unit = time.Millisecond
 	cfg.Version = "v-test"
 	if cfg.FlushEvery == 0 {
@@ -155,6 +156,12 @@ func TestNewValidates(t *testing.T) {
 		if _, err := New(c); err == nil {
 			t.Errorf("%+v kabul edilmemeliydi", c)
 		}
+	}
+	if _, err := New(Config{Server: "http://uptime.kadir.app", Token: "upr_x"}); err == nil {
+		t.Error("http PROBE_ALLOW_INSECURE olmadan reddedilmeliydi")
+	}
+	if _, err := New(Config{Server: "http://uptime.kadir.app", Token: "upr_x", AllowInsecure: true}); err != nil {
+		t.Errorf("http AllowInsecure ile kabul edilmeliydi: %v", err)
 	}
 	if _, err := New(Config{Server: "https://uptime.kadir.app/", Token: "upr_x"}); err != nil {
 		t.Fatal(err)

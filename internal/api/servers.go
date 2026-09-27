@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -380,32 +381,48 @@ func (s *Server) probeMetrics(w http.ResponseWriter, r *http.Request) {
 func (s *Server) serverSetupCommands(server, token string) (dockerAgent, systemd, windows string) {
 	const hostFlags = "--network host --pid host -v /:/host:ro,rslave -v /var/run/docker.sock:/var/run/docker.sock:ro " +
 		"-e HOST_PROC=/host/proc -e HOST_SYS=/host/sys -e HOST_ETC=/host/etc -e HOST_ROOT=/host -e ADDR=- "
+	env := installEnv(server, token)
+	sha := s.agentBinarySHA256(runtime.GOOS, runtime.GOARCH)
 	if s.ProbeImage != "" {
-		dockerAgent = fmt.Sprintf("docker run -d --name uptime-agent --restart unless-stopped %s-e PROBE_SERVER=%s -e PROBE_TOKEN=%s %s probe",
-			hostFlags, server, token, s.ProbeImage)
+		dockerAgent = fmt.Sprintf("docker run -d --name uptime-agent --restart unless-stopped %s%s%s%s probe",
+			serverHardenFlags, hostFlags, env, s.ProbeImage)
 	} else {
-		dockerAgent = fmt.Sprintf("docker run -d --name uptime-agent --restart unless-stopped %s-e PROBE_SERVER=%s -e PROBE_TOKEN=%s alpine:3 "+
-			`sh -c 'wget -qO /usr/local/bin/uptime --header "Authorization: Bearer $PROBE_TOKEN" "$PROBE_SERVER/api/probe/binary" && chmod +x /usr/local/bin/uptime && exec uptime probe'`,
-			hostFlags, server, token)
+		// Program bir kez indirilip kalıcı birime yazılır, SHA-256 ile doğrulanır;
+		// yeniden başlatmada tekrar indirilmez (sürüm sabit).
+		dockerAgent = fmt.Sprintf("docker run -d --name uptime-agent --restart unless-stopped %s%s%s-v uptime-agent-bin:/opt/uptime alpine:3 %s",
+			serverHardenFlags, hostFlags, env, dockerFetchScript("/opt/uptime/uptime", sha))
 	}
-	// root olarak çalıştırılır. curl yoksa wget kullanılır; ikili önce geçici
-	// dosyaya iner (çalışan ajanın dosyası yarım kalmasın). Token, herkesin
-	// okuyabildiği birim dosyası yerine yalnızca root'un okuyabildiği ayrı bir
-	// dosyadadır. restart: komut güncelleme için tekrar çalıştırıldığında yeni
-	// sürüm başlasın.
+	// systemd: program /usr/local/bin/uptime'a iner ve SHA-256 ile doğrulanır;
+	// yalnızca bu komut tekrar çalıştırıldığında yenilenir (hizmet yeniden
+	// başlarken indirmez). Token yalnızca root'un okuyabildiği env dosyasında.
+	// Sertleştirme: ayrıcalık yükseltme kapalı, bellek sınırlı, geçici dizin özel.
 	unit := []string{
 		"[Unit]", "Description=Uptime agent", "After=network-online.target", "Wants=network-online.target", "",
 		"[Service]", "EnvironmentFile=/etc/uptime-agent.env",
-		"ExecStart=/usr/local/bin/uptime probe", "Restart=always", "RestartSec=10", "",
+		"ExecStart=/usr/local/bin/uptime probe", "Restart=always", "RestartSec=10",
+		"NoNewPrivileges=yes", "PrivateTmp=yes", "MemoryMax=256M", "CapabilityBoundingSet=CAP_NET_RAW", "",
 		"[Install]", "WantedBy=multi-user.target",
+	}
+	verify := ""
+	if sha != "" {
+		verify = `echo "` + sha + `  $F.new" | sha256sum -c -; `
 	}
 	systemd = fmt.Sprintf(`sh -c 'set -e; U="%s/api/probe/binary"; H="Authorization: Bearer %s"; F=/usr/local/bin/uptime; `+
 		`if command -v curl >/dev/null 2>&1; then curl -fsSL -H "$H" -o $F.new "$U"; else wget -qO $F.new --header "$H" "$U"; fi; `+
-		`chmod +x $F.new; mv -f $F.new $F; umask 077; printf "%%s\n" "PROBE_SERVER=%s" "PROBE_TOKEN=%s" "ADDR=-" > /etc/uptime-agent.env; `+
+		`%s`+
+		`chmod +x $F.new; mv -f $F.new $F; umask 077; printf "%%s\n" "PROBE_SERVER=%s" "PROBE_TOKEN=%s" "ADDR=-"%s > /etc/uptime-agent.env; `+
 		`chmod 600 /etc/uptime-agent.env; umask 022; printf "%%s\n" "%s" > /etc/systemd/system/uptime-agent.service; `+
 		`systemctl daemon-reload && systemctl enable uptime-agent && systemctl restart uptime-agent'`,
-		server, token, server, token, strings.Join(unit, `" "`))
-	return dockerAgent, systemd, windowsAgentCommand(server, token)
+		server, token, verify, server, token, insecureEnvLine(server), strings.Join(unit, `" "`))
+	return dockerAgent, systemd, windowsAgentCommand(server, token, sha)
+}
+
+// insecureEnvLine http sunucu adresinde env dosyasına PROBE_ALLOW_INSECURE ekler.
+func insecureEnvLine(server string) string {
+	if strings.HasPrefix(server, "http://") {
+		return ` "PROBE_ALLOW_INSECURE=1"`
+	}
+	return ""
 }
 
 // windowsAgentCommand Yönetici PowerShell'de çalıştırılan tek satırlık kurulum
@@ -418,9 +435,24 @@ func (s *Server) serverSetupCommands(server, token string) (dockerAgent, systemd
 // silinir. PSReadLine 2.2+ "token" geçen satırı geçmiş dosyasına yazmaz;
 // eski sürümler için arayüzde not vardır. İlerleme çubuğu 5.1'de indirmeyi
 // çok yavaşlattığı için kapatılır.
-func windowsAgentCommand(server, token string) string {
-	// İndirme veya kurulum hata verse de (finally) geçici program ve token
-	// oturum ortamından silinir.
+func windowsAgentCommand(server, token, sha string) string {
+	// İndirilen program, indirmeden önce hesaplanan SHA-256 ile doğrulanır;
+	// uymuyorsa kurulum durur. İndirme veya kurulum hata verse de (finally)
+	// geçici program ve token oturum ortamından silinir.
+	verify := ""
+	if sha != "" {
+		verify = fmt.Sprintf(`if ((Get-FileHash $f -Algorithm SHA256).Hash -ne '%s') { throw "Program bütünlük doğrulaması başarısız (SHA-256 uyuşmuyor)" }`, strings.ToUpper(sha))
+	}
+	inner := []string{
+		"$d=Join-Path $env:ProgramFiles 'Uptime'",
+		"New-Item -ItemType Directory -Force -Path $d | Out-Null",
+		"$f=Join-Path $d 'uptime-setup.exe'",
+		`Invoke-WebRequest -UseBasicParsing -Headers @{Authorization="Bearer $env:PROBE_TOKEN"} -Uri "$env:PROBE_SERVER/api/probe/binary?os=windows&arch=amd64" -OutFile $f`,
+	}
+	if verify != "" {
+		inner = append(inner, verify)
+	}
+	inner = append(inner, "& $f service install", "$c=$LASTEXITCODE")
 	return strings.Join([]string{
 		"$ErrorActionPreference='Stop'",
 		"$ProgressPreference='SilentlyContinue'",
@@ -428,14 +460,7 @@ func windowsAgentCommand(server, token string) string {
 		"$env:PROBE_SERVER=" + psQuote(server),
 		"$env:PROBE_TOKEN=" + psQuote(token),
 		"$f=$null; $c=1",
-		"try { " + strings.Join([]string{
-			"$d=Join-Path $env:ProgramFiles 'Uptime'",
-			"New-Item -ItemType Directory -Force -Path $d | Out-Null",
-			"$f=Join-Path $d 'uptime-setup.exe'",
-			`Invoke-WebRequest -UseBasicParsing -Headers @{Authorization="Bearer $env:PROBE_TOKEN"} -Uri "$env:PROBE_SERVER/api/probe/binary?os=windows&arch=amd64" -OutFile $f`,
-			"& $f service install",
-			"$c=$LASTEXITCODE",
-		}, "; ") + " } finally { if ($f) { Remove-Item $f -Force -ErrorAction SilentlyContinue }; Remove-Item Env:PROBE_TOKEN -ErrorAction SilentlyContinue }",
+		"try { " + strings.Join(inner, "; ") + " } finally { if ($f) { Remove-Item $f -Force -ErrorAction SilentlyContinue }; Remove-Item Env:PROBE_TOKEN -ErrorAction SilentlyContinue }",
 		`if ($c -ne 0) { throw "Kurulum tamamlanamadı (çıkış kodu $c)" }`,
 	}, "; ")
 }

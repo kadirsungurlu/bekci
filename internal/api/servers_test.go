@@ -125,10 +125,12 @@ func TestServersAPI(t *testing.T) {
 			t.Fatalf("kurulum komutu token/adres içermeli: %s", c)
 		}
 	}
-	if !strings.Contains(cp.DockerAgent, "--pid host") || !strings.Contains(cp.DockerAgent, "HOST_PROC=/host/proc") || !strings.Contains(cp.DockerAgent, "ADDR=-") {
+	if !strings.Contains(cp.DockerAgent, "--pid host") || !strings.Contains(cp.DockerAgent, "HOST_PROC=/host/proc") || !strings.Contains(cp.DockerAgent, "ADDR=-") ||
+		!strings.Contains(cp.DockerAgent, "--cap-drop ALL") || !strings.Contains(cp.DockerAgent, "-v uptime-agent-bin:/opt/uptime") || !strings.Contains(cp.DockerAgent, "sha256sum -c -") {
 		t.Fatalf("docker ajan komutu: %s", cp.DockerAgent)
 	}
 	if !strings.Contains(cp.Systemd, "/etc/systemd/system/uptime-agent.service") || !strings.Contains(cp.Systemd, "EnvironmentFile=/etc/uptime-agent.env") || !strings.Contains(cp.Systemd, "chmod 600 /etc/uptime-agent.env") ||
+		!strings.Contains(cp.Systemd, "sha256sum -c -") || !strings.Contains(cp.Systemd, "NoNewPrivileges=yes") ||
 		!strings.Contains(cp.Systemd, "systemctl enable uptime-agent") || !strings.Contains(cp.Systemd, "curl") || !strings.Contains(cp.Systemd, "wget") {
 		t.Fatalf("systemd komutu: %s", cp.Systemd)
 	}

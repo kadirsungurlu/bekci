@@ -9,6 +9,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -300,18 +301,29 @@ func (s *Server) probeSetup(r *http.Request, p store.Probe, token string, monito
 		}
 		server = scheme + "://" + r.Host
 	}
+	if !validInstallServer(server) {
+		// Kurulum komutuna gömülecek adres güvenli karakter kümesinde değilse
+		// kabuk kaçışına karşı yalnızca şema+host'a indirgenir.
+		if u, err := url.Parse(server); err == nil && u.Host != "" {
+			server = u.Scheme + "://" + u.Host
+		}
+		if !validInstallServer(server) {
+			server = "https://SUNUCU-ADRESINIZ"
+		}
+	}
+	env := installEnv(server, token)
 	var cmd string
 	if s.ProbeImage != "" {
 		// Uygulama imajı bir kayıt deposundan çekilebiliyorsa doğrudan o kullanılır.
-		cmd = fmt.Sprintf("docker run -d --name uptime-probe --restart unless-stopped -e PROBE_SERVER=%s -e PROBE_TOKEN=%s %s probe",
-			server, token, s.ProbeImage)
+		cmd = fmt.Sprintf("docker run -d --name uptime-probe --restart unless-stopped %s%s%s probe",
+			probeHardenFlags, env, s.ProbeImage)
 	} else {
-		// Varsayılan: herkese açık alpine imajı açılışta programı bu sunucudan
-		// (token ile) indirip çalıştırır. Git, derleme veya kayıt deposu girişi
-		// gerekmez; her yeniden başlatmada en güncel sürüm alınır.
-		cmd = fmt.Sprintf("docker run -d --name uptime-probe --restart unless-stopped -e PROBE_SERVER=%s -e PROBE_TOKEN=%s alpine:3 "+
-			`sh -c 'wget -qO /usr/local/bin/uptime --header "Authorization: Bearer $PROBE_TOKEN" "$PROBE_SERVER/api/probe/binary" && chmod +x /usr/local/bin/uptime && exec uptime probe'`,
-			server, token)
+		// Program bir kez indirilip kalıcı bir birime yazılır ve SHA-256 ile
+		// doğrulanır; yeniden başlatmada tekrar indirilmez (sürüm sabit). Böylece
+		// sunucu sonradan ele geçirilse bile filoya kendiliğinden yeni program inmez.
+		// Güncelleme: bu komut yeni SHA ile tekrar çalıştırılır (önce birim silinir).
+		cmd = fmt.Sprintf("docker run -d --name uptime-probe --restart unless-stopped %s%s-v uptime-probe-bin:/opt/uptime alpine:3 %s",
+			probeHardenFlags, env, dockerFetchScript("/opt/uptime/uptime", s.agentBinarySHA256(runtime.GOOS, runtime.GOARCH)))
 	}
 	out := map[string]any{"probe": s.probeAdminOf(p, monitors), "token": token, "server_url": server}
 	if p.Kind == store.ProbeKindServer {
@@ -382,6 +394,9 @@ func (s *Server) probeBinary(w http.ResponseWriter, r *http.Request) {
 	h.Set("Cache-Control", "no-store")
 	h.Set("X-Uptime-Version", s.version)
 	h.Set("X-Uptime-Platform", goos+"/"+goarch)
+	if sum := s.agentBinarySHA256(goos, goarch); sum != "" {
+		h.Set("X-Uptime-SHA256", sum)
+	}
 	http.ServeContent(w, r, name, st.ModTime(), f)
 }
 
