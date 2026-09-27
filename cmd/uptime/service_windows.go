@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
@@ -26,11 +27,19 @@ import (
 //	                          kopyalar, ayarları yazar, hizmeti kurar/günceller ve başlatır
 //	uptime service uninstall  (Yönetici) hizmeti durdurup siler, ayar dosyasını (token) siler
 //
-// Ayarlar %ProgramData%\Uptime\agent.env dosyasındadır (KEY=DEĞER). Klasör ve
-// dosya yalnızca SYSTEM ve Administrators'a açıktır: token başka kullanıcılarca
-// okunamaz. (Hizmetin kayıt defterindeki Environment değeri yerine dosya
-// seçildi: Services anahtarları varsayılan olarak Users grubuna okunabilir.)
-// Günlük: %ProgramData%\Uptime\agent.log (5 MB'ta agent.log.1'e döner).
+// Ayarlar ve günlük %ProgramFiles%\Uptime altındadır: agent.env (KEY=DEĞER,
+// token içerir) ve agent.log (5 MB'ta agent.log.1'e döner). Bu klasör bilerek
+// %ProgramData% yerine %ProgramFiles% altında tutulur: %ProgramData% varsayılan
+// DACL'si her yerel kullanıcının alt klasör (ya da junction/reparse noktası)
+// oluşturmasına izin verir; kurulumdan önce yerleştirilmiş bir yönlendirme
+// MkdirAll tarafından kabul edilir, izin ayarı yönlendirmeyi izler ve token
+// saldırganın etkilediği bir dizine yazılabilirdi (TOCTOU). %ProgramFiles% ise
+// varsayılan olarak yalnızca yöneticilere yazılabilir; kullanıcılar önceden
+// klasör/junction oluşturamaz. Ek olarak dizin, güvenilmeden önce hem kurulumda
+// hem hizmet başlangıcında doğrulanır (reparse noktası değil + sahibi
+// Administrators/SYSTEM) ve klasör yalnızca SYSTEM+Administrators olacak şekilde
+// kilitlenir. (Kayıt defterindeki Environment değeri yerine dosya seçildi:
+// Services anahtarları varsayılan olarak Users grubuna okunabilir.)
 
 const (
 	serviceName    = "uptime-agent"
@@ -45,17 +54,6 @@ const (
 	adminOnlyFileSDDL = "O:BAD:P(A;;FA;;;SY)(A;;FA;;;BA)"
 )
 
-// dataDir %ProgramData%\Uptime (ayarlar ve günlük).
-func dataDir() string {
-	if p, err := windows.KnownFolderPath(windows.FOLDERID_ProgramData, 0); err == nil && p != "" {
-		return filepath.Join(p, "Uptime")
-	}
-	if p := os.Getenv("ProgramData"); p != "" {
-		return filepath.Join(p, "Uptime")
-	}
-	return `C:\ProgramData\Uptime`
-}
-
 // installPath %ProgramFiles%\Uptime\uptime.exe.
 func installPath() string {
 	base := os.Getenv("ProgramFiles")
@@ -68,6 +66,14 @@ func installPath() string {
 	return filepath.Join(base, "Uptime", "uptime.exe")
 }
 
+// agentDir ayarların (agent.env, token) ve günlüğün (agent.log) tutulduğu
+// %ProgramFiles%\Uptime klasörü. Programın kurulduğu dizinle aynıdır: yalnızca
+// yöneticilere yazılabilir, bu yüzden kullanıcılar önceden bir junction/reparse
+// noktası yerleştiremez (dosya başlığındaki güvenlik notuna bakın).
+func agentDir() string {
+	return filepath.Dir(installPath())
+}
+
 // runProbeService hizmet olarak başlatıldıysa hizmeti çalıştırır (true döner);
 // değilse hiçbir şey yapmaz.
 func runProbeService() (bool, error) {
@@ -75,15 +81,24 @@ func runProbeService() (bool, error) {
 	if err != nil || !isSvc {
 		return false, nil
 	}
-	dir := dataDir()
+	dir := agentDir()
+	// Dizine güvenmeden önce doğrula (kurulumdaki ile aynı kontrol): bir reparse
+	// noktası (junction/symlink) değil ve sahibi Administrators/SYSTEM olmalı.
+	// Güvenli değilse token okunmaz ve günlük o dizine yazılmaz: aksi hâlde
+	// LocalSystem hizmeti saldırganın yönlendirdiği bir hedeften ayar okur veya
+	// oraya günlük yazardı.
+	dirErr := checkSecureDir(dir)
 	var w io.Writer = io.Discard // hizmetin konsolu yok; günlük dosyası açılamazsa yazılmaz
-	if f, err := openRotatingFile(filepath.Join(dir, "agent.log"), logLimit); err == nil {
-		defer f.Close()
-		w = f
+	if dirErr == nil {
+		if f, err := openRotatingFile(filepath.Join(dir, "agent.log"), logLimit); err == nil {
+			defer f.Close()
+			w = f
+		}
 	}
-	cfgErr := loadAgentEnv(filepath.Join(dir, "agent.env"))
 	log := newLogger(w)
-	if cfgErr != nil {
+	if dirErr != nil {
+		log.Error("ayar dizini güvenli değil, ayarlar okunmadı", "dizin", dir, "hata", dirErr)
+	} else if cfgErr := loadAgentEnv(filepath.Join(dir, "agent.env")); cfgErr != nil {
 		log.Error("ayar dosyası okunamadı", "dosya", filepath.Join(dir, "agent.env"), "hata", cfgErr)
 	}
 	return true, svc.Run(serviceName, &agentService{log: log})
@@ -164,13 +179,10 @@ func runServiceCommand(args []string) error {
 // ayarları yazar, çalışan hizmeti durdurur, programı yerine kopyalar, hizmeti
 // oluşturur/günceller, "hata olursa yeniden başlat" ayarını yapar ve başlatır.
 func installService() error {
-	dir := dataDir()
+	dir := agentDir()
 	envPath := filepath.Join(dir, "agent.env")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("%s oluşturulamadı: %w", dir, err)
-	}
-	if err := restrictToAdmins(dir, adminOnlyDirSDDL); err != nil {
-		return fmt.Errorf("%s izinleri ayarlanamadı: %w", dir, err)
+	if err := prepareSecureDir(dir); err != nil {
+		return err
 	}
 	cur := map[string]string{}
 	if b, err := os.ReadFile(envPath); err == nil {
@@ -266,11 +278,11 @@ func uninstallService() error {
 	if err := s.Delete(); err != nil {
 		return fmt.Errorf("hizmet silinemedi: %w", err)
 	}
-	dir := dataDir()
+	dir := agentDir()
 	if err := os.Remove(filepath.Join(dir, "agent.env")); err != nil && !errors.Is(err, os.ErrNotExist) {
 		fmt.Fprintln(os.Stderr, "uyarı: ayar dosyası silinemedi:", err)
 	}
-	fmt.Printf("Uptime ajanı kaldırıldı. İsterseniz %s ve %s klasörlerini silebilirsiniz.\n", filepath.Dir(installPath()), dir)
+	fmt.Printf("Uptime ajanı kaldırıldı. İsterseniz %s klasörünü silebilirsiniz.\n", dir)
 	return nil
 }
 
@@ -382,15 +394,111 @@ func restrictToAdmins(path, sddl string) error {
 		owner, nil, dacl, nil)
 }
 
-// writeAdminOnlyFile dosyayı geçici adla yazar, yalnızca yöneticilere açar ve
-// yerine taşır: token hiçbir an başkalarına okunur bir dosyada durmaz (klasör
-// de korumalı olduğu için geçici dosya zaten yalnızca yöneticilere açıktır).
+// prepareSecureDir dizini oluşturur (yoksa), güvenli olduğunu doğrular ve
+// izinlerini yalnızca SYSTEM+Administrators olacak şekilde kilitler. Doğrulama
+// KİLİTLEMEDEN ÖNCE yapılır: dizin bir reparse noktasıysa (junction/symlink)
+// restrictToAdmins onu izleyip saldırganın hedefinin izinlerini değiştirebilirdi.
+func prepareSecureDir(dir string) error {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("%s oluşturulamadı: %w", dir, err)
+	}
+	if err := checkSecureDir(dir); err != nil {
+		return err
+	}
+	if err := restrictToAdmins(dir, adminOnlyDirSDDL); err != nil {
+		return fmt.Errorf("%s izinleri ayarlanamadı: %w", dir, err)
+	}
+	return nil
+}
+
+// checkSecureDir dizinin güvenilir olduğunu doğrular: bir reparse noktası
+// (junction/symlink) OLMAMALI ve sahibi Administrators ya da SYSTEM olmalı.
+// Böylece kurulumdan önce yerleştirilmiş bir yönlendirmeye (TOCTOU) veya sahibi
+// başka bir kullanıcı olan bir klasöre token yazmak/oradan token okumak
+// reddedilir. Hem kurulumda hem hizmet başlangıcında çağrılır.
+func checkSecureDir(dir string) error {
+	reparse, err := isReparsePoint(dir)
+	if err != nil {
+		return fmt.Errorf("%s durumu okunamadı: %w", dir, err)
+	}
+	if reparse {
+		return fmt.Errorf("%s bir yönlendirme (junction/symlink); güvenlik gereği reddedildi, klasörü silin", dir)
+	}
+	ok, err := ownedByAdminOrSystem(dir)
+	if err != nil {
+		return fmt.Errorf("%s sahibi okunamadı: %w", dir, err)
+	}
+	if !ok {
+		return fmt.Errorf("%s sahibi Administrators/SYSTEM değil; güvenlik gereği reddedildi, klasörü silin", dir)
+	}
+	return nil
+}
+
+// isReparsePoint yolun bir reparse noktası (junction, symlink, mount point)
+// olup olmadığını GetFileAttributes ile döner.
+func isReparsePoint(path string) (bool, error) {
+	p, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return false, err
+	}
+	attrs, err := windows.GetFileAttributes(p)
+	if err != nil {
+		return false, err
+	}
+	return attrs&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0, nil
+}
+
+// ownedByAdminOrSystem yolun sahibinin BUILTIN\Administrators (S-1-5-32-544)
+// veya LocalSystem (S-1-5-18) olup olmadığını döner.
+func ownedByAdminOrSystem(path string) (bool, error) {
+	sd, err := windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.OWNER_SECURITY_INFORMATION)
+	if err != nil {
+		return false, err
+	}
+	owner, _, err := sd.Owner()
+	if err != nil {
+		return false, err
+	}
+	admins, err := windows.CreateWellKnownSid(windows.WinBuiltinAdministratorsSid)
+	if err != nil {
+		return false, err
+	}
+	system, err := windows.CreateWellKnownSid(windows.WinLocalSystemSid)
+	if err != nil {
+		return false, err
+	}
+	return owner.Equals(admins) || owner.Equals(system), nil
+}
+
+// adminOnlySecurityAttributes SDDL'den yalnızca SYSTEM+Administrators DACL'li bir
+// SECURITY_ATTRIBUTES üretir; CreateFile ile dosya, oluşturulduğu anda bu
+// DACL'yle açılır ("önce oluştur sonra kısıtla" penceresi olmaz).
+func adminOnlySecurityAttributes(sddl string) (*windows.SecurityAttributes, error) {
+	sd, err := windows.SecurityDescriptorFromString(sddl)
+	if err != nil {
+		return nil, err
+	}
+	sa := &windows.SecurityAttributes{SecurityDescriptor: sd}
+	sa.Length = uint32(unsafe.Sizeof(*sa))
+	return sa, nil
+}
+
+// writeAdminOnlyFile token dosyasını atomik ve TOCTOU'suz yazar: yeni bir geçici
+// dosya, oluşturulduğu anda yalnızca SYSTEM+Administrators DACL'siyle (CREATE_NEW,
+// SECURITY_ATTRIBUTES) açılır, içerik yazılır ve yerine taşınır. Böylece token
+// hiçbir an başkalarına okunur bir dosyada durmaz; yeniden kurulumda da dosya
+// her seferinde taze, kısıtlı bir DACL alır. Klasör de yalnızca yöneticilere
+// yazılabilir olduğundan (agentDir) geçici dosyayı başkası önden oluşturamaz.
 func writeAdminOnlyFile(path string, data []byte) error {
-	tmp := path + ".tmp"
-	os.Remove(tmp)
-	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	sa, err := adminOnlySecurityAttributes(adminOnlyFileSDDL)
 	if err != nil {
 		return err
+	}
+	tmp := path + ".tmp"
+	os.Remove(tmp) // eski kalıntı varsa temizle (CREATE_NEW aksi hâlde başarısız olur)
+	f, err := createSecureFile(tmp, sa)
+	if err != nil {
+		return fmt.Errorf("%s yazılamadı: %w", tmp, err)
 	}
 	if _, err := f.Write(data); err != nil {
 		f.Close()
@@ -401,9 +509,27 @@ func writeAdminOnlyFile(path string, data []byte) error {
 		os.Remove(tmp)
 		return err
 	}
-	if err := restrictToAdmins(tmp, adminOnlyFileSDDL); err != nil {
+	if err := os.Rename(tmp, path); err != nil {
 		os.Remove(tmp)
 		return err
 	}
-	return os.Rename(tmp, path)
+	return nil
+}
+
+// createSecureFile yeni bir dosyayı verilen güvenlik tanımıyla oluşturur.
+// CREATE_NEW: dosya zaten varsa hata verir (saldırganın önden yerleştirdiği bir
+// dosya/junction sessizce kullanılmaz). SECURITY_ATTRIBUTES yalnızca yeni dosya
+// oluşturulurken uygulandığı için bu, DACL'nin oluşum anında geçerli olmasını
+// garanti eder.
+func createSecureFile(path string, sa *windows.SecurityAttributes) (*os.File, error) {
+	p, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return nil, err
+	}
+	h, err := windows.CreateFile(p, windows.GENERIC_WRITE, 0, sa,
+		windows.CREATE_NEW, windows.FILE_ATTRIBUTE_NORMAL, 0)
+	if err != nil {
+		return nil, err
+	}
+	return os.NewFile(uintptr(h), path), nil
 }

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/host"
@@ -33,13 +34,22 @@ import (
 //   - ağ HOST_PROC/1/net/dev'den (host'un ağ ad alanı; --network host olmasa da).
 type systemSource struct {
 	proc, root, etc string
+
+	// Bloklayabilen syscall'lar alan olarak tutulur: testte sahtesi verilir.
+	// diskTimeout, usage'daki Stat/Statfs için üst süre sınırıdır.
+	stat        func(string, *syscall.Stat_t) error
+	statfs      func(string, *syscall.Statfs_t) error
+	diskTimeout time.Duration
 }
 
 func newSystemSource(getenv func(string) string) (source, string) {
 	s := &systemSource{
-		proc: strings.TrimRight(getenv("HOST_PROC"), "/"),
-		root: strings.TrimRight(getenv("HOST_ROOT"), "/"),
-		etc:  strings.TrimRight(getenv("HOST_ETC"), "/"),
+		proc:        strings.TrimRight(getenv("HOST_PROC"), "/"),
+		root:        strings.TrimRight(getenv("HOST_ROOT"), "/"),
+		etc:         strings.TrimRight(getenv("HOST_ETC"), "/"),
+		stat:        syscall.Stat,
+		statfs:      syscall.Statfs,
+		diskTimeout: 2 * time.Second,
 	}
 	if s.proc == "" {
 		s.proc = "/proc"
@@ -135,16 +145,41 @@ func (s *systemSource) mounts(context.Context) ([]mount, error) {
 	return parseMountinfo(string(b), s.root), nil
 }
 
+type diskUsage struct {
+	total, used uint64
+	ok          bool
+}
+
 // usage bölümün doluluğu. Total, df'teki gibi kullanılan + kullanılabilir
 // alandır (root'a ayrılan pay hariç), böylece Used/Total df'teki Use% ile aynı olur.
 // Konteynerde HOST_ROOT altındaki yol başka bir aygıta çıkıyorsa (bağlama
 // konteynere yansımamış) bölüm atlanır; yoksa üst dizinin değerleri yanlışlıkla
 // bu bölüme yazılırdı.
+//
+// Stat/Statfs bloklayan çağrılardır: ölü veya askıda bir bağlama (yanıt vermeyen
+// ağ diski, kopan USB, arızalı NFS) bunları süresiz bekletebilir. Bu yüzden asıl
+// syscall'lar süreli bir goroutine'de çalıştırılır; diskTimeout içinde dönmezse
+// bölüm "bilinmiyor" sayılıp atlanır (ok=false). Böylece tek bir kötü disk tüm
+// metrik toplamayı (ve toplayıcının kilidini) süresiz bloklamaz. Askıdaki
+// goroutine yalnızca syscall çekirdekte gerçekten takılı kaldığı sürece yaşar ve
+// çağrı başına en fazla bir tanedir; toplama başına bağlama sayısıyla sınırlıdır.
 func (s *systemSource) usage(m mount) (total, used uint64, ok bool) {
+	r, timedOut := callWithTimeout(s.diskTimeout, func() diskUsage {
+		t, u, k := s.usageBlocking(m)
+		return diskUsage{total: t, used: u, ok: k}
+	})
+	if timedOut {
+		return 0, 0, false
+	}
+	return r.total, r.used, r.ok
+}
+
+// usageBlocking usage'ın syscall yapan çekirdeğidir (goroutine içinde çağrılır).
+func (s *systemSource) usageBlocking(m mount) (total, used uint64, ok bool) {
 	p := s.root + m.Point
 	if s.root != "" && m.Point != "/" && m.FS != "btrfs" {
 		var st syscall.Stat_t
-		if syscall.Stat(p, &st) != nil {
+		if s.stat(p, &st) != nil {
 			return 0, 0, false
 		}
 		dev := strconv.FormatUint(uint64(unix.Major(uint64(st.Dev))), 10) + ":" + strconv.FormatUint(uint64(unix.Minor(uint64(st.Dev))), 10)
@@ -153,7 +188,7 @@ func (s *systemSource) usage(m mount) (total, used uint64, ok bool) {
 		}
 	}
 	var fs syscall.Statfs_t
-	if syscall.Statfs(p, &fs) != nil {
+	if s.statfs(p, &fs) != nil {
 		return 0, 0, false
 	}
 	bs := uint64(fs.Bsize)
