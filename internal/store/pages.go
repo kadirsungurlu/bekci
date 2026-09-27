@@ -49,7 +49,7 @@ func (p StatusPage) MonitorIDs() []int64 {
 }
 
 const pageCols = `id, slug, title, description, footer, sections, custom_domain, password_hash,
-	show_targets, published, logo IS NOT NULL, created_at, updated_at`
+	show_targets, published, CASE WHEN logo IS NULL THEN 0 ELSE 1 END, created_at, updated_at`
 
 func scanPage(sc scanner) (StatusPage, error) {
 	var (
@@ -93,7 +93,7 @@ func (s *Store) PageByDomain(ctx context.Context, domain string) (StatusPage, er
 }
 
 func (s *Store) ListPages(ctx context.Context) ([]StatusPage, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+pageCols+" FROM status_pages ORDER BY title COLLATE NOCASE, id")
+	rows, err := s.db.QueryContext(ctx, "SELECT "+pageCols+" FROM status_pages ORDER BY LOWER(title), id")
 	if err != nil {
 		return nil, err
 	}
@@ -132,17 +132,12 @@ func (s *Store) CreatePage(ctx context.Context, p *StatusPage) error {
 	now := time.Now().Unix()
 	p.CreatedAt, p.UpdatedAt = now, now
 	sections, _ := json.Marshal(p.Sections)
-	res, err := s.db.ExecContext(ctx, `
+	return s.db.QueryRowContext(ctx, `
 		INSERT INTO status_pages (slug, title, description, footer, sections, custom_domain,
 			password_hash, show_targets, published, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 		p.Slug, p.Title, p.Description, p.Footer, string(sections), nullStr(p.CustomDomain),
-		nullStr(p.PasswordHash), boolInt(p.ShowTargets), boolInt(p.Published), now, now)
-	if err != nil {
-		return err
-	}
-	p.ID, err = res.LastInsertId()
-	return err
+		nullStr(p.PasswordHash), boolInt(p.ShowTargets), boolInt(p.Published), now, now).Scan(&p.ID)
 }
 
 // UpdatePage logo dışındaki alanları günceller (PasswordHash dahil; çağıran
@@ -269,15 +264,10 @@ func (s *Store) GetAnnouncement(ctx context.Context, id int64) (Announcement, er
 func (s *Store) CreateAnnouncement(ctx context.Context, a *Announcement) error {
 	now := time.Now().Unix()
 	a.CreatedAt, a.UpdatedAt = now, now
-	res, err := s.db.ExecContext(ctx, `
+	return s.db.QueryRowContext(ctx, `
 		INSERT INTO announcements (page_id, title, body, severity, starts_at, ends_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		a.PageID, a.Title, a.Body, a.Severity, a.StartsAt, nullInt(a.EndsAt), now, now)
-	if err != nil {
-		return err
-	}
-	a.ID, err = res.LastInsertId()
-	return err
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		a.PageID, a.Title, a.Body, a.Severity, a.StartsAt, nullInt(a.EndsAt), now, now).Scan(&a.ID)
 }
 
 func (s *Store) UpdateAnnouncement(ctx context.Context, a *Announcement) error {
@@ -379,6 +369,34 @@ func (s *Store) IncidentsFor(ctx context.Context, ids []int64, since int64, limi
 		out = append(out, in)
 	}
 	return out, rows.Err()
+}
+
+// DayStarts bugün dahil son n günün (yerel saat diliminde) başlangıçları,
+// eskiden yeniye. Günlük özet kovalarının zamanlarıyla birebir eşleşir.
+func (s *Store) DayStarts(now int64, n int) []int64 {
+	y, m, d := time.Unix(now, 0).In(s.loc).Date()
+	out := make([]int64, n)
+	for i := range out {
+		// time.Date gün taşmasını düzeltir; yaz saati geçişinde de doğru gün başını verir.
+		out[i] = time.Date(y, m, d-(n-1-i), 0, 0, 0, 0, s.loc).Unix()
+	}
+	return out
+}
+
+// PageConflict benzersizlik hatasının hangi alandan geldiğini söyler:
+// "slug", "custom_domain" veya "" (başka bir hata).
+func PageConflict(err error) string {
+	if !IsUniqueViolation(err) {
+		return ""
+	}
+	// SQLite: "status_pages.custom_domain"; PostgreSQL: "status_pages_custom_domain_key".
+	switch msg := err.Error(); {
+	case strings.Contains(msg, "custom_domain"):
+		return "custom_domain"
+	case strings.Contains(msg, "slug"):
+		return "slug"
+	}
+	return ""
 }
 
 func inClause(ids []int64) (string, []any) {

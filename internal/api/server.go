@@ -29,12 +29,17 @@ type Server struct {
 	version  string
 	limiter  *loginLimiter
 	now      func() time.Time
+	pages    *pagesState // durum sayfası önbellekleri (pages.go)
+
+	// BaseURL uygulamanın dış adresi (BASE_URL); durum sayfası özel alan adı
+	// bu adresin sunucu adıyla aynı olamaz. Boş olabilir.
+	BaseURL string
 }
 
 func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatcher, log *slog.Logger, static fs.FS, version string) *Server {
 	return &Server{
 		store: st, engine: e, hub: hub, notifier: n, log: log, static: static, version: version,
-		limiter: newLoginLimiter(), now: time.Now,
+		limiter: newLoginLimiter(), now: time.Now, pages: newPagesState(),
 	}
 }
 
@@ -96,7 +101,9 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.HandleFunc("/", s.serveStatic)
 
-	return s.recoverer(s.logRequests(securityHeaders(csrf(mux))))
+	// customDomainOnly: durum sayfasının özel alan adından gelen isteklerde
+	// yönetim API'si kapalıdır (pages.go).
+	return s.recoverer(s.logRequests(securityHeaders(s.customDomainOnly(csrf(mux)))))
 }
 
 // Ara katmanlar ------------------------------------------------------------------

@@ -32,7 +32,9 @@ type env struct {
 	client *http.Client
 }
 
-func newEnv(t *testing.T) *env {
+// newEnv test sunucusu kurar; opts Handler() öncesi sunucuyu ayarlamak (ör.
+// BaseURL, saat) veya ona erişmek için kullanılabilir.
+func newEnv(t *testing.T, opts ...func(*Server)) *env {
 	t.Helper()
 	st, err := store.Open(filepath.Join(t.TempDir(), "t.db"), time.UTC)
 	if err != nil {
@@ -49,6 +51,9 @@ func newEnv(t *testing.T) *env {
 	}
 	static := fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Uptime</title>")}}
 	s := New(st, eng, hub, disp, log, static, "test")
+	for _, o := range opts {
+		o(s)
+	}
 	srv := httptest.NewServer(s.Handler())
 	jar, _ := cookiejar.New(nil)
 	t.Cleanup(func() {
