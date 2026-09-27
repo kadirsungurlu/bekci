@@ -316,7 +316,7 @@ func TestProbeResultsInbox(t *testing.T) {
 func TestProbeWatcher(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	ch, unsub := f.e.hub.Subscribe()
+	ch, unsub, _ := f.e.hub.Subscribe(0)
 	defer unsub()
 	p := f.probe(t, "P", true)
 	known := f.e.scanProbes(ctx, nil) // ilk tarama olay üretmez

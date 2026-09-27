@@ -233,6 +233,12 @@ func validHostname(h string) bool {
 	return strings.Trim(tld, "0123456789") != "" // son parça tamamen rakamsa IP adresidir
 }
 
+// isPageAdmin kullanıcının özel alan adı alanını değiştirme yetkisi var mı
+// (yalnızca yönetici).
+func isPageAdmin(u store.User) bool {
+	return store.RoleRank(u.Role) >= store.RoleRank(store.RoleAdmin)
+}
+
 // baseHost BASE_URL'in sunucu adı (boş olabilir).
 func (s *Server) baseHost() string {
 	u, err := url.Parse(s.BaseURL)
@@ -243,7 +249,9 @@ func (s *Server) baseHost() string {
 }
 
 // normalizePage girdiyi doğrular ve sayfaya uygular. old nil ise yeni sayfa.
-func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.StatusPage) (store.StatusPage, error) {
+// reqHost isteğin geldiği sunucu adı (özel alan adı kendini kilitlemesin diye).
+// isAdmin özel alan adı alanını değiştirme yetkisi (yalnızca yönetici).
+func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.StatusPage, reqHost string, isAdmin bool) (store.StatusPage, error) {
 	p := store.StatusPage{Published: true, BarRange: store.BarRangeRecent, ShowIncidents: true}
 	if old != nil {
 		p = *old
@@ -307,11 +315,26 @@ func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.St
 	p.Sections = sections
 
 	p.CustomDomain = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(in.CustomDomain)), ".")
+	// Özel alan adını yalnızca yönetici belirleyebilir veya değiştirebilir;
+	// editör alanı değiştirmeyen bir kaydı yine de saklayabilir. Böylece bir
+	// editör sayfayı kendi alan adına (ör. uygulamanın adresine) yönlendirip
+	// yönetim arayüzünü kilitleyemez.
+	oldDomain := ""
+	if old != nil {
+		oldDomain = old.CustomDomain
+	}
+	if p.CustomDomain != oldDomain && !isAdmin {
+		return p, &inputError{http.StatusForbidden, "Özel alan adını yalnızca yöneticiler değiştirebilir"}
+	}
 	if p.CustomDomain != "" {
 		if !validHostname(p.CustomDomain) {
 			return p, badInput("Geçerli bir alan adı girin (ör. durum.ornek.com); http:// ve / olmadan")
 		}
-		if p.CustomDomain == s.baseHost() {
+		// Uygulamanın kendi adresi (BASE_URL) ya da isteğin geldiği adres
+		// olamaz; aksi halde o alan adında yönetim API'si (giriş dahil)
+		// kapanır ve kimse arayüze erişemez. BASE_URL boşken de isteğin
+		// geldiği adres kontrol edilir.
+		if base := s.baseHost(); (base != "" && p.CustomDomain == base) || p.CustomDomain == reqHost {
 			return p, badInput("Özel alan adı uygulamanın kendi adresi olamaz")
 		}
 	}
@@ -462,7 +485,7 @@ func (s *Server) createPage(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &in) {
 		return
 	}
-	p, err := s.normalizePage(r.Context(), &in, nil)
+	p, err := s.normalizePage(r.Context(), &in, nil, requestHost(r), isPageAdmin(userFrom(r)))
 	if err != nil {
 		s.writeInputError(w, err)
 		return
@@ -490,7 +513,7 @@ func (s *Server) updatePage(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &in) {
 		return
 	}
-	p, err := s.normalizePage(r.Context(), &in, &old)
+	p, err := s.normalizePage(r.Context(), &in, &old, requestHost(r), isPageAdmin(userFrom(r)))
 	if err != nil {
 		s.writeInputError(w, err)
 		return

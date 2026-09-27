@@ -85,9 +85,13 @@ func isAPIKeyRequest(r *http.Request) bool {
 }
 
 // sessionOnly anahtarla kullanılamayan, gerçek oturum gerektiren yollar.
+// Yedek dışa/içe aktarma da buradadır: dışa aktarma tüm gizli bilgileri ve
+// sayfa şifre özetlerini açık verir; sızan bir API anahtarı her şeyi
+// dökememeli. Tarayıcı bu uçları oturum çereziyle kullandığından etkilenmez.
 func sessionOnly(path string) bool {
 	return strings.HasPrefix(path, "/api/auth/") ||
 		path == "/api/api-keys" || strings.HasPrefix(path, "/api/api-keys/") ||
+		path == "/api/export" || strings.HasPrefix(path, "/api/import") ||
 		strings.Contains(path, "/2fa/")
 }
 

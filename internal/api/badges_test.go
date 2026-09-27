@@ -62,8 +62,12 @@ func TestBadgeExposure(t *testing.T) {
 	if code, _, _ := badge(secret.ID, "status.svg", nil); code != 404 {
 		t.Errorf("yayında olmayan/şifreli sayfadaki monitör: %d, 404 bekleniyordu", code)
 	}
-	// Yayındaki şifresiz sayfa → herkese açık.
+	// Yayındaki şifresiz sayfa → herkese açık. Rozet "herkese açık monitör"
+	// listesini kısa süre önbelleğe alır (badgeAllowTTL); sayfa doğrudan
+	// veritabanına yazıldığı için (API'yi atlayarak) önbellek yenilensin diye
+	// saat ileri alınır.
 	f.page(true, "", public.ID)
+	f.clk.advance(badgeAllowTTL + time.Second)
 	for _, kind := range []string{"status.svg", "uptime.svg", "ping.svg", "cert-exp.svg"} {
 		code, h, body := badge(public.ID, kind, nil)
 		if code != 200 {

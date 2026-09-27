@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -355,13 +356,43 @@ func inNets(ip netip.Addr, nets []netip.Prefix) bool {
 	return false
 }
 
+// trustedProxies TRUSTED_PROXY ortam değişkenindeki güvenilir proxy ağları
+// (virgülle ayrılmış CIDR). Ayarlıysa X-Forwarded-For / CF-Connecting-IP
+// başlıklarına yalnızca doğrudan bağlanan adres bu ağlardan biriyse güvenilir;
+// aksi halde RemoteAddr kullanılır. Boşsa geriye dönük uyumluluk için eski
+// davranış geçerlidir (tüm özel/loopback adresler güvenilir).
+var trustedProxies = sync.OnceValue(func() []netip.Prefix { return parseCIDRList(os.Getenv("TRUSTED_PROXY")) })
+
+// parseCIDRList virgülle ayrılmış CIDR listesini ayrıştırır; geçersizler atlanır.
+func parseCIDRList(s string) []netip.Prefix {
+	var out []netip.Prefix
+	for _, part := range strings.Split(s, ",") {
+		if part = strings.TrimSpace(part); part == "" {
+			continue
+		}
+		if p, err := netip.ParsePrefix(part); err == nil {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // clientIP isteği yapan istemcinin adresini bulur. Zincir:
 // istemci → Cloudflare → Traefik (aynı makinede, özel ağ) → uygulama.
-//  1. Doğrudan bağlanan özel ağdaki proxy (Traefik) ise gerçek bağlanan adres,
+//  1. Doğrudan bağlanan güvenilir proxy (Traefik) ise gerçek bağlanan adres,
 //     Traefik'in X-Forwarded-For'a eklediği son değerdir (ilk değerler
 //     istemci tarafından uydurulabilir).
 //  2. O adres bir Cloudflare sunucusuysa asıl istemci CF-Connecting-IP'dedir.
+//
+// TRUSTED_PROXY ayarlıysa yalnızca oradaki ağlar güvenilir; ayarlı değilse
+// (varsayılan) tüm özel/loopback adresler güvenilir sayılır.
 func clientIP(r *http.Request) string {
+	return clientIPUsing(r, trustedProxies())
+}
+
+// clientIPUsing clientIP'nin, güvenilir proxy ağları dışarıdan verilen
+// sürümüdür (test edilebilirlik için). trusted boşsa eski davranış geçerlidir.
+func clientIPUsing(r *http.Request, trusted []netip.Prefix) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		host = r.RemoteAddr
@@ -370,7 +401,14 @@ func clientIP(r *http.Request) string {
 	if err != nil {
 		return host
 	}
-	if peer.IsPrivate() || peer.IsLoopback() {
+	proxyMode := len(trusted) > 0
+	var trust bool
+	if proxyMode {
+		trust = inNets(peer, trusted)
+	} else {
+		trust = peer.IsPrivate() || peer.IsLoopback()
+	}
+	if trust {
 		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 			parts := strings.Split(xff, ",")
 			if p, err := netip.ParseAddr(strings.TrimSpace(parts[len(parts)-1])); err == nil {
@@ -378,7 +416,10 @@ func clientIP(r *http.Request) string {
 			}
 		}
 	}
-	if inNets(peer, cloudflareNets) {
+	// CF-Connecting-IP yalnızca istek gerçekten bir Cloudflare kenarından
+	// geldiyse; TRUSTED_PROXY ayarlıyken ayrıca doğrudan bağlanan adres
+	// güvenilir olmalı (aksi halde başlık uydurulabilirdi).
+	if (!proxyMode || trust) && inNets(peer, cloudflareNets) {
 		if cf, err := netip.ParseAddr(strings.TrimSpace(r.Header.Get("CF-Connecting-IP"))); err == nil {
 			return cf.Unmap().String()
 		}

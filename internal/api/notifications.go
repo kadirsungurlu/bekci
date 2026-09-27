@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -13,6 +15,56 @@ import (
 	"github.com/kadirsa1105/uptime-kadir-app/internal/notify"
 	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
 )
+
+// Kullanıcı başına giden bildirim (test ve örnek) hız sınırı: bir editör
+// dışarıya sınırsız istek gönderemesin ya da örnek diziyle mesaj yağmuru
+// yapamasın.
+const (
+	notifTestPerMin     = 10 // test: kullanıcı başına dakikada
+	notifSampleInterval = 60 // örnek dizisi: kullanıcı başına saniyede bir kez
+)
+
+// notifyLimiter test (dakikalık sabit pencere) ve örnek (asgari aralık)
+// isteklerini kullanıcı kimliğine göre sınırlar.
+type notifyLimiter struct {
+	mu      sync.Mutex
+	test    map[int64]*notifWindow
+	samples map[int64]int64 // kullanıcı → son örnek dizisi zamanı (unix)
+}
+
+type notifWindow struct {
+	start int64
+	count int
+}
+
+func newNotifyLimiter() *notifyLimiter {
+	return &notifyLimiter{test: map[int64]*notifWindow{}, samples: map[int64]int64{}}
+}
+
+func (l *notifyLimiter) allowTest(uid int64, now time.Time) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	minute := now.Unix() / 60
+	w := l.test[uid]
+	if w == nil || w.start != minute {
+		w = &notifWindow{start: minute}
+		l.test[uid] = w
+	}
+	w.count++
+	return w.count <= notifTestPerMin
+}
+
+// allowSample izin verirse zamanı kaydeder; aksi halde kalan bekleme (saniye).
+func (l *notifyLimiter) allowSample(uid int64, now time.Time) (bool, int) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	sec := now.Unix()
+	if last, ok := l.samples[uid]; ok && sec-last < notifSampleInterval {
+		return false, int(notifSampleInterval - (sec - last))
+	}
+	l.samples[uid] = sec
+	return true, 0
+}
 
 type notificationInput struct {
 	Name          string          `json:"name"`
@@ -135,6 +187,11 @@ func (s *Server) deleteNotification(w http.ResponseWriter, r *http.Request) {
 // testNotification formdaki (henüz kaydedilmemiş olabilir) ayarla test gönderir.
 // Kayıtlı bir kanal düzenleniyorsa maskeli gizli alanlar kayıttan tamamlanır.
 func (s *Server) testNotification(w http.ResponseWriter, r *http.Request) {
+	if !s.notifyRL.allowTest(userFrom(r).ID, s.now()) {
+		w.Header().Set("Retry-After", "60")
+		writeError(w, http.StatusTooManyRequests, "Çok fazla test isteği; bir dakika sonra tekrar deneyin")
+		return
+	}
 	var in struct {
 		ID     int64           `json:"id"`
 		Type   string          `json:"type"`
@@ -189,6 +246,12 @@ func (s *Server) sampleNotifications(w http.ResponseWriter, r *http.Request) {
 	ch, err := s.store.GetNotification(r.Context(), id)
 	if err != nil {
 		s.dbError(w, err)
+		return
+	}
+	// Örnek dizisi ~10 mesaj gönderir; kullanıcı başına en fazla 60 saniyede bir.
+	if ok, wait := s.notifyRL.allowSample(userFrom(r).ID, s.now()); !ok {
+		w.Header().Set("Retry-After", strconv.Itoa(wait))
+		writeError(w, http.StatusTooManyRequests, "Örnek bildirimler çok sık istendi; "+strconv.Itoa(wait)+" saniye sonra tekrar deneyin")
 		return
 	}
 	n := notify.SampleNames{}
