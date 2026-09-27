@@ -46,6 +46,9 @@ type Engine struct {
 	mu      sync.Mutex
 	ctx     context.Context
 	runners map[int64]*runner
+
+	bg              sync.WaitGroup // arka plan işleri (watchProbes)
+	probeWatchEvery time.Duration  // kontrol noktası durum taraması; testlerde kısaltılır
 }
 
 func New(st *store.Store, n Notifier, hub *Hub, log *slog.Logger, cfg Config) *Engine {
@@ -60,6 +63,8 @@ func New(st *store.Store, n Notifier, hub *Hub, log *slog.Logger, cfg Config) *E
 		sem:     make(chan struct{}, cfg.MaxConcurrent),
 		now:     time.Now,
 		runners: map[int64]*runner{},
+
+		probeWatchEvery: 10 * time.Second,
 	}
 	def := store.DefaultSettings()
 	e.settings.Store(&def)
@@ -81,6 +86,8 @@ func (e *Engine) Start(ctx context.Context) error {
 	e.mu.Lock()
 	e.ctx = ctx
 	e.mu.Unlock()
+	e.bg.Add(1)
+	go e.watchProbes(ctx) // kontrol noktalarının çevrimiçi/çevrimdışı değişimleri (probes.go)
 	n := 0
 	for _, m := range monitors {
 		if m.Active {
@@ -134,6 +141,7 @@ func (e *Engine) Wait() {
 	for _, r := range rs {
 		<-r.done
 	}
+	e.bg.Wait()
 }
 
 var (
@@ -200,6 +208,7 @@ func (e *Engine) start(m store.Monitor) error {
 	if !ok {
 		return fmt.Errorf("bilinmeyen monitör tipi: %s", m.Type)
 	}
+	locs := e.loadLocations(m) // kilit dışında: veritabanı okur
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.ctx == nil {
@@ -214,6 +223,7 @@ func (e *Engine) start(m store.Monitor) error {
 		e: e, m: m, checker: checker, cancel: cancel,
 		done:   make(chan struct{}),
 		pushCh: make(chan check.Result, 8),
+		locs:   locs,
 	}
 	r.confirmed = r.initialConfirmed(ctx)
 	e.runners[m.ID] = r

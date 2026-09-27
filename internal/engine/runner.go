@@ -24,6 +24,8 @@ type runner struct {
 	retries   int // art arda başarısız deneme (PENDING'de)
 	confirmed int // son onaylanmış durum: StatusUp, StatusDown veya unknown
 	downBeats int // DOWN'dayken art arda kontrol sayısı (hatırlatma için)
+
+	locs *locationSet // nil: tek konumlu (yalnızca ana sunucu); bkz. locations.go
 }
 
 // initialConfirmed yeniden başlatmada sahte bildirim gitmesin diye son
@@ -80,15 +82,30 @@ func (r *runner) loop(ctx context.Context) {
 	}
 	timer := time.NewTimer(first)
 	defer timer.Stop()
+	var wake <-chan struct{} // tek konumlu monitörde nil: hiç tetiklenmez
+	if r.locs != nil {
+		wake = r.locs.wake
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-wake:
+			if r.locationWake() {
+				resetTimer(timer, r.nextDelay())
+			}
 		case res := <-r.pushCh:
 			r.process(res)
 			resetTimer(timer, r.nextDelay())
 		case <-timer.C:
+			if r.locs != nil {
+				if !r.locationTick(ctx) {
+					return
+				}
+				timer.Reset(r.nextDelay())
+				continue
+			}
 			var res check.Result
 			if r.m.Type == check.TypePush {
 				res = r.checker.Check(ctx, r.m.Config) // "sinyal gelmedi"
@@ -141,7 +158,8 @@ func (r *runner) process(res check.Result) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	now := r.e.now()
-	if r.m.UpsideDown && !res.Pending {
+	// Çok konumlu monitörde ters mod ve tekrar deneme konum başına uygulanmıştır.
+	if r.m.UpsideDown && !res.Pending && r.locs == nil {
 		res.Up = !res.Up
 		if !res.Up {
 			res.Message = "Ters mod: hedef erişilebilir (" + res.Message + ")"
@@ -166,7 +184,7 @@ func (r *runner) process(res check.Result) {
 		status = store.StatusUp
 	case res.Pending:
 		status = store.StatusPending // belirsiz sonuç: tekrar deneme hakkı harcanmaz
-	case r.confirmed != store.StatusDown && r.retries < r.m.MaxRetries:
+	case r.locs == nil && r.confirmed != store.StatusDown && r.retries < r.m.MaxRetries:
 		status = store.StatusPending
 		r.retries++
 	}

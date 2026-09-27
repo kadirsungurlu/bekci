@@ -10,6 +10,11 @@
 //	LOG_LEVEL              debug | info | warn | error (varsayılan info)
 //	MAX_CONCURRENT_CHECKS  aynı anda en fazla kontrol sayısı (varsayılan 50)
 //	TZ                     saat dilimi (günlük özetler ve yedek saati için)
+//	PROBE_IMAGE            kontrol noktası kurulum komutunda gösterilen Docker imajı (varsayılan uptime)
+//
+// Uzak kontrol noktası modu (veritabanı kullanmaz; bkz. probe.go):
+//
+//	uptime probe            PROBE_SERVER ve PROBE_TOKEN ortam değişkenleriyle
 //
 // Şifre sıfırlama (giriş yapılamadığında, container içinde):
 //
@@ -69,6 +74,9 @@ func run() error {
 		level = slog.LevelInfo
 	}
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
+	if len(os.Args) > 1 && os.Args[1] == "probe" {
+		return runProbe(log)
+	}
 
 	dataDir := env("DATA_DIR", "./data")
 	if err := os.MkdirAll(dataDir, 0o750); err != nil {
@@ -112,6 +120,7 @@ func run() error {
 
 	apiServer := api.New(st, eng, hub, dispatcher, log, web.Dist(), version)
 	apiServer.BaseURL = baseURL
+	apiServer.ProbeImage = env("PROBE_IMAGE", "")
 	srv := &http.Server{
 		Addr:              env("ADDR", ":8080"),
 		Handler:           apiServer.Handler(),
