@@ -14,16 +14,21 @@
     m,
     now,
     menuOpen,
+    selected = false,
+    selecting = false,
     onmenu,
-    onpause,
-    ondelete,
+    onselect,
   }: {
     m: MonitorView;
     now: number;
     menuOpen: boolean;
-    onmenu: (id: number | null) => void;
-    onpause: (m: MonitorView) => void;
-    ondelete: (m: MonitorView) => void;
+    selected?: boolean;
+    /** Seçim modu: en az bir monitör seçili (dokunmatikte satıra dokunmak seçer). */
+    selecting?: boolean;
+    /** Satır menüsünü tetikleyici düğmenin yanında açar (null: kapat). */
+    onmenu: (m: MonitorView | null, anchor?: HTMLElement) => void;
+    /** Seçimi değiştirir; range: Shift ile aralık seçimi. */
+    onselect?: (m: MonitorView, range: boolean) => void;
   } = $props();
 
   const kind = $derived(monitorKind(m));
@@ -31,6 +36,8 @@
   // Satırda en fazla 3 etiket; fazlası "+N" olarak.
   const tags = $derived(m.tags ?? []);
   const shownTags = $derived(tags.slice(0, 3));
+  // Süren olay: detay sayfasına kısayol (izleyici de görür; liste zaten kapsamla süzülü).
+  const incident = $derived(kind === 'down' && m.open_incident_id ? m.open_incident_id : null);
 
   const sub = $derived.by(() => {
     switch (kind) {
@@ -54,37 +61,106 @@
   });
 
   const href = $derived(`#/monitors/${m.id}`);
+  const narrow = () => window.matchMedia('(max-width: 640px)').matches;
 
-  // Menü ekrana sabitlenir (liste kendi içinde kaydığında kutunun kenarında
-  // kesilmesin); ekranın altına sığmıyorsa yukarı açılır (mobilde sekme çubuğu
-  // altında kalmasın).
-  let menuStyle = $state('');
-  let menuUp = $state(false);
-  function toggleMenu(e: MouseEvent) {
-    if (menuOpen) {
-      onmenu(null);
+  // Dokunmatikte uzun basış satırı seçer (seçim modunu başlatır).
+  let pressTimer: ReturnType<typeof setTimeout> | undefined;
+  let pressStart: { x: number; y: number } | null = null;
+  let suppressClick = false;
+  function onPointerDown(e: PointerEvent) {
+    // Uzun basıştan sonra tarayıcı tıklama göndermediyse bayrak bir sonraki dokunuşu yutmasın.
+    suppressClick = false;
+    if (!onselect || e.pointerType === 'mouse') return;
+    pressStart = { x: e.clientX, y: e.clientY };
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => {
+      pressStart = null;
+      suppressClick = true;
+      navigator.vibrate?.(10);
+      onselect?.(m, false);
+    }, 480);
+  }
+  function onPointerMove(e: PointerEvent) {
+    if (pressStart && Math.hypot(e.clientX - pressStart.x, e.clientY - pressStart.y) > 10) cancelPress();
+  }
+  function cancelPress() {
+    clearTimeout(pressTimer);
+    pressStart = null;
+  }
+
+  function onRowClick(e: MouseEvent) {
+    if (suppressClick) {
+      suppressClick = false;
+      e.preventDefault();
       return;
     }
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const right = `right:${Math.round(window.innerWidth - r.right)}px`;
-    menuUp = window.innerHeight - r.bottom < 190;
-    menuStyle = menuUp
-        ? `${right};bottom:${Math.round(window.innerHeight - r.top + 4)}px`
-        : `${right};top:${Math.round(r.bottom + 4)}px`;
-    onmenu(m.id);
+    // Dar ekranda seçim modundayken satıra dokunmak seçimi değiştirir.
+    if (selecting && onselect && narrow()) {
+      onselect(m, false);
+      return;
+    }
+    navigate(`/monitors/${m.id}`);
+  }
+
+  function toggleMenu(e: MouseEvent) {
+    e.stopPropagation();
+    if (menuOpen) onmenu(null);
+    else onmenu(m, e.currentTarget as HTMLElement);
   }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="row" class:dim={kind === 'paused'} onclick={() => navigate(`/monitors/${m.id}`)}>
+<div
+  class="row"
+  class:dim={kind === 'paused'}
+  class:selectable={!!onselect}
+  class:selecting
+  class:selected
+  class:has-inc={incident !== null}
+  onclick={onRowClick}
+  onpointerdown={onPointerDown}
+  onpointermove={onPointerMove}
+  onpointerup={cancelPress}
+  onpointercancel={cancelPress}
+  onpointerleave={cancelPress}
+  oncontextmenu={(e) => {
+    // Android uzun basışta bağlam menüsü açar; seçimle çakışmasın.
+    if (onselect && (pressStart || suppressClick)) e.preventDefault();
+  }}
+>
+  {#if onselect}
+    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+    <label class="sel check" onclick={(e) => e.stopPropagation()}>
+      <input
+        type="checkbox"
+        checked={selected}
+        onclick={(e) => {
+          e.stopPropagation();
+          onselect?.(m, e.shiftKey);
+        }}
+        aria-label="{m.name} seç"
+      />
+    </label>
+  {/if}
   <div class="ic"><StatusIcon {kind} size={32} /></div>
   <div class="info">
     <div class="name">
-      <a {href} onclick={(e) => e.stopPropagation()}>{m.name}</a>
+      <a
+        {href}
+        onclick={(e) => {
+          e.stopPropagation();
+          // Dar ekranda seçim modunda ada dokunmak da seçer (satırın geri kalanı gibi).
+          if (suppressClick || (selecting && onselect && narrow())) {
+            e.preventDefault();
+            if (suppressClick) suppressClick = false;
+            else onselect?.(m, false);
+          }
+        }}>{m.name}</a
+      >
       <TypeBadge type={m.type} />
       {#if tags.length}
         <span class="tags">
-          {#each shownTags as t (t.id)}<TagChip name={t.name} color={t.color} value={t.value} size="sm" />{/each}
+          {#each shownTags as t (t.id + ':' + t.value)}<TagChip name={t.name} color={t.color} value={t.value} size="sm" />{/each}
         </span>
         {#if tags.length > 3}<span class="more-tags" title={tags.slice(3).map((t) => (t.value ? `${t.name}: ${t.value}` : t.name)).join(', ')}>+{tags.length - 3}</span>{/if}
       {/if}
@@ -95,6 +171,12 @@
       >
     </div>
   </div>
+  {#if incident !== null}
+    <a class="inc" href="#/incidents/{incident}" onclick={(e) => e.stopPropagation()} title="Süren olayın ayrıntıları">
+      <Icon name="zap" size={13} />
+      <span class="inc-l">Olayı gör</span><span class="inc-s">Olay</span>
+    </a>
+  {/if}
   <div class="interval" title="Kontrol aralığı">
     <Icon name="refresh" size={13} />
     {fmtInterval(m.interval)}
@@ -104,59 +186,40 @@
     <div class="pct" class:c-down={m.uptime_24h !== null && m.uptime_24h < 99}>{fmtPct(m.uptime_24h)}</div>
   </div>
   {#if session.canEdit}
-  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-  <div class="menu" onclick={(e) => e.stopPropagation()}>
-    <button
-      type="button"
-      class="btn ghost icon"
-      aria-label="İşlemler"
-      aria-expanded={menuOpen}
-      onclick={toggleMenu}
-    >
-      <Icon name="more" />
-    </button>
-    {#if menuOpen}
-      <div class="dropdown" class:up={menuUp} style={menuStyle} role="menu">
-        <a role="menuitem" href="#/monitors/{m.id}/edit" onclick={() => onmenu(null)}><Icon name="edit" size={15} /> Düzenle</a>
-        <button
-          role="menuitem"
-          type="button"
-          onclick={() => {
-            onmenu(null);
-            onpause(m);
-          }}
-        >
-          <Icon name={m.active ? 'pause' : 'play'} size={15} />
-          {m.active ? 'Durdur' : 'Başlat'}
-        </button>
-        <button
-          role="menuitem"
-          type="button"
-          class="danger"
-          onclick={() => {
-            onmenu(null);
-            ondelete(m);
-          }}
-        >
-          <Icon name="trash" size={15} /> Sil
-        </button>
-      </div>
-    {/if}
-  </div>
+    <div class="menu">
+      <button
+        type="button"
+        class="btn ghost icon"
+        class:open={menuOpen}
+        aria-label="{m.name} için işlemler"
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        onclick={toggleMenu}
+      >
+        <Icon name="more" />
+      </button>
+    </div>
   {/if}
 </div>
 
 <style>
   .row {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
-    grid-template-areas: 'ic info interval uptime menu';
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+    grid-template-areas: 'ic info inc interval uptime menu';
     align-items: center;
     column-gap: 16px;
     padding: 14px 10px 14px 18px;
     border-bottom: 1px solid var(--border);
     cursor: pointer;
     transition: background 0.12s;
+    -webkit-touch-callout: none;
+  }
+  .row.selectable {
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto auto auto;
+    grid-template-areas: 'sel ic info inc interval uptime menu';
+    column-gap: 14px;
+    padding-left: 14px;
   }
   /* Dokunmatik ekranda dokunulan satır "hover" rengiyle takılı kalmasın. */
   @media (hover: hover) {
@@ -164,9 +227,34 @@
       background: var(--card-hover);
     }
   }
+  .row.selected {
+    background: color-mix(in srgb, var(--accent) 7%, var(--card));
+  }
+  @media (hover: hover) {
+    .row.selected:hover {
+      background: color-mix(in srgb, var(--accent) 10%, var(--card));
+    }
+  }
   .row.dim .info,
   .row.dim .uptime {
     opacity: 0.6;
+  }
+  /* Seçim kutusu: masaüstünde satırın üzerine gelince veya seçim varken görünür. */
+  .sel {
+    grid-area: sel;
+    align-items: center;
+    padding: 8px 2px;
+    margin: -8px -2px;
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+  .sel input {
+    margin: 0;
+  }
+  .row:hover .sel,
+  .row.selecting .sel,
+  .sel:focus-within {
+    opacity: 1;
   }
   .ic {
     grid-area: ic;
@@ -184,7 +272,6 @@
   }
   .name a {
     flex: 0 1 auto;
-    min-width: 4em;
     color: var(--text);
     font-weight: 700;
     font-size: 0.97rem;
@@ -231,6 +318,35 @@
   .c-muted {
     color: var(--muted);
   }
+  .inc {
+    grid-area: inc;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 12px 0 10px;
+    border-radius: 999px;
+    border: 1px solid var(--down-border);
+    background: var(--down-soft);
+    color: var(--down-text);
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: none;
+    transition:
+      background 0.12s,
+      border-color 0.12s;
+  }
+  .inc-s {
+    display: none;
+  }
+  @media (hover: hover) {
+    .inc:hover {
+      background: color-mix(in srgb, var(--down) 24%, transparent);
+      border-color: var(--down);
+      text-decoration: none;
+    }
+  }
   .interval {
     grid-area: interval;
     display: flex;
@@ -256,61 +372,10 @@
   }
   .menu {
     grid-area: menu;
-    position: relative;
   }
-  .dropdown {
-    position: fixed;
-    animation: pop 0.12s ease-out;
-    z-index: 30;
-    min-width: 160px;
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 10px;
-    box-shadow: var(--shadow);
-    padding: 5px;
-    display: flex;
-    flex-direction: column;
-  }
-  .dropdown a,
-  .dropdown button {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 8px 10px;
-    border-radius: 7px;
-    background: none;
-    border: none;
-    color: var(--text);
-    font: inherit;
-    font-size: 0.9rem;
-    cursor: pointer;
-    text-align: left;
-    text-decoration: none;
-  }
-  .dropdown a:hover,
-  .dropdown button:hover,
-  .dropdown a:focus-visible,
-  .dropdown button:focus-visible {
+  .menu .btn.open {
     background: var(--card-2);
-    outline: none;
-  }
-  .dropdown .danger {
-    color: var(--down-text-2);
-  }
-  @keyframes pop {
-    from {
-      opacity: 0;
-      transform: translateY(-4px);
-    }
-  }
-  .dropdown.up {
-    animation-name: pop-up;
-  }
-  @keyframes pop-up {
-    from {
-      opacity: 0;
-      transform: translateY(4px);
-    }
+    color: var(--text);
   }
 
   /* Dar masaüstünde (kenar çubuğu + yan panel varken) ada daha çok yer bırak. */
@@ -318,19 +383,51 @@
     .uptime {
       width: 180px;
     }
+    /* Olay düğmesi varken aralık sütunu gizlenir (ad sıkışmasın). */
+    .row.has-inc .interval {
+      display: none;
+    }
   }
   @media (max-width: 640px) {
-    .row {
-      grid-template-columns: auto minmax(0, 1fr) auto;
+    .row,
+    .row.selectable {
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
       grid-template-areas:
-        'ic info menu'
-        '. uptime uptime';
-      column-gap: 12px;
+        'ic info inc menu'
+        '. uptime uptime uptime';
+      column-gap: 10px;
       row-gap: 8px;
       padding: 12px 6px 12px 14px;
     }
+    /* Seçim kutusu yalnızca seçim modunda, durum ikonunun yerinde. */
+    .row.selectable .sel {
+      display: none;
+      grid-area: ic;
+      justify-self: center;
+    }
+    .row.selecting .sel {
+      display: flex;
+      opacity: 1;
+      padding: 7px;
+      margin: 0;
+    }
+    .row.selecting .ic {
+      display: none;
+    }
     .interval {
       display: none;
+    }
+    .inc {
+      height: 26px;
+      padding: 0 9px 0 8px;
+      font-size: 0.76rem;
+      gap: 4px;
+    }
+    .inc-l {
+      display: none;
+    }
+    .inc-s {
+      display: inline;
     }
     .name {
       flex-wrap: wrap;

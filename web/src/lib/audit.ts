@@ -19,6 +19,9 @@ export const AUDIT_LABELS: Record<string, string> = {
   'monitor.delete': 'Monitör silindi',
   'monitor.pause': 'Monitör durduruldu',
   'monitor.resume': 'Monitör başlatıldı',
+  'monitor.clone': 'Monitör kopyalandı',
+  'monitor.reset_stats': 'Monitör istatistikleri sıfırlandı',
+  'monitor.notifications': 'Monitör bildirim kanalları değiştirildi',
   'notification.create': 'Bildirim kanalı eklendi',
   'notification.update': 'Bildirim kanalı güncellendi',
   'notification.delete': 'Bildirim kanalı silindi',
@@ -74,6 +77,7 @@ export function auditTone(action: string): AuditTone {
     action.endsWith('.revoke') ||
     action.endsWith('_reset') ||
     action === 'user.password_reset' ||
+    action === 'monitor.reset_stats' ||
     action === 'probe.token'
   )
     return 'warn';

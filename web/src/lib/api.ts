@@ -148,6 +148,22 @@ export interface MonitorView {
   in_maintenance?: boolean;
   tags?: MonitorTag[];
   locations?: LocationSetup;
+  /** Süren olayın kimliği ("Olayı gör"); yoksa null. Eski sunucularda alan yok. */
+  open_incident_id?: number | null;
+}
+
+/** Monitör listesindeki toplu işlemler (POST /api/monitors/bulk). */
+export type BulkAction =
+  | { action: 'pause' | 'resume' | 'delete' }
+  | { action: 'add_tag'; tag_id: number; value: string }
+  | { action: 'remove_tag'; tag_id: number }
+  | { action: 'add_notification' | 'remove_notification'; notification_id: number };
+
+export interface BulkResult {
+  /** Gerçekten değişen monitör sayısı (zaten durdurulmuş olanlar vb. sayılmaz). */
+  changed: number;
+  monitors: MonitorView[];
+  deleted: number[];
 }
 
 // Etiketler ------------------------------------------------------------------------
@@ -824,6 +840,14 @@ export const api = {
   deleteMonitor: (id: number) => del<{ ok: boolean }>(`/api/monitors/${id}`),
   pauseMonitor: (id: number) => post<MonitorView>(`/api/monitors/${id}/pause`),
   resumeMonitor: (id: number) => post<MonitorView>(`/api/monitors/${id}/resume`),
+  // Listedeki hızlı işlemler
+  cloneMonitor: (id: number) => post<MonitorView>(`/api/monitors/${id}/clone`),
+  resetMonitorStats: (id: number) => post<MonitorView>(`/api/monitors/${id}/reset-stats`),
+  setMonitorNotifications: (id: number, ids: number[]) =>
+    put<MonitorView>(`/api/monitors/${id}/notifications`, { notification_ids: ids }),
+  bulkMonitors: (ids: number[], a: BulkAction) => post<BulkResult>('/api/monitors/bulk', { ids, ...a }),
+  addPageMonitor: (pageId: number, body: { monitor_id: number; section: number; section_title: string; name: string }) =>
+    post<StatusPage>(`/api/status-pages/${pageId}/monitors`, body),
   series: (id: number, range: SeriesRange) => get<Series>(`/api/monitors/${id}/series?range=${range}`),
   monitorIncidents: (id: number) => get<Incident[]>(`/api/monitors/${id}/incidents`),
   incidents: (before: number, limit: number) =>

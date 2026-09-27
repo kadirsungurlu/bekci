@@ -4,7 +4,7 @@
 // geldiğinde yalnızca o monitörün nesnesi yenisiyle değiştirilir. Böylece keyed each
 // bloğunda sadece değişen satır yeniden çizilir; yüzlerce monitörde de hızlı kalır.
 
-import { api, errorMessage, STATUS_MAINTENANCE, type BeatEvent, type MonitorView, type ProbeEvent, type ServerView, type Summary } from './api';
+import { api, errorMessage, STATUS_DOWN, STATUS_MAINTENANCE, STATUS_UP, type BeatEvent, type MonitorView, type ProbeEvent, type ServerView, type Summary } from './api';
 
 type BeatListener = (b: BeatEvent) => void;
 type MaintListener = (id: number) => void;
@@ -32,6 +32,8 @@ class Live {
   private probeListeners = new Set<ProbeListener>();
   private serverListeners = new Set<ServerListener>();
   private reconnectListeners = new Set<() => void>();
+  private statsResetListeners = new Set<(id: number) => void>();
+  private softRefreshTimer: ReturnType<typeof setTimeout> | undefined;
   private maintTimer: ReturnType<typeof setTimeout> | undefined;
   private lastRefresh = 0;
   private everConnected = false;
@@ -54,6 +56,7 @@ class Live {
     clearTimeout(this.flushTimer);
     clearTimeout(this.summaryTimer);
     clearTimeout(this.maintTimer);
+    clearTimeout(this.softRefreshTimer);
     document.removeEventListener('visibilitychange', this.onVisible);
     this.pending.clear();
     this.monitors = [];
@@ -133,7 +136,24 @@ class Live {
       else if (msg.type === 'maintenance') this.handleMaintenance((msg.data as { maintenance_id?: number })?.maintenance_id ?? 0);
       else if (msg.type === 'probe' && msg.data) this.handleProbe(msg.data as ProbeEvent);
       else if (msg.type === 'server' && msg.data) this.emit(this.serverListeners, msg.data as ServerView);
+      else if (msg.type === 'stats_reset') {
+        const id = (msg.data as { monitor_id?: number })?.monitor_id ?? 0;
+        this.emit(this.statsResetListeners, id);
+        this.refreshSoon();
+      }
     };
+  }
+
+  /** Listeyi kısa bir gecikmeyle (art arda gelen olayları birleştirerek) yeniler. */
+  private refreshSoon(ms = 600) {
+    clearTimeout(this.softRefreshTimer);
+    this.softRefreshTimer = setTimeout(() => this.refresh(), ms);
+  }
+
+  /** Bir monitörün istatistikleri sıfırlandığında çağrılır (monitör kimliğiyle). */
+  onStatsReset(fn: (id: number) => void): () => void {
+    this.statsResetListeners.add(fn);
+    return () => this.statsResetListeners.delete(fn);
   }
 
   /** Bakım penceresi değişti: hangi monitörlerin bakımda olduğu değişmiş olabilir. */
@@ -210,14 +230,21 @@ class Live {
     this.flushTimer = undefined;
     if (this.pending.size === 0) return;
     let statusChanged = false;
+    let needIncident = false;
     const beats = this.pending;
     this.pending = new Map();
     this.monitors = this.monitors.map((m) => {
       const b = beats.get(m.id);
       if (!b) return m;
       if (b.status !== m.status) statusChanged = true;
+      // Yeni kesintinin olay kimliği canlı olayda yok: liste bir kez yenilenir.
+      // Düzelen monitörün olayı kapanmıştır.
+      let incident = m.open_incident_id ?? null;
+      if (b.status === STATUS_DOWN && m.status !== STATUS_DOWN && incident === null) needIncident = true;
+      if (b.status === STATUS_UP) incident = null;
       return {
         ...m,
+        open_incident_id: incident,
         status: b.status,
         last_check_at: b.time,
         last_ping_ms: b.ping,
@@ -227,7 +254,8 @@ class Live {
         in_maintenance: b.status === STATUS_MAINTENANCE,
       };
     });
-    if (statusChanged) this.refreshSummarySoon();
+    if (needIncident) this.refreshSoon(800);
+    else if (statusChanged) this.refreshSummarySoon();
   }
 
   /** Her kontrol sonucunda çağrılır; aboneliği bitiren fonksiyon döner. */
@@ -254,7 +282,25 @@ class Live {
   }
 
   remove(id: number) {
-    this.monitors = this.monitors.filter((m) => m.id !== id);
+    this.removeMany([id]);
+  }
+
+  /** Toplu işlem sonrası dönen monitörleri tek seferde listeye yazar. */
+  upsertMany(list: MonitorView[]) {
+    if (list.length === 0) return;
+    const byId = new Map(list.map((m) => [m.id, m]));
+    const next = this.monitors.map((m) => {
+      const n = byId.get(m.id);
+      if (n) byId.delete(m.id);
+      return n ?? m;
+    });
+    this.monitors = byId.size ? [...next, ...byId.values()] : next;
+    this.refreshSummarySoon();
+  }
+
+  removeMany(ids: number[]) {
+    const gone = new Set(ids);
+    this.monitors = this.monitors.filter((m) => !gone.has(m.id));
     this.refreshSummarySoon();
   }
 }

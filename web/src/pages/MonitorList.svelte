@@ -1,11 +1,18 @@
 <script lang="ts">
-  import type { MonitorView } from '../lib/api';
+  import { SvelteSet } from 'svelte/reactivity';
+  import { api, errorMessage, type MonitorView } from '../lib/api';
   import { live } from '../lib/live.svelte';
   import { session } from '../lib/session.svelte';
-  import { clock } from '../lib/ui.svelte';
+  import { clock, confirmDialog, toast } from '../lib/ui.svelte';
   import { collator, fmtPct, lower, monitorKind } from '../lib/format';
-  import { deleteMonitor, togglePause } from '../lib/actions';
+  import { cloneMonitor, deleteMonitor, resetStats, togglePause } from '../lib/actions';
   import MonitorRow from '../components/MonitorRow.svelte';
+  import MonitorMenu, { type MenuAction } from '../components/MonitorMenu.svelte';
+  import QuickNotifyModal from '../components/QuickNotifyModal.svelte';
+  import QuickMaintModal from '../components/QuickMaintModal.svelte';
+  import QuickTagsModal from '../components/QuickTagsModal.svelte';
+  import QuickPageModal from '../components/QuickPageModal.svelte';
+  import BulkEditModal from '../components/BulkEditModal.svelte';
   import StatusIcon from '../components/StatusIcon.svelte';
   import Icon from '../components/Icon.svelte';
 
@@ -53,7 +60,6 @@
   const activeTag = $derived(tagOptions.some((t) => String(t.id) === tagFilter) ? tagFilter : '');
   let filter = $state<Filter>(load('uptime.filter', ['all', 'down', 'up', 'maint', 'paused'] as const, 'all'));
   let sort = $state<Sort>(load('uptime.sort', ['status', 'name', 'uptime'] as const, 'status'));
-  let menuFor = $state<number | null>(null);
 
   $effect(() => save('uptime.filter', filter));
   $effect(() => save('uptime.sort', sort));
@@ -106,6 +112,174 @@
 
   const summary = $derived(live.summary);
 
+  // Satır menüsü ---------------------------------------------------------------------
+  // Tek menü, listenin dışında çizilir (yüzlerce satırda her satıra menü düşmesin).
+  let menu = $state<{ id: number; anchor: HTMLElement; top: number; selectable: boolean } | null>(null);
+  const menuMonitor = $derived(menu ? live.byId(menu.id) : undefined);
+  const narrow = () => window.matchMedia('(max-width: 640px)').matches;
+
+  function openMenu(m: MonitorView | null, anchor?: HTMLElement) {
+    menu =
+      m && anchor
+        ? { id: m.id, anchor, top: anchor.getBoundingClientRect().top, selectable: narrow() || window.matchMedia('(hover: none)').matches }
+        : null;
+  }
+  // Sayfa veya liste kaydırılıp düğme yerinden oynarsa menü kapanır (sabit konumlu
+  // menü düğmeden kopmasın). Açılıştan hemen sonra gelen gecikmeli kaydırma olayı
+  // düğmeyi oynatmadığı için menüyü kapatmaz. Dar ekranda alttan açılan sayfa kalır.
+  function onAnyScroll() {
+    if (!menu || narrow()) return;
+    if (Math.abs(menu.anchor.getBoundingClientRect().top - menu.top) > 2) closeMenu();
+  }
+  function closeMenu(refocus = false) {
+    const a = menu?.anchor;
+    menu = null;
+    if (refocus) a?.focus();
+  }
+
+  type DialogKind = 'notify' | 'maint' | 'tags' | 'page';
+  let dialog = $state<{ kind: DialogKind; m: MonitorView; key: number } | null>(null);
+  let dialogOpen = $state(false);
+  let dialogSeq = 0;
+  function openDialog(kind: DialogKind, m: MonitorView) {
+    dialog = { kind, m, key: ++dialogSeq };
+    dialogOpen = true;
+  }
+
+  function onMenuAction(a: MenuAction) {
+    const m = menuMonitor;
+    closeMenu();
+    if (!m) return;
+    switch (a) {
+      case 'select':
+        selectMode = true;
+        if (!selected.has(m.id)) toggleSelect(m, false);
+        break;
+      case 'notify':
+      case 'maint':
+      case 'tags':
+      case 'page':
+        openDialog(a, m);
+        break;
+      case 'clone':
+        cloneMonitor(m);
+        break;
+      case 'pause':
+        togglePause(m);
+        break;
+      case 'reset':
+        resetStats(m);
+        break;
+      case 'delete':
+        deleteMonitor(m);
+        break;
+    }
+  }
+
+  // Çoklu seçim ----------------------------------------------------------------------
+  // Toplu işlemler yalnızca şu an görünen (filtreye uyan) seçili monitörlere uygulanır;
+  // filtre değişince gizlenen seçimler sayılmaz.
+  const selected = new SvelteSet<number>();
+  let selectMode = $state(false); // dokunmatikte seçim modu (hiç seçim yokken de)
+  let lastPicked: number | null = null;
+  const selIds = $derived(visible.filter((m) => selected.has(m.id)).map((m) => m.id));
+  const allSelected = $derived(visible.length > 0 && selIds.length === visible.length);
+  const selecting = $derived(selIds.length > 0 || selectMode);
+
+  function toggleSelect(m: MonitorView, range: boolean) {
+    if (range && lastPicked !== null && lastPicked !== m.id) {
+      const ids = visible.map((x) => x.id);
+      const a = ids.indexOf(lastPicked);
+      const b = ids.indexOf(m.id);
+      if (a >= 0 && b >= 0) {
+        const on = !selected.has(m.id);
+        for (const id of ids.slice(Math.min(a, b), Math.max(a, b) + 1)) {
+          if (on) selected.add(id);
+          else selected.delete(id);
+        }
+        lastPicked = m.id;
+        return;
+      }
+    }
+    if (selected.has(m.id)) selected.delete(m.id);
+    else selected.add(m.id);
+    lastPicked = m.id;
+  }
+
+  function toggleAll() {
+    if (allSelected) clearSelection();
+    else for (const m of visible) selected.add(m.id);
+  }
+
+  function clearSelection() {
+    selected.clear();
+    selectMode = false;
+    lastPicked = null;
+  }
+
+  let bulkBusy = $state(false);
+  let bulkKind = $state<'tag' | 'notify' | null>(null);
+  let bulkOpen = $state(false);
+  let bulkIds = $state<number[]>([]);
+  let bulkSeq = $state(0);
+  function openBulk(kind: 'tag' | 'notify') {
+    bulkIds = selIds;
+    bulkKind = kind;
+    bulkSeq++;
+    bulkOpen = true;
+  }
+
+  async function bulkToggle(action: 'pause' | 'resume') {
+    const ids = selIds;
+    if (!ids.length) return;
+    bulkBusy = true;
+    try {
+      const res = await api.bulkMonitors(ids, { action });
+      live.upsertMany(res.monitors);
+      const verb = action === 'pause' ? 'durduruldu' : 'başlatıldı';
+      if (res.changed) toast.success(`${res.changed} monitör ${verb}`);
+      else toast.info(`Seçili monitörler zaten ${action === 'pause' ? 'durdurulmuş' : 'çalışıyor'}`);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      bulkBusy = false;
+    }
+  }
+
+  async function bulkDelete() {
+    const ids = selIds;
+    if (!ids.length) return;
+    const one = ids.length === 1 ? live.byId(ids[0]) : undefined;
+    const ok = await confirmDialog({
+      title: ids.length === 1 ? 'Monitörü sil' : `${ids.length} monitörü sil`,
+      message: one
+        ? `“${one.name}” ve tüm geçmiş kayıtları (kontroller, olaylar) kalıcı olarak silinecek. Bu işlem geri alınamaz.`
+        : `Seçili ${ids.length} monitör ve tüm geçmiş kayıtları (kontroller, olaylar) kalıcı olarak silinecek. Bu işlem geri alınamaz.`,
+      confirmText: ids.length === 1 ? 'Sil' : `${ids.length} monitörü sil`,
+      danger: true,
+    });
+    if (!ok) return;
+    bulkBusy = true;
+    try {
+      const res = await api.bulkMonitors(ids, { action: 'delete' });
+      live.removeMany(res.deleted);
+      clearSelection();
+      toast.success(res.deleted.length === 1 ? 'Monitör silindi' : `${res.deleted.length} monitör silindi`);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      bulkBusy = false;
+    }
+  }
+
+  function onKeydown(e: KeyboardEvent) {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    if (menu) return closeMenu(true);
+    // Açık bir pencere (onay, düzenleme) varsa Escape onu kapatır; seçim kalır.
+    if (document.querySelector('dialog[open]')) return;
+    if (selecting) clearSelection();
+  }
+
   // Masaüstünde liste kendi içinde kayar: başlık ve araç çubuğu yerinde kalır,
   // kutu ekranın altına kadar uzanır. Dar ekranda sayfa normal kayar.
   let toolbarEl = $state<HTMLElement>();
@@ -129,9 +303,9 @@
   });
 </script>
 
-<svelte:window onresize={fitList} onscroll={() => (menuFor = null)} />
+<svelte:window onresize={fitList} onscroll={onAnyScroll} />
 
-<svelte:document onclick={() => (menuFor = null)} onkeydown={(e) => e.key === 'Escape' && (menuFor = null)} />
+<svelte:document onclick={() => menu && closeMenu()} onkeydown={onKeydown} />
 
 <div class="page-head">
   <h1>Monitörler<span class="dot">.</span></h1>
@@ -183,6 +357,19 @@
   <div class="layout">
     <section class="main-col">
       <div class="toolbar" bind:this={toolbarEl}>
+        {#if session.canEdit}
+          <label class="selbox check" class:on={selIds.length > 0} title="Görünen monitörlerin tümünü seç">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              indeterminate={selIds.length > 0 && !allSelected}
+              disabled={visible.length === 0}
+              onchange={toggleAll}
+              aria-label="Görünen tüm monitörleri seç"
+            />
+            <span class="cnt" style="--d:{String(visible.length).length}"><b>{selIds.length}</b> / {visible.length}</span>
+          </label>
+        {/if}
         <div class="search">
           <span class="s-ic"><Icon name="search" size={16} /></span>
           <input class="input" type="search" placeholder="Ad veya adrese göre ara" bind:value={search} aria-label="Ara" />
@@ -215,16 +402,17 @@
         class:scroll={listMax > 0}
         style:max-height={listMax ? `${listMax}px` : null}
         bind:this={listEl}
-        onscroll={() => (menuFor = null)}
+        onscroll={onAnyScroll}
       >
         {#each visible as m (m.id)}
           <MonitorRow
             {m}
             now={clock.now}
-            menuOpen={menuFor === m.id}
-            onmenu={(id) => (menuFor = id)}
-            onpause={togglePause}
-            ondelete={deleteMonitor}
+            menuOpen={menu?.id === m.id}
+            selected={selected.has(m.id)}
+            {selecting}
+            onmenu={openMenu}
+            onselect={session.canEdit ? toggleSelect : undefined}
           />
         {:else}
           <div class="noresult">
@@ -241,6 +429,32 @@
             {/if}
           </div>
         {/each}
+        {#if session.canEdit && selecting}
+          <div class="bulkbar" role="toolbar" aria-label="Seçili monitörler için toplu işlemler">
+            <button type="button" class="btn ghost icon sm" aria-label="Seçimi kaldır" title="Seçimi kaldır (Esc)" onclick={clearSelection}>
+              <Icon name="x" size={16} />
+            </button>
+            <span class="bcount"><b>{selIds.length}</b> seçili</span>
+            <div class="bactions">
+              <button type="button" class="btn sm" disabled={!selIds.length || bulkBusy} onclick={() => bulkToggle('pause')} title="Durdur">
+                <Icon name="pause" size={14} /><span class="bl">Durdur</span>
+              </button>
+              <button type="button" class="btn sm" disabled={!selIds.length || bulkBusy} onclick={() => bulkToggle('resume')} title="Başlat">
+                <Icon name="play" size={14} /><span class="bl">Başlat</span>
+              </button>
+              <button type="button" class="btn sm" disabled={!selIds.length || bulkBusy} onclick={() => openBulk('tag')} title="Etiket ekle / kaldır">
+                <Icon name="tag" size={14} /><span class="bl">Etiket</span>
+              </button>
+              <button type="button" class="btn sm" disabled={!selIds.length || bulkBusy} onclick={() => openBulk('notify')} title="Bildirim kanalı ekle / çıkar">
+                <Icon name="bell" size={14} /><span class="bl">Bildirim</span>
+              </button>
+              <span class="bsep" aria-hidden="true"></span>
+              <button type="button" class="btn sm danger" disabled={!selIds.length || bulkBusy} onclick={bulkDelete} title="Sil">
+                {#if bulkBusy}<span class="spinner"></span>{:else}<Icon name="trash" size={14} />{/if}<span class="bl">Sil</span>
+              </button>
+            </div>
+          </div>
+        {/if}
       </div>
     </section>
 
@@ -295,6 +509,32 @@
   </div>
 {/if}
 
+{#if menu && menuMonitor}
+  {#key menu.id}
+    <MonitorMenu m={menuMonitor} anchor={menu.anchor} selectable={menu.selectable} onclose={closeMenu} onaction={onMenuAction} />
+  {/key}
+{/if}
+
+{#if dialog}
+  {#key dialog.key}
+    {#if dialog.kind === 'notify'}
+      <QuickNotifyModal bind:open={dialogOpen} m={dialog.m} />
+    {:else if dialog.kind === 'maint'}
+      <QuickMaintModal bind:open={dialogOpen} m={dialog.m} />
+    {:else if dialog.kind === 'tags'}
+      <QuickTagsModal bind:open={dialogOpen} m={dialog.m} />
+    {:else}
+      <QuickPageModal bind:open={dialogOpen} m={dialog.m} />
+    {/if}
+  {/key}
+{/if}
+
+{#if bulkKind}
+  {#key bulkSeq}
+    <BulkEditModal bind:open={bulkOpen} kind={bulkKind} ids={bulkIds} />
+  {/key}
+{/if}
+
 <style>
   .layout {
     display: grid;
@@ -327,6 +567,109 @@
   }
   .sel.on {
     border-color: var(--accent-border);
+  }
+  /* "☐ 0 / 12": görünen tüm monitörleri seçer. */
+  .selbox {
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 9px;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--input);
+    font-size: 0.88rem;
+    color: var(--muted);
+    white-space: nowrap;
+    user-select: none;
+    transition: border-color 0.15s;
+  }
+  .selbox input {
+    margin: 0;
+  }
+  /* Sayı değişince genişlik oynamasın (arama kutusu kaymasın). */
+  .selbox .cnt {
+    font-variant-numeric: tabular-nums;
+    min-width: calc(var(--d, 2) * 2ch + 1.4em);
+  }
+  .selbox .cnt b {
+    color: var(--text-2);
+    font-weight: 600;
+  }
+  .selbox.on {
+    border-color: var(--accent-border);
+  }
+  .selbox.on .cnt b {
+    color: var(--accent-text);
+  }
+  @media (hover: hover) {
+    .selbox:hover {
+      border-color: var(--border-hover);
+    }
+  }
+  .selbox input:indeterminate {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .selbox input:indeterminate::after {
+    content: '';
+    position: absolute;
+    left: 3.5px;
+    top: 6.5px;
+    width: 8px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--accent-contrast);
+  }
+  .selbox input:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  /* Toplu işlem çubuğu: listenin altında, görünür alanın dibine yapışır. */
+  .bulkbar {
+    position: sticky;
+    bottom: 12px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 12px 12px;
+    padding: 7px 8px 7px 6px;
+    background: var(--bg-elev);
+    border: 1px solid var(--accent-border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    animation: bar-in 0.16s ease-out;
+  }
+  .bcount {
+    font-size: 0.9rem;
+    color: var(--text-2);
+    white-space: nowrap;
+    margin-right: auto;
+  }
+  .bcount b {
+    color: var(--text);
+  }
+  .bactions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .bactions .btn {
+    gap: 6px;
+  }
+  .bsep {
+    width: 1px;
+    height: 20px;
+    background: var(--border-strong);
+    margin: 0 2px;
+  }
+  @keyframes bar-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
   }
   .migrate {
     display: flex;
@@ -538,7 +881,31 @@
       grid-template-columns: 1fr 1fr;
     }
   }
+  /* Sekme çubuğu olan ekranlarda çubuk onun üstünde durur. */
+  @media (max-width: 900px) {
+    .bulkbar {
+      bottom: calc(66px + env(safe-area-inset-bottom));
+    }
+  }
   @media (max-width: 640px) {
+    .bulkbar {
+      margin: 8px 6px 10px;
+      gap: 4px;
+    }
+    .bactions {
+      gap: 4px;
+    }
+    .bactions .btn {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+    }
+    .bl {
+      display: none;
+    }
+    .selbox {
+      padding: 0 10px;
+    }
     .layout {
       gap: 16px;
     }

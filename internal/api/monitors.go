@@ -64,6 +64,8 @@ type monitorView struct {
 	InMaintenance   bool               `json:"in_maintenance"` // şu an etkin bir bakım penceresinde (durdurulmuşsa false)
 	// Locations kontrol konumları (probes.go); varsayılan: yalnızca ana sunucu.
 	Locations store.LocationSetup `json:"locations"`
+	// OpenIncidentID süren olayın kimliği (listede "Olayı gör"); yoksa null.
+	OpenIncidentID *int64 `json:"open_incident_id"`
 }
 
 // hourlyBars son 24 saatin saatlik kovalarını, boş saatleri de doldurarak döner.
@@ -112,6 +114,18 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 	}
 	u := userFrom(r)
 	vis, full := visibleTo(u), canSeeConfig(u)
+	// Açık olay yalnızca çalışmayan (veya tekrar denenen) monitörlerde aranır;
+	// sorgu monitör dizinini kullanır, olay tablosu taranmaz.
+	var troubled []int64
+	for _, m := range monitors {
+		if vis.can(m.ID) && (m.Status == store.StatusDown || m.Status == store.StatusPending) {
+			troubled = append(troubled, m.ID)
+		}
+	}
+	openIncidents, err := s.store.OpenIncidentIDs(r.Context(), troubled)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]monitorView, 0, len(monitors))
 	for _, m := range monitors {
 		if !vis.can(m.ID) {
@@ -141,8 +155,12 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 		if mt == nil {
 			mt = []store.MonitorTag{}
 		}
+		var incident *int64
+		if iid, ok := openIncidents[m.ID]; ok {
+			incident = &iid
+		}
 		out = append(out, monitorView{Monitor: m, Target: target, NotificationIDs: ids, Tags: mt, Uptime24h: up, Bars: bars,
-			InMaintenance: m.Active && s.engine.InMaintenance(m.ID, now), Locations: loc})
+			InMaintenance: m.Active && s.engine.InMaintenance(m.ID, now), Locations: loc, OpenIncidentID: incident})
 	}
 	return out, nil
 }
