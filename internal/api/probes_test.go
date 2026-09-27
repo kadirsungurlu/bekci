@@ -220,6 +220,11 @@ func TestProbeScopingAndResults(t *testing.T) {
 	// m1 yalnızca A'dan kontrol edilir (ana sunucu testte dış adrese çıkamaz).
 	admin.setLocations(m1.ID, map[string]any{"include_local": false, "probe_ids": []int64{a.Probe.ID}, "down_when": "any"}, 200)
 	admin.setLocations(m2.ID, map[string]any{"include_local": false, "probe_ids": []int64{b.Probe.ID, b.Probe.ID}}, 200)
+	// m1'in konum ayarından önce ana sunucudan yapılmış olabilecek ilk kontrol
+	// (test ortamında adres çözülemez → DOWN) sonucu belirsizleştirmesin: durdur/başlat
+	// ile monitör temiz "bekliyor" durumundan başlar.
+	admin.mustDo("POST", fmt.Sprintf("/api/monitors/%d/pause", m1.ID), nil, nil, 200)
+	admin.mustDo("POST", fmt.Sprintf("/api/monitors/%d/resume", m1.ID), nil, nil, 200)
 	push := admin.push("push")
 
 	jobs := func(token string) (ids []int64, raw string) {

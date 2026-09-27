@@ -590,7 +590,7 @@ func TestCustomDomainRouting(t *testing.T) {
 		}
 	}
 	// Yol hileleri temizlenmiş yol üzerinden denetlenir.
-	for _, path := range []string{"/api/public/../monitors", "/api/push/../monitors", "//api/monitors"} {
+	for _, path := range []string{"/api/public/../monitors", "/api/push/../monitors", "//api/monitors", "/metrics"} {
 		req := httptest.NewRequest("GET", "http://x"+path, nil)
 		req.URL.Path = path
 		req.Host = host

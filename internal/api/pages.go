@@ -160,7 +160,7 @@ func (s *Server) domainPageFor(r *http.Request) (domainPage, bool) {
 func (s *Server) customDomainOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := path.Clean("/" + r.URL.Path)
-		if strings.HasPrefix(p, "/api/") && !strings.HasPrefix(p, "/api/public/") && !strings.HasPrefix(p, "/api/push/") {
+		if (strings.HasPrefix(p, "/api/") && !strings.HasPrefix(p, "/api/public/") && !strings.HasPrefix(p, "/api/push/")) || p == "/metrics" {
 			if _, ok := s.domainPageFor(r); ok {
 				writeError(w, http.StatusNotFound, "Bulunamadı")
 				return

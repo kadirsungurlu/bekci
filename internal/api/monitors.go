@@ -16,14 +16,16 @@ import (
 
 // monitorSecrets monitör ayarlarında maskelenecek alanlar.
 var monitorSecrets = map[string][]string{
-	"http":     {"basic_pass", "proxy_pass", "tls_key", "oauth_client_secret"},
-	"mysql":    {"password"},
-	"postgres": {"password"},
-	"mssql":    {"password"},
-	"redis":    {"password"},
-	"mongodb":  {"uri"},
-	"mqtt":     {"password"},
-	"snmp":     {"community", "auth_password", "priv_password"},
+	"http":      {"basic_pass", "proxy_pass", "tls_key", "oauth_client_secret", "headers"},
+	"mysql":     {"password"},
+	"postgres":  {"password"},
+	"mssql":     {"password"},
+	"redis":     {"password"},
+	"mongodb":   {"uri"},
+	"mqtt":      {"password"},
+	"snmp":      {"community", "auth_password", "priv_password"},
+	"grpc":      {"metadata"}, // genelde yetkilendirme başlığı taşır
+	"websocket": {"headers"},  // genelde yetkilendirme başlığı taşır
 }
 
 func maskMonitorConfig(typ string, cfg json.RawMessage) json.RawMessage {
@@ -128,6 +130,7 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 			// İzleyici: adrese gömülü kullanıcı adı/şifre ve sorgu (token olabilir),
 			// ayarlar, push token'ı ve bildirim bağlantıları gizli.
 			target = publicTarget(target)
+			m.LastMessage = viewerMessage(u, m.Type, m.Status, m.LastMessage)
 			m.Config, m.PushToken, ids = json.RawMessage("{}"), "", []int64{}
 		}
 		loc, ok := locs[m.ID]
@@ -468,13 +471,15 @@ func (s *Server) monitorSeries(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := s.store.GetMonitor(r.Context(), id); err != nil || !visibleTo(userFrom(r)).can(id) {
+	mon, err := s.store.GetMonitor(r.Context(), id)
+	if err != nil || !visibleTo(userFrom(r)).can(id) {
 		if err == nil {
 			err = store.ErrNotFound
 		}
 		s.dbError(w, err)
 		return
 	}
+	u := userFrom(r)
 	now := s.now().Unix()
 	rng := r.URL.Query().Get("range")
 	switch rng {
@@ -494,7 +499,7 @@ func (s *Server) monitorSeries(w http.ResponseWriter, r *http.Request) {
 		for i, b := range beats {
 			pts[i] = point{T: b.Time, S: b.Status, P: b.PingMs}
 			if b.Status != store.StatusUp {
-				pts[i].M = b.Message // başarılı kontrollerin mesajı gereksiz yük
+				pts[i].M = viewerMessage(u, mon.Type, b.Status, b.Message) // başarılı kontrollerin mesajı gereksiz yük
 			}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"range": "24h", "kind": "raw", "points": pts})
@@ -532,6 +537,12 @@ func (s *Server) monitorIncidents(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.dbError(w, err)
 		return
+	}
+	if u := userFrom(r); !canSeeConfig(u) {
+		m, _ := s.store.GetMonitor(r.Context(), id)
+		for k := range list {
+			list[k].Cause = viewerMessage(u, m.Type, store.StatusDown, list[k].Cause)
+		}
 	}
 	writeJSON(w, http.StatusOK, list)
 }

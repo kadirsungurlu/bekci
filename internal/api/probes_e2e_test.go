@@ -68,8 +68,13 @@ func TestProbeEndToEnd(t *testing.T) {
 	defer func() { stop() }()
 
 	waitFor(t, "UP", func() bool { m := get(); return m.Status == store.StatusUp })
+	// UP ana sunucunun kendi kontrolünden, kontrol noktası ilk isteğini atmadan
+	// gelebilir; çevrimiçi olmasını ayrıca bekle.
 	var probes []probeAdminView
-	admin.mustDo("GET", "/api/probes", nil, &probes, 200)
+	waitFor(t, "kontrol noktası çevrimiçi", func() bool {
+		admin.mustDo("GET", "/api/probes", nil, &probes, 200)
+		return probes[0].Online
+	})
 	if !probes[0].Online || probes[0].Version != "e2e" || probes[0].MonitorCount != 1 {
 		t.Fatalf("kontrol noktası: %+v", probes[0])
 	}

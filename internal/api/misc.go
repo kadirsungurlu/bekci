@@ -94,7 +94,36 @@ func (s *Server) listIncidents(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
+	if u := userFrom(r); !canSeeConfig(u) {
+		groups, err := s.groupIDs(r)
+		if err != nil {
+			s.dbError(w, err)
+			return
+		}
+		for k := range list {
+			typ := ""
+			if groups[list[k].MonitorID] {
+				typ = "group"
+			}
+			list[k].Cause = viewerMessage(u, typ, store.StatusDown, list[k].Cause)
+		}
+	}
 	writeJSON(w, http.StatusOK, list)
+}
+
+// groupIDs grup tipindeki monitörlerin kimlikleri (izleyici mesaj temizliği için).
+func (s *Server) groupIDs(r *http.Request) (map[int64]bool, error) {
+	monitors, err := s.store.ListMonitors(r.Context())
+	if err != nil {
+		return nil, err
+	}
+	out := map[int64]bool{}
+	for _, m := range monitors {
+		if m.Type == "group" {
+			out[m.ID] = true
+		}
+	}
+	return out, nil
 }
 
 func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
@@ -165,7 +194,13 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	h.Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
 
-	vis := visibleTo(userFrom(r))
+	u := userFrom(r)
+	vis := visibleTo(u)
+	var groups map[int64]bool
+	if !canSeeConfig(u) {
+		// İzleyici: canlı olay mesajları da temizlenir (grup kimlikleri bağlantı başında alınır).
+		groups, _ = s.groupIDs(r)
+	}
 	ch, unsubscribe := s.hub.Subscribe()
 	defer unsubscribe()
 
@@ -184,6 +219,7 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 			if !vis.all && !eventVisible(msg, vis) {
 				continue
 			}
+			msg = viewerEvent(u, msg, groups)
 			if _, err := fmt.Fprintf(w, "data: %s\n\n", msg); err != nil {
 				return
 			}
