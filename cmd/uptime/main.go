@@ -6,6 +6,7 @@
 //	DATA_DIR               SQLite veritabanı ve yedeklerin klasörü (varsayılan ./data)
 //	DATABASE_URL           verilirse PostgreSQL kullanılır (postgres://kullanıcı:şifre@sunucu:5432/vt)
 //	BASE_URL               bildirimlerdeki bağlantılar için dış adres, ör. https://uptime.kadir.app
+//	                       (durum sayfası özel alan adı bu adresle aynı olamaz)
 //	LOG_LEVEL              debug | info | warn | error (varsayılan info)
 //	MAX_CONCURRENT_CHECKS  aynı anda en fazla kontrol sayısı (varsayılan 50)
 //	TZ                     saat dilimi (günlük özetler ve yedek saati için)
@@ -103,9 +104,11 @@ func run() error {
 	}
 	go stats.NewMaintenance(st, log, dataDir, time.Local).Run(ctx)
 
+	apiServer := api.New(st, eng, hub, dispatcher, log, web.Dist(), version)
+	apiServer.BaseURL = baseURL
 	srv := &http.Server{
 		Addr:              env("ADDR", ":8080"),
-		Handler:           api.New(st, eng, hub, dispatcher, log, web.Dist(), version).Handler(),
+		Handler:           apiServer.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      60 * time.Second, // SSE bağlantısı kendi süresini kaldırır
