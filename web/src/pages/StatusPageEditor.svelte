@@ -40,6 +40,7 @@
   let customDomain = $state('');
   let showTargets = $state(false);
   let showIncidents = $state(true);
+  let collapsible = $state(false);
   let barRange = $state<BarRange>('recent');
   let published = $state(true);
   let pwMode = $state<'keep' | 'set' | 'remove'>('keep');
@@ -75,6 +76,7 @@
     customDomain = p.custom_domain;
     showTargets = p.show_targets;
     showIncidents = p.show_incidents ?? true;
+    collapsible = p.collapsible ?? false;
     barRange = p.bar_range ?? 'recent';
     published = p.published;
     pwMode = 'keep';
@@ -211,6 +213,7 @@
       custom_domain: customDomain.trim().toLowerCase(),
       show_targets: showTargets,
       show_incidents: showIncidents,
+      collapsible,
       bar_range: barRange,
       published,
     };
@@ -504,6 +507,13 @@
         <span>
           Son 14 günün olaylarını göster
           <small>Kapalıyken sayfada geçmiş kesintiler listelenmez; ziyaretçi yalnızca anlık durumu ve çubukları görür.</small>
+        </span>
+      </label>
+      <label class="check">
+        <input type="checkbox" bind:checked={collapsible} />
+        <span>
+          Gruplar açılıp kapanabilsin
+          <small>Ziyaretçi grup başlığına tıklayarak grubu daraltabilir; seçimi kendi tarayıcısında hatırlanır. Gruplar başlangıçta açık gelir.</small>
         </span>
       </label>
     </section>

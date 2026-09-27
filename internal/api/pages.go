@@ -185,6 +185,8 @@ type pageInput struct {
 	BarRange *string `json:"bar_range"`
 	// ShowIncidents: son 14 günün olayları herkese açık sayfada görünsün mü; yok = değişmez.
 	ShowIncidents *bool `json:"show_incidents"`
+	// Collapsible: gruplar açılıp kapanabilsin mi; yok = değişmez.
+	Collapsible *bool `json:"collapsible"`
 	// Password: yok/null = değişmez, "" = kaldır, dolu = yeni şifre.
 	Password *string `json:"password"`
 }
@@ -324,6 +326,9 @@ func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.St
 	}
 	if in.ShowIncidents != nil {
 		p.ShowIncidents = *in.ShowIncidents
+	}
+	if in.Collapsible != nil {
+		p.Collapsible = *in.Collapsible
 	}
 	if in.Published != nil {
 		p.Published = *in.Published

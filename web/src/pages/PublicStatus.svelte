@@ -32,6 +32,31 @@
 
   let { slug = '', previewId }: { slug?: string; previewId?: number } = $props();
 
+  // Açılıp kapanan gruplar (sayfa ayarı): ziyaretçinin kapattığı gruplar kendi
+  // tarayıcısında hatırlanır. Tarayıcı depolaması kapalıysa yalnızca oturum içinde.
+  const foldKey = $derived(`durum-kapali:${previewId ?? slug}`);
+  let folded = $state<Set<number>>(new Set());
+  $effect(() => {
+    try {
+      const raw = localStorage.getItem(foldKey);
+      folded = new Set(raw ? (JSON.parse(raw) as number[]) : []);
+    } catch {
+      folded = new Set();
+    }
+  });
+  function toggleFold(si: number) {
+    const next = new Set(folded);
+    if (next.has(si)) next.delete(si);
+    else next.add(si);
+    folded = next;
+    try {
+      localStorage.setItem(foldKey, JSON.stringify([...next]));
+    } catch {
+      /* depolama yoksa yalnızca bu oturumda */
+    }
+  }
+
+
   let page = $state.raw<PublicPage | null>(null);
   let locked = $state.raw<PublicLocked | null>(null);
   let notFound = $state(false);
@@ -315,17 +340,32 @@
 
       {#each page.sections as sec, si (si)}
         {#if sec.monitors.length}
-          <section class="panel group">
+          {@const canFold = !!page.collapsible && !!sec.title}
+          {@const isFolded = canFold && folded.has(si)}
+          <section class="panel group" class:folded={isFolded}>
             {#if sec.title}
-              <div class="g-head">
-                <h2>{sec.title}</h2>
+              {#snippet gStatus()}
                 {#if issues(sec.monitors) > 0}
                   <span class="g-st down">{issues(sec.monitors)} serviste kesinti</span>
                 {:else}
                   <span class="g-st up">Çalışıyor</span>
                 {/if}
-              </div>
+              {/snippet}
+              {#if canFold}
+                <button type="button" class="g-head g-fold" aria-expanded={!isFolded} onclick={() => toggleFold(si)}>
+                  <span class="g-chev" aria-hidden="true"><Icon name="chevron-down" size={18} /></span>
+                  <h2>{sec.title}</h2>
+                  <span class="g-count">{sec.monitors.length}</span>
+                  {@render gStatus()}
+                </button>
+              {:else}
+                <div class="g-head">
+                  <h2>{sec.title}</h2>
+                  {@render gStatus()}
+                </div>
+              {/if}
             {/if}
+            {#if !isFolded}
             {#each sec.monitors as m, mi (mi)}
               {@const key = `${si}-${mi}`}
               {@const st = MON[m.status] ?? MON.pending}
@@ -359,6 +399,7 @@
                 {/if}
               </div>
             {/each}
+            {/if}
           </section>
         {/if}
       {/each}
@@ -693,6 +734,53 @@
   .g-head h2 {
     font-size: 1rem;
     overflow-wrap: anywhere;
+  }
+  /* Açılıp kapanan grup başlığı (sayfa ayarı) */
+  .g-fold {
+    width: 100%;
+    justify-content: flex-start;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .g-fold h2 {
+    flex: 0 1 auto;
+  }
+  .g-fold .g-st {
+    margin-left: auto;
+  }
+  .g-fold:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  @media (hover: hover) {
+    .g-fold:hover {
+      background: var(--card-2);
+    }
+  }
+  .g-chev {
+    display: inline-flex;
+    color: var(--muted);
+    transition: transform 0.15s;
+  }
+  .group.folded .g-chev {
+    transform: rotate(-90deg);
+  }
+  .group.folded .g-fold {
+    border-bottom: none;
+  }
+  .g-count {
+    min-width: 22px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--card-2);
+    color: var(--muted);
+    font-size: 0.75rem;
+    text-align: center;
   }
   .g-st {
     font-size: 0.8rem;

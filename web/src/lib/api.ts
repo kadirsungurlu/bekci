@@ -495,6 +495,8 @@ export interface StatusPage {
   bar_range: BarRange;
   /** Son 14 günün olayları herkese açık sayfada görünsün mü (eski sunucuda gelmez: görünür). */
   show_incidents?: boolean;
+  /** Gruplar ziyaretçi tarafından açılıp kapanabilir mi (eski sunucuda gelmez: hayır). */
+  collapsible?: boolean;
   published: boolean;
   has_logo: boolean;
   created_at: number;
@@ -511,6 +513,7 @@ export interface PageInput {
   show_targets: boolean;
   bar_range: BarRange;
   show_incidents: boolean;
+  collapsible: boolean;
   published: boolean;
   /** Gönderilmezse değişmez, "" kaldırır, dolu değer yeni şifredir. */
   password?: string;
@@ -586,6 +589,8 @@ export interface PublicPage {
   incidents: { monitor: string; started_at: number; resolved_at: number }[];
   /** false ise olay bölümü gösterilmez (eski sunucuda gelmez: gösterilir). */
   show_incidents?: boolean;
+  /** true ise gruplar açılıp kapanabilir. */
+  collapsible?: boolean;
 }
 
 /** Şifreli sayfanın 401 yanıtı. */

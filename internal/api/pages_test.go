@@ -791,4 +791,19 @@ func TestPublicBarRanges(t *testing.T) {
 	if inc.ShowIncidents {
 		t.Error("show_incidents gönderilmeyince değişmemeli")
 	}
+
+	// Açılıp kapanan gruplar: varsayılan kapalı, açılınca yanıtta bildirilir.
+	var col struct {
+		Collapsible bool `json:"collapsible"`
+	}
+	pe.anon().mustDo("GET", "/api/public/pages/anlik", nil, &col, 200)
+	if col.Collapsible {
+		t.Fatal("gruplar varsayılan olarak sabit olmalı")
+	}
+	pe.mustDo("PUT", fmt.Sprintf("/api/status-pages/%d", p.ID), map[string]any{"slug": "anlik", "title": "Anlık", "collapsible": true,
+		"sections": []map[string]any{{"title": "S", "monitors": []map[string]any{{"id": a.ID}}}}}, nil, 200)
+	pe.anon().mustDo("GET", "/api/public/pages/anlik", nil, &col, 200)
+	if !col.Collapsible {
+		t.Error("collapsible açılmadı")
+	}
 }

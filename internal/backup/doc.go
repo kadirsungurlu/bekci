@@ -106,6 +106,7 @@ type Page struct {
 	ShowTargets   bool           `json:"show_targets"`
 	BarRange      string         `json:"bar_range,omitempty"`      // recent | 24h | 90d (eski yedeklerde yok → recent)
 	ShowIncidents *bool          `json:"show_incidents,omitempty"` // eski yedeklerde yok → gösterilir
+	Collapsible   bool           `json:"collapsible,omitempty"`
 	Published     bool           `json:"published"`
 	Sections      []PageSection  `json:"sections"`
 	Logo          []byte         `json:"logo,omitempty"` // base64

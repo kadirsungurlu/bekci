@@ -95,6 +95,8 @@ type publicPageView struct {
 	Incidents     []publicIncident     `json:"incidents"`
 	// ShowIncidents false ise olay bölümü sayfada hiç gösterilmez (Incidents boş gelir).
 	ShowIncidents bool `json:"show_incidents"`
+	// Collapsible true ise ziyaretçi grupları açıp kapatabilir.
+	Collapsible bool `json:"collapsible"`
 }
 
 func logoURL(p store.StatusPage) *string {
@@ -267,7 +269,7 @@ func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byt
 			ID: a.ID, Title: a.Title, Body: a.Body, Severity: a.Severity, StartsAt: a.StartsAt, EndsAt: a.EndsAt,
 		})
 	}
-	view.ShowIncidents = p.ShowIncidents
+	view.ShowIncidents, view.Collapsible = p.ShowIncidents, p.Collapsible
 	if !p.ShowIncidents {
 		return json.Marshal(view)
 	}
