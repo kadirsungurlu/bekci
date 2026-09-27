@@ -29,17 +29,21 @@ type Server struct {
 	version  string
 	limiter  *loginLimiter
 	now      func() time.Time
-	pages    *pagesState // durum sayfası önbellekleri (pages.go)
+	pages    *pagesState   // durum sayfası önbellekleri (pages.go)
+	probeRL  *probeLimiter // kontrol noktası istek sınırı (probes.go)
 
 	// BaseURL uygulamanın dış adresi (BASE_URL); durum sayfası özel alan adı
 	// bu adresin sunucu adıyla aynı olamaz. Boş olabilir.
 	BaseURL string
+	// ProbeImage kontrol noktası kurulum komutunda gösterilecek Docker imajı
+	// (PROBE_IMAGE); boşsa "uptime".
+	ProbeImage string
 }
 
 func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatcher, log *slog.Logger, static fs.FS, version string) *Server {
 	return &Server{
 		store: st, engine: e, hub: hub, notifier: n, log: log, static: static, version: version,
-		limiter: newLoginLimiter(), now: time.Now, pages: newPagesState(),
+		limiter: newLoginLimiter(), now: time.Now, pages: newPagesState(), probeRL: newProbeLimiter(),
 	}
 }
 
@@ -124,11 +128,13 @@ func securityHeaders(next http.Handler) http.Handler {
 // Push adresi dışarıdan çağrıldığı için muaftır. Oturum çerezi olmadan API
 // anahtarıyla (Authorization: Bearer upk_…) gelen istekler de muaftır:
 // tarayıcı bu başlığı başka siteden kendiliğinden eklemez (bkz. isAPIKeyRequest).
+// Kontrol noktası uç noktaları (/api/probe/…) da aynı gerekçeyle muaftır
+// (bkz. isProbeRequest).
 func csrf(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") && !strings.HasPrefix(r.URL.Path, "/api/push/") &&
 			r.Method != http.MethodGet && r.Method != http.MethodHead && r.Header.Get("X-Uptime") != "1" &&
-			!isAPIKeyRequest(r) {
+			!isAPIKeyRequest(r) && !isProbeRequest(r) {
 			writeError(w, http.StatusForbidden, "Geçersiz istek")
 			return
 		}
