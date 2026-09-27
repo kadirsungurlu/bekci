@@ -3,7 +3,7 @@
   import type { MonitorView } from '../lib/api';
   import { live } from '../lib/live.svelte';
   import { collator, lower, monitorKind } from '../lib/format';
-  import { typeLabel } from '../lib/monitorTypes';
+  import { displayTarget, typeLabel } from '../lib/monitorTypes';
   import StatusIcon from './StatusIcon.svelte';
   import Icon from './Icon.svelte';
 
@@ -68,7 +68,7 @@
         <StatusIcon kind={monitorKind(m)} size={18} />
         <span class="nm">
           <span class="t">{m.name}</span>
-          <small>{typeLabel(m.type)} · {m.target}</small>
+          <small>{typeLabel(m.type)} · {displayTarget(m.target)}</small>
         </span>
       </label>
     {:else}

@@ -4,10 +4,11 @@
 // geldiğinde yalnızca o monitörün nesnesi yenisiyle değiştirilir. Böylece keyed each
 // bloğunda sadece değişen satır yeniden çizilir; yüzlerce monitörde de hızlı kalır.
 
-import { api, errorMessage, STATUS_MAINTENANCE, type BeatEvent, type MonitorView, type Summary } from './api';
+import { api, errorMessage, STATUS_MAINTENANCE, type BeatEvent, type MonitorView, type ProbeEvent, type Summary } from './api';
 
 type BeatListener = (b: BeatEvent) => void;
 type MaintListener = (id: number) => void;
+type ProbeListener = (p: ProbeEvent) => void;
 
 class Live {
   monitors = $state.raw<MonitorView[]>([]);
@@ -27,6 +28,7 @@ class Live {
   private pending = new Map<number, BeatEvent>();
   private listeners = new Set<BeatListener>();
   private maintListeners = new Set<MaintListener>();
+  private probeListeners = new Set<ProbeListener>();
   private maintTimer: ReturnType<typeof setTimeout> | undefined;
   private lastRefresh = 0;
   private everConnected = false;
@@ -123,6 +125,7 @@ class Live {
       }
       if (msg.type === 'beat' && msg.data) this.handleBeat(msg.data as BeatEvent);
       else if (msg.type === 'maintenance') this.handleMaintenance((msg.data as { maintenance_id?: number })?.maintenance_id ?? 0);
+      else if (msg.type === 'probe' && msg.data) this.handleProbe(msg.data as ProbeEvent);
     };
   }
 
@@ -137,6 +140,23 @@ class Live {
     }
     clearTimeout(this.maintTimer);
     this.maintTimer = setTimeout(() => this.refresh(), 300);
+  }
+
+  /** Kontrol noktası çevrimiçi/çevrimdışı oldu. */
+  private handleProbe(p: ProbeEvent) {
+    for (const fn of this.probeListeners) {
+      try {
+        fn(p);
+      } catch {
+        /* dinleyici hatası akışı bozmasın */
+      }
+    }
+  }
+
+  /** Kontrol noktası durumu değiştiğinde çağrılır; aboneliği bitiren fonksiyon döner. */
+  onProbe(fn: ProbeListener): () => void {
+    this.probeListeners.add(fn);
+    return () => this.probeListeners.delete(fn);
   }
 
   /** Bakım penceresi eklendiğinde/değiştiğinde çağrılır; aboneliği bitiren fonksiyon döner. */

@@ -6,17 +6,25 @@
   import Users from './settings/Users.svelte';
   import General from './settings/General.svelte';
   import Audit from './settings/Audit.svelte';
+  import Tags from './settings/Tags.svelte';
+  import Probes from './settings/Probes.svelte';
+  import Backup from './settings/Backup.svelte';
 
   let { tab }: { tab: SettingsTab } = $props();
 
-  const TABS: { key: SettingsTab; href: string; label: string; icon: IconName; admin: boolean }[] = [
-    { key: 'account', href: '#/settings', label: 'Hesabım', icon: 'user', admin: false },
-    { key: 'users', href: '#/settings/users', label: 'Kullanıcılar', icon: 'users', admin: true },
-    { key: 'general', href: '#/settings/general', label: 'Genel', icon: 'settings', admin: true },
-    { key: 'audit', href: '#/settings/audit', label: 'İşlem kaydı', icon: 'list', admin: true },
+  // need: sekmeyi görebilecek en düşük rol (editör: etiketler; yönetici: diğerleri).
+  const TABS: { key: SettingsTab; href: string; label: string; icon: IconName; need: 'viewer' | 'editor' | 'admin' }[] = [
+    { key: 'account', href: '#/settings', label: 'Hesabım', icon: 'user', need: 'viewer' },
+    { key: 'users', href: '#/settings/users', label: 'Kullanıcılar', icon: 'users', need: 'admin' },
+    { key: 'general', href: '#/settings/general', label: 'Genel', icon: 'settings', need: 'admin' },
+    { key: 'tags', href: '#/settings/tags', label: 'Etiketler', icon: 'tag', need: 'editor' },
+    { key: 'probes', href: '#/settings/probes', label: 'Kontrol noktaları', icon: 'map-pin', need: 'admin' },
+    { key: 'backup', href: '#/settings/backup', label: 'Yedekle / Geri yükle', icon: 'archive', need: 'admin' },
+    { key: 'audit', href: '#/settings/audit', label: 'İşlem kaydı', icon: 'list', need: 'admin' },
   ];
 
-  const visible = $derived(TABS.filter((t) => !t.admin || session.isAdmin));
+  const can = (need: 'viewer' | 'editor' | 'admin') => need === 'viewer' || (need === 'editor' ? session.canEdit : session.isAdmin);
+  const visible = $derived(TABS.filter((t) => can(t.need)));
   const allowed = $derived(visible.some((t) => t.key === tab));
 </script>
 
@@ -37,8 +45,8 @@
 
 {#if !allowed}
   <div class="card empty">
-    <h3>Bu bölüm yalnızca yöneticilere açık</h3>
-    <p>Kullanıcıları, genel ayarları ve işlem kaydını yalnızca yönetici rolündeki hesaplar görebilir.</p>
+    <h3>Bu bölüm için yetkiniz yok</h3>
+    <p>Kullanıcıları, genel ayarları, kontrol noktalarını, yedekleri ve işlem kaydını yalnızca yönetici rolündeki hesaplar görebilir; etiketleri editörler de yönetebilir.</p>
     <a class="btn primary" href="#/settings">Hesabıma dön</a>
   </div>
 {:else if tab === 'account'}
@@ -47,6 +55,12 @@
   <Users />
 {:else if tab === 'general'}
   <General />
+{:else if tab === 'tags'}
+  <Tags />
+{:else if tab === 'probes'}
+  <Probes />
+{:else if tab === 'backup'}
+  <Backup />
 {:else if tab === 'audit'}
   <Audit />
 {/if}

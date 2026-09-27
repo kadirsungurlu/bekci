@@ -1,45 +1,59 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import {
     api,
     ApiError,
     errorMessage,
     MASK,
+    type DownWhen,
+    type LocationSetup,
     type MonitorInput,
     type MonitorType,
     type MonitorView,
     type NotificationChannel,
+    type Probe,
+    type Tag,
   } from '../lib/api';
   import { live } from '../lib/live.svelte';
   import { navigate } from '../lib/router.svelte';
   import { toast } from '../lib/ui.svelte';
-  import { fmtInterval } from '../lib/format';
+  import { collator, fmtInterval, lower } from '../lib/format';
+  import { session } from '../lib/session.svelte';
   import { NOTIFY_LABELS } from '../lib/notifyTypes';
   import {
     CATEGORY_LABELS,
+    CATEGORY_ORDER,
     GROUP_MODES,
+    HTTP_EXTRA_FIELDS,
     MONITOR_TYPES,
     hasTimeout,
     hasUpsideDown,
+    isRemoteCapable,
     typeDef,
-    type TypeCategory,
   } from '../lib/monitorTypes';
   import Icon from '../components/Icon.svelte';
   import MonitorPicker from '../components/MonitorPicker.svelte';
+  import TagChip from '../components/TagChip.svelte';
+  import TagDialog from '../components/TagDialog.svelte';
   import ConfigFields, { fieldConfig, fieldDefaults, fieldError, fieldValues } from '../components/ConfigFields.svelte';
 
   let { id }: { id?: number } = $props();
   // svelte-ignore state_referenced_locally
   const isEdit = id !== undefined;
 
-  // Tip seçici: kayıt defteri 8'den fazla tip içerince kategorilere ayrılır.
-  const typeGroups = (() => {
-    if (MONITOR_TYPES.length <= 8) return [{ label: '', types: MONITOR_TYPES }];
-    const order: TypeCategory[] = ['web', 'network', 'passive'];
-    return order
-      .map((c) => ({ label: CATEGORY_LABELS[c], types: MONITOR_TYPES.filter((t) => t.category === c) }))
-      .filter((g) => g.types.length);
-  })();
+  // Tip seçici: kategorilere ayrılmış, aranabilir kartlar. Düzenlemede (ve dar
+  // ekranda seçim yapıldıktan sonra) yalnızca seçili tip gösterilir.
+  let typeQuery = $state('');
+  // svelte-ignore state_referenced_locally
+  let pickerOpen = $state(!isEdit);
+  const typeGroups = $derived.by(() => {
+    const q = lower(typeQuery.trim());
+    const match = (t: (typeof MONITOR_TYPES)[number]) =>
+      !q || lower(`${t.label} ${t.badge} ${t.key} ${t.desc} ${t.keywords ?? ''} ${CATEGORY_LABELS[t.category]}`).includes(q);
+    return CATEGORY_ORDER.map((c) => ({ key: c, label: CATEGORY_LABELS[c], types: MONITOR_TYPES.filter((t) => t.category === c && match(t)) })).filter(
+      (g) => g.types.length,
+    );
+  });
 
   const PRESETS = [30, 60, 120, 300, 600, 900, 1800, 3600, 86400];
   const METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
@@ -116,6 +130,39 @@
   let extra = $state<Record<string, string>>({});
   const def = $derived(typeDef(type));
   const genericFields = $derived(def?.fields ?? []);
+  const hasAdvancedFields = $derived(genericFields.some((f) => f.advanced));
+
+  // HTTP ekleri: proxy, mTLS, OAuth2
+  let httpExtra = $state<Record<string, string>>(fieldDefaults(HTTP_EXTRA_FIELDS));
+
+  // Düzenlenen monitörün kayıtlı tipi ve ayarı: tip değiştirilip geri dönülürse değerler (maskeli şifreler dahil) geri gelir.
+  let origType: MonitorType | null = null;
+  let origConfig: Record<string, unknown> = {};
+
+  // Etiketler
+  let allTags = $state.raw<Tag[]>([]);
+  let tagsLoaded = $state(false);
+  let mtags = $state<{ id: number; value: string }[]>([]);
+  let origTags: { id: number; value: string }[] = [];
+  let tagPick = $state('');
+  let tagDialogOpen = $state(false);
+  let tagDialogKey = $state(0);
+  const tagById = $derived(new Map(allTags.map((t) => [t.id, t])));
+  const addableTags = $derived(allTags.filter((t) => !mtags.some((m) => m.id === t.id)).sort((a, b) => collator.compare(a.name, b.name)));
+
+  // Konumlar (kontrol noktaları)
+  let probes = $state.raw<Probe[]>([]);
+  let probesLoaded = $state(false);
+  let locLocal = $state(true);
+  let locProbeIds = $state<number[]>([]);
+  let locDownWhen = $state<DownWhen>('any');
+  let origLoc: LocationSetup = { include_local: true, probe_ids: [], down_when: 'any' };
+  const remoteOk = $derived(isRemoteCapable(type));
+  const DOWN_WHEN: { v: DownWhen; l: string }[] = [
+    { v: 'any', l: 'Herhangi bir konum çalışmıyorsa' },
+    { v: 'majority', l: 'Konumların çoğunluğu çalışmıyorsa' },
+    { v: 'all', l: 'Tüm konumlar çalışmıyorsa' },
+  ];
 
   const interval = $derived(intervalPreset === 'custom' ? (customInterval ?? 0) : Number(intervalPreset));
 
@@ -138,8 +185,18 @@
     resendEvery = m.resend_every;
     upsideDown = m.upside_down;
     notifIds = [...m.notification_ids];
+    mtags = (m.tags ?? []).map((t) => ({ id: t.id, value: t.value }));
+    origTags = mtags.map((t) => ({ ...t }));
+    if (m.locations) {
+      origLoc = { include_local: m.locations.include_local, probe_ids: [...(m.locations.probe_ids ?? [])], down_when: m.locations.down_when || 'any' };
+      locLocal = origLoc.include_local;
+      locProbeIds = [...origLoc.probe_ids];
+      locDownWhen = origLoc.down_when;
+    }
 
     const c = m.config ?? {};
+    origType = m.type;
+    origConfig = c;
     switch (m.type) {
       case 'http': {
         url = str(c, 'url');
@@ -160,6 +217,7 @@
         jsonOp = str(c, 'json_op', '==') || '==';
         jsonExpected = str(c, 'json_expected');
         contentMode = jsonPath ? 'json' : keyword ? 'keyword' : 'none';
+        httpExtra = fieldValues(HTTP_EXTRA_FIELDS, c);
         break;
       }
       case 'tcp':
@@ -189,13 +247,60 @@
   }
 
   function pickType(t: MonitorType) {
-    if (t === type) return;
-    type = t;
-    const f = typeDef(t)?.fields;
-    if (f) extra = fieldDefaults(f);
+    if (t !== type) {
+      const prevUrl = type === 'http' ? url.trim() : '';
+      const prevHost = ['tcp', 'ping', 'dns'].includes(type) ? host.trim() : '';
+      type = t;
+      const f = typeDef(t)?.fields;
+      if (f) {
+        if (t === origType) extra = fieldValues(f, origConfig);
+        else {
+          extra = fieldDefaults(f);
+          // Önceki tipte girilen adres/sunucu yeni tipe taşınır.
+          if (prevUrl && t === 'browser') extra.url = prevUrl;
+          if (prevHost && f.some((x) => x.key === 'host')) extra.host = prevHost;
+        }
+      }
+    }
+    // Dar ekranda uzun listeyi kapatıp forma geç.
+    if (!isEdit && matchMedia('(max-width: 640px)').matches) {
+      pickerOpen = false;
+      tick().then(() => document.getElementById('name')?.focus());
+    }
   }
 
+  /** Ad boşsa girilen adres/sunucudan bir ad önerir. */
+  function suggestName(v: string) {
+    if (name.trim()) return;
+    try {
+      const u = new URL(v);
+      if (u.hostname) {
+        name = u.hostname;
+        return;
+      }
+    } catch {
+      /* adres değil */
+    }
+    name = v.length > 60 ? v.slice(0, 60) : v;
+  }
+
+  let unsubProbe: (() => void) | undefined;
+  onDestroy(() => unsubProbe?.());
+
   onMount(async () => {
+    api
+      .tags()
+      .then((list) => (allTags = list))
+      .catch(() => (allTags = []))
+      .finally(() => (tagsLoaded = true));
+    api
+      .probes()
+      .then((list) => (probes = list))
+      .catch(() => (probes = []))
+      .finally(() => (probesLoaded = true));
+    unsubProbe = live.onProbe((ev) => {
+      probes = probes.map((p) => (p.id === ev.probe_id ? { ...p, online: ev.online, last_seen_at: ev.last_seen_at } : p));
+    });
     const chP = api
       .notifications()
       .then((list) => {
@@ -264,6 +369,18 @@
         if (contentMode === 'json' && !jsonPath.trim()) return { msg: 'JSON yolunu girin (ör. data.status).', advanced: true };
         if (method === 'HEAD' && contentMode !== 'none')
           return { msg: 'HEAD isteği gövde döndürmez; kelime/JSON kontrolü için GET kullanın.', advanced: true };
+        const xe = fieldError(HTTP_EXTRA_FIELDS, httpExtra);
+        if (xe) return { msg: xe.msg, advanced: true };
+        const x = httpExtra;
+        if (x.proxy_url.trim() && x.proxy_pass && !x.proxy_user.trim())
+          return { msg: 'Proxy şifresi için kullanıcı adı da gerekli.', advanced: true };
+        if (!!x.tls_cert.trim() !== !!x.tls_key.trim())
+          return { msg: 'İstemci sertifikası ve özel anahtarı birlikte girilmeli.', advanced: true };
+        if (x.oauth_token_url.trim()) {
+          if (!x.oauth_client_id.trim() || !x.oauth_client_secret)
+            return { msg: 'OAuth2 için istemci kimliği (Client ID) ve istemci sırrı (Client Secret) gerekli.', advanced: true };
+          if (basicUser || basicPass) return { msg: 'Basic auth ile OAuth2 birlikte kullanılamaz; birini boşaltın.', advanced: true };
+        }
         break;
       }
       case 'tcp':
@@ -284,10 +401,11 @@
         break;
       default:
         if (genericFields.length) {
-          const msg = fieldError(genericFields, extra);
-          if (msg) return { msg };
+          const fe = fieldError(genericFields, extra);
+          if (fe) return fe;
         }
     }
+    if (showLocations && !locLocal && locProbeIds.length === 0) return { msg: 'Konumlar: en az bir konum seçin.' };
     if (retryInterval !== null && !inRange(retryInterval, 20, 86400))
       return { msg: 'Tekrar deneme aralığı 20 saniye ile 24 saat arasında olmalı.', advanced: true };
     if (!inRange(maxRetries, 0, 20)) return { msg: 'Tekrar deneme sayısı 0-20 arasında olmalı.', advanced: true };
@@ -299,7 +417,10 @@
 
   function buildConfig(): Record<string, unknown> {
     switch (type) {
-      case 'http':
+      case 'http': {
+        const x = fieldConfig(HTTP_EXTRA_FIELDS, httpExtra) as Record<string, string>;
+        // Sertifika kaldırıldıysa kayıtlı (maskeli) anahtar da kaldırılır.
+        if (!x.tls_cert.trim() && x.tls_key === MASK) x.tls_key = '';
         return {
           url: url.trim(),
           method,
@@ -317,7 +438,9 @@
           json_path: contentMode === 'json' ? jsonPath.trim() : '',
           json_op: contentMode === 'json' ? jsonOp : '',
           json_expected: contentMode === 'json' && jsonOp !== 'exists' ? jsonExpected : '',
+          ...x,
         };
+      }
       case 'tcp':
         return { host: host.trim(), port: port ?? 0 };
       case 'ping':
@@ -367,17 +490,90 @@
       notification_ids: channelsOk ? notifIds.filter((nid) => channels.some((c) => c.id === nid)) : null,
     };
     saving = true;
+    let res: MonitorView;
     try {
-      const res = isEdit ? await api.updateMonitor(id!, input) : await api.createMonitor(input);
-      live.upsert(res);
-      toast.success(isEdit ? 'Değişiklikler kaydedildi' : `“${res.name}” eklendi`);
-      navigate(`/monitors/${res.id}`);
+      res = isEdit ? await api.updateMonitor(id!, input) : await api.createMonitor(input);
     } catch (err) {
       showError(errorMessage(err));
-    } finally {
       saving = false;
+      return;
     }
+    // Etiketler ve konumlar monitör kaydedildikten sonra ayrı isteklerle yazılır.
+    const problems: string[] = [];
+    if (tagsLoaded && tagsChanged()) {
+      try {
+        const tags = await api.setMonitorTags(
+          res.id,
+          mtags.map((t) => ({ tag_id: t.id, value: t.value.trim() })),
+        );
+        res = { ...res, tags };
+      } catch (err) {
+        problems.push(`Etiketler kaydedilemedi: ${errorMessage(err)}`);
+      }
+    }
+    const loc = locationTarget();
+    if (loc) {
+      try {
+        const l = await api.setMonitorLocations(res.id, loc);
+        res = { ...res, locations: { include_local: l.include_local, probe_ids: l.probe_ids, down_when: l.down_when } };
+      } catch (err) {
+        problems.push(`Konumlar kaydedilemedi: ${errorMessage(err)}`);
+      }
+    }
+    live.upsert(res);
+    saving = false;
+    if (problems.length) {
+      toast.error(`Monitör kaydedildi, ancak: ${problems.join(' ')}`);
+      // Yeni monitör artık var: tekrar göndermek kopya oluşturmasın diye düzenleme sayfasına geç.
+      navigate(`/monitors/${res.id}/edit`, true);
+      return;
+    }
+    toast.success(isEdit ? 'Değişiklikler kaydedildi' : `“${res.name}” eklendi`);
+    navigate(`/monitors/${res.id}`);
   }
+
+  // Etiketler --------------------------------------------------------------------------
+  const tagKey = (l: { id: number; value: string }[]) =>
+    l
+      .map((t) => `${t.id}=${t.value.trim()}`)
+      .sort()
+      .join('|');
+  const tagsChanged = () => tagKey(mtags) !== tagKey(origTags);
+
+  function addTag(idStr: string) {
+    const tid = Number(idStr);
+    tagPick = '';
+    if (!tid || mtags.some((t) => t.id === tid)) return;
+    mtags = [...mtags, { id: tid, value: '' }];
+    tick().then(() => document.getElementById(`tv-${tid}`)?.focus());
+  }
+
+  function tagCreated(t: Tag) {
+    allTags = [...allTags, t];
+    addTag(String(t.id));
+  }
+
+  // Konumlar ----------------------------------------------------------------------------
+  const showLocations = $derived(remoteOk && probesLoaded && probes.length > 0);
+
+  /** Kaydedilecek konum ayarı; değişiklik yoksa null (gereksiz istek ve işlem kaydı olmasın). */
+  function locationTarget(): LocationSetup | null {
+    if (!probesLoaded) return null;
+    const target: LocationSetup =
+      remoteOk && probes.length > 0
+        ? {
+            include_local: locLocal,
+            probe_ids: locProbeIds.filter((pid) => probes.some((p) => p.id === pid)).sort((a, b) => a - b),
+            down_when: locDownWhen,
+          }
+        : { include_local: true, probe_ids: [], down_when: 'any' };
+    const same =
+      target.include_local === origLoc.include_local &&
+      target.down_when === origLoc.down_when &&
+      target.probe_ids.join(',') === [...origLoc.probe_ids].sort((a, b) => a - b).join(',');
+    return same ? null : target;
+  }
+  const locCount = $derived((locLocal ? 1 : 0) + locProbeIds.length);
 
   const cancelHref = $derived(isEdit ? `#/monitors/${id}` : '#/');
 </script>
@@ -398,26 +594,53 @@
 {:else}
   <form class="form" onsubmit={submit} novalidate>
     <section class="card">
-      <h2 class="card-title">Monitör tipi</h2>
-      {#each typeGroups as g (g.label)}
-        {#if g.label}<h3 class="tgroup">{g.label}</h3>{/if}
-        <div class="types" role="radiogroup" aria-label={g.label || 'Monitör tipi'}>
-          {#each g.types as t (t.key)}
-            <button
-              type="button"
-              role="radio"
-              aria-checked={type === t.key}
-              class="type"
-              class:active={type === t.key}
-              onclick={() => pickType(t.key)}
-            >
-              <span class="ticon"><Icon name={t.icon} size={20} /></span>
-              <span class="tlabel">{t.label}</span>
-              <span class="tdesc">{t.desc}</span>
-            </button>
-          {/each}
+      <div class="tp-head">
+        <h2 class="card-title">Monitör tipi</h2>
+        {#if pickerOpen}
+          <div class="tsearch">
+            <span class="s-ic"><Icon name="search" size={15} /></span>
+            <input class="input" type="search" placeholder="Tip ara (ör. redis, ssl)" bind:value={typeQuery} aria-label="Monitör tipi ara" />
+          </div>
+        {/if}
+      </div>
+      {#if !pickerOpen && def}
+        <div class="tcur">
+          <span class="ticon on"><Icon name={def.icon} size={20} /></span>
+          <span class="tcur-t">
+            <span class="tlabel">{def.label}</span>
+            <span class="tdesc">{def.desc}</span>
+          </span>
+          <button type="button" class="btn sm" onclick={() => (pickerOpen = true)}>Değiştir</button>
         </div>
-      {/each}
+      {:else}
+        {#if isEdit}
+          <p class="help tp-warn">Tipi değiştirmek monitörün hedefini değiştirir; açık olay kapatılır.</p>
+        {/if}
+        {#each typeGroups as g (g.key)}
+          <h3 class="tgroup">{g.label}</h3>
+          <div class="types" role="radiogroup" aria-label={g.label}>
+            {#each g.types as t (t.key)}
+              <button
+                type="button"
+                role="radio"
+                aria-checked={type === t.key}
+                class="type"
+                class:active={type === t.key}
+                onclick={() => pickType(t.key)}
+              >
+                <span class="ticon"><Icon name={t.icon} size={20} /></span>
+                <span class="tlabel">{t.label}</span>
+                <span class="tdesc">{t.desc}</span>
+              </button>
+            {/each}
+          </div>
+        {:else}
+          <p class="muted small nomargin">“{typeQuery}” ile eşleşen tip yok. <button type="button" class="linkbtn" onclick={() => (typeQuery = '')}>Aramayı temizle</button></p>
+        {/each}
+        {#if isEdit}
+          <button type="button" class="linkbtn tp-close" onclick={() => (pickerOpen = false)}>Listeyi kapat</button>
+        {/if}
+      {/if}
     </section>
 
     <section class="card stack">
@@ -511,7 +734,9 @@
           <span class="help">Durdurulmuş ve bakımdaki alt monitörler hesaba katılmaz.</span>
         </div>
       {:else if genericFields.length}
-        <ConfigFields fields={genericFields} bind:values={extra} idPrefix="mt" />
+        {#if def?.about}<p class="about text-2 small">{def.about}</p>{/if}
+        {#if def?.note}<div class="alert warning">{def.note}</div>{/if}
+        <ConfigFields fields={genericFields} bind:values={extra} idPrefix="mt" part="basic" onsuggest={suggestName} />
       {/if}
 
       <div class="grid-int">
@@ -563,6 +788,106 @@
       {/if}
     </section>
 
+    <section class="card">
+      <h2 class="card-title"><Icon name="tag" size={17} /> Etiketler</h2>
+      {#if !tagsLoaded}
+        <div class="skeleton" style="height:40px"></div>
+      {:else}
+        {#if mtags.length}
+          <ul class="mtags">
+            {#each mtags as mt (mt.id)}
+              {@const t = tagById.get(mt.id)}
+              <li>
+                <span class="mt-chip"><TagChip name={t?.name ?? `#${mt.id}`} color={t?.color ?? ''} /></span>
+                <input
+                  id="tv-{mt.id}"
+                  class="input mt-val"
+                  maxlength="100"
+                  bind:value={mt.value}
+                  placeholder="ör. canlı"
+                  aria-label="{t?.name ?? 'Etiket'} değeri (isteğe bağlı)"
+                />
+                <button
+                  type="button"
+                  class="btn ghost icon sm"
+                  aria-label="“{t?.name ?? ''}” etiketini kaldır"
+                  onclick={() => (mtags = mtags.filter((x) => x.id !== mt.id))}><Icon name="x" size={15} /></button
+                >
+              </li>
+            {/each}
+          </ul>
+          <p class="help sp">Değer isteğe bağlıdır; listede “ad: değer” olarak görünür.</p>
+        {/if}
+        <div class="tag-add">
+          {#if addableTags.length}
+            <select class="input" bind:value={tagPick} onchange={() => addTag(tagPick)} aria-label="Etiket ekle">
+              <option value="">Etiket ekle…</option>
+              {#each addableTags as t (t.id)}<option value={String(t.id)}>{t.name}</option>{/each}
+            </select>
+          {:else if allTags.length === 0}
+            <span class="muted small">Henüz etiket yok.</span>
+          {/if}
+          <button
+            type="button"
+            class="btn sm"
+            onclick={() => {
+              tagDialogKey++;
+              tagDialogOpen = true;
+            }}><Icon name="plus" size={14} /> Yeni etiket</button
+          >
+        </div>
+      {/if}
+    </section>
+
+    {#if remoteOk}
+      <section class="card">
+        <h2 class="card-title"><Icon name="map-pin" size={17} /> Konumlar</h2>
+        {#if !probesLoaded}
+          <div class="skeleton" style="height:40px"></div>
+        {:else if probes.length === 0}
+          <p class="muted small nomargin">
+            Bu monitör şu an yalnızca bu sunucudan kontrol ediliyor.
+            {#if session.isAdmin}
+              Farklı şehir veya ağlardan da kontrol etmek için <a href="#/settings/probes">Ayarlar → Kontrol noktaları</a> bölümünden bir kontrol
+              noktası ekleyin.
+            {:else}
+              Farklı konumlardan kontrol için yöneticinizin <b>Ayarlar → Kontrol noktaları</b> bölümünden kontrol noktası eklemesi gerekir.
+            {/if}
+          </p>
+        {:else}
+          <p class="help nomargin sp">Monitör seçili her konumdan ayrı ayrı kontrol edilir.</p>
+          <div class="locs">
+            <label class="check loc">
+              <input type="checkbox" bind:checked={locLocal} />
+              <span class="loc-t">
+                <span class="odot up" aria-hidden="true"></span>
+                <span>Ana sunucu<small>Bu uygulamanın çalıştığı sunucu</small></span>
+              </span>
+            </label>
+            {#each probes as p (p.id)}
+              <label class="check loc" class:off={!p.active}>
+                <input type="checkbox" value={p.id} bind:group={locProbeIds} />
+                <span class="loc-t">
+                  <span class="odot {!p.active ? 'paused' : p.online ? 'up' : 'down'}" aria-hidden="true"></span>
+                  <span>{p.name}<small>{!p.active ? 'Devre dışı' : p.online ? 'Çevrimiçi' : 'Çevrimdışı'}</small></span>
+                </span>
+              </label>
+            {/each}
+          </div>
+          <div class="field dw">
+            <label for="dw">Kesinti kuralı</label>
+            <select id="dw" class="input" bind:value={locDownWhen} disabled={locCount < 2}>
+              {#each DOWN_WHEN as d (d.v)}<option value={d.v}>{d.l}</option>{/each}
+            </select>
+            <span class="help">
+              Bir konum, tekrar deneme hakkını kullandıktan sonra da başarısızsa çalışmıyor sayılır. 3 kontrol aralığı boyunca sonuç
+              göndermeyen konum hesaba katılmaz.
+            </span>
+          </div>
+        {/if}
+      </section>
+    {/if}
+
     <section class="card adv">
       <button type="button" class="adv-toggle" aria-expanded={showAdvanced} onclick={() => (showAdvanced = !showAdvanced)}>
         <span>Gelişmiş ayarlar</span>
@@ -601,6 +926,12 @@
               <input type="checkbox" bind:checked={upsideDown} />
               <span>Ters mod<small>Hedef erişilebilir olduğunda “çalışmıyor”, erişilemediğinde “çalışıyor” sayılır.</small></span>
             </label>
+          {/if}
+
+          {#if hasAdvancedFields}
+            <div class="divider"></div>
+            <h3>{def?.label} ayarları</h3>
+            <ConfigFields fields={genericFields} bind:values={extra} idPrefix="mta" part="advanced" onsuggest={suggestName} />
           {/if}
 
           {#if type === 'http'}
@@ -699,6 +1030,10 @@
                 Koşul sağlanmazsa monitör çalışmıyor sayılır.
               </span>
             {/if}
+
+            <div class="divider"></div>
+            <h3>Bağlantı ve kimlik doğrulama</h3>
+            <ConfigFields fields={HTTP_EXTRA_FIELDS} bind:values={httpExtra} idPrefix="hx" />
           {/if}
 
           <div class="divider"></div>
@@ -722,6 +1057,12 @@
       </button>
     </div>
   </form>
+
+  {#key tagDialogKey}
+    {#if tagDialogKey > 0}
+      <TagDialog bind:open={tagDialogOpen} onsaved={tagCreated} />
+    {/if}
+  {/key}
 {/if}
 
 <style>
@@ -741,25 +1082,93 @@
   }
   .types {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 8px;
+  }
+  .tp-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .tp-head .card-title {
+    margin: 0;
+  }
+  .tsearch {
+    position: relative;
+    flex: 0 1 260px;
+    min-width: 0;
+  }
+  .tsearch .input {
+    height: 36px;
+    padding-left: 34px;
+  }
+  .s-ic {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .tp-warn {
+    margin: -6px 0 10px;
+  }
+  .tp-close {
+    margin-top: 12px;
+    font-size: 0.88rem;
+  }
+  .tcur {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 10px 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--accent);
+    background: var(--accent-soft);
+  }
+  .tcur-t {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .tcur .ticon {
+    margin: 0;
+    flex-shrink: 0;
+  }
+  .ticon.on {
+    background: var(--accent);
+    color: var(--accent-contrast);
   }
   .tgroup {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin: 14px 0 8px;
+    margin: 16px 0 8px;
   }
-  .tgroup:first-of-type {
+  .tp-head + .tgroup,
+  .tp-warn + .tgroup {
     margin-top: 0;
   }
+  .about {
+    margin: -4px 0 0;
+  }
+  /* Yatay kart: 20 tip tek bakışta sığsın diye simge solda, ad ve açıklama sağda. */
   .type {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    padding: 14px 12px;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    grid-template-areas:
+      'icon label'
+      'icon desc';
+    column-gap: 12px;
+    row-gap: 1px;
+    align-items: center;
+    padding: 10px 12px;
     border-radius: 10px;
     border: 1px solid var(--border-strong);
     background: var(--input);
@@ -790,20 +1199,106 @@
     justify-content: center;
     background: var(--card-2);
     color: var(--text-2);
-    margin-bottom: 4px;
+    grid-area: icon;
   }
   .type.active .ticon {
     background: var(--accent);
     color: var(--accent-contrast);
   }
   .tlabel {
+    grid-area: label;
     font-weight: 700;
     font-size: 0.93rem;
+    line-height: 1.3;
   }
   .tdesc {
+    grid-area: desc;
     font-size: 0.76rem;
     color: var(--muted);
     line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .card-title :global(svg) {
+    vertical-align: -3px;
+    margin-right: 4px;
+    color: var(--accent-text);
+  }
+  .mtags {
+    list-style: none;
+    margin: 0 0 6px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .mtags li {
+    display: grid;
+    grid-template-columns: minmax(0, 200px) minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+  }
+  .mt-chip {
+    display: flex;
+    min-width: 0;
+  }
+  .mt-val {
+    height: 34px;
+  }
+  .tag-add {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tag-add select {
+    width: auto;
+    min-width: 200px;
+    height: 34px;
+    flex: 0 1 260px;
+  }
+  .locs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+  }
+  .loc {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--input);
+  }
+  .loc.off .loc-t {
+    opacity: 0.65;
+  }
+  .loc-t {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+  }
+  .odot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-top: 6px;
+    flex-shrink: 0;
+    background: var(--paused);
+  }
+  .odot.up {
+    background: var(--up);
+    box-shadow: 0 0 0 3px var(--up-ring);
+  }
+  .odot.down {
+    background: var(--down);
+  }
+  .dw {
+    margin-top: 14px;
+    max-width: 420px;
   }
   .grid-host {
     display: grid;
@@ -887,7 +1382,7 @@
 
   @media (max-width: 900px) and (min-width: 641px) {
     .types {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
   @media (max-width: 640px) {
@@ -898,30 +1393,36 @@
       gap: 8px;
     }
     .type {
-      display: grid;
-      grid-template-columns: 34px minmax(0, 1fr);
-      grid-template-areas:
-        'icon label'
-        'icon desc';
-      column-gap: 12px;
-      row-gap: 1px;
-      align-items: center;
-      padding: 10px 12px;
-    }
-    .ticon {
-      grid-area: icon;
-      margin: 0;
-    }
-    .tlabel {
-      grid-area: label;
-    }
-    .tdesc {
-      grid-area: desc;
+      padding: 9px 12px;
     }
     .grid-host,
     .grid-int,
-    .channels {
+    .channels,
+    .locs {
       grid-template-columns: minmax(0, 1fr);
+    }
+    .types {
+      gap: 6px;
+    }
+    .tdesc {
+      display: block;
+      white-space: nowrap;
+    }
+    .tsearch {
+      flex: 1 1 100%;
+    }
+    .mtags li {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .mt-chip {
+      grid-column: 1 / -1;
+    }
+    .mt-val {
+      grid-column: 1;
+    }
+    .tag-add select {
+      flex: 1 1 100%;
+      min-width: 0;
     }
     .adv-toggle {
       padding: 16px;

@@ -38,6 +38,17 @@ export const AUDIT_LABELS: Record<string, string> = {
   'maintenance.delete': 'Bakım silindi',
   'maintenance.pause': 'Bakım durduruldu',
   'maintenance.resume': 'Bakım başlatıldı',
+  'monitor.tags': 'Monitör etiketleri değiştirildi',
+  'monitor.locations': 'Monitör konumları değiştirildi',
+  'tag.create': 'Etiket eklendi',
+  'tag.update': 'Etiket güncellendi',
+  'tag.delete': 'Etiket silindi',
+  'probe.create': 'Kontrol noktası eklendi',
+  'probe.update': 'Kontrol noktası güncellendi',
+  'probe.delete': 'Kontrol noktası silindi',
+  'probe.token': 'Kontrol noktası token’ı yenilendi',
+  'backup.export': 'Yedek indirildi',
+  'backup.import': 'İçe aktarma / geri yükleme yapıldı',
 };
 
 export const TARGET_LABELS: Record<string, string> = {
@@ -49,13 +60,22 @@ export const TARGET_LABELS: Record<string, string> = {
   status_page: 'Durum sayfası',
   announcement: 'Duyuru',
   maintenance: 'Bakım',
+  tag: 'Etiket',
+  probe: 'Kontrol noktası',
+  backup: 'Yedek',
 };
 
 export type AuditTone = 'bad' | 'warn' | 'good' | '';
 
 export function auditTone(action: string): AuditTone {
   if (action === 'login.fail' || action === 'login.2fa_fail') return 'bad';
-  if (action.endsWith('.delete') || action.endsWith('.revoke') || action.endsWith('_reset') || action === 'user.password_reset')
+  if (
+    action.endsWith('.delete') ||
+    action.endsWith('.revoke') ||
+    action.endsWith('_reset') ||
+    action === 'user.password_reset' ||
+    action === 'probe.token'
+  )
     return 'warn';
   if (action === 'login.success') return 'good';
   return '';
@@ -73,6 +93,10 @@ export function auditHref(type: string, id: number): string {
       return `#/status-pages/${id}`;
     case 'maintenance':
       return `#/maintenance/${id}`;
+    case 'probe':
+      return '#/settings/probes';
+    case 'tag':
+      return '#/settings/tags';
     default:
       return '';
   }

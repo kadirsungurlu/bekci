@@ -5,6 +5,7 @@
   import { session } from '../lib/session.svelte';
   import StatusIcon from './StatusIcon.svelte';
   import TypeBadge from './TypeBadge.svelte';
+  import TagChip from './TagChip.svelte';
   import UptimeBars from './UptimeBars.svelte';
   import Icon from './Icon.svelte';
 
@@ -25,6 +26,9 @@
   } = $props();
 
   const kind = $derived(monitorKind(m));
+  // Satırda en fazla 3 etiket; fazlası "+N" olarak.
+  const tags = $derived(m.tags ?? []);
+  const shownTags = $derived(tags.slice(0, 3));
 
   const sub = $derived.by(() => {
     switch (kind) {
@@ -69,6 +73,12 @@
     <div class="name">
       <a {href} onclick={(e) => e.stopPropagation()}>{m.name}</a>
       <TypeBadge type={m.type} />
+      {#if tags.length}
+        <span class="tags">
+          {#each shownTags as t (t.id)}<TagChip name={t.name} color={t.color} value={t.value} size="sm" />{/each}
+        </span>
+        {#if tags.length > 3}<span class="more-tags" title={tags.slice(3).map((t) => (t.value ? `${t.name}: ${t.value}` : t.name)).join(', ')}>+{tags.length - 3}</span>{/if}
+      {/if}
     </div>
     <div class="sub c-{kind === 'down' ? 'down' : kind === 'pending' ? 'pending' : kind === 'maintenance' ? 'maint' : 'muted'}" title={sub}>{sub}</div>
   </div>
@@ -160,6 +170,8 @@
     min-width: 0;
   }
   .name a {
+    flex: 0 1 auto;
+    min-width: 4em;
     color: var(--text);
     font-weight: 700;
     font-size: 0.97rem;
@@ -167,6 +179,26 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+  }
+  /* Etiketler addan çok daha önce daralır; sığmayan rozet kırpılır (ad önceliklidir). */
+  .tags {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+    flex: 0 1000 auto;
+  }
+  .tags :global(.tag-chip) {
+    flex-shrink: 1;
+    min-width: 3.6em;
+    max-width: 150px;
+  }
+  .more-tags {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--muted);
+    flex-shrink: 0;
   }
   .sub {
     font-size: 0.83rem;
@@ -284,6 +316,26 @@
     }
     .interval {
       display: none;
+    }
+    .name {
+      flex-wrap: wrap;
+      row-gap: 4px;
+    }
+    .tags {
+      order: 3;
+      flex: 0 1 auto;
+      max-width: calc(100% - 34px);
+      flex-wrap: wrap;
+      row-gap: 4px;
+    }
+    .more-tags {
+      order: 4;
+    }
+    /* Etiketler ad satırının altına iner. */
+    .name::after {
+      content: '';
+      order: 2;
+      flex-basis: 100%;
     }
     .uptime {
       width: auto;
