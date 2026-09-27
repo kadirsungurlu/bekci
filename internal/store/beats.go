@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 )
 
@@ -40,7 +41,7 @@ func (s *Store) RecordBeat(ctx context.Context, u BeatUpdate) error {
 	hour := b.Time - b.Time%3600
 	day := s.dayStart(b.Time)
 
-	return s.tx(ctx, func(tx *sql.Tx) error {
+	return s.tx(ctx, func(tx *Tx) error {
 		if _, err := tx.ExecContext(ctx,
 			"INSERT INTO heartbeats (monitor_id, time, status, ping_ms, message) VALUES (?, ?, ?, ?, ?)",
 			b.MonitorID, b.Time, b.Status, ping, b.Message); err != nil {
@@ -50,21 +51,22 @@ func (s *Store) RecordBeat(ctx context.Context, u BeatUpdate) error {
 			table  string
 			bucket int64
 		}{{"stats_hourly", hour}, {"stats_daily", day}} {
-			// ping_min/max: yeni değer NULL ise eskisi korunur (MIN/MAX NULL'ı yok sayar).
-			if _, err := tx.ExecContext(ctx, `
+			// ping_min/max: yeni değer NULL ise eskisi korunur. Sütunlar tablo adıyla
+			// nitelenir: PostgreSQL'de "up" tek başına excluded.up ile belirsiz olur.
+			if _, err := tx.ExecContext(ctx, strings.ReplaceAll(`
 				INSERT INTO `+t.table+` (monitor_id, bucket, up, down, ping_sum, ping_count, ping_min, ping_max)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 				ON CONFLICT (monitor_id, bucket) DO UPDATE SET
-					up = up + excluded.up,
-					down = down + excluded.down,
-					ping_sum = ping_sum + excluded.ping_sum,
-					ping_count = ping_count + excluded.ping_count,
-					ping_min = CASE WHEN excluded.ping_min IS NULL THEN ping_min
-						WHEN ping_min IS NULL THEN excluded.ping_min
-						ELSE MIN(ping_min, excluded.ping_min) END,
-					ping_max = CASE WHEN excluded.ping_max IS NULL THEN ping_max
-						WHEN ping_max IS NULL THEN excluded.ping_max
-						ELSE MAX(ping_max, excluded.ping_max) END`,
+					up = T.up + excluded.up,
+					down = T.down + excluded.down,
+					ping_sum = T.ping_sum + excluded.ping_sum,
+					ping_count = T.ping_count + excluded.ping_count,
+					ping_min = CASE WHEN excluded.ping_min IS NULL THEN T.ping_min
+						WHEN T.ping_min IS NULL OR excluded.ping_min < T.ping_min THEN excluded.ping_min
+						ELSE T.ping_min END,
+					ping_max = CASE WHEN excluded.ping_max IS NULL THEN T.ping_max
+						WHEN T.ping_max IS NULL OR excluded.ping_max > T.ping_max THEN excluded.ping_max
+						ELSE T.ping_max END`, "T.", t.table+"."),
 				b.MonitorID, t.bucket, up, down, pingSum, pingCount, ping, ping); err != nil {
 				return err
 			}
@@ -178,7 +180,7 @@ func hourCeil(t int64) int64 {
 func (s *Store) Uptime(ctx context.Context, monitorID int64, since int64) (pct float64, ok bool, err error) {
 	var up, down sql.NullInt64
 	err = s.db.QueryRowContext(ctx,
-		"SELECT SUM(up), SUM(down) FROM stats_hourly WHERE monitor_id = ? AND bucket >= ?",
+		"SELECT CAST(SUM(up) AS BIGINT), CAST(SUM(down) AS BIGINT) FROM stats_hourly WHERE monitor_id = ? AND bucket >= ?",
 		monitorID, hourCeil(since)).Scan(&up, &down)
 	if err != nil || up.Int64+down.Int64 == 0 {
 		return 0, false, err
@@ -190,7 +192,7 @@ func (s *Store) Uptime(ctx context.Context, monitorID int64, since int64) (pct f
 func (s *Store) AvgPing(ctx context.Context, monitorID int64, since int64) (int64, error) {
 	var sum, cnt sql.NullInt64
 	err := s.db.QueryRowContext(ctx,
-		"SELECT SUM(ping_sum), SUM(ping_count) FROM stats_hourly WHERE monitor_id = ? AND bucket >= ?",
+		"SELECT CAST(SUM(ping_sum) AS BIGINT), CAST(SUM(ping_count) AS BIGINT) FROM stats_hourly WHERE monitor_id = ? AND bucket >= ?",
 		monitorID, hourCeil(since)).Scan(&sum, &cnt)
 	if err != nil || cnt.Int64 == 0 {
 		return -1, err

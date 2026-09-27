@@ -47,7 +47,7 @@ func (s *Store) queryNotifications(ctx context.Context, q string, args ...any) (
 }
 
 func (s *Store) ListNotifications(ctx context.Context) ([]Notification, error) {
-	return s.queryNotifications(ctx, "SELECT "+notificationCols+" FROM notifications ORDER BY name COLLATE NOCASE, id")
+	return s.queryNotifications(ctx, "SELECT "+notificationCols+" FROM notifications ORDER BY LOWER(name), id")
 }
 
 // NotificationsForMonitor monitöre bağlı ve etkin bildirim kanalları.
@@ -71,15 +71,13 @@ func (s *Store) GetNotification(ctx context.Context, id int64) (Notification, er
 func (s *Store) CreateNotification(ctx context.Context, n *Notification, applyToAll bool) error {
 	now := time.Now().Unix()
 	n.CreatedAt, n.UpdatedAt = now, now
-	return s.tx(ctx, func(tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, `
+	return s.tx(ctx, func(tx *Tx) error {
+		var err error
+		n.ID, err = insertID(ctx, tx, `
 			INSERT INTO notifications (name, type, config, is_default, active, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			n.Name, n.Type, string(n.Config), boolInt(n.IsDefault), boolInt(n.Active), n.CreatedAt, n.UpdatedAt)
 		if err != nil {
-			return err
-		}
-		if n.ID, err = res.LastInsertId(); err != nil {
 			return err
 		}
 		return applyNotificationToAll(ctx, tx, n.ID, applyToAll)
@@ -88,7 +86,7 @@ func (s *Store) CreateNotification(ctx context.Context, n *Notification, applyTo
 
 func (s *Store) UpdateNotification(ctx context.Context, n *Notification, applyToAll bool) error {
 	n.UpdatedAt = time.Now().Unix()
-	return s.tx(ctx, func(tx *sql.Tx) error {
+	return s.tx(ctx, func(tx *Tx) error {
 		res, err := tx.ExecContext(ctx, `
 			UPDATE notifications SET name = ?, type = ?, config = ?, is_default = ?, active = ?, updated_at = ?
 			WHERE id = ?`,
@@ -103,13 +101,14 @@ func (s *Store) UpdateNotification(ctx context.Context, n *Notification, applyTo
 	})
 }
 
-func applyNotificationToAll(ctx context.Context, tx *sql.Tx, id int64, apply bool) error {
+func applyNotificationToAll(ctx context.Context, tx *Tx, id int64, apply bool) error {
 	if !apply {
 		return nil
 	}
 	_, err := tx.ExecContext(ctx, `
-		INSERT OR IGNORE INTO monitor_notifications (monitor_id, notification_id)
-		SELECT id, ? FROM monitors`, id)
+		INSERT INTO monitor_notifications (monitor_id, notification_id)
+		SELECT id, CAST(? AS BIGINT) FROM monitors WHERE 1 = 1
+		ON CONFLICT DO NOTHING`, id) // WHERE: SQLite'ın upsert ayrıştırma belirsizliği için şart
 	return err
 }
 

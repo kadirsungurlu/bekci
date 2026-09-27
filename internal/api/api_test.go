@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -22,6 +21,7 @@ import (
 	"github.com/kadirsa1105/uptime-kadir-app/internal/engine"
 	"github.com/kadirsa1105/uptime-kadir-app/internal/notify"
 	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
+	"github.com/kadirsa1105/uptime-kadir-app/internal/store/storetest"
 )
 
 func init() { bcryptCost = 4 } // bcrypt.MinCost
@@ -34,10 +34,7 @@ type env struct {
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
-	st, err := store.Open(filepath.Join(t.TempDir(), "t.db"), time.UTC)
-	if err != nil {
-		t.Fatal(err)
-	}
+	st := storetest.Open(t, time.UTC)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := engine.NewHub()
 	disp := notify.NewDispatcher(st, log)
@@ -411,10 +408,7 @@ func TestEventsStream(t *testing.T) {
 // Üretimdeki gibi okuma/yazma süre sınırı olan sunucuda SSE bağlantısı
 // sınırdan uzun süre açık kalmalı.
 func TestEventsSurviveServerTimeouts(t *testing.T) {
-	st, err := store.Open(filepath.Join(t.TempDir(), "t.db"), time.UTC)
-	if err != nil {
-		t.Fatal(err)
-	}
+	st := storetest.Open(t, time.UTC)
 	defer st.Close()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := engine.NewHub()

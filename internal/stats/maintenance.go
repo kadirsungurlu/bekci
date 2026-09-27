@@ -69,7 +69,8 @@ func (m *Maintenance) Tick(ctx context.Context) {
 	}
 
 	local := now.In(m.loc)
-	if settings.BackupKeep > 0 && local.Hour() >= BackupHour {
+	// PostgreSQL'in yedeği veritabanı tarafında (pg_dump, Coolify yedekleri) alınır.
+	if settings.BackupKeep > 0 && local.Hour() >= BackupHour && !m.store.Postgres() {
 		if err := m.backup(ctx, local, settings.BackupKeep); err != nil {
 			m.log.Error("yedek alınamadı", "hata", err)
 		}

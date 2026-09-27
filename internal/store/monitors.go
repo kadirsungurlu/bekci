@@ -69,7 +69,7 @@ func scanMonitor(sc scanner) (Monitor, error) {
 }
 
 func (s *Store) ListMonitors(ctx context.Context) ([]Monitor, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+monitorCols+" FROM monitors ORDER BY name COLLATE NOCASE, id")
+	rows, err := s.db.QueryContext(ctx, "SELECT "+monitorCols+" FROM monitors ORDER BY LOWER(name), id")
 	if err != nil {
 		return nil, err
 	}
@@ -106,8 +106,9 @@ func (s *Store) CreateMonitor(ctx context.Context, m *Monitor, notificationIDs [
 	now := time.Now().Unix()
 	m.CreatedAt, m.UpdatedAt = now, now
 	m.Status = StatusPending
-	return s.tx(ctx, func(tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, `
+	return s.tx(ctx, func(tx *Tx) error {
+		var err error
+		m.ID, err = insertID(ctx, tx, `
 			INSERT INTO monitors (name, type, description, active, interval_sec, retry_interval_sec,
 				max_retries, timeout_sec, resend_every, upside_down, config, push_token, status,
 				created_at, updated_at)
@@ -116,9 +117,6 @@ func (s *Store) CreateMonitor(ctx context.Context, m *Monitor, notificationIDs [
 			m.MaxRetries, m.Timeout, m.ResendEvery, boolInt(m.UpsideDown), string(m.Config),
 			nullStr(m.PushToken), m.Status, m.CreatedAt, m.UpdatedAt)
 		if err != nil {
-			return err
-		}
-		if m.ID, err = res.LastInsertId(); err != nil {
 			return err
 		}
 		return setMonitorNotifications(ctx, tx, m.ID, notificationIDs)
@@ -130,7 +128,7 @@ func (s *Store) CreateMonitor(ctx context.Context, m *Monitor, notificationIDs [
 // resetState ile sıfırlanır.
 func (s *Store) UpdateMonitor(ctx context.Context, m *Monitor, notificationIDs []int64, resetState bool) error {
 	m.UpdatedAt = time.Now().Unix()
-	return s.tx(ctx, func(tx *sql.Tx) error {
+	return s.tx(ctx, func(tx *Tx) error {
 		res, err := tx.ExecContext(ctx, `
 			UPDATE monitors SET name = ?, type = ?, description = ?, interval_sec = ?,
 				retry_interval_sec = ?, max_retries = ?, timeout_sec = ?, resend_every = ?,
@@ -183,13 +181,13 @@ func (s *Store) DeleteMonitor(ctx context.Context, id int64) error {
 	return nil
 }
 
-func setMonitorNotifications(ctx context.Context, tx *sql.Tx, monitorID int64, ids []int64) error {
+func setMonitorNotifications(ctx context.Context, tx *Tx, monitorID int64, ids []int64) error {
 	if _, err := tx.ExecContext(ctx, "DELETE FROM monitor_notifications WHERE monitor_id = ?", monitorID); err != nil {
 		return err
 	}
 	for _, nid := range ids {
 		if _, err := tx.ExecContext(ctx,
-			"INSERT OR IGNORE INTO monitor_notifications (monitor_id, notification_id) VALUES (?, ?)",
+			"INSERT INTO monitor_notifications (monitor_id, notification_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
 			monitorID, nid); err != nil {
 			return err
 		}
@@ -227,7 +225,7 @@ func (s *Store) UpdateCert(ctx context.Context, id int64, notAfter int64, issuer
 // kaydeder ve true döner; gönderildiyse false döner.
 func (s *Store) MarkCertNotice(ctx context.Context, monitorID, notAfter int64, days int) (bool, error) {
 	res, err := s.db.ExecContext(ctx,
-		"INSERT OR IGNORE INTO cert_notices (monitor_id, not_after, days, sent_at) VALUES (?, ?, ?, ?)",
+		"INSERT INTO cert_notices (monitor_id, not_after, days, sent_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING",
 		monitorID, notAfter, days, time.Now().Unix())
 	if err != nil {
 		return false, err
@@ -236,7 +234,11 @@ func (s *Store) MarkCertNotice(ctx context.Context, monitorID, notAfter int64, d
 	return n > 0, err
 }
 
-// IsUniqueViolation SQLite UNIQUE kısıtı hatasını tanır.
+// IsUniqueViolation SQLite ve PostgreSQL'in UNIQUE kısıtı hatasını tanır.
 func IsUniqueViolation(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "UNIQUE constraint failed") || strings.Contains(msg, "SQLSTATE 23505")
 }

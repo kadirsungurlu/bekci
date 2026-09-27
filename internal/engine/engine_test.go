@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
-	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/kadirsa1105/uptime-kadir-app/internal/check"
 	"github.com/kadirsa1105/uptime-kadir-app/internal/notify"
 	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
+	"github.com/kadirsa1105/uptime-kadir-app/internal/store/storetest"
 )
 
 // fakeChecker sonucu testten değiştirilebilen sahte monitör tipi.
@@ -63,10 +63,7 @@ type fixture struct {
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
-	st, err := store.Open(filepath.Join(t.TempDir(), "t.db"), time.UTC)
-	if err != nil {
-		t.Fatal(err)
-	}
+	st := storetest.Open(t, time.UTC)
 	t.Cleanup(func() { st.Close() })
 	f := &fixture{st: st, n: &fakeNotifier{}, clock: time.Date(2026, 9, 27, 10, 0, 0, 0, time.UTC)}
 	f.e = New(st, f.n, NewHub(), slog.New(slog.NewTextHandler(io.Discard, nil)),

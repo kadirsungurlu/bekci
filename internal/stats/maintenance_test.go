@@ -12,16 +12,13 @@ import (
 	"time"
 
 	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
+	"github.com/kadirsa1105/uptime-kadir-app/internal/store/storetest"
 )
 
 func TestMaintenance(t *testing.T) {
 	dir := t.TempDir()
 	loc, _ := time.LoadLocation("Europe/Istanbul")
-	st, err := store.Open(filepath.Join(dir, "uptime.db"), loc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer st.Close()
+	st := storetest.Open(t, loc)
 	ctx := context.Background()
 
 	m := store.Monitor{Name: "a", Type: "http", Active: true, Interval: 60, RetryInterval: 60, Timeout: 30, Config: json.RawMessage(`{}`)}
@@ -40,6 +37,14 @@ func TestMaintenance(t *testing.T) {
 	mt := NewMaintenance(st, slog.New(slog.NewTextHandler(io.Discard, nil)), dir, loc)
 	mt.now = func() time.Time { return now }
 
+	if st.Postgres() {
+		// PostgreSQL'de uygulama yedek almaz; sadece temizlik doğrulanır.
+		mt.Tick(ctx)
+		if beats, _ := st.Beats(ctx, m.ID, 0); len(beats) != 1 {
+			t.Errorf("14 günden eski ham kayıt silinmeliydi: %+v", beats)
+		}
+		return
+	}
 	// Eski yedekler: saklama sınırı 7, 8 eski + bugünkü → 7 kalmalı.
 	os.MkdirAll(mt.backupDir, 0o750)
 	for i := 1; i <= 8; i++ {
@@ -89,8 +94,7 @@ func TestMaintenance(t *testing.T) {
 
 func TestNoBackupBeforeHour(t *testing.T) {
 	dir := t.TempDir()
-	st, _ := store.Open(filepath.Join(dir, "uptime.db"), time.UTC)
-	defer st.Close()
+	st := storetest.Open(t, time.UTC)
 	mt := NewMaintenance(st, slog.New(slog.NewTextHandler(io.Discard, nil)), dir, time.UTC)
 	mt.now = func() time.Time { return time.Date(2026, 9, 27, 1, 0, 0, 0, time.UTC) }
 	mt.Tick(context.Background())

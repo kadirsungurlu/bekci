@@ -102,7 +102,7 @@ func (s *Store) CountUsers(ctx context.Context) (int, error) {
 // gelen iki kurulum isteğinden yalnızca biri başarılı olur.
 func (s *Store) CreateFirstUser(ctx context.Context, username, hash string) (User, error) {
 	u := User{Username: username, Role: RoleAdmin, AllMonitors: true, PasswordHash: hash, CreatedAt: time.Now().Unix(), MonitorIDs: []int64{}}
-	err := s.tx(ctx, func(tx *sql.Tx) error {
+	err := s.tx(ctx, func(tx *Tx) error {
 		var n int
 		if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&n); err != nil {
 			return err
@@ -110,13 +110,10 @@ func (s *Store) CreateFirstUser(ctx context.Context, username, hash string) (Use
 		if n > 0 {
 			return errors.New("kurulum zaten tamamlanmış")
 		}
-		res, err := tx.ExecContext(ctx,
+		var err error
+		u.ID, err = insertID(ctx, tx,
 			"INSERT INTO users (username, password_hash, role, created_at) VALUES (?, ?, ?, ?)",
 			u.Username, u.PasswordHash, u.Role, u.CreatedAt)
-		if err != nil {
-			return err
-		}
-		u.ID, err = res.LastInsertId()
 		return err
 	})
 	return u, err
@@ -124,7 +121,7 @@ func (s *Store) CreateFirstUser(ctx context.Context, username, hash string) (Use
 
 func (s *Store) UserByName(ctx context.Context, username string) (User, error) {
 	return s.scanUser(ctx, s.db.QueryRowContext(ctx,
-		"SELECT "+userCols+" FROM users WHERE username = ? COLLATE NOCASE", username))
+		"SELECT "+userCols+" FROM users WHERE LOWER(username) = LOWER(?)", username))
 }
 
 func (s *Store) UserByID(ctx context.Context, id int64) (User, error) {
@@ -132,7 +129,7 @@ func (s *Store) UserByID(ctx context.Context, id int64) (User, error) {
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+userCols+" FROM users ORDER BY username COLLATE NOCASE")
+	rows, err := s.db.QueryContext(ctx, "SELECT "+userCols+" FROM users ORDER BY LOWER(username)")
 	if err != nil {
 		return nil, err
 	}
@@ -163,16 +160,14 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 func (s *Store) CreateUser(ctx context.Context, u *User, hash string) error {
 	u.CreatedAt = time.Now().Unix()
 	u.MustChangePassword = true
-	return s.tx(ctx, func(tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, `
+	return s.tx(ctx, func(tx *Tx) error {
+		var err error
+		u.ID, err = insertID(ctx, tx, `
 			INSERT INTO users (username, display_name, role, disabled, must_change_password,
 				all_monitors, password_hash, created_at)
 			VALUES (?, ?, ?, ?, 1, ?, ?, ?)`,
 			u.Username, u.DisplayName, u.Role, boolInt(u.Disabled), boolInt(u.AllMonitors), hash, u.CreatedAt)
 		if err != nil {
-			return err
-		}
-		if u.ID, err = res.LastInsertId(); err != nil {
 			return err
 		}
 		return setUserMonitors(ctx, tx, u.ID, u.MonitorIDs)
@@ -183,7 +178,7 @@ func (s *Store) CreateUser(ctx context.Context, u *User, hash string) error {
 // hiç aktif yönetici kalmayacaksa ErrLastAdmin döner ve hiçbir şey yazılmaz.
 // Devre dışı bırakılan kullanıcının oturumları aynı işlemde kapanır.
 func (s *Store) UpdateUser(ctx context.Context, u *User) error {
-	return s.tx(ctx, func(tx *sql.Tx) error {
+	return s.tx(ctx, func(tx *Tx) error {
 		res, err := tx.ExecContext(ctx, `
 			UPDATE users SET display_name = ?, role = ?, disabled = ?, all_monitors = ? WHERE id = ?`,
 			u.DisplayName, u.Role, boolInt(u.Disabled), boolInt(u.AllMonitors), u.ID)
@@ -208,7 +203,7 @@ func (s *Store) UpdateUser(ctx context.Context, u *User) error {
 // DeleteUser kullanıcıyı (ve cascade ile oturumlarını) siler; son aktif
 // yönetici silinemez.
 func (s *Store) DeleteUser(ctx context.Context, id int64) error {
-	return s.tx(ctx, func(tx *sql.Tx) error {
+	return s.tx(ctx, func(tx *Tx) error {
 		res, err := tx.ExecContext(ctx, "DELETE FROM users WHERE id = ?", id)
 		if err != nil {
 			return err
@@ -220,7 +215,7 @@ func (s *Store) DeleteUser(ctx context.Context, id int64) error {
 	})
 }
 
-func ensureAdminLeft(ctx context.Context, tx *sql.Tx) error {
+func ensureAdminLeft(ctx context.Context, tx *Tx) error {
 	var n int
 	if err := tx.QueryRowContext(ctx,
 		"SELECT COUNT(*) FROM users WHERE role = ? AND disabled = 0", RoleAdmin).Scan(&n); err != nil {
@@ -232,13 +227,13 @@ func ensureAdminLeft(ctx context.Context, tx *sql.Tx) error {
 	return nil
 }
 
-func setUserMonitors(ctx context.Context, tx *sql.Tx, userID int64, ids []int64) error {
+func setUserMonitors(ctx context.Context, tx *Tx, userID int64, ids []int64) error {
 	if _, err := tx.ExecContext(ctx, "DELETE FROM user_monitors WHERE user_id = ?", userID); err != nil {
 		return err
 	}
 	for _, mid := range ids {
 		if _, err := tx.ExecContext(ctx,
-			"INSERT OR IGNORE INTO user_monitors (user_id, monitor_id) VALUES (?, ?)", userID, mid); err != nil {
+			"INSERT INTO user_monitors (user_id, monitor_id) VALUES (?, ?) ON CONFLICT DO NOTHING", userID, mid); err != nil {
 			return err
 		}
 	}

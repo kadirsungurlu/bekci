@@ -18,7 +18,7 @@ func (s *Store) OpenIncident(ctx context.Context, monitorID, t int64, cause stri
 	// Açık bir olay zaten varsa (ör. yeniden başlatma sonrası) yenisi açılmaz.
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO incidents (monitor_id, started_at, cause)
-		SELECT ?, ?, ?
+		SELECT CAST(? AS BIGINT), CAST(? AS BIGINT), CAST(? AS TEXT)
 		WHERE NOT EXISTS (SELECT 1 FROM incidents WHERE monitor_id = ? AND resolved_at IS NULL)`,
 		monitorID, t, cause, monitorID)
 	return err

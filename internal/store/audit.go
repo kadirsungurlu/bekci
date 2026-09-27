@@ -73,7 +73,7 @@ func (s *Store) Secret(ctx context.Context, key string, gen func() string) (stri
 		return v, err
 	}
 	v := gen()
-	if _, err := s.db.ExecContext(ctx, "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", key, v); err != nil {
+	if _, err := s.db.ExecContext(ctx, "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", key, v); err != nil {
 		return "", err
 	}
 	v2, _, err := s.GetSetting(ctx, key)

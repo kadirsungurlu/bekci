@@ -3,7 +3,8 @@
 // Ortam değişkenleri:
 //
 //	ADDR                   dinlenecek adres (varsayılan :8080)
-//	DATA_DIR               veritabanı ve yedeklerin klasörü (varsayılan ./data)
+//	DATA_DIR               SQLite veritabanı ve yedeklerin klasörü (varsayılan ./data)
+//	DATABASE_URL           verilirse PostgreSQL kullanılır (postgres://kullanıcı:şifre@sunucu:5432/vt)
 //	BASE_URL               bildirimlerdeki bağlantılar için dış adres, ör. https://uptime.kadir.app
 //	LOG_LEVEL              debug | info | warn | error (varsayılan info)
 //	MAX_CONCURRENT_CHECKS  aynı anda en fazla kontrol sayısı (varsayılan 50)
@@ -22,6 +23,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -69,11 +71,19 @@ func run() error {
 	if err := os.MkdirAll(dataDir, 0o750); err != nil {
 		return fmt.Errorf("veri klasörü oluşturulamadı: %w", err)
 	}
-	st, err := store.Open(filepath.Join(dataDir, "uptime.db"), time.Local)
+	target, dbDesc := filepath.Join(dataDir, "uptime.db"), "SQLite"
+	if u := env("DATABASE_URL", ""); u != "" {
+		if !store.IsPostgresDSN(u) {
+			return errors.New("DATABASE_URL postgres:// veya postgresql:// ile başlamalı")
+		}
+		target, dbDesc = u, "PostgreSQL "+redactDSN(u)
+	}
+	st, err := store.Open(target, time.Local)
 	if err != nil {
 		return fmt.Errorf("veritabanı açılamadı: %w", err)
 	}
 	defer st.Close()
+	log.Info("veritabanı", "tür", dbDesc)
 
 	if len(os.Args) > 1 {
 		return runCommand(st, os.Args[1:])
@@ -161,4 +171,16 @@ func runCommand(st *store.Store, args []string) error {
 		return nil
 	}
 	return fmt.Errorf("bilinmeyen komut: %s", args[0])
+}
+
+// redactDSN loglarda bağlantı adresindeki şifreyi gizler.
+func redactDSN(dsn string) string {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return "(adres okunamadı)"
+	}
+	if _, ok := u.User.Password(); ok {
+		u.User = url.UserPassword(u.User.Username(), "***")
+	}
+	return u.Redacted()
 }

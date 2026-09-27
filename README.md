@@ -35,7 +35,8 @@ Plan ve ilerleme: [docs/PLAN.md](docs/PLAN.md)
 | `TZ` | `Europe/Istanbul` | Günlük özetler ve gece yedeği saati |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `MAX_CONCURRENT_CHECKS` | `50` | Aynı anda çalışacak en fazla kontrol |
-| `DATA_DIR` | `/data` | Veri klasörü |
+| `DATA_DIR` | `/data` | SQLite veritabanı ve gece yedeklerinin klasörü |
+| `DATABASE_URL` | — | Verilirse **PostgreSQL** kullanılır: `postgres://kullanıcı:şifre@sunucu:5432/veritabanı?sslmode=disable`. Gece yedeği bu durumda veritabanı tarafında (Coolify yedekleri / `pg_dump`) alınmalıdır |
 | `ADDR` | `:8080` | Dinlenecek adres |
 
 ## Push monitörü
@@ -64,6 +65,9 @@ Yeni şifre standart girdiden okunur.
 ```bash
 # Go testleri (sunucuya Go kurmadan, geçici container'da)
 docker run --rm -v "$PWD":/src -w /src golang:1.27 go test -race ./...
+
+# Aynı testler PostgreSQL'e karşı (her test kendi geçici şemasında)
+UPTIME_TEST_PG='postgres://postgres:parola@pg:5432/postgres?sslmode=disable' go test ./...
 
 # Arayüz
 cd web && npm install && npm run check && npm run build
