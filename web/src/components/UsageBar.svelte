@@ -31,7 +31,7 @@
   {#if !inline && !bare && (label || has)}
     <div class="top">
       {#if label}<span class="l">{label}</span>{/if}
-      <span class="v">{has ? fmtPctInt(value) : '—'}{#if detail}<span class="d"> · {detail}</span>{/if}</span>
+      <span class="v">{has ? fmtPctInt(value) : '—'}{#if detail}<span class="d">&nbsp;· {detail}</span>{/if}</span>
     </div>
   {/if}
   <div class="track"><div class="fill" style="width:{width}%"></div></div>

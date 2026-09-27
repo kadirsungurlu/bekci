@@ -427,6 +427,11 @@
     <div class="charts">
       {#each Array(4) as _, i (i)}<div class="skeleton" style="height:250px"></div>{/each}
     </div>
+  {:else if pts.length === 0}
+    <div class="card nopts" class:loading={statsLoading}>
+      <Icon name="activity" size={22} />
+      <span>{view.metrics_at ? 'Bu aralıkta ölçüm yok.' : 'Henüz ölçüm yok. Ajan metrik göndermeye başlayınca grafikler burada görünür.'}</span>
+    </div>
   {:else}
     <div class="charts" class:loading={statsLoading}>
       <section class="card ch">
@@ -859,6 +864,19 @@
     transition: opacity 0.15s;
   }
   .charts.loading {
+    opacity: 0.55;
+  }
+  .nopts {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 36px 20px;
+    margin-bottom: 16px;
+    color: var(--muted);
+    text-align: center;
+  }
+  .nopts.loading {
     opacity: 0.55;
   }
   .ch {

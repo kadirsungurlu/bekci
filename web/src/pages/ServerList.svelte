@@ -49,7 +49,7 @@
     renewOpen = true;
   }
 
-  /** Alt satır: host adı · işletim sistemi (çevrimdışıysa son veri zamanı). */
+  /** Alt satır: host adı · işletim sistemi. */
   function subLine(s: ServerView): string {
     const parts = [s.host?.hostname, s.host?.platform].filter(Boolean);
     return parts.join(' · ');
