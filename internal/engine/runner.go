@@ -32,7 +32,7 @@ type runner struct {
 	preDown     []store.IncidentEvent // olay açılmadan önceki başarısız denemeler
 	lastCause   string                // işlem geçmişine yazılan son hata
 	maintLogged bool                  // olay sürerken "bakım başladı" yazıldı
-	locPrev     map[int64]string      // çok konumlu: olay sürerken konumların son yazılan durumu
+	locPrev     map[int64]locMark     // çok konumlu: olay sürerken konumların son yazılan durumu
 }
 
 // initialConfirmed yeniden başlatmada sahte bildirim gitmesin diye son

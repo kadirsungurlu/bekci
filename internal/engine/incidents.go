@@ -81,10 +81,10 @@ func (r *runner) openIncident(ctx context.Context, now time.Time, res check.Resu
 	} else {
 		st := r.locs.statuses(now, r.staleAfter(), r.m.MaxRetries)
 		var failing []string
-		r.locPrev = make(map[int64]string, len(st))
+		r.locPrev = make(map[int64]locMark, len(st))
 		for _, s := range st {
 			locs = append(locs, incidentLocation{ProbeID: s.ProbeID, Name: s.Name, Status: s.Status, Message: s.Message})
-			r.locPrev[s.ProbeID] = s.Status
+			r.locPrev[s.ProbeID] = locMark{s.Status, s.Message}
 			if s.Status == locDown {
 				failing = append(failing, s.Name)
 			}
@@ -135,32 +135,41 @@ func (r *runner) incidentProgress(ctx context.Context, now time.Time, status int
 		r.addEvents(ctx, r.incidentID, evs...)
 		return
 	}
+	// Çok konumluda birleşik mesaj konum listesini de içerir; değişimler konum
+	// başına yazılır (locationChanges).
 	if r.locs != nil {
 		evs = append(evs, r.locationChanges(now)...)
-	}
-	if status == store.StatusDown && res.Message != r.lastCause {
+	} else if status == store.StatusDown && res.Message != r.lastCause {
 		r.lastCause = res.Message
 		evs = append(evs, store.IncidentEvent{Time: now.Unix(), Kind: store.EventChange, Message: res.Message})
 	}
 	r.addEvents(ctx, r.incidentID, evs...)
 }
 
-// locationChanges olay sürerken durumu değişen konumlar. "Tekrar deneniyor"
-// ara durumdur, kaydedilmez; yeniden başlatma sonrası ilk çağrı yalnızca
-// mevcut durumu öğrenir.
+// locMark bir konumun işlem geçmişine en son yazılan durumu ve hatası.
+type locMark struct{ status, msg string }
+
+// locationChanges olay sürerken durumu (veya çalışmazken hatası) değişen
+// konumlar. "Tekrar deneniyor" ara durumdur, kaydedilmez; yeniden başlatma
+// sonrası ilk çağrı yalnızca mevcut durumu öğrenir.
 func (r *runner) locationChanges(now time.Time) []store.IncidentEvent {
 	st := r.locs.statuses(now, r.staleAfter(), r.m.MaxRetries)
 	first := r.locPrev == nil
 	if first {
-		r.locPrev = make(map[int64]string, len(st))
+		r.locPrev = make(map[int64]locMark, len(st))
 	}
 	var out []store.IncidentEvent
 	for _, s := range st {
-		if s.Status == locRetrying || r.locPrev[s.ProbeID] == s.Status {
+		prev := r.locPrev[s.ProbeID]
+		if s.Status == locRetrying || (prev.status == s.Status && (s.Status != locDown || prev.msg == s.Message)) {
 			continue
 		}
-		r.locPrev[s.ProbeID] = s.Status
+		r.locPrev[s.ProbeID] = locMark{s.Status, s.Message}
 		if first {
+			continue
+		}
+		if s.Status == locDown && prev.status == locDown {
+			out = append(out, store.IncidentEvent{Time: now.Unix(), Kind: store.EventChange, Location: s.Name, Message: s.Message})
 			continue
 		}
 		msg := "Sonuç gelmiyor"

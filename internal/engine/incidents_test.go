@@ -144,6 +144,11 @@ func TestIncidentLocations(t *testing.T) {
 	if !ok || c.Location != "Frankfurt" {
 		t.Fatalf("yakalama konumu: %+v", c)
 	}
+	// Frankfurt'ta hata değişir: konum adıyla "hata değişti".
+	f.clock = f.clock.Add(10 * time.Millisecond)
+	r.remote(fra, f.clock, down("HTTP 502 Bad Gateway"))
+	f.clock = f.clock.Add(10 * time.Millisecond)
+	r.locationTick(ctx)
 
 	// Ana sunucu da düşer, sonra Frankfurt düzelir, en son ana sunucu düzelir.
 	fake.set(down("Zaman aşımı"))
@@ -163,11 +168,17 @@ func TestIncidentLocations(t *testing.T) {
 	evs, _ := f.st.IncidentEvents(ctx, id)
 	var locs []string
 	for i := len(evs) - 1; i >= 0; i-- {
-		if evs[i].Kind == store.EventLocation {
+		switch evs[i].Kind {
+		case store.EventLocation:
 			locs = append(locs, evs[i].Location+"="+evs[i].Message)
+		case store.EventChange:
+			if evs[i].Location == "" {
+				t.Errorf("çok konumluda birleşik mesaj değişimi yazılmamalı: %+v", evs[i])
+			}
+			locs = append(locs, "değişti:"+evs[i].Location+"="+evs[i].Message)
 		}
 	}
-	want := []string{"Ana sunucu=Çalışmıyor: Zaman aşımı", "Frankfurt=Çalışıyor", "Ana sunucu=Çalışıyor"}
+	want := []string{"değişti:Frankfurt=HTTP 502 Bad Gateway", "Ana sunucu=Çalışmıyor: Zaman aşımı", "Frankfurt=Çalışıyor", "Ana sunucu=Çalışıyor"}
 	if !equal(locs, want) {
 		t.Fatalf("konum kayıtları %v, %v bekleniyordu", locs, want)
 	}
