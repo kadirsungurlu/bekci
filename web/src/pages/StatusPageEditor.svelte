@@ -496,7 +496,7 @@
         <input type="checkbox" bind:checked={showTargets} />
         <span>
           Hedef adresleri göster
-          <small>Kapalıyken monitörlerin adresleri gizlenir. Açıksa adresler kullanıcı adı/şifre ve sorgu kısmı atılarak gösterilir.</small>
+          <small>Kapalıyken monitörlerin adresleri gizlenir. Açıksa web sitelerinde alan adı (ör. ornek.com), diğerlerinde sunucu adresi gösterilir.</small>
         </span>
       </label>
       <label class="check">

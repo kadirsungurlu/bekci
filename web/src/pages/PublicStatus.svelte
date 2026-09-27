@@ -20,6 +20,16 @@
   import { fmtDate, fmtDay, fmtDuration, fmtPct, fmtTime, fmtTimeSec, hourRange, nowSec } from '../lib/format';
   import Icon, { type IconName } from '../components/Icon.svelte';
 
+  /** Web adreslerinde yalnızca alan adı (aydertesisat.com.tr); diğer hedefler olduğu gibi. */
+  function targetLabel(t: string): string {
+    if (!/^https?:\/\//i.test(t)) return t;
+    try {
+      return new URL(t).host;
+    } catch {
+      return t;
+    }
+  }
+
   let { slug = '', previewId }: { slug?: string; previewId?: number } = $props();
 
   let page = $state.raw<PublicPage | null>(null);
@@ -325,7 +335,7 @@
                   <div class="m-name">
                     <span class="m-dot {st.c}" aria-hidden="true"></span>
                     <span class="m-t">{m.name}</span>
-                    {#if m.target}<span class="m-target">{m.target}</span>{/if}
+                    {#if m.target}<span class="m-target" title={m.target}>{targetLabel(m.target)}</span>{/if}
                   </div>
                   <div class="m-right">
                     <span class="m-up">{fmtPct(upOf(m))}</span>
@@ -740,10 +750,9 @@
     overflow-wrap: anywhere;
   }
   .m-target {
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     color: var(--muted);
     overflow-wrap: anywhere;
-    font-family: var(--mono);
   }
   .m-right {
     display: flex;
