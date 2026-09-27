@@ -1,0 +1,41 @@
+# Uptime + gömülü PostgreSQL — tek imaj.
+# Coolify: Build Pack = Dockerfile, Dockerfile Location = /Dockerfile.postgres,
+# Port 8080, kalıcı depolama /data (veritabanı /data/postgres, yedekler /data/backups).
+# Varsayılan (SQLite) imaj için: Dockerfile.
+
+# 1) Arayüz
+FROM node:24-alpine AS web
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY web/ ./
+RUN npm run build
+
+# 2) Uygulama
+FROM golang:1.27-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+COPY --from=web /web/dist ./web/dist
+ARG SOURCE_COMMIT=dev
+RUN CGO_ENABLED=0 go build -trimpath \
+      -ldflags "-s -w -X main.version=$(echo ${SOURCE_COMMIT} | cut -c1-7)" \
+      -o /out/uptime ./cmd/uptime
+
+# 3) Çalışma imajı: resmi PostgreSQL 18 (Alpine) + uygulama
+FROM postgres:18-alpine
+RUN apk add --no-cache tini ca-certificates
+COPY --from=build /out/uptime /usr/local/bin/uptime
+COPY deploy/postgres-entrypoint.sh /usr/local/bin/uptime-entrypoint
+
+ENV ADDR=:8080 \
+    DATA_DIR=/data \
+    TZ=Europe/Istanbul
+VOLUME ["/data"]
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1
+
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/uptime-entrypoint"]

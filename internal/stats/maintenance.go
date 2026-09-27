@@ -4,8 +4,10 @@ package stats
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -18,12 +20,17 @@ import (
 const BackupHour = 3
 
 type Maintenance struct {
+	pgDumpDSN string // PostgreSQL'de gece yedeği için pg_dump bağlantısı (boşsa yedek alınmaz)
 	store     *store.Store
 	log       *slog.Logger
 	backupDir string
 	loc       *time.Location
 	now       func() time.Time
 }
+
+// SetPostgresDump PostgreSQL kullanılırken gece yedeğinin pg_dump ile
+// alınmasını sağlar (pg_dump PATH'te yoksa yedek atlanır).
+func (m *Maintenance) SetPostgresDump(dsn string) { m.pgDumpDSN = dsn }
 
 func NewMaintenance(s *store.Store, log *slog.Logger, dataDir string, loc *time.Location) *Maintenance {
 	return &Maintenance{store: s, log: log, backupDir: filepath.Join(dataDir, "backups"), loc: loc, now: time.Now}
@@ -69,8 +76,7 @@ func (m *Maintenance) Tick(ctx context.Context) {
 	}
 
 	local := now.In(m.loc)
-	// PostgreSQL'in yedeği veritabanı tarafında (pg_dump, Coolify yedekleri) alınır.
-	if settings.BackupKeep > 0 && local.Hour() >= BackupHour && !m.store.Postgres() {
+	if settings.BackupKeep > 0 && local.Hour() >= BackupHour {
 		if err := m.backup(ctx, local, settings.BackupKeep); err != nil {
 			m.log.Error("yedek alınamadı", "hata", err)
 		}
@@ -82,13 +88,25 @@ func (m *Maintenance) backup(ctx context.Context, local time.Time, keep int) err
 	if err := os.MkdirAll(m.backupDir, 0o750); err != nil {
 		return err
 	}
-	path := filepath.Join(m.backupDir, "uptime-"+local.Format("2006-01-02")+".db")
+	ext, dump := ".db", m.store.Backup
+	if m.store.Postgres() {
+		// PostgreSQL: gömülü imajda pg_dump var; dış veritabanında yedek
+		// veritabanı tarafında (Coolify yedekleri vb.) alınmalı.
+		if m.pgDumpDSN == "" {
+			return nil
+		}
+		if _, err := exec.LookPath("pg_dump"); err != nil {
+			return nil
+		}
+		ext, dump = ".dump", m.pgDump
+	}
+	path := filepath.Join(m.backupDir, "uptime-"+local.Format("2006-01-02")+ext)
 	if _, err := os.Stat(path); err == nil {
 		return nil // bugünün yedeği zaten var
 	}
 	tmp := path + ".tmp"
 	os.Remove(tmp)
-	if err := m.store.Backup(ctx, tmp); err != nil {
+	if err := dump(ctx, tmp); err != nil {
 		os.Remove(tmp)
 		return err
 	}
@@ -106,7 +124,8 @@ func (m *Maintenance) prune(keep int) error {
 	}
 	var files []string
 	for _, e := range entries {
-		if !e.IsDir() && strings.HasPrefix(e.Name(), "uptime-") && strings.HasSuffix(e.Name(), ".db") {
+		name := e.Name()
+		if !e.IsDir() && strings.HasPrefix(name, "uptime-") && (strings.HasSuffix(name, ".db") || strings.HasSuffix(name, ".dump")) {
 			files = append(files, e.Name())
 		}
 	}
@@ -116,6 +135,18 @@ func (m *Maintenance) prune(keep int) error {
 			return err
 		}
 		files = files[1:]
+	}
+	return nil
+}
+
+// pgDump PostgreSQL veritabanını pg_dump'ın sıkıştırılmış özel biçiminde
+// yazar (geri yükleme: pg_restore --clean -d <veritabanı> dosya.dump).
+func (m *Maintenance) pgDump(ctx context.Context, path string) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "pg_dump", "--format=custom", "--no-owner", "--file", path, "--dbname", m.pgDumpDSN)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("pg_dump: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }

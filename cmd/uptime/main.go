@@ -104,7 +104,11 @@ func run() error {
 	if err := eng.Start(ctx); err != nil {
 		return fmt.Errorf("kontrol motoru başlatılamadı: %w", err)
 	}
-	go stats.NewMaintenance(st, log, dataDir, time.Local).Run(ctx)
+	maint := stats.NewMaintenance(st, log, dataDir, time.Local)
+	if st.Postgres() {
+		maint.SetPostgresDump(target)
+	}
+	go maint.Run(ctx)
 
 	apiServer := api.New(st, eng, hub, dispatcher, log, web.Dist(), version)
 	apiServer.BaseURL = baseURL
