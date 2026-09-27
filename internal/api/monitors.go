@@ -15,7 +15,14 @@ import (
 )
 
 // monitorSecrets monitör ayarlarında maskelenecek alanlar.
-var monitorSecrets = map[string][]string{"http": {"basic_pass"}}
+var monitorSecrets = map[string][]string{
+	"http":     {"basic_pass"},
+	"mysql":    {"password"},
+	"postgres": {"password"},
+	"mssql":    {"password"},
+	"redis":    {"password"},
+	"mongodb":  {"uri"},
+}
 
 func maskMonitorConfig(typ string, cfg json.RawMessage) json.RawMessage {
 	keys := monitorSecrets[typ]
