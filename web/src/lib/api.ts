@@ -698,7 +698,7 @@ export interface ServerStats {
 /** online | offline | unavailable (ajan toplayamıyor) | waiting (hiç örnek yok) | disabled */
 export type ServerState = 'online' | 'offline' | 'unavailable' | 'waiting' | 'disabled';
 
-export type ServerMetric = 'cpu' | 'mem' | 'swap' | 'disk' | 'load' | 'temp' | 'offline';
+export type ServerMetric = 'cpu' | 'mem' | 'swap' | 'disk' | 'load' | 'temp' | 'net' | 'offline';
 
 export interface ServerView {
   id: number;

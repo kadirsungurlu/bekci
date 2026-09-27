@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -504,5 +505,40 @@ func TestOfflineGraceAfterStartAndArm(t *testing.T) {
 	e.svc.CheckOffline(ctx)
 	if evs := e.notif.take(); len(evs) != 0 {
 		t.Fatalf("yeniden açıldıktan hemen sonra uyarı: %+v", evs)
+	}
+}
+
+// Ağ uyarısı: 10 dk boyunca ortalama gelen+giden 100 Mbit/s'yi geçerse tetiklenir.
+func TestNetAlert(t *testing.T) {
+	e := newTestEnv(t)
+	ctx := context.Background()
+	e.send(cpu(1)) // varsayılan kurallar
+	e.notif.take()
+	if _, err := e.st.ReplaceServerAlerts(ctx, e.probe.ID, []store.ServerAlert{
+		{Metric: MetricNet, Threshold: 100, Minutes: 5, Active: true},
+	}, e.clock.Unix()); err != nil {
+		t.Fatal(err)
+	}
+	netStats := func(mbit float64) metrics.Stats {
+		st := cpu(5)
+		half := mbit / 8 * 1e6 / 2 // Mbit/s → bayt/s, gelen+giden yarı yarıya
+		st.NetRxBps, st.NetTxBps = half, half
+		return st
+	}
+	for range 5 {
+		e.send(netStats(40)) // eşik altı
+	}
+	if evs := e.notif.take(); len(evs) != 0 {
+		t.Fatalf("eşik altında tetiklenmemeli: %+v", evs)
+	}
+	for range 5 {
+		e.send(netStats(150)) // eşik üstü
+	}
+	evs := e.notif.take()
+	if len(evs) != 1 || evs[0].Metric != MetricNet || evs[0].Value < 100 {
+		t.Fatalf("ağ uyarısı: %+v", evs)
+	}
+	if got := evs[0].Title(); !strings.HasPrefix(got, "🔴 CP Server İstanbul: Ağ ") || !strings.Contains(got, "Mbit/s (5 dk ortalama, eşik 100 Mbit/s)") {
+		t.Fatalf("başlık: %s", got)
 	}
 }

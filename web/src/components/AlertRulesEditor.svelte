@@ -208,7 +208,7 @@
 
           {#if r.metric !== 'offline'}
             <span class="w">≥</span>
-            <label class="unitbox" class:wide={info.unit === 'load'}>
+            <label class="unitbox" class:wide={info.unit === 'load' || info.unit === 'net'}>
               {#if info.unit === 'pct'}<span class="u pre">%</span>{/if}
               <input
                 class="input num"

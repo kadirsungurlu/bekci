@@ -67,7 +67,7 @@ type Event struct {
 
 // metricNames sunucu metriklerinin bildirimlerdeki adları.
 var metricNames = map[string]string{
-	"cpu": "CPU", "mem": "RAM", "swap": "Swap", "disk": "Disk", "load": "Yük", "temp": "Sıcaklık",
+	"cpu": "CPU", "mem": "RAM", "swap": "Swap", "disk": "Disk", "load": "Yük", "temp": "Sıcaklık", "net": "Ağ",
 }
 
 // FormatMetric sunucu metriğinin değerini birimiyle yazar: "%94", "1,25", "72 °C".
@@ -77,6 +77,11 @@ func FormatMetric(metric string, v float64) string {
 		return strings.Replace(fmt.Sprintf("%.2f", v), ".", ",", 1)
 	case "temp":
 		return fmt.Sprintf("%.0f °C", v)
+	case "net":
+		if v >= 1000 {
+			return strings.Replace(fmt.Sprintf("%.2f Gbit/s", v/1000), ".", ",", 1)
+		}
+		return fmt.Sprintf("%.0f Mbit/s", v)
 	}
 	return fmt.Sprintf("%%%.0f", v)
 }

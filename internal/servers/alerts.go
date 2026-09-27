@@ -18,11 +18,12 @@ const (
 	MetricDisk    = "disk"    // bölüm doluluğu % (kuralda bölüm yoksa en dolusu)
 	MetricLoad    = "load"    // 1 dk yük / mantıksal çekirdek
 	MetricTemp    = "temp"    // en sıcak sensör °C
+	MetricNet     = "net"     // gelen+giden ağ hızı (Mbit/s)
 	MetricOffline = "offline" // veri gelmiyor
 )
 
 // Metrics geçerli uyarı metrikleri (arayüzdeki sırayla).
-var Metrics = []string{MetricOffline, MetricCPU, MetricMem, MetricDisk, MetricSwap, MetricLoad, MetricTemp}
+var Metrics = []string{MetricOffline, MetricCPU, MetricMem, MetricDisk, MetricSwap, MetricLoad, MetricTemp, MetricNet}
 
 // ValidMetric metriğin geçerli olup olmadığını söyler.
 func ValidMetric(m string) bool {
@@ -41,6 +42,8 @@ func ThresholdRange(metric string) (lo, hi float64) {
 		return 0.01, 100
 	case MetricTemp:
 		return 1, 150
+	case MetricNet:
+		return 0.1, 1000000 // Mbit/s (0,1 – 1.000.000 = 1 Tbit/s)
 	case MetricOffline:
 		return 0, 0
 	}
@@ -61,6 +64,7 @@ func DefaultRules() []store.ServerAlert {
 type point struct {
 	t                          int64
 	cpu, mem, swap, disk, load float64
+	net                        float64 // gelen+giden Mbit/s
 	temp                       float64
 	hasTemp                    bool
 	disks                      map[string]float64 // bölüm → doluluk %
@@ -72,6 +76,7 @@ func pointOf(t int64, st *metrics.Stats, host *metrics.Host) point {
 	if host != nil && host.Threads > 0 {
 		p.load = st.Load1 / float64(host.Threads)
 	}
+	p.net = (st.NetRxBps + st.NetTxBps) * 8 / 1e6 // bayt/sn → Mbit/s
 	p.temp, p.hasTemp = st.TempMax()
 	if len(st.Disks) > 0 {
 		p.disks = make(map[string]float64, len(st.Disks))
@@ -108,6 +113,8 @@ func (p point) value(metric, mount string) (float64, bool) {
 		return p.disk, true
 	case MetricLoad:
 		return p.load, true
+	case MetricNet:
+		return p.net, true
 	case MetricTemp:
 		return p.temp, p.hasTemp
 	}

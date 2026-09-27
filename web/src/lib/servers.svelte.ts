@@ -8,7 +8,7 @@ import { session } from './session.svelte';
 
 // Metrikler -----------------------------------------------------------------------------
 
-export type MetricUnit = 'pct' | 'load' | 'temp' | 'none';
+export type MetricUnit = 'pct' | 'load' | 'temp' | 'net' | 'none';
 
 export interface MetricInfo {
   label: string;
@@ -30,14 +30,15 @@ export const METRICS: Record<ServerMetric, MetricInfo> = {
   disk: { label: 'Disk', unit: 'pct', desc: 'Seçilen bölümün ya da en dolu bölümün doluluğu', threshold: 85, minutes: 5, min: 1, max: 100, step: 1 },
   load: { label: 'Yük', unit: 'load', desc: '1 dakikalık yük ÷ çekirdek sayısı', threshold: 1.5, minutes: 10, min: 0.1, max: 100, step: 0.1 },
   temp: { label: 'Sıcaklık', unit: 'temp', desc: 'En sıcak sensör', threshold: 80, minutes: 5, min: 1, max: 150, step: 1 },
+  net: { label: 'Ağ', unit: 'net', desc: 'Gelen + giden ağ hızı (ortalama)', threshold: 100, minutes: 10, min: 0.1, max: 1000000, step: 10 },
   offline: { label: 'Çevrimdışı', unit: 'none', desc: 'Ajandan bu süre boyunca veri gelmezse', threshold: 0, minutes: 3, min: 0, max: 0, step: 1 },
 };
 
-export const METRIC_ORDER: ServerMetric[] = ['offline', 'cpu', 'mem', 'disk', 'swap', 'load', 'temp'];
+export const METRIC_ORDER: ServerMetric[] = ['offline', 'cpu', 'mem', 'disk', 'swap', 'load', 'temp', 'net'];
 
 export const metricLabel = (m: ServerMetric) => METRICS[m]?.label ?? m;
 
-export const UNIT_LABELS: Record<MetricUnit, string> = { pct: '%', load: 'çekirdek başına', temp: '°C', none: '' };
+export const UNIT_LABELS: Record<MetricUnit, string> = { pct: '%', load: 'çekirdek başına', temp: '°C', net: 'Mbit/sn', none: '' };
 
 /** Eşik veya ölçülen değeri metriğin birimiyle yazar: "%90", "1,50 / çekirdek", "80 °C". */
 export function fmtMetric(m: ServerMetric, v: number): string {
@@ -48,6 +49,8 @@ export function fmtMetric(m: ServerMetric, v: number): string {
       return `${fmtDec(v, 2)} / çekirdek`;
     case 'temp':
       return fmtTemp(v);
+    case 'net':
+      return v >= 1000 ? `${fmtDec(v / 1000, 2)} Gbit/sn` : `${Math.round(v)} Mbit/sn`;
     default:
       return '';
   }
