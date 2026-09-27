@@ -510,7 +510,7 @@ işlem geçmişi ve (HTTP'de) hatayı üreten isteğin ve yanıtın kendisi.
 |---|---|---|
 | `retry` | Olay açılmadan önceki başarısız denemeler (bellekte tutulur, olay açılınca kendi zamanlarıyla yazılır; en fazla 20) | hata; `{attempt, max}` |
 | `down` | Olay başladı | kök neden; `location` gözlendiği yer; `{locations:[{probe_id,name,status,message}]}` |
-| `change` | Olay sürerken hata mesajı değişti | yeni hata |
+| `change` | Olay sürerken hata mesajı değişti (çok konumluda birleşik mesaj değil, konum başına: `location` dolu) | yeni hata |
 | `location` | Çok konumluda olay sürerken bir konumun durumu değişti | durum + mesaj |
 | `reminder` | Hatırlatma bildirimi tetiklendi | `{downtime}` |
 | `maint_start` / `maint_end` | Olay sürerken bakım penceresi başladı/bitti | — |
