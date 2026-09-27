@@ -71,15 +71,25 @@ type Probe struct {
 	LastIP      string `json:"last_ip"`
 	Version     string `json:"version"`
 	Hash        string `json:"-"`
+
+	// Sunucu takibi (servers.go): metrik toplama açık mı, son host bilgisi
+	// (metrics.Host JSON'u, boş olabilir), son örnek zamanı ve ajanın
+	// "toplayamıyorum" nedeni.
+	Metrics     bool   `json:"metrics"`
+	HostInfo    string `json:"-"`
+	MetricsAt   int64  `json:"metrics_at"`
+	MetricsNote string `json:"metrics_note"`
 }
 
-const probeCols = `id, name, token_prefix, active, created_at, last_seen_at, last_ip, version, token_hash`
+const probeCols = `id, name, token_prefix, active, created_at, last_seen_at, last_ip, version, token_hash,
+	metrics, host_info, metrics_at, metrics_note`
 
 func scanProbe(sc scanner) (Probe, error) {
 	var p Probe
-	var seen sql.NullInt64
-	err := sc.Scan(&p.ID, &p.Name, &p.TokenPrefix, &p.Active, &p.CreatedAt, &seen, &p.LastIP, &p.Version, &p.Hash)
-	p.LastSeenAt = seen.Int64
+	var seen, metricsAt sql.NullInt64
+	err := sc.Scan(&p.ID, &p.Name, &p.TokenPrefix, &p.Active, &p.CreatedAt, &seen, &p.LastIP, &p.Version, &p.Hash,
+		&p.Metrics, &p.HostInfo, &metricsAt, &p.MetricsNote)
+	p.LastSeenAt, p.MetricsAt = seen.Int64, metricsAt.Int64
 	return p, err
 }
 
@@ -137,7 +147,9 @@ func (s *Store) CountProbes(ctx context.Context) (int, error) {
 	return n, err
 }
 
+// CreateProbe kontrol noktasını ekler; metrik toplama yeni kayıtta açıktır.
 func (s *Store) CreateProbe(ctx context.Context, p *Probe) error {
+	p.Metrics = true
 	return s.db.QueryRowContext(ctx, `
 		INSERT INTO probes (name, token_hash, token_prefix, active, created_at)
 		VALUES (?, ?, ?, ?, ?) RETURNING id`,
