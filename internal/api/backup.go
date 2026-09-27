@@ -134,7 +134,7 @@ func (s *Server) buildExport(ctx context.Context) (*backup.Doc, error) {
 		bp := backup.Page{
 			Slug: p.Slug, Title: p.Title, Description: p.Description, Footer: p.Footer,
 			CustomDomain: p.CustomDomain, PasswordHash: p.PasswordHash, ShowTargets: p.ShowTargets,
-			Published: p.Published, Sections: []backup.PageSection{}, Announcements: []backup.Announcement{},
+			BarRange: p.BarRange, Published: p.Published, Sections: []backup.PageSection{}, Announcements: []backup.Announcement{},
 		}
 		for _, sec := range p.Sections {
 			bs := backup.PageSection{Title: sec.Title, Monitors: []backup.PageMonitor{}}
@@ -618,7 +618,7 @@ func planPage(bp backup.Page, known map[int64]bool, slugs, domains map[string]bo
 	p := store.StatusPage{
 		Slug: strings.ToLower(strings.TrimSpace(bp.Slug)), Title: strings.TrimSpace(bp.Title),
 		Description: strings.TrimSpace(bp.Description), Footer: strings.TrimSpace(bp.Footer),
-		ShowTargets: bp.ShowTargets, Published: bp.Published,
+		ShowTargets: bp.ShowTargets, Published: bp.Published, BarRange: bp.BarRange,
 	}
 	switch {
 	case !importSlugRe.MatchString(p.Slug):

@@ -399,6 +399,7 @@ export interface StatusPage {
   custom_domain: string;
   has_password: boolean;
   show_targets: boolean;
+  bar_range: BarRange;
   published: boolean;
   has_logo: boolean;
   created_at: number;
@@ -413,6 +414,7 @@ export interface PageInput {
   sections: PageSection[];
   custom_domain: string;
   show_targets: boolean;
+  bar_range: BarRange;
   published: boolean;
   /** Gönderilmezse değişmez, "" kaldırır, dolu değer yeni şifredir. */
   password?: string;
@@ -440,6 +442,9 @@ export interface AnnouncementInput {
   ends_at: number;
 }
 
+/** Durum sayfası çubukları: son kontroller (her çubuk bir kontrol), son 24 saat (saatlik), son 90 gün (günlük). */
+export type BarRange = 'recent' | '24h' | '90d';
+
 export type PublicMonitorStatus = 'up' | 'down' | 'pending' | 'paused' | 'maintenance';
 export type OverallStatus = 'up' | 'partial' | 'down' | 'unknown';
 
@@ -452,6 +457,8 @@ export interface PublicBar {
 export interface PublicMonitor {
   name: string;
   status: PublicMonitorStatus;
+  /** Sayfanın uptime_window'u için (recent/24h: son 24 saat, 90d: 90 gün). */
+  uptime?: number | null;
   uptime_90d: number | null;
   bars: PublicBar[];
   target?: string;
@@ -474,6 +481,9 @@ export interface PublicPage {
   has_logo: boolean;
   logo_url: string | null;
   updated_at: number;
+  /** Eski sunucularda yok → 90d kabul edilir. */
+  range?: BarRange;
+  uptime_window?: '24h' | '90d';
   status: OverallStatus;
   sections: { title: string; monitors: PublicMonitor[] }[];
   announcements: PublicAnnouncement[];

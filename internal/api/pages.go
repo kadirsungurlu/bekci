@@ -181,6 +181,8 @@ type pageInput struct {
 	CustomDomain string              `json:"custom_domain"`
 	ShowTargets  *bool               `json:"show_targets"`
 	Published    *bool               `json:"published"`
+	// BarRange: recent (son kontroller, varsayılan) | 24h | 90d; yok = değişmez.
+	BarRange *string `json:"bar_range"`
 	// Password: yok/null = değişmez, "" = kaldır, dolu = yeni şifre.
 	Password *string `json:"password"`
 }
@@ -238,7 +240,7 @@ func (s *Server) baseHost() string {
 
 // normalizePage girdiyi doğrular ve sayfaya uygular. old nil ise yeni sayfa.
 func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.StatusPage) (store.StatusPage, error) {
-	p := store.StatusPage{Published: true}
+	p := store.StatusPage{Published: true, BarRange: store.BarRangeRecent}
 	if old != nil {
 		p = *old
 	}
@@ -311,6 +313,12 @@ func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.St
 	}
 	if in.ShowTargets != nil {
 		p.ShowTargets = *in.ShowTargets
+	}
+	if in.BarRange != nil {
+		if !store.ValidBarRange(*in.BarRange) {
+			return p, badInput("Çubuk görünümü recent, 24h veya 90d olmalı")
+		}
+		p.BarRange = *in.BarRange
 	}
 	if in.Published != nil {
 		p.Published = *in.Published

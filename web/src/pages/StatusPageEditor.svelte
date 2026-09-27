@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { api, ApiError, errorMessage, type PageInput, type StatusPage } from '../lib/api';
+  import { api, ApiError, errorMessage, type BarRange, type PageInput, type StatusPage } from '../lib/api';
   import { live } from '../lib/live.svelte';
   import { navigate } from '../lib/router.svelte';
   import { confirmDialog, copyText, toast } from '../lib/ui.svelte';
@@ -39,6 +39,7 @@
   let footer = $state('');
   let customDomain = $state('');
   let showTargets = $state(false);
+  let barRange = $state<BarRange>('recent');
   let published = $state(true);
   let pwMode = $state<'keep' | 'set' | 'remove'>('keep');
   let password = $state('');
@@ -72,6 +73,7 @@
     footer = p.footer;
     customDomain = p.custom_domain;
     showTargets = p.show_targets;
+    barRange = p.bar_range ?? 'recent';
     published = p.published;
     pwMode = 'keep';
     password = '';
@@ -206,6 +208,7 @@
         .map((s) => ({ title: s.title.trim(), monitors: s.monitors.map((m) => ({ id: m.id, name: m.name.trim() })) })),
       custom_domain: customDomain.trim().toLowerCase(),
       show_targets: showTargets,
+      bar_range: barRange,
       published,
     };
     if (pwMode === 'set') body.password = password;
@@ -473,6 +476,18 @@
           {/if}
           {#if logoError}<div class="alert error small">{logoError}</div>{/if}
         </div>
+      </div>
+      <div class="field">
+        <label for="bar-range">Durum çubukları</label>
+        <select id="bar-range" class="input" bind:value={barRange}>
+          <option value="recent">Son kontroller (önerilen)</option>
+          <option value="24h">Son 24 saat (saatlik)</option>
+          <option value="90d">Son 90 gün (günlük)</option>
+        </select>
+        <span class="help"
+          >Ziyaretçiler çoğunlukla anlık durumu merak eder. "Son kontroller"de her çubuk bir kontroldür (Uptime Kuma gibi); uzun
+          vadeli güvenilirliği göstermek için 90 gün seçilebilir.</span
+        >
       </div>
       <label class="check">
         <input type="checkbox" bind:checked={showTargets} />

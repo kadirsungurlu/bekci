@@ -7,15 +7,17 @@
     api,
     ApiError,
     errorMessage,
+    type BarRange,
     type OverallStatus,
     type PublicBar,
+    type PublicMonitor,
     type PublicLocked,
     type PublicMonitorStatus,
     type PublicPage,
     type Severity,
   } from '../lib/api';
   import { clock } from '../lib/ui.svelte';
-  import { fmtDate, fmtDay, fmtDuration, fmtPct, fmtTime, nowSec } from '../lib/format';
+  import { fmtDate, fmtDay, fmtDuration, fmtPct, fmtTime, fmtTimeSec, hourRange, nowSec } from '../lib/format';
   import Icon, { type IconName } from '../components/Icon.svelte';
 
   let { slug = '', previewId }: { slug?: string; previewId?: number } = $props();
@@ -139,23 +141,53 @@
   };
 
   let width = $state(800);
-  // Dar ekranda çubuklar okunur kalsın diye son 30/60 gün.
-  const days = $derived(width >= 600 ? 90 : width >= 440 ? 60 : 30);
+  // Sayfanın çubuk görünümü (eski sunucu: 90 gün). Dar ekranda çubuklar okunur
+  // kalsın diye daha az çubuk gösterilir.
+  const range = $derived<BarRange>(page?.range ?? '90d');
+  const count = $derived(
+    range === '24h' ? 24 : range === 'recent' ? (width >= 600 ? 60 : width >= 440 ? 45 : 30) : width >= 600 ? 90 : width >= 440 ? 60 : 30,
+  );
 
-  function barKind(b: PublicBar): string {
+  /** Gösterilecek çubuklar; son kontroller görünümünde az kontrol varsa soldan boşlukla doldurulur. */
+  function shown(bars: PublicBar[]): (PublicBar | null)[] {
+    const last = bars.slice(-count);
+    return range === 'recent' && last.length < count ? [...Array(count - last.length).fill(null), ...last] : last;
+  }
+
+  function barKind(b: PublicBar | null): string {
+    if (!b) return 'nodata';
     const total = b.up + b.down;
     if (total === 0) return 'nodata';
     if (b.down === 0) return 'up';
     return (100 * b.up) / total >= 95 ? 'mixed' : 'down';
   }
 
-  function barTip(b: PublicBar): string {
+  function barTip(b: PublicBar | null): string {
+    if (!b) return 'Henüz kontrol yok';
     const total = b.up + b.down;
-    if (total === 0) return `${fmtDay(b.t)}\nVeri yok`;
-    let s = `${fmtDay(b.t)}\nUptime ${fmtPct((100 * b.up) / total)}`;
+    if (range === 'recent') {
+      const when = `${fmtDate(b.t)} ${fmtTimeSec(b.t)}`;
+      return `${when}\n${b.up ? 'Çalışıyor' : b.down ? 'Kesinti' : 'Kontrol ediliyor / bakımda'}`;
+    }
+    const head = range === '24h' ? hourRange(b.t) : fmtDay(b.t);
+    if (total === 0) return `${head}\nVeri yok`;
+    let s = `${head}\nUptime ${fmtPct((100 * b.up) / total)}`;
     if (b.down > 0) s += ` · ${b.down} başarısız kontrol`;
     return s;
   }
+
+  /** Alt eksenin sol ucu: görünümün başladığı an. */
+  function axisStart(bars: (PublicBar | null)[]): string {
+    if (range === '90d') return `${bars.length} gün önce`;
+    if (range === '24h') return '24 saat önce';
+    const first = bars.find((b) => b) ?? null;
+    if (!first) return 'Henüz kontrol yok';
+    const min = Math.max(1, Math.round((nowSec() - first.t) / 60));
+    return min < 120 ? `${min} dk önce` : `${Math.round(min / 60)} saat önce`;
+  }
+
+  const uptimeLabel = $derived(page?.uptime_window === '24h' ? 'Son 24 saat' : '90 günlük uptime');
+  const upOf = (m: PublicMonitor) => (m.uptime !== undefined ? m.uptime : m.uptime_90d);
 
   // Dokunmatik ekranda çubuğa dokununca bilgisi çubukların altında gösterilir.
   let picked = $state<{ key: string; i: number } | null>(null);
@@ -282,7 +314,7 @@
             {#each sec.monitors as m, mi (mi)}
               {@const key = `${si}-${mi}`}
               {@const st = MON[m.status] ?? MON.pending}
-              {@const bars = m.bars.slice(-days)}
+              {@const bars = shown(m.bars)}
               <div class="mon">
                 <div class="m-top">
                   <div class="m-name">
@@ -291,21 +323,21 @@
                     {#if m.target}<span class="m-target">{m.target}</span>{/if}
                   </div>
                   <div class="m-right">
-                    <span class="m-up">{fmtPct(m.uptime_90d)}</span>
+                    <span class="m-up">{fmtPct(upOf(m))}</span>
                     <span class="m-st {st.c}">{st.l}</span>
                   </div>
                 </div>
                 <!-- Dokunmatik ekranlar için ek kolaylık; aynı bilgi ipucunda ve yüzdede de var. -->
                 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-                <div class="bars" onclick={(e) => pick(e, key)} role="img" aria-label="{m.name}: son {days} günün uptime çubukları, ortalama {fmtPct(m.uptime_90d)}">
-                  {#each bars as b, i (b.t)}
+                <div class="bars" onclick={(e) => pick(e, key)} role="img" aria-label="{m.name}: {uptimeLabel.toLowerCase()} {fmtPct(upOf(m))}">
+                  {#each bars as b, i (i)}
                     <span class="bar {barKind(b)}" class:sel={picked?.key === key && picked.i === i} data-i={i} data-tip={barTip(b)}></span>
                   {/each}
                 </div>
                 <div class="axis" aria-hidden="true">
-                  <span>{days} gün önce</span>
-                  <span class="axis-mid">90 günlük uptime: {fmtPct(m.uptime_90d)}</span>
-                  <span>Bugün</span>
+                  <span>{axisStart(bars)}</span>
+                  <span class="axis-mid">{uptimeLabel}: {fmtPct(upOf(m))}</span>
+                  <span>{range === '90d' ? 'Bugün' : 'Şimdi'}</span>
                 </div>
                 {#if picked?.key === key && bars[picked.i]}
                   <div class="picked">{barTip(bars[picked.i]).replace('\n', ' · ')}</div>

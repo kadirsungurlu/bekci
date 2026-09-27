@@ -384,7 +384,7 @@ func TestPublicStatusPage(t *testing.T) {
 
 	var p pageResp
 	pe.mustDo("POST", "/api/status-pages", map[string]any{
-		"slug": "genel", "title": "Genel",
+		"slug": "genel", "title": "Genel", "bar_range": "90d",
 		"sections": []map[string]any{
 			{"title": "Servisler", "monitors": []map[string]any{{"id": a.ID, "name": "API"}, {"id": b.ID}}},
 			{"title": "Boş"},
@@ -415,14 +415,14 @@ func TestPublicStatusPage(t *testing.T) {
 		t.Fatalf("monitörler yanlış: %+v", pub.Sections)
 	}
 	for _, m := range mons {
-		if k := keysOf(m); k != "bars,name,status,uptime_90d" {
+		if k := keysOf(m); k != "bars,name,status,uptime,uptime_90d" {
 			t.Errorf("monitörde beklenmeyen alanlar: %s", k)
 		}
 	}
 	if mons[0]["name"] != "API" || mons[0]["status"] != "down" || mons[1]["name"] != "B" || mons[1]["status"] != "up" {
 		t.Errorf("ad/durum yanlış: %+v", mons)
 	}
-	if up := mons[0]["uptime_90d"].(float64); up != 75 {
+	if up := mons[0]["uptime_90d"].(float64); up != 75 || mons[0]["uptime"].(float64) != 75 {
 		t.Errorf("uptime %v, 75 bekleniyordu", up)
 	}
 	bars := mons[0]["bars"].([]any)
@@ -715,4 +715,56 @@ func TestPublicPageCache(t *testing.T) {
 	pe.mustDo("PUT", fmt.Sprintf("/api/status-pages/%d", p.ID), map[string]any{"slug": "yeni", "title": "Genel"}, nil, 200)
 	anon.mustDo("GET", "/api/public/pages/genel", nil, nil, 404)
 	anon.mustDo("GET", "/api/public/pages/yeni", nil, nil, 200)
+}
+
+// Durum sayfası çubuk görünümleri: varsayılan son kontroller; 24 saat saatlik.
+func TestPublicBarRanges(t *testing.T) {
+	pe := setupPages(t)
+	a := pe.seedMonitor("A", "https://a.example.com")
+	now := pe.s.now().Unix()
+	for i := 0; i < 70; i++ { // 70 kontrol: son 60'ı gösterilir
+		status := store.StatusUp
+		if i == 69 {
+			status = store.StatusDown
+		}
+		pe.beat(a.ID, now-int64(69-i)*60, status)
+	}
+	var p pageResp
+	pe.mustDo("POST", "/api/status-pages", map[string]any{"slug": "anlik", "title": "Anlık",
+		"sections": []map[string]any{{"title": "S", "monitors": []map[string]any{{"id": a.ID}}}}}, &p, 201)
+	if p.BarRange != "recent" {
+		t.Fatalf("varsayılan görünüm son kontroller olmalı: %q", p.BarRange)
+	}
+	var pub struct {
+		Range        string `json:"range"`
+		UptimeWindow string `json:"uptime_window"`
+		Sections     []struct {
+			Monitors []struct {
+				Uptime *float64 `json:"uptime"`
+				Bars   []struct{ T, Up, Down int64 }
+			}
+		}
+	}
+	pe.anon().mustDo("GET", "/api/public/pages/anlik", nil, &pub, 200)
+	bars := pub.Sections[0].Monitors[0].Bars
+	if pub.Range != "recent" || pub.UptimeWindow != "24h" || len(bars) != 60 {
+		t.Fatalf("son kontroller: %s %s %d çubuk", pub.Range, pub.UptimeWindow, len(bars))
+	}
+	if last := bars[59]; last.Down != 1 || last.T != now || bars[0].Up != 1 || bars[0].T != now-59*60 {
+		t.Errorf("çubuklar eskiden yeniye son 60 kontrol olmalı: ilk %+v son %+v", bars[0], last)
+	}
+	if u := pub.Sections[0].Monitors[0].Uptime; u == nil || *u >= 100 {
+		t.Errorf("24 saatlik uptime hesaplanmalı: %v", u)
+	}
+
+	// 24 saat: 24 saatlik çubuk; geçersiz değer reddedilir.
+	pe.mustDo("PUT", fmt.Sprintf("/api/status-pages/%d", p.ID), map[string]any{"slug": "anlik", "title": "Anlık", "bar_range": "1y",
+		"sections": []map[string]any{{"title": "S", "monitors": []map[string]any{{"id": a.ID}}}}}, nil, 400)
+	pe.mustDo("PUT", fmt.Sprintf("/api/status-pages/%d", p.ID), map[string]any{"slug": "anlik", "title": "Anlık", "bar_range": "24h",
+		"sections": []map[string]any{{"title": "S", "monitors": []map[string]any{{"id": a.ID}}}}}, nil, 200)
+	pe.anon().mustDo("GET", "/api/public/pages/anlik", nil, &pub, 200)
+	bars = pub.Sections[0].Monitors[0].Bars
+	if pub.Range != "24h" || len(bars) != 24 || bars[23].Up+bars[23].Down == 0 {
+		t.Errorf("24 saat görünümü: %s %d çubuk, son %+v", pub.Range, len(bars), bars[len(bars)-1])
+	}
 }

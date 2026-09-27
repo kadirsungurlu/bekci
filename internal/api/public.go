@@ -35,10 +35,14 @@ const (
 	pageCookie           = "uptime_sayfa"
 	pageCookieMaxAge     = 30 * 24 * time.Hour
 	publicDays           = 90
+	publicHours          = 24
+	publicRecentBeats    = 60 // "son kontroller" görünümünde çubuk sayısı
 	publicIncidentWindow = 14 * 86400
 	publicIncidentLimit  = 100
 )
 
+// publicBar bir çubuk: "recent" görünümünde tek kontrol (up/down 0 veya 1;
+// ikisi de 0 ise bekliyor/bakımda), diğerlerinde saat veya gün özeti.
 type publicBar struct {
 	T    int64 `json:"t"`
 	Up   int64 `json:"up"`
@@ -46,9 +50,11 @@ type publicBar struct {
 }
 
 type publicMonitor struct {
-	Name      string      `json:"name"`
-	Status    string      `json:"status"` // up | down | pending | paused
-	Uptime90d *float64    `json:"uptime_90d"`
+	Name   string `json:"name"`
+	Status string `json:"status"` // up | down | pending | paused | maintenance
+	// Uptime sayfanın UptimeWindow'u için: recent/24h görünümünde son 24 saat, 90d'de 90 gün.
+	Uptime    *float64    `json:"uptime"`
+	Uptime90d *float64    `json:"uptime_90d"` // eski istemciler için; yalnız 90d görünümünde dolu
 	Bars      []publicBar `json:"bars"`
 	Target    string      `json:"target,omitempty"`
 }
@@ -81,7 +87,9 @@ type publicPageView struct {
 	HasLogo       bool                 `json:"has_logo"`
 	LogoURL       *string              `json:"logo_url"`
 	UpdatedAt     int64                `json:"updated_at"`
-	Status        string               `json:"status"` // up | partial | down | unknown
+	Range         string               `json:"range"`         // recent | 24h | 90d
+	UptimeWindow  string               `json:"uptime_window"` // 24h | 90d: monitör "uptime" yüzdelerinin penceresi
+	Status        string               `json:"status"`        // up | partial | down | unknown
 	Sections      []publicSection      `json:"sections"`
 	Announcements []publicAnnouncement `json:"announcements"`
 	Incidents     []publicIncident     `json:"incidents"`
@@ -153,14 +161,41 @@ func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byt
 	if err != nil {
 		return nil, err
 	}
-	days := s.store.DayStarts(now, publicDays)
-	daily, err := s.store.DailyFor(ctx, ids, days[0])
+	// Çubuk zaman dilimleri (recent dışındakiler için) ve özet verisi.
+	var (
+		slots   []int64
+		buckets map[int64][]store.Bucket
+		recent  map[int64][]store.Beat
+	)
+	barRange := p.BarRange
+	switch barRange {
+	case store.BarRange90d:
+		slots = s.store.DayStarts(now, publicDays)
+		buckets, err = s.store.DailyFor(ctx, ids, slots[0])
+	case store.BarRange24h:
+		first := now - now%3600 - (publicHours-1)*3600
+		for i := 0; i < publicHours; i++ {
+			slots = append(slots, first+int64(i)*3600)
+		}
+		buckets, err = s.store.HourlyFor(ctx, ids, first)
+	default:
+		barRange = store.BarRangeRecent
+		recent, err = s.store.RecentBeats(ctx, ids, publicRecentBeats)
+		if err == nil {
+			// Yüzde için son 24 saatin saatlik özeti (liste ekranıyla aynı pencere).
+			buckets, err = s.store.HourlyFor(ctx, ids, now-now%3600-(publicHours-1)*3600)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
+	window := "24h"
+	if barRange == store.BarRange90d {
+		window = "90d"
+	}
 	view := publicPageView{
 		Slug: p.Slug, Title: p.Title, Description: p.Description, Footer: p.Footer,
-		HasLogo: p.HasLogo, LogoURL: logoURL(p), UpdatedAt: now,
+		HasLogo: p.HasLogo, LogoURL: logoURL(p), UpdatedAt: now, Range: barRange, UptimeWindow: window,
 		Sections: []publicSection{}, Announcements: []publicAnnouncement{}, Incidents: []publicIncident{},
 	}
 	names := map[int64]string{}
@@ -177,21 +212,39 @@ func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byt
 				name = m.Name
 			}
 			names[m.ID] = name
-			pub := publicMonitor{Name: name, Status: monitorStatus(m), Bars: make([]publicBar, len(days))}
-			byDay := make(map[int64]store.Bucket, len(daily[m.ID]))
-			for _, b := range daily[m.ID] {
-				byDay[b.Time] = b
-			}
+			pub := publicMonitor{Name: name, Status: monitorStatus(m), Bars: []publicBar{}}
 			var up, down int64
-			for i, d := range days {
-				b := byDay[d]
-				pub.Bars[i] = publicBar{T: d, Up: b.Up, Down: b.Down}
+			for _, b := range buckets[m.ID] {
 				up += b.Up
 				down += b.Down
 			}
+			if barRange == store.BarRangeRecent {
+				for _, b := range recent[m.ID] {
+					bar := publicBar{T: b.Time}
+					switch b.Status {
+					case store.StatusUp:
+						bar.Up = 1
+					case store.StatusDown:
+						bar.Down = 1
+					}
+					pub.Bars = append(pub.Bars, bar)
+				}
+			} else {
+				bySlot := make(map[int64]store.Bucket, len(buckets[m.ID]))
+				for _, b := range buckets[m.ID] {
+					bySlot[b.Time] = b
+				}
+				for _, t := range slots {
+					b := bySlot[t]
+					pub.Bars = append(pub.Bars, publicBar{T: t, Up: b.Up, Down: b.Down})
+				}
+			}
 			if up+down > 0 {
 				pct := math.Round(100000*float64(up)/float64(up+down)) / 1000
-				pub.Uptime90d = &pct
+				pub.Uptime = &pct
+				if barRange == store.BarRange90d {
+					pub.Uptime90d = &pct
+				}
 			}
 			if p.ShowTargets {
 				pub.Target = publicTarget(engine.Target(m))

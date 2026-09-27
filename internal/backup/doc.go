@@ -104,6 +104,7 @@ type Page struct {
 	CustomDomain  string         `json:"custom_domain,omitempty"`
 	PasswordHash  string         `json:"password_hash,omitempty"` // bcrypt; şifrenin kendisi değil
 	ShowTargets   bool           `json:"show_targets"`
+	BarRange      string         `json:"bar_range,omitempty"` // recent | 24h | 90d (eski yedeklerde yok → recent)
 	Published     bool           `json:"published"`
 	Sections      []PageSection  `json:"sections"`
 	Logo          []byte         `json:"logo,omitempty"` // base64
