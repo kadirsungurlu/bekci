@@ -23,10 +23,14 @@
   --paused-soft: rgba(107, 114, 128, 0.18);
   --empty-bar: #2a364c;
 
-  --accent: #5b5bf6;
-  --accent-hover: #6d6dff;
-  --accent-soft: rgba(91, 91, 246, 0.16);
-  --accent-text: #a5a5ff;
+  /* Vurgu: logodaki yeşil ve kenar çubuğuyla uyumlu camgöbeği-yeşil; durum
+     yeşilinden (--up) bilerek ayrı tutulur ki butonlar "çalışıyor" ile karışmasın. */
+  --accent: #2dd4bf;
+  --accent-hover: #5eead4;
+  --accent-soft: rgba(45, 212, 191, 0.14);
+  --accent-border: rgba(45, 212, 191, 0.4);
+  --accent-text: #5eead4;
+  --accent-contrast: #042f2a; /* vurgu zemininde yazı rengi */
 
   --sidebar-bg: linear-gradient(180deg, #0f2a26 0%, #0f1f2e 45%, #111a33 100%);
   --sidebar-border: rgba(255, 255, 255, 0.06);
@@ -187,7 +191,8 @@ pre {
 .btn.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent-contrast);
+  font-weight: 600;
 }
 .btn.primary:hover:not(:disabled) {
   background: var(--accent-hover);
@@ -352,8 +357,8 @@ select.input {
 }
 .alert.info {
   background: var(--accent-soft);
-  border-color: rgba(91, 91, 246, 0.4);
-  color: #c7c7ff;
+  border-color: var(--accent-border);
+  color: #ccfbf1;
 }
 
 /* Rozetler ------------------------------------------------------------------ */

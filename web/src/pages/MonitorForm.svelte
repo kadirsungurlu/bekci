@@ -712,7 +712,7 @@
   }
   .type.active .ticon {
     background: var(--accent);
-    color: #fff;
+    color: var(--accent-contrast);
   }
   .tlabel {
     font-weight: 700;
@@ -811,7 +811,7 @@
   }
   .seg button.active {
     background: var(--accent);
-    color: #fff;
+    color: var(--accent-contrast);
   }
   textarea.plain {
     font-family: var(--font);

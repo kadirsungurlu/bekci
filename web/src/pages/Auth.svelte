@@ -110,7 +110,7 @@
     padding: 24px 16px;
     background:
       radial-gradient(900px 500px at 15% -10%, rgba(59, 214, 113, 0.1), transparent 60%),
-      radial-gradient(800px 500px at 110% 110%, rgba(91, 91, 246, 0.14), transparent 60%),
+      radial-gradient(800px 500px at 110% 110%, rgba(45, 212, 191, 0.10), transparent 60%),
       var(--bg);
   }
   .brand {
