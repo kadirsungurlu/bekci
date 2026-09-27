@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 
@@ -53,8 +54,9 @@ func (pingChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 		return down(describeErr(ctx, err))
 	}
 	// Yetkisiz (UDP tabanlı) ICMP: root gerektirmez. Docker'ın varsayılan
-	// net.ipv4.ping_group_range ayarı buna izin verir.
-	p.SetPrivileged(false)
+	// net.ipv4.ping_group_range ayarı buna izin verir. Windows'ta yetkisiz
+	// ICMP yoktur; ajan hizmeti LocalSystem olarak çalıştığı için ham soket açılır.
+	p.SetPrivileged(runtime.GOOS == "windows")
 	p.Count = c.Count
 	p.Interval = 250 * time.Millisecond
 	if dl, ok := ctx.Deadline(); ok {

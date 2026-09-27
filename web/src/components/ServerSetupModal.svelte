@@ -25,7 +25,7 @@
   let error = $state('');
   let busy = $state(false);
   let setup = $state.raw<ProbeSetup | null>(null);
-  let tab = $state<'docker' | 'systemd'>('docker');
+  let tab = $state<'docker' | 'systemd' | 'windows'>('docker');
   // Bağlantı: komut gösterildiği andaki son örnek/son görülme; bunlar ilerleyince yeni ajan bağlanmıştır.
   let base = { metrics: 0, seen: 0 };
   let view = $state.raw<ServerView | null>(null);
@@ -106,7 +106,10 @@
 
   const dockerCmd = $derived(setup ? setup.docker_agent || setup.docker_command : '');
   const systemdCmd = $derived(setup?.systemd ?? '');
-  const cmd = $derived(tab === 'systemd' && systemdCmd ? systemdCmd : dockerCmd);
+  const windowsCmd = $derived(setup?.windows ?? '');
+  const cmd = $derived(
+    tab === 'systemd' && systemdCmd ? systemdCmd : tab === 'windows' && windowsCmd ? windowsCmd : dockerCmd,
+  );
 
   async function copy(text: string, what: string) {
     if (await copyText(text)) toast.success(`${what} panoya kopyalandı`);
@@ -132,10 +135,15 @@
         <span>Komuttaki token yalnızca şimdi gösterilir. Kaybederseniz sunucu sayfasından yeni komut alabilirsiniz (eski token geçersiz olur).</span>
       </div>
 
-      {#if systemdCmd}
+      {#if systemdCmd || windowsCmd}
         <div class="seg" role="tablist" aria-label="Kurulum yöntemi">
           <button type="button" role="tab" aria-selected={tab === 'docker'} class:active={tab === 'docker'} onclick={() => (tab = 'docker')}>Docker</button>
-          <button type="button" role="tab" aria-selected={tab === 'systemd'} class:active={tab === 'systemd'} onclick={() => (tab = 'systemd')}>Doğrudan (systemd)</button>
+          {#if systemdCmd}
+            <button type="button" role="tab" aria-selected={tab === 'systemd'} class:active={tab === 'systemd'} onclick={() => (tab = 'systemd')}>Doğrudan (systemd)</button>
+          {/if}
+          {#if windowsCmd}
+            <button type="button" role="tab" aria-selected={tab === 'windows'} class:active={tab === 'windows'} onclick={() => (tab = 'windows')}>Windows</button>
+          {/if}
         </div>
       {/if}
 
@@ -144,6 +152,8 @@
           <p class="lead">
             {#if tab === 'docker'}
               İzlemek istediğiniz sunucuda, Docker kurulu bir kullanıcıyla çalıştırın.
+            {:else if tab === 'windows'}
+              Windows Server’da <b>PowerShell’i “Yönetici olarak çalıştır”</b> ile açıp yapıştırın.
             {:else}
               Docker kullanmayan sunucular için; <b>root</b> olarak çalıştırın.
             {/if}
@@ -162,6 +172,18 @@
             <li><code>docker.sock:ro</code>: konteyner listesi ve CPU/RAM kullanımları Docker’dan okunur. Docker yoksa bu kısmı silebilirsiniz.</li>
             <li><code>PROBE_TOKEN</code>: bu sunucuya özel anahtar; kimseyle paylaşmayın.</li>
             <li>Program açılışta bu panelden indirilir; her yeniden başlatmada en güncel sürüm gelir.</li>
+          </ul>
+        </details>
+      {:else if tab === 'windows'}
+        <details class="explain">
+          <summary>Bu komut ne yapar?</summary>
+          <ul>
+            <li>Programı bu panelden indirip <code>C:\Program Files\Uptime\uptime.exe</code> olarak kaydeder.</li>
+            <li><code>uptime-agent</code> adında bir Windows hizmeti kurar ve başlatır; sunucu yeniden başlasa da çalışır, hata olursa kendini yeniden başlatır.</li>
+            <li>Token, yalnızca yöneticilerin okuyabildiği <code>C:\ProgramData\Uptime\agent.env</code> dosyasına yazılır; günlük aynı klasörde (<code>agent.log</code>).</li>
+            <li>Güncellemek için aynı komutu tekrar çalıştırın. Kaldırmak için: <code>&amp; 'C:\Program Files\Uptime\uptime.exe' service uninstall</code></li>
+            <li>Komut token içerir: PowerShell geçmişine yazılmaması için PSReadLine 2.2 veya üstü önerilir (eskilerde geçmiş dosyası kullanıcı klasöründe kalır).</li>
+            <li>Windows’ta yük ortalaması yoktur; yük, işlemci kuyruğu uzunluğundan hesaplanan yaklaşık bir değerdir. Sıcaklık ve Docker konteynerleri toplanmaz.</li>
           </ul>
         </details>
       {:else}
@@ -199,7 +221,7 @@
   {:else}
     <form id="srv-add" class="stack" onsubmit={create} novalidate>
       <p class="help nomargin intro">
-        Sunucunuza küçük bir ajan kurarsınız; CPU, RAM, disk, ağ ve Docker konteynerlerini dakikada bir buraya gönderir. Eşik aşılınca
+        Linux veya Windows sunucunuza küçük bir ajan kurarsınız; CPU, RAM, disk, ağ ve Docker konteynerlerini dakikada bir buraya gönderir. Eşik aşılınca
         monitörlerle aynı kanallardan bildirim alırsınız.
       </p>
       <div class="field">

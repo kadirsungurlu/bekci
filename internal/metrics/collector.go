@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -58,6 +59,14 @@ type source interface {
 	temps(ctx context.Context) ([]Temp, error)
 }
 
+// ioFilter G/Ç anahtarlarını kendisi süzen kaynak (Windows: diskler sürücü
+// harfi, ağ arayüzleri kaynakta süzülür). Yoksa Linux aygıt/arayüz adlarına
+// göre süzülür (isPhysicalDisk, isVirtualNet).
+type ioFilter interface {
+	keepDisk(name string) bool
+	keepNet(name string) bool
+}
+
 type memStat struct {
 	Total, Available, Free, Buffers, Cached, SReclaimable uint64
 	SwapTotal, SwapFree                                   uint64
@@ -77,12 +86,16 @@ type counters struct {
 
 // NewCollector gerçek sistemi okuyan toplayıcı. Host görünmüyorsa (konteynerde
 // HOST_PROC yok) veya işletim sistemi desteklenmiyorsa Collect yalnızca
-// Unavailable nedeni döner.
+// Unavailable nedeni döner. Windows'ta konteyner tespiti yapılmaz ve Docker
+// istatistikleri toplanmaz.
 func NewCollector(o Options) *Collector {
 	o = o.withDefaults()
 	src, reason := newSystemSource(o.Getenv)
-	if reason == "" {
+	if reason == "" && runtime.GOOS == "linux" {
 		reason = visibility(o.Getenv, o.InContainer(), fileExists)
+	}
+	if runtime.GOOS == "windows" && o.DockerSocket == "" {
+		o.DockerSocket = "-"
 	}
 	return newCollector(o, src, reason)
 }
@@ -154,11 +167,15 @@ func (c *Collector) Collect(ctx context.Context) (Sample, bool) {
 	if ms, err := c.src.mounts(ctx); err == nil {
 		st.Disks = selectDisks(ms, c.src.usage)
 	}
+	keepDisk, keepNet := isPhysicalDisk, func(n string) bool { return !isVirtualNet(n) }
+	if f, ok := c.src.(ioFilter); ok {
+		keepDisk, keepNet = f.keepDisk, f.keepNet
+	}
 	if io, err := c.src.diskIO(ctx); err == nil {
-		cur.disk = filterKeys(io, isPhysicalDisk)
+		cur.disk = filterKeys(io, keepDisk)
 	}
 	if io, err := c.src.netIO(ctx); err == nil {
-		cur.net = filterKeys(io, func(n string) bool { return !isVirtualNet(n) })
+		cur.net = filterKeys(io, keepNet)
 	}
 	if ts, err := c.src.temps(ctx); err == nil || len(ts) > 0 {
 		st.Temps = filterTemps(ts)

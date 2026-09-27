@@ -196,6 +196,8 @@ export interface ProbeSetup {
   docker_agent?: string;
   /** Doğrudan kurulum (systemd) betiği; eski sunucularda yok. */
   systemd?: string;
+  /** Windows hizmeti kurulumu (Yönetici PowerShell); eski sunucularda yok. */
+  windows?: string;
 }
 
 export type DownWhen = 'any' | 'majority' | 'all';

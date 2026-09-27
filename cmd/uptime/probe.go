@@ -41,7 +41,20 @@ import (
 //	  -v /:/host:ro,rslave -v /var/run/docker.sock:/var/run/docker.sock:ro \
 //	  -e HOST_PROC=/host/proc -e HOST_SYS=/host/sys -e HOST_ETC=/host/etc -e HOST_ROOT=/host \
 //	  -e ADDR=- -e PROBE_SERVER=… -e PROBE_TOKEN=upr_… …
+//
+// Windows'ta aynı komut hizmet olarak da çalışır (service_windows.go): kurulum
+// "uptime service install", ayarlar %ProgramData%\Uptime\agent.env dosyasından.
 func runProbe(log *slog.Logger) error {
+	if ok, err := runProbeService(); ok { // Windows hizmet yöneticisi başlattıysa
+		return err
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	return probeMain(ctx, log)
+}
+
+// probeMain ajanı ctx bitene kadar çalıştırır (konsolda ve Windows hizmetinde ortak).
+func probeMain(ctx context.Context, log *slog.Logger) error {
 	maxChecks, _ := strconv.Atoi(env("MAX_CONCURRENT_CHECKS", "20"))
 	client, err := probe.New(probe.Config{
 		Server:        env("PROBE_SERVER", ""),
@@ -54,8 +67,6 @@ func runProbe(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	// İmajdaki HEALTHCHECK /healthz'i yoklar; kontrol noktası modunda da yanıt verilir.
 	if addr := env("ADDR", ":8080"); addr != "-" {

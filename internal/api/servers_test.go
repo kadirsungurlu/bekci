@@ -56,6 +56,7 @@ type serverSetup struct {
 	createdProbe
 	DockerAgent string `json:"docker_agent"`
 	Systemd     string `json:"systemd"`
+	Windows     string `json:"windows"`
 }
 
 type serverDetailView struct {
@@ -124,6 +125,11 @@ func TestServersAPI(t *testing.T) {
 	if !strings.Contains(cp.Systemd, "/etc/systemd/system/uptime-agent.service") || !strings.Contains(cp.Systemd, "EnvironmentFile=/etc/uptime-agent.env") || !strings.Contains(cp.Systemd, "chmod 600 /etc/uptime-agent.env") ||
 		!strings.Contains(cp.Systemd, "systemctl enable uptime-agent") || !strings.Contains(cp.Systemd, "curl") || !strings.Contains(cp.Systemd, "wget") {
 		t.Fatalf("systemd komutu: %s", cp.Systemd)
+	}
+	if !strings.Contains(cp.Windows, "$env:PROBE_TOKEN='"+cp.Token+"'") || !strings.Contains(cp.Windows, "$env:PROBE_SERVER='"+admin.srv.URL+"'") ||
+		!strings.Contains(cp.Windows, "/api/probe/binary?os=windows&arch=amd64") || !strings.Contains(cp.Windows, "service install") ||
+		!strings.Contains(cp.Windows, "Tls12") || !strings.Contains(cp.Windows, "Remove-Item Env:PROBE_TOKEN") {
+		t.Fatalf("windows komutu: %s", cp.Windows)
 	}
 	id := cp.Probe.ID
 	if !cp.Probe.Metrics {

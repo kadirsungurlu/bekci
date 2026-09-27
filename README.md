@@ -38,6 +38,7 @@ Plan ve ilerleme: [docs/PLAN.md](docs/PLAN.md)
 | `DATA_DIR` | `/data` | SQLite veritabanı ve gece yedeklerinin klasörü |
 | `DATABASE_URL` | — | Verilirse **PostgreSQL** kullanılır: `postgres://kullanıcı:şifre@sunucu:5432/veritabanı?sslmode=disable`. Gece yedeği bu durumda veritabanı tarafında (Coolify yedekleri / `pg_dump`) alınmalıdır |
 | `ADDR` | `:8080` | Dinlenecek adres |
+| `AGENT_DIR` | `/usr/local/share/uptime/agents` | Diğer platformların ajan programları (`uptime-windows-amd64.exe`); imajda hazır gelir |
 
 ## Push monitörü
 
@@ -95,3 +96,15 @@ sonuçları ana sunucuya gönderir, sunucuya ulaşamazsa sonuçları bekletir. M
 formundaki "Konumlar" bölümünden hangi konumlardan kontrol edileceğini ve kesinti
 kuralını (herhangi biri / çoğunluk / hepsi) seçin. Ana sunucuda `PROBE_IMAGE`
 verilirse kurulum komutu bunun yerine o imajı kullanır.
+
+## Sunucu takibi: Windows sunucular
+
+Sunucular → "Sunucu ekle" penceresindeki **Windows** sekmesindeki komutu
+PowerShell'i "Yönetici olarak çalıştır" ile açıp yapıştırın. Program
+`C:\Program Files\Uptime\uptime.exe` olarak kurulur ve `uptime-agent` Windows
+hizmeti olarak çalışır (otomatik başlar, hata olursa yeniden başlar). Token
+yalnızca yöneticilerin okuyabildiği `C:\ProgramData\Uptime\agent.env` dosyasında,
+günlük aynı klasörde `agent.log`'dadır. Aynı komutu tekrar çalıştırmak günceller;
+kaldırmak için `& 'C:\Program Files\Uptime\uptime.exe' service uninstall`.
+Windows'ta yük ortalaması yaklaşıktır (işlemci kuyruğu), sıcaklık ve Docker
+konteynerleri toplanmaz (ayrıntı: `docs/PLAN.md` §12.10).

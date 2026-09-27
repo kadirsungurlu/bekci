@@ -40,12 +40,20 @@ type Server struct {
 	// ProbeImage kontrol noktası kurulum komutunda gösterilecek Docker imajı
 	// (PROBE_IMAGE); boşsa "uptime".
 	ProbeImage string
+	// AgentDir başka platformlar için derlenmiş ajan programlarının klasörü
+	// (AGENT_DIR; uptime-<os>-<arch>[.exe]). GET /api/probe/binary?os=…&arch=…
+	// buradan sunar.
+	AgentDir string
 }
+
+// DefaultAgentDir Docker imajında ajan programlarının bulunduğu klasör.
+const DefaultAgentDir = "/usr/local/share/uptime/agents"
 
 func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatcher, log *slog.Logger, static fs.FS, version string) *Server {
 	s := &Server{
 		store: st, engine: e, hub: hub, notifier: n, log: log, static: static, version: version,
 		limiter: newLoginLimiter(), now: time.Now, pages: newPagesState(), probeRL: newProbeLimiter(),
+		AgentDir: DefaultAgentDir,
 	}
 	var (
 		pub servers.Publisher

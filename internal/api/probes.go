@@ -10,6 +10,8 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"strconv"
@@ -287,8 +289,8 @@ func kindNoun(kind string) string {
 }
 
 // probeSetup yeni token'ı ve kurulum komutlarını içeren yanıt. Kontrol
-// noktasına docker_command, sunucuya host'u gören docker_agent ve systemd
-// komutları (servers.go) verilir.
+// noktasına docker_command, sunucuya host'u gören docker_agent, systemd ve
+// windows komutları (servers.go) verilir.
 func (s *Server) probeSetup(r *http.Request, p store.Probe, token string, monitors int) map[string]any {
 	server := s.BaseURL
 	if server == "" {
@@ -313,26 +315,58 @@ func (s *Server) probeSetup(r *http.Request, p store.Probe, token string, monito
 	}
 	out := map[string]any{"probe": s.probeAdminOf(p, monitors), "token": token, "server_url": server}
 	if p.Kind == store.ProbeKindServer {
-		out["docker_agent"], out["systemd"] = s.serverSetupCommands(server, token)
+		out["docker_agent"], out["systemd"], out["windows"] = s.serverSetupCommands(server, token)
 	} else {
 		out["docker_command"] = cmd
 	}
 	return out
 }
 
+// agentPlatformRe ?os= ve ?arch= değerleri (dosya adına girdiği için sıkı).
+var agentPlatformRe = regexp.MustCompile(`^[a-z0-9]{1,16}$`)
+
 // probeBinary kontrol noktasına bu sunucuda çalışan programın kendisini verir
-// (aynı ikili "uptime probe" ile kontrol noktası olarak çalışır). Yalnızca
-// geçerli ve etkin bir kontrol noktası token'ıyla indirilebilir.
+// (aynı ikili "uptime probe" ile kontrol noktası olarak çalışır). Başka bir
+// platform istenirse (?os=windows&arch=amd64) AgentDir'deki
+// uptime-<os>-<arch>[.exe] dosyası verilir; eksik parametre sunucunun kendi
+// değeridir. Yalnızca geçerli ve etkin bir kontrol noktası token'ıyla indirilebilir.
 func (s *Server) probeBinary(w http.ResponseWriter, r *http.Request) {
-	exe, err := os.Executable()
-	if err != nil {
-		s.log.Error("program yolu bulunamadı", "hata", err)
-		writeError(w, http.StatusInternalServerError, "Program dosyası bulunamadı")
+	goos, goarch := r.URL.Query().Get("os"), r.URL.Query().Get("arch")
+	if goos == "" {
+		goos = runtime.GOOS
+	}
+	if goarch == "" {
+		goarch = runtime.GOARCH
+	}
+	if !agentPlatformRe.MatchString(goos) || !agentPlatformRe.MatchString(goarch) {
+		writeError(w, http.StatusBadRequest, "Geçersiz platform (ör. os=windows&arch=amd64)")
 		return
 	}
-	f, err := os.Open(exe)
+	name, own := "uptime", goos == runtime.GOOS && goarch == runtime.GOARCH
+	file := "uptime-" + goos + "-" + goarch
+	if goos == "windows" {
+		name, file = "uptime.exe", file+".exe"
+	}
+	var path string
+	if own {
+		exe, err := os.Executable()
+		if err != nil {
+			s.log.Error("program yolu bulunamadı", "hata", err)
+			writeError(w, http.StatusInternalServerError, "Program dosyası bulunamadı")
+			return
+		}
+		path = exe
+	} else if s.AgentDir != "" {
+		path = filepath.Join(s.AgentDir, file)
+	}
+	f, err := os.Open(path)
+	if err != nil && !own && (path == "" || errors.Is(err, os.ErrNotExist)) {
+		writeError(w, http.StatusNotFound, fmt.Sprintf("Bu sunucuda %s/%s için ajan programı yok. Resmi Docker imajı Windows (amd64) "+
+			"programını içerir; kendiniz derlediyseniz programı AGENT_DIR klasörüne %s adıyla koyun.", goos, goarch, file))
+		return
+	}
 	if err != nil {
-		s.log.Error("program dosyası açılamadı", "hata", err)
+		s.log.Error("program dosyası açılamadı", "dosya", path, "hata", err)
 		writeError(w, http.StatusInternalServerError, "Program dosyası açılamadı")
 		return
 	}
@@ -344,11 +378,11 @@ func (s *Server) probeBinary(w http.ResponseWriter, r *http.Request) {
 	}
 	h := w.Header()
 	h.Set("Content-Type", "application/octet-stream")
-	h.Set("Content-Disposition", `attachment; filename="uptime"`)
+	h.Set("Content-Disposition", `attachment; filename="`+name+`"`)
 	h.Set("Cache-Control", "no-store")
 	h.Set("X-Uptime-Version", s.version)
-	h.Set("X-Uptime-Platform", runtime.GOOS+"/"+runtime.GOARCH)
-	http.ServeContent(w, r, "uptime", st.ModTime(), f)
+	h.Set("X-Uptime-Platform", goos+"/"+goarch)
+	http.ServeContent(w, r, name, st.ModTime(), f)
 }
 
 // createProbe kontrol noktası ekler (POST /api/probes).
