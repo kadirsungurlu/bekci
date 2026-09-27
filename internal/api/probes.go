@@ -21,6 +21,7 @@ import (
 
 	"github.com/kadirsa1105/uptime-kadir-app/internal/check"
 	"github.com/kadirsa1105/uptime-kadir-app/internal/engine"
+	"github.com/kadirsa1105/uptime-kadir-app/internal/servers"
 	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
 )
 
@@ -216,6 +217,7 @@ type probeAdminView struct {
 	LastIP       string `json:"last_ip"`
 	Version      string `json:"version"`
 	MonitorCount int    `json:"monitor_count"`
+	Metrics      bool   `json:"metrics"` // sunucu metrikleri toplanıyor mu
 }
 
 func (s *Server) probeSummaryOf(p store.Probe) probeSummary {
@@ -225,7 +227,7 @@ func (s *Server) probeSummaryOf(p store.Probe) probeSummary {
 func (s *Server) probeAdminOf(p store.Probe, monitors int) probeAdminView {
 	return probeAdminView{
 		probeSummary: s.probeSummaryOf(p), TokenPrefix: p.TokenPrefix, CreatedAt: p.CreatedAt,
-		LastIP: p.LastIP, Version: p.Version, MonitorCount: monitors,
+		LastIP: p.LastIP, Version: p.Version, MonitorCount: monitors, Metrics: p.Metrics,
 	}
 }
 
@@ -273,7 +275,9 @@ func (s *Server) validateProbeName(w http.ResponseWriter, r *http.Request, name 
 	return true
 }
 
-// probeSetup yeni token'ı ve kurulum komutunu içeren yanıt.
+// probeSetup yeni token'ı ve kurulum komutlarını içeren yanıt. docker_command
+// eski (yalnızca kontrol noktası) komuttur; docker_agent ve systemd sunucu
+// metriklerini de toplayan ajan kurulumudur (servers.go).
 func (s *Server) probeSetup(r *http.Request, p store.Probe, token string, monitors int) map[string]any {
 	server := s.BaseURL
 	if server == "" {
@@ -296,7 +300,11 @@ func (s *Server) probeSetup(r *http.Request, p store.Probe, token string, monito
 			`sh -c 'wget -qO /usr/local/bin/uptime --header "Authorization: Bearer $PROBE_TOKEN" "$PROBE_SERVER/api/probe/binary" && chmod +x /usr/local/bin/uptime && exec uptime probe'`,
 			server, token)
 	}
-	return map[string]any{"probe": s.probeAdminOf(p, monitors), "token": token, "server_url": server, "docker_command": cmd}
+	agent, systemd := s.serverSetupCommands(server, token)
+	return map[string]any{
+		"probe": s.probeAdminOf(p, monitors), "token": token, "server_url": server,
+		"docker_command": cmd, "docker_agent": agent, "systemd": systemd,
+	}
 }
 
 // probeBinary kontrol noktasına bu sunucuda çalışan programın kendisini verir
@@ -360,6 +368,10 @@ func (s *Server) createProbe(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
+	// Sunucu uyarıları için varsayılan bildirim kanalları hemen seçili gelir.
+	if err := s.store.AttachDefaultProbeNotifications(r.Context(), p.ID); err != nil {
+		s.log.Error("varsayılan bildirim kanalları bağlanamadı", "hata", err)
+	}
 	s.log.Info("kontrol noktası eklendi", "kontrol_noktasi", p.Name)
 	s.audit(r, store.User{}, "probe.create", "probe", p.ID, p.Name, "")
 	writeJSON(w, http.StatusCreated, s.probeSetup(r, p, token, 0))
@@ -376,8 +388,9 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Name   string `json:"name"`
-		Active *bool  `json:"active"`
+		Name    string `json:"name"`
+		Active  *bool  `json:"active"`
+		Metrics *bool  `json:"metrics"` // sunucu metrikleri; yoksa değişmez
 	}
 	if !readJSON(w, r, &in) {
 		return
@@ -394,6 +407,14 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
+	metricsOn := old.Metrics
+	if in.Metrics != nil && *in.Metrics != old.Metrics {
+		metricsOn = *in.Metrics
+		if err := s.store.SetProbeMetrics(r.Context(), id, metricsOn); err != nil {
+			s.dbError(w, err)
+			return
+		}
+	}
 	var changes []string
 	if in.Name != old.Name {
 		changes = append(changes, "ad: "+old.Name+" → "+in.Name)
@@ -404,6 +425,12 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 	if len(changes) > 0 {
 		// Ad mesajlarda, etkinlik konum listesinde kullanılır: monitörler yeniden yüklenir.
 		s.reloadProbeMonitors(r.Context(), id, nil)
+	}
+	if metricsOn != old.Metrics {
+		changes = append(changes, map[bool]string{true: "metrik toplama açıldı", false: "metrik toplama kapatıldı"}[metricsOn])
+	}
+	if len(changes) > 0 {
+		s.servers.Publish(r.Context(), id)
 	}
 	s.audit(r, store.User{}, "probe.update", "probe", id, in.Name, strings.Join(changes, ", "))
 	s.respondProbe(w, r, id)
@@ -456,6 +483,7 @@ func (s *Server) deleteProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.reloadProbeMonitors(r.Context(), id, affected)
+	s.servers.Forget(id)
 	s.log.Info("kontrol noktası silindi", "kontrol_noktasi", p.Name)
 	detail := ""
 	if len(affected) > 0 {
@@ -647,6 +675,8 @@ func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 		"probe":      map[string]any{"id": p.ID, "name": p.Name},
 		"poll_after": engine.ProbePollAfter,
 		"jobs":       jobs,
+		// Sunucu metriklerinin örnek aralığı (sn); 0: metrik gönderme.
+		"metrics_interval": servers.IntervalFor(p),
 	})
 }
 

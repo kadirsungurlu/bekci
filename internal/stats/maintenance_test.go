@@ -102,3 +102,44 @@ func TestNoBackupBeforeHour(t *testing.T) {
 		t.Error("saat 03:00'ten önce yedek alınmamalı")
 	}
 }
+
+func TestServerStatsRetention(t *testing.T) {
+	st := storetest.Open(t, time.UTC)
+	ctx := context.Background()
+	p := store.Probe{Name: "cp", Active: true, CreatedAt: 1, Hash: "h"}
+	if err := st.CreateProbe(ctx, &p); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC)
+	ago := func(d time.Duration) int64 { return now.Add(-d).Unix() }
+	for res, times := range map[int][]int64{
+		store.ServerRes1:  {ago(25 * time.Hour), ago(23 * time.Hour)},
+		store.ServerRes10: {ago(8 * 24 * time.Hour), ago(6 * 24 * time.Hour)},
+		store.ServerRes60: {ago(91 * 24 * time.Hour), ago(89 * 24 * time.Hour)},
+	} {
+		for _, ts := range times {
+			if err := st.UpsertServerStats(ctx, p.ID, res, ts, []byte(`{}`)); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	// Uyarı geçmişi: 100 gün önce başlayıp biten kayıt silinir, süren kalır.
+	st.ReplaceServerAlerts(ctx, p.ID, []store.ServerAlert{{Metric: "cpu", Threshold: 90, Minutes: 10, Active: true}}, 0)
+	rules, _ := st.ServerAlerts(ctx, p.ID)
+	rules[0].ProbeID = p.ID
+	st.FireServerAlert(ctx, rules[0], 95, ago(100*24*time.Hour))
+	st.ResolveServerAlert(ctx, rules[0].ID, ago(99*24*time.Hour))
+	st.FireServerAlert(ctx, rules[0], 95, ago(24*time.Hour))
+
+	mt := NewMaintenance(st, slog.New(slog.NewTextHandler(io.Discard, nil)), t.TempDir(), time.UTC)
+	mt.now = func() time.Time { return now }
+	mt.Tick(ctx)
+	for _, res := range []int{store.ServerRes1, store.ServerRes10, store.ServerRes60} {
+		if rows, _ := st.ServerStats(ctx, p.ID, res, 0, now.Unix()); len(rows) != 1 {
+			t.Errorf("res=%d: %d satır kaldı, 1 bekleniyordu", res, len(rows))
+		}
+	}
+	if evs, _ := st.ServerAlertEvents(ctx, p.ID, 0, 10); len(evs) != 1 || evs[0].EndedAt != 0 {
+		t.Errorf("uyarı geçmişi: %+v", evs)
+	}
+}

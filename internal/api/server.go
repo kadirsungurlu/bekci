@@ -16,6 +16,7 @@ import (
 
 	"github.com/kadirsa1105/uptime-kadir-app/internal/engine"
 	"github.com/kadirsa1105/uptime-kadir-app/internal/notify"
+	"github.com/kadirsa1105/uptime-kadir-app/internal/servers"
 	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
 )
 
@@ -31,6 +32,7 @@ type Server struct {
 	now      func() time.Time
 	pages    *pagesState   // durum sayfası önbellekleri (pages.go)
 	probeRL  *probeLimiter // kontrol noktası istek sınırı (probes.go)
+	servers  *servers.Service
 
 	// BaseURL uygulamanın dış adresi (BASE_URL); durum sayfası özel alan adı
 	// bu adresin sunucu adıyla aynı olamaz. Boş olabilir.
@@ -41,11 +43,28 @@ type Server struct {
 }
 
 func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatcher, log *slog.Logger, static fs.FS, version string) *Server {
-	return &Server{
+	s := &Server{
 		store: st, engine: e, hub: hub, notifier: n, log: log, static: static, version: version,
 		limiter: newLoginLimiter(), now: time.Now, pages: newPagesState(), probeRL: newProbeLimiter(),
 	}
+	var (
+		pub servers.Publisher
+		not servers.Notifier
+	)
+	if hub != nil {
+		pub = hub
+	}
+	if n != nil {
+		not = n
+	}
+	s.servers = servers.New(st, pub, not, log)
+	// Sunucu takibi API'nin saatini kullanır (testler s.now'ı değiştirir).
+	s.servers.SetClock(func() time.Time { return s.now() })
+	return s
 }
+
+// Servers sunucu takibi servisi (main çevrimdışı taramasını başlatır).
+func (s *Server) Servers() *servers.Service { return s.servers }
 
 // extraRoutes özellik dosyalarının init() içinde RegisterRoutes ile eklediği
 // rotalar; paralel geliştirmede server.go'da çakışma olmasın diye.

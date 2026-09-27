@@ -251,5 +251,9 @@ func eventVisible(msg []byte, vis visibility) bool {
 	if ev.Type == "maintenance" {
 		return true
 	}
+	// Sunucu takibi müşteri kısıtlı izleyiciye kapalı (servers.go).
+	if ev.Type == "server" {
+		return false
+	}
 	return ev.Data.MonitorID != 0 && vis.can(ev.Data.MonitorID)
 }

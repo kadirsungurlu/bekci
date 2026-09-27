@@ -122,6 +122,10 @@ func run() error {
 	apiServer := api.New(st, eng, hub, dispatcher, log, web.Dist(), version)
 	apiServer.BaseURL = baseURL
 	apiServer.ProbeImage = env("PROBE_IMAGE", "")
+	// Sunucu takibi: çevrimdışı ajan taraması (30 sn'de bir) ve bildirim bağlantıları.
+	serverMon := apiServer.Servers()
+	serverMon.SetBaseURL(baseURL)
+	serverMon.Start(ctx)
 	srv := &http.Server{
 		Addr:              env("ADDR", ":8080"),
 		Handler:           apiServer.Handler(),
@@ -150,6 +154,7 @@ func run() error {
 	defer cancel()
 	srv.Shutdown(shutdownCtx)
 	eng.Wait()
+	serverMon.Wait()
 	dispatcher.Wait(10 * time.Second)
 	log.Info("kapandı")
 	return nil
