@@ -172,10 +172,18 @@ kalıcı `/data`, health check `/healthz`, `TZ=Europe/Istanbul`.
 ### Aşama 3
 
 - [ ] Docker ve veritabanı monitörleri
-- [ ] gRPC, MQTT, SMTP, WebSocket, SNMP, gerçek tarayıcı
+- [ ] gRPC, MQTT, SMTP, WebSocket, SNMP
+- [ ] Gerçek tarayıcıyla kontrol: Uptime Kuma'daki "Browser Engine" karşılığı. Tarayıcı
+      ayrı bir container'da (Chrome DevTools uç noktası), uygulama ona bağlanır; imaj
+      küçük kalır, sadece kullanan kurar.
 - [ ] Proxy, mTLS / OAuth2
-- [ ] 2FA, PostgreSQL depolama, İngilizce arayüz
+- [ ] 2FA
+- [ ] **PostgreSQL depolama** (karar 2026-09-27: desteklenecek). `DATABASE_URL`
+      verilirse PostgreSQL, yoksa SQLite. Tüm SQL iki veritabanında çalışır;
+      migration'lar ortak bir alt kümede yazılıp PostgreSQL'e çevrilir. Testler iki
+      veritabanında da çalışır. PostgreSQL'de gece yedeği veritabanı tarafında alınır.
 - [ ] Uzak kontrol noktaları
+- [ ] İngilizce arayüz (tüm ekranlar bittikten sonra)
 
 ## 10. Aşama 2a — Kullanıcılar ve yetkiler
 
