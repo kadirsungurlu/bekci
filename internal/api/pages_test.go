@@ -767,4 +767,28 @@ func TestPublicBarRanges(t *testing.T) {
 	if pub.Range != "24h" || len(bars) != 24 || bars[23].Up+bars[23].Down == 0 {
 		t.Errorf("24 saat görünümü: %s %d çubuk, son %+v", pub.Range, len(bars), bars[len(bars)-1])
 	}
+
+	// Olay bölümü: varsayılan açık; kapatılınca yanıt bunu bildirir ve olay listesi boş gelir.
+	var inc struct {
+		ShowIncidents bool              `json:"show_incidents"`
+		Incidents     []json.RawMessage `json:"incidents"`
+	}
+	pe.anon().mustDo("GET", "/api/public/pages/anlik", nil, &inc, 200)
+	if !inc.ShowIncidents {
+		t.Fatal("olay bölümü varsayılan olarak açık olmalı")
+	}
+	pe.mustDo("PUT", fmt.Sprintf("/api/status-pages/%d", p.ID), map[string]any{"slug": "anlik", "title": "Anlık", "show_incidents": false,
+		"sections": []map[string]any{{"title": "S", "monitors": []map[string]any{{"id": a.ID}}}}}, nil, 200)
+	inc.ShowIncidents, inc.Incidents = true, nil
+	pe.anon().mustDo("GET", "/api/public/pages/anlik", nil, &inc, 200)
+	if inc.ShowIncidents || len(inc.Incidents) != 0 {
+		t.Errorf("olay bölümü gizli olmalı: %+v", inc)
+	}
+	// Başka bir alan güncellenince (show_incidents gönderilmeden) ayar korunur.
+	pe.mustDo("PUT", fmt.Sprintf("/api/status-pages/%d", p.ID), map[string]any{"slug": "anlik", "title": "Anlık 2",
+		"sections": []map[string]any{{"title": "S", "monitors": []map[string]any{{"id": a.ID}}}}}, nil, 200)
+	pe.anon().mustDo("GET", "/api/public/pages/anlik", nil, &inc, 200)
+	if inc.ShowIncidents {
+		t.Error("show_incidents gönderilmeyince değişmemeli")
+	}
 }

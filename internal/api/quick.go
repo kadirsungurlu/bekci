@@ -430,7 +430,7 @@ func (s *Server) addPageMonitor(w http.ResponseWriter, r *http.Request) {
 	pin := pageInput{
 		Slug: p.Slug, Title: p.Title, Description: p.Description, Footer: p.Footer,
 		Sections: sections, CustomDomain: p.CustomDomain,
-		ShowTargets: &p.ShowTargets, Published: &p.Published, BarRange: &p.BarRange,
+		ShowTargets: &p.ShowTargets, Published: &p.Published, BarRange: &p.BarRange, ShowIncidents: &p.ShowIncidents,
 	}
 	np, err := s.normalizePage(ctx, &pin, &old)
 	if err != nil {

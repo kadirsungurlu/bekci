@@ -493,6 +493,8 @@ export interface StatusPage {
   has_password: boolean;
   show_targets: boolean;
   bar_range: BarRange;
+  /** Son 14 günün olayları herkese açık sayfada görünsün mü (eski sunucuda gelmez: görünür). */
+  show_incidents?: boolean;
   published: boolean;
   has_logo: boolean;
   created_at: number;
@@ -508,6 +510,7 @@ export interface PageInput {
   custom_domain: string;
   show_targets: boolean;
   bar_range: BarRange;
+  show_incidents: boolean;
   published: boolean;
   /** Gönderilmezse değişmez, "" kaldırır, dolu değer yeni şifredir. */
   password?: string;
@@ -581,6 +584,8 @@ export interface PublicPage {
   sections: { title: string; monitors: PublicMonitor[] }[];
   announcements: PublicAnnouncement[];
   incidents: { monitor: string; started_at: number; resolved_at: number }[];
+  /** false ise olay bölümü gösterilmez (eski sunucuda gelmez: gösterilir). */
+  show_incidents?: boolean;
 }
 
 /** Şifreli sayfanın 401 yanıtı. */

@@ -201,11 +201,12 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 			}
 			id, err := insertID(ctx, tx, `
 				INSERT INTO status_pages (slug, title, description, footer, sections, custom_domain,
-					password_hash, show_targets, published, logo, logo_type, created_at, updated_at, bar_range)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					password_hash, show_targets, published, logo, logo_type, created_at, updated_at, bar_range,
+					show_incidents)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				p.Slug, p.Title, p.Description, p.Footer, string(sj), nullStr(p.CustomDomain),
 				nullStr(p.PasswordHash), boolInt(p.ShowTargets), boolInt(p.Published), logo, ip.LogoType, now, now,
-				barRangeOr(p.BarRange))
+				barRangeOr(p.BarRange), boolInt(p.ShowIncidents))
 			if err != nil {
 				return err
 			}

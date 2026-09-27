@@ -39,6 +39,7 @@
   let footer = $state('');
   let customDomain = $state('');
   let showTargets = $state(false);
+  let showIncidents = $state(true);
   let barRange = $state<BarRange>('recent');
   let published = $state(true);
   let pwMode = $state<'keep' | 'set' | 'remove'>('keep');
@@ -73,6 +74,7 @@
     footer = p.footer;
     customDomain = p.custom_domain;
     showTargets = p.show_targets;
+    showIncidents = p.show_incidents ?? true;
     barRange = p.bar_range ?? 'recent';
     published = p.published;
     pwMode = 'keep';
@@ -208,6 +210,7 @@
         .map((s) => ({ title: s.title.trim(), monitors: s.monitors.map((m) => ({ id: m.id, name: m.name.trim() })) })),
       custom_domain: customDomain.trim().toLowerCase(),
       show_targets: showTargets,
+      show_incidents: showIncidents,
       bar_range: barRange,
       published,
     };
@@ -494,6 +497,13 @@
         <span>
           Hedef adresleri göster
           <small>Kapalıyken monitörlerin adresleri gizlenir. Açıksa adresler kullanıcı adı/şifre ve sorgu kısmı atılarak gösterilir.</small>
+        </span>
+      </label>
+      <label class="check">
+        <input type="checkbox" bind:checked={showIncidents} />
+        <span>
+          Son 14 günün olaylarını göster
+          <small>Kapalıyken sayfada geçmiş kesintiler listelenmez; ziyaretçi yalnızca anlık durumu ve çubukları görür.</small>
         </span>
       </label>
     </section>

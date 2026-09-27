@@ -93,6 +93,8 @@ type publicPageView struct {
 	Sections      []publicSection      `json:"sections"`
 	Announcements []publicAnnouncement `json:"announcements"`
 	Incidents     []publicIncident     `json:"incidents"`
+	// ShowIncidents false ise olay bölümü sayfada hiç gösterilmez (Incidents boş gelir).
+	ShowIncidents bool `json:"show_incidents"`
 }
 
 func logoURL(p store.StatusPage) *string {
@@ -264,6 +266,10 @@ func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byt
 		view.Announcements = append(view.Announcements, publicAnnouncement{
 			ID: a.ID, Title: a.Title, Body: a.Body, Severity: a.Severity, StartsAt: a.StartsAt, EndsAt: a.EndsAt,
 		})
+	}
+	view.ShowIncidents = p.ShowIncidents
+	if !p.ShowIncidents {
+		return json.Marshal(view)
 	}
 	// Olay nedeni bilerek yok: iç IP ve hata ayrıntısı içerebilir.
 	incs, err := s.store.IncidentsFor(ctx, ids, now-publicIncidentWindow, publicIncidentLimit)

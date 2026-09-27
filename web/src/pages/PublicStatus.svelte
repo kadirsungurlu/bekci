@@ -348,6 +348,7 @@
         {/if}
       {/each}
 
+      {#if page.show_incidents !== false}
       <section class="panel inc">
         <h2>Son 14 günün olayları</h2>
         {#if incidents.length === 0}
@@ -377,6 +378,7 @@
           </ul>
         {/if}
       </section>
+      {/if}
     </main>
 
     <footer class="foot">
