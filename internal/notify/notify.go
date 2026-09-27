@@ -209,24 +209,71 @@ func MaskSecrets(typ string, cfg json.RawMessage) json.RawMessage {
 	return encode(m)
 }
 
-// MergeSecrets düzenlemede maskeli gelen gizli alanları eski değerle doldurur;
-// böylece arayüz gizli değeri hiç görmeden kaydedebilir.
-func MergeSecrets(typ string, newCfg, oldCfg json.RawMessage) json.RawMessage {
-	p, ok := Get(typ)
-	if !ok {
-		return newCfg
+// ErrSecretRebind maskeli gizli alan, hedef adres değiştirilmiş bir ayarla
+// birlikte gönderildi.
+var ErrSecretRebind = ValidationError("Hedef adres değiştiği için şifre/token gibi gizli alanları yeniden girmeniz gerekiyor")
+
+// destinationKeys gizli bilginin gönderildiği yeri belirleyen alanlar. Bunlardan
+// biri değişirse kayıtlı gizli bilgi maskeli değerle yeni hedefe taşınamaz;
+// aksi halde gizli bilgiyi hiç görmemiş biri adresi kendi sunucusuna çevirip
+// "test gönder" ile onu ele geçirebilirdi.
+var destinationKeys = []string{
+	"url", "host", "port", "server", "endpoint", "webhook_url", "homeserver_url",
+	"broker_url", "target", "proxy_url", "oauth_token_url", "token_url",
+}
+
+// DestinationChanged yeni ayarda hedef alanlarından biri eskisinden farklı mı?
+func DestinationChanged(nm, om map[string]any) bool {
+	norm := func(v any) string {
+		if v == nil {
+			return ""
+		}
+		return strings.ToLower(strings.TrimSpace(fmt.Sprint(v)))
 	}
+	for _, k := range destinationKeys {
+		if norm(nm[k]) != norm(om[k]) {
+			return true
+		}
+	}
+	return false
+}
+
+// MergeSecretsFor düzenlemede maskeli gelen gizli alanları eski değerle
+// doldurur; böylece arayüz gizli değeri hiç görmeden kaydedebilir. Hedef adres
+// değiştiyse maskeli değer kabul edilmez (ErrSecretRebind).
+func MergeSecretsFor(secrets []string, newCfg, oldCfg json.RawMessage) (json.RawMessage, error) {
 	var nm, om map[string]any
 	if json.Unmarshal(newCfg, &nm) != nil {
-		return newCfg
+		return newCfg, nil
 	}
 	json.Unmarshal(oldCfg, &om)
-	for _, k := range p.Secrets() {
+	masked := false
+	for _, k := range secrets {
+		if nm[k] == Mask {
+			masked = true
+		}
+	}
+	if !masked {
+		return newCfg, nil
+	}
+	if DestinationChanged(nm, om) {
+		return nil, ErrSecretRebind
+	}
+	for _, k := range secrets {
 		if nm[k] == Mask {
 			nm[k] = om[k]
 		}
 	}
-	return encode(nm)
+	return encode(nm), nil
+}
+
+// MergeSecrets bildirim kanalı için MergeSecretsFor.
+func MergeSecrets(typ string, newCfg, oldCfg json.RawMessage) (json.RawMessage, error) {
+	p, ok := Get(typ)
+	if !ok {
+		return newCfg, nil
+	}
+	return MergeSecretsFor(p.Secrets(), newCfg, oldCfg)
 }
 
 // HTTP yardımcıları ---------------------------------------------------------------

@@ -90,7 +90,12 @@ func (s *Server) updateNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if in.Type == old.Type {
-		in.Config = notify.MergeSecrets(in.Type, in.Config, old.Config)
+		merged, err := notify.MergeSecrets(in.Type, in.Config, old.Config)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		in.Config = merged
 	}
 	n, err := in.toNotification()
 	if err != nil {
@@ -148,7 +153,12 @@ func (s *Server) testNotification(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if old.Type == in.Type {
-			cfg = notify.MergeSecrets(in.Type, cfg, old.Config)
+			merged, err := notify.MergeSecrets(in.Type, cfg, old.Config)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			cfg = merged
 		}
 	}
 	cfg, err := p.Normalize(cfg)

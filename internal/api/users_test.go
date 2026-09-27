@@ -254,3 +254,32 @@ func TestAuditLog(t *testing.T) {
 		t.Errorf("kayıt içeriği yanlış: %+v", log[1])
 	}
 }
+
+// Güvenlik: editör, maskeli gizli bilgiyi hedefini değiştirerek dışarı sızdıramaz.
+func TestSecretRebindBlocked(t *testing.T) {
+	admin := setupAdmin(t)
+	var ch store.Notification
+	admin.mustDo("POST", "/api/notifications", map[string]any{
+		"name": "Kanca", "type": "webhook", "config": map[string]any{"url": "https://kanca.kadir.app/x", "headers": "Authorization: Bearer gizli"},
+	}, &ch, 201)
+	editor, _ := admin.newUser("editor2", store.RoleEditor, nil)
+	masked := map[string]any{"url": "https://saldirgan.example/topla", "headers": "••••••"}
+	var e map[string]string
+	if code := editor.do("POST", "/api/notifications/test", map[string]any{"id": ch.ID, "type": "webhook", "config": masked}, &e); code != 400 || !strings.Contains(e["error"], "yeniden girmeniz") {
+		t.Errorf("test gönder: %d %v", code, e)
+	}
+	if code := editor.do("PUT", fmt.Sprintf("/api/notifications/%d", ch.ID), map[string]any{"name": "Kanca", "type": "webhook", "config": masked}, nil); code != 400 {
+		t.Errorf("kanal düzenleme: %d", code)
+	}
+	// Monitör: adres değişip basic auth şifresi maskeli bırakılırsa ret.
+	var m monitorView
+	admin.mustDo("POST", "/api/monitors", map[string]any{"name": "Gizli", "type": "http", "config": map[string]any{
+		"url": "https://ic.kadir.app", "basic_user": "a", "basic_pass": "cokgizli"}}, &m, 201)
+	if code := editor.do("PUT", fmt.Sprintf("/api/monitors/%d", m.ID), map[string]any{"name": "Gizli", "type": "http", "config": map[string]any{
+		"url": "https://saldirgan.example", "basic_user": "a", "basic_pass": "••••••"}}, nil); code != 400 {
+		t.Errorf("monitör hedef değişimi: %d", code)
+	}
+	// Aynı adresle maskeli kaydetme çalışmaya devam eder.
+	editor.mustDo("PUT", fmt.Sprintf("/api/monitors/%d", m.ID), map[string]any{"name": "Gizli 2", "type": "http", "config": map[string]any{
+		"url": "https://ic.kadir.app", "basic_user": "a", "basic_pass": "••••••"}}, nil, 200)
+}

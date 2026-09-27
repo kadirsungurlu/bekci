@@ -44,23 +44,12 @@ func maskMonitorConfig(typ string, cfg json.RawMessage) json.RawMessage {
 	return b
 }
 
-func mergeMonitorSecrets(typ string, newCfg, oldCfg json.RawMessage) json.RawMessage {
+func mergeMonitorSecrets(typ string, newCfg, oldCfg json.RawMessage) (json.RawMessage, error) {
 	keys := monitorSecrets[typ]
 	if len(keys) == 0 {
-		return newCfg
+		return newCfg, nil
 	}
-	var nm, om map[string]any
-	if json.Unmarshal(newCfg, &nm) != nil {
-		return newCfg
-	}
-	json.Unmarshal(oldCfg, &om)
-	for _, k := range keys {
-		if nm[k] == notify.Mask {
-			nm[k] = om[k]
-		}
-	}
-	b, _ := json.Marshal(nm)
-	return b
+	return notify.MergeSecretsFor(keys, newCfg, oldCfg)
 }
 
 type monitorView struct {
@@ -360,7 +349,12 @@ func (s *Server) updateMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if in.Type == old.Type {
-		in.Config = mergeMonitorSecrets(in.Type, in.Config, old.Config)
+		merged, err := mergeMonitorSecrets(in.Type, in.Config, old.Config)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		in.Config = merged
 	}
 	m, err := in.toMonitor()
 	if err != nil {

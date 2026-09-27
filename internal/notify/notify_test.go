@@ -237,7 +237,10 @@ func TestMaskAndMerge(t *testing.T) {
 	}
 	// Arayüz maskeli değeri geri gönderir, sadece chat_id'yi değiştirir.
 	edited := json.RawMessage(strings.Replace(string(masked), "-100", "-200", 1))
-	merged := MergeSecrets("telegram", edited, stored)
+	merged, err := MergeSecrets("telegram", edited, stored)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var m map[string]any
 	json.Unmarshal(merged, &m)
 	if m["bot_token"] != "123:ABC" || m["chat_id"] != "-200" {
@@ -307,5 +310,30 @@ func TestEmailRejectsAuthWithoutTLS(t *testing.T) {
 	_, err := p.Normalize(json.RawMessage(`{"host":"smtp.x","security":"none","username":"a","password":"b","from":"a@x.com","to":"b@x.com"}`))
 	if err == nil || !strings.Contains(err.Error(), "STARTTLS") {
 		t.Errorf("şifresiz bağlantıda kimlik doğrulama reddedilmeli: %v", err)
+	}
+}
+
+// Güvenlik: maskeli gizli alan, hedef adresi değiştirilmiş ayarla birleştirilmez
+// (aksi halde gizli bilgi saldırganın sunucusuna "test gönder" ile sızardı).
+func TestMergeSecretsRejectsDestinationChange(t *testing.T) {
+	stored := json.RawMessage(`{"url":"https://kanca.kadir.app/x","method":"POST","headers":"Authorization: Bearer gizli"}`)
+	cases := []struct {
+		cfg    string
+		reject bool
+	}{
+		{`{"url":"https://kanca.kadir.app/x","method":"PUT","headers":"` + Mask + `"}`, false},
+		{`{"url":"https://saldirgan.example/topla","method":"POST","headers":"` + Mask + `"}`, true},
+		{`{"url":"https://saldirgan.example/topla","method":"POST","headers":"Authorization: yeni"}`, false},
+	}
+	for _, c := range cases {
+		_, err := MergeSecrets("webhook", json.RawMessage(c.cfg), stored)
+		if (err != nil) != c.reject {
+			t.Errorf("%s: hata=%v, ret bekleniyor=%v", c.cfg, err, c.reject)
+		}
+	}
+	// E-posta: SMTP sunucusu değişince şifre taşınmaz.
+	storedMail := json.RawMessage(`{"host":"smtp.kadir.app","port":587,"password":"p","from":"a@b.c","to":"c@d.e"}`)
+	if _, err := MergeSecrets("email", json.RawMessage(`{"host":"smtp.saldirgan.example","port":587,"password":"`+Mask+`","from":"a@b.c","to":"c@d.e"}`), storedMail); err != ErrSecretRebind {
+		t.Errorf("SMTP sunucusu değişince ret bekleniyordu: %v", err)
 	}
 }
