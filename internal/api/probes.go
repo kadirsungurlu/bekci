@@ -9,6 +9,8 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"os"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -65,6 +67,7 @@ func init() {
 		mux.Handle("PUT /api/monitors/{id}/locations", s.editor(s.putMonitorLocations))
 
 		mux.Handle("GET /api/probe/jobs", s.probeOnly(s.probeJobs))
+		mux.Handle("GET /api/probe/binary", s.probeOnly(s.probeBinary))
 		mux.Handle("POST /api/probe/results", s.probeOnly(s.probeResults))
 	})
 }
@@ -280,13 +283,51 @@ func (s *Server) probeSetup(r *http.Request, p store.Probe, token string, monito
 		}
 		server = scheme + "://" + r.Host
 	}
-	image := s.ProbeImage
-	if image == "" {
-		image = "uptime"
+	var cmd string
+	if s.ProbeImage != "" {
+		// Uygulama imajı bir kayıt deposundan çekilebiliyorsa doğrudan o kullanılır.
+		cmd = fmt.Sprintf("docker run -d --name uptime-probe --restart unless-stopped -e PROBE_SERVER=%s -e PROBE_TOKEN=%s %s probe",
+			server, token, s.ProbeImage)
+	} else {
+		// Varsayılan: herkese açık alpine imajı açılışta programı bu sunucudan
+		// (token ile) indirip çalıştırır. Git, derleme veya kayıt deposu girişi
+		// gerekmez; her yeniden başlatmada en güncel sürüm alınır.
+		cmd = fmt.Sprintf("docker run -d --name uptime-probe --restart unless-stopped -e PROBE_SERVER=%s -e PROBE_TOKEN=%s alpine:3 "+
+			`sh -c 'wget -qO /usr/local/bin/uptime --header "Authorization: Bearer $PROBE_TOKEN" "$PROBE_SERVER/api/probe/binary" && chmod +x /usr/local/bin/uptime && exec uptime probe'`,
+			server, token)
 	}
-	cmd := fmt.Sprintf("docker run -d --name uptime-probe --restart unless-stopped -e PROBE_SERVER=%s -e PROBE_TOKEN=%s %s probe",
-		server, token, image)
 	return map[string]any{"probe": s.probeAdminOf(p, monitors), "token": token, "server_url": server, "docker_command": cmd}
+}
+
+// probeBinary kontrol noktasına bu sunucuda çalışan programın kendisini verir
+// (aynı ikili "uptime probe" ile kontrol noktası olarak çalışır). Yalnızca
+// geçerli ve etkin bir kontrol noktası token'ıyla indirilebilir.
+func (s *Server) probeBinary(w http.ResponseWriter, r *http.Request) {
+	exe, err := os.Executable()
+	if err != nil {
+		s.log.Error("program yolu bulunamadı", "hata", err)
+		writeError(w, http.StatusInternalServerError, "Program dosyası bulunamadı")
+		return
+	}
+	f, err := os.Open(exe)
+	if err != nil {
+		s.log.Error("program dosyası açılamadı", "hata", err)
+		writeError(w, http.StatusInternalServerError, "Program dosyası açılamadı")
+		return
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Program dosyası okunamadı")
+		return
+	}
+	h := w.Header()
+	h.Set("Content-Type", "application/octet-stream")
+	h.Set("Content-Disposition", `attachment; filename="uptime"`)
+	h.Set("Cache-Control", "no-store")
+	h.Set("X-Uptime-Version", s.version)
+	h.Set("X-Uptime-Platform", runtime.GOOS+"/"+runtime.GOARCH)
+	http.ServeContent(w, r, "uptime", st.ModTime(), f)
 }
 
 func (s *Server) createProbe(w http.ResponseWriter, r *http.Request) {

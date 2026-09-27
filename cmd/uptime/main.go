@@ -10,7 +10,8 @@
 //	LOG_LEVEL              debug | info | warn | error (varsayılan info)
 //	MAX_CONCURRENT_CHECKS  aynı anda en fazla kontrol sayısı (varsayılan 50)
 //	TZ                     saat dilimi (günlük özetler ve yedek saati için)
-//	PROBE_IMAGE            kontrol noktası kurulum komutunda gösterilen Docker imajı (varsayılan uptime)
+//	PROBE_IMAGE            kontrol noktası kurulum komutunda kullanılacak Docker imajı; boşsa (varsayılan)
+//	                       komut herkese açık alpine imajıyla programı bu sunucudan indirir
 //
 // Uzak kontrol noktası modu (veritabanı kullanmaz; bkz. probe.go):
 //

@@ -97,19 +97,20 @@ DNS rebinding'e karşı yalnızca IP veya localhost kabul eder).
 
 ## Uzak kontrol noktaları
 
-Ana sunucu bir ağ sorunu yaşarsa izleme kör kalmasın diye aynı imaj başka
+Ana sunucu bir ağ sorunu yaşarsa izleme kör kalmasın diye aynı program başka
 sunucularda "kontrol noktası" olarak çalıştırılabilir. Ayarlar → Kontrol
-noktaları → "Yeni kontrol noktası" ile token alın ve verilen komutu diğer
-sunucuda çalıştırın:
+noktaları → "Yeni kontrol noktası" ile verilen komutu diğer sunucuda çalıştırın:
 
 ```bash
-docker run -d --name uptime-probe --restart unless-stopped -e PROBE_SERVER=https://uptime.kadir.app -e PROBE_TOKEN=upr_… <imaj> probe
+docker run -d --name uptime-probe --restart unless-stopped -e PROBE_SERVER=https://uptime.kadir.app -e PROBE_TOKEN=upr_… alpine:3 sh -c 'wget -qO /usr/local/bin/uptime --header "Authorization: Bearer $PROBE_TOKEN" "$PROBE_SERVER/api/probe/binary" && chmod +x /usr/local/bin/uptime && exec uptime probe'
 ```
+
+Herkese açık `alpine` imajı açılışta programı ana sunucudan (token ile) indirir;
+git, derleme veya kayıt deposu girişi gerekmez. Her yeniden başlatmada en güncel
+sürüm alınır (`docker restart uptime-probe`). Program linux/amd64 içindir.
 
 Kontrol noktası veritabanı kullanmaz; atanan monitörleri kendisi kontrol edip
 sonuçları ana sunucuya gönderir, sunucuya ulaşamazsa sonuçları bekletir. Monitör
 formundaki "Konumlar" bölümünden hangi konumlardan kontrol edileceğini ve kesinti
 kuralını (herhangi biri / çoğunluk / hepsi) seçin. Ana sunucuda `PROBE_IMAGE`
-ortam değişkeni, kurulum komutunda gösterilecek imaj adını belirler (ör.
-`ghcr.io/kadirsa1105/uptime-kadir-app:latest`; imaj private ise diğer sunucuda
-`docker login ghcr.io` gerekir).
+verilirse kurulum komutu bunun yerine o imajı kullanır.

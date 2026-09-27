@@ -1,10 +1,12 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -389,5 +391,34 @@ func TestProbeRequestIgnoresCookie(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("durum %d", resp.StatusCode)
+	}
+}
+
+// Kontrol noktası programı ana sunucudan (token ile) indirilir; kurulum komutu
+// kayıt deposu gerektirmez.
+func TestProbeBinaryDownload(t *testing.T) {
+	admin := setupAdmin(t)
+	cp := admin.newProbe("İndirme")
+	if !strings.Contains(cp.DockerCommand, "alpine:3") || !strings.Contains(cp.DockerCommand, "/api/probe/binary") ||
+		!strings.Contains(cp.DockerCommand, "PROBE_TOKEN="+cp.Token) || !strings.Contains(cp.DockerCommand, "exec uptime probe") {
+		t.Errorf("kurulum komutu: %s", cp.DockerCommand)
+	}
+	// Token'sız ve yanlış token'la indirilemez.
+	if code, _, _ := admin.anon().rawReq("GET", "/api/probe/binary", nil, nil); code != 401 {
+		t.Errorf("token'sız: %d", code)
+	}
+	if code, _, _ := admin.anon().rawReq("GET", "/api/probe/binary", bearer("upr_yanlis"), nil); code != 401 {
+		t.Errorf("yanlış token: %d", code)
+	}
+	code, hdr, body := admin.anon().rawReq("GET", "/api/probe/binary", bearer(cp.Token), nil)
+	exe, _ := os.Executable()
+	want, _ := os.ReadFile(exe)
+	if code != 200 || !bytes.Equal(body, want) || hdr.Get("Content-Type") != "application/octet-stream" || hdr.Get("X-Uptime-Platform") == "" {
+		t.Errorf("indirme: %d, %d bayt (beklenen %d), %v", code, len(body), len(want), hdr)
+	}
+	// Devre dışı kontrol noktası indiremez.
+	admin.mustDo("PUT", fmt.Sprintf("/api/probes/%d", cp.Probe.ID), map[string]any{"name": "İndirme", "active": false}, nil, 200)
+	if code, _, _ := admin.anon().rawReq("GET", "/api/probe/binary", bearer(cp.Token), nil); code != 403 {
+		t.Errorf("devre dışı: %d", code)
 	}
 }
