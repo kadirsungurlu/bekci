@@ -1,0 +1,72 @@
+# main dalına her gönderimde iki imaj derlenir ve GitHub Container Registry'ye yüklenir:
+#   ghcr.io/<sahip>/uptime-kadir-app:latest     — SQLite gömülü (Dockerfile)
+#   ghcr.io/<sahip>/uptime-kadir-app:postgres   — PostgreSQL gömülü (Dockerfile.postgres)
+# Her ikisi ayrıca commit kısa özetiyle de etiketlenir (ör. :abc1234, :postgres-abc1234).
+name: İmajlar
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.27"
+      - name: Testler (SQLite)
+        run: go test -race -count=1 ./...
+      - name: Testler (PostgreSQL)
+        env:
+          UPTIME_TEST_PG: postgres://postgres:test@localhost:5432/postgres?sslmode=disable
+        run: go test -count=1 ./...
+
+  imaj:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - dockerfile: Dockerfile
+            etiket: latest
+            onek: ""
+          - dockerfile: Dockerfile.postgres
+            etiket: postgres
+            onek: "postgres-"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Kısa commit
+        id: sha
+        run: echo "kisa=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          build-args: SOURCE_COMMIT=${{ github.sha }}
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ matrix.etiket }}
+            ghcr.io/${{ github.repository }}:${{ matrix.onek }}${{ steps.sha.outputs.kisa }}
+          cache-from: type=gha,scope=${{ matrix.etiket }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.etiket }}
