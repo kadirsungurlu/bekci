@@ -167,7 +167,9 @@ func (s *Server) testNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.notifier.Test(in.Type, cfg); err != nil {
-		writeError(w, http.StatusBadGateway, "Gönderilemedi: "+err.Error())
+		// 502 değil: önündeki proxy (Cloudflare vb.) 502 gövdesini kendi sayfasıyla
+		// değiştirebilir ve arayüz hatanın nedenini göremez.
+		writeError(w, http.StatusUnprocessableEntity, "Gönderilemedi: "+err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})

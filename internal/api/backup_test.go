@@ -530,5 +530,5 @@ func TestImportUptimeRobot(t *testing.T) {
 	e.importDoc("/api/import/uptimerobot", map[string]string{"api_key": ""}, 400)
 	e.importDoc("/api/import/uptimerobot", map[string]string{"api_key": "a b"}, 400)
 	backup.UptimeRobotAPI = "http://127.0.0.1:1/v2"
-	e.importDoc("/api/import/uptimerobot", map[string]string{"api_key": "ur1234-salt-okunur"}, 502)
+	e.importDoc("/api/import/uptimerobot", map[string]string{"api_key": "ur1234-salt-okunur"}, 422)
 }

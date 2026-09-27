@@ -203,7 +203,7 @@ func (s *Server) importUptimeRobot(w http.ResponseWriter, r *http.Request) {
 		return
 	case err != nil:
 		s.log.Warn("UptimeRobot'a bağlanılamadı", "hata", err)
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeError(w, http.StatusUnprocessableEntity, err.Error()) // 502 proxy'de yutulabilir
 		return
 	}
 	s.runImport(w, r, "uptimerobot", backup.FromUptimeRobot(list), false)
