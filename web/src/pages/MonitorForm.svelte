@@ -248,7 +248,6 @@
 
   function pickType(t: MonitorType) {
     if (t !== type) {
-      const prevUrl = type === 'http' ? url.trim() : '';
       const prevHost = ['tcp', 'ping', 'dns'].includes(type) ? host.trim() : '';
       type = t;
       const f = typeDef(t)?.fields;
@@ -257,7 +256,6 @@
         else {
           extra = fieldDefaults(f);
           // Önceki tipte girilen adres/sunucu yeni tipe taşınır.
-          if (prevUrl && t === 'browser') extra.url = prevUrl;
           if (prevHost && f.some((x) => x.key === 'host')) extra.host = prevHost;
         }
       }

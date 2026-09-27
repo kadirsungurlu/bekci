@@ -76,7 +76,7 @@
   const isHttps = $derived(monitor?.type === 'http' && /^https:/i.test(monitor.target));
   // Sertifika bilgisi HTTPS dışında da gelebilir (TLS sertifikası, gRPC/SMTP/WebSocket TLS, tarayıcı).
   const showCert = $derived(
-    !!monitor && (isHttps || monitor.type === 'tlscert' || (monitor.type === 'browser' && /^https:/i.test(monitor.target)) || !!monitor.cert_expires_at),
+    !!monitor && (isHttps || monitor.type === 'tlscert' || !!monitor.cert_expires_at),
   );
 
   // Konumlar: yalnızca çok konumlu monitörde dolu gelir.

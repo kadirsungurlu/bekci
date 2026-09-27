@@ -99,7 +99,6 @@
     share:
       '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98"/><path d="m15.41 6.51-6.82 3.98"/>',
     box: '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
-    browser: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 9h20"/><path d="M6 6.5h.01"/><path d="M9 6.5h.01"/><path d="m10 13-2 2 2 2"/><path d="m14 13 2 2-2 2"/>',
     certificate:
       '<rect x="3" y="3" width="18" height="13" rx="2"/><path d="M7 8h10"/><path d="M7 12h4"/><circle cx="16" cy="15" r="3"/><path d="m14.5 17.6-1 4.4 2.5-1.3 2.5 1.3-1-4.4"/>',
     'arrows-lr': '<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',

@@ -76,25 +76,6 @@ cd web && npm install && npm run check && npm run build
 docker build -t uptime .
 ```
 
-## Tarayıcı (gerçek Chrome) monitörü
-
-"Tarayıcı" tipi monitörler sayfayı gerçek bir Chrome'da açar (JavaScript sonrası
-içerik, konsol hataları, CSS seçici bekleme). Uygulamanın imajı tarayıcı
-**içermez**; ayrı bir Chrome DevTools uç noktasına bağlanır. Kullanmıyorsanız
-hiçbir şey kurmanız gerekmez.
-
-Coolify'da kurulum:
-
-1. Ayrı bir servis olarak `chromedp/headless-shell:latest` ekleyin (hafif) ya da
-   `ghcr.io/browserless/chromium:latest`. CPU/RAM sınırı koyun (ör. 1 CPU, 1 GB).
-2. Uptime ile aynı Docker ağına bağlayın.
-3. Uptime'ın ortam değişkenlerine `BROWSER_WS_ENDPOINT=ws://<servis-adı>:9222`
-   ekleyin (headless-shell 9222, browserless genelde 3000 kullanır).
-4. Uptime'ı yeniden başlatın. Monitör başına farklı bir uç nokta da girilebilir.
-
-Servis adıyla verilen uç noktalar otomatik olarak IP'ye çözülür (Chrome DevTools,
-DNS rebinding'e karşı yalnızca IP veya localhost kabul eder).
-
 ## Uzak kontrol noktaları
 
 Ana sunucu bir ağ sorunu yaşarsa izleme kör kalmasın diye aynı program başka

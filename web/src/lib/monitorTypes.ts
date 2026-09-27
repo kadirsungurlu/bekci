@@ -161,56 +161,6 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
     category: 'web',
     keywords: 'web site api url https keyword json',
   },
-  {
-    key: 'browser',
-    label: 'Tarayıcı (gerçek Chrome)',
-    badge: 'TARAYICI',
-    desc: 'Sayfayı gerçek Chrome’da açıp içeriği kontrol eder',
-    about:
-      'Sayfayı gerçek bir Chrome’da açar; JavaScript sonrası içeriği, HTTP durumunu ve konsol hatalarını kontrol eder.',
-    note: 'Ağır bir kontroldür; sadece kritik sayfalar için ve 5-10 dakikalık aralıklarla kullanın. Ayrı bir tarayıcı container’ı gerektirir.',
-    icon: 'browser',
-    category: 'web',
-    keywords: 'chrome chromium playwright puppeteer spa javascript',
-    fields: [
-      { key: 'url', label: 'Adres', kind: 'url', placeholder: 'https://ornek.com', required: true, wide: true, suggestName: true },
-      {
-        key: 'keyword',
-        label: 'Beklenen kelime',
-        kind: 'text',
-        optional: true,
-        wide: true,
-        help: 'Sayfanın görünür metninde bu kelime yoksa çalışmıyor sayılır.',
-      },
-      {
-        key: 'wait_selector',
-        label: 'Beklenecek CSS seçici',
-        kind: 'text',
-        optional: true,
-        mono: true,
-        placeholder: '#app .hazir',
-        advanced: true,
-        help: 'Doluysa bu öğe sayfada görünene kadar beklenir.',
-      },
-      {
-        key: 'endpoint',
-        label: 'Tarayıcı uç noktası (isteğe bağlı)',
-        kind: 'text',
-        mono: true,
-        placeholder: 'ws://chrome:3000',
-        advanced: true,
-        help: 'Boşsa sunucudaki BROWSER_WS_ENDPOINT kullanılır. Kurulum: README › Tarayıcı monitörü',
-      },
-      ignoreTls(),
-      {
-        key: 'fail_on_console_errors',
-        label: 'Konsol hatalarında çalışmıyor say',
-        kind: 'bool',
-        help: 'Sayfada JavaScript hatası oluşursa monitör çalışmıyor sayılır.',
-        advanced: true,
-      },
-    ],
-  },
 
   // Ağ ve protokoller
   { key: 'tcp', label: 'TCP Port', badge: 'TCP', desc: 'Sunucudaki bir portun açık olduğunu kontrol eder', icon: 'plug', category: 'network' },
@@ -848,7 +798,7 @@ export const hasUpsideDown = (key: string) => BY_KEY.get(key)?.upsideDown !== fa
 export const isRemoteCapable = (key: string) => BY_KEY.get(key)?.remote !== false;
 
 /** Adresi tarayıcıda açılabilen tipler (hedef bağlantı olarak gösterilir). */
-export const isWebTarget = (key: string) => key === 'http' || key === 'browser';
+export const isWebTarget = (key: string) => key === 'http';
 
 export const GROUP_MODES: { v: 'any_down' | 'all_down'; l: string }[] = [
   { v: 'any_down', l: 'Herhangi biri çalışmıyorsa DOWN' },

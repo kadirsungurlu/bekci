@@ -42,7 +42,7 @@ Kuma'daki yavaşlamaya karşı:
 | Dışa/içe aktarma, Uptime Kuma'dan içe aktarma | 2 |
 | Ek bildirimler: Teams, Google Chat, Mattermost, Matrix, Signal, PagerDuty, Opsgenie, Home Assistant, Netgsm SMS | 2 |
 | Docker container, veritabanı monitörleri (MariaDB, PostgreSQL, Redis, MongoDB, MSSQL) | 3 |
-| gRPC, MQTT, SMTP, WebSocket, SNMP, gerçek tarayıcıyla kontrol | 3 |
+| gRPC, MQTT, SMTP, WebSocket, SNMP | 3 |
 | Proxy desteği, mTLS / OAuth2 | 3 |
 | 2FA, çoklu kullanıcı ve yetkiler, PostgreSQL depolama, İngilizce arayüz | 3 |
 | Uzak kontrol noktaları (başka sunucuya kurulan küçük ajan) | 3 |
@@ -175,9 +175,10 @@ kalıcı `/data`, health check `/healthz`, `TZ=Europe/Istanbul`.
 
 - [x] Docker ve veritabanı monitörleri (MySQL/MariaDB, PostgreSQL, MSSQL, Redis, MongoDB)
 - [x] gRPC, MQTT, SMTP, WebSocket, SNMP, TLS sertifika
-- [x] Gerçek tarayıcıyla kontrol: Uptime Kuma'daki "Browser Engine" karşılığı. Tarayıcı
-      ayrı bir container'da (Chrome DevTools uç noktası), uygulama ona bağlanır; imaj
-      küçük kalır, sadece kullanan kurar.
+- [~] Gerçek tarayıcıyla kontrol: yapıldı, sonra kaldırıldı (karar 2026-09-27). Ayrı
+      Chrome container'ı gerektiriyordu, pratikte HTTP + kelime kontrolü yetiyor.
+      Mevcut tarayıcı monitörleri HTTP'ye çevrilir (göç 9); Kuma "real-browser" da
+      HTTP olarak aktarılır.
 - [x] Proxy, mTLS / OAuth2
 - [x] 2FA (TOTP + kurtarma kodları)
 - [x] **PostgreSQL depolama** (karar 2026-09-27: desteklenecek). Ayrıca PostgreSQL

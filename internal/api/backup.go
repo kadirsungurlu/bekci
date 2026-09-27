@@ -414,6 +414,11 @@ func (s *Server) planImport(ctx context.Context, conv *backup.Result, replace bo
 			it.Result, it.Messages = "skipped", append(it.Messages, msg)
 			pl.sum.item(it)
 		}
+		if bm.Type == "browser" { // eski sürümlerin gerçek tarayıcı monitörü
+			bm.Type, bm.Config = "http", browserAsHTTP(bm.Config)
+			it.Type = bm.Type
+			it.Messages = append(it.Messages, "Gerçek tarayıcı kontrolü kaldırıldı; HTTP monitörü olarak aktarıldı")
+		}
 		if _, ok := check.Get(bm.Type); !ok {
 			skip(fmt.Sprintf("Monitör tipi “%s” bu sürümde yok", bm.Type))
 			continue
@@ -710,4 +715,17 @@ func planPage(bp backup.Page, known map[int64]bool, slugs, domains map[string]bo
 	slugs[p.Slug] = true
 	it.Result = "created"
 	return ip, it
+}
+
+// browserAsHTTP kaldırılan tarayıcı monitörünün ayarından HTTP kontrolüyle
+// ortak alanları (adres, kelime, TLS) alır.
+func browserAsHTTP(raw json.RawMessage) json.RawMessage {
+	var c struct {
+		URL       string `json:"url"`
+		Keyword   string `json:"keyword,omitempty"`
+		IgnoreTLS bool   `json:"ignore_tls,omitempty"`
+	}
+	json.Unmarshal(raw, &c)
+	out, _ := json.Marshal(c)
+	return out
 }

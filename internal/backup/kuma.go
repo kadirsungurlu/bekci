@@ -403,6 +403,10 @@ func convertKumaMonitor(d *kumaData, m kv) (Monitor, string) {
 	case "http", "keyword", "json-query":
 		out.Type = "http"
 		cfg = kumaHTTPConfig(d, m, typ, &out)
+	case "real-browser":
+		out.Type = "http"
+		cfg = kumaHTTPConfig(d, m, typ, &out)
+		out.Notes = append(out.Notes, "Gerçek tarayıcı kontrolü desteklenmiyor; HTTP monitörü olarak aktarıldı")
 	case "port":
 		out.Type = "tcp"
 		cfg = map[string]any{"host": strings.TrimSpace(m.str("hostname")), "port": m.int("port")}
@@ -645,7 +649,7 @@ func kumaProxy(p kv, cfg map[string]any, out *Monitor) {
 func kumaExtraType(d *kumaData, m kv, typ string) (string, map[string]any, string) {
 	target := map[string]string{
 		"docker": "docker", "mysql": "mysql", "postgres": "postgres", "sqlserver": "mssql",
-		"mongodb": "mongodb", "redis": "redis", "grpc-keyword": "grpc", "mqtt": "mqtt", "real-browser": "browser",
+		"mongodb": "mongodb", "redis": "redis", "grpc-keyword": "grpc", "mqtt": "mqtt",
 	}[typ]
 	if target == "" {
 		return "", nil, "Bu monitör tipi desteklenmiyor"
@@ -768,8 +772,6 @@ func kumaExtraType(d *kumaData, m kv, typ string) (string, map[string]any, strin
 		if v := m.str("mqtt_password", "mqttPassword"); v != "" {
 			cfg["password"] = v
 		}
-	case "real-browser":
-		cfg["url"] = m.str("url")
 	}
 	return target, cfg, ""
 }

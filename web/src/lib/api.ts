@@ -10,7 +10,6 @@ export const STATUS_MAINTENANCE = 3;
 /** Bilinen tipler; yeni tip eklenirken monitorTypes.ts'teki kayıt defterine de eklenir. */
 export type MonitorType =
   | 'http'
-  | 'browser'
   | 'tcp'
   | 'ping'
   | 'dns'
