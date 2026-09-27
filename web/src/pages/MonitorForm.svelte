@@ -15,7 +15,7 @@
     type Tag,
   } from '../lib/api';
   import { live } from '../lib/live.svelte';
-  import { navigate } from '../lib/router.svelte';
+  import { navigate, router } from '../lib/router.svelte';
   import { toast } from '../lib/ui.svelte';
   import { collator, fmtInterval, lower } from '../lib/format';
   import { session } from '../lib/session.svelte';
@@ -40,6 +40,8 @@
   let { id }: { id?: number } = $props();
   // svelte-ignore state_referenced_locally
   const isEdit = id !== undefined;
+  // Listedeki "Kopyala": kopya durdurulmuş oluşturulur, bu formda kaydedilince başlar.
+  const fromClone = isEdit && /[?&]kopya=1\b/.test(router.path);
 
   // Tip seçici: kategorilere ayrılmış, aranabilir kartlar. Düzenlemede (ve dar
   // ekranda seçim yapıldıktan sonra) yalnızca seçili tip gösterilir.
@@ -518,6 +520,13 @@
         problems.push(`Konumlar kaydedilemedi: ${errorMessage(err)}`);
       }
     }
+    if (fromClone && !res.active) {
+      try {
+        res = await api.resumeMonitor(res.id);
+      } catch (err) {
+        problems.push(`Monitör başlatılamadı: ${errorMessage(err)}`);
+      }
+    }
     live.upsert(res);
     saving = false;
     if (problems.length) {
@@ -591,6 +600,11 @@
   </div>
 {:else}
   <form class="form" onsubmit={submit} novalidate>
+    {#if fromClone && !live.byId(id!)?.active}
+      <div class="alert info small">
+        Bu monitör bir kopya ve durdurulmuş olarak oluşturuldu. Gerekirse adını ve hedefini değiştirin; kaydettiğinizde kontroller başlar.
+      </div>
+    {/if}
     <section class="card">
       <div class="tp-head">
         <h2 class="card-title">Monitör tipi</h2>

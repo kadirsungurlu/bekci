@@ -139,6 +139,7 @@
   let lastStatus: number | null = null;
 
   let unsubProbe: (() => void) | undefined;
+  let unsubReset: (() => void) | undefined;
 
   onMount(() => {
     loadDetail();
@@ -149,6 +150,12 @@
     }, 60_000);
     unsubProbe = live.onProbe(() => {
       if (locations?.locations.length) loadLocationsSoon();
+    });
+    // İstatistikler sıfırlandı (listeden veya başka sekmeden): uptime, grafik ve olaylar yeniden yüklenir.
+    unsubReset = live.onStatsReset((mid) => {
+      if (mid !== id) return;
+      loadDetail();
+      loadSeries(range);
     });
     unsub = live.onBeat((b) => {
       if (b.monitor_id !== id) return;
@@ -174,6 +181,7 @@
   onDestroy(() => {
     unsub?.();
     unsubProbe?.();
+    unsubReset?.();
     clearTimeout(locTimer);
     clearTimeout(reloadTimer);
     clearInterval(refreshTimer);

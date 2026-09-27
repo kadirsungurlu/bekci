@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { api, ApiError, errorMessage, type Maintenance, type MaintenanceInput, type MaintStrategy } from '../lib/api';
-  import { navigate } from '../lib/router.svelte';
+  import { navigate, router } from '../lib/router.svelte';
+  import { live } from '../lib/live.svelte';
   import { confirmDialog, toast } from '../lib/ui.svelte';
   import { isoLocal, nowSec } from '../lib/format';
   import { DEFAULT_TZ, MAINT_STATUS, STRATEGY_DESCS, STRATEGY_LABELS, WEEKDAYS, nextText } from '../lib/maintenance';
@@ -70,7 +71,16 @@
   }
 
   onMount(async () => {
-    if (!isEdit) return;
+    if (!isEdit) {
+      // Monitör listesindeki "Bakım planla" bağlantısı: #/maintenance/new?monitor=<id>
+      const pre = Number(router.path.match(/[?&]monitor=(\d+)/)?.[1] ?? 0);
+      if (pre > 0) {
+        monitorIds = [pre];
+        const m = live.byId(pre);
+        if (m) title = `Bakım: ${m.name}`.slice(0, 200);
+      }
+      return;
+    }
     try {
       fill(await api.maintenanceItem(id!));
     } catch (e) {

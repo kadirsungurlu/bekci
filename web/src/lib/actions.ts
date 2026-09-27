@@ -3,6 +3,7 @@
 import { api, errorMessage, type MonitorView } from './api';
 import { live } from './live.svelte';
 import { confirmDialog, toast } from './ui.svelte';
+import { navigate } from './router.svelte';
 
 export async function togglePause(m: MonitorView): Promise<MonitorView | null> {
   try {
@@ -33,5 +34,41 @@ export async function deleteMonitor(m: MonitorView): Promise<boolean> {
   } catch (e) {
     toast.error(errorMessage(e));
     return false;
+  }
+}
+
+/** Monitörü kopyalar (durdurulmuş olarak) ve kopyanın düzenleme formunu açar. */
+export async function cloneMonitor(m: MonitorView): Promise<MonitorView | null> {
+  try {
+    const res = await api.cloneMonitor(m.id);
+    live.upsert(res);
+    toast.success(`“${m.name}” kopyalandı`);
+    navigate(`/monitors/${res.id}/edit?kopya=1`);
+    return res;
+  } catch (e) {
+    toast.error(errorMessage(e));
+    return null;
+  }
+}
+
+/** Onay alıp monitörün kontrol geçmişini, uptime özetlerini ve bitmiş olaylarını siler. */
+export async function resetStats(m: MonitorView): Promise<MonitorView | null> {
+  const ok = await confirmDialog({
+    title: 'İstatistikleri sıfırla',
+    message:
+      `“${m.name}” için kontrol geçmişi, uptime yüzdeleri, yanıt süresi grafiği ve geçmiş olaylar silinecek. ` +
+      'Süren bir kesinti varsa açık kalır; monitör ayarları değişmez ve kontroller sürer.\n\nBu işlem geri alınamaz.',
+    confirmText: 'Sıfırla',
+    danger: true,
+  });
+  if (!ok) return null;
+  try {
+    const res = await api.resetMonitorStats(m.id);
+    live.upsert(res);
+    toast.success(`“${m.name}” istatistikleri sıfırlandı`);
+    return res;
+  } catch (e) {
+    toast.error(errorMessage(e));
+    return null;
   }
 }

@@ -75,6 +75,15 @@ func reaches(edges map[int64][]int64, from []int64, target int64) bool {
 // dizinini yeniler (bakım bağlantıları veritabanında kendiliğinden silinir;
 // bellekteki dizinde eski kimlik kalıp yeni bir monitöre denk gelmesin).
 func (s *Server) afterMonitorDelete(r *http.Request, id int64) {
+	s.afterMonitorsDelete(r, []int64{id})
+}
+
+// afterMonitorsDelete afterMonitorDelete'in toplu hali (bakım dizini ve gruplar
+// bir kez güncellenir).
+func (s *Server) afterMonitorsDelete(r *http.Request, ids []int64) {
+	if len(ids) == 0 {
+		return
+	}
 	ctx := r.Context()
 	if err := s.engine.ReloadMaintenance(ctx); err != nil {
 		s.log.Error("bakım pencereleri yenilenemedi", "hata", err)
@@ -85,12 +94,15 @@ func (s *Server) afterMonitorDelete(r *http.Request, id int64) {
 		return
 	}
 	for _, g := range groups {
+		if slices.Contains(ids, g.ID) {
+			continue // kendisi de silindi
+		}
 		cfg := check.GroupConfigOf(g.Config)
-		i := slices.Index(cfg.MonitorIDs, id)
-		if i < 0 {
+		n := len(cfg.MonitorIDs)
+		cfg.MonitorIDs = slices.DeleteFunc(cfg.MonitorIDs, func(id int64) bool { return slices.Contains(ids, id) })
+		if len(cfg.MonitorIDs) == n {
 			continue
 		}
-		cfg.MonitorIDs = slices.Delete(cfg.MonitorIDs, i, i+1)
 		b, _ := json.Marshal(cfg)
 		if err := s.store.SetMonitorConfig(ctx, g.ID, b); err != nil {
 			s.log.Error("grup ayarı güncellenemedi", "grup", g.Name, "hata", err)
