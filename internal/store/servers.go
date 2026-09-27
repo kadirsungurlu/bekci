@@ -356,6 +356,19 @@ func (s *Store) ResolveServerAlert(ctx context.Context, alertID, now int64) (boo
 	return resolved, err
 }
 
+// OpenServerAlertMount kuralın süren uyarı kaydındaki bölüm (disk uyarısı
+// başladığında dolan bölüm); süren kayıt yoksa "".
+func (s *Store) OpenServerAlertMount(ctx context.Context, alertID int64) (string, error) {
+	var mount string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT mount FROM server_alert_events WHERE alert_id = ? AND ended_at IS NULL
+		ORDER BY id DESC LIMIT 1`, alertID).Scan(&mount)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return mount, err
+}
+
 func resolveAlertTx(ctx context.Context, tx *Tx, alertID, now int64) error {
 	if _, err := tx.ExecContext(ctx,
 		"UPDATE server_alerts SET firing = 0, fired_at = NULL WHERE id = ?", alertID); err != nil {

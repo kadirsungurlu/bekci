@@ -465,6 +465,14 @@ func TestDiskRulePerMount(t *testing.T) {
 	if len(events) == 0 || events[0].Mount != "/boot" {
 		t.Fatalf("geçmişte bölüm: %+v", events)
 	}
+	// Bitiş bildirimi, uyarının başladığı bölümü (/boot) taşır; o an en dolu
+	// bölüm başka (/home) olsa da.
+	calm := cpu(10)
+	calm.Disks = []metrics.Disk{{Mount: "/", Total: 100, Used: 40}, {Mount: "/boot", Total: 100, Used: 50}, {Mount: "/home", Total: 100, Used: 70}}
+	e.send(calm)
+	if evs := e.notif.take(); len(evs) != 1 || evs[0].Kind != notify.KindServerResolved || evs[0].Mount != "/boot" {
+		t.Fatalf("bölümsüz kuralın bitişinde bölüm: %+v", evs)
+	}
 }
 
 // Ana sunucu uzun süre kapalı kaldıysa (deploy, yeniden başlatma) veya metrik
