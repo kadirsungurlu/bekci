@@ -64,7 +64,7 @@
     e.preventDefault();
     stError = '';
     if (!isInt(rawDays, 1, 90)) return (stError = 'Ham kayıt süresi 1-90 gün arasında olmalı.');
-    if (!isInt(hourlyDays, 7, 3650)) return (stError = 'Saatlik özet süresi 7-3650 gün arasında olmalı.');
+    if (!isInt(hourlyDays, 90, 3650)) return (stError = 'Saatlik özet süresi 90-3650 gün arasında olmalı.');
     if (hourlyDays! < rawDays!) return (stError = 'Saatlik özet süresi ham kayıt süresinden kısa olamaz.');
     const parts = certDays
       .split(/[,\s]+/)
@@ -102,7 +102,7 @@
     <h2 class="card-title">Veri saklama</h2>
     {#if !loaded}
       {#if loadError}
-        <div class="alert error">{loadError} <button type="button" class="btn sm" onclick={load}>Tekrar dene</button></div>
+        <div class="alert error load-err"><span>{loadError}</span> <button type="button" class="btn sm" onclick={load}>Tekrar dene</button></div>
       {:else}
         <div class="skeleton" style="height:200px"></div>
       {/if}
@@ -115,14 +115,17 @@
         </div>
         <div class="field">
           <label for="hourly">Saatlik özet süresi (gün)</label>
-          <input id="hourly" class="input" type="number" min="7" max="3650" bind:value={hourlyDays} />
-          <span class="help">7-3650 gün. Günlük özetler süresiz saklanır.</span>
+          <input id="hourly" class="input" type="number" min="90" max="3650" bind:value={hourlyDays} />
+          <span class="help">90-3650 gün. 30 ve 90 günlük grafikler bu özetlerden çizilir; günlük özetler süresiz saklanır.</span>
         </div>
       </div>
       <div class="field">
         <label for="cert">SSL uyarı günleri</label>
-        <input id="cert" class="input" bind:value={certDays} placeholder="21, 14, 7, 3, 1" />
-        <span class="help">Sertifikanın bitmesine bu kadar gün kala bildirim gönderilir. Virgülle ayırın (en fazla 10).</span>
+        <input id="cert" class="input" bind:value={certDays} placeholder="Ör. 21, 14, 7" />
+        <span class="help">
+          Sertifikanın bitmesine bu kadar gün kala bildirim gönderilir. Virgülle ayırın (en fazla 10); boş bırakırsanız SSL
+          uyarısı gönderilmez.
+        </span>
       </div>
       <div class="field narrow">
         <label for="bk">Gece yedeği sayısı</label>
@@ -195,6 +198,13 @@
     display: flex;
     justify-content: flex-end;
   }
+  .load-err {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
   dl {
     display: grid;
     grid-template-columns: auto 1fr;
@@ -215,6 +225,12 @@
     }
     .narrow {
       max-width: none;
+    }
+  }
+  @media (max-width: 640px) {
+    /* Mobilde diğer formlardaki gibi tam genişlik kaydet düğmesi. */
+    .actions .btn {
+      flex: 1;
     }
   }
 </style>

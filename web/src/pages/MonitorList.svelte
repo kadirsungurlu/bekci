@@ -117,8 +117,11 @@
     <section class="main-col">
       <div class="toolbar">
         <div class="search">
-          <Icon name="search" size={16} />
+          <span class="s-ic"><Icon name="search" size={16} /></span>
           <input class="input" type="search" placeholder="Ad veya adrese göre ara" bind:value={search} aria-label="Ara" />
+          {#if search}
+            <button type="button" class="clear" aria-label="Aramayı temizle" onclick={() => (search = '')}><Icon name="x" size={14} /></button>
+          {/if}
         </div>
         <select class="input sel" bind:value={filter} aria-label="Filtre">
           <option value="all">Tümü ({counts.total})</option>
@@ -127,7 +130,7 @@
           <option value="paused">Durdurulanlar ({counts.paused})</option>
         </select>
         <select class="input sel" bind:value={sort} aria-label="Sıralama">
-          <option value="status">Önce çalışmayanlar</option>
+          <option value="status">Duruma göre</option>
           <option value="name">Ada göre</option>
           <option value="uptime">Uptime'a göre</option>
         </select>
@@ -219,16 +222,38 @@
     flex: 1 1 220px;
     min-width: 0;
   }
-  .search :global(svg) {
+  .s-ic {
     position: absolute;
     left: 12px;
     top: 50%;
     transform: translateY(-50%);
+    display: inline-flex;
     color: var(--muted);
     pointer-events: none;
   }
   .search .input {
     padding-left: 36px;
+    padding-right: 36px;
+  }
+  .clear {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .clear:hover {
+    color: var(--text);
+    background: var(--card-2);
   }
   .sel {
     width: auto;
@@ -280,8 +305,8 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    margin: 6px 0 18px;
-    padding-left: 4px;
+    margin: 8px 0 18px;
+    padding-left: 6px;
   }
   .big-label {
     font-weight: 700;
@@ -376,7 +401,9 @@
       margin-top: 8px;
     }
     .toolbar .sel {
-      flex: 1 1 140px;
+      flex: 1 1 130px;
+      padding-right: 30px;
+      background-position: right 10px center;
     }
   }
 </style>

@@ -85,7 +85,9 @@
     for (const f of schema.fields) {
       const raw = values[f.key] ?? '';
       if (NUMERIC_KEYS.has(f.key)) {
-        cfg[f.key] = raw.trim() === '' ? (typeof f.def === 'number' ? f.def : 0) : Number(raw);
+        // Boş bırakılan e-posta portunu 0 gönder: sunucu güvenlik seçimine göre (465/587/25) doldurur.
+        const def = f.key === 'port' ? 0 : typeof f.def === 'number' ? f.def : 0;
+        cfg[f.key] = raw.trim() === '' ? def : Number(raw);
       } else if (f.kind === 'textarea') {
         cfg[f.key] = raw;
       } else {
@@ -255,7 +257,7 @@
 
     {#if type === 'webhook'}
       <details class="example">
-        <summary>Gönderilen JSON örneği</summary>
+        <summary><span class="chev"><Icon name="chevron-right" size={15} /></span> Gönderilen JSON örneği</summary>
         <p class="help">
           <code>event</code>: <code>down</code>, <code>up</code>, <code>reminder</code>, <code>cert</code> veya <code>test</code>.
           <code>downtime_seconds</code> düzelme bildiriminde, <code>cert_days</code> SSL uyarısında gelir.
@@ -315,9 +317,25 @@
     flex: 1;
   }
   .example summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     cursor: pointer;
     color: var(--accent-text);
     font-size: 0.88rem;
+    list-style: none;
+    border-radius: 4px;
+  }
+  /* Tarayıcının üçgen işareti yerine uygulamadaki ok simgesi. */
+  .example summary::-webkit-details-marker {
+    display: none;
+  }
+  .chev {
+    display: inline-flex;
+    transition: transform 0.15s;
+  }
+  .example[open] .chev {
+    transform: rotate(90deg);
   }
   .example pre {
     background: var(--input);

@@ -83,7 +83,7 @@
     {#each sorted as ch (ch.id)}
       {@const st = NOTIFY_STYLE[ch.type]}
       <button type="button" class="item" class:inactive={!ch.active} onclick={() => openForm(ch)}>
-        <span class="ticon" style="background:{st?.color ?? 'var(--accent)'}">{st?.short ?? '?'}</span>
+        <span class="ticon" style="--c:{st?.color ?? 'var(--accent)'}"><Icon name={st?.icon ?? 'bell'} size={18} /></span>
         <span class="info">
           <span class="name">
             {ch.name}
@@ -131,8 +131,10 @@
   .item:last-child {
     border-bottom: none;
   }
-  .item:hover {
-    background: var(--card-hover);
+  @media (hover: hover) {
+    .item:hover {
+      background: var(--card-hover);
+    }
   }
   .item:first-child {
     border-radius: var(--radius) var(--radius) 0 0;
@@ -148,16 +150,18 @@
     opacity: 0.55;
   }
   .ticon {
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     border-radius: 10px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
-    font-weight: 800;
-    font-size: 0.95rem;
+    background: color-mix(in srgb, var(--c) 16%, var(--card));
+    color: var(--c);
     flex-shrink: 0;
+  }
+  .item:focus-visible {
+    outline-offset: -2px;
   }
   .info {
     flex: 1;

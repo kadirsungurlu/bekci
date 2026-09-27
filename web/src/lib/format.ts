@@ -37,17 +37,46 @@ export function fmtRelative(ts: number, now: number): string {
   return `${fmtDurationShort(diff)} önce`;
 }
 
+// Sunucu günlük özetleri İstanbul saatine göre kovalar; tarihler de aynı dilimde
+// gösterilsin ki başka dilimdeki bir tarayıcıda 90 günlük çubuklar kaymasın.
+const TZ = 'Europe/Istanbul';
 const dateFmt = new Intl.DateTimeFormat('tr-TR', {
   day: '2-digit',
   month: '2-digit',
   year: 'numeric',
   hour: '2-digit',
   minute: '2-digit',
+  timeZone: TZ,
 });
-const dateOnlyFmt = new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-const shortDateFmt = new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: '2-digit' });
-const timeFmt = new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit' });
-const timeSecFmt = new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const dateOnlyFmt = new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: TZ });
+const shortDateFmt = new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: '2-digit', timeZone: TZ });
+const timeFmt = new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: TZ });
+const timeSecFmt = new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: TZ });
+
+const tzParts = new Intl.DateTimeFormat('en-US', {
+  timeZone: TZ,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+
+/** Verilen andaki İstanbul saat dilimi farkı (saniye). */
+export function tzOffset(ts: number): number {
+  const p: Record<string, number> = {};
+  for (const x of tzParts.formatToParts(new Date(ts * 1000))) if (x.type !== 'literal') p[x.type] = Number(x.value);
+  const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) / 1000;
+  return Math.round(asUtc - ts);
+}
+
+/** ts'nin İstanbul saatine göre bulunduğu günün başlangıcı (unix sn). */
+export function tzDayStart(ts: number): number {
+  const off = tzOffset(ts);
+  return Math.floor((ts + off) / 86400) * 86400 - off;
+}
 
 /** dd.MM.yyyy HH:mm */
 export function fmtDate(ts: number): string {

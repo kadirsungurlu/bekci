@@ -23,9 +23,16 @@
 
   $effect(() => {
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    else if (!open && dialog.open) dialog.close();
+    if (open && !dialog.open) {
+      dialog.showModal();
+      // Odak kapatma düğmesine değil, ilk form alanına gitsin.
+      const first = dialog.querySelector<HTMLElement>('.body input:not([type=hidden]):not([type=checkbox]), .body select, .body textarea');
+      if (first && !isTouch()) first.focus();
+    } else if (!open && dialog.open) dialog.close();
   });
+
+  // Dokunmatik cihazda otomatik odak klavyeyi açıp pencereyi kaydırır; orada yapma.
+  const isTouch = () => matchMedia('(hover: none)').matches;
 
   function handleClose() {
     if (open) {
@@ -75,7 +82,7 @@
     overflow: visible;
   }
   dialog::backdrop {
-    background: rgba(3, 7, 15, 0.7);
+    background: var(--overlay);
     backdrop-filter: blur(2px);
   }
   .box {

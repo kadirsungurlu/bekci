@@ -133,6 +133,9 @@
         {/each}
       </nav>
       <div class="side-foot">
+        {#if !live.connected && live.loaded}
+          <div class="offline" title="Canlı bağlantı yeniden kuruluyor"><Icon name="wifi-off" size={15} /> <span>Bağlantı yok</span></div>
+        {/if}
         <div class="who"><Icon name="user" size={16} /> <span>{user?.username}</span></div>
         <button class="logout" onclick={logout}><Icon name="logout" size={16} /> Çıkış</button>
       </div>
@@ -141,7 +144,9 @@
     <header class="topbar">
       <a class="logo" href="#/"><span class="logo-dot"></span> Uptime</a>
       <div class="top-right">
-        {#if !live.connected && live.loaded}<span class="offline" title="Canlı bağlantı yeniden kuruluyor">Bağlantı yok</span>{/if}
+        {#if !live.connected && live.loaded}
+          <span class="offline" title="Canlı bağlantı yeniden kuruluyor"><Icon name="wifi-off" size={14} /> Bağlantı yok</span>
+        {/if}
         <button class="btn ghost sm" onclick={logout} aria-label="Çıkış"><Icon name="logout" size={16} /> Çıkış</button>
       </div>
     </header>
@@ -235,7 +240,7 @@
     height: 12px;
     border-radius: 50%;
     background: var(--up);
-    box-shadow: 0 0 0 4px rgba(59, 214, 113, 0.2);
+    box-shadow: 0 0 0 4px var(--up-ring);
   }
   nav {
     display: flex;
@@ -254,12 +259,15 @@
     text-decoration: none;
   }
   .sidebar nav a:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--sidebar-hover);
     color: var(--text);
   }
   .sidebar nav a.active {
     background: var(--sidebar-active);
-    color: #fff;
+    color: var(--text);
+  }
+  .sidebar nav a:focus-visible {
+    outline-offset: -2px;
   }
   .sidebar nav a.active :global(svg) {
     color: var(--up);
@@ -271,7 +279,7 @@
     padding: 0 6px;
     border-radius: 10px;
     background: var(--down);
-    color: #fff;
+    color: var(--on-down);
     font-size: 0.72rem;
     font-weight: 700;
     display: inline-flex;
@@ -313,7 +321,22 @@
     text-align: left;
   }
   .logout:hover {
-    color: var(--down);
+    color: var(--down-text-2);
+  }
+  .offline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 10px;
+    margin-bottom: 4px;
+    border-radius: 999px;
+    background: var(--pending-soft);
+    color: var(--pending);
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+    align-self: flex-start;
   }
 
   .topbar,
@@ -350,7 +373,7 @@
       justify-content: space-between;
       height: 54px;
       padding: 0 8px 0 6px;
-      background: linear-gradient(90deg, #0f2a26, #111a33);
+      background: var(--topbar-bg);
       border-bottom: 1px solid var(--sidebar-border);
     }
     .topbar .logo {
@@ -362,9 +385,10 @@
       align-items: center;
       gap: 6px;
     }
-    .offline {
-      font-size: 0.75rem;
-      color: var(--pending);
+    .top-right .offline {
+      height: 24px;
+      margin: 0;
+      font-size: 0.72rem;
     }
     .tabbar {
       position: fixed;
@@ -374,7 +398,7 @@
       z-index: 20;
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      background: rgba(13, 20, 33, 0.96);
+      background: var(--tabbar-bg);
       backdrop-filter: blur(8px);
       border-top: 1px solid var(--border);
       padding-bottom: env(safe-area-inset-bottom);
@@ -389,6 +413,10 @@
       font-size: 0.7rem;
       font-weight: 600;
       text-decoration: none;
+    }
+    .tabbar a:focus-visible {
+      outline-offset: -2px;
+      border-radius: 8px;
     }
     .tabbar a.active {
       color: var(--text);

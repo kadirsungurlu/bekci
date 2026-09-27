@@ -4,7 +4,7 @@
   // saatlik/günlük seride ortalama çizgisi ve min–maks bandı gösterilir.
   import type { Series } from '../lib/api';
   import { STATUS_DOWN, STATUS_PENDING, STATUS_UP } from '../lib/api';
-  import { fmtDay, fmtMs, fmtNum, fmtPct, fmtShortDate, fmtTime, fmtTimeSec, pointStatusLabel } from '../lib/format';
+  import { fmtDay, fmtMs, fmtNum, fmtPct, fmtShortDate, fmtTime, fmtTimeSec, pointStatusLabel, tzDayStart, tzOffset } from '../lib/format';
 
   let { series, from, to, interval }: { series: Series; from: number; to: number; interval: number } = $props();
 
@@ -71,6 +71,8 @@
     let max = 0;
     for (const p of pts) if (p.v !== null && p.v > max) max = p.v;
     if (max <= 0) max = 100;
+    // Çok düşük gecikmede (≤ 1 ms) eksende "0,5 / 1,5" gibi kesirli değerler çıkmasın.
+    max = Math.max(max, 10);
     const step = niceStep((max * 1.1) / 4);
     const top = Math.ceil((max * 1.1) / step) * step;
     const ticks: number[] = [];
@@ -173,25 +175,27 @@
     const narrow = w < 520;
     const range = to - from;
     const out: { x: number; label: string }[] = [];
-    const d = new Date(from * 1000);
     if (range <= 2 * 86400) {
+      // Saat işaretleri İstanbul saatinde 3'e (darda 6'ya) bölünen saatlere oturur.
       const stepH = narrow ? 6 : 3;
-      d.setMinutes(0, 0, 0);
-      d.setHours(d.getHours() + 1);
-      while (d.getHours() % stepH !== 0) d.setHours(d.getHours() + 1);
-      while (d.getTime() / 1000 < to) {
-        out.push({ x: xOf(d.getTime() / 1000), label: fmtTime(d.getTime() / 1000) });
-        d.setHours(d.getHours() + stepH);
+      const off = tzOffset(from);
+      let t = Math.ceil((from + off) / 3600) * 3600;
+      while (Math.floor(t / 3600) % stepH !== 0) t += 3600;
+      t -= off;
+      while (t < to) {
+        out.push({ x: xOf(t), label: fmtTime(t) });
+        t += stepH * 3600;
       }
     } else {
+      // Gün sınırları sunucuyla aynı dilimde (İstanbul) hesaplanır.
       const days = range / 86400;
       const stepD = days <= 8 ? (narrow ? 2 : 1) : days <= 31 ? (narrow ? 10 : 5) : narrow ? 30 : 15;
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() + 1);
+      let t = tzDayStart(from) + 86400;
+      t = tzDayStart(t + 3600); // yaz saati geçişinde tam gün başına oturt
       let i = 0;
-      while (d.getTime() / 1000 < to) {
-        if (i % stepD === 0) out.push({ x: xOf(d.getTime() / 1000), label: fmtShortDate(d.getTime() / 1000) });
-        d.setDate(d.getDate() + 1);
+      while (t < to) {
+        if (i % stepD === 0) out.push({ x: xOf(t), label: fmtShortDate(t) });
+        t = tzDayStart(t + 86400 + 3600);
         i++;
       }
     }
@@ -326,8 +330,8 @@
           <div class="tt">{hoverTitle(hp)}</div>
           {#if isRaw}
             <div>
-              <span class="c-{hp.s === STATUS_UP ? 'up' : hp.s === STATUS_DOWN ? 'down' : hp.s === STATUS_PENDING ? 'pending' : 'paused'}"
-                >● {pointStatusLabel(hp.s)}</span
+              <span class="st c-{hp.s === STATUS_UP ? 'up' : hp.s === STATUS_DOWN ? 'down' : hp.s === STATUS_PENDING ? 'pending' : 'paused'}"
+                >{pointStatusLabel(hp.s)}</span
               >
               {#if hp.v !== null}· <b>{fmtMs(hp.v)}</b>{/if}
             </div>
@@ -398,7 +402,7 @@
     top: 0;
     width: 180px;
     pointer-events: none;
-    background: #0a101b;
+    background: var(--tip-bg);
     border: 1px solid var(--border-strong);
     border-radius: 8px;
     padding: 8px 10px;
@@ -413,9 +417,19 @@
     margin-bottom: 2px;
   }
   .m {
-    color: #fca5a5;
+    color: var(--down-text);
     word-break: break-word;
     margin-top: 2px;
+  }
+  .st::before {
+    content: '';
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    margin-right: 5px;
+    vertical-align: 1px;
   }
   .stats {
     display: flex;

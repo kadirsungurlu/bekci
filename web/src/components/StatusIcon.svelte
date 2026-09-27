@@ -28,22 +28,22 @@
     height: var(--s);
     border-radius: 50%;
     flex-shrink: 0;
-    color: #fff;
+    color: var(--on-down);
   }
   .si.up {
     background: var(--up);
-    color: #07361a;
+    color: var(--on-up);
   }
   .si.down {
     background: var(--down);
   }
   .si.pending {
     background: var(--pending);
-    color: #3a2500;
+    color: var(--on-pending);
   }
   .si.paused {
     background: var(--paused);
-    color: #e5e7eb;
+    color: var(--on-paused);
   }
   .si.pulse::after {
     content: '';
@@ -63,7 +63,7 @@
       opacity: 0.55;
     }
     100% {
-      transform: scale(1.9);
+      transform: scale(1.6);
       opacity: 0;
     }
   }

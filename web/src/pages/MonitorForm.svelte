@@ -692,7 +692,7 @@
       background 0.15s;
   }
   .type:hover {
-    border-color: #475a7c;
+    border-color: var(--border-hover);
   }
   .type.active {
     border-color: var(--accent);
@@ -832,11 +832,32 @@
     }
   }
   @media (max-width: 640px) {
+    /* Dar ekranda tek sütun, yatay kart: 5 tip için 2 sütunlu ızgarada
+       tek kalan kart yerine düzenli bir liste. */
     .types {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 1fr);
+      gap: 8px;
     }
     .type {
-      padding: 12px 10px;
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      grid-template-areas:
+        'icon label'
+        'icon desc';
+      column-gap: 12px;
+      row-gap: 1px;
+      align-items: center;
+      padding: 10px 12px;
+    }
+    .ticon {
+      grid-area: icon;
+      margin: 0;
+    }
+    .tlabel {
+      grid-area: label;
+    }
+    .tdesc {
+      grid-area: desc;
     }
     .grid-host,
     .grid-int,

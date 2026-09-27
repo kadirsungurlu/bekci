@@ -32,7 +32,7 @@
     gap: 10px;
     padding: 11px 12px 11px 14px;
     border-radius: 10px;
-    background: #0b111c;
+    background: var(--tip-bg);
     border: 1px solid var(--border-strong);
     box-shadow: var(--shadow);
     font-size: 0.9rem;
@@ -46,7 +46,7 @@
     color: var(--up);
   }
   .toast.error {
-    border-color: rgba(239, 68, 68, 0.5);
+    border-color: var(--down-border);
   }
   .toast.error .ic {
     color: var(--down);

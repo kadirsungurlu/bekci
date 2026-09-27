@@ -1,6 +1,7 @@
 // Bildirim kanalı tipleri ve form alanları.
 
 import type { NotificationType } from './api';
+import type { IconName } from '../components/Icon.svelte';
 
 export const NOTIFY_LABELS: Record<NotificationType, string> = {
   whatsapp: 'WhatsApp',
@@ -14,17 +15,17 @@ export const NOTIFY_LABELS: Record<NotificationType, string> = {
   pushover: 'Pushover',
 };
 
-/** Liste ikonları için tip başına renk ve kısa harf. */
-export const NOTIFY_STYLE: Record<NotificationType, { color: string; short: string }> = {
-  whatsapp: { color: '#25d366', short: 'W' },
-  telegram: { color: '#2aabee', short: 'T' },
-  email: { color: '#f59e0b', short: '@' },
-  discord: { color: '#5865f2', short: 'D' },
-  slack: { color: '#e01e5a', short: 'S' },
-  webhook: { color: '#8b5cf6', short: '{}' },
-  ntfy: { color: '#317f6f', short: 'n' },
-  gotify: { color: '#1e88e5', short: 'G' },
-  pushover: { color: '#249df1', short: 'P' },
+/** Liste simgeleri: tip başına ikon ve app.css'teki renk değişkeni. */
+export const NOTIFY_STYLE: Record<NotificationType, { color: string; icon: IconName }> = {
+  whatsapp: { color: 'var(--ch-whatsapp)', icon: 'phone' },
+  telegram: { color: 'var(--ch-telegram)', icon: 'send' },
+  email: { color: 'var(--ch-email)', icon: 'mail' },
+  discord: { color: 'var(--ch-discord)', icon: 'message' },
+  slack: { color: 'var(--ch-slack)', icon: 'hash' },
+  webhook: { color: 'var(--ch-webhook)', icon: 'code' },
+  ntfy: { color: 'var(--ch-ntfy)', icon: 'bell' },
+  gotify: { color: 'var(--ch-gotify)', icon: 'server' },
+  pushover: { color: 'var(--ch-pushover)', icon: 'smartphone' },
 };
 
 export type FieldKind = 'text' | 'secret' | 'number' | 'select' | 'textarea' | 'url';

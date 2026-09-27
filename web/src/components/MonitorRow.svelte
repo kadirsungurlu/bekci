@@ -30,7 +30,9 @@
       case 'paused':
         return STATUS_LABELS.paused;
       case 'pending':
-        return m.last_check_at && m.last_message ? `Tekrar deneniyor · ${m.last_message}` : STATUS_LABELS.pending;
+        // Yeni eklenen, düzenlenen veya yeniden başlatılan monitörde sunucu mesajı
+        // temizler; mesaj varsa başarısız kontrol sonrası tekrar deneniyordur.
+        return m.last_message ? `Tekrar deneniyor · ${m.last_message}` : 'İlk kontrol bekleniyor';
       case 'up':
         return m.last_change_at ? `Çalışıyor · ${fmtDuration(now - m.last_change_at)}` : 'Çalışıyor';
       case 'down': {
@@ -43,6 +45,18 @@
   });
 
   const href = $derived(`#/monitors/${m.id}`);
+
+  // Menü ekranın altına sığmıyorsa yukarı açılır (mobilde sekme çubuğu altında kalmasın).
+  let openUp = $state(false);
+  function toggleMenu(e: MouseEvent) {
+    if (menuOpen) {
+      onmenu(null);
+      return;
+    }
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    openUp = window.innerHeight - r.bottom < 190;
+    onmenu(m.id);
+  }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -70,12 +84,12 @@
       class="btn ghost icon"
       aria-label="İşlemler"
       aria-expanded={menuOpen}
-      onclick={() => onmenu(menuOpen ? null : m.id)}
+      onclick={toggleMenu}
     >
       <Icon name="more" />
     </button>
     {#if menuOpen}
-      <div class="dropdown" role="menu">
+      <div class="dropdown" class:up={openUp} role="menu">
         <a role="menuitem" href="#/monitors/{m.id}/edit" onclick={() => onmenu(null)}><Icon name="edit" size={15} /> Düzenle</a>
         <button
           role="menuitem"
@@ -116,8 +130,11 @@
     cursor: pointer;
     transition: background 0.12s;
   }
-  .row:hover {
-    background: var(--card-hover);
+  /* Dokunmatik ekranda dokunulan satır "hover" rengiyle takılı kalmasın. */
+  @media (hover: hover) {
+    .row:hover {
+      background: var(--card-hover);
+    }
   }
   .row.dim .info,
   .row.dim .uptime {
@@ -177,7 +194,7 @@
     color: var(--text-2);
   }
   .pct.c-down {
-    color: #f87171;
+    color: var(--down-text-2);
   }
   .menu {
     grid-area: menu;
@@ -187,6 +204,7 @@
     position: absolute;
     right: 0;
     top: calc(100% + 4px);
+    animation: pop 0.12s ease-out;
     z-index: 30;
     min-width: 160px;
     background: var(--bg-elev);
@@ -213,15 +231,38 @@
     text-align: left;
     text-decoration: none;
   }
+  .dropdown.up {
+    top: auto;
+    bottom: calc(100% + 4px);
+  }
   .dropdown a:hover,
-  .dropdown button:hover {
+  .dropdown button:hover,
+  .dropdown a:focus-visible,
+  .dropdown button:focus-visible {
     background: var(--card-2);
+    outline: none;
   }
   .dropdown .danger {
-    color: #f87171;
+    color: var(--down-text-2);
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+  .dropdown.up {
+    animation-name: pop-up;
+  }
+  @keyframes pop-up {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
   }
 
-  @media (max-width: 1180px) and (min-width: 901px), (max-width: 760px) {
+  /* Dar masaüstünde (kenar çubuğu + yan panel varken) ada daha çok yer bırak. */
+  @media (max-width: 1400px) and (min-width: 901px), (max-width: 760px) {
     .uptime {
       width: 180px;
     }

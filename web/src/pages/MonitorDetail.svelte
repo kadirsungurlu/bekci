@@ -152,7 +152,8 @@
       case 'paused':
         return 'Kontroller durduruldu';
       case 'pending':
-        return monitor.last_check_at ? 'Tekrar deneniyor' : 'İlk kontrol bekleniyor';
+        // Başlatma/düzenleme sonrası sunucu son mesajı temizler: henüz sonuç yok.
+        return monitor.last_message ? 'Tekrar deneniyor' : 'İlk kontrol bekleniyor';
       case 'up':
         return monitor.last_change_at ? `${fmtDuration(now - monitor.last_change_at)} süredir çalışıyor` : '';
       case 'down':
@@ -202,7 +203,7 @@
         </div>
         <div class="target">
           {#if monitor.type === 'http'}
-            <a href={monitor.target} target="_blank" rel="noopener noreferrer">{monitor.target} <Icon name="external" size={13} /></a>
+            <a href={monitor.target} target="_blank" rel="noopener noreferrer">{monitor.target}<Icon name="external" size={13} /></a>
           {:else if monitor.type === 'push'}
             <span class="muted">Push monitörü · beklenen aralık {fmtInterval(monitor.interval)}</span>
           {:else}
@@ -235,14 +236,16 @@
       <div class="label">Son kontrol</div>
       <div class="value">{monitor.last_check_at ? fmtRelative(monitor.last_check_at, now) : '—'}</div>
       <div class="sub" title={monitor.last_message}>
-        {#if monitor.last_message}<span class:c-down={kind === 'down'}>{monitor.last_message}</span> ·{/if}
+        {#if monitor.last_message}
+          <span class:c-down={kind === 'down'} class:c-pending={kind === 'pending'}>{monitor.last_message}</span> ·
+        {/if}
         her {fmtInterval(monitor.interval)}
       </div>
     </div>
     <div class="card stat">
       <div class="label">Ortalama yanıt (24 saat)</div>
       <div class="value">{fmtMs(detail?.avg_ping_24h)}</div>
-      <div class="sub">Son ölçüm: {monitor.last_check_at && kind !== 'down' ? fmtMs(monitor.last_ping_ms) : '—'}</div>
+      <div class="sub">Son ölçüm: {monitor.last_check_at && kind === 'up' ? fmtMs(monitor.last_ping_ms) : '—'}</div>
     </div>
     {#if isHttps}
       <div class="card stat">
@@ -346,10 +349,13 @@
   }
   .title {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 16px;
     min-width: 0;
-    flex: 1 1 320px;
+    flex: 1 1 460px;
+  }
+  .title :global(.si) {
+    margin-top: 1px;
   }
   .tt {
     min-width: 0;
@@ -368,10 +374,11 @@
     font-size: 0.9rem;
     word-break: break-all;
   }
-  .target a {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
+  /* Uzun adres satır kırsa da dış bağlantı simgesi metnin sonuna yapışık kalsın. */
+  .target a :global(svg) {
+    display: inline-block;
+    vertical-align: -2px;
+    margin-left: 4px;
   }
   .actions {
     display: flex;
@@ -469,6 +476,9 @@
     background: var(--card-2);
     color: var(--text);
   }
+  .tabs button:focus-visible {
+    outline-offset: -2px;
+  }
   .chart-wrap {
     transition: opacity 0.15s;
   }
@@ -504,6 +514,11 @@
     margin-bottom: 12px;
   }
 
+  @media (max-width: 900px) {
+    .stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
   @media (max-width: 640px) {
     .title {
       gap: 12px;
@@ -519,7 +534,6 @@
       flex: 1;
     }
     .stats {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
     }
     .stat {

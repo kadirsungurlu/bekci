@@ -11,7 +11,9 @@
   --border-strong: #32425e;
   --text: #e6ebf3;
   --text-2: #a7b2c5;
-  --muted: #74819a;
+  --muted: #8592aa; /* kart zemininde küçük metin için ≥ 4,5:1 */
+  --placeholder: #6b7891;
+  --border-hover: #475a7c;
 
   --up: #3bd671;
   --up-soft: rgba(59, 214, 113, 0.14);
@@ -23,6 +25,19 @@
   --paused-soft: rgba(107, 114, 128, 0.18);
   --empty-bar: #2a364c;
 
+  /* Durum renklerinin metin ve kenarlık tonları (koyu zeminde okunaklı). */
+  --up-text: #bbf7d0;
+  --up-border: rgba(59, 214, 113, 0.4);
+  --up-ring: rgba(59, 214, 113, 0.2);
+  --on-up: #07361a; /* yeşil zeminde ikon rengi */
+  --down-text: #fca5a5;
+  --down-text-2: #f87171;
+  --down-border: rgba(239, 68, 68, 0.45);
+  --on-down: #fff;
+  --on-pending: #3a2500;
+  --paused-text: #aab1bd;
+  --on-paused: #e5e7eb;
+
   /* Vurgu: logodaki yeşil ve kenar çubuğuyla uyumlu camgöbeği-yeşil; durum
      yeşilinden (--up) bilerek ayrı tutulur ki butonlar "çalışıyor" ile karışmasın. */
   --accent: #2dd4bf;
@@ -30,11 +45,31 @@
   --accent-soft: rgba(45, 212, 191, 0.14);
   --accent-border: rgba(45, 212, 191, 0.4);
   --accent-text: #5eead4;
+  --accent-text-soft: #ccfbf1;
   --accent-contrast: #042f2a; /* vurgu zemininde yazı rengi */
 
   --sidebar-bg: linear-gradient(180deg, #0f2a26 0%, #0f1f2e 45%, #111a33 100%);
   --sidebar-border: rgba(255, 255, 255, 0.06);
   --sidebar-active: rgba(255, 255, 255, 0.08);
+  --sidebar-hover: rgba(255, 255, 255, 0.05);
+  --topbar-bg: linear-gradient(90deg, #0f2a26, #111a33);
+  --tabbar-bg: rgba(13, 20, 33, 0.96);
+  --overlay: rgba(3, 7, 15, 0.7);
+  --tip-bg: #0a101b; /* ipucu ve toast zemini */
+  --spinner-track: rgba(255, 255, 255, 0.25);
+  --auth-glow-1: rgba(59, 214, 113, 0.1);
+  --auth-glow-2: rgba(45, 212, 191, 0.1);
+
+  /* Bildirim kanalı simge renkleri (marka tonları; webhook için nötr vurgu). */
+  --ch-whatsapp: #25d366;
+  --ch-telegram: #2aabee;
+  --ch-email: #f59e0b;
+  --ch-discord: #5865f2;
+  --ch-slack: #e01e5a;
+  --ch-webhook: #2dd4bf;
+  --ch-ntfy: #3fb39a;
+  --ch-gotify: #1e88e5;
+  --ch-pushover: #249df1;
 
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   --radius: 12px;
@@ -76,6 +111,20 @@ a {
 }
 a:hover {
   text-decoration: underline;
+}
+
+/* Klavye odağı: her yerde aynı camgöbeği halka. Girdi alanları kendi
+   kenarlık/gölge stilini kullandığından onlarda dış çizgi yok. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.input:focus-visible {
+  outline: none;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
 }
 
 h1,
@@ -172,17 +221,19 @@ pre {
   font: inherit;
   font-weight: 600;
   font-size: 0.9rem;
+  line-height: 1;
   cursor: pointer;
   white-space: nowrap;
   text-decoration: none;
+  flex-shrink: 0;
   transition:
     background 0.15s,
     border-color 0.15s,
     opacity 0.15s;
 }
-.btn:hover {
-  background: var(--card-hover);
-  text-decoration: none;
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .btn:disabled {
   opacity: 0.55;
@@ -192,32 +243,45 @@ pre {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-contrast);
-  font-weight: 600;
-}
-.btn.primary:hover:not(:disabled) {
-  background: var(--accent-hover);
 }
 .btn.danger {
   background: transparent;
-  border-color: rgba(239, 68, 68, 0.45);
-  color: #fca5a5;
-}
-.btn.danger:hover:not(:disabled) {
-  background: var(--down-soft);
+  border-color: var(--down-border);
+  color: var(--down-text);
 }
 .btn.danger.solid {
   background: var(--down);
   border-color: var(--down);
-  color: #fff;
+  color: var(--on-down);
+}
+.btn.danger.solid:focus-visible {
+  outline-color: var(--down-text-2);
 }
 .btn.ghost {
   background: transparent;
   border-color: transparent;
   color: var(--text-2);
 }
-.btn.ghost:hover {
-  background: var(--card-2);
-  color: var(--text);
+/* Hover yalnızca fareli cihazlarda: dokunmatikte basılan düğme açık renkte takılı kalmasın. */
+@media (hover: hover) {
+  .btn:hover:not(:disabled) {
+    background: var(--card-hover);
+    text-decoration: none;
+  }
+  .btn.primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+  .btn.danger:hover:not(:disabled) {
+    background: var(--down-soft);
+  }
+  .btn.danger.solid:hover:not(:disabled) {
+    background: var(--down);
+    filter: brightness(1.1);
+  }
+  .btn.ghost:hover {
+    background: var(--card-2);
+    color: var(--text);
+  }
 }
 .btn.sm {
   height: 32px;
@@ -225,8 +289,11 @@ pre {
   font-size: 0.85rem;
 }
 .btn.icon {
-  width: 36px;
+  width: 38px;
   padding: 0;
+}
+.btn.sm.icon {
+  width: 32px;
 }
 .btn svg {
   flex-shrink: 0;
@@ -289,7 +356,23 @@ select.input {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .input::placeholder {
-  color: #56627a;
+  color: var(--placeholder);
+}
+/* Sayı alanlarındaki tarayıcı okları koyu temada yabancı durur; gizle. */
+input[type='number'].input {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+input[type='number'].input::-webkit-inner-spin-button,
+input[type='number'].input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+/* Arama kutusunun yerleşik "x" düğmesi yerine kendi temizleme düğmemiz var. */
+input[type='search'].input::-webkit-search-cancel-button,
+input[type='search'].input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
 }
 .input.invalid {
   border-color: var(--down);
@@ -303,13 +386,47 @@ select.input {
   font-size: 0.92rem;
   line-height: 1.4;
 }
+/* Onay kutusu: tarayıcının gri kutusu yerine temaya uyan lacivert kutu ve
+   camgöbeği işaret. */
 .check input {
-  margin: 2px 0 0;
-  width: 17px;
-  height: 17px;
-  accent-color: var(--accent);
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  margin: 1px 0 0;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--border-hover);
+  border-radius: 5px;
+  background: var(--input);
   flex-shrink: 0;
   cursor: pointer;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+@media (hover: hover) {
+  .check input:hover {
+    border-color: var(--accent);
+  }
+}
+.check input:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.check input:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1.5px;
+  width: 5px;
+  height: 10px;
+  border: solid var(--accent-contrast);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.check input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .check small {
   display: block;
@@ -347,18 +464,18 @@ select.input {
 }
 .alert.error {
   background: var(--down-soft);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #fecaca;
+  border-color: var(--down-border);
+  color: var(--down-text);
 }
 .alert.success {
   background: var(--up-soft);
-  border-color: rgba(59, 214, 113, 0.4);
-  color: #bbf7d0;
+  border-color: var(--up-border);
+  color: var(--up-text);
 }
 .alert.info {
   background: var(--accent-soft);
   border-color: var(--accent-border);
-  color: #ccfbf1;
+  color: var(--accent-text-soft);
 }
 
 /* Rozetler ------------------------------------------------------------------ */
@@ -389,7 +506,7 @@ select.input {
 }
 .badge.down {
   background: var(--down-soft);
-  color: #fca5a5;
+  color: var(--down-text);
   border-color: transparent;
 }
 .badge.pending {
@@ -399,7 +516,7 @@ select.input {
 }
 .badge.paused {
   background: var(--paused-soft);
-  color: #aab1bd;
+  color: var(--paused-text);
   border-color: transparent;
 }
 
@@ -427,7 +544,7 @@ select.input {
 }
 .pill.down {
   background: var(--down-soft);
-  color: #f87171;
+  color: var(--down-text-2);
 }
 .pill.pending {
   background: var(--pending-soft);
@@ -435,7 +552,7 @@ select.input {
 }
 .pill.paused {
   background: var(--paused-soft);
-  color: #aab1bd;
+  color: var(--paused-text);
 }
 
 /* Tablolar ------------------------------------------------------------------ */
@@ -536,7 +653,7 @@ select.input {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.25);
+  border: 2px solid var(--spinner-track);
   border-top-color: currentColor;
   animation: spin 0.7s linear infinite;
   display: inline-block;
@@ -552,7 +669,7 @@ select.input {
   position: fixed;
   z-index: 1000;
   pointer-events: none;
-  background: #0a101b;
+  background: var(--tip-bg);
   border: 1px solid var(--border-strong);
   color: var(--text);
   font-size: 0.8rem;
