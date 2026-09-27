@@ -3,10 +3,13 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 	"unicode/utf8"
 
+	"github.com/kadirsa1105/uptime-kadir-app/internal/engine"
 	"github.com/kadirsa1105/uptime-kadir-app/internal/notify"
 	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
 )
@@ -173,4 +176,51 @@ func (s *Server) testNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// sampleNotifications kayıtlı kanala her bildirim türünden birer örnek
+// gönderir (arka planda, sırayla). Adlar paneldeki ilk monitör ve sunucudan
+// alınır; mesajlarda "örnek bildirim" notu vardır. Sonuçlar loga yazılır.
+func (s *Server) sampleNotifications(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	ch, err := s.store.GetNotification(r.Context(), id)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	n := notify.SampleNames{}
+	if mons, err := s.store.ListMonitors(r.Context()); err == nil {
+		for _, m := range mons {
+			if m.Type == "http" {
+				n.Monitor, n.MonitorID, n.Target = m.Name, m.ID, engine.Target(m)
+				n.MonitorURL = s.engine.MonitorURL(m.ID)
+				break
+			}
+		}
+	}
+	if list, err := s.store.ListProbesOfKind(r.Context(), store.ProbeKindServer); err == nil && len(list) > 0 {
+		p := list[0]
+		v := s.servers.View(r.Context(), p, nil, true)
+		n.Server, n.ServerID, n.ServerURL = p.Name, p.ID, s.servers.URL(p.ID)
+		if v.Host != nil {
+			n.Host = v.Host.Hostname
+		}
+		if v.Latest != nil && len(v.Latest.Disks) > 0 {
+			n.DiskMount = v.Latest.Disks[0].Mount
+		}
+	}
+	events := notify.SampleEvents(n, s.now())
+	name := ch.Name
+	s.notifier.SendSamples(ch.Type, ch.Config, events, 2*time.Second, func(ev notify.Event, err error) {
+		if err != nil {
+			s.log.Warn("örnek bildirim gönderilemedi", "kanal", name, "olay", ev.Kind, "metrik", ev.Metric, "hata", err)
+			return
+		}
+		s.log.Info("örnek bildirim gönderildi", "kanal", name, "olay", ev.Kind, "metrik", ev.Metric)
+	})
+	s.audit(r, store.User{}, "notification.samples", "notification", id, ch.Name, fmt.Sprintf("%d örnek", len(events)))
+	writeJSON(w, http.StatusAccepted, map[string]int{"count": len(events)})
 }

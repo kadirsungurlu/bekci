@@ -60,6 +60,9 @@ type Event struct {
 	Threshold float64
 	Minutes   int
 	Mount     string // disk uyarısında bölüm (ör. "/home")
+
+	// Sample örnek bildirim (gerçek bir olay değil); metne not düşülür.
+	Sample bool
 }
 
 // metricNames sunucu metriklerinin bildirimlerdeki adları.
@@ -139,6 +142,9 @@ func (e Event) Text() string {
 	}
 	if e.Kind == KindTest {
 		b.WriteString("\nUptime bildirim kanalınız çalışıyor.")
+	}
+	if e.Sample {
+		b.WriteString("\n(Örnek bildirim — gerçek bir olay değil)")
 	}
 	if e.ProbeID != 0 {
 		line("Sunucu", e.Target)

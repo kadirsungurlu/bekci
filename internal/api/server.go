@@ -110,6 +110,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /api/notifications/{id}", s.editor(s.updateNotification))
 	mux.Handle("DELETE /api/notifications/{id}", s.editor(s.deleteNotification))
 	mux.Handle("POST /api/notifications/test", s.editor(s.testNotification))
+	mux.Handle("POST /api/notifications/{id}/samples", s.editor(s.sampleNotifications))
 
 	mux.Handle("GET /api/settings", s.admin(s.getSettings))
 	mux.Handle("PUT /api/settings", s.admin(s.putSettings))

@@ -149,6 +149,22 @@ func (d *Dispatcher) Test(typ string, cfg json.RawMessage) error {
 	return d.send(typ, cfg, Event{Kind: KindTest, MonitorName: "Test", Time: time.Now()})
 }
 
+// SendSamples örnek olayları arka planda, aralarında gap bekleyerek sırayla
+// gönderir (mesajlaşma servisleri art arda gelen mesajları sınırlayabilir).
+// done her olayın sonucuyla (nil: gönderildi) çağrılır. Kapanışta Wait bekler.
+func (d *Dispatcher) SendSamples(typ string, cfg json.RawMessage, events []Event, gap time.Duration, done func(Event, error)) {
+	d.wg.Add(1)
+	go func() {
+		defer d.wg.Done()
+		for i, ev := range events {
+			if i > 0 {
+				time.Sleep(gap)
+			}
+			done(ev, d.send(typ, cfg, ev))
+		}
+	}()
+}
+
 func (d *Dispatcher) send(typ string, cfg json.RawMessage, ev Event) error {
 	p, ok := Get(typ)
 	if !ok {
