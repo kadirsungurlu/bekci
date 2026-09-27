@@ -27,18 +27,14 @@ const (
 )
 
 type Store struct {
-	db  *sql.DB
-	loc *time.Location // günlük özetlerin gün sınırı bu saat dilimine göre
+	db   *sql.DB
+	path string
+	loc  *time.Location // günlük özetlerin gün sınırı bu saat dilimine göre
 }
 
 // Open veritabanını açar ve migration'ları uygular.
 func Open(path string, loc *time.Location) (*Store, error) {
-	dsn := "file:" + path +
-		"?_pragma=busy_timeout(5000)" +
-		"&_pragma=journal_mode(WAL)" +
-		"&_pragma=synchronous(NORMAL)" +
-		"&_pragma=foreign_keys(1)"
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open("sqlite", dsn(path))
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +43,7 @@ func Open(path string, loc *time.Location) (*Store, error) {
 	if loc == nil {
 		loc = time.Local
 	}
-	s := &Store{db: db, loc: loc}
+	s := &Store{db: db, path: path, loc: loc}
 	if err := s.migrate(context.Background()); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migration: %w", err)
@@ -55,14 +51,30 @@ func Open(path string, loc *time.Location) (*Store, error) {
 	return s, nil
 }
 
+func dsn(path string) string {
+	return "file:" + path +
+		"?_pragma=busy_timeout(5000)" +
+		"&_pragma=journal_mode(WAL)" +
+		"&_pragma=synchronous(NORMAL)" +
+		"&_pragma=foreign_keys(1)"
+}
+
 func (s *Store) Close() error { return s.db.Close() }
 
 // Ping veritabanının erişilebilir olduğunu doğrular (healthz için).
 func (s *Store) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
 
-// Backup veritabanının tutarlı bir kopyasını path'e yazar.
+// Backup veritabanının tutarlı bir kopyasını path'e yazar. Ayrı bir bağlantı
+// kullanılır: büyük bir veritabanında yedek sürerken asıl bağlantı (kontrol
+// kayıtları, API, sağlık kontrolü) beklemez. WAL modunda okuyucu yazıcıyı
+// engellemez.
 func (s *Store) Backup(ctx context.Context, path string) error {
-	_, err := s.db.ExecContext(ctx, "VACUUM INTO ?", path)
+	db, err := sql.Open("sqlite", dsn(s.path))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	_, err = db.ExecContext(ctx, "VACUUM INTO ?", path)
 	return err
 }
 

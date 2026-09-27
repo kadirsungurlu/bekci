@@ -404,6 +404,10 @@ func (s *Server) monitorSeries(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if _, err := s.store.GetMonitor(r.Context(), id); err != nil {
+		s.dbError(w, err)
+		return
+	}
 	now := s.now().Unix()
 	rng := r.URL.Query().Get("range")
 	switch rng {
@@ -448,6 +452,10 @@ func (s *Server) monitorSeries(w http.ResponseWriter, r *http.Request) {
 func (s *Server) monitorIncidents(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
+		return
+	}
+	if _, err := s.store.GetMonitor(r.Context(), id); err != nil {
+		s.dbError(w, err)
 		return
 	}
 	list, err := s.store.ListIncidents(r.Context(), store.IncidentFilter{MonitorID: id, Limit: 50})

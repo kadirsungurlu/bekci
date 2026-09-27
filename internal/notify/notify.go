@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -245,7 +246,7 @@ func doRequest(ctx context.Context, method, u string, body io.Reader, headers ma
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return err
+		return redactURLError(err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
@@ -254,6 +255,21 @@ func doRequest(ctx context.Context, method, u string, body io.Reader, headers ma
 	}
 	io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 	return nil
+}
+
+// redactURLError ağ hatasındaki tam adresi çıkarır. Telegram token'ı ve
+// Discord/Slack webhook adresleri gizli bilgidir; hata mesajları loglara ve
+// arayüze gittiği için sadece şema ve sunucu adı kalır.
+func redactURLError(err error) error {
+	var ue *url.Error
+	if !errors.As(err, &ue) {
+		return err
+	}
+	host := "?"
+	if u, perr := url.Parse(ue.URL); perr == nil {
+		host = u.Scheme + "://" + u.Host
+	}
+	return fmt.Errorf("%s %s/…: %w", ue.Op, host, ue.Err)
 }
 
 func postJSON(ctx context.Context, u string, payload any, headers map[string]string) error {

@@ -20,7 +20,10 @@ Plan ve ilerleme: [docs/PLAN.md](docs/PLAN.md)
 ## Kurulum (Coolify)
 
 - Build Pack: **Dockerfile**, port **8080**
-- Kalıcı depolama: **/data** (veritabanı ve `backups/` klasörü burada)
+- Kalıcı depolama: **/data** (veritabanı ve `backups/` klasörü burada). Coolify'da
+  **Volume** türünde ekleyin. Sunucudaki bir klasörü bağlamak (Directory Mount)
+  isterseniz klasörün sahibi uid 1000 olmalı (`chown 1000:1000 <klasör>`);
+  uygulama root olmayan kullanıcıyla çalışır.
 - Health check: `/healthz`
 - İlk açılışta arayüz yönetici hesabı oluşturmanızı ister.
 

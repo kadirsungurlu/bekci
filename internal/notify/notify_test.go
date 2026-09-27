@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"mime"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -122,7 +123,7 @@ func TestOtherHTTPProviders(t *testing.T) {
 		{"discord", map[string]any{"webhook_url": srv.URL + "/d"}, func() bool { return c.path == "/d" && strings.Contains(c.body, "ha.kadir.app çalışmıyor") }},
 		{"slack", map[string]any{"webhook_url": srv.URL + "/s"}, func() bool { return c.path == "/s" && strings.Contains(c.body, `"text"`) }},
 		{"ntfy", map[string]any{"server": srv.URL, "topic": "uyari", "token": "tk"}, func() bool {
-			return c.path == "/uyari" && c.headers.Get("Priority") == "4" && c.headers.Get("Authorization") == "Bearer tk" && c.headers.Get("Title") == "ha.kadir.app çalışmıyor"
+			return c.path == "/uyari" && c.headers.Get("Priority") == "4" && c.headers.Get("Authorization") == "Bearer tk" && decodeHeader(c.headers.Get("Title")) == "ha.kadir.app çalışmıyor"
 		}},
 		{"gotify", map[string]any{"server": srv.URL, "app_token": "g"}, func() bool { return c.path == "/message" && c.headers.Get("X-Gotify-Key") == "g" }},
 		{"pushover", map[string]any{"user_key": "u", "app_token": "a", "priority": 1}, func() bool { return c.path == "/po" && strings.Contains(c.body, "priority=1") }},
@@ -266,5 +267,45 @@ func TestEventText(t *testing.T) {
 	txt := ev.Text()
 	if !strings.Contains(txt, "7 gün içinde") || !strings.Contains(txt, "Let's Encrypt") {
 		t.Errorf("sertifika metni yanlış:\n%s", txt)
+	}
+}
+
+func decodeHeader(v string) string {
+	out, err := new(mime.WordDecoder).DecodeHeader(v)
+	if err != nil {
+		return v
+	}
+	return out
+}
+
+// Bulgu: bağlantı hatasında Telegram token'ı (URL'nin parçası) hata
+// mesajına, dolayısıyla loglara ve arayüze sızmamalı.
+func TestTransportErrorRedactsSecretURL(t *testing.T) {
+	ln, _ := net.Listen("tcp", "127.0.0.1:0")
+	addr := ln.Addr().String()
+	ln.Close() // kapalı port: bağlantı reddedilir
+	old := telegramAPI
+	telegramAPI = "http://" + addr
+	defer func() { telegramAPI = old }()
+
+	err := send(t, "telegram", map[string]any{"bot_token": "123456:GIZLI-TOKEN", "chat_id": "1"}, downEvent)
+	if err == nil {
+		t.Fatal("hata bekleniyordu")
+	}
+	if strings.Contains(err.Error(), "GIZLI-TOKEN") || !strings.Contains(err.Error(), addr) {
+		t.Errorf("token sızdı veya sunucu adı yok: %v", err)
+	}
+	// Discord/Slack: webhook adresinin tamamı gizli.
+	err = send(t, "discord", map[string]any{"webhook_url": "http://" + addr + "/api/webhooks/1/GIZLI"}, downEvent)
+	if err == nil || strings.Contains(err.Error(), "GIZLI") {
+		t.Errorf("webhook adresi sızdı: %v", err)
+	}
+}
+
+func TestEmailRejectsAuthWithoutTLS(t *testing.T) {
+	p, _ := Get("email")
+	_, err := p.Normalize(json.RawMessage(`{"host":"smtp.x","security":"none","username":"a","password":"b","from":"a@x.com","to":"b@x.com"}`))
+	if err == nil || !strings.Contains(err.Error(), "STARTTLS") {
+		t.Errorf("şifresiz bağlantıda kimlik doğrulama reddedilmeli: %v", err)
 	}
 }

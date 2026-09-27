@@ -202,3 +202,12 @@ func TestBackup(t *testing.T) {
 		t.Fatalf("yedekte monitör yok: %v %v", list, err)
 	}
 }
+
+func TestHourCeil(t *testing.T) {
+	cases := map[int64]int64{3600: 3600, 3601: 7200, 7199: 7200, 0: 0}
+	for in, want := range cases {
+		if got := hourCeil(in); got != want {
+			t.Errorf("hourCeil(%d) = %d, %d bekleniyordu", in, got, want)
+		}
+	}
+}

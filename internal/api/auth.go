@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -173,17 +174,18 @@ func (s *Server) setup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
-	ip := clientIP(r)
-	if ok, wait := s.limiter.allow(ip, s.now()); !ok {
-		w.Header().Set("Retry-After", strconv.Itoa(int(wait.Seconds())+1))
-		writeError(w, http.StatusTooManyRequests, "Çok fazla hatalı deneme. "+strconv.Itoa(int(wait.Minutes())+1)+" dakika sonra tekrar deneyin.")
-		return
-	}
 	var in credentials
 	if !readJSON(w, r, &in) {
 		return
 	}
-	u, err := s.store.UserByName(r.Context(), strings.TrimSpace(in.Username))
+	in.Username = strings.TrimSpace(in.Username)
+	ip := clientIP(r)
+	if ok, wait := s.limiter.allow(ip, in.Username, s.now()); !ok {
+		w.Header().Set("Retry-After", strconv.Itoa(int(wait.Seconds())+1))
+		writeError(w, http.StatusTooManyRequests, "Çok fazla hatalı deneme. "+strconv.Itoa(int(wait.Minutes())+1)+" dakika sonra tekrar deneyin.")
+		return
+	}
+	u, err := s.store.UserByName(r.Context(), in.Username)
 	hash := dummyHash()
 	if err == nil {
 		hash = []byte(u.PasswordHash)
@@ -192,7 +194,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if bcrypt.CompareHashAndPassword(hash, []byte(in.Password)) != nil || err != nil {
-		s.limiter.fail(ip, s.now())
+		s.limiter.fail(ip, in.Username, s.now())
 		s.log.Warn("hatalı giriş denemesi", "ip", ip, "kullanıcı", in.Username)
 		writeError(w, http.StatusUnauthorized, "Kullanıcı adı veya şifre hatalı")
 		return
@@ -245,30 +247,78 @@ func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-// clientIP: Cloudflare arkasında gerçek istemci CF-Connecting-IP'dedir;
-// yoksa Traefik'in X-Forwarded-For'a eklediği son adres (doğrudan bağlanan)
-// kullanılır. İlk X-Forwarded-For değeri istemci tarafından uydurulabilir.
-func clientIP(r *http.Request) string {
-	if ip := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); ip != "" {
-		return ip
+// cloudflareNets Cloudflare'in kenar sunucu adresleri
+// (https://www.cloudflare.com/ips/). CF-Connecting-IP başlığına sadece istek
+// gerçekten bunlardan birinden geldiyse güvenilir; aksi halde sunucuya
+// doğrudan bağlanan biri bu başlığı uydurup giriş sınırını aşabilirdi.
+var cloudflareNets = mustCIDRs(
+	"173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22",
+	"141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20",
+	"197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13",
+	"104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22",
+	"2400:cb00::/32", "2606:4700::/32", "2803:f800::/32", "2405:b500::/32",
+	"2405:8100::/32", "2a06:98c0::/29", "2c0f:f248::/32",
+)
+
+func mustCIDRs(cidrs ...string) []netip.Prefix {
+	out := make([]netip.Prefix, len(cidrs))
+	for i, c := range cidrs {
+		out[i] = netip.MustParsePrefix(c)
 	}
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		parts := strings.Split(xff, ",")
-		return strings.TrimSpace(parts[len(parts)-1])
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
+	return out
 }
 
-// loginLimiter: bir IP'den 15 dakikada 5 hatalı deneme → 15 dakika kilit.
-// IP uydurularak aşılmasın diye tüm IP'ler için toplam bir üst sınır da var.
+func inNets(ip netip.Addr, nets []netip.Prefix) bool {
+	ip = ip.Unmap()
+	for _, n := range nets {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// clientIP isteği yapan istemcinin adresini bulur. Zincir:
+// istemci → Cloudflare → Traefik (aynı makinede, özel ağ) → uygulama.
+//  1. Doğrudan bağlanan özel ağdaki proxy (Traefik) ise gerçek bağlanan adres,
+//     Traefik'in X-Forwarded-For'a eklediği son değerdir (ilk değerler
+//     istemci tarafından uydurulabilir).
+//  2. O adres bir Cloudflare sunucusuysa asıl istemci CF-Connecting-IP'dedir.
+func clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	peer, err := netip.ParseAddr(host)
+	if err != nil {
+		return host
+	}
+	if peer.IsPrivate() || peer.IsLoopback() {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			parts := strings.Split(xff, ",")
+			if p, err := netip.ParseAddr(strings.TrimSpace(parts[len(parts)-1])); err == nil {
+				peer = p
+			}
+		}
+	}
+	if inNets(peer, cloudflareNets) {
+		if cf, err := netip.ParseAddr(strings.TrimSpace(r.Header.Get("CF-Connecting-IP"))); err == nil {
+			return cf.Unmap().String()
+		}
+	}
+	return peer.Unmap().String()
+}
+
+// loginLimiter hatalı giriş denemelerini sınırlar:
+//   - IP başına: 15 dakikada 5 hata → o IP 15 dakika bekler.
+//   - Kullanıcı adı başına: 15 dakikada 50 hata → o kullanıcı adı 15 dakika
+//     kilitlenir. Dağıtık (çok IP'li) tahmin saldırısını yavaşlatır; eşik
+//     yüksek tutulduğu için tek bir saldırganın yönetici hesabını kolayca
+//     kilitlemesi mümkün değildir. (Tüm girişleri kilitleyen genel sınır
+//     bilerek yoktur: herkesin girişini engellemek için kullanılabilirdi.)
 type loginLimiter struct {
-	mu     sync.Mutex
-	perIP  map[string]*attempts
-	global attempts
+	mu   sync.Mutex
+	keys map[string]*attempts
 }
 
 type attempts struct {
@@ -280,56 +330,64 @@ type attempts struct {
 const (
 	loginWindow      = 15 * time.Minute
 	loginMaxPerIP    = 5
-	loginMaxGlobal   = 100
+	loginMaxPerUser  = 50
 	loginLockoutTime = 15 * time.Minute
 )
 
-func newLoginLimiter() *loginLimiter { return &loginLimiter{perIP: map[string]*attempts{}} }
+func newLoginLimiter() *loginLimiter { return &loginLimiter{keys: map[string]*attempts{}} }
 
-func (l *loginLimiter) allow(ip string, now time.Time) (bool, time.Duration) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if now.Before(l.global.locked) {
-		return false, l.global.locked.Sub(now)
-	}
-	if a := l.perIP[ip]; a != nil && now.Before(a.locked) {
-		return false, a.locked.Sub(now)
-	}
-	return true, 0
+func limiterKeys(ip, username string) [2]string {
+	return [2]string{"ip:" + ip, "user:" + strings.ToLower(strings.TrimSpace(username))}
 }
 
-func (l *loginLimiter) fail(ip string, now time.Time) {
+func (l *loginLimiter) allow(ip, username string, now time.Time) (bool, time.Duration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	a := l.perIP[ip]
-	if a == nil {
-		a = &attempts{}
-		l.perIP[ip] = a
-	}
-	for _, x := range []*attempts{a, &l.global} {
-		if now.Sub(x.first) > loginWindow {
-			x.count, x.first = 0, now
+	var wait time.Duration
+	for _, k := range limiterKeys(ip, username) {
+		if a := l.keys[k]; a != nil && now.Before(a.locked) {
+			wait = max(wait, a.locked.Sub(now))
 		}
-		x.count++
 	}
-	if a.count >= loginMaxPerIP {
-		a.locked = now.Add(loginLockoutTime)
-	}
-	if l.global.count >= loginMaxGlobal {
-		l.global.locked = now.Add(loginLockoutTime)
+	return wait == 0, wait
+}
+
+func (l *loginLimiter) fail(ip, username string, now time.Time) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	keys := limiterKeys(ip, username)
+	for i, k := range keys {
+		a := l.keys[k]
+		if a == nil {
+			a = &attempts{}
+			l.keys[k] = a
+		}
+		if now.Sub(a.first) > loginWindow {
+			a.count, a.first = 0, now
+		}
+		a.count++
+		limit := loginMaxPerIP
+		if i == 1 {
+			limit = loginMaxPerUser
+		}
+		if a.count >= limit {
+			a.locked = now.Add(loginLockoutTime)
+		}
 	}
 	// Bellek şişmesin: süresi geçmiş kayıtları ara ara temizle.
-	if len(l.perIP) > 10000 {
-		for k, v := range l.perIP {
+	if len(l.keys) > 10000 {
+		for k, v := range l.keys {
 			if now.Sub(v.first) > loginWindow && now.After(v.locked) {
-				delete(l.perIP, k)
+				delete(l.keys, k)
 			}
 		}
 	}
 }
 
+// success başarılı girişte sadece o IP'nin sayacını sıfırlar; kullanıcı adı
+// sayacı dağıtık saldırıyı izlemeye devam eder.
 func (l *loginLimiter) success(ip string) {
 	l.mu.Lock()
-	delete(l.perIP, ip)
+	delete(l.keys, "ip:"+ip)
 	l.mu.Unlock()
 }

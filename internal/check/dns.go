@@ -7,6 +7,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/miekg/dns"
 )
@@ -76,9 +77,14 @@ func (dnsChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	msg.RecursionDesired = true
 	addr := net.JoinHostPort(c.Server, strconv.Itoa(c.Port))
 
-	in, rtt, err := (&dns.Client{Net: "udp"}).ExchangeContext(ctx, msg, addr)
+	// Kütüphanenin varsayılan 2 saniyelik süresi yerine monitörün zaman aşımı.
+	timeout := 30 * time.Second
+	if dl, ok := ctx.Deadline(); ok {
+		timeout = time.Until(dl)
+	}
+	in, rtt, err := (&dns.Client{Net: "udp", Timeout: timeout}).ExchangeContext(ctx, msg, addr)
 	if err == nil && in.Truncated {
-		in, rtt, err = (&dns.Client{Net: "tcp"}).ExchangeContext(ctx, msg, addr)
+		in, rtt, err = (&dns.Client{Net: "tcp", Timeout: timeout}).ExchangeContext(ctx, msg, addr)
 	}
 	if err != nil {
 		return down(describeErr(ctx, err))

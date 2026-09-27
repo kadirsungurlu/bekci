@@ -157,9 +157,18 @@ func (e *Engine) Push(ctx context.Context, token string, up bool, msg string, pi
 			msg = "Push: hata bildirildi"
 		}
 	}
+	// Runner bu arada durdurulduysa (düzenleme/durdurma) sinyal kaybolmasın
+	// ve istek kuyruk dolu diye asılı kalmasın: çağırana bildirilir.
+	select {
+	case <-r.done:
+		return ErrPushPaused
+	default:
+	}
 	select {
 	case r.pushCh <- check.Result{Up: up, PingMs: pingMs, Message: msg}:
 		return nil
+	case <-r.done:
+		return ErrPushPaused
 	case <-ctx.Done():
 		return ctx.Err()
 	}

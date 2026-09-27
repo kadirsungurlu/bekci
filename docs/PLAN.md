@@ -74,7 +74,8 @@ docs/PLAN.md        bu plan
 - Her monitör kendi aralığında çalışır; başlangıçlar rastgele kaydırılır.
 - Durumlar: UP → PENDING (tekrar deneniyor) → DOWN → UP; ayrıca PAUSED.
 - DOWN olunca bir kez bildirim; düzelince "X dk kesintiden sonra düzeldi";
-  isteğe bağlı her N dakikada hatırlatma. Yeniden başlatmada sahte bildirim yok.
+  isteğe bağlı her N başarısız kontrolde bir hatırlatma. Yeniden başlatmada sahte
+  bildirim yok.
 
 ### API
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -19,6 +20,8 @@ import (
 
 // UserAgent kontrol isteklerinde varsayılan User-Agent.
 const UserAgent = "Mozilla/5.0 (compatible; Uptime-Kadir/1.0; +https://uptime.kadir.app)"
+
+var errTooManyRedirects = errors.New("çok fazla yönlendirme")
 
 // maxBody keyword/JSON kontrolü için okunacak en fazla gövde boyutu.
 const maxBody = 10 << 20
@@ -177,8 +180,11 @@ func (httpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	client := &http.Client{
 		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if maxRedirects == 0 {
+				return http.ErrUseLastResponse // yönlendirme takip edilmez, 3xx'in kendisi değerlendirilir
+			}
 			if len(via) > maxRedirects {
-				return http.ErrUseLastResponse
+				return errTooManyRedirects
 			}
 			return nil
 		},
@@ -186,6 +192,9 @@ func (httpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 
 	start := time.Now()
 	resp, err := client.Do(req)
+	if errors.Is(err, errTooManyRedirects) {
+		return down(fmt.Sprintf("Çok fazla yönlendirme (en fazla %d)", maxRedirects))
+	}
 	if err != nil {
 		return down(describeErr(ctx, err))
 	}

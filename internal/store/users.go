@@ -97,6 +97,12 @@ func (s *Store) DeleteOtherSessions(ctx context.Context, userID int64, keepHash 
 	return err
 }
 
+// DeleteUserSessions kullanıcının tüm oturumlarını kapatır (şifre sıfırlama).
+func (s *Store) DeleteUserSessions(ctx context.Context, userID int64) error {
+	_, err := s.db.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = ?", userID)
+	return err
+}
+
 func (s *Store) DeleteExpiredSessions(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM sessions WHERE expires_at <= ?", time.Now().Unix())
 	return err

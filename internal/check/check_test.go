@@ -268,3 +268,41 @@ func TestCodeRanges(t *testing.T) {
 		}
 	}
 }
+
+// Bulgu: yönlendirme sınırı aşılınca 3xx "çalışıyor" sayılmamalı.
+func TestHTTPTooManyRedirects(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, srv.URL+"/dongu", http.StatusFound)
+	}))
+	defer srv.Close()
+	r := run(t, "http", map[string]any{"url": srv.URL, "max_redirects": 2})
+	if r.Up || !strings.Contains(r.Message, "Çok fazla yönlendirme") {
+		t.Errorf("yönlendirme döngüsü DOWN olmalı: %+v", r)
+	}
+}
+
+// Bulgu: DNS kontrolü kütüphanenin 2 saniyesi yerine monitörün süresini kullanmalı.
+func TestDNSUsesMonitorTimeout(t *testing.T) {
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := &dns.Server{PacketConn: pc, Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
+		time.Sleep(2500 * time.Millisecond) // yavaş yetkili sunucu
+		m := new(dns.Msg)
+		m.SetReply(r)
+		rr, _ := dns.NewRR("yavas.test. 60 IN A 10.0.0.1")
+		m.Answer = append(m.Answer, rr)
+		w.WriteMsg(m)
+	})}
+	go srv.ActivateAndServe()
+	defer srv.Shutdown()
+	c, _ := Get("dns")
+	cfg, _ := c.Normalize(json.RawMessage(fmt.Sprintf(`{"host":"yavas.test","server":"127.0.0.1","port":%d}`, pc.LocalAddr().(*net.UDPAddr).Port)))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if r := c.Check(ctx, cfg); !r.Up {
+		t.Errorf("5 sn zaman aşımında 2,5 sn'lik yanıt beklenmeli: %+v", r)
+	}
+}

@@ -150,7 +150,11 @@ func runCommand(st *store.Store, args []string) error {
 		if err := st.UpdatePassword(ctx, u.ID, string(hash)); err != nil {
 			return err
 		}
-		fmt.Fprintln(os.Stderr, "Şifre değiştirildi.")
+		// Acil sıfırlama genelde erişim şüphesiyle yapılır: açık oturumlar kapanır.
+		if err := st.DeleteUserSessions(ctx, u.ID); err != nil {
+			return err
+		}
+		fmt.Fprintln(os.Stderr, "Şifre değiştirildi, tüm oturumlar kapatıldı.")
 		return nil
 	case "version", "surum":
 		fmt.Println(version)

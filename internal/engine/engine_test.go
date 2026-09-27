@@ -124,7 +124,7 @@ func TestStateMachine(t *testing.T) {
 	}
 	for i, s := range steps {
 		f.clock = f.clock.Add(time.Minute)
-		r.process(ctx, s.res)
+		r.process(s.res)
 		if r.m.Status != s.status {
 			t.Fatalf("adım %d: durum %d, %d bekleniyordu", i, r.m.Status, s.status)
 		}
@@ -157,7 +157,7 @@ func TestNewMonitorDownAlertsImmediately(t *testing.T) {
 	f := newFixture(t)
 	m := f.monitor(t, nil)
 	r := f.runnerFor(t, m.ID)
-	r.process(context.Background(), down("Bağlantı reddedildi"))
+	r.process(down("Bağlantı reddedildi"))
 	if got := f.n.kinds(); !equal(got, []string{notify.KindDown}) {
 		t.Fatalf("yeni ve çalışmayan monitör için DOWN bekleniyordu: %v", got)
 	}
@@ -165,19 +165,18 @@ func TestNewMonitorDownAlertsImmediately(t *testing.T) {
 
 func TestRestartDoesNotRealert(t *testing.T) {
 	f := newFixture(t)
-	ctx := context.Background()
 	m := f.monitor(t, nil)
 	r := f.runnerFor(t, m.ID)
-	r.process(ctx, down("502"))
+	r.process(down("502"))
 
 	// Uygulama yeniden başladı: yeni runner veritabanından durumu okur.
 	r2 := f.runnerFor(t, m.ID)
 	if r2.confirmed != store.StatusDown {
 		t.Fatalf("açık olay varken DOWN bekleniyordu: %d", r2.confirmed)
 	}
-	r2.process(ctx, down("502"))
+	r2.process(down("502"))
 	f.clock = f.clock.Add(time.Hour)
-	r2.process(ctx, up())
+	r2.process(up())
 	if got := f.n.kinds(); !equal(got, []string{notify.KindDown, notify.KindUp}) {
 		t.Fatalf("bildirimler %v", got)
 	}
@@ -190,11 +189,11 @@ func TestUpsideDown(t *testing.T) {
 	f := newFixture(t)
 	m := f.monitor(t, func(m *store.Monitor) { m.UpsideDown = true })
 	r := f.runnerFor(t, m.ID)
-	r.process(context.Background(), down("Bağlantı reddedildi"))
+	r.process(down("Bağlantı reddedildi"))
 	if r.m.Status != store.StatusUp {
 		t.Fatal("ters modda erişilemeyen hedef UP sayılmalı")
 	}
-	r.process(context.Background(), up())
+	r.process(up())
 	if r.m.Status != store.StatusDown || f.n.kinds()[0] != notify.KindDown {
 		t.Fatal("ters modda erişilebilen hedef DOWN sayılmalı")
 	}
@@ -209,8 +208,8 @@ func TestCertNotices(t *testing.T) {
 
 	res := up()
 	res.Cert = cert
-	r.process(ctx, res)
-	r.process(ctx, res) // aynı eşik ikinci kez bildirilmez
+	r.process(res)
+	r.process(res) // aynı eşik ikinci kez bildirilmez
 	if got := f.n.kinds(); !equal(got, []string{notify.KindCert}) {
 		t.Fatalf("tek SSL uyarısı bekleniyordu: %v", got)
 	}
@@ -219,7 +218,7 @@ func TestCertNotices(t *testing.T) {
 	}
 	// 7 günün altına inince yeni eşik.
 	f.clock = f.clock.Add(4 * 24 * time.Hour)
-	r.process(ctx, res)
+	r.process(res)
 	if got := f.n.kinds(); len(got) != 2 || f.n.events[1].CertDays != 6 {
 		t.Fatalf("7 gün eşiği bekleniyordu: %v", f.n.events)
 	}
@@ -318,4 +317,91 @@ func equal(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// Bulgu: DOWN kaydedilmiş ama olayı yazılamamış monitör yeniden başlatılınca
+// ikinci bir DOWN bildirimi gitmemeli; eksik olay tamamlanmalı.
+func TestRestartDownWithoutIncident(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	m := f.monitor(t, func(m *store.Monitor) { m.MaxRetries = 1 })
+	downAt := f.clock.Unix()
+	if err := f.st.RecordBeat(ctx, store.BeatUpdate{
+		Beat:         store.Beat{MonitorID: m.ID, Time: downAt, Status: store.StatusDown, PingMs: -1, Message: "502"},
+		LastChangeAt: downAt,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	r := f.runnerFor(t, m.ID)
+	if r.confirmed != store.StatusDown {
+		t.Fatalf("kayıtlı DOWN durumu korunmalı: %d", r.confirmed)
+	}
+	if started, _ := f.st.OpenIncidentStart(ctx, m.ID); started != downAt {
+		t.Fatalf("eksik olay DOWN zamanıyla açılmalı: %d", started)
+	}
+	f.clock = f.clock.Add(time.Minute)
+	r.process(down("502"))
+	f.clock = f.clock.Add(time.Minute)
+	r.process(up())
+	if got := f.n.kinds(); !equal(got, []string{notify.KindUp}) {
+		t.Fatalf("sadece UP bildirimi bekleniyordu: %v", got)
+	}
+	if f.n.events[0].Downtime != 2*time.Minute {
+		t.Errorf("kesinti süresi DOWN anından hesaplanmalı: %v", f.n.events[0].Downtime)
+	}
+}
+
+// Bulgu: durdurup başlatınca "şu andan beri" zamanı eski kesintide kalmamalı.
+func TestResumeResetsLastChange(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	m := f.monitor(t, nil)
+	r := f.runnerFor(t, m.ID)
+	r.process(down("502"))
+	downAt := f.clock.Unix()
+
+	if err := f.st.SetMonitorActive(ctx, m.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	f.st.ResolveIncident(ctx, m.ID, f.clock.Unix())
+	if err := f.st.SetMonitorActive(ctx, m.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	f.clock = f.clock.Add(time.Hour)
+	r2 := f.runnerFor(t, m.ID)
+	if r2.confirmed != unknown {
+		t.Fatalf("yeniden başlatılan monitörün durumu bilinmiyor olmalı: %d", r2.confirmed)
+	}
+	r2.process(up())
+	got, _ := f.st.GetMonitor(ctx, m.ID)
+	if got.LastChangeAt == downAt || got.LastChangeAt != f.clock.Unix() {
+		t.Errorf("last_change_at yeni UP anı olmalı: %d (DOWN anı %d)", got.LastChangeAt, downAt)
+	}
+	if kinds := f.n.kinds(); !equal(kinds, []string{notify.KindDown}) {
+		t.Errorf("yeniden başlatma sonrası UP için bildirim gitmemeli: %v", kinds)
+	}
+}
+
+// Bulgu: uzun kapalı kalma sonrası push monitörü hemen DOWN olmamalı.
+func TestPushGraceAfterRestart(t *testing.T) {
+	f := newFixture(t)
+	f.e.now = time.Now
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	m := f.monitor(t, func(m *store.Monitor) {
+		m.Type, m.Interval, m.PushToken = check.TypePush, 300, "tok-grace"
+	})
+	// Son sinyal çok eskiden (uygulama uzun süre kapalıydı).
+	old := time.Now().Add(-time.Hour).Unix()
+	f.st.RecordBeat(ctx, store.BeatUpdate{Beat: store.Beat{MonitorID: m.ID, Time: old, Status: store.StatusUp, PingMs: -1}, LastChangeAt: old})
+	if err := f.e.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(150 * time.Millisecond) // aralığın yarısı
+	got, _ := f.st.GetMonitor(ctx, m.ID)
+	if got.Status == store.StatusDown {
+		t.Fatal("tam bir aralık dolmadan DOWN olmamalı")
+	}
+	cancel()
+	f.e.Wait()
 }

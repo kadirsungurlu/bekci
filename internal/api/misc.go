@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kadirsa1105/uptime-kadir-app/internal/engine"
@@ -103,9 +104,9 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) push(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	up := q.Get("status") != "down"
-	msg := q.Get("msg")
-	if len(msg) > 250 {
-		msg = msg[:250]
+	msg := strings.ToValidUTF8(q.Get("msg"), "�")
+	if r := []rune(msg); len(r) > 250 {
+		msg = string(r[:250]) // bayta göre kesmek çok baytlı harfleri bozardı
 	}
 	ping := int64(-1)
 	if p, err := strconv.ParseInt(q.Get("ping"), 10, 64); err == nil && p >= 0 {

@@ -148,7 +148,7 @@ func (s *Store) UpdateMonitor(ctx context.Context, m *Monitor, notificationIDs [
 		if resetState {
 			if _, err := tx.ExecContext(ctx, `
 				UPDATE monitors SET status = ?, last_message = '', last_ping_ms = NULL,
-					cert_expires_at = NULL, cert_issuer = ''
+					last_change_at = NULL, cert_expires_at = NULL, cert_issuer = ''
 				WHERE id = ?`, StatusPending, m.ID); err != nil {
 				return err
 			}
@@ -158,9 +158,10 @@ func (s *Store) UpdateMonitor(ctx context.Context, m *Monitor, notificationIDs [
 }
 
 func (s *Store) SetMonitorActive(ctx context.Context, id int64, active bool) error {
-	// Durdurulan monitör tekrar başlatıldığında temiz bir "bekliyor" durumundan başlar.
+	// Durdurulan monitör tekrar başlatıldığında temiz bir "bekliyor" durumundan
+	// başlar; eski "şu andan beri" zamanı yeni duruma taşınmaz.
 	res, err := s.db.ExecContext(ctx,
-		"UPDATE monitors SET active = ?, status = ?, updated_at = ? WHERE id = ?",
+		"UPDATE monitors SET active = ?, status = ?, last_change_at = NULL, updated_at = ? WHERE id = ?",
 		boolInt(active), StatusPending, time.Now().Unix(), id)
 	if err != nil {
 		return err

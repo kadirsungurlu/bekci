@@ -3,6 +3,7 @@ package notify
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -54,6 +55,9 @@ func (email) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 	}
 	if c.Port < 1 || c.Port > 65535 {
 		return nil, invalid("Port 1-65535 arasında olmalı")
+	}
+	if c.Security == "none" && c.Username != "" {
+		return nil, invalid("Şifresiz bağlantıda (none) kullanıcı adı/şifre gönderilemez; STARTTLS veya TLS seçin")
 	}
 	if _, err := mail.ParseAddress(c.From); err != nil {
 		return nil, invalid("Gönderen adresi geçersiz")
@@ -133,6 +137,19 @@ func (email) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	return client.Quit()
 }
 
+// messageID spam filtrelerinin beklediği benzersiz Message-ID başlığı.
+func messageID(from string) string {
+	domain := "uptime.local"
+	if a, err := mail.ParseAddress(from); err == nil {
+		if _, d, ok := strings.Cut(a.Address, "@"); ok {
+			domain = d
+		}
+	}
+	b := make([]byte, 12)
+	rand.Read(b)
+	return fmt.Sprintf("<%x.%d@%s>", b, time.Now().UnixNano(), domain)
+}
+
 func buildMail(from, to string, ev Event) []byte {
 	var b bytes.Buffer
 	h := func(k, v string) { fmt.Fprintf(&b, "%s: %s\r\n", k, v) }
@@ -140,6 +157,7 @@ func buildMail(from, to string, ev Event) []byte {
 	h("To", to)
 	h("Subject", mime.QEncoding.Encode("utf-8", ev.Title()))
 	h("Date", ev.Time.Format(time.RFC1123Z))
+	h("Message-ID", messageID(from))
 	h("MIME-Version", "1.0")
 	h("Content-Type", "text/plain; charset=utf-8")
 	h("Content-Transfer-Encoding", "quoted-printable")

@@ -17,6 +17,7 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
+	"unicode/utf8"
 
 	"github.com/kadirsa1105/uptime-kadir-app/internal/engine"
 	"github.com/kadirsa1105/uptime-kadir-app/internal/notify"
@@ -450,4 +451,87 @@ func TestEventsSurviveServerTimeouts(t *testing.T) {
 		}
 	}
 	t.Fatalf("bağlantı süre sınırında koptu: %v", sc.Err())
+}
+
+func TestClientIP(t *testing.T) {
+	cases := []struct {
+		name, remote, xff, cf, want string
+	}{
+		{"Cloudflare → Traefik: CF başlığına güvenilir", "10.0.1.7:5000", "1.2.3.4, 172.70.1.1", "5.6.7.8", "5.6.7.8"},
+		{"doğrudan bağlanan uydurma CF başlığı yok sayılır", "10.0.1.7:5000", "9.9.9.9", "5.6.7.8", "9.9.9.9"},
+		{"uydurma ilk XFF değeri yok sayılır", "10.0.1.7:5000", "1.1.1.1, 9.9.9.9", "", "9.9.9.9"},
+		{"proxy'siz doğrudan bağlantı", "9.9.9.9:5000", "1.1.1.1", "5.6.7.8", "9.9.9.9"},
+		{"Cloudflare IPv6 kenar sunucusu", "10.0.1.7:5000", "2606:4700::1", "2a02::1", "2a02::1"},
+	}
+	for _, tc := range cases {
+		r := httptest.NewRequest("GET", "/", nil)
+		r.RemoteAddr = tc.remote
+		if tc.xff != "" {
+			r.Header.Set("X-Forwarded-For", tc.xff)
+		}
+		if tc.cf != "" {
+			r.Header.Set("CF-Connecting-IP", tc.cf)
+		}
+		if got := clientIP(r); got != tc.want {
+			t.Errorf("%s: %s, %s bekleniyordu", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestLoginLimiterPerUser(t *testing.T) {
+	l := newLoginLimiter()
+	now := time.Now()
+	// Farklı IP'lerden dağıtık deneme: IP başına 4 hata (sınırın altında).
+	for i := 0; i < loginMaxPerUser; i++ {
+		ip := fmt.Sprintf("10.0.%d.%d", i/4, i%4)
+		if ok, _ := l.allow(ip, "kadir", now); !ok {
+			t.Fatalf("%d. denemede erken kilit", i)
+		}
+		l.fail(ip, "kadir", now)
+	}
+	if ok, _ := l.allow("99.99.99.99", "Kadir", now); ok {
+		t.Error("kullanıcı adı sınırı aşılınca yeni IP'den de kilitli olmalı")
+	}
+	if ok, _ := l.allow("99.99.99.99", "baska", now); !ok {
+		t.Error("başka kullanıcı adı etkilenmemeli (genel kilit yok)")
+	}
+	if ok, _ := l.allow("99.99.99.99", "kadir", now.Add(loginLockoutTime+time.Second)); !ok {
+		t.Error("kilit süre sonunda açılmalı")
+	}
+}
+
+func TestReviewAPIEdges(t *testing.T) {
+	e := newEnv(t)
+	e.mustDo("POST", "/api/auth/setup", map[string]string{"username": "kadir", "password": "cok-gizli-sifre"}, nil, 200)
+
+	// Var olmayan monitörün grafik verisi ve olayları 404.
+	e.mustDo("GET", "/api/monitors/999/series", nil, nil, 404)
+	e.mustDo("GET", "/api/monitors/999/incidents", nil, nil, 404)
+
+	// Boş SSL eşik listesi null değil [] dönmeli; saatlik özet 90 günden az olamaz.
+	var raw map[string]json.RawMessage
+	e.mustDo("PUT", "/api/settings", map[string]any{"retention_raw_days": 14, "retention_hourly_days": 365, "cert_days": []int{}, "backup_keep": 7}, &raw, 200)
+	if string(raw["cert_days"]) != "[]" {
+		t.Errorf("cert_days = %s, [] bekleniyordu", raw["cert_days"])
+	}
+	e.mustDo("PUT", "/api/settings", map[string]any{"retention_raw_days": 14, "retention_hourly_days": 30, "cert_days": []int{7}, "backup_keep": 7}, nil, 400)
+
+	// Push mesajı çok baytlı harfin ortasından kesilmemeli.
+	var mon monitorView
+	e.mustDo("POST", "/api/monitors", map[string]any{"name": "p", "type": "push", "interval": 5000, "config": map[string]any{}}, &mon, 201)
+	long := strings.Repeat("ğ", 300)
+	resp, err := http.Get(e.srv.URL + "/api/push/" + mon.PushToken + "?msg=" + long)
+	if err != nil || resp.StatusCode != 200 {
+		t.Fatalf("push: %v", err)
+	}
+	waitFor(t, "push mesajı", func() bool {
+		var d struct{ Monitor monitorView }
+		e.mustDo("GET", fmt.Sprintf("/api/monitors/%d", mon.ID), nil, &d, 200)
+		return d.Monitor.LastMessage != ""
+	})
+	var d struct{ Monitor monitorView }
+	e.mustDo("GET", fmt.Sprintf("/api/monitors/%d", mon.ID), nil, &d, 200)
+	if d.Monitor.LastMessage != strings.Repeat("ğ", 250) {
+		t.Errorf("mesaj 250 harfe düzgün kısaltılmalı: %d rune, geçerli UTF-8=%v", len([]rune(d.Monitor.LastMessage)), utf8.ValidString(d.Monitor.LastMessage))
+	}
 }

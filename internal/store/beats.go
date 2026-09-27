@@ -164,13 +164,22 @@ func (s *Store) Series(ctx context.Context, monitorID int64, since int64, daily 
 	return out, rows.Err()
 }
 
+// hourCeil since'i bir sonraki saat başına yuvarlar: "son 24 saat" mevcut saat
+// dahil 24 saatlik kova olur (liste çubuklarıyla aynı pencere).
+func hourCeil(t int64) int64 {
+	if r := t % 3600; r != 0 {
+		return t - r + 3600
+	}
+	return t
+}
+
 // Uptime since'den itibaren çalışma oranı (0-100). Veri yoksa ok=false.
-// Saatlik özetten hesaplanır; since saat başına yuvarlanır.
+// Saatlik özetten hesaplanır; since saat başına (yukarı) yuvarlanır.
 func (s *Store) Uptime(ctx context.Context, monitorID int64, since int64) (pct float64, ok bool, err error) {
 	var up, down sql.NullInt64
 	err = s.db.QueryRowContext(ctx,
 		"SELECT SUM(up), SUM(down) FROM stats_hourly WHERE monitor_id = ? AND bucket >= ?",
-		monitorID, since-since%3600).Scan(&up, &down)
+		monitorID, hourCeil(since)).Scan(&up, &down)
 	if err != nil || up.Int64+down.Int64 == 0 {
 		return 0, false, err
 	}
@@ -182,7 +191,7 @@ func (s *Store) AvgPing(ctx context.Context, monitorID int64, since int64) (int6
 	var sum, cnt sql.NullInt64
 	err := s.db.QueryRowContext(ctx,
 		"SELECT SUM(ping_sum), SUM(ping_count) FROM stats_hourly WHERE monitor_id = ? AND bucket >= ?",
-		monitorID, since-since%3600).Scan(&sum, &cnt)
+		monitorID, hourCeil(since)).Scan(&sum, &cnt)
 	if err != nil || cnt.Int64 == 0 {
 		return -1, err
 	}

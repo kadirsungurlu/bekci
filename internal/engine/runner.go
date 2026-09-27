@@ -27,14 +27,35 @@ type runner struct {
 }
 
 // initialConfirmed yeniden başlatmada sahte bildirim gitmesin diye son
-// onaylanmış durumu veritabanından çıkarır: açık olay varsa DOWN, daha önce
-// durum değişikliği kaydedilmişse UP, hiç yoksa bilinmiyor.
+// onaylanmış durumu veritabanından çıkarır. Kayıtlı durum UP/DOWN ise o
+// geçerlidir; bekliyorsa (tekrar deneniyordu) açık olay DOWN'u, daha önce
+// kaydedilmiş bir değişim UP'ı gösterir; hiçbiri yoksa bilinmiyor.
+//
+// DOWN kaydedilmiş ama olayı açılamamışsa (ör. yazım yarıda kaldıysa) olay
+// burada tamamlanır; böylece kesinti süresi düzelince doğru hesaplanır.
 func (r *runner) initialConfirmed(ctx context.Context) int {
 	started, err := r.e.store.OpenIncidentStart(ctx, r.m.ID)
+	hasIncident := err == nil && started > 0
 	switch {
-	case err == nil && started > 0:
+	case r.m.Status == store.StatusDown:
+		if err == nil && !hasIncident {
+			since := r.m.LastChangeAt
+			if since == 0 {
+				since = r.m.LastCheckAt
+			}
+			if since == 0 {
+				since = r.e.now().Unix()
+			}
+			if err := r.e.store.OpenIncident(ctx, r.m.ID, since, r.m.LastMessage); err != nil {
+				r.e.log.Error("eksik olay tamamlanamadı", "monitor", r.m.Name, "hata", err)
+			}
+		}
 		return store.StatusDown
-	case r.m.Status == store.StatusUp || r.m.LastChangeAt > 0:
+	case r.m.Status == store.StatusUp:
+		return store.StatusUp
+	case hasIncident:
+		return store.StatusDown
+	case r.m.LastChangeAt > 0:
 		return store.StatusUp
 	}
 	return unknown
@@ -53,12 +74,9 @@ func (r *runner) loop(ctx context.Context) {
 	defer close(r.done)
 	first := r.e.jitter(r.unit(r.m.Interval))
 	if r.m.Type == check.TypePush {
-		// Push'ta ilk kontrol: son sinyalden bir aralık sonra (yoksa şimdiden bir aralık).
+		// Push'ta ilk kontrol şimdiden tam bir aralık sonra: uygulama kapalıyken
+		// veya monitör durdurulmuşken gelemeyen sinyaller yüzünden sahte DOWN olmasın.
 		first = r.unit(r.m.Interval)
-		if r.m.LastCheckAt > 0 {
-			elapsed := r.e.now().Sub(time.Unix(r.m.LastCheckAt, 0))
-			first = max(r.unit(r.m.Interval)-elapsed, 5*r.e.cfg.Unit)
-		}
 	}
 	timer := time.NewTimer(first)
 	defer timer.Stop()
@@ -68,7 +86,7 @@ func (r *runner) loop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case res := <-r.pushCh:
-			r.process(ctx, res)
+			r.process(res)
 			resetTimer(timer, r.nextDelay())
 		case <-timer.C:
 			var res check.Result
@@ -80,7 +98,7 @@ func (r *runner) loop(ctx context.Context) {
 			if ctx.Err() != nil {
 				return // durduruldu: yarım kalan kontrol kaydedilmez
 			}
-			r.process(ctx, res)
+			r.process(res)
 			timer.Reset(r.nextDelay())
 		}
 	}
@@ -115,7 +133,13 @@ func (r *runner) runCheck(ctx context.Context) (res check.Result) {
 }
 
 // process bir sonucu durum makinesinden geçirir, kaydeder ve gerekirse bildirir.
-func (r *runner) process(ctx context.Context, res check.Result) {
+//
+// Veritabanı işlemleri runner'ın context'ini değil kendi kısa süreli
+// context'ini kullanır: monitör düzenlenirken veya uygulama kapanırken
+// kontrol sonucu, olay ve durum yarım yazılmış halde kalmasın.
+func (r *runner) process(res check.Result) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 	now := r.e.now()
 	if r.m.UpsideDown {
 		res.Up = !res.Up
@@ -148,7 +172,11 @@ func (r *runner) process(ctx context.Context, res check.Result) {
 		LastChangeAt: lastChange,
 	})
 	if err != nil {
+		// Kaydedilemeyen sonuç için bildirim gönderilmez; durum bellekte de
+		// değişmez, bir sonraki kontrol aynı geçişi tekrar dener.
 		r.e.log.Error("kontrol sonucu kaydedilemedi", "monitor", r.m.Name, "hata", err)
+		r.confirmed = prevConfirmed
+		return
 	}
 	r.m.Status, r.m.LastCheckAt, r.m.LastMessage = status, now.Unix(), res.Message
 	r.m.LastPingMs = res.PingMs

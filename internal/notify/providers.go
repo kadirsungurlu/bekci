@@ -3,6 +3,7 @@ package notify
 import (
 	"context"
 	"encoding/json"
+	"mime"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -298,8 +299,11 @@ func (ntfy) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 		prio, tag = c.Priority, "rotating_light"
 	}
 	// Başlık HTTP başlığında gider; emoji yerine etiket kullanılır.
+	// ntfy, ASCII dışı başlıklar için RFC 2047 kodlamasını destekler; ham UTF-8
+	// başlık araya giren proxy'lerde bozulabilir.
+	title := strings.TrimSpace(strings.TrimLeft(ev.Title(), "🔴🟢⚠️✅ "))
 	headers := map[string]string{
-		"Title":    strings.TrimSpace(strings.TrimLeft(ev.Title(), "🔴🟢⚠️✅ ")),
+		"Title":    mime.QEncoding.Encode("utf-8", title),
 		"Priority": strconv.Itoa(prio),
 		"Tags":     tag,
 	}
