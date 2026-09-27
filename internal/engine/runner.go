@@ -240,7 +240,10 @@ func (r *runner) process(res check.Result) {
 		(retried || (r.locs != nil && status == store.StatusPending && res.Message != NoLocationData)):
 		r.rememberRetry(now, res)
 	}
-	r.incidentProgress(ctx, now, status, inMaint, res)
+	resolving := status == store.StatusUp && prevConfirmed == store.StatusDown
+	if !resolving {
+		r.incidentProgress(ctx, now, status, inMaint, res)
+	}
 
 	switch {
 	case status == store.StatusDown && prevConfirmed != store.StatusDown:
@@ -249,11 +252,14 @@ func (r *runner) process(res check.Result) {
 		r.e.log.Warn("monitör DOWN", "monitor", r.m.Name, "neden", res.Message)
 		r.notify(notify.KindDown, now, res.Message, 0)
 
-	case status == store.StatusUp && prevConfirmed == store.StatusDown:
+	case resolving:
+		// Olay önce kapatılır (kaydedilen UP durumu ile açık olay arasındaki
+		// pencere kısa kalsın); son değişimler ve çözülme kaydı sonra yazılır.
 		started, err := r.e.store.ResolveIncident(ctx, r.m.ID, now.Unix())
 		if err != nil {
 			r.e.log.Error("olay kapatılamadı", "monitor", r.m.Name, "hata", err)
 		}
+		r.incidentProgress(ctx, now, status, inMaint, res)
 		var downtime time.Duration
 		if started > 0 {
 			downtime = now.Sub(time.Unix(started, 0))
