@@ -181,6 +181,17 @@ func (s *Server) push(w http.ResponseWriter, r *http.Request) {
 
 // events canlı olay akışı (Server-Sent Events).
 func (s *Server) events(w http.ResponseWriter, r *http.Request) {
+	u := userFrom(r)
+	// Kullanıcı başına ve genel eşzamanlı bağlantı sınırı: kanal/gorutin
+	// ayrılmadan önce kontrol edilir (aksi halde tek kullanıcı sınırsız SSE
+	// açıp kaynak tüketebilirdi).
+	ch, unsubscribe, ok := s.hub.Subscribe(u.ID)
+	if !ok {
+		writeError(w, http.StatusTooManyRequests, "Çok fazla eşzamanlı canlı bağlantı; açık sekmelerden birini kapatın")
+		return
+	}
+	defer unsubscribe()
+
 	rc := http.NewResponseController(w)
 	// Bu bağlantı uzun ömürlü; sunucunun genel okuma/yazma süre sınırları
 	// uygulanmaz. (Okuma sınırı dolunca net/http isteğin context'ini iptal
@@ -194,15 +205,12 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	h.Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
 
-	u := userFrom(r)
 	vis := visibleTo(u)
 	var groups map[int64]bool
 	if !canSeeConfig(u) {
 		// İzleyici: canlı olay mesajları da temizlenir (grup kimlikleri bağlantı başında alınır).
 		groups, _ = s.groupIDs(r)
 	}
-	ch, unsubscribe := s.hub.Subscribe()
-	defer unsubscribe()
 
 	fmt.Fprint(w, "retry: 5000\n\n")
 	if rc.Flush() != nil {

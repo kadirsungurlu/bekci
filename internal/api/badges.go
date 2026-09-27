@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -34,6 +36,86 @@ func init() {
 	RegisterRoutes(func(s *Server, mux *http.ServeMux) {
 		mux.HandleFunc("GET /api/badge/{id}/{kind}", s.badge)
 	})
+}
+
+const (
+	badgeRatePerMin = 120 // kimliksiz rozet isteği: IP başına dakikada
+	badgeAllowTTL   = 60 * time.Second
+)
+
+// badgeState rozet uç noktasının önbelleği ve IP hız sınırı.
+//   - allow: hangi monitörlerin en az bir yayında ve şifresiz durum sayfasında
+//     göründüğü; her istekte ListPages çalıştırmamak için kısa süre saklanır.
+//   - ipWindow: kimliksiz isteklerin IP başına dakikalık sayacı (numaralandırma
+//     ve maliyet saldırılarını yavaşlatır); probeLimiter ile aynı desen.
+type badgeState struct {
+	mu       sync.Mutex
+	allow    map[int64]bool // nil: henüz yüklenmedi
+	allowExp time.Time
+	ipWindow map[string]*badgeWindow
+}
+
+type badgeWindow struct {
+	start int64
+	count int
+}
+
+func newBadgeState() *badgeState {
+	return &badgeState{ipWindow: map[string]*badgeWindow{}}
+}
+
+// rate IP başına dakikalık istek sınırı (sabit pencere). Sınır aşıldıysa false.
+func (b *badgeState) rate(ip string, now time.Time) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	minute := now.Unix() / 60
+	w := b.ipWindow[ip]
+	if w == nil || w.start != minute {
+		if len(b.ipWindow) > 10000 { // bellek şişmesin: eski pencereleri at
+			for k, v := range b.ipWindow {
+				if v.start != minute {
+					delete(b.ipWindow, k)
+				}
+			}
+		}
+		w = &badgeWindow{start: minute}
+		b.ipWindow[ip] = w
+	}
+	w.count++
+	return w.count <= badgeRatePerMin
+}
+
+// publicBadgeMonitors yayında ve şifresiz sayfalarda görünen monitör
+// kimliklerini kısa süreli önbellekten döner. Dönen harita salt okunurdur
+// (kurulduktan sonra değiştirilmez), eşzamanlı okunması güvenlidir.
+func (s *Server) publicBadgeMonitors(r *http.Request) (map[int64]bool, error) {
+	now := s.now()
+	b := s.badges
+	b.mu.Lock()
+	if b.allow != nil && now.Before(b.allowExp) {
+		m := b.allow
+		b.mu.Unlock()
+		return m, nil
+	}
+	b.mu.Unlock()
+
+	pages, err := s.store.ListPages(r.Context())
+	if err != nil {
+		return nil, err
+	}
+	m := map[int64]bool{}
+	for _, p := range pages {
+		if !p.Published || p.HasPassword {
+			continue
+		}
+		for _, mid := range p.MonitorIDs() {
+			m[mid] = true
+		}
+	}
+	b.mu.Lock()
+	b.allow, b.allowExp = m, now.Add(badgeAllowTTL)
+	b.mu.Unlock()
+	return m, nil
 }
 
 var namedColors = map[string]string{
@@ -141,21 +223,11 @@ func (s *Server) badgeAllowed(r *http.Request, id int64) (allowed, private bool,
 	if u, _, ok := s.currentUser(r); ok && visibleTo(u).can(id) {
 		return true, true, nil
 	}
-	pages, err := s.store.ListPages(r.Context())
+	allow, err := s.publicBadgeMonitors(r)
 	if err != nil {
 		return false, false, err
 	}
-	for _, p := range pages {
-		if !p.Published || p.HasPassword {
-			continue
-		}
-		for _, mid := range p.MonitorIDs() {
-			if mid == id {
-				return true, false, nil
-			}
-		}
-	}
-	return false, false, nil
+	return allow[id], false, nil
 }
 
 func (s *Server) badge(w http.ResponseWriter, r *http.Request) {
@@ -178,6 +250,13 @@ func (s *Server) badge(w http.ResponseWriter, r *http.Request) {
 	allowed, private, err := s.badgeAllowed(r, id)
 	if err != nil {
 		s.dbError(w, err)
+		return
+	}
+	// Kimliksiz (herkese açık) istekler için IP başına hız sınırı; oturum veya
+	// API anahtarıyla monitörü görebilen istekler (private) muaftır.
+	if !private && !s.badges.rate(clientIP(r), s.now()) {
+		w.Header().Set("Retry-After", "60")
+		writeError(w, http.StatusTooManyRequests, "Çok fazla istek; kısa süre sonra tekrar deneyin")
 		return
 	}
 	if !allowed {

@@ -82,7 +82,8 @@ func (s *Server) listTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Kısıtlı izleyici yalnızca görebildiği monitörleri sayar.
-	vis := visibleTo(userFrom(r))
+	u := userFrom(r)
+	vis := visibleTo(u)
 	counts := map[int64]int{}
 	for mid, list := range links {
 		if !vis.can(mid) {
@@ -96,9 +97,16 @@ func (s *Server) listTags(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	out := make([]tagView, len(tags))
-	for i, t := range tags {
-		out[i] = tagView{Tag: t, MonitorCount: counts[t.ID]}
+	// Kısıtlı izleyiciye yalnızca görebildiği monitörlerde kullanılan etiketler
+	// döner; hiç kullanmadığı etiketlerin adı/değeri/rengi sızmaz. Kısıtsız
+	// kullanıcıda tüm etiketler (sayı 0 olsa da) görünür.
+	restricted := u.Restricted()
+	out := make([]tagView, 0, len(tags))
+	for _, t := range tags {
+		if restricted && counts[t.ID] == 0 {
+			continue
+		}
+		out = append(out, tagView{Tag: t, MonitorCount: counts[t.ID]})
 	}
 	writeJSON(w, http.StatusOK, out)
 }

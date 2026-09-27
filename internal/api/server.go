@@ -30,8 +30,10 @@ type Server struct {
 	version  string
 	limiter  *loginLimiter
 	now      func() time.Time
-	pages    *pagesState   // durum sayfası önbellekleri (pages.go)
-	probeRL  *probeLimiter // kontrol noktası istek sınırı (probes.go)
+	pages    *pagesState    // durum sayfası önbellekleri (pages.go)
+	probeRL  *probeLimiter  // kontrol noktası istek sınırı (probes.go)
+	badges   *badgeState    // rozet önbelleği ve IP hız sınırı (badges.go)
+	notifyRL *notifyLimiter // bildirim test/örnek hız sınırı (notifications.go)
 	servers  *servers.Service
 
 	// BaseURL uygulamanın dış adresi (BASE_URL); durum sayfası özel alan adı
@@ -53,6 +55,8 @@ func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatche
 	s := &Server{
 		store: st, engine: e, hub: hub, notifier: n, log: log, static: static, version: version,
 		limiter: newLoginLimiter(), now: time.Now, pages: newPagesState(), probeRL: newProbeLimiter(),
+		badges:   newBadgeState(),
+		notifyRL: newNotifyLimiter(),
 		AgentDir: DefaultAgentDir,
 	}
 	var (
@@ -190,8 +194,17 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 		if rec.status >= 500 {
 			level = slog.LevelWarn
 		}
-		s.log.Log(r.Context(), level, "istek", "yöntem", r.Method, "yol", r.URL.Path, "durum", rec.status, "süre", time.Since(start).Round(time.Millisecond))
+		s.log.Log(r.Context(), level, "istek", "yöntem", r.Method, "yol", maskLogPath(r.URL.Path), "durum", rec.status, "süre", time.Since(start).Round(time.Millisecond))
 	})
+}
+
+// maskLogPath push adresindeki gizli token'ı loga yazmadan önce gizler:
+// /api/push/{token} → /api/push/***. Token bir sırdır; log dosyasına düşmemeli.
+func maskLogPath(p string) string {
+	if strings.HasPrefix(p, "/api/push/") {
+		return "/api/push/***"
+	}
+	return p
 }
 
 func (s *Server) recoverer(next http.Handler) http.Handler {
