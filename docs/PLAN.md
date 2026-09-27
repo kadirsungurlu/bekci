@@ -291,8 +291,8 @@ eder, sadece metrik göndermez.
 
 `GET /api/probe/jobs` yanıtına `metrics_interval` (sn) eklenir. Veri tipleri tek
 yerde tanımlıdır: `internal/metrics/types.go` (ajan ve sunucu aynı tipleri kullanır).
-Sınırlar: en fazla 32 disk, 32 ağ arayüzü, 32 sıcaklık sensörü, 200 konteyner;
-metinler kırpılır.
+Sınırlar: en fazla 32 disk, 32 sıcaklık sensörü, 200 konteyner; ağ toplam olarak
+gönderilir; metinler kırpılır (`Sample.Sanitize`).
 
 ### 12.4 Veri saklama
 
@@ -382,3 +382,62 @@ izleyicilere gönderilmez. Tüm değişiklikler işlem kaydına yazılır.
 3. Fable ile kısa son inceleme (yetki, ajan token'ı ile erişim, veri boyutu sınırları).
 4. Canlıya çıkış: Coolify deploy; ana sunucuya Coolify üzerinden ajan; CP Server
    İstanbul'daki konteyner yeni komutla güncellenir (kullanıcı çalıştırır).
+
+### 12.9 JSON sözleşmesi (arayüz ↔ sunucu)
+
+Zamanlar unix **saniye**; `Host` ve `Stats` alanları `internal/metrics/types.go`
+ile aynıdır.
+
+`GET /api/servers` → `{"servers": [ServerView]}`
+
+    ServerView = {
+      "id": 1, "name": "CP Server İstanbul",
+      "active": true,            // ajan etkin mi (probes.active)
+      "metrics": true,           // metrik toplama açık mı
+      "state": "online",         // online | offline | unavailable | waiting | disabled
+                                 //   waiting: hiç örnek gelmedi; unavailable: ajan "toplayamıyorum" dedi;
+                                 //   disabled: ajan veya metrik kapalı; offline: son örnek çok eski
+      "note": "",                // unavailable nedeni
+      "interval": 60,            // örnek aralığı (sn)
+      "last_seen_at": 0,         // ajanın son isteği (jobs/results/metrics)
+      "metrics_at": 0,           // son örnek
+      "version": "…",
+      "host": Host | null,
+      "latest": Stats | null,    // listede containers ve temps boş gelir, yerine:
+      "container_count": 12,
+      "temp_max": 54.5 | null,
+      "firing": ["cpu"]          // şu an tetiklenmiş uyarı metrikleri
+    }
+
+`GET /api/servers/{id}` → ServerView (latest tam: containers, temps dahil) +
+`"alerts": [AlertRule]`, `"notification_ids": [1,2]`.
+
+    AlertRule = {"id": 3, "metric": "cpu", "threshold": 90, "minutes": 10,
+                 "active": true, "firing": false, "fired_at": 0}
+    metric: cpu | mem | swap | disk | load | temp | offline
+    threshold: yüzde (cpu, mem, swap, disk), çekirdek başına yük (load), °C (temp);
+               offline için yok sayılır. minutes: 1-60 (offline: çevrimdışı kalma süresi).
+
+`GET /api/servers/{id}/stats?range=1h|24h|7d|30d` →
+
+    {"range": "24h", "res": 1, "from": 0, "to": 0, "interval": 60,
+     "points": [{"t": 0, "cpu": 12.5, "cpu_max": 40, "load1": 0.4, "load5": 0.3, "load15": 0.2,
+                 "mem_used": 0, "mem_cache": 0, "mem_total": 0, "swap_used": 0, "swap_total": 0,
+                 "disk_read_bps": 0, "disk_write_bps": 0, "net_rx_bps": 0, "net_tx_bps": 0,
+                 "disk_pct": 71.2, "temp": 48 | null,
+                 "containers": [{"name": "x", "cpu": 1.2, "mem": 0}]}]}
+
+res: 1h ve 24h → 1 (dk), 7d → 10, 30d → 60. Boşluklar (ajan kapalıyken) nokta
+olmadan gelir; arayüz `interval`'in 2 katından büyük aralıkta çizgiyi keser.
+
+`GET /api/servers/{id}/events` → `{"events": [{"id", "metric", "value", "threshold",
+"started_at", "ended_at" | null}]}` (son 90 gün, yeniden eskiye, en fazla 200).
+
+`PUT /api/servers/{id}/alerts` ← `{"alerts": [{"metric", "threshold", "minutes", "active"}]}`
+→ `{"alerts": [AlertRule]}`. Aynı metrik iki kez olamaz.
+
+`PUT /api/servers/{id}/notifications` ← `{"notification_ids": [1,2]}`.
+
+Sunucu ekleme mevcut `POST /api/probes` ile yapılır (yanıtındaki `setup` alanına
+`docker_agent` ve `systemd` komutları eklenir). Canlı akış olayı:
+`{"type": "server", "data": ServerView (liste biçimi)}`.
