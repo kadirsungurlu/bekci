@@ -91,16 +91,20 @@ type Probe struct {
 	HostInfo    string `json:"-"`
 	MetricsAt   int64  `json:"metrics_at"`
 	MetricsNote string `json:"metrics_note"`
+
+	// IPLock açıksa ajan yalnızca LockedIP'den bağlanabilir (probes_iplock.go).
+	IPLock   bool   `json:"ip_lock"`
+	LockedIP string `json:"locked_ip"`
 }
 
 const probeCols = `id, name, token_prefix, active, created_at, last_seen_at, last_ip, version, token_hash,
-	metrics, host_info, metrics_at, metrics_note, kind`
+	metrics, host_info, metrics_at, metrics_note, kind, ip_lock, locked_ip`
 
 func scanProbe(sc scanner) (Probe, error) {
 	var p Probe
 	var seen, metricsAt sql.NullInt64
 	err := sc.Scan(&p.ID, &p.Name, &p.TokenPrefix, &p.Active, &p.CreatedAt, &seen, &p.LastIP, &p.Version, &p.Hash,
-		&p.Metrics, &p.HostInfo, &metricsAt, &p.MetricsNote, &p.Kind)
+		&p.Metrics, &p.HostInfo, &metricsAt, &p.MetricsNote, &p.Kind, &p.IPLock, &p.LockedIP)
 	p.LastSeenAt, p.MetricsAt = seen.Int64, metricsAt.Int64
 	return p, err
 }
@@ -174,9 +178,9 @@ func (s *Store) CreateProbe(ctx context.Context, p *Probe) error {
 	}
 	p.Metrics = p.Kind == ProbeKindServer
 	return s.db.QueryRowContext(ctx, `
-		INSERT INTO probes (name, kind, token_hash, token_prefix, active, created_at, metrics)
-		VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-		p.Name, p.Kind, p.Hash, p.TokenPrefix, boolInt(p.Active), p.CreatedAt, boolInt(p.Metrics)).Scan(&p.ID)
+		INSERT INTO probes (name, kind, token_hash, token_prefix, active, created_at, metrics, ip_lock)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		p.Name, p.Kind, p.Hash, p.TokenPrefix, boolInt(p.Active), p.CreatedAt, boolInt(p.Metrics), boolInt(p.IPLock)).Scan(&p.ID)
 }
 
 // UpdateProbe adı ve etkinliği değiştirir.

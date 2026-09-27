@@ -171,13 +171,30 @@ func (s *Server) probeOnly(h http.HandlerFunc) http.Handler {
 			writeError(w, http.StatusForbidden, "Kontrol noktası devre dışı")
 			return
 		}
+		// IP kilidi: kilitli IP boşsa ilk bağlantı sabitler; farklı IP reddedilir.
+		reqIP := clientIP(r)
+		if p.IPLock {
+			switch {
+			case p.LockedIP == "":
+				if err := s.store.LockProbeIP(r.Context(), p.ID, reqIP); err != nil {
+					s.log.Warn("ajan IP kilidi yazılamadı", "hata", err)
+				} else {
+					s.log.Info("ajan IP'ye kilitlendi", "ajan", p.Name, "ip", reqIP)
+					p.LockedIP = reqIP
+				}
+			case p.LockedIP != reqIP:
+				s.log.Warn("kilitli ajana farklı IP'den erişim reddedildi", "ajan", p.Name, "kilitli", p.LockedIP, "gelen", reqIP)
+				writeError(w, http.StatusForbidden, "Bu ajan başka bir IP'ye kilitli; taşındıysa Ayarlar'dan kilidi sıfırlayın")
+				return
+			}
+		}
 		now := s.now()
 		if ok, wait := s.probeRL.allow(p.ID, now); !ok {
 			w.Header().Set("Retry-After", strconv.Itoa(wait))
 			writeError(w, http.StatusTooManyRequests, "Çok fazla istek; biraz sonra tekrar deneyin")
 			return
 		}
-		ip, version := clientIP(r), cleanVersion(r.Header.Get("X-Probe-Version"))
+		ip, version := reqIP, cleanVersion(r.Header.Get("X-Probe-Version"))
 		if now.Unix()-p.LastSeenAt >= probeTouchEvery || ip != p.LastIP || version != p.Version {
 			if err := s.store.TouchProbe(r.Context(), p.ID, now.Unix(), ip, version); err != nil {
 				s.log.Warn("kontrol noktası son görülme zamanı yazılamadı", "hata", err)
@@ -222,7 +239,9 @@ type probeAdminView struct {
 	LastIP       string `json:"last_ip"`
 	Version      string `json:"version"`
 	MonitorCount int    `json:"monitor_count"`
-	Metrics      bool   `json:"metrics"` // sunucu metrikleri toplanıyor mu
+	Metrics      bool   `json:"metrics"`   // sunucu metrikleri toplanıyor mu
+	IPLock       bool   `json:"ip_lock"`   // yalnızca kilitli IP'den bağlanabilir mi
+	LockedIP     string `json:"locked_ip"` // sabitlenmiş IP (boş: henüz bağlanmadı)
 }
 
 func (s *Server) probeSummaryOf(p store.Probe) probeSummary {
@@ -233,6 +252,7 @@ func (s *Server) probeAdminOf(p store.Probe, monitors int) probeAdminView {
 	return probeAdminView{
 		probeSummary: s.probeSummaryOf(p), Kind: p.Kind, TokenPrefix: p.TokenPrefix, CreatedAt: p.CreatedAt,
 		LastIP: p.LastIP, Version: p.Version, MonitorCount: monitors, Metrics: p.Metrics,
+		IPLock: p.IPLock, LockedIP: p.LockedIP,
 	}
 }
 
@@ -431,7 +451,7 @@ func (s *Server) createAgent(w http.ResponseWriter, r *http.Request, kind string
 		return
 	}
 	token := newProbeToken()
-	p := store.Probe{Kind: kind, Name: in.Name, Active: true, CreatedAt: s.now().Unix(), Hash: hashToken(token), TokenPrefix: token[:probeTokenShown]}
+	p := store.Probe{Kind: kind, Name: in.Name, Active: true, IPLock: true, CreatedAt: s.now().Unix(), Hash: hashToken(token), TokenPrefix: token[:probeTokenShown]}
 	if err := s.store.CreateProbe(r.Context(), &p); err != nil {
 		if store.IsUniqueViolation(err) {
 			writeError(w, http.StatusConflict, "Token üretilemedi, tekrar deneyin")
@@ -468,7 +488,9 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Name    string `json:"name"`
 		Active  *bool  `json:"active"`
-		Metrics *bool  `json:"metrics"` // sunucu metrikleri; yoksa değişmez
+		Metrics *bool  `json:"metrics"`  // sunucu metrikleri; yoksa değişmez
+		IPLock  *bool  `json:"ip_lock"`  // IP kilidi; yoksa değişmez
+		ResetIP bool   `json:"reset_ip"` // kilitli IP'yi sıfırla (yeniden sabitlensin)
 	}
 	if !readJSON(w, r, &in) {
 		return
@@ -494,6 +516,19 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var changes []string
+	if in.IPLock != nil && *in.IPLock != old.IPLock {
+		if err := s.store.SetProbeIPLock(r.Context(), id, *in.IPLock); err != nil {
+			s.dbError(w, err)
+			return
+		}
+		changes = append(changes, map[bool]string{true: "IP kilidi açıldı", false: "IP kilidi kapatıldı"}[*in.IPLock])
+	} else if in.ResetIP && old.LockedIP != "" {
+		if err := s.store.ResetProbeIP(r.Context(), id); err != nil {
+			s.dbError(w, err)
+			return
+		}
+		changes = append(changes, "IP kilidi sıfırlandı")
+	}
 	if in.Name != old.Name {
 		changes = append(changes, "ad: "+old.Name+" → "+in.Name)
 	}
