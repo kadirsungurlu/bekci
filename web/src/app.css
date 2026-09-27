@@ -398,6 +398,125 @@ select.input {
   background-position: right 12px center;
   cursor: pointer;
 }
+/* Açılır listenin kendisi: destekleyen tarayıcılarda (Chrome/Edge 135+)
+   işletim sisteminin listesi yerine temaya uyan liste; desteklemeyenlerde
+   yerel liste color-scheme sayesinde koyu/açık temaya uyar. */
+@supports (appearance: base-select) {
+  select.input,
+  select.input::picker(select) {
+    appearance: base-select;
+  }
+  select.input {
+    display: flex;
+    align-items: center;
+    background-image: none;
+    white-space: nowrap;
+  }
+  select.input > :not(option, optgroup) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  select.input::picker-icon {
+    content: '';
+    width: 12px;
+    height: 12px;
+    margin-left: auto;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a7b2c5' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+    transition: rotate 0.15s;
+  }
+  select.input:open::picker-icon {
+    rotate: 180deg;
+  }
+  select.input:open {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  select.input::picker(select) {
+    margin-block: 6px;
+    padding: 5px;
+    min-width: anchor-size(width);
+    max-height: min(360px, 60vh);
+    overflow-y: auto;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    background: var(--bg-elev);
+    color: var(--text);
+    box-shadow: var(--shadow);
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+    opacity: 0;
+    translate: 0 -4px;
+    transition:
+      opacity 0.12s,
+      translate 0.12s,
+      overlay 0.12s allow-discrete,
+      display 0.12s allow-discrete;
+  }
+  select.input:open::picker(select) {
+    opacity: 1;
+    translate: 0 0;
+  }
+  @starting-style {
+    select.input:open::picker(select) {
+      opacity: 0;
+      translate: 0 -4px;
+    }
+  }
+  select.input option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 7px 10px;
+    border-radius: 7px;
+    font-size: 0.9rem;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--text);
+    cursor: pointer;
+  }
+  select.input option::checkmark {
+    order: 1;
+    margin-left: auto;
+    content: '✓';
+    color: var(--accent);
+    font-weight: 700;
+  }
+  select.input option:hover,
+  select.input option:focus-visible {
+    background: var(--card-2);
+    outline: none;
+  }
+  select.input option:checked {
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+  select.input option:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  select.input option:disabled:hover {
+    background: none;
+  }
+  select.input optgroup {
+    padding-top: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  select.input optgroup::before {
+    display: block;
+    padding: 6px 10px 4px;
+  }
+  select.input optgroup + optgroup {
+    margin-top: 4px;
+    border-top: 1px solid var(--border);
+  }
+}
 .input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);

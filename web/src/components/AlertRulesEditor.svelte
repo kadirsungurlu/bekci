@@ -364,7 +364,7 @@
     font-weight: 600;
   }
   .msel.mount {
-    width: 150px;
+    width: 168px;
     font-weight: 500;
   }
   .w {
