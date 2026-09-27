@@ -6,7 +6,9 @@
     errorMessage,
     STATUS_UP,
     type Incident,
+    type LocationState,
     type MonitorDetail,
+    type MonitorLocations,
     type RawPoint,
     type Series,
     type SeriesRange,
@@ -28,13 +30,14 @@
     nowSec,
   } from '../lib/format';
   import { session } from '../lib/session.svelte';
-  import { GROUP_MODES, typeLabel } from '../lib/monitorTypes';
+  import { GROUP_MODES, displayTarget, isWebTarget, typeName } from '../lib/monitorTypes';
   import { deleteMonitor, togglePause } from '../lib/actions';
   import StatusIcon from '../components/StatusIcon.svelte';
   import TypeBadge from '../components/TypeBadge.svelte';
   import PingChart from '../components/PingChart.svelte';
   import IncidentTable from '../components/IncidentTable.svelte';
   import BadgeBuilder from '../components/BadgeBuilder.svelte';
+  import TagChip from '../components/TagChip.svelte';
   import Icon from '../components/Icon.svelte';
 
   let { id }: { id: number } = $props();
@@ -71,6 +74,31 @@
   );
   const now = $derived(clock.now);
   const isHttps = $derived(monitor?.type === 'http' && /^https:/i.test(monitor.target));
+  // Sertifika bilgisi HTTPS dışında da gelebilir (TLS sertifikası, gRPC/SMTP/WebSocket TLS, tarayıcı).
+  const showCert = $derived(
+    !!monitor && (isHttps || monitor.type === 'tlscert' || (monitor.type === 'browser' && /^https:/i.test(monitor.target)) || !!monitor.cert_expires_at),
+  );
+
+  // Konumlar: yalnızca çok konumlu monitörde dolu gelir.
+  let locations = $state.raw<MonitorLocations | null>(null);
+  const LOC_STATE: Record<LocationState, { l: string; c: string }> = {
+    up: { l: 'Çalışıyor', c: 'up' },
+    down: { l: 'Çalışmıyor', c: 'down' },
+    retrying: { l: 'Tekrar deneniyor', c: 'pending' },
+    unknown: { l: 'Sonuç yok', c: 'paused' },
+  };
+  async function loadLocations() {
+    try {
+      locations = await api.monitorLocations(id);
+    } catch {
+      /* konum bilgisi zorunlu değil */
+    }
+  }
+  let locTimer: ReturnType<typeof setTimeout> | undefined;
+  const loadLocationsSoon = () => {
+    clearTimeout(locTimer);
+    locTimer = setTimeout(loadLocations, 800);
+  };
   const pushUrl = $derived(monitor?.push_token ? `${location.origin}/api/push/${monitor.push_token}` : '');
 
   async function loadDetail() {
@@ -110,11 +138,21 @@
   let unsub: (() => void) | undefined;
   let lastStatus: number | null = null;
 
+  let unsubProbe: (() => void) | undefined;
+
   onMount(() => {
     loadDetail();
-    refreshTimer = setInterval(loadDetail, 60_000);
+    loadLocations();
+    refreshTimer = setInterval(() => {
+      loadDetail();
+      loadLocations();
+    }, 60_000);
+    unsubProbe = live.onProbe(() => {
+      if (locations?.locations.length) loadLocationsSoon();
+    });
     unsub = live.onBeat((b) => {
       if (b.monitor_id !== id) return;
+      if (locations?.locations.length) loadLocationsSoon();
       if (series && series.kind === 'raw') {
         const p: RawPoint = { t: b.time, s: b.status, p: b.ping };
         if (b.status !== STATUS_UP && b.message) p.m = b.message;
@@ -135,6 +173,8 @@
 
   onDestroy(() => {
     unsub?.();
+    unsubProbe?.();
+    clearTimeout(locTimer);
     clearTimeout(reloadTimer);
     clearInterval(refreshTimer);
   });
@@ -221,15 +261,20 @@
           {#if monitor.type === 'push'}
             <span class="muted">Push monitörü · beklenen aralık {fmtInterval(monitor.interval)}</span>
           {:else if !monitor.target}
-            <span class="muted">{typeLabel(monitor.type)} monitörü</span>
-          {:else if monitor.type === 'http'}
+            <span class="muted">{typeName(monitor.type)} monitörü</span>
+          {:else if isWebTarget(monitor.type) && /^https?:\/\//i.test(monitor.target)}
             <a href={monitor.target} target="_blank" rel="noopener noreferrer">{monitor.target}<Icon name="external" size={13} /></a>
           {:else if monitor.type === 'group'}
             <span class="muted">Grup · {monitor.target}{groupMode ? ` · ${groupMode}` : ''}</span>
           {:else}
-            <span class="text-2 mono">{monitor.target}</span>
+            <span class="text-2 mono">{displayTarget(monitor.target)}</span>
           {/if}
         </div>
+        {#if monitor.tags?.length}
+          <div class="dtags" aria-label="Etiketler">
+            {#each monitor.tags as t (t.id)}<TagChip name={t.name} color={t.color} value={t.value} />{/each}
+          </div>
+        {/if}
       </div>
     </div>
     {#if session.canEdit}
@@ -285,7 +330,7 @@
         <div class="sub">Son ölçüm: {monitor.last_check_at && kind === 'up' ? fmtMs(monitor.last_ping_ms) : '—'}</div>
       </div>
     {/if}
-    {#if isHttps}
+    {#if showCert}
       <div class="card stat">
         <div class="label"><Icon name="lock" size={13} /> SSL sertifikası</div>
         {#if cert}
@@ -334,6 +379,38 @@
         İsteğe bağlı parametreler: <code>status=up|down</code>, <code>msg=</code> (mesaj), <code>ping=</code> (ms cinsinden süre).
         GET veya POST kullanılabilir.
       </p>
+    </div>
+  {/if}
+
+  {#if locations && locations.locations.length > 0}
+    <div class="card block">
+      <div class="loc-head">
+        <h2 class="card-title">Konumlar<span class="dot">.</span></h2>
+        <span class="muted small">
+          {locations.down_when === 'all'
+            ? 'Tüm konumlar çalışmıyorsa kesinti'
+            : locations.down_when === 'majority'
+              ? 'Konumların çoğunluğu çalışmıyorsa kesinti'
+              : 'Herhangi bir konum çalışmıyorsa kesinti'}
+        </span>
+      </div>
+      <ul class="locs">
+        {#each locations.locations as l (l.probe_id)}
+          {@const st = LOC_STATE[l.status] ?? LOC_STATE.unknown}
+          <li class="loc {st.c}" title={l.message || st.l}>
+            <span class="ldot" aria-hidden="true"></span>
+            <span class="lt">
+              <span class="ln">{l.name}</span>
+              <span class="ls">
+                {[st.l, l.status === 'up' && l.ping_ms >= 0 ? fmtMs(l.ping_ms) : '', l.last_check_at ? fmtRelative(l.last_check_at, now) : '']
+                  .filter(Boolean)
+                  .join(' · ')}
+              </span>
+              {#if l.message && l.status !== 'up'}<span class="lm">{l.message}</span>{/if}
+            </span>
+          </li>
+        {/each}
+      </ul>
     </div>
   {/if}
 
@@ -395,7 +472,7 @@
       <span class="chev" class:open={badgesOpen}><Icon name="chevron-down" /></span>
     </button>
     {#if badgesOpen}
-      <div class="bb-body"><BadgeBuilder id={monitor.id} https={isHttps} /></div>
+      <div class="bb-body"><BadgeBuilder id={monitor.id} https={showCert} /></div>
     {/if}
   </div>
 {/if}
@@ -454,6 +531,96 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+  }
+  .dtags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .loc-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .loc-head .card-title {
+    margin: 0;
+  }
+  .locs {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+  }
+  .loc {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--input);
+    min-width: 0;
+  }
+  .loc.down {
+    border-color: var(--down-border);
+    background: var(--down-soft);
+  }
+  .loc.pending {
+    border-color: var(--pending-border);
+  }
+  .ldot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+    background: var(--paused);
+  }
+  .loc.up .ldot {
+    background: var(--up);
+    box-shadow: 0 0 0 3px var(--up-ring);
+  }
+  .loc.down .ldot {
+    background: var(--down);
+  }
+  .loc.pending .ldot {
+    background: var(--pending);
+  }
+  .lt {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.35;
+  }
+  .ln {
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ls {
+    font-size: 0.82rem;
+    color: var(--text-2);
+  }
+  .loc.down .ls {
+    color: var(--down-text);
+  }
+  .lm {
+    font-size: 0.78rem;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
   }
   .desc {
     margin: -6px 0 18px;

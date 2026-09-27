@@ -8,7 +8,26 @@ export const STATUS_PENDING = 2;
 export const STATUS_MAINTENANCE = 3;
 
 /** Bilinen tipler; yeni tip eklenirken monitorTypes.ts'teki kayıt defterine de eklenir. */
-export type MonitorType = 'http' | 'tcp' | 'ping' | 'dns' | 'push' | 'group';
+export type MonitorType =
+  | 'http'
+  | 'browser'
+  | 'tcp'
+  | 'ping'
+  | 'dns'
+  | 'tlscert'
+  | 'smtp'
+  | 'websocket'
+  | 'grpc'
+  | 'mqtt'
+  | 'snmp'
+  | 'mysql'
+  | 'postgres'
+  | 'mssql'
+  | 'redis'
+  | 'mongodb'
+  | 'docker'
+  | 'push'
+  | 'group';
 
 export type Role = 'admin' | 'editor' | 'viewer';
 
@@ -128,6 +147,115 @@ export interface MonitorView {
   uptime_24h: number | null;
   bars: Bucket[];
   in_maintenance?: boolean;
+  tags?: MonitorTag[];
+  locations?: LocationSetup;
+}
+
+// Etiketler ------------------------------------------------------------------------
+
+export interface Tag {
+  id: number;
+  name: string;
+  color: string;
+  created_at: number;
+  updated_at: number;
+  monitor_count: number;
+}
+
+/** Monitöre bağlı etiket (id etiketin kimliğidir). */
+export interface MonitorTag {
+  id: number;
+  name: string;
+  color: string;
+  value: string;
+}
+
+// Kontrol noktaları ------------------------------------------------------------------
+
+export interface Probe {
+  id: number;
+  name: string;
+  active: boolean;
+  online: boolean;
+  last_seen_at: number;
+  // Yalnızca yönetici görünümünde:
+  token_prefix?: string;
+  created_at?: number;
+  last_ip?: string;
+  version?: string;
+  monitor_count?: number;
+}
+
+export interface ProbeSetup {
+  probe: Probe;
+  token: string;
+  server_url: string;
+  docker_command: string;
+}
+
+export type DownWhen = 'any' | 'majority' | 'all';
+
+export interface LocationSetup {
+  include_local: boolean;
+  probe_ids: number[];
+  down_when: DownWhen;
+}
+
+export type LocationState = 'up' | 'down' | 'retrying' | 'unknown';
+
+export interface LocationStatus {
+  probe_id: number;
+  name: string;
+  status: LocationState;
+  last_check_at: number;
+  ping_ms: number;
+  message: string;
+}
+
+export interface MonitorLocations extends LocationSetup {
+  supported: boolean;
+  locations: LocationStatus[];
+}
+
+export interface ProbeEvent {
+  probe_id: number;
+  name: string;
+  online: boolean;
+  last_seen_at: number;
+}
+
+// Yedekleme ve içe aktarma ---------------------------------------------------------------
+
+export interface ImportCounts {
+  monitors: number;
+  notifications: number;
+  tags: number;
+  status_pages: number;
+}
+
+export type ImportKind = 'monitor' | 'notification' | 'tag' | 'status_page' | 'settings';
+export type ImportResultKind = 'created' | 'existing' | 'skipped';
+
+export interface ImportItem {
+  kind: ImportKind;
+  name: string;
+  type?: string;
+  result: ImportResultKind;
+  id?: number;
+  messages?: string[];
+}
+
+export interface ImportSummary {
+  source: 'uptime-kadir' | 'uptime-kuma' | 'uptimerobot';
+  mode: 'merge' | 'replace';
+  dry_run: boolean;
+  created: ImportCounts;
+  existing: ImportCounts;
+  skipped: ImportCounts;
+  deleted?: ImportCounts;
+  settings_applied: boolean;
+  warnings: string[] | null;
+  items: ImportItem[] | null;
 }
 
 export interface MonitorInput {
@@ -448,20 +576,57 @@ async function request<T>(method: string, path: string, body?: unknown, raw?: { 
       data = null;
     }
   }
-  if (!res.ok) {
-    const obj = data && typeof data === 'object' ? (data as { error?: unknown; code?: unknown }) : null;
-    let msg = typeof obj?.error === 'string' ? obj.error : `İstek başarısız oldu (HTTP ${res.status})`;
-    const code = typeof obj?.code === 'string' ? obj.code : '';
-    if (res.status === 429 && typeof obj?.error !== 'string') {
-      const wait = Number(res.headers.get('Retry-After'));
-      msg = wait > 0 ? `Çok fazla deneme. ${Math.ceil(wait / 60)} dakika sonra tekrar deneyin.` : 'Çok fazla deneme. Biraz sonra tekrar deneyin.';
-    }
-    // Giriş denemesindeki 401 "hatalı şifre" demektir; diğerlerinde oturum düşmüştür.
-    if (res.status === 401 && !noSession401(path)) unauthorizedHandler?.();
-    if (res.status === 403 && code === 'password_change_required') passwordChangeHandler?.();
-    throw new ApiError(res.status, msg, code, data);
-  }
+  if (!res.ok) throw failure(path, res.status, data, res.headers.get('Retry-After'));
   return data as T;
+}
+
+/** Başarısız yanıttan ApiError üretir; oturum/şifre işleyicilerini tetikler. */
+function failure(path: string, status: number, data: unknown, retryAfter: string | null): ApiError {
+  const obj = data && typeof data === 'object' ? (data as { error?: unknown; code?: unknown }) : null;
+  let msg = typeof obj?.error === 'string' ? obj.error : `İstek başarısız oldu (HTTP ${status})`;
+  const code = typeof obj?.code === 'string' ? obj.code : '';
+  if (status === 429 && typeof obj?.error !== 'string') {
+    const wait = Number(retryAfter);
+    msg = wait > 0 ? `Çok fazla deneme. ${Math.ceil(wait / 60)} dakika sonra tekrar deneyin.` : 'Çok fazla deneme. Biraz sonra tekrar deneyin.';
+  }
+  if (status === 413 && typeof obj?.error !== 'string') msg = 'Dosya çok büyük.';
+  // Giriş denemesindeki 401 "hatalı şifre" demektir; diğerlerinde oturum düşmüştür.
+  if (status === 401 && !noSession401(path)) unauthorizedHandler?.();
+  if (status === 403 && code === 'password_change_required') passwordChangeHandler?.();
+  return new ApiError(status, msg, code, data);
+}
+
+/**
+ * Dosyayı multipart/form-data ("file" alanı) olarak yükler. fetch yükleme
+ * ilerlemesi bildirmediği için XMLHttpRequest kullanılır. Content-Type'ı
+ * tarayıcı (sınır değeriyle) kendisi koyar; CSRF başlığı burada da gönderilir.
+ */
+export function upload<T>(path: string, file: File, onProgress?: (loaded: number, total: number) => void): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', path);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.setRequestHeader('X-Uptime', '1');
+    if (onProgress) xhr.upload.onprogress = (e) => onProgress(e.loaded, e.lengthComputable ? e.total : file.size);
+    xhr.onerror = () => reject(new ApiError(0, 'Sunucuya ulaşılamadı. Bağlantınızı kontrol edin.'));
+    xhr.onabort = () => reject(new ApiError(0, 'Yükleme iptal edildi.'));
+    xhr.onload = () => {
+      let data: unknown = null;
+      if (xhr.responseText) {
+        try {
+          data = JSON.parse(xhr.responseText);
+        } catch {
+          data = null;
+        }
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data as T);
+      else reject(failure(path, xhr.status, data, xhr.getResponseHeader('Retry-After')));
+    };
+    xhr.send(form);
+  });
 }
 
 const get = <T>(p: string) => request<T>('GET', p);
@@ -561,6 +726,34 @@ export const api = {
   deleteMaintenance: (id: number) => del<{ ok: boolean }>(`/api/maintenance/${id}`),
   pauseMaintenance: (id: number) => post<Maintenance>(`/api/maintenance/${id}/pause`),
   resumeMaintenance: (id: number) => post<Maintenance>(`/api/maintenance/${id}/resume`),
+
+  // Etiketler
+  tags: () => get<Tag[]>('/api/tags'),
+  createTag: (name: string, color: string) => post<Tag>('/api/tags', { name, color }),
+  updateTag: (id: number, name: string, color: string) => put<Tag>(`/api/tags/${id}`, { name, color }),
+  deleteTag: (id: number) => del<{ ok: boolean }>(`/api/tags/${id}`),
+  setMonitorTags: (id: number, tags: { tag_id: number; value: string }[]) => put<MonitorTag[]>(`/api/monitors/${id}/tags`, tags),
+
+  // Kontrol noktaları
+  probes: () => get<Probe[]>('/api/probes'),
+  createProbe: (name: string) => post<ProbeSetup>('/api/probes', { name }),
+  updateProbe: (id: number, name: string, active: boolean) => put<Probe>(`/api/probes/${id}`, { name, active }),
+  deleteProbe: (id: number) => del<{ ok: boolean }>(`/api/probes/${id}`),
+  regenerateProbeToken: (id: number) => post<ProbeSetup>(`/api/probes/${id}/token`),
+  monitorLocations: (id: number) => get<MonitorLocations>(`/api/monitors/${id}/locations`),
+  setMonitorLocations: (id: number, l: LocationSetup) => put<MonitorLocations>(`/api/monitors/${id}/locations`, l),
+
+  // Yedekle / geri yükle ve içe aktarma (yönetici)
+  importBackup: (file: File, mode: 'merge' | 'replace', dryRun: boolean, onProgress?: (l: number, t: number) => void) =>
+    upload<ImportSummary>(
+      `/api/import?mode=${mode}${dryRun ? '&dry_run=1' : mode === 'replace' ? '&confirm=yes' : ''}`,
+      file,
+      onProgress,
+    ),
+  importKuma: (file: File, dryRun: boolean, onProgress?: (l: number, t: number) => void) =>
+    upload<ImportSummary>(`/api/import/uptime-kuma${dryRun ? '?dry_run=1' : ''}`, file, onProgress),
+  importUptimeRobot: (apiKey: string, dryRun: boolean) =>
+    post<ImportSummary>(`/api/import/uptimerobot${dryRun ? '?dry_run=1' : ''}`, { api_key: apiKey }),
 };
 
 /** Hata nesnesinden kullanıcıya gösterilecek mesaj. */

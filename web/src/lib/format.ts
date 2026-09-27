@@ -228,3 +228,10 @@ export function randomPassword(len = 14): string {
   for (const n of buf) out += chars[n % chars.length];
   return out;
 }
+
+/** Dosya boyutu: "512 B", "12,3 KB", "4,5 MB". */
+export function fmtSize(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} KB`;
+  return `${(n / 1024 / 1024).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} MB`;
+}

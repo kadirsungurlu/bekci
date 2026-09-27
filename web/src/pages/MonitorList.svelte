@@ -29,6 +29,28 @@
   }
 
   let search = $state('');
+  // Etiket filtresi: etiket kimliği ('' = tümü). Liste görünümündeki etiketlerden türetilir.
+  let tagFilter = $state(loadTag());
+  function loadTag(): string {
+    try {
+      return localStorage.getItem('uptime.tag') ?? '';
+    } catch {
+      return '';
+    }
+  }
+  $effect(() => save('uptime.tag', tagFilter));
+  const tagOptions = $derived.by(() => {
+    const seen = new Map<number, { id: number; name: string; count: number }>();
+    for (const m of live.monitors)
+      for (const t of m.tags ?? []) {
+        const e = seen.get(t.id);
+        if (e) e.count++;
+        else seen.set(t.id, { id: t.id, name: t.name, count: 1 });
+      }
+    return [...seen.values()].sort((a, b) => collator.compare(a.name, b.name));
+  });
+  // Seçili etiket artık hiçbir monitörde yoksa filtre kendiliğinden kalkar.
+  const activeTag = $derived(tagOptions.some((t) => String(t.id) === tagFilter) ? tagFilter : '');
   let filter = $state<Filter>(load('uptime.filter', ['all', 'down', 'up', 'maint', 'paused'] as const, 'all'));
   let sort = $state<Sort>(load('uptime.sort', ['status', 'name', 'uptime'] as const, 'status'));
   let menuFor = $state<number | null>(null);
@@ -65,7 +87,9 @@
       if (filter === 'up' && k !== 'up') return false;
       if (filter === 'maint' && k !== 'maintenance') return false;
       if (filter === 'paused' && k !== 'paused') return false;
-      if (q && !lower(m.name).includes(q) && !lower(m.target).includes(q)) return false;
+      if (q && !lower(m.name).includes(q) && !lower(m.target).includes(q) && !(m.tags ?? []).some((t) => lower(`${t.name} ${t.value}`).includes(q)))
+        return false;
+      if (activeTag && !(m.tags ?? []).some((t) => String(t.id) === activeTag)) return false;
       return true;
     });
     list = list.slice();
@@ -116,6 +140,16 @@
       <h3>İlk monitörünüzü ekleyin</h3>
       <p>Web sitelerinizi, sunucularınızı ve zamanlanmış işlerinizi izlemeye başlayın. Bir sorun olduğunda size hemen haber verelim.</p>
       <a class="btn primary" href="#/monitors/new"><Icon name="plus" size={16} /> Monitör ekle</a>
+      {#if session.isAdmin}
+        <a class="migrate" href="#/settings/backup?tasi=1">
+          <span class="mig-ic"><Icon name="log-in" size={18} /></span>
+          <span class="mig-t">
+            <b>UptimeRobot veya Uptime Kuma’dan taşıyın</b>
+            <span>Monitörlerinizi, bildirim kanallarınızı ve etiketlerinizi birkaç tıkla aktarın.</span>
+          </span>
+          <Icon name="chevron-right" size={16} />
+        </a>
+      {/if}
     {:else}
       <h3>Görüntülenecek monitör yok</h3>
       <p>Hesabınıza henüz monitör atanmamış. Yöneticiniz monitör eklediğinde veya erişim verdiğinde burada görünecek.</p>
@@ -144,6 +178,12 @@
           <option value="name">Ada göre</option>
           <option value="uptime">Uptime'a göre</option>
         </select>
+        {#if tagOptions.length}
+          <select class="input sel" bind:value={tagFilter} aria-label="Etikete göre filtrele" class:on={!!activeTag}>
+            <option value="">Tüm etiketler</option>
+            {#each tagOptions as t (t.id)}<option value={String(t.id)}>{t.name} ({t.count})</option>{/each}
+          </select>
+        {/if}
       </div>
 
       <div class="card list">
@@ -159,12 +199,13 @@
         {:else}
           <div class="noresult">
             Eşleşen monitör yok.
-            {#if search || filter !== 'all'}
+            {#if search || filter !== 'all' || activeTag}
               <button
                 class="linkbtn"
                 onclick={() => {
                   search = '';
                   filter = 'all';
+                  tagFilter = '';
                 }}>Filtreyi temizle</button
               >
             {/if}
@@ -253,6 +294,55 @@
     display: inline-flex;
     color: var(--muted);
     pointer-events: none;
+  }
+  .sel.on {
+    border-color: var(--accent-border);
+  }
+  .migrate {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 460px;
+    margin: 22px auto 0;
+    padding: 12px 14px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--card-2);
+    color: var(--text);
+    text-align: left;
+    text-decoration: none;
+  }
+  .migrate > :global(svg) {
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  @media (hover: hover) {
+    .migrate:hover {
+      border-color: var(--accent-border);
+      text-decoration: none;
+    }
+  }
+  .mig-ic {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    flex-shrink: 0;
+  }
+  .mig-t {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .mig-t span {
+    font-size: 0.83rem;
+    color: var(--muted);
   }
   .search .input {
     padding-left: 36px;

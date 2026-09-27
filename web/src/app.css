@@ -94,6 +94,16 @@
   --ch-line: #06c755;
   --ch-apprise: #94a3b8;
 
+  /* Etiket rozeti: zemin etiketin kendi rengi; yazı bu iki tondan kontrastı
+     yüksek olanı (bkz. lib/tags.ts). */
+  --tag-ink-dark: #0b1220;
+  --tag-ink-light: #ffffff;
+  --tag-x-hover: rgba(0, 0, 0, 0.18);
+  --tag-swatch-ring: rgba(255, 255, 255, 0.85);
+
+  /* İlerleme çubuğu (dosya yükleme). */
+  --progress-track: #111a29;
+
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   --qr-bg: #ffffff; /* QR kodu her temada beyaz zeminde okunur */
   --radius: 12px;
