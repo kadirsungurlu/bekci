@@ -71,6 +71,7 @@ func (s *Server) createNotification(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
+	s.audit(r, store.User{}, "notification.create", "notification", n.ID, n.Name, n.Type)
 	writeJSON(w, http.StatusCreated, masked(n))
 }
 
@@ -101,6 +102,7 @@ func (s *Server) updateNotification(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
+	s.audit(r, store.User{}, "notification.update", "notification", n.ID, n.Name, n.Type)
 	writeJSON(w, http.StatusOK, masked(n))
 }
 
@@ -109,10 +111,16 @@ func (s *Server) deleteNotification(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	old, err := s.store.GetNotification(r.Context(), id)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
 	if err := s.store.DeleteNotification(r.Context(), id); err != nil {
 		s.dbError(w, err)
 		return
 	}
+	s.audit(r, store.User{}, "notification.delete", "notification", id, old.Name, old.Type)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 

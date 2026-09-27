@@ -94,12 +94,58 @@ func (s *Server) currentUser(r *http.Request) (store.User, string, bool) {
 	return u, h, true
 }
 
-// auth oturum gerektiren uç noktaları sarar.
-func (s *Server) auth(h http.HandlerFunc) http.Handler {
+// Authenticator çerez dışı kimlik doğrulama yöntemleri (ör. API anahtarı)
+// için kanca: istekten kullanıcıyı çıkarabiliyorsa ok=true döner. Özellik
+// dosyaları init() içinde RegisterAuthenticator ile ekler.
+type Authenticator func(s *Server, r *http.Request) (u store.User, ok bool)
+
+var extraAuthenticators []Authenticator
+
+func RegisterAuthenticator(a Authenticator) { extraAuthenticators = append(extraAuthenticators, a) }
+
+// userFrom auth ile sarılmış bir istekteki kullanıcı.
+func userFrom(r *http.Request) store.User {
+	u, _ := r.Context().Value(userKey).(store.User)
+	return u
+}
+
+// auth en az izleyici yetkisi gerektirir (her giriş yapmış kullanıcı).
+func (s *Server) auth(h http.HandlerFunc) http.Handler { return s.role(store.RoleViewer, h) }
+
+// editor en az editör yetkisi gerektirir.
+func (s *Server) editor(h http.HandlerFunc) http.Handler { return s.role(store.RoleEditor, h) }
+
+// admin yönetici yetkisi gerektirir.
+func (s *Server) admin(h http.HandlerFunc) http.Handler { return s.role(store.RoleAdmin, h) }
+
+// passwordChangeAllowed şifre değişimi zorunluyken erişilebilen uç noktalar.
+var passwordChangeAllowed = map[string]bool{"/api/auth/password": true}
+
+// role oturum (veya kayıtlı başka bir kimlik doğrulama) ve en az min rolünü
+// gerektirir. Yetki her istekte veritabanındaki güncel rolden kontrol edilir;
+// rolü düşürülen kullanıcı yeni yetkisiyle hemen sınırlanır.
+func (s *Server) role(min string, h http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		u, sess, ok := s.currentUser(r)
 		if !ok {
+			for _, a := range extraAuthenticators {
+				if u, ok = a(s, r); ok {
+					break
+				}
+			}
+		}
+		if !ok {
 			writeError(w, http.StatusUnauthorized, "Oturum açmanız gerekiyor")
+			return
+		}
+		if u.MustChangePassword && !passwordChangeAllowed[r.URL.Path] {
+			writeJSON(w, http.StatusForbidden, map[string]string{
+				"error": "Devam etmeden önce şifrenizi değiştirmeniz gerekiyor", "code": "password_change_required",
+			})
+			return
+		}
+		if store.RoleRank(u.Role) < store.RoleRank(min) {
+			writeError(w, http.StatusForbidden, "Bu işlem için yetkiniz yok")
 			return
 		}
 		ctx := context.WithValue(r.Context(), userKey, u)
@@ -109,8 +155,16 @@ func (s *Server) auth(h http.HandlerFunc) http.Handler {
 }
 
 type userView struct {
-	ID       int64  `json:"id"`
-	Username string `json:"username"`
+	ID                 int64  `json:"id"`
+	Username           string `json:"username"`
+	DisplayName        string `json:"display_name"`
+	Role               string `json:"role"`
+	MustChangePassword bool   `json:"must_change_password"`
+	AllMonitors        bool   `json:"all_monitors"`
+}
+
+func viewOf(u store.User) userView {
+	return userView{u.ID, u.Username, u.DisplayName, u.Role, u.MustChangePassword, u.AllMonitors || u.Role != store.RoleViewer}
 }
 
 func (s *Server) authState(w http.ResponseWriter, r *http.Request) {
@@ -121,7 +175,7 @@ func (s *Server) authState(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := map[string]any{"setup_needed": n == 0, "user": nil, "version": s.version}
 	if u, _, ok := s.currentUser(r); ok {
-		resp["user"] = userView{u.ID, u.Username}
+		resp["user"] = viewOf(u)
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -170,7 +224,8 @@ func (s *Server) setup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.log.Info("ilk kurulum tamamlandı", "kullanıcı", u.Username)
-	writeJSON(w, http.StatusOK, map[string]any{"user": userView{u.ID, u.Username}})
+	s.audit(r, u, "user.setup", "user", u.ID, u.Username, "")
+	writeJSON(w, http.StatusOK, map[string]any{"user": viewOf(u)})
 }
 
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
@@ -196,15 +251,23 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	if bcrypt.CompareHashAndPassword(hash, []byte(in.Password)) != nil || err != nil {
 		s.limiter.fail(ip, in.Username, s.now())
 		s.log.Warn("hatalı giriş denemesi", "ip", ip, "kullanıcı", in.Username)
+		s.audit(r, store.User{}, "login.fail", "user", u.ID, in.Username, "")
 		writeError(w, http.StatusUnauthorized, "Kullanıcı adı veya şifre hatalı")
 		return
 	}
 	s.limiter.success(ip)
+	if u.Disabled {
+		// Şifre doğru ama hesap kapalı: bunu söylemek bilgi sızdırmaz (şifreyi bilen kişiye söyleniyor).
+		writeError(w, http.StatusForbidden, "Hesabınız devre dışı bırakılmış; yöneticinize başvurun")
+		return
+	}
 	if err := s.startSession(w, r, u); err != nil {
 		s.dbError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"user": userView{u.ID, u.Username}})
+	s.store.TouchLastLogin(r.Context(), u.ID)
+	s.audit(r, u, "login.success", "user", u.ID, u.Username, "")
+	writeJSON(w, http.StatusOK, map[string]any{"user": viewOf(u)})
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
@@ -216,8 +279,8 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {
-	u := r.Context().Value(userKey).(store.User)
-	sess := r.Context().Value(sessionKey).(string)
+	u := userFrom(r)
+	sess, _ := r.Context().Value(sessionKey).(string)
 	var in struct {
 		Current string `json:"current"`
 		New     string `json:"new"`
@@ -244,6 +307,7 @@ func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	// Diğer cihazlardaki oturumlar kapanır, bu oturum açık kalır.
 	s.store.DeleteOtherSessions(r.Context(), u.ID, sess)
+	s.audit(r, u, "user.password_change", "user", u.ID, u.Username, "")
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 

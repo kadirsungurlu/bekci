@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -25,9 +26,14 @@ func (s *Server) summary(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
-	var up, down, pending, paused int
+	vis := visibleTo(userFrom(r))
+	var up, down, pending, paused, total int
 	var sumUp, sumDown int64
 	for _, m := range monitors {
+		if !vis.can(m.ID) {
+			continue
+		}
+		total++
 		if !m.Active {
 			paused++
 			continue
@@ -45,7 +51,19 @@ func (s *Server) summary(w http.ResponseWriter, r *http.Request) {
 			sumDown += b.Down
 		}
 	}
-	incidents, err := s.store.CountIncidentsSince(r.Context(), now.Add(-24*time.Hour).Unix())
+	since := now.Add(-24 * time.Hour).Unix()
+	var incidents int
+	if vis.all {
+		incidents, err = s.store.CountIncidentsSince(r.Context(), since)
+	} else {
+		var list []store.Incident
+		list, err = s.store.IncidentsFor(r.Context(), vis.list(), since, 10000)
+		for _, in := range list {
+			if in.StartedAt >= since {
+				incidents++
+			}
+		}
+	}
 	if err != nil {
 		s.dbError(w, err)
 		return
@@ -56,7 +74,7 @@ func (s *Server) summary(w http.ResponseWriter, r *http.Request) {
 		uptime = &pct
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"total": len(monitors), "up": up, "down": down, "pending": pending, "paused": paused,
+		"total": total, "up": up, "down": down, "pending": pending, "paused": paused,
 		"uptime_24h": uptime, "incidents_24h": incidents,
 	})
 }
@@ -65,7 +83,11 @@ func (s *Server) listIncidents(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	before, _ := strconv.ParseInt(q.Get("before"), 10, 64)
 	limit, _ := strconv.Atoi(q.Get("limit"))
-	list, err := s.store.ListIncidents(r.Context(), store.IncidentFilter{Before: before, Limit: limit})
+	f := store.IncidentFilter{Before: before, Limit: limit}
+	if vis := visibleTo(userFrom(r)); !vis.all {
+		f.MonitorIDs = vis.list()
+	}
+	list, err := s.store.ListIncidents(r.Context(), f)
 	if err != nil {
 		s.dbError(w, err)
 		return
@@ -96,6 +118,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.engine.SetSettings(in)
+	s.audit(r, store.User{}, "settings.update", "settings", 0, "", "")
 	writeJSON(w, http.StatusOK, in)
 }
 
@@ -140,6 +163,7 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	h.Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
 
+	vis := visibleTo(userFrom(r))
 	ch, unsubscribe := s.hub.Subscribe()
 	defer unsubscribe()
 
@@ -155,6 +179,9 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case msg := <-ch:
+			if !vis.all && !eventVisible(msg, vis) {
+				continue
+			}
 			if _, err := fmt.Fprintf(w, "data: %s\n\n", msg); err != nil {
 				return
 			}
@@ -167,4 +194,18 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+// eventVisible kısıtlı kullanıcı için olayın izinli bir monitöre ait olup
+// olmadığını söyler; monitöre bağlı olmayan olaylar gönderilmez.
+func eventVisible(msg []byte, vis visibility) bool {
+	var ev struct {
+		Data struct {
+			MonitorID int64 `json:"monitor_id"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(msg, &ev) != nil || ev.Data.MonitorID == 0 {
+		return false
+	}
+	return vis.can(ev.Data.MonitorID)
 }

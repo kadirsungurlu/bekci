@@ -98,13 +98,22 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 	if err != nil {
 		return nil, err
 	}
+	u := userFrom(r)
+	vis, full := visibleTo(u), canSeeConfig(u)
 	out := make([]monitorView, 0, len(monitors))
 	for _, m := range monitors {
+		if !vis.can(m.ID) {
+			continue
+		}
 		bars, up := hourlyBars(now, hourly[m.ID])
 		m.Config = maskMonitorConfig(m.Type, m.Config)
 		ids := links[m.ID]
 		if ids == nil {
 			ids = []int64{}
+		}
+		if !full {
+			// İzleyici: ayarlar, push token'ı ve bildirim bağlantıları gizli.
+			m.Config, m.PushToken, ids = json.RawMessage("{}"), "", []int64{}
 		}
 		out = append(out, monitorView{Monitor: m, Target: engine.Target(m), NotificationIDs: ids, Uptime24h: up, Bars: bars})
 	}
@@ -131,6 +140,9 @@ func (s *Server) getMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m, err := s.store.GetMonitor(r.Context(), id)
+	if err == nil && !visibleTo(userFrom(r)).can(id) {
+		err = store.ErrNotFound
+	}
 	if err != nil {
 		s.dbError(w, err)
 		return
@@ -271,6 +283,7 @@ func (s *Server) createMonitor(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("monitör başlatılamadı", "monitor", m.Name, "hata", err)
 	}
 	s.log.Info("monitör eklendi", "monitor", m.Name, "tip", m.Type)
+	s.audit(r, store.User{}, "monitor.create", "monitor", m.ID, m.Name, m.Type)
 	s.respondMonitor(w, r, m.ID, http.StatusCreated)
 }
 
@@ -348,6 +361,7 @@ func (s *Server) updateMonitor(w http.ResponseWriter, r *http.Request) {
 	if err := s.engine.Reload(r.Context(), id); err != nil {
 		s.log.Error("monitör yeniden başlatılamadı", "monitor", m.Name, "hata", err)
 	}
+	s.audit(r, store.User{}, "monitor.update", "monitor", id, m.Name, "")
 	s.respondMonitor(w, r, id, http.StatusOK)
 }
 
@@ -356,11 +370,17 @@ func (s *Server) deleteMonitor(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	old, err := s.store.GetMonitor(r.Context(), id)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
 	s.engine.Remove(id)
 	if err := s.store.DeleteMonitor(r.Context(), id); err != nil {
 		s.dbError(w, err)
 		return
 	}
+	s.audit(r, store.User{}, "monitor.delete", "monitor", id, old.Name, "")
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
@@ -380,6 +400,7 @@ func (s *Server) pauseMonitor(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
+	s.audit(r, store.User{}, "monitor.pause", "monitor", id, "", "")
 	s.respondMonitor(w, r, id, http.StatusOK)
 }
 
@@ -395,6 +416,7 @@ func (s *Server) resumeMonitor(w http.ResponseWriter, r *http.Request) {
 	if err := s.engine.Reload(r.Context(), id); err != nil {
 		s.log.Error("monitör başlatılamadı", "id", id, "hata", err)
 	}
+	s.audit(r, store.User{}, "monitor.resume", "monitor", id, "", "")
 	s.respondMonitor(w, r, id, http.StatusOK)
 }
 
@@ -404,7 +426,10 @@ func (s *Server) monitorSeries(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := s.store.GetMonitor(r.Context(), id); err != nil {
+	if _, err := s.store.GetMonitor(r.Context(), id); err != nil || !visibleTo(userFrom(r)).can(id) {
+		if err == nil {
+			err = store.ErrNotFound
+		}
 		s.dbError(w, err)
 		return
 	}
@@ -454,7 +479,10 @@ func (s *Server) monitorIncidents(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := s.store.GetMonitor(r.Context(), id); err != nil {
+	if _, err := s.store.GetMonitor(r.Context(), id); err != nil || !visibleTo(userFrom(r)).can(id) {
+		if err == nil {
+			err = store.ErrNotFound
+		}
 		s.dbError(w, err)
 		return
 	}

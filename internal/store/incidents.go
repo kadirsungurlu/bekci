@@ -49,10 +49,11 @@ func (s *Store) OpenIncidentStart(ctx context.Context, monitorID int64) (int64, 
 
 // IncidentFilter: MonitorID 0 ise tüm monitörler; Before 0 ise en yeniden başlar.
 type IncidentFilter struct {
-	MonitorID int64
-	Before    int64 // sayfalama: bu id'den küçükler
-	Since     int64
-	Limit     int
+	MonitorID  int64
+	MonitorIDs []int64 // boş değilse sadece bu monitörler (müşteri kısıtı); nil: hepsi
+	Before     int64   // sayfalama: bu id'den küçükler
+	Since      int64
+	Limit      int
 }
 
 func (s *Store) ListIncidents(ctx context.Context, f IncidentFilter) ([]Incident, error) {
@@ -65,6 +66,14 @@ func (s *Store) ListIncidents(ctx context.Context, f IncidentFilter) ([]Incident
 	if f.MonitorID > 0 {
 		q += " AND i.monitor_id = ?"
 		args = append(args, f.MonitorID)
+	}
+	if f.MonitorIDs != nil {
+		if len(f.MonitorIDs) == 0 {
+			return []Incident{}, nil
+		}
+		in, args2 := inClause(f.MonitorIDs)
+		q += " AND i.monitor_id IN (" + in + ")"
+		args = append(args, args2...)
 	}
 	if f.Before > 0 {
 		q += " AND i.id < ?"

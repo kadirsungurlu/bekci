@@ -61,6 +61,9 @@ func (m *Maintenance) Tick(ctx context.Context) {
 	if _, err := m.store.DeleteHourlyBefore(ctx, now.AddDate(0, 0, -settings.RetentionHourlyDays).Unix()); err != nil {
 		m.log.Error("eski saatlik özetler silinemedi", "hata", err)
 	}
+	if _, err := m.store.DeleteAuditBefore(ctx, now.AddDate(-1, 0, 0).Unix()); err != nil {
+		m.log.Error("eski işlem kayıtları silinemedi", "hata", err)
+	}
 	if err := m.store.DeleteExpiredSessions(ctx); err != nil {
 		m.log.Error("süresi dolan oturumlar silinemedi", "hata", err)
 	}

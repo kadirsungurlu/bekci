@@ -38,6 +38,12 @@ func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatche
 	}
 }
 
+// extraRoutes özellik dosyalarının init() içinde RegisterRoutes ile eklediği
+// rotalar; paralel geliştirmede server.go'da çakışma olmasın diye.
+var extraRoutes []func(s *Server, mux *http.ServeMux)
+
+func RegisterRoutes(f func(s *Server, mux *http.ServeMux)) { extraRoutes = append(extraRoutes, f) }
+
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
@@ -53,25 +59,37 @@ func (s *Server) Handler() http.Handler {
 
 	mux.Handle("GET /api/summary", s.auth(s.summary))
 	mux.Handle("GET /api/monitors", s.auth(s.listMonitors))
-	mux.Handle("POST /api/monitors", s.auth(s.createMonitor))
+	mux.Handle("POST /api/monitors", s.editor(s.createMonitor))
 	mux.Handle("GET /api/monitors/{id}", s.auth(s.getMonitor))
-	mux.Handle("PUT /api/monitors/{id}", s.auth(s.updateMonitor))
-	mux.Handle("DELETE /api/monitors/{id}", s.auth(s.deleteMonitor))
-	mux.Handle("POST /api/monitors/{id}/pause", s.auth(s.pauseMonitor))
-	mux.Handle("POST /api/monitors/{id}/resume", s.auth(s.resumeMonitor))
+	mux.Handle("PUT /api/monitors/{id}", s.editor(s.updateMonitor))
+	mux.Handle("DELETE /api/monitors/{id}", s.editor(s.deleteMonitor))
+	mux.Handle("POST /api/monitors/{id}/pause", s.editor(s.pauseMonitor))
+	mux.Handle("POST /api/monitors/{id}/resume", s.editor(s.resumeMonitor))
 	mux.Handle("GET /api/monitors/{id}/series", s.auth(s.monitorSeries))
 	mux.Handle("GET /api/monitors/{id}/incidents", s.auth(s.monitorIncidents))
 	mux.Handle("GET /api/incidents", s.auth(s.listIncidents))
 
-	mux.Handle("GET /api/notifications", s.auth(s.listNotifications))
-	mux.Handle("POST /api/notifications", s.auth(s.createNotification))
-	mux.Handle("PUT /api/notifications/{id}", s.auth(s.updateNotification))
-	mux.Handle("DELETE /api/notifications/{id}", s.auth(s.deleteNotification))
-	mux.Handle("POST /api/notifications/test", s.auth(s.testNotification))
+	mux.Handle("GET /api/notifications", s.editor(s.listNotifications))
+	mux.Handle("POST /api/notifications", s.editor(s.createNotification))
+	mux.Handle("PUT /api/notifications/{id}", s.editor(s.updateNotification))
+	mux.Handle("DELETE /api/notifications/{id}", s.editor(s.deleteNotification))
+	mux.Handle("POST /api/notifications/test", s.editor(s.testNotification))
 
-	mux.Handle("GET /api/settings", s.auth(s.getSettings))
-	mux.Handle("PUT /api/settings", s.auth(s.putSettings))
+	mux.Handle("GET /api/settings", s.admin(s.getSettings))
+	mux.Handle("PUT /api/settings", s.admin(s.putSettings))
 	mux.Handle("GET /api/events", s.auth(s.events))
+
+	mux.Handle("GET /api/users", s.admin(s.listUsers))
+	mux.Handle("POST /api/users", s.admin(s.createUser))
+	mux.Handle("PUT /api/users/{id}", s.admin(s.updateUser))
+	mux.Handle("DELETE /api/users/{id}", s.admin(s.deleteUser))
+	mux.Handle("POST /api/users/{id}/password", s.admin(s.resetUserPassword))
+	mux.Handle("GET /api/audit", s.admin(s.listAudit))
+
+	// Özellik dosyalarının kendi rotaları (RegisterRoutes).
+	for _, f := range extraRoutes {
+		f(s, mux)
+	}
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "Bulunamadı")
