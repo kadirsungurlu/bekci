@@ -22,6 +22,8 @@ var monitorSecrets = map[string][]string{
 	"mssql":    {"password"},
 	"redis":    {"password"},
 	"mongodb":  {"uri"},
+	"mqtt":     {"password"},
+	"snmp":     {"community", "auth_password", "priv_password"},
 }
 
 func maskMonitorConfig(typ string, cfg json.RawMessage) json.RawMessage {

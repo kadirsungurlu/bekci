@@ -126,6 +126,12 @@ func HTTPConfigOf(raw json.RawMessage) HTTPConfig {
 	return c
 }
 
+// CertExpiryEnabled CertExpiryChecker arayüzünü uygular.
+func (httpChecker) CertExpiryEnabled(raw json.RawMessage) bool {
+	c := HTTPConfigOf(raw)
+	return c.CertExpiry == nil || *c.CertExpiry
+}
+
 func (httpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	var c HTTPConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
