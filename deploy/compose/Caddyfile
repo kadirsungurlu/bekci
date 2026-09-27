@@ -7,6 +7,9 @@
 
 {$UPTIME_DOMAIN} {
 	encode zstd gzip
+	# Tarayıcı bu alan adına 1 yıl boyunca yalnızca HTTPS ile bağlansın.
+	# ">" işareti: uygulama da aynı başlığı gönderirse çift olmasın, bu geçerli olsun.
+	header >Strict-Transport-Security "max-age=31536000"
 	reverse_proxy uptime:8080 {
 		# Canlı akış (Server-Sent Events) tamponlanmadan iletilsin.
 		flush_interval -1
@@ -20,5 +23,6 @@
 #
 # {$STATUS_DOMAIN} {
 # 	encode zstd gzip
+# 	header >Strict-Transport-Security "max-age=31536000"
 # 	reverse_proxy uptime:8080
 # }
