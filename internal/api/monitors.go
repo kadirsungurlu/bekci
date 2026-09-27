@@ -16,7 +16,7 @@ import (
 
 // monitorSecrets monitör ayarlarında maskelenecek alanlar.
 var monitorSecrets = map[string][]string{
-	"http":     {"basic_pass"},
+	"http":     {"basic_pass", "proxy_pass", "tls_key", "oauth_client_secret"},
 	"mysql":    {"password"},
 	"postgres": {"password"},
 	"mssql":    {"password"},
@@ -65,11 +65,12 @@ func mergeMonitorSecrets(typ string, newCfg, oldCfg json.RawMessage) json.RawMes
 
 type monitorView struct {
 	store.Monitor
-	Target          string         `json:"target"`
-	NotificationIDs []int64        `json:"notification_ids"`
-	Uptime24h       *float64       `json:"uptime_24h"`
-	Bars            []store.Bucket `json:"bars"`
-	InMaintenance   bool           `json:"in_maintenance"` // şu an etkin bir bakım penceresinde (durdurulmuşsa false)
+	Target          string             `json:"target"`
+	NotificationIDs []int64            `json:"notification_ids"`
+	Tags            []store.MonitorTag `json:"tags"`
+	Uptime24h       *float64           `json:"uptime_24h"`
+	Bars            []store.Bucket     `json:"bars"`
+	InMaintenance   bool               `json:"in_maintenance"` // şu an etkin bir bakım penceresinde (durdurulmuşsa false)
 	// Locations kontrol konumları (probes.go); varsayılan: yalnızca ana sunucu.
 	Locations store.LocationSetup `json:"locations"`
 }
@@ -114,6 +115,10 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 	if err != nil {
 		return nil, err
 	}
+	tags, err := s.store.MonitorTags(r.Context())
+	if err != nil {
+		return nil, err
+	}
 	u := userFrom(r)
 	vis, full := visibleTo(u), canSeeConfig(u)
 	out := make([]monitorView, 0, len(monitors))
@@ -135,7 +140,11 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 		if !ok {
 			loc = store.DefaultLocations()
 		}
-		out = append(out, monitorView{Monitor: m, Target: engine.Target(m), NotificationIDs: ids, Uptime24h: up, Bars: bars,
+		mt := tags[m.ID]
+		if mt == nil {
+			mt = []store.MonitorTag{}
+		}
+		out = append(out, monitorView{Monitor: m, Target: engine.Target(m), NotificationIDs: ids, Tags: mt, Uptime24h: up, Bars: bars,
 			InMaintenance: m.Active && s.engine.InMaintenance(m.ID, now), Locations: loc})
 	}
 	return out, nil
@@ -146,6 +155,12 @@ func (s *Server) listMonitors(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.dbError(w, err)
 		return
+	}
+	if tag := r.URL.Query().Get("tag"); tag != "" {
+		var ok bool
+		if monitors, ok = s.filterByTag(w, r, monitors, tag); !ok {
+			return
+		}
 	}
 	views, err := s.buildViews(r, monitors)
 	if err != nil {
