@@ -112,8 +112,14 @@ type Point struct {
 	NetRxBps     float64          `json:"net_rx_bps"`
 	NetTxBps     float64          `json:"net_tx_bps"`
 	DiskPct      float64          `json:"disk_pct"`
+	Disks        []PointDisk      `json:"disks"` // bölüm başına doluluk
 	Temp         *float64         `json:"temp"`
 	Containers   []PointContainer `json:"containers"`
+}
+
+type PointDisk struct {
+	Mount string  `json:"mount"`
+	Pct   float64 `json:"pct"`
 }
 
 type PointContainer struct {
@@ -162,7 +168,15 @@ func pointFrom(t int64, st *metrics.Stats) Point {
 		SwapUsed: st.SwapUsed, SwapTotal: st.SwapTotal,
 		DiskReadBps: math.Round(st.DiskReadBps), DiskWriteBps: math.Round(st.DiskWriteBps),
 		NetRxBps: math.Round(st.NetRxBps), NetTxBps: math.Round(st.NetTxBps),
-		DiskPct: r2(st.DiskPct()), Containers: make([]PointContainer, len(st.Containers)),
+		DiskPct: r2(st.DiskPct()), Disks: make([]PointDisk, 0, len(st.Disks)),
+		Containers: make([]PointContainer, len(st.Containers)),
+	}
+	for _, d := range st.Disks {
+		pct := 0.0
+		if d.Total > 0 {
+			pct = 100 * float64(d.Used) / float64(d.Total)
+		}
+		p.Disks = append(p.Disks, PointDisk{Mount: d.Mount, Pct: r2(pct)})
 	}
 	if t, ok := st.TempMax(); ok {
 		t = r2(t)

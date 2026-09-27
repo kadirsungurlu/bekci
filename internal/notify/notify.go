@@ -53,6 +53,7 @@ type Event struct {
 	Value     float64
 	Threshold float64
 	Minutes   int
+	Mount     string // disk uyarısında bölüm (ör. "/home")
 }
 
 // metricNames sunucu metriklerinin bildirimlerdeki adları.
@@ -87,8 +88,14 @@ func (e Event) serverTitle() string {
 		if e.Metric == "load" {
 			detail = "ortalama, çekirdek başına"
 		}
+		if e.Mount != "" {
+			name += " (" + e.Mount + ")"
+		}
 		return fmt.Sprintf("🔴 %s: %s %s (%d dk %s, eşik %s)", e.MonitorName, name,
 			FormatMetric(e.Metric, e.Value), e.Minutes, detail, FormatMetric(e.Metric, e.Threshold))
+	}
+	if e.Mount != "" {
+		name += " (" + e.Mount + ")"
 	}
 	return "🟢 " + e.MonitorName + ": " + name + " normale döndü"
 }

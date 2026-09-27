@@ -38,7 +38,7 @@ import (
 // Docker kurulumu (host ağı ve süreçleri, kök dizin salt okunur):
 //
 //	docker run -d --name uptime-agent --restart unless-stopped --network host --pid host \
-//	  -v /:/host:ro -v /var/run/docker.sock:/var/run/docker.sock:ro \
+//	  -v /:/host:ro,rslave -v /var/run/docker.sock:/var/run/docker.sock:ro \
 //	  -e HOST_PROC=/host/proc -e HOST_SYS=/host/sys -e HOST_ETC=/host/etc -e HOST_ROOT=/host \
 //	  -e ADDR=- -e PROBE_SERVER=… -e PROBE_TOKEN=upr_… …
 func runProbe(log *slog.Logger) error {

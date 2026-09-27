@@ -147,10 +147,10 @@ func TestServerAlertsStore(t *testing.T) {
 	// Tetikleme bir kez olur; geçmişe kayıt açılır.
 	cpu := rules[1]
 	cpu.ProbeID = p.ID
-	if ok, err := s.FireServerAlert(ctx, cpu, 95.5, 1000); err != nil || !ok {
+	if ok, err := s.FireServerAlert(ctx, cpu, 95.5, "", 1000); err != nil || !ok {
 		t.Fatal(ok, err)
 	}
-	if ok, _ := s.FireServerAlert(ctx, cpu, 97, 1060); ok {
+	if ok, _ := s.FireServerAlert(ctx, cpu, 97, "", 1060); ok {
 		t.Fatal("tetiklenmiş kural tekrar tetiklenmemeli")
 	}
 	evs, _ := s.ServerAlertEvents(ctx, p.ID, 0, 10)
@@ -183,7 +183,7 @@ func TestServerAlertsStore(t *testing.T) {
 	saved, _ = s.ReplaceServerAlerts(ctx, p.ID, []ServerAlert{{Metric: "cpu", Threshold: 80, Minutes: 5, Active: true}}, 1300)
 	cpu = saved[0]
 	cpu.ProbeID = p.ID
-	s.FireServerAlert(ctx, cpu, 85, 1400)
+	s.FireServerAlert(ctx, cpu, 85, "", 1400)
 	if ok, err := s.ResolveServerAlert(ctx, cpu.ID, 1500); err != nil || !ok {
 		t.Fatal(ok, err)
 	}
@@ -198,7 +198,7 @@ func TestServerAlertsStore(t *testing.T) {
 		t.Fatalf("since: %+v", evs)
 	}
 	// Silinen tetiklenmiş kuralın geçmişi kapanır ama kalır.
-	s.FireServerAlert(ctx, cpu, 99, 1700)
+	s.FireServerAlert(ctx, cpu, 99, "", 1700)
 	if saved, _ := s.ReplaceServerAlerts(ctx, p.ID, nil, 1800); len(saved) != 0 {
 		t.Fatalf("hepsi silinmeli: %+v", saved)
 	}
@@ -214,7 +214,7 @@ func TestServerAlertsStore(t *testing.T) {
 	s.ReplaceServerAlerts(ctx, p.ID, []ServerAlert{{Metric: "mem", Threshold: 50, Minutes: 1, Active: true}}, 1900)
 	mem, _ := s.ServerAlerts(ctx, p.ID)
 	mem[0].ProbeID = p.ID
-	s.FireServerAlert(ctx, mem[0], 60, 100) // eski ama sürüyor
+	s.FireServerAlert(ctx, mem[0], 60, "", 100) // eski ama sürüyor
 	if n, err := s.DeleteServerAlertEventsBefore(ctx, 1300); err != nil || n != 1 {
 		t.Fatal(n, err)
 	}

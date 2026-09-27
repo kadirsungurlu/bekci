@@ -15,7 +15,7 @@ const (
 	MetricCPU     = "cpu"     // % (tüm çekirdekler)
 	MetricMem     = "mem"     // RAM %
 	MetricSwap    = "swap"    // swap %
-	MetricDisk    = "disk"    // en dolu bölüm %
+	MetricDisk    = "disk"    // bölüm doluluğu % (kuralda bölüm yoksa en dolusu)
 	MetricLoad    = "load"    // 1 dk yük / mantıksal çekirdek
 	MetricTemp    = "temp"    // en sıcak sensör °C
 	MetricOffline = "offline" // veri gelmiyor
@@ -63,6 +63,8 @@ type point struct {
 	cpu, mem, swap, disk, load float64
 	temp                       float64
 	hasTemp                    bool
+	disks                      map[string]float64 // bölüm → doluluk %
+	fullest                    string             // en dolu bölüm
 }
 
 func pointOf(t int64, st *metrics.Stats, host *metrics.Host) point {
@@ -71,10 +73,30 @@ func pointOf(t int64, st *metrics.Stats, host *metrics.Host) point {
 		p.load = st.Load1 / float64(host.Threads)
 	}
 	p.temp, p.hasTemp = st.TempMax()
+	if len(st.Disks) > 0 {
+		p.disks = make(map[string]float64, len(st.Disks))
+		best := -1.0
+		for _, d := range st.Disks {
+			v := 0.0
+			if d.Total > 0 {
+				v = 100 * float64(d.Used) / float64(d.Total)
+			}
+			p.disks[d.Mount] = v
+			if v > best {
+				best, p.fullest = v, d.Mount
+			}
+		}
+	}
 	return p
 }
 
-func (p point) value(metric string) (float64, bool) {
+// value kuralın bu örnekteki değeri. Disk kuralı bir bölüme bağlıysa o
+// bölümün doluluğu (bölüm bu örnekte yoksa değer yok), değilse en dolu bölüm.
+func (p point) value(metric, mount string) (float64, bool) {
+	if metric == MetricDisk && mount != "" {
+		v, ok := p.disks[mount]
+		return v, ok
+	}
 	switch metric {
 	case MetricCPU:
 		return p.cpu, true
@@ -99,14 +121,14 @@ func minCoverage(minutes int) int { return max(1, minutes*8/10) }
 
 // windowAvg son `minutes` dakikalık penceredeki (now dahil) örneklerin
 // ortalaması. Yeterli örnek yoksa ok=false.
-func windowAvg(h []point, metric string, minutes int, now int64) (float64, bool) {
+func windowAvg(h []point, metric, mount string, minutes int, now int64) (float64, bool) {
 	from := now - int64(minutes)*60
 	sum, n := 0.0, 0
 	for _, p := range h {
 		if p.t <= from || p.t > now {
 			continue
 		}
-		if v, ok := p.value(metric); ok {
+		if v, ok := p.value(metric, mount); ok {
 			sum += v
 			n++
 		}
@@ -142,11 +164,11 @@ func (s *Service) evaluate(ctx context.Context, p store.Probe, host *metrics.Hos
 		if !a.Active {
 			continue
 		}
-		v, ok := windowAvg(h, a.Metric, a.Minutes, t)
+		v, ok := windowAvg(h, a.Metric, a.Mount, a.Minutes, t)
 		switch {
 		case !ok:
 		case !a.Firing && v > a.Threshold:
-			s.fire(ctx, p, host, a, v, now, "")
+			s.fire(ctx, p, host, a, v, now, "", alertMount(h, a))
 		case a.Firing && v <= a.Threshold:
 			s.resolve(ctx, p, host, a, v, now)
 		}
@@ -193,7 +215,16 @@ func (s *Service) CheckOffline(ctx context.Context) {
 				}
 			}
 		} else if p.MetricsAt > 0 {
-			stale := now.Sub(time.Unix(p.MetricsAt, 0))
+			// Süre son örnekten, ana sunucunun açılışından veya ajanın yeniden
+			// açılmasından (hangisi yeniyse) sayılır.
+			since := time.Unix(p.MetricsAt, 0)
+			if s.startedAt.After(since) {
+				since = s.startedAt
+			}
+			if t := s.armed[p.ID]; t.After(since) {
+				since = t
+			}
+			stale := now.Sub(since)
 			for i := range rules {
 				a := &rules[i]
 				if a.Metric != MetricOffline || !a.Active || a.Firing {
@@ -203,7 +234,7 @@ func (s *Service) CheckOffline(ctx context.Context) {
 				if stale > limit {
 					a.ProbeID = p.ID
 					msg := "Son veri: " + time.Unix(p.MetricsAt, 0).Local().Format("02.01.2006 15:04:05")
-					s.fire(ctx, p, hostOf(p), a, float64(int(stale/time.Minute)), now, msg)
+					s.fire(ctx, p, hostOf(p), a, float64(int(stale/time.Minute)), now, msg, "")
 					changed = true
 				}
 			}
@@ -216,10 +247,22 @@ func (s *Service) CheckOffline(ctx context.Context) {
 	}
 }
 
-func (s *Service) event(kind string, p store.Probe, host *metrics.Host, a *store.ServerAlert, v float64, now time.Time) notify.Event {
+// alertMount disk uyarısının ilgili olduğu bölüm: kuraldaki bölüm, yoksa son
+// örnekteki en dolu bölüm.
+func alertMount(h []point, a *store.ServerAlert) string {
+	if a.Metric != MetricDisk {
+		return ""
+	}
+	if a.Mount != "" || len(h) == 0 {
+		return a.Mount
+	}
+	return h[len(h)-1].fullest
+}
+
+func (s *Service) event(kind string, p store.Probe, host *metrics.Host, a *store.ServerAlert, v float64, now time.Time, mount string) notify.Event {
 	ev := notify.Event{
 		Kind: kind, ProbeID: p.ID, MonitorName: p.Name, MonitorType: "server",
-		Metric: a.Metric, Value: v, Threshold: a.Threshold, Minutes: a.Minutes,
+		Metric: a.Metric, Mount: mount, Value: v, Threshold: a.Threshold, Minutes: a.Minutes,
 		Time: now, URL: s.URL(p.ID),
 	}
 	if host != nil {
@@ -229,8 +272,8 @@ func (s *Service) event(kind string, p store.Probe, host *metrics.Host, a *store
 }
 
 // fire kuralı tetikler; kural zaten tetiklenmişse (başka yoldan) bildirim gitmez.
-func (s *Service) fire(ctx context.Context, p store.Probe, host *metrics.Host, a *store.ServerAlert, v float64, now time.Time, msg string) {
-	ok, err := s.store.FireServerAlert(ctx, *a, v, now.Unix())
+func (s *Service) fire(ctx context.Context, p store.Probe, host *metrics.Host, a *store.ServerAlert, v float64, now time.Time, msg, mount string) {
+	ok, err := s.store.FireServerAlert(ctx, *a, v, mount, now.Unix())
 	if err != nil {
 		s.log.Error("sunucu uyarısı yazılamadı", "sunucu", p.Name, "metrik", a.Metric, "hata", err)
 		return
@@ -241,7 +284,7 @@ func (s *Service) fire(ctx context.Context, p store.Probe, host *metrics.Host, a
 	}
 	s.log.Warn("sunucu uyarısı", "sunucu", p.Name, "metrik", a.Metric, "deger", fmt.Sprintf("%.1f", v), "esik", a.Threshold)
 	if s.notifier != nil {
-		ev := s.event(notify.KindServerAlert, p, host, a, v, now)
+		ev := s.event(notify.KindServerAlert, p, host, a, v, now, mount)
 		ev.Message = msg
 		s.notifier.Notify(ev)
 	}
@@ -260,6 +303,6 @@ func (s *Service) resolve(ctx context.Context, p store.Probe, host *metrics.Host
 	}
 	s.log.Info("sunucu uyarısı bitti", "sunucu", p.Name, "metrik", a.Metric)
 	if s.notifier != nil {
-		s.notifier.Notify(s.event(notify.KindServerResolved, p, host, a, v, now))
+		s.notifier.Notify(s.event(notify.KindServerResolved, p, host, a, v, now, a.Mount))
 	}
 }

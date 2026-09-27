@@ -132,6 +132,7 @@ func (s *Server) serverStats(w http.ResponseWriter, r *http.Request) {
 type serverEventView struct {
 	ID        int64   `json:"id"`
 	Metric    string  `json:"metric"`
+	Mount     string  `json:"mount"`
 	Value     float64 `json:"value"`
 	Threshold float64 `json:"threshold"`
 	StartedAt int64   `json:"started_at"`
@@ -155,7 +156,7 @@ func (s *Server) serverEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]serverEventView, len(list))
 	for i, e := range list {
-		out[i] = serverEventView{ID: e.ID, Metric: e.Metric, Value: e.Value, Threshold: e.Threshold, StartedAt: e.StartedAt}
+		out[i] = serverEventView{ID: e.ID, Metric: e.Metric, Mount: e.Mount, Value: e.Value, Threshold: e.Threshold, StartedAt: e.StartedAt}
 		if e.EndedAt != 0 {
 			out[i].EndedAt = &e.EndedAt
 		}
@@ -165,15 +166,19 @@ func (s *Server) serverEvents(w http.ResponseWriter, r *http.Request) {
 
 type alertInput struct {
 	Metric    string  `json:"metric"`
+	Mount     string  `json:"mount"` // yalnızca disk: bölüm ("" = en dolu bölüm)
 	Threshold float64 `json:"threshold"`
 	Minutes   int     `json:"minutes"`
 	Active    *bool   `json:"active"`
 }
 
+// maxAlertRules bir sunucudaki en fazla kural (disk kuralları bölüm başına ayrıdır).
+const maxAlertRules = 40
+
 // validateAlerts kuralları doğrular ve kayıt biçimine çevirir.
 func validateAlerts(in []alertInput) ([]store.ServerAlert, error) {
-	if len(in) > len(servers.Metrics) {
-		return nil, fmt.Errorf("En fazla %d kural olabilir", len(servers.Metrics))
+	if len(in) > maxAlertRules {
+		return nil, fmt.Errorf("En fazla %d kural olabilir", maxAlertRules)
 	}
 	seen := map[string]bool{}
 	out := make([]store.ServerAlert, 0, len(in))
@@ -182,10 +187,21 @@ func validateAlerts(in []alertInput) ([]store.ServerAlert, error) {
 		if !servers.ValidMetric(a.Metric) {
 			return nil, errors.New("Metrik cpu, mem, swap, disk, load, temp veya offline olmalı")
 		}
-		if seen[a.Metric] {
-			return nil, fmt.Errorf("%s için birden fazla kural olamaz", a.Metric)
+		a.Mount = strings.TrimSpace(a.Mount)
+		switch {
+		case a.Metric != servers.MetricDisk:
+			a.Mount = "" // bölüm yalnızca disk kuralında anlamlı
+		case a.Mount != "" && (!strings.HasPrefix(a.Mount, "/") || len([]rune(a.Mount)) > metrics.MaxText):
+			return nil, errors.New("Disk bölümü / ile başlamalı, ör. /home")
 		}
-		seen[a.Metric] = true
+		if key := a.Metric + "\x00" + a.Mount; seen[key] {
+			if a.Mount != "" {
+				return nil, fmt.Errorf("%s bölümü için birden fazla disk kuralı olamaz", a.Mount)
+			}
+			return nil, fmt.Errorf("%s için birden fazla kural olamaz", a.Metric)
+		} else {
+			seen[key] = true
+		}
 		if a.Minutes < 1 || a.Minutes > 60 {
 			return nil, errors.New("Süre 1-60 dakika olmalı")
 		}
@@ -195,7 +211,7 @@ func validateAlerts(in []alertInput) ([]store.ServerAlert, error) {
 			return nil, fmt.Errorf("%s eşiği %s ile %s arasında olmalı", a.Metric,
 				strconv.FormatFloat(lo, 'f', -1, 64), strconv.FormatFloat(hi, 'f', -1, 64))
 		}
-		out = append(out, store.ServerAlert{Metric: a.Metric, Threshold: a.Threshold, Minutes: a.Minutes, Active: a.Active == nil || *a.Active})
+		out = append(out, store.ServerAlert{Metric: a.Metric, Mount: a.Mount, Threshold: a.Threshold, Minutes: a.Minutes, Active: a.Active == nil || *a.Active})
 	}
 	return out, nil
 }
@@ -208,6 +224,9 @@ func alertSummary(rules []store.ServerAlert) string {
 	parts := make([]string, len(rules))
 	for i, a := range rules {
 		p := a.Metric + " "
+		if a.Mount != "" {
+			p += a.Mount + " "
+		}
 		if a.Metric != servers.MetricOffline {
 			p += notify.FormatMetric(a.Metric, a.Threshold) + "/"
 		}
@@ -338,7 +357,7 @@ func (s *Server) probeMetrics(w http.ResponseWriter, r *http.Request) {
 // konteyneri ve doğrudan kurulum (systemd). İkisi de programı bu sunucudan
 // token ile indirir; aynı komut tekrar çalıştırılınca ajan güncellenir.
 func (s *Server) serverSetupCommands(server, token string) (dockerAgent, systemd string) {
-	const hostFlags = "--network host --pid host -v /:/host:ro -v /var/run/docker.sock:/var/run/docker.sock:ro " +
+	const hostFlags = "--network host --pid host -v /:/host:ro,rslave -v /var/run/docker.sock:/var/run/docker.sock:ro " +
 		"-e HOST_PROC=/host/proc -e HOST_SYS=/host/sys -e HOST_ETC=/host/etc -e HOST_ROOT=/host -e ADDR=- "
 	if s.ProbeImage != "" {
 		dockerAgent = fmt.Sprintf("docker run -d --name uptime-agent --restart unless-stopped %s-e PROBE_SERVER=%s -e PROBE_TOKEN=%s %s probe",
@@ -349,18 +368,21 @@ func (s *Server) serverSetupCommands(server, token string) (dockerAgent, systemd
 			hostFlags, server, token)
 	}
 	// root olarak çalıştırılır. curl yoksa wget kullanılır; ikili önce geçici
-	// dosyaya iner (çalışan ajanın dosyası yarım kalmasın). restart: komut
-	// güncelleme için tekrar çalıştırıldığında yeni sürüm başlasın.
+	// dosyaya iner (çalışan ajanın dosyası yarım kalmasın). Token, herkesin
+	// okuyabildiği birim dosyası yerine yalnızca root'un okuyabildiği ayrı bir
+	// dosyadadır. restart: komut güncelleme için tekrar çalıştırıldığında yeni
+	// sürüm başlasın.
 	unit := []string{
 		"[Unit]", "Description=Uptime agent", "After=network-online.target", "Wants=network-online.target", "",
-		"[Service]", "Environment=PROBE_SERVER=" + server, "Environment=PROBE_TOKEN=" + token, "Environment=ADDR=-",
+		"[Service]", "EnvironmentFile=/etc/uptime-agent.env",
 		"ExecStart=/usr/local/bin/uptime probe", "Restart=always", "RestartSec=10", "",
 		"[Install]", "WantedBy=multi-user.target",
 	}
 	systemd = fmt.Sprintf(`sh -c 'set -e; U="%s/api/probe/binary"; H="Authorization: Bearer %s"; F=/usr/local/bin/uptime; `+
 		`if command -v curl >/dev/null 2>&1; then curl -fsSL -H "$H" -o $F.new "$U"; else wget -qO $F.new --header "$H" "$U"; fi; `+
-		`chmod +x $F.new; mv -f $F.new $F; printf "%%s\n" "%s" > /etc/systemd/system/uptime-agent.service; `+
+		`chmod +x $F.new; mv -f $F.new $F; umask 077; printf "%%s\n" "PROBE_SERVER=%s" "PROBE_TOKEN=%s" "ADDR=-" > /etc/uptime-agent.env; `+
+		`chmod 600 /etc/uptime-agent.env; umask 022; printf "%%s\n" "%s" > /etc/systemd/system/uptime-agent.service; `+
 		`systemctl daemon-reload && systemctl enable uptime-agent && systemctl restart uptime-agent'`,
-		server, token, strings.Join(unit, `" "`))
+		server, token, server, token, strings.Join(unit, `" "`))
 	return dockerAgent, systemd
 }

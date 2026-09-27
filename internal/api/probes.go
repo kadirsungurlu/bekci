@@ -429,6 +429,9 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 	if metricsOn != old.Metrics {
 		changes = append(changes, map[bool]string{true: "metrik toplama açıldı", false: "metrik toplama kapatıldı"}[metricsOn])
 	}
+	if (active && !old.Active) || (metricsOn && !old.Metrics) {
+		s.servers.Arm(id)
+	}
 	if len(changes) > 0 {
 		s.servers.Publish(r.Context(), id)
 	}

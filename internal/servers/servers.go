@@ -55,8 +55,10 @@ type Service struct {
 	now      func() time.Time
 	baseURL  string
 
-	evalMu sync.Mutex
-	states map[int64]string // çevrimdışı taramasının son gördüğü durum (değişimde yayın)
+	evalMu    sync.Mutex
+	states    map[int64]string    // çevrimdışı taramasının son gördüğü durum (değişimde yayın)
+	armed     map[int64]time.Time // metriği/ajanı yeniden açılan sunucular (çevrimdışı sayacı buradan başlar)
+	startedAt time.Time           // Start zamanı: ana sunucu kapalıyken geçen süre ajanın suçu değil
 
 	mu      sync.RWMutex
 	latest  map[int64]*sample  // son örnek; anahtar var ama nil: veritabanında da yok
@@ -77,6 +79,7 @@ func New(st *store.Store, hub Publisher, n Notifier, log *slog.Logger) *Service 
 	return &Service{
 		store: st, hub: hub, notifier: n, log: log, now: time.Now,
 		states:  map[int64]string{},
+		armed:   map[int64]time.Time{},
 		latest:  map[int64]*sample{},
 		history: map[int64][]point{},
 		lastRow: map[int64]int64{},
@@ -100,6 +103,9 @@ func (s *Service) URL(id int64) string {
 
 // Start çevrimdışı taramasını başlatır; ctx iptal edilince durur (bkz. Wait).
 func (s *Service) Start(ctx context.Context) {
+	s.evalMu.Lock()
+	s.startedAt = s.now()
+	s.evalMu.Unlock()
 	s.bg.Add(1)
 	go func() {
 		defer s.bg.Done()
@@ -129,14 +135,25 @@ func IntervalFor(p store.Probe) int {
 
 // Forget silinen ajanın bellekteki verisini atar.
 func (s *Service) Forget(id int64) {
+	// Önce evalMu: o sırada işlenen bir örnek silinen ajanı haritalara geri eklemesin.
+	s.evalMu.Lock()
+	defer s.evalMu.Unlock()
 	s.mu.Lock()
 	delete(s.latest, id)
 	delete(s.history, id)
 	delete(s.lastRow, id)
 	delete(s.loaded, id)
 	s.mu.Unlock()
-	s.evalMu.Lock()
 	delete(s.states, id)
+	delete(s.armed, id)
+}
+
+// Arm ajan veya metrik toplama yeniden açıldığında çağrılır: çevrimdışı süresi
+// eski son örnekten değil şimdiden sayılır (ajan yeni aralığı öğrenip örnek
+// gönderene kadar yanlış uyarı gitmesin).
+func (s *Service) Arm(id int64) {
+	s.evalMu.Lock()
+	s.armed[id] = s.now()
 	s.evalMu.Unlock()
 }
 

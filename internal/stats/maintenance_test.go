@@ -127,9 +127,9 @@ func TestServerStatsRetention(t *testing.T) {
 	st.ReplaceServerAlerts(ctx, p.ID, []store.ServerAlert{{Metric: "cpu", Threshold: 90, Minutes: 10, Active: true}}, 0)
 	rules, _ := st.ServerAlerts(ctx, p.ID)
 	rules[0].ProbeID = p.ID
-	st.FireServerAlert(ctx, rules[0], 95, ago(100*24*time.Hour))
+	st.FireServerAlert(ctx, rules[0], 95, "", ago(100*24*time.Hour))
 	st.ResolveServerAlert(ctx, rules[0].ID, ago(99*24*time.Hour))
-	st.FireServerAlert(ctx, rules[0], 95, ago(24*time.Hour))
+	st.FireServerAlert(ctx, rules[0], 95, "", ago(24*time.Hour))
 
 	mt := NewMaintenance(st, slog.New(slog.NewTextHandler(io.Discard, nil)), t.TempDir(), time.UTC)
 	mt.now = func() time.Time { return now }

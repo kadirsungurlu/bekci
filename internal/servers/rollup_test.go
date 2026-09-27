@@ -90,19 +90,19 @@ func TestWindowAvg(t *testing.T) {
 		h = append(h, point{t: int64(i * 60), cpu: float64(i * 10)})
 	}
 	// Son 3 dakika: 420, 480, 540 → 70, 80, 90.
-	if v, ok := windowAvg(h, MetricCPU, 3, 540); !ok || v != 80 {
+	if v, ok := windowAvg(h, MetricCPU, "", 3, 540); !ok || v != 80 {
 		t.Fatal(v, ok)
 	}
 	// 10 dk pencerede 10 örnek var: yeterli (en az 8).
-	if v, ok := windowAvg(h, MetricCPU, 10, 540); !ok || v != 45 {
+	if v, ok := windowAvg(h, MetricCPU, "", 10, 540); !ok || v != 45 {
 		t.Fatal(v, ok)
 	}
 	// 20 dk pencerede en az 16 örnek gerekir.
-	if _, ok := windowAvg(h, MetricCPU, 20, 540); ok {
+	if _, ok := windowAvg(h, MetricCPU, "", 20, 540); ok {
 		t.Fatal("yetersiz örnekle değerlendirme yapılmamalı")
 	}
 	// Sıcaklık sensörü yoksa değerlendirilmez.
-	if _, ok := windowAvg(h, MetricTemp, 1, 540); ok {
+	if _, ok := windowAvg(h, MetricTemp, "", 1, 540); ok {
 		t.Fatal("sensörsüz sıcaklık")
 	}
 	if minCoverage(1) != 1 || minCoverage(3) != 2 || minCoverage(10) != 8 || minCoverage(60) != 48 {

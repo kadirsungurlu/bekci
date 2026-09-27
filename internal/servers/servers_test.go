@@ -335,7 +335,7 @@ func TestAlerts(t *testing.T) {
 	if len(evs) != 1 || evs[0].Metric != "disk" || evs[0].Value != 90 {
 		t.Fatalf("disk: %+v", evs)
 	}
-	if evs[0].Title() != "🔴 CP Server İstanbul: Disk %90 (1 dk ortalama, eşik %85)" {
+	if evs[0].Title() != "🔴 CP Server İstanbul: Disk (/) %90 (1 dk ortalama, eşik %85)" {
 		t.Fatalf("disk başlığı: %s", evs[0].Title())
 	}
 	e.send(cpu(10))
@@ -408,5 +408,101 @@ func TestOfflineNeverSent(t *testing.T) {
 	e.svc.CheckOffline(ctx)
 	if evs := e.notif.take(); len(evs) != 1 || evs[0].Minutes != 10 {
 		t.Fatalf("10 dk sonra: %+v", evs)
+	}
+}
+
+// cPanel tipi düzen: /boot hep dolu, /home ayrı bölüm. Bölüme bağlı kural
+// yalnızca kendi bölümüne bakar; bölümsüz kural en dolu bölümü bildirir.
+func TestDiskRulePerMount(t *testing.T) {
+	e := newTestEnv(t)
+	ctx := context.Background()
+	disks := func(home uint64) metrics.Stats {
+		st := cpu(10)
+		st.Disks = []metrics.Disk{
+			{Mount: "/", Total: 100, Used: 40},
+			{Mount: "/boot", Total: 100, Used: 95},
+			{Mount: "/home", Total: 100, Used: home},
+		}
+		return st
+	}
+	e.send(disks(50)) // ilk örnek varsayılan kuralları ekler
+	e.notif.take()
+	if _, err := e.st.ReplaceServerAlerts(ctx, e.probe.ID, []store.ServerAlert{
+		{Metric: MetricDisk, Mount: "/home", Threshold: 85, Minutes: 1, Active: true},
+	}, e.clock.Unix()); err != nil {
+		t.Fatal(err)
+	}
+	e.send(disks(50))
+	if evs := e.notif.take(); len(evs) != 0 {
+		t.Fatalf("/boot dolu diye /home kuralı tetiklenmemeli: %+v", evs)
+	}
+	e.send(disks(91))
+	evs := e.notif.take()
+	if len(evs) != 1 || evs[0].Mount != "/home" || evs[0].Value != 91 {
+		t.Fatalf("/home uyarısı: %+v", evs)
+	}
+	if got := evs[0].Title(); got != "🔴 CP Server İstanbul: Disk (/home) %91 (1 dk ortalama, eşik %85)" {
+		t.Fatalf("başlık: %s", got)
+	}
+	e.send(disks(60))
+	if evs := e.notif.take(); len(evs) != 1 || evs[0].Kind != notify.KindServerResolved || evs[0].Mount != "/home" {
+		t.Fatalf("/home bitişi: %+v", evs)
+	}
+
+	// Bölümsüz kural: en dolu bölüm (/boot) bildirilir ve geçmişe yazılır.
+	if _, err := e.st.ReplaceServerAlerts(ctx, e.probe.ID, []store.ServerAlert{
+		{Metric: MetricDisk, Threshold: 90, Minutes: 1, Active: true},
+	}, e.clock.Unix()); err != nil {
+		t.Fatal(err)
+	}
+	e.send(disks(60))
+	evs = e.notif.take()
+	if len(evs) != 1 || evs[0].Mount != "/boot" {
+		t.Fatalf("en dolu bölüm: %+v", evs)
+	}
+	events, _ := e.st.ServerAlertEvents(ctx, e.probe.ID, 0, 10)
+	if len(events) == 0 || events[0].Mount != "/boot" {
+		t.Fatalf("geçmişte bölüm: %+v", events)
+	}
+}
+
+// Ana sunucu uzun süre kapalı kaldıysa (deploy, yeniden başlatma) veya metrik
+// toplama yeniden açıldıysa ajanın ilk örneğini beklemeden çevrimdışı uyarısı gitmez.
+func TestOfflineGraceAfterStartAndArm(t *testing.T) {
+	e := newTestEnv(t)
+	ctx := context.Background()
+	e.send(cpu(1)) // varsayılan kurallar: çevrimdışı 3 dk
+	e.notif.take()
+
+	// Ana sunucu 20 dk kapalı kaldı, sonra açıldı.
+	e.clock = e.clock.Add(20 * time.Minute)
+	e.restart()
+	sctx, cancel := context.WithCancel(ctx)
+	e.svc.Start(sctx)
+	cancel()
+	e.svc.Wait()
+	e.clock = e.clock.Add(time.Minute)
+	e.svc.CheckOffline(ctx)
+	if evs := e.notif.take(); len(evs) != 0 {
+		t.Fatalf("açılıştan hemen sonra uyarı: %+v", evs)
+	}
+	// Açılıştan sonra da veri gelmezse uyarı gider.
+	e.clock = e.clock.Add(OfflineAfter)
+	e.svc.CheckOffline(ctx)
+	if evs := e.notif.take(); len(evs) != 1 || evs[0].Metric != MetricOffline {
+		t.Fatalf("açılıştan sonra veri gelmeyince: %+v", evs)
+	}
+	e.send(cpu(1))
+	e.notif.take()
+
+	// Metrik toplama kapatılıp çok sonra açıldı.
+	e.st.SetProbeMetrics(ctx, e.probe.ID, false)
+	e.clock = e.clock.Add(time.Hour)
+	e.st.SetProbeMetrics(ctx, e.probe.ID, true)
+	e.svc.Arm(e.probe.ID)
+	e.clock = e.clock.Add(time.Minute)
+	e.svc.CheckOffline(ctx)
+	if evs := e.notif.take(); len(evs) != 0 {
+		t.Fatalf("yeniden açıldıktan hemen sonra uyarı: %+v", evs)
 	}
 }

@@ -46,7 +46,8 @@ CREATE TABLE server_alerts (
 	active    INTEGER NOT NULL DEFAULT 1,
 	firing    INTEGER NOT NULL DEFAULT 0,
 	fired_at  INTEGER,
-	UNIQUE (probe_id, metric)
+	mount     TEXT    NOT NULL DEFAULT '',
+	UNIQUE (probe_id, metric, mount)
 );
 
 CREATE TABLE server_alert_events (
@@ -57,7 +58,8 @@ CREATE TABLE server_alert_events (
 	value      DOUBLE PRECISION NOT NULL DEFAULT 0,
 	threshold  DOUBLE PRECISION NOT NULL DEFAULT 0,
 	started_at INTEGER NOT NULL,
-	ended_at   INTEGER
+	ended_at   INTEGER,
+	mount      TEXT    NOT NULL DEFAULT ''
 );
 CREATE INDEX server_alert_events_probe ON server_alert_events(probe_id, started_at);
 CREATE INDEX server_alert_events_started ON server_alert_events(started_at);
@@ -208,17 +210,18 @@ type ServerAlert struct {
 	Metric    string  `json:"metric"`
 	Threshold float64 `json:"threshold"`
 	Minutes   int     `json:"minutes"`
+	Mount     string  `json:"mount"` // disk: bölüm ("" = herhangi bir bölüm, en dolusu)
 	Active    bool    `json:"active"`
 	Firing    bool    `json:"firing"`
 	FiredAt   int64   `json:"fired_at"`
 }
 
-const serverAlertCols = "id, probe_id, metric, threshold, minutes, active, firing, fired_at"
+const serverAlertCols = "id, probe_id, metric, threshold, minutes, active, firing, fired_at, mount"
 
 func scanServerAlert(sc scanner) (ServerAlert, error) {
 	var a ServerAlert
 	var fired sql.NullInt64
-	err := sc.Scan(&a.ID, &a.ProbeID, &a.Metric, &a.Threshold, &a.Minutes, &a.Active, &a.Firing, &fired)
+	err := sc.Scan(&a.ID, &a.ProbeID, &a.Metric, &a.Threshold, &a.Minutes, &a.Active, &a.Firing, &fired, &a.Mount)
 	a.FiredAt = fired.Int64
 	return a, err
 }
@@ -272,13 +275,16 @@ func (s *Store) ReplaceServerAlerts(ctx context.Context, probeID int64, rules []
 		if err != nil {
 			return err
 		}
-		byMetric := map[string]ServerAlert{}
+		// Kural metrik + bölümle tanınır: aynı kural güncellenince tetiklenme
+		// durumu korunur.
+		key := func(a ServerAlert) string { return a.Metric + "\x00" + a.Mount }
+		byKey := map[string]ServerAlert{}
 		for _, a := range old {
-			byMetric[a.Metric] = a
+			byKey[key(a)] = a
 		}
 		keep := map[int64]bool{}
 		for _, r := range rules {
-			if a, ok := byMetric[r.Metric]; ok {
+			if a, ok := byKey[key(r)]; ok {
 				keep[a.ID] = true
 				if a.Firing && !r.Active {
 					if err := resolveAlertTx(ctx, tx, a.ID, now); err != nil {
@@ -293,8 +299,8 @@ func (s *Store) ReplaceServerAlerts(ctx context.Context, probeID int64, rules []
 				continue
 			}
 			if _, err := insertID(ctx, tx, `
-				INSERT INTO server_alerts (probe_id, metric, threshold, minutes, active, firing)
-				VALUES (?, ?, ?, ?, ?, 0)`, probeID, r.Metric, r.Threshold, r.Minutes, boolInt(r.Active)); err != nil {
+				INSERT INTO server_alerts (probe_id, metric, mount, threshold, minutes, active, firing)
+				VALUES (?, ?, ?, ?, ?, ?, 0)`, probeID, r.Metric, r.Mount, r.Threshold, r.Minutes, boolInt(r.Active)); err != nil {
 				return err
 			}
 		}
@@ -319,7 +325,7 @@ func (s *Store) ReplaceServerAlerts(ctx context.Context, probeID int64, rules []
 
 // FireServerAlert kuralı tetiklenmiş olarak işaretler ve geçmişe yeni kayıt
 // açar. Kural zaten tetiklenmişse (veya yoksa) hiçbir şey yapmaz, false döner.
-func (s *Store) FireServerAlert(ctx context.Context, a ServerAlert, value float64, now int64) (bool, error) {
+func (s *Store) FireServerAlert(ctx context.Context, a ServerAlert, value float64, mount string, now int64) (bool, error) {
 	fired := false
 	err := s.tx(ctx, func(tx *Tx) error {
 		res, err := tx.ExecContext(ctx,
@@ -332,8 +338,8 @@ func (s *Store) FireServerAlert(ctx context.Context, a ServerAlert, value float6
 		}
 		fired = true
 		_, err = insertID(ctx, tx, `
-			INSERT INTO server_alert_events (probe_id, alert_id, metric, value, threshold, started_at)
-			VALUES (?, ?, ?, ?, ?, ?)`, a.ProbeID, a.ID, a.Metric, value, a.Threshold, now)
+			INSERT INTO server_alert_events (probe_id, alert_id, metric, mount, value, threshold, started_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`, a.ProbeID, a.ID, a.Metric, mount, value, a.Threshold, now)
 		return err
 	})
 	return fired, err
@@ -374,6 +380,7 @@ type ServerAlertEvent struct {
 	ProbeID   int64   `json:"-"`
 	AlertID   int64   `json:"-"`
 	Metric    string  `json:"metric"`
+	Mount     string  `json:"mount"` // disk uyarısında dolan bölüm
 	Value     float64 `json:"value"`
 	Threshold float64 `json:"threshold"`
 	StartedAt int64   `json:"started_at"`
@@ -383,7 +390,7 @@ type ServerAlertEvent struct {
 // ServerAlertEvents ajanın since sonrası başlayan uyarıları, yeniden eskiye.
 func (s *Store) ServerAlertEvents(ctx context.Context, probeID, since int64, limit int) ([]ServerAlertEvent, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, probe_id, alert_id, metric, value, threshold, started_at, ended_at
+		SELECT id, probe_id, alert_id, metric, mount, value, threshold, started_at, ended_at
 		FROM server_alert_events WHERE probe_id = ? AND started_at >= ?
 		ORDER BY started_at DESC, id DESC LIMIT ?`, probeID, since, limit)
 	if err != nil {
@@ -394,7 +401,7 @@ func (s *Store) ServerAlertEvents(ctx context.Context, probeID, since int64, lim
 	for rows.Next() {
 		var e ServerAlertEvent
 		var alertID, ended sql.NullInt64
-		if err := rows.Scan(&e.ID, &e.ProbeID, &alertID, &e.Metric, &e.Value, &e.Threshold, &e.StartedAt, &ended); err != nil {
+		if err := rows.Scan(&e.ID, &e.ProbeID, &alertID, &e.Metric, &e.Mount, &e.Value, &e.Threshold, &e.StartedAt, &ended); err != nil {
 			return nil, err
 		}
 		e.AlertID, e.EndedAt = alertID.Int64, ended.Int64

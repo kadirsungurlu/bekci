@@ -7,6 +7,8 @@
   import {
     STATE_LABELS,
     diskPct,
+    diskSummary,
+    fullestMount,
     inactiveReason,
     isInactive,
     memPct,
@@ -137,7 +139,11 @@
           {#if st}
             <div class="m cpu"><span class="ml">CPU</span><UsageBar value={st.cpu} inline /></div>
             <div class="m mem"><span class="ml">RAM</span><UsageBar value={memPct(st)} inline /></div>
-            <div class="m disk"><span class="ml">Disk</span><UsageBar value={diskPct(st)} inline /></div>
+            {@const fm = fullestMount(st)}
+            <div class="m disk" title={diskSummary(st) || undefined}>
+              <span class="ml">Disk</span><UsageBar value={diskPct(st)} inline />
+              {#if fm}<span class="dm">{fm}</span>{/if}
+            </div>
             <div class="net">
               <span title="Gelen"><Icon name="arrow-down" size={12} />{fmtRate(st.net_rx_bps)}</span>
               <span title="Giden"><Icon name="arrow-up" size={12} />{fmtRate(st.net_tx_bps)}</span>
@@ -353,6 +359,17 @@
   }
   .disk {
     grid-area: disk;
+    min-width: 0;
+  }
+  .dm {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .ml {
     display: none;

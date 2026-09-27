@@ -27,7 +27,7 @@ export const METRICS: Record<ServerMetric, MetricInfo> = {
   cpu: { label: 'CPU', unit: 'pct', desc: 'Tüm çekirdeklerin ortalama kullanımı', threshold: 90, minutes: 10, min: 1, max: 100, step: 1 },
   mem: { label: 'RAM', unit: 'pct', desc: 'Önbellek hariç kullanılan bellek', threshold: 90, minutes: 10, min: 1, max: 100, step: 1 },
   swap: { label: 'Swap', unit: 'pct', desc: 'Takas alanı kullanımı', threshold: 50, minutes: 10, min: 1, max: 100, step: 1 },
-  disk: { label: 'Disk', unit: 'pct', desc: 'En dolu disk bölümü', threshold: 85, minutes: 5, min: 1, max: 100, step: 1 },
+  disk: { label: 'Disk', unit: 'pct', desc: 'Seçilen bölümün ya da en dolu bölümün doluluğu', threshold: 85, minutes: 5, min: 1, max: 100, step: 1 },
   load: { label: 'Yük', unit: 'load', desc: '1 dakikalık yük ÷ çekirdek sayısı', threshold: 1.5, minutes: 10, min: 0.1, max: 100, step: 0.1 },
   temp: { label: 'Sıcaklık', unit: 'temp', desc: 'En sıcak sensör', threshold: 80, minutes: 5, min: 1, max: 150, step: 1 },
   offline: { label: 'Çevrimdışı', unit: 'none', desc: 'Ajandan bu süre boyunca veri gelmezse', threshold: 0, minutes: 3, min: 0, max: 0, step: 1 },
@@ -121,6 +121,17 @@ export const swapPct = (s: ServerStats) => pct(s.swap_used, s.swap_total);
 export function diskPct(s: ServerStats): number | null {
   if (!s.disks?.length) return null;
   return Math.max(...s.disks.map((d) => pct(d.used, d.total)));
+}
+
+/** Birden fazla bölüm varsa en dolu bölümün adı (tek bölümde boş). */
+export function fullestMount(s: ServerStats): string {
+  if (!s.disks || s.disks.length < 2) return '';
+  return s.disks.reduce((a, b) => (pct(b.used, b.total) > pct(a.used, a.total) ? b : a)).mount;
+}
+
+/** Tüm bölümlerin kısa dökümü: "/ %60 · /home %82". */
+export function diskSummary(s: ServerStats): string {
+  return (s.disks ?? []).map((d) => `${d.mount} %${Math.round(pct(d.used, d.total))}`).join(' · ');
 }
 
 /** Doluluk seviyesi: ≥90 kritik, ≥80 uyarı. */

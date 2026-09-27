@@ -624,6 +624,8 @@ export interface ServerView {
 export interface AlertRule {
   id: number;
   metric: ServerMetric;
+  /** Disk: bölüm ("" = en dolu bölüm); diğer metriklerde boş. */
+  mount?: string;
   threshold: number;
   minutes: number;
   active: boolean;
@@ -631,7 +633,7 @@ export interface AlertRule {
   fired_at: number;
 }
 
-export type AlertRuleInput = Pick<AlertRule, 'metric' | 'threshold' | 'minutes' | 'active'>;
+export type AlertRuleInput = Pick<AlertRule, 'metric' | 'mount' | 'threshold' | 'minutes' | 'active'>;
 
 export interface ServerDetail extends ServerView {
   alerts: AlertRule[] | null;
@@ -657,6 +659,8 @@ export interface StatsPoint {
   net_rx_bps: number;
   net_tx_bps: number;
   disk_pct: number;
+  /** Bölüm başına doluluk (%). */
+  disks?: { mount: string; pct: number }[];
   temp?: number | null;
   containers?: { name: string; cpu: number; mem: number }[] | null;
 }
@@ -675,6 +679,8 @@ export interface StatsSeries {
 export interface ServerEvent {
   id: number;
   metric: ServerMetric;
+  /** Disk uyarısında dolan bölüm. */
+  mount?: string;
   value: number;
   threshold: number;
   started_at: number;

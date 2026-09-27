@@ -218,6 +218,23 @@
     }));
   });
 
+  // Disk doluluğu: birden fazla bölüm varsa (ör. / ve /home) her biri ayrı
+  // çizgi; en dolu 5 bölüm gösterilir. Eski kayıtlarda yalnızca en dolu bölüm var.
+  const diskSeries = $derived.by<ChartSeries[]>(() => {
+    const peak = new Map<string, number>();
+    for (const p of pts) for (const d of p.disks ?? []) peak.set(d.mount, Math.max(peak.get(d.mount) ?? 0, d.pct));
+    if (peak.size <= 1) return [{ label: 'Doluluk', color: 'var(--chart-3)', values: col('disk_pct'), fill: true }];
+    const colors = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)'];
+    return [...peak.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([mount], i) => ({
+        label: mount,
+        color: colors[i],
+        values: pts.map((p) => (p.disks ? (p.disks.find((d) => d.mount === mount)?.pct ?? null) : null)),
+      }));
+  });
+
   // Anlık değerler ------------------------------------------------------------------------
 
   const threads = $derived(host?.threads || host?.cores || 0);
@@ -340,7 +357,7 @@
       <span>
         {#each firingRules as r, i (r.id)}
           {#if i > 0}<br />{/if}
-          <b>{metricLabel(r.metric)}</b>
+          <b>{metricLabel(r.metric)}{r.mount ? ` (${r.mount})` : ''}</b>
           {#if r.metric === 'offline'}
             uyarısı sürüyor
           {:else}
@@ -506,14 +523,14 @@
         />
       </section>
       <section class="card ch">
-        <div class="ch-h"><h3>Disk doluluğu</h3><span class="ch-u">en dolu bölüm</span></div>
+        <div class="ch-h"><h3>Disk doluluğu</h3><span class="ch-u">{diskSeries.length > 1 ? 'bölüm başına' : 'en dolu bölüm'}</span></div>
         <LineChart
           label="Disk doluluğu"
           {times}
           from={chartFrom}
           to={chartTo}
           interval={chartInterval}
-          series={[{ label: 'Doluluk', color: 'var(--chart-3)', values: col('disk_pct'), fill: true }]}
+          series={diskSeries}
           max={100}
           format={pctFmt}
           axisFormat={fmtPctInt}
@@ -596,7 +613,13 @@
     <section class="card block">
       <h2 class="card-title">Uyarı kuralları<span class="dot">.</span></h2>
       {#if detail}
-        <AlertRulesEditor serverId={id} rules={detail.alerts ?? []} canEdit={session.canEdit} onsaved={onAlertsSaved} />
+        <AlertRulesEditor
+          serverId={id}
+          rules={detail.alerts ?? []}
+          canEdit={session.canEdit}
+          mounts={(detail.latest?.disks ?? []).map((d) => d.mount)}
+          onsaved={onAlertsSaved}
+        />
       {:else}
         <div class="skeleton" style="height:120px"></div>
       {/if}
@@ -644,7 +667,7 @@
           <li class:open={!ev.ended_at}>
             <span class="edot" aria-hidden="true"></span>
             <span class="e1">
-              <b>{metricLabel(ev.metric)}</b>
+              <b>{metricLabel(ev.metric)}{ev.mount ? ` (${ev.mount})` : ''}</b>
               {#if ev.metric === 'offline'}
                 <span class="text-2">veri gelmedi</span>
               {:else}

@@ -272,7 +272,7 @@ Docker (varsayılan, arayüzde gösterilir):
 
     docker run -d --name uptime-agent --restart unless-stopped \
       --network host --pid host \
-      -v /:/host:ro -v /var/run/docker.sock:/var/run/docker.sock:ro \
+      -v /:/host:ro,rslave -v /var/run/docker.sock:/var/run/docker.sock:ro \
       -e HOST_PROC=/host/proc -e HOST_SYS=/host/sys -e HOST_ETC=/host/etc -e HOST_ROOT=/host \
       -e ADDR=- -e PROBE_SERVER=https://uptime.kadir.app -e PROBE_TOKEN=upr_… \
       alpine:3 sh -c 'wget -qO /usr/local/bin/uptime --header "Authorization: Bearer $PROBE_TOKEN" "$PROBE_SERVER/api/probe/binary" && chmod +x /usr/local/bin/uptime && exec uptime probe'

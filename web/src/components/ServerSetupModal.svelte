@@ -158,7 +158,7 @@
           <summary>Bu komut ne yapar?</summary>
           <ul>
             <li><code>--network host</code>, <code>--pid host</code>: ağ trafiği ve yük konteynerin değil, sunucunun kendisinden ölçülür.</li>
-            <li><code>-v /:/host:ro</code>: sunucunun diskleri ve <code>/proc</code>, <code>/sys</code> bilgileri <b>salt okunur</b> bağlanır; hiçbir şey yazılmaz.</li>
+            <li><code>-v /:/host:ro,rslave</code>: sunucunun diskleri ve <code>/proc</code>, <code>/sys</code> bilgileri <b>salt okunur</b> bağlanır; hiçbir şey yazılmaz. Sonradan takılan diskler de görünür.</li>
             <li><code>docker.sock:ro</code>: konteyner listesi ve CPU/RAM kullanımları Docker’dan okunur. Docker yoksa bu kısmı silebilirsiniz.</li>
             <li><code>PROBE_TOKEN</code>: bu sunucuya özel anahtar; kimseyle paylaşmayın.</li>
             <li>Program açılışta bu panelden indirilir; her yeniden başlatmada en güncel sürüm gelir.</li>

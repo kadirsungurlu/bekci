@@ -12,17 +12,20 @@
     serverId,
     rules,
     canEdit,
+    mounts = [],
     onsaved,
   }: {
     serverId: number;
     rules: AlertRule[];
     canEdit: boolean;
+    mounts?: string[]; // sunucudaki disk bölümleri (disk kuralının bölüm seçimi için)
     onsaved: (rules: AlertRule[]) => void;
   } = $props();
 
   interface Row {
     key: number;
     metric: ServerMetric;
+    mount: string; // disk: bölüm ("" = en dolu bölüm)
     threshold: number;
     minutes: number;
     active: boolean;
@@ -30,9 +33,21 @@
 
   let seq = 0;
   const toRows = (list: AlertRule[]): Row[] =>
-    sortRules(list).map((r) => ({ key: ++seq, metric: r.metric, threshold: r.threshold, minutes: r.minutes, active: r.active }));
-  const sortRules = <T extends { metric: ServerMetric }>(list: T[]) =>
-    list.slice().sort((a, b) => METRIC_ORDER.indexOf(a.metric) - METRIC_ORDER.indexOf(b.metric));
+    sortRules(list).map((r) => ({
+      key: ++seq,
+      metric: r.metric,
+      mount: r.mount ?? '',
+      threshold: r.threshold,
+      minutes: r.minutes,
+      active: r.active,
+    }));
+  const sortRules = <T extends { metric: ServerMetric; mount?: string }>(list: T[]) =>
+    list
+      .slice()
+      .sort((a, b) => METRIC_ORDER.indexOf(a.metric) - METRIC_ORDER.indexOf(b.metric) || (a.mount ?? '').localeCompare(b.mount ?? ''));
+  // Kural metrik + bölümle tanınır (disk bölüm başına ayrı kural olabilir).
+  const ruleKey = (r: { metric: ServerMetric; mount?: string }) => `${r.metric}\u0000${r.mount ?? ''}`;
+  const mountLabel = (m: string) => m || 'En dolu bölüm';
 
   let rows = $state<Row[]>([]);
   let saving = $state(false);
@@ -42,7 +57,7 @@
   // kullanıcı düzenlerken gelen yenileme onun değişikliklerini ezmez.
   let lastSig = '';
   $effect(() => {
-    const sig = JSON.stringify(sortRules(rules).map((r) => [r.metric, r.threshold, r.minutes, r.active]));
+    const sig = JSON.stringify(sortRules(rules).map((r) => [r.metric, r.mount ?? '', r.threshold, r.minutes, r.active]));
     untrack(() => {
       if (sig !== lastSig && !dirtyNow()) {
         rows = toRows(rules);
@@ -52,22 +67,26 @@
     lastSig = sig;
   });
 
-  const origSig = $derived(JSON.stringify(sortRules(rules).map((r) => [r.metric, +r.threshold, +r.minutes, r.active])));
-  const curSig = $derived(JSON.stringify(sortRules(rows).map((r) => [r.metric, +r.threshold, +r.minutes, r.active])));
+  const origSig = $derived(JSON.stringify(sortRules(rules).map((r) => [r.metric, r.mount ?? '', +r.threshold, +r.minutes, r.active])));
+  const curSig = $derived(JSON.stringify(sortRules(rows).map((r) => [r.metric, r.mount, +r.threshold, +r.minutes, r.active])));
   const dirty = $derived(curSig !== origSig);
   function dirtyNow() {
     return rows.length > 0 && curSig !== origSig;
   }
 
-  const byMetric = $derived(new Map(rules.map((r) => [r.metric, r])));
-  const used = $derived(new Set(rows.map((r) => r.metric)));
-  const free = $derived(METRIC_ORDER.filter((m) => !used.has(m)));
+  const byKey = $derived(new Map(rules.map((r) => [ruleKey(r), r])));
+  const used = $derived(new Set(rows.map(ruleKey)));
+  // Disk kuralında seçilebilecek bölümler: "en dolu bölüm", sunucudaki
+  // bölümler ve şu an görünmeyen ama kuralı olan bölümler.
+  const mountOptions = $derived(['', ...new Set([...mounts, ...rows.filter((r) => r.metric === 'disk').map((r) => r.mount)].filter(Boolean))]);
+  const freeMount = $derived(mountOptions.find((m) => !used.has(ruleKey({ metric: 'disk', mount: m }))));
+  const free = $derived(METRIC_ORDER.filter((m) => (m === 'disk' ? freeMount !== undefined : !used.has(ruleKey({ metric: m, mount: '' })))));
 
   function add() {
     const m = free[0];
     if (!m) return;
     const info = METRICS[m];
-    rows = [...rows, { key: ++seq, metric: m, threshold: info.threshold, minutes: info.minutes, active: true }];
+    rows = [...rows, { key: ++seq, metric: m, mount: m === 'disk' ? (freeMount ?? '') : '', threshold: info.threshold, minutes: info.minutes, active: true }];
   }
 
   function remove(key: number) {
@@ -79,6 +98,7 @@
     // Birim değişiyorsa (ör. % → °C) önerilen eşiğe geç.
     if (METRICS[r.metric].unit !== info.unit) r.threshold = info.threshold;
     r.metric = m;
+    r.mount = m === 'disk' ? (freeMount ?? '') : '';
     if (m === 'offline') r.threshold = 0;
   }
 
@@ -86,6 +106,9 @@
     const info = METRICS[r.metric];
     const min = Number(r.minutes);
     if (!Number.isInteger(min) || min < 1 || min > 60) return 'Süre 1-60 dakika olmalı';
+    if (rows.some((o) => o !== r && ruleKey(o) === ruleKey(r))) {
+      return r.metric === 'disk' ? `${mountLabel(r.mount)} için zaten bir disk kuralı var` : 'Bu metrik için zaten bir kural var';
+    }
     if (r.metric === 'offline') return '';
     const t = Number(r.threshold);
     if (!Number.isFinite(t) || t < info.min || t > info.max) {
@@ -109,6 +132,7 @@
     try {
       const body: AlertRuleInput[] = rows.map((r) => ({
         metric: r.metric,
+        mount: r.metric === 'disk' ? r.mount : '',
         threshold: r.metric === 'offline' ? 0 : Number(r.threshold),
         minutes: Number(r.minutes),
         active: r.active,
@@ -145,7 +169,7 @@
     <ul class="ro">
       {#each sortRules(rules) as r (r.id)}
         <li class:firing={r.firing} class:off={!r.active}>
-          <span class="rm">{metricLabel(r.metric)}</span>
+          <span class="rm">{metricLabel(r.metric)}{#if r.metric === 'disk'}<span class="mnt">{mountLabel(r.mount ?? '')}</span>{/if}</span>
           <span class="rs">{sentence(r)}</span>
           {#if r.firing}
             <span class="badge pending">Tetiklendi{r.fired_at ? ` · ${fmtRelative(r.fired_at, clock.now)}` : ''}</span>
@@ -160,7 +184,7 @@
   <div class="rules">
     {#each rows as r (r.key)}
       {@const info = METRICS[r.metric]}
-      {@const orig = byMetric.get(r.metric)}
+      {@const orig = byKey.get(ruleKey(r))}
       {@const err = showErrors ? rowError(r) : ''}
       <div class="rule" class:firing={orig?.firing} class:off={!r.active}>
         <div class="rl">
@@ -171,9 +195,16 @@
             onchange={(e) => changeMetric(r, (e.currentTarget as HTMLSelectElement).value as ServerMetric)}
           >
             {#each METRIC_ORDER as m (m)}
-              <option value={m} disabled={m !== r.metric && used.has(m)}>{metricLabel(m)}</option>
+              <option value={m} disabled={m !== r.metric && !free.includes(m)}>{metricLabel(m)}</option>
             {/each}
           </select>
+          {#if r.metric === 'disk'}
+            <select class="input msel mount" aria-label="Disk bölümü" bind:value={r.mount}>
+              {#each mountOptions as mo (mo)}
+                <option value={mo} disabled={mo !== r.mount && used.has(ruleKey({ metric: 'disk', mount: mo }))}>{mountLabel(mo)}</option>
+              {/each}
+            </select>
+          {/if}
 
           {#if r.metric !== 'offline'}
             <span class="w">≥</span>
@@ -216,11 +247,18 @@
             </span>
           {/if}
           <label class="check act"><input type="checkbox" bind:checked={r.active} /> Etkin</label>
-          <button type="button" class="btn ghost sm icon" aria-label="{metricLabel(r.metric)} kuralını kaldır" onclick={() => remove(r.key)}>
+          <button
+            type="button"
+            class="btn ghost sm icon"
+            aria-label="{metricLabel(r.metric)}{r.metric === 'disk' ? ` (${mountLabel(r.mount)})` : ''} kuralını kaldır"
+            onclick={() => remove(r.key)}
+          >
             <Icon name="trash" size={15} />
           </button>
         </div>
-        {#if err}<div class="rerr">{err}</div>{:else}<div class="rdesc">{info.desc}</div>{/if}
+        {#if err}<div class="rerr">{err}</div>{:else}<div class="rdesc">
+            {r.metric === 'disk' && r.mount ? `${r.mount} bölümünün doluluğu` : info.desc}
+          </div>{/if}
       </div>
     {:else}
       <p class="none">Kural yok: bu sunucu için hiç uyarı gönderilmez.</p>
@@ -278,6 +316,13 @@
     font-weight: 700;
     min-width: 72px;
   }
+  .mnt {
+    font-weight: 500;
+    color: var(--text-2);
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 0.85em;
+    margin-left: 6px;
+  }
   .rs {
     color: var(--text-2);
     flex: 1;
@@ -317,6 +362,10 @@
     width: 132px;
     height: 36px;
     font-weight: 600;
+  }
+  .msel.mount {
+    width: 150px;
+    font-weight: 500;
   }
   .w {
     color: var(--muted);
