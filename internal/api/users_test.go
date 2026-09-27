@@ -91,6 +91,9 @@ func TestRolePermissions(t *testing.T) {
 		if v.PushToken != "" || string(v.Config) != "{}" || len(v.NotificationIDs) != 0 {
 			t.Errorf("izleyiciye ayar sızdı: %+v", v)
 		}
+		if v.Target == "" {
+			t.Errorf("izleyici hedefi boş görmemeli: %+v", v)
+		}
 	}
 	editor.mustDo("GET", "/api/monitors", nil, &list, 200)
 	if list[0].PushToken == "" {

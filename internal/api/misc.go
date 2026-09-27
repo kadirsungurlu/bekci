@@ -202,12 +202,18 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 // olmadığını söyler; monitöre bağlı olmayan olaylar gönderilmez.
 func eventVisible(msg []byte, vis visibility) bool {
 	var ev struct {
+		Type string `json:"type"`
 		Data struct {
 			MonitorID int64 `json:"monitor_id"`
 		} `json:"data"`
 	}
-	if json.Unmarshal(msg, &ev) != nil || ev.Data.MonitorID == 0 {
+	if json.Unmarshal(msg, &ev) != nil {
 		return false
 	}
-	return vis.can(ev.Data.MonitorID)
+	// Bakım değişikliği olayı yalnızca bakım kimliği taşır (içerik yok); kısıtlı
+	// izleyicinin ekranı da "Bakımda" durumunu hemen yenileyebilsin.
+	if ev.Type == "maintenance" {
+		return true
+	}
+	return ev.Data.MonitorID != 0 && vis.can(ev.Data.MonitorID)
 }

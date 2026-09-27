@@ -203,6 +203,8 @@ func (s *Server) badge(w http.ResponseWriter, r *http.Request) {
 			value, color = "çalışmıyor", o.downColor
 		case m.Status == store.StatusPending:
 			value, color = "bekliyor", o.pendingColor
+		case m.Status == store.StatusMaintenance:
+			value, color = "bakımda", o.greyColor
 		default:
 			value, color = "bilinmiyor", o.greyColor
 		}

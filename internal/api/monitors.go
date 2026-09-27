@@ -132,6 +132,11 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 		if ids == nil {
 			ids = []int64{}
 		}
+		target := engine.Target(m) // ayarlar izleyici için gizlenmeden önce
+		if !full {
+			// Adrese gömülü kullanıcı adı/şifre ve sorgu (token olabilir) izleyiciye gösterilmez.
+			target = publicTarget(target)
+		}
 		if !full {
 			// İzleyici: ayarlar, push token'ı ve bildirim bağlantıları gizli.
 			m.Config, m.PushToken, ids = json.RawMessage("{}"), "", []int64{}
@@ -144,7 +149,7 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 		if mt == nil {
 			mt = []store.MonitorTag{}
 		}
-		out = append(out, monitorView{Monitor: m, Target: engine.Target(m), NotificationIDs: ids, Tags: mt, Uptime24h: up, Bars: bars,
+		out = append(out, monitorView{Monitor: m, Target: target, NotificationIDs: ids, Tags: mt, Uptime24h: up, Bars: bars,
 			InMaintenance: m.Active && s.engine.InMaintenance(m.ID, now), Locations: loc})
 	}
 	return out, nil

@@ -105,12 +105,14 @@ func monitorStatus(m store.Monitor) string {
 		return "up"
 	case store.StatusDown:
 		return "down"
+	case store.StatusMaintenance:
+		return "maintenance"
 	}
 	return "pending"
 }
 
-// overallStatus genel durum: duraklatılmışlar sayılmaz; bekleyen (tekrar
-// deneniyor) monitör henüz kesinti sayılmaz.
+// overallStatus genel durum: duraklatılmış ve bakımdaki monitörler sayılmaz;
+// bekleyen (tekrar deneniyor) monitör henüz kesinti sayılmaz.
 func overallStatus(statuses []string) string {
 	var up, down, pending int
 	for _, st := range statuses {
