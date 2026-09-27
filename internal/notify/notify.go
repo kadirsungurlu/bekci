@@ -23,6 +23,10 @@ const (
 	KindReminder = "reminder"
 	KindCert     = "cert"
 	KindTest     = "test"
+
+	// Sunucu takibi: eşik uyarısı başladı / bitti (ProbeID dolu, MonitorID 0).
+	KindServerAlert    = "server_alert"
+	KindServerResolved = "server_resolved"
 )
 
 // Event gönderilecek bildirimin içeriği.
@@ -39,6 +43,54 @@ type Event struct {
 	CertExpires time.Time     // cert: bitiş tarihi
 	CertIssuer  string
 	URL         string // monitörün arayüzdeki adresi (varsa)
+
+	// Sunucu uyarıları: ProbeID doluysa olay bir sunucuya (ajana) aittir;
+	// MonitorName sunucunun adı, Target host adıdır. Metric: cpu, mem, swap,
+	// disk, load, temp, offline. Value ortalama değer (offline: veri gelmeyen
+	// dakika), Threshold eşik, Minutes ortalama penceresi.
+	ProbeID   int64
+	Metric    string
+	Value     float64
+	Threshold float64
+	Minutes   int
+}
+
+// metricNames sunucu metriklerinin bildirimlerdeki adları.
+var metricNames = map[string]string{
+	"cpu": "CPU", "mem": "RAM", "swap": "Swap", "disk": "Disk", "load": "Yük", "temp": "Sıcaklık",
+}
+
+// FormatMetric sunucu metriğinin değerini birimiyle yazar: "%94", "1,25", "72 °C".
+func FormatMetric(metric string, v float64) string {
+	switch metric {
+	case "load":
+		return strings.Replace(fmt.Sprintf("%.2f", v), ".", ",", 1)
+	case "temp":
+		return fmt.Sprintf("%.0f °C", v)
+	}
+	return fmt.Sprintf("%%%.0f", v)
+}
+
+// serverTitle sunucu uyarısının başlığı.
+func (e Event) serverTitle() string {
+	name := metricNames[e.Metric]
+	if name == "" {
+		name = e.Metric
+	}
+	switch {
+	case e.Metric == "offline" && e.Kind == KindServerAlert:
+		return "🔴 " + e.MonitorName + ": sunucudan veri gelmiyor"
+	case e.Metric == "offline":
+		return "🟢 " + e.MonitorName + ": tekrar veri gönderiyor"
+	case e.Kind == KindServerAlert:
+		detail := "ortalama"
+		if e.Metric == "load" {
+			detail = "ortalama, çekirdek başına"
+		}
+		return fmt.Sprintf("🔴 %s: %s %s (%d dk %s, eşik %s)", e.MonitorName, name,
+			FormatMetric(e.Metric, e.Value), e.Minutes, detail, FormatMetric(e.Metric, e.Threshold))
+	}
+	return "🟢 " + e.MonitorName + ": " + name + " normale döndü"
 }
 
 // Title kısa başlık (e-posta konusu, push başlığı).
@@ -57,6 +109,8 @@ func (e Event) Title() string {
 		return fmt.Sprintf("⚠️ %s: SSL sertifikası %d gün içinde bitiyor", e.MonitorName, e.CertDays)
 	case KindTest:
 		return "✅ Test bildirimi"
+	case KindServerAlert, KindServerResolved:
+		return e.serverTitle()
 	}
 	return e.MonitorName
 }
@@ -73,7 +127,11 @@ func (e Event) Text() string {
 	if e.Kind == KindTest {
 		b.WriteString("\nUptime bildirim kanalınız çalışıyor.")
 	}
-	line("Hedef", e.Target)
+	if e.ProbeID != 0 {
+		line("Sunucu", e.Target)
+	} else {
+		line("Hedef", e.Target)
+	}
 	switch e.Kind {
 	case KindDown:
 		line("Neden", e.Message)
@@ -85,6 +143,11 @@ func (e Event) Text() string {
 	case KindCert:
 		line("Bitiş", e.CertExpires.Local().Format("02.01.2006 15:04"))
 		line("Veren", e.CertIssuer)
+	case KindServerAlert, KindServerResolved:
+		if e.Metric != "offline" && e.Kind == KindServerResolved {
+			line("Son ortalama", FormatMetric(e.Metric, e.Value))
+		}
+		line("Ayrıntı", e.Message)
 	}
 	line("Zaman", e.Time.Local().Format("02.01.2006 15:04:05"))
 	line("Detay", e.URL)
@@ -93,7 +156,23 @@ func (e Event) Text() string {
 
 // IsProblem olayın kötü haber olup olmadığı (öncelik/renk seçimi için).
 func (e Event) IsProblem() bool {
-	return e.Kind == KindDown || e.Kind == KindReminder || e.Kind == KindCert
+	return e.Kind == KindDown || e.Kind == KindReminder || e.Kind == KindCert || e.Kind == KindServerAlert
+}
+
+// IsRecovery sorunun bittiğini bildiren olay mı (monitör tekrar çalışıyor,
+// sunucu uyarısı bitti). Olay kapatan servisler (PagerDuty, Opsgenie) için.
+func (e Event) IsRecovery() bool { return e.Kind == KindUp || e.Kind == KindServerResolved }
+
+// AlertKey olayın dış servislerdeki kimliği: aynı sorunun başlangıç ve bitiş
+// olayları aynı anahtarı taşır (PagerDuty dedup_key, Opsgenie alias).
+func (e Event) AlertKey() string {
+	switch {
+	case e.ProbeID != 0:
+		return fmt.Sprintf("uptime-server-%d-%s", e.ProbeID, e.Metric)
+	case e.Kind == KindCert:
+		return fmt.Sprintf("uptime-monitor-%d-cert", e.MonitorID)
+	}
+	return fmt.Sprintf("uptime-monitor-%d", e.MonitorID)
 }
 
 // FormatDuration süreyi Türkçe kısa biçimde yazar: "45 sn", "12 dk", "2 sa 5 dk", "3 gün 4 sa".

@@ -3,7 +3,6 @@ package notify
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -63,12 +62,7 @@ func opsgenieBase(region string) string {
 	return opsgenieAPIUS
 }
 
-func opsgenieAlias(ev Event) string {
-	if ev.Kind == KindCert {
-		return fmt.Sprintf("uptime-monitor-%d-cert", ev.MonitorID)
-	}
-	return fmt.Sprintf("uptime-monitor-%d", ev.MonitorID)
-}
+func opsgenieAlias(ev Event) string { return ev.AlertKey() }
 
 func (opsgenie) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	var c opsgenieConfig
@@ -77,7 +71,7 @@ func (opsgenie) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	headers := map[string]string{"Authorization": "GenieKey " + c.APIKey}
 	alias := opsgenieAlias(ev)
 
-	if ev.Kind == KindUp {
+	if ev.IsRecovery() {
 		u := base + "/v2/alerts/" + url.PathEscape(alias) + "/close?identifierType=alias"
 		return doRequest(ctx, http.MethodPost, u, strings.NewReader(`{"note":"Uptime: sorun giderildi"}`), mergeHeaders(headers, map[string]string{"Content-Type": "application/json"}))
 	}

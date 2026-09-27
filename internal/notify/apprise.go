@@ -38,7 +38,7 @@ func (apprise) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 
 func appriseType(ev Event) string {
 	switch ev.Kind {
-	case KindDown, KindReminder:
+	case KindDown, KindReminder, KindServerAlert:
 		return "failure"
 	case KindCert:
 		return "warning"

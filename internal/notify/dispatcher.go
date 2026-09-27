@@ -26,16 +26,23 @@ func NewDispatcher(s *store.Store, log *slog.Logger) *Dispatcher {
 	return &Dispatcher{store: s, log: log}
 }
 
-// Notify olayı monitörün etkin kanallarına gönderir (bloklamaz).
+// Notify olayı monitörün (ProbeID doluysa sunucunun) etkin kanallarına
+// gönderir (bloklamaz).
 func (d *Dispatcher) Notify(ev Event) {
 	d.wg.Add(1)
 	go func() {
 		defer d.wg.Done()
 		ctx, cancel := context.WithTimeout(context.Background(), sendTimeout)
-		channels, err := d.store.NotificationsForMonitor(ctx, ev.MonitorID)
+		var channels []store.Notification
+		var err error
+		if ev.ProbeID != 0 {
+			channels, err = d.store.NotificationsForProbe(ctx, ev.ProbeID)
+		} else {
+			channels, err = d.store.NotificationsForMonitor(ctx, ev.MonitorID)
+		}
 		cancel()
 		if err != nil {
-			d.log.Error("bildirim kanalları okunamadı", "monitor", ev.MonitorID, "hata", err)
+			d.log.Error("bildirim kanalları okunamadı", "monitor", ev.MonitorID, "sunucu", ev.ProbeID, "hata", err)
 			return
 		}
 		var inner sync.WaitGroup

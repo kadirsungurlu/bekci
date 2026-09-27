@@ -3,7 +3,6 @@ package notify
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 )
@@ -45,19 +44,15 @@ func (pagerduty) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 
 // pagerdutyDedupKey: down/reminder ve up aynı anahtarı kullanır (tetikle/çöz);
 // sertifika uyarısı ayrı bir olay olduğundan kendi anahtarını kullanır.
-func pagerdutyDedupKey(ev Event) string {
-	if ev.Kind == KindCert {
-		return fmt.Sprintf("uptime-monitor-%d-cert", ev.MonitorID)
-	}
-	return fmt.Sprintf("uptime-monitor-%d", ev.MonitorID)
-}
+// Sunucu uyarılarında anahtar sunucu + metriktir.
+func pagerdutyDedupKey(ev Event) string { return ev.AlertKey() }
 
 func (pagerduty) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	var c pagerdutyConfig
 	json.Unmarshal(raw, &c)
 
 	action := "trigger"
-	if ev.Kind == KindUp {
+	if ev.IsRecovery() {
 		action = "resolve"
 	}
 	payload := map[string]any{

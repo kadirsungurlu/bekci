@@ -204,6 +204,18 @@ type WebhookPayload struct {
 	DowntimeSeconds int64          `json:"downtime_seconds,omitempty"`
 	CertDays        *int           `json:"cert_days,omitempty"`
 	Monitor         WebhookMonitor `json:"monitor"`
+	// Server yalnızca sunucu uyarılarında (server_alert, server_resolved)
+	// doludur; o zaman Monitor sunucunun adını ve host adını taşır, kimliği 0'dır.
+	Server *WebhookServer `json:"server,omitempty"`
+}
+
+type WebhookServer struct {
+	ID        int64   `json:"id"`
+	Name      string  `json:"name"`
+	Metric    string  `json:"metric"`
+	Value     float64 `json:"value"`
+	Threshold float64 `json:"threshold"`
+	Minutes   int     `json:"minutes"`
 }
 
 type WebhookMonitor struct {
@@ -226,6 +238,10 @@ func (webhook) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	if ev.Kind == KindCert {
 		d := ev.CertDays
 		p.CertDays = &d
+	}
+	if ev.ProbeID != 0 {
+		p.Server = &WebhookServer{ID: ev.ProbeID, Name: ev.MonitorName, Metric: ev.Metric,
+			Value: ev.Value, Threshold: ev.Threshold, Minutes: ev.Minutes}
 	}
 	b, _ := json.Marshal(p)
 	headers := map[string]string{"Content-Type": "application/json"}
