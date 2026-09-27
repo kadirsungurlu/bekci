@@ -8,7 +8,7 @@
 // Protokol (HTTPS + JSON, Authorization: Bearer upr_…):
 //
 //	GET  /api/probe/jobs     → {"probe": {...}, "poll_after": 30, "metrics_interval": 60, "jobs": [...]}
-//	POST /api/probe/results  ← {"sent_at": ms, "results": [{monitor_id, time, up, ping_ms, message, cert_not_after, cert_issuer}]}
+//	POST /api/probe/results  ← {"sent_at": ms, "results": [{monitor_id, time, up, ping_ms, message, cert_not_after, cert_issuer, detail}]}
 //	POST /api/probe/metrics  ← metrics.Sample: {"time": ms, "host": {...}, "stats": {...}} veya {"time": ms, "unavailable": "neden"}
 //
 // Ana sunucuya ulaşılamazsa istekler artan beklemeyle tekrarlanır; bu sırada
@@ -86,7 +86,14 @@ type Result struct {
 	Message      string `json:"message"`
 	CertNotAfter int64  `json:"cert_not_after,omitempty"`
 	CertIssuer   string `json:"cert_issuer,omitempty"`
+	// Detail başarısız HTTP kontrolünün isteği ve yanıtı (olay sayfası; maskeli).
+	// Eski sunucular bilinmeyen alanı yok sayar.
+	Detail *check.Detail `json:"detail,omitempty"`
 }
+
+// maxBatchDetail tek partideki ayrıntıların (Detail) toplam boyut sınırı:
+// eski sunucuların 1 MB gövde sınırı aşılmasın diye; fazlası o partide atılır.
+const maxBatchDetail = 256 << 10
 
 type jobsResponse struct {
 	Probe struct {
@@ -398,6 +405,9 @@ func (c *Client) checkOnce(ctx context.Context, j Job) (out Result, ok bool) {
 	if res.Cert != nil {
 		out.CertNotAfter, out.CertIssuer = res.Cert.NotAfter.Unix(), res.Cert.Issuer
 	}
+	if !out.Up {
+		out.Detail = res.Detail
+	}
 	c.log.Debug("kontrol", "monitor", j.Name, "çalışıyor", out.Up, "ping", out.PingMs, "mesaj", out.Message)
 	return out, true
 }
@@ -478,7 +488,7 @@ func (c *Client) flushOnce(ctx context.Context) (retryAfter time.Duration, err e
 		c.trimLocked()
 		c.mu.Unlock()
 	}
-	body := map[string]any{"sent_at": time.Now().UnixMilli(), "results": batch}
+	body := map[string]any{"sent_at": time.Now().UnixMilli(), "results": limitDetails(batch)}
 	var resp struct {
 		Accepted int `json:"accepted"`
 		Rejected []struct {
@@ -509,6 +519,31 @@ func (c *Client) flushOnce(ctx context.Context) (retryAfter time.Duration, err e
 		c.log.Error("sonuçlar kabul edilmedi, parti atıldı", "durum", status, "sonuc_sayisi", len(batch))
 		return 0, nil
 	}
+}
+
+// limitDetails partideki ayrıntıların toplam boyutunu maxBatchDetail ile
+// sınırlar; sınırı aşan sonuçlar ayrıntısız gider (tampondakiler değişmez).
+func limitDetails(batch []Result) []Result {
+	budget := maxBatchDetail
+	var out []Result
+	for i, r := range batch {
+		if r.Detail == nil {
+			continue
+		}
+		b, _ := json.Marshal(r.Detail)
+		if len(b) <= budget {
+			budget -= len(b)
+			continue
+		}
+		if out == nil {
+			out = append([]Result(nil), batch...)
+		}
+		out[i].Detail = nil
+	}
+	if out == nil {
+		return batch
+	}
+	return out
 }
 
 // Sunucu metrikleri --------------------------------------------------------------------------

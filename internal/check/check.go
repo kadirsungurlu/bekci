@@ -31,6 +31,8 @@ type Result struct {
 	PingMs  int64
 	Message string
 	Cert    *CertInfo
+	// Detail başarısız kontrolün isteği ve yanıtı (yalnızca HTTP; bkz. detail.go).
+	Detail *Detail
 }
 
 func down(msg string) Result { return Result{Up: false, PingMs: -1, Message: msg} }
