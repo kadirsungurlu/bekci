@@ -2,7 +2,7 @@
   // Herkese açık durum sayfası (/durum/<kısa-ad> veya özel alan adı). Giriş gerektirmez,
   // 60 saniyede bir yenilenir ve sistemin açık/koyu tema tercihini izler.
   // previewId verilirse yönetim panelinden önizleme olarak açılır (yayında/şifre yok sayılır).
-  import { onDestroy, onMount, tick } from 'svelte';
+  import { onDestroy, onMount, tick, untrack } from 'svelte';
   import {
     api,
     ApiError,
@@ -165,7 +165,7 @@
     up: { l: 'Çalışıyor', c: 'up' },
     down: { l: 'Kesinti', c: 'down' },
     pending: { l: 'Kontrol ediliyor', c: 'pending' },
-    paused: { l: 'Duraklatıldı', c: 'paused' },
+    paused: { l: 'Durduruldu', c: 'paused' },
     maintenance: { l: 'Bakımda', c: 'maint' },
   };
   const SEV: Record<Severity, { icon: IconName; l: string }> = {
@@ -245,8 +245,11 @@
     await tick();
     document.getElementById('pub-pw')?.focus();
   }
+  // Şifre ekranı ilk açıldığında odaklan; 60 sn'lik yenilemede (yeni nesne gelse de)
+  // odağı tekrar çalma, dokunmatikte ise klavyeyi kendiliğinden açma.
+  const isLocked = $derived(!!locked);
   $effect(() => {
-    if (locked) focusPw();
+    if (isLocked && !matchMedia('(hover: none)').matches) untrack(focusPw);
   });
 </script>
 
@@ -373,8 +376,10 @@
               <div class="mon">
                 <div class="m-top">
                   <div class="m-name">
-                    <span class="m-dot {st.c}" aria-hidden="true"></span>
-                    <span class="m-t">{m.name}</span>
+                    <span class="m-line">
+                      <span class="m-dot {st.c}" aria-hidden="true"></span>
+                      <span class="m-t">{m.name}</span>
+                    </span>
                     {#if m.target}<span class="m-target" title={m.target}>{targetLabel(m.target)}</span>{/if}
                   </div>
                   <div class="m-right">
@@ -809,14 +814,21 @@
   }
   .m-name {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+  /* Nokta ve ad her zaman aynı satırda; uzun ad kendi içinde kırılır, hedef alt satırda. */
+  .m-line {
+    display: flex;
+    align-items: flex-start;
     gap: 9px;
     min-width: 0;
-    flex-wrap: wrap;
   }
   .m-dot {
     width: 10px;
     height: 10px;
+    margin-top: 0.4em;
     border-radius: 50%;
     background: var(--paused);
     flex-shrink: 0;
@@ -838,6 +850,7 @@
     overflow-wrap: anywhere;
   }
   .m-target {
+    padding-left: 19px;
     font-size: 0.82rem;
     color: var(--muted);
     overflow-wrap: anywhere;

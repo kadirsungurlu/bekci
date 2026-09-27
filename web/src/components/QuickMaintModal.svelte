@@ -3,10 +3,10 @@
   // penceresine alır (yalnızca bu monitör). Sürmekte olan bakımlar da gösterilir.
   import { onMount } from 'svelte';
   import { api, errorMessage, type Maintenance, type MonitorView } from '../lib/api';
-  import { fmtDate, isoLocal, nowSec } from '../lib/format';
+  import { fmtDate, isoLocal, nowSec, timeLocative } from '../lib/format';
   import { live } from '../lib/live.svelte';
   import { DEFAULT_TZ, nextText } from '../lib/maintenance';
-  import { toast } from '../lib/ui.svelte';
+  import { clock, toast } from '../lib/ui.svelte';
   import Icon from './Icon.svelte';
   import Modal from './Modal.svelte';
 
@@ -38,7 +38,8 @@
     return Math.round(amount * UNITS[unit].s);
   });
   const MAX = 30 * 86400;
-  const endAt = $derived(seconds > 0 ? nowSec() + seconds : 0);
+  // Pencere açık kaldıkça bitiş zamanı da ilerlesin (genel saat birkaç saniyede bir tıklar).
+  const endAt = $derived(seconds > 0 ? clock.now + seconds : 0);
 
   onMount(async () => {
     try {
@@ -146,7 +147,7 @@
         </div>
       {/if}
       <span class="help">
-        {#if endAt}Şimdi başlar, <b>{fmtDate(endAt)}</b> itibarıyla biter.{:else}Geçerli bir süre girin.{/if}
+        {#if endAt}Şimdi başlar, <b>{fmtDate(endAt)}</b>{timeLocative(endAt)} biter.{:else}Geçerli bir süre girin.{/if}
       </span>
     </div>
 

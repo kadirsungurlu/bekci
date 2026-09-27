@@ -15,6 +15,16 @@
   let challenge = $state('');
   let code = $state('');
   let codeInput: HTMLInputElement | undefined = $state();
+  // Telefon yoksa kurtarma koduyla giriş: klavye ve alan biçimi değişir.
+  let useRecovery = $state(false);
+
+  async function toggleRecovery() {
+    useRecovery = !useRecovery;
+    code = '';
+    error = '';
+    await tick();
+    codeInput?.focus();
+  }
 
   const USERNAME_RE = /^[a-zA-Z0-9._-]{3,32}$/;
 
@@ -49,6 +59,7 @@
       if (res.two_factor_required) {
         challenge = res.challenge;
         code = '';
+        useRecovery = false;
         password = '';
         await tick();
         codeInput?.focus();
@@ -101,23 +112,44 @@
     <form class="card auth" onsubmit={submitCode} novalidate>
       <div class="shield"><Icon name="shield-check" size={26} /></div>
       <h1>Doğrulama kodu<span class="dot">.</span></h1>
-      <p class="muted intro">Uygulamanızdaki 6 haneli kodu veya bir kurtarma kodunu girin.</p>
+      <p class="muted intro">
+        {useRecovery ? 'Kaydettiğiniz kurtarma kodlarından birini girin. Her kod bir kez kullanılabilir.' : 'Doğrulama uygulamanızdaki 6 haneli kodu girin.'}
+      </p>
       <div class="field">
-        <label for="code">Doğrulama kodu</label>
-        <input
-          id="code"
-          class="input code"
-          bind:this={codeInput}
-          bind:value={code}
-          autocomplete="one-time-code"
-          inputmode="text"
-          autocapitalize="none"
-          spellcheck="false"
-          maxlength="32"
-          placeholder="123456"
-        />
-        <span class="help">Telefonunuza erişemiyorsanız kurtarma kodlarınızdan birini (ör. abcde-fghij) kullanın.</span>
+        <label for="code">{useRecovery ? 'Kurtarma kodu' : 'Doğrulama kodu'}</label>
+        {#if useRecovery}
+          <input
+            id="code"
+            class="input code"
+            bind:this={codeInput}
+            bind:value={code}
+            autocomplete="off"
+            inputmode="text"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            maxlength="32"
+            placeholder="abcde-fghij"
+          />
+        {:else}
+          <input
+            id="code"
+            class="input code"
+            bind:this={codeInput}
+            bind:value={code}
+            autocomplete="one-time-code"
+            inputmode="numeric"
+            pattern="[0-9 ]*"
+            autocorrect="off"
+            spellcheck="false"
+            maxlength="7"
+            placeholder="123456"
+          />
+        {/if}
       </div>
+      <button type="button" class="linkbtn toggle" onclick={toggleRecovery}>
+        {useRecovery ? 'Doğrulama uygulamasındaki kodu kullan' : 'Telefonuma erişemiyorum — kurtarma kodu kullan'}
+      </button>
       {#if error}<div class="alert error" role="alert">{error}</div>{/if}
       <button class="btn primary big" type="submit" disabled={busy}>
         {#if busy}<span class="spinner"></span>{/if}
@@ -246,6 +278,14 @@
     gap: 4px;
     align-self: center;
     font-size: 0.88rem;
+    min-height: 44px;
+  }
+  .toggle {
+    align-self: flex-start;
+    font-size: 0.86rem;
+    min-height: 44px;
+    margin: -10px 0 -6px;
+    text-align: left;
   }
   @media (max-width: 640px) {
     .auth {

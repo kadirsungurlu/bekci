@@ -177,7 +177,8 @@
   {/if}
 </div>
 
-<Modal bind:open={wizOpen} title="İki adımlı doğrulama" width={520}>
+<!-- Kurtarma kodları adımı "Kodları kaydettim" onaylanmadan kapatılamaz (Esc, arka plan ve × devre dışı). -->
+<Modal bind:open={wizOpen} title="İki adımlı doğrulama" width={520} dismissable={step !== 4}>
   <ol class="steps" aria-label="Adımlar">
     {#each STEPS as s, i (s)}
       <li class:done={step > i + 1} class:cur={step === i + 1} aria-current={step === i + 1 ? 'step' : undefined}>
@@ -253,7 +254,12 @@
   {/snippet}
 </Modal>
 
-<Modal bind:open={actOpen} title={act === 'disable' ? 'İki adımlı doğrulamayı kapat' : 'Kurtarma kodlarını yenile'} width={480}>
+<Modal
+  bind:open={actOpen}
+  title={act === 'disable' ? 'İki adımlı doğrulamayı kapat' : 'Kurtarma kodlarını yenile'}
+  width={480}
+  dismissable={!newCodes.length}
+>
   {#if newCodes.length}
     <RecoveryCodes codes={newCodes} bind:saved={newSaved} />
   {:else}
@@ -271,7 +277,17 @@
       </div>
       <div class="field">
         <label for="tfa-code">Doğrulama kodu</label>
-        <input id="tfa-code" class="input code" bind:value={actCode} autocomplete="one-time-code" maxlength="32" placeholder="123456" />
+        <input
+          id="tfa-code"
+          class="input code"
+          bind:value={actCode}
+          autocomplete="one-time-code"
+          autocapitalize="none"
+          autocorrect="off"
+          spellcheck="false"
+          maxlength="32"
+          placeholder="123456"
+        />
         <span class="help">6 haneli kod veya bir kurtarma kodu.</span>
       </div>
       {#if error}<div class="alert error" role="alert">{error}</div>{/if}

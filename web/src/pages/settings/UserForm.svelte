@@ -46,7 +46,9 @@
     if (displayName.trim().length > 100) return (error = 'Görünen ad en fazla 100 karakter olabilir.');
     if (!orig && password.length < 8) return (error = 'Geçici şifre en az 8 karakter olmalı.');
     const onlySelected = role === 'viewer' && restricted;
-    if (onlySelected && monitorIds.length === 0) return (error = 'Müşteri erişimi için en az bir monitör seçin.');
+    // Yalnızca sunucu görecek müşteri de olabilir: en az bir monitör veya sunucu yeterli.
+    if (onlySelected && monitorIds.length === 0 && serverIds.length === 0)
+      return (error = 'Müşteri erişimi için en az bir monitör veya sunucu seçin.');
     const body = {
       display_name: displayName.trim(),
       role,

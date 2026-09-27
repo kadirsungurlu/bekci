@@ -99,10 +99,17 @@
     let line = '';
     let area = '';
     let band = '';
+    // Tek noktalı parçalar (iki yanı boşluk) çizgi olarak görünmez; nokta çizilir.
+    const dots: { x: number; y: number }[] = [];
     const base = PAD.t + plotH;
     let seg: Pt[] = [];
     const flush = () => {
       if (seg.length === 0) return;
+      if (seg.length === 1) {
+        dots.push({ x: xOf(seg[0].t), y: yOf(seg[0].v!) });
+        seg = [];
+        return;
+      }
       const d = seg.map((p, i) => `${i ? 'L' : 'M'}${xOf(p.t).toFixed(1)},${yOf(p.v!).toFixed(1)}`).join('');
       line += d;
       if (seg.length > 1) {
@@ -126,7 +133,7 @@
       prevT = p.t;
     }
     flush();
-    return { line, area, band };
+    return { line, area, band, dots };
   });
 
   // Kesinti (DOWN) aralıkları kırmızı gölge olarak.
@@ -280,10 +287,22 @@
     return `${fmtShortDate(p.t0)} ${fmtTime(p.t0)} – ${fmtTime(p.t0 + 3600)}`;
   }
 
-  const tipLeft = $derived(hp ? Math.max(4, Math.min(xOf(hp.t) - 90, w - 184)) : 0);
+  let tw = $state(0);
+  const tipLeft = $derived(hp ? Math.max(4, Math.min(xOf(hp.t) - (tw || 180) / 2, w - (tw || 180) - 4)) : 0);
+
+  let chartEl: HTMLDivElement | undefined = $state();
+  function leave(e: PointerEvent) {
+    // Dokunmatikte parmak kalkınca ipucu kaybolmasın; başka yere dokununca kapanır.
+    if (e.pointerType !== 'touch') hover = null;
+  }
+  function outside(e: PointerEvent) {
+    if (hover !== null && chartEl && !chartEl.contains(e.target as Node)) hover = null;
+  }
 </script>
 
-<div class="chart" bind:clientWidth={w}>
+<svelte:document onpointerdown={outside} />
+
+<div class="chart" bind:clientWidth={w} bind:this={chartEl}>
   {#if w > 0}
     {#if pts.length === 0}
       <div class="nodata" style="height:{H}px">Bu aralıkta veri yok</div>
@@ -296,7 +315,7 @@
         aria-label="Yanıt süresi grafiği"
         onpointermove={move}
         onpointerdown={move}
-        onpointerleave={() => (hover = null)}
+        onpointerleave={leave}
       >
         <defs>
           <linearGradient id="pc-fill" x1="0" x2="0" y1="0" y2="1">
@@ -327,6 +346,9 @@
           {/if}
           <path d={paths.area} fill="url(#pc-fill)" />
           <path d={paths.line} fill="none" stroke="var(--up)" stroke-width="1.6" stroke-linejoin="round" />
+          {#each paths.dots as d, i (i)}
+            <circle cx={d.x} cy={d.y} r="2.2" fill="var(--up)" />
+          {/each}
         </g>
 
         {#if hp}
@@ -347,7 +369,7 @@
       {/if}
 
       {#if hp}
-        <div class="tipbox" style="left:{tipLeft}px">
+        <div class="tipbox" bind:clientWidth={tw} style="left:{tipLeft}px">
           <div class="tt">{hoverTitle(hp)}</div>
           {#if isRaw}
             <div>
@@ -393,6 +415,7 @@
     min-height: 60px;
     touch-action: pan-y;
     user-select: none;
+    -webkit-user-select: none;
   }
   svg {
     display: block;

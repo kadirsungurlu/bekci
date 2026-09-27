@@ -253,7 +253,7 @@
             </td>
             <td data-label="Adres" class="mono small">
               {p.last_ip || '—'}
-              {#if p.ip_lock}<span class="iplock" title={p.locked_ip ? `${p.locked_ip} IP'sine kilitli` : 'IP kilidi açık; ilk bağlantıda sabitlenir'}><Icon name="lock" size={12} /></span>{/if}
+              {#if p.ip_lock}<span class="iplock" title={p.locked_ip ? `${p.locked_ip} IP’sine kilitli` : 'IP kilidi açık; ilk bağlantıda sabitlenir'}><Icon name="lock" size={12} /></span>{/if}
             </td>
             <td data-label="Sürüm" class="small">{p.version || '—'}</td>
             <td data-label="Monitör">{p.monitor_count ?? 0}</td>
@@ -262,7 +262,10 @@
         {/each}
       </tbody>
     </table>
-    <p class="help foot">Son 90 saniyede sonuç gönderen kontrol noktası çevrimiçi sayılır.</p>
+    <p class="help foot">
+      Son 90 saniyede sonuç gönderen kontrol noktası çevrimiçi sayılır. Güncellemek için sunucuda:
+      <code>docker rm -f uptime-probe; docker volume rm uptime-probe-bin</code>, sonra kurulum komutunu tekrar çalıştırın.
+    </p>
   {/if}
 </section>
 
@@ -284,6 +287,9 @@
           <code class="cmd">{setup.docker_command}</code>
           <CopyButton text={setup.docker_command} />
         </div>
+        <p class="help cmd-help">
+          Güncellemek için: <code>docker rm -f uptime-probe; docker volume rm uptime-probe-bin</code>, sonra komutu tekrar çalıştırın.
+        </p>
       </div>
       <p class="help nomargin">
         Sunucu adresi: <code>{setup.server_url}</code>. Kontrol noktası bu adrese dışarıdan erişebilmeli; birkaç saniye içinde listede
@@ -322,8 +328,8 @@
     <label class="check">
       <input type="checkbox" bind:checked={editIpLock} />
       <span>
-        IP'ye kilitle
-        <small>Ajan yalnızca ilk bağlandığı IP'den veri gönderebilir; sunucu taşınırsa kilidi sıfırlayın.</small>
+        IP’ye kilitle
+        <small>Kontrol noktası yalnızca ilk bağlandığı IP’den sonuç gönderebilir; sunucu taşınırsa kilidi sıfırlayın.</small>
       </span>
     </label>
     {#if editIpLock && editLockedIp}

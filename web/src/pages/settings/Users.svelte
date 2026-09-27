@@ -215,7 +215,7 @@
               {:else if u.must_change_password}
                 <span class="badge pending">Şifre değişimi bekliyor</span>
               {:else}
-                <span class="badge up">Aktif</span>
+                <span class="badge up">Etkin</span>
               {/if}
             </td>
             <td data-label="2FA">

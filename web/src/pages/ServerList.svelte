@@ -137,11 +137,11 @@
             </div>
           </div>
           {#if st}
-            <div class="m cpu"><span class="ml">CPU</span><UsageBar value={st.cpu} inline /></div>
-            <div class="m mem"><span class="ml">RAM</span><UsageBar value={memPct(st)} inline /></div>
+            <div class="m cpu"><span class="ml" aria-hidden="true">CPU</span><UsageBar value={st.cpu} label="{s.name}: CPU" inline /></div>
+            <div class="m mem"><span class="ml" aria-hidden="true">RAM</span><UsageBar value={memPct(st)} label="{s.name}: RAM" inline /></div>
             {@const fm = fullestMount(st)}
             <div class="m disk" title={diskSummary(st) || undefined}>
-              <span class="ml">Disk</span><UsageBar value={diskPct(st)} inline />
+              <span class="ml" aria-hidden="true">Disk</span><UsageBar value={diskPct(st)} label="{s.name}: Disk" inline />
               {#if fm}<span class="dm">{fm}</span>{/if}
             </div>
             <div class="net">

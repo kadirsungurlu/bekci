@@ -252,15 +252,32 @@
   }
 
   const hx = $derived(hover !== null ? xOf(times[hover]) : 0);
-  const tipRight = $derived(hx > PAD.l + plotW / 2);
+  // İpucu kutusu imlecin yanında; grafiğin dışına taşmayacak şekilde kenara sıkıştırılır.
+  let tw = $state(0);
+  const tipLeft = $derived.by(() => {
+    const width = tw || 150;
+    const pref = hx > PAD.l + plotW / 2 ? hx - 12 - width : hx + 12;
+    return Math.max(0, Math.min(pref, w - width));
+  });
+
+  let chartEl: HTMLDivElement | undefined = $state();
+  function leave(e: PointerEvent) {
+    // Dokunmatikte parmak kalkınca ipucu kaybolmasın; başka yere dokununca kapanır.
+    if (e.pointerType !== 'touch') hover = null;
+  }
+  function outside(e: PointerEvent) {
+    if (hover !== null && chartEl && !chartEl.contains(e.target as Node)) hover = null;
+  }
 
   function hoverTitle(t: number): string {
     return `${fmtShortDate(t)} ${fmtTime(t)}`;
   }
 </script>
 
+<svelte:document onpointerdown={outside} />
+
 <div class="lc">
-  <div class="chart" bind:clientWidth={w}>
+  <div class="chart" bind:clientWidth={w} bind:this={chartEl}>
     {#if w > 0}
       {#if !hasData}
         <div class="nodata" style="height:{H}px">Bu aralıkta veri yok</div>
@@ -273,7 +290,7 @@
           aria-label={summary}
           onpointermove={move}
           onpointerdown={move}
-          onpointerleave={() => (hover = null)}
+          onpointerleave={leave}
         >
           <defs>
             <clipPath id="{uid}-clip">
@@ -327,7 +344,7 @@
         </svg>
 
         {#if hover !== null}
-          <div class="tipbox" class:right={tipRight} style={tipRight ? `right:${w - hx + 12}px` : `left:${hx + 12}px`}>
+          <div class="tipbox" bind:clientWidth={tw} style="left:{tipLeft}px">
             <div class="tt">{hoverTitle(times[hover])}</div>
             {#each series as s, i (i)}
               {@const v = s.values[hover]}

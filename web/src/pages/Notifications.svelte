@@ -88,7 +88,7 @@
           <span class="name">
             {ch.name}
             {#if ch.is_default}<span class="badge accent">Varsayılan</span>{/if}
-            {#if !ch.active}<span class="badge paused">Pasif</span>{/if}
+            {#if !ch.active}<span class="badge paused">Devre dışı</span>{/if}
           </span>
           <span class="sub">
             {NOTIFY_LABELS[ch.type] ?? ch.type} · {usage.get(ch.id) ?? 0} monitör
