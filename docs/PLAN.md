@@ -236,3 +236,149 @@ Roller (API her istekte rolü kontrol eder; arayüzde gizlemek tek başına yetm
    şifre değişimi, rol bazlı menü, durum sayfası yönetimi ve herkese açık sayfa.
 3. Bağımsız inceleme (Fable, özellikle yetki atlatma denemeleri) → düzeltmeler →
    canlıya çıkış.
+
+## 12. Aşama 4 — Sunucu takibi (Beszel benzeri)
+
+Karar: 2026-09-27, kullanıcı onayladı. Amaç: siteler ve sunucular tek panelde,
+aynı bildirim kanallarıyla. Beszel seviyesi: CPU, RAM, disk, ağ, yük, sıcaklık,
+Docker konteynerleri, geçmiş grafikleri, eşik uyarıları.
+
+### 12.1 Mimari kararlar
+
+- **Tek ajan.** Yeni bir program yazılmaz; mevcut `uptime probe` hem uzak kontrol
+  noktası hem sunucu ajanıdır. Veri modelinde yeni varlık yok: `probes` tablosu
+  "ajan" olur. Bir ajanın monitör ataması varsa konum olarak, sunucuyu görebiliyorsa
+  sunucu olarak çalışır. Sunucu başına tek kurulum, tek token.
+- **Ana sunucunun kendi metrikleri** için de ajan kurulur (Coolify'da ayrı bir
+  Docker Compose kaynağı). Uygulama konteyneri host'u görmediği için kendi kendini
+  ölçmez.
+- **Host görünürlüğü.** Konteyner içinde çalışan ajan, host `/proc`, `/sys`, `/`
+  bağlanmadıysa metrik göndermez (konteynerin kendi değerleri yanıltıcı olur);
+  sunucuya "metrics_unavailable" nedeni bildirilir, arayüzde "kurulum komutunu
+  güncelleyin" uyarısı çıkar. Algılama: `/.dockerenv` veya `/proc/1/cgroup` ile
+  konteyner tespiti + `HOST_PROC` ortam değişkeni.
+- **Toplama kütüphanesi:** `github.com/shirou/gopsutil/v4` (saf Go, `HOST_PROC`,
+  `HOST_SYS`, `HOST_ETC`, `HOST_ROOT` destekler). Docker konteyner istatistikleri
+  Docker API'sinden (`/containers/json`, `/containers/{id}/stats?stream=false&one-shot=true`),
+  mevcut `check/docker.go`'daki unix soket istemcisi yeniden kullanılır. CPU yüzdesi
+  ardışık iki örnekteki kümülatif sayaç farkından hesaplanır (tek atış, ucuz).
+- **Örnekleme:** ajan 60 sn'de bir örnek alır (sunucu `metrics_interval` ile
+  değiştirebilir; 0 = kapalı) ve hemen gönderir. CPU, disk G/Ç ve ağ hızları iki
+  örnek arasındaki farktır; ilk örnek hız alanları olmadan gider.
+
+### 12.2 Kurulum komutları
+
+Docker (varsayılan, arayüzde gösterilir):
+
+    docker run -d --name uptime-agent --restart unless-stopped \
+      --network host --pid host \
+      -v /:/host:ro -v /var/run/docker.sock:/var/run/docker.sock:ro \
+      -e HOST_PROC=/host/proc -e HOST_SYS=/host/sys -e HOST_ETC=/host/etc -e HOST_ROOT=/host \
+      -e ADDR=- -e PROBE_SERVER=https://uptime.kadir.app -e PROBE_TOKEN=upr_… \
+      alpine:3 sh -c 'wget -qO /usr/local/bin/uptime --header "Authorization: Bearer $PROBE_TOKEN" "$PROBE_SERVER/api/probe/binary" && chmod +x /usr/local/bin/uptime && exec uptime probe'
+
+`--network host`: ağ sayaçları host'un olsun diye; sağlık uç noktası bu yüzden
+kapalı (`ADDR=-`, host'ta 8080 çakışmasın). Doğrudan kurulum (systemd) için
+arayüzde ikinci sekme: ikiliyi indirip `/etc/systemd/system/uptime-agent.service`
+yazan tek satırlık betik. Mevcut kontrol noktaları eski komutla çalışmaya devam
+eder, sadece metrik göndermez.
+
+### 12.3 Protokol
+
+    POST /api/probe/metrics   (probe token, gövde ≤ 256 KB)
+    ← {"time": ms, "host": {...}, "stats": {...}}   veya
+    ← {"time": ms, "unavailable": "neden"}
+
+`GET /api/probe/jobs` yanıtına `metrics_interval` (sn) eklenir. Veri tipleri tek
+yerde tanımlıdır: `internal/metrics/types.go` (ajan ve sunucu aynı tipleri kullanır).
+Sınırlar: en fazla 32 disk, 32 ağ arayüzü, 32 sıcaklık sensörü, 200 konteyner;
+metinler kırpılır.
+
+### 12.4 Veri saklama
+
+- `probes` tablosuna: `metrics` (açık/kapalı, varsayılan açık), `host_info` (JSON),
+  `metrics_at` (son örnek zamanı), `metrics_note` (unavailable nedeni).
+- `server_stats(probe_id, res, time, data)`, birincil anahtar `(probe_id, res, time)`.
+  `data` JSON'dur (iki veritabanında da aynı çalışır, konteyner listesi esnek kalır).
+  - `res=1`: 1 dakikalık örnekler, **24 saat** saklanır (1 sa / 24 sa grafikleri)
+  - `res=10`: 10 dakikalık ortalamalar, **7 gün** (7 günlük grafik)
+  - `res=60`: saatlik ortalamalar, **90 gün** (30 günlük grafik)
+- Toplama (rollup) yeniden başlatmaya dayanıklıdır: yeni 1 dk örneği bir 10 dk
+  sınırını geçince önceki 10 dk'lık kova veritabanındaki 1 dk satırlarından
+  hesaplanıp yazılır (upsert, tekrar çalışması zararsız); 60 dk aynı şekilde 10 dk
+  satırlarından. Ortalama alınır; CPU için ayrıca tepe değer (`cpu_max`) tutulur.
+  Diskler ve sıcaklıklar için son/ortalama değer.
+- Eski satırları mevcut günlük bakım işi (`stats/maintenance.go`) siler.
+- Son örnek bellekte de tutulur (liste ekranı veritabanına gitmez).
+
+### 12.5 Uyarılar
+
+- `server_alerts(id, probe_id, metric, threshold, minutes, active, firing, fired_at)`:
+  metrikler `cpu`, `mem`, `swap`, `disk` (en dolu bölüm), `load` (1 dk yük / çekirdek),
+  `temp` (en sıcak sensör), `offline` (veri gelmiyor).
+- Değerlendirme: her örnek geldiğinde, son `minutes` dakikadaki örneklerin
+  ortalaması eşiği geçiyorsa uyarı başlar (bir kez bildirim); ortalama eşiğin
+  altına inince biter (bir kez "düzeldi" bildirimi). `offline`: son örnekten beri
+  `max(3 dk, 3 × aralık)` geçtiyse; 30 sn'de bir kontrol edilir.
+- Yeni sunucuya varsayılan kurallar: çevrimdışı 3 dk, CPU %90 / 10 dk, RAM %90 / 10 dk,
+  disk %85. Bildirim kanalları: `probe_notifications(probe_id, notification_id)`,
+  yeni sunucuda varsayılan (is_default) kanallar seçili gelir.
+- `notify.Event`'e `ProbeID` ve sunucu olay türleri (`server_alert`,
+  `server_resolved`) eklenir; dağıtıcı `ProbeID` doluysa kanalları
+  `probe_notifications`'tan alır. Mesaj örneği: "🔴 CP Server İstanbul: CPU %94
+  (10 dk ortalama, eşik %90)".
+- Uyarı geçmişi: `server_alert_events(id, probe_id, alert_id, metric, value, started_at, ended_at)`,
+  90 gün; sunucu detayında gösterilir.
+- Bakım pencereleri, durum sayfasında sunucu gösterimi, GPU, S.M.A.R.T. ve süreç
+  listesi bu aşamada **yok**.
+
+### 12.6 API
+
+| Uç nokta | Yetki | Açıklama |
+|---|---|---|
+| `GET /api/servers` | izleyici (müşteri kısıtlı hariç) | ajan listesi + son örnek + uyarı durumu |
+| `GET /api/servers/{id}` | aynı | host bilgisi, son örnek, kurallar, kanallar |
+| `GET /api/servers/{id}/stats?range=1h\|24h\|7d\|30d` | aynı | grafik serisi |
+| `GET /api/servers/{id}/events` | aynı | uyarı geçmişi |
+| `PUT /api/servers/{id}/alerts` | editör | kuralların tamamını değiştirir |
+| `PUT /api/servers/{id}/notifications` | editör | kanal seçimi |
+| `PUT /api/probes/{id}` | yönetici | mevcut; `metrics` alanı eklenir |
+| `POST /api/probe/metrics` | ajan token'ı | örnek gönderimi |
+
+Canlı akışa `server` olayı (son örnek özeti) eklenir; müşteri kısıtlı
+izleyicilere gönderilmez. Tüm değişiklikler işlem kaydına yazılır.
+
+### 12.7 Arayüz
+
+- Üst menüde yeni **Sunucular** sekmesi (`#/servers`). Liste: durum noktası
+  (çevrimiçi/çevrimdışı/uyarı), ad, host adı ve işletim sistemi, CPU/RAM/disk
+  doluluk çubukları (%), ağ ↓↑, yük, çalışma süresi. Mobilde kart görünümü.
+  Metrik göndermeyen ajanlar altta sönük ve "kurulum komutunu güncelleyin"
+  bağlantısıyla.
+- Sunucu detayı (`#/servers/{id}`): üstte host bilgisi ve anlık değerler; aralık
+  seçici (1 sa / 24 sa / 7 gün / 30 gün); grafikler: CPU (ortalama + tepe), RAM ve
+  swap, disk G/Ç, ağ, yük, sıcaklık (varsa); disk bölümleri tablosu (doluluk
+  çubuklarıyla); konteyner tablosu (CPU, RAM, ağ; sıralanabilir) ve en çok CPU
+  kullanan 5 konteynerin grafiği; uyarı kuralları düzenleyici; bildirim kanalları;
+  uyarı geçmişi.
+- **Sunucu ekle** düğmesi: ad sorar, ajan oluşturur, Docker / systemd sekmeli
+  kurulum komutunu gösterir. Ayarlar → Kontrol noktaları aynı ajanları konum
+  olarak yönetmeye devam eder; iki ekran birbirine bağlantı verir.
+- Grafikler için genel bir `LineChart.svelte` (SVG, çok seri, dokunmatik uyumlu
+  ipucu, birim biçimleyici); mevcut görsel dil (teal vurgu) korunur.
+
+### 12.8 Uygulama sırası ve iş bölümü
+
+0. (ben) Plan + `internal/metrics/types.go` sözleşmesi.
+1. Paralel ajanlar (Opus; dosya sahipliği ayrık):
+   - **A — Sunucu tarafı:** migration 10, store, alım uç noktası, rollup, saklama,
+     uyarı motoru, bildirim uzantısı, API, canlı olay, testler (SQLite + PostgreSQL).
+   - **B — Ajan:** `internal/metrics` toplayıcı (gopsutil + Docker), host
+     görünürlüğü tespiti, probe istemcisine metrik döngüsü, kurulum komutları
+     (Docker + systemd), testler.
+   - **C — Arayüz:** Sunucular listesi, detay, grafikler, uyarı düzenleyici,
+     kurulum penceresi (bu plandaki API sözleşmesine göre).
+2. (ben) Birleştirme, uçtan uca test (yerelde ajan + sunucu), ekran görüntüleri.
+3. Fable ile kısa son inceleme (yetki, ajan token'ı ile erişim, veri boyutu sınırları).
+4. Canlıya çıkış: Coolify deploy; ana sunucuya Coolify üzerinden ajan; CP Server
+   İstanbul'daki konteyner yeni komutla güncellenir (kullanıcı çalıştırır).
