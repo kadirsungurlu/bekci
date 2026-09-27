@@ -8,6 +8,7 @@
   import TagChip from './TagChip.svelte';
   import UptimeBars from './UptimeBars.svelte';
   import Icon from './Icon.svelte';
+  import { shortTarget } from '../lib/monitorTypes';
 
   let {
     m,
@@ -26,6 +27,7 @@
   } = $props();
 
   const kind = $derived(monitorKind(m));
+  const host = $derived(shortTarget(m.type, m.target));
   // Satırda en fazla 3 etiket; fazlası "+N" olarak.
   const tags = $derived(m.tags ?? []);
   const shownTags = $derived(tags.slice(0, 3));
@@ -53,15 +55,22 @@
 
   const href = $derived(`#/monitors/${m.id}`);
 
-  // Menü ekranın altına sığmıyorsa yukarı açılır (mobilde sekme çubuğu altında kalmasın).
-  let openUp = $state(false);
+  // Menü ekrana sabitlenir (liste kendi içinde kaydığında kutunun kenarında
+  // kesilmesin); ekranın altına sığmıyorsa yukarı açılır (mobilde sekme çubuğu
+  // altında kalmasın).
+  let menuStyle = $state('');
+  let menuUp = $state(false);
   function toggleMenu(e: MouseEvent) {
     if (menuOpen) {
       onmenu(null);
       return;
     }
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    openUp = window.innerHeight - r.bottom < 190;
+    const right = `right:${Math.round(window.innerWidth - r.right)}px`;
+    menuUp = window.innerHeight - r.bottom < 190;
+    menuStyle = menuUp
+        ? `${right};bottom:${Math.round(window.innerHeight - r.top + 4)}px`
+        : `${right};top:${Math.round(r.bottom + 4)}px`;
     onmenu(m.id);
   }
 </script>
@@ -80,7 +89,11 @@
         {#if tags.length > 3}<span class="more-tags" title={tags.slice(3).map((t) => (t.value ? `${t.name}: ${t.value}` : t.name)).join(', ')}>+{tags.length - 3}</span>{/if}
       {/if}
     </div>
-    <div class="sub c-{kind === 'down' ? 'down' : kind === 'pending' ? 'pending' : kind === 'maintenance' ? 'maint' : 'muted'}" title={sub}>{sub}</div>
+    <div class="sub" title={host ? `${host} · ${sub}` : sub}>
+      {#if host}<span class="host">{host}</span><span class="sep" aria-hidden="true">·</span>{/if}<span
+        class="c-{kind === 'down' ? 'down' : kind === 'pending' ? 'pending' : kind === 'maintenance' ? 'maint' : 'muted'}">{sub}</span
+      >
+    </div>
   </div>
   <div class="interval" title="Kontrol aralığı">
     <Icon name="refresh" size={13} />
@@ -103,7 +116,7 @@
       <Icon name="more" />
     </button>
     {#if menuOpen}
-      <div class="dropdown" class:up={openUp} role="menu">
+      <div class="dropdown" class:up={menuUp} style={menuStyle} role="menu">
         <a role="menuitem" href="#/monitors/{m.id}/edit" onclick={() => onmenu(null)}><Icon name="edit" size={15} /> Düzenle</a>
         <button
           role="menuitem"
@@ -207,6 +220,14 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .host {
+    color: var(--text-2);
+    font-weight: 500;
+  }
+  .sep {
+    color: var(--muted);
+    margin: 0 6px;
+  }
   .c-muted {
     color: var(--muted);
   }
@@ -238,9 +259,7 @@
     position: relative;
   }
   .dropdown {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 4px);
+    position: fixed;
     animation: pop 0.12s ease-out;
     z-index: 30;
     min-width: 160px;
@@ -267,10 +286,6 @@
     cursor: pointer;
     text-align: left;
     text-decoration: none;
-  }
-  .dropdown.up {
-    top: auto;
-    bottom: calc(100% + 4px);
   }
   .dropdown a:hover,
   .dropdown button:hover,

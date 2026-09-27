@@ -810,3 +810,16 @@ export const GROUP_MODES: { v: 'any_down' | 'all_down'; l: string }[] = [
  * ayardan ürettiğinde maske URL-kodlu gelir; okunaklı maskeye çevrilir.
  */
 export const displayTarget = (t: string) => t.replace(/(%E2%80%A2)+/gi, '••••••');
+
+/** Listede gösterilecek kısa hedef: web adreslerinde alan adı, diğerlerinde hedefin kendisi. */
+export function shortTarget(type: string, target: string): string {
+  if (!target) return '';
+  if (isWebTarget(type)) {
+    try {
+      return new URL(target).host;
+    } catch {
+      /* ayrıştırılamazsa olduğu gibi */
+    }
+  }
+  return displayTarget(target);
+}

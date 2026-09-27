@@ -105,7 +105,31 @@
   });
 
   const summary = $derived(live.summary);
+
+  // Masaüstünde liste kendi içinde kayar: başlık ve araç çubuğu yerinde kalır,
+  // kutu ekranın altına kadar uzanır. Dar ekranda sayfa normal kayar.
+  let toolbarEl = $state<HTMLElement>();
+  let listEl = $state<HTMLElement>();
+  let listMax = $state(0);
+  function fitList() {
+    if (!listEl || !window.matchMedia('(min-width: 901px)').matches) {
+      listMax = 0;
+      return;
+    }
+    const top = listEl.getBoundingClientRect().top + window.scrollY;
+    listMax = Math.max(320, Math.floor(window.innerHeight - top - 48));
+  }
+  $effect(() => {
+    if (!listEl || !toolbarEl) return;
+    fitList();
+    // Araç çubuğu satır atlarsa listenin başladığı yer değişir.
+    const ro = new ResizeObserver(fitList);
+    ro.observe(toolbarEl);
+    return () => ro.disconnect();
+  });
 </script>
+
+<svelte:window onresize={fitList} onscroll={() => (menuFor = null)} />
 
 <svelte:document onclick={() => (menuFor = null)} onkeydown={(e) => e.key === 'Escape' && (menuFor = null)} />
 
@@ -158,7 +182,7 @@
 {:else}
   <div class="layout">
     <section class="main-col">
-      <div class="toolbar">
+      <div class="toolbar" bind:this={toolbarEl}>
         <div class="search">
           <span class="s-ic"><Icon name="search" size={16} /></span>
           <input class="input" type="search" placeholder="Ad veya adrese göre ara" bind:value={search} aria-label="Ara" />
@@ -186,7 +210,13 @@
         {/if}
       </div>
 
-      <div class="card list">
+      <div
+        class="card list"
+        class:scroll={listMax > 0}
+        style:max-height={listMax ? `${listMax}px` : null}
+        bind:this={listEl}
+        onscroll={() => (menuFor = null)}
+      >
         {#each visible as m (m.id)}
           <MonitorRow
             {m}
@@ -376,6 +406,12 @@
   }
   .list {
     padding: 0;
+  }
+  .list.scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
   }
   .list :global(.row:last-child) {
     border-bottom: none;
