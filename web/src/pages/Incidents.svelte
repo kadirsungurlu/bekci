@@ -1,17 +1,41 @@
+<script lang="ts" module>
+  import type { Incident } from '../lib/api';
+
+  // Olay ayrıntısından geri dönüldüğünde liste (yüklenen sayfalar dahil) ve kaydırma
+  // konumu korunsun diye son durum modül düzeyinde saklanır.
+  const cache: { user: number; items: Incident[]; hasMore: boolean; scrollY: number } = {
+    user: -1,
+    items: [],
+    hasMore: false,
+    scrollY: 0,
+  };
+</script>
+
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
-  import { api, errorMessage, type Incident } from '../lib/api';
+  import { onDestroy, onMount, tick } from 'svelte';
+  import { api, errorMessage } from '../lib/api';
   import { live } from '../lib/live.svelte';
+  import { session } from '../lib/session.svelte';
   import { clock } from '../lib/ui.svelte';
   import IncidentTable from '../components/IncidentTable.svelte';
 
   const LIMIT = 50;
 
-  let items = $state.raw<Incident[]>([]);
-  let loading = $state(true);
+  const uid = session.user?.id ?? 0;
+  const cached = cache.user === uid && cache.items.length > 0;
+
+  let items = $state.raw<Incident[]>(cached ? cache.items : []);
+  let loading = $state(!cached);
   let loadingMore = $state(false);
-  let hasMore = $state(false);
+  let hasMore = $state(cached ? cache.hasMore : false);
   let error = $state('');
+
+  // Önbelleği güncel tut (sayfadan çıkarken kaydırma konumu zaten sıfırlanmış olur).
+  $effect(() => {
+    cache.user = uid;
+    cache.items = items;
+    cache.hasMore = hasMore;
+  });
 
   async function loadFirst() {
     try {
@@ -46,10 +70,16 @@
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   let unsub: (() => void) | undefined;
+  let unsubResume: (() => void) | undefined;
   const lastStatus = new Map<number, number>();
 
   onMount(() => {
+    if (cached) {
+      const y = cache.scrollY;
+      tick().then(() => requestAnimationFrame(() => window.scrollTo(0, y)));
+    } else cache.scrollY = 0;
     loadFirst();
+    unsubResume = live.onResume(loadFirst);
     // Bir monitörün durumu değişince yeni olay açılmış/kapanmış olabilir.
     unsub = live.onBeat((b) => {
       const prev = lastStatus.get(b.monitor_id) ?? live.byId(b.monitor_id)?.status;
@@ -62,11 +92,14 @@
   });
   onDestroy(() => {
     unsub?.();
+    unsubResume?.();
     clearTimeout(timer);
   });
 
   const ongoing = $derived(items.filter((i) => i.resolved_at === 0).length);
 </script>
+
+<svelte:window onscroll={() => (cache.scrollY = window.scrollY)} />
 
 <div class="page-head">
   <h1>Olaylar<span class="dot">.</span></h1>

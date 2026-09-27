@@ -8,9 +8,9 @@
   import { api, errorMessage, type ProbeSetup, type ServerView } from '../lib/api';
   import { navigate } from '../lib/router.svelte';
   import { servers } from '../lib/servers.svelte';
-  import { copyText, toast } from '../lib/ui.svelte';
   import Modal from './Modal.svelte';
   import Icon from './Icon.svelte';
+  import CopyButton from './CopyButton.svelte';
 
   let {
     open = $bindable(false),
@@ -111,11 +111,6 @@
     tab === 'systemd' && systemdCmd ? systemdCmd : tab === 'windows' && windowsCmd ? windowsCmd : dockerCmd,
   );
 
-  async function copy(text: string, what: string) {
-    if (await copyText(text)) toast.success(`${what} panoya kopyalandı`);
-    else toast.error('Kopyalanamadı; metni elle seçip kopyalayın');
-  }
-
   function goto() {
     const id = probeId;
     open = false;
@@ -158,7 +153,7 @@
               Docker kullanmayan sunucular için; <b>root</b> olarak çalıştırın.
             {/if}
           </p>
-          <button type="button" class="btn sm primary" onclick={() => copy(cmd, 'Komut')}><Icon name="copy" size={14} /> Kopyala</button>
+          <CopyButton text={cmd} class="btn sm primary" />
         </div>
         <pre>{cmd}</pre>
       </div>

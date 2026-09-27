@@ -3,12 +3,13 @@
   import { api, ApiError, errorMessage, type BarRange, type PageInput, type StatusPage } from '../lib/api';
   import { live } from '../lib/live.svelte';
   import { navigate } from '../lib/router.svelte';
-  import { confirmDialog, copyText, toast } from '../lib/ui.svelte';
+  import { confirmDialog, toast } from '../lib/ui.svelte';
   import { monitorKind } from '../lib/format';
   import Modal from '../components/Modal.svelte';
   import MonitorPicker from '../components/MonitorPicker.svelte';
   import StatusIcon from '../components/StatusIcon.svelte';
   import Icon from '../components/Icon.svelte';
+  import CopyButton from '../components/CopyButton.svelte';
   import Announcements from './Announcements.svelte';
 
   let { id }: { id?: number } = $props();
@@ -294,9 +295,6 @@
   const publicUrl = $derived(page ? `${location.origin}/durum/${page.slug}` : '');
   const host = location.host;
 
-  async function copyUrl() {
-    if (publicUrl && (await copyText(publicUrl))) toast.success('Adres panoya kopyalandı');
-  }
 </script>
 
 <a class="back" href="#/status-pages"><Icon name="chevron-left" size={16} /> Durum sayfaları</a>
@@ -326,7 +324,7 @@
       <div class="pub-bar card">
         <span class="badge {page.published ? 'up' : 'paused'}">{page.published ? 'Yayında' : 'Taslak'}</span>
         <code class="pub-url">{publicUrl}</code>
-        <button type="button" class="btn sm" onclick={copyUrl}><Icon name="copy" size={14} /> Kopyala</button>
+        <CopyButton text={publicUrl} />
       </div>
     {/if}
 

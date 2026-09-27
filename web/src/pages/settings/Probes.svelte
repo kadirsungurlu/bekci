@@ -2,11 +2,12 @@
   import { onDestroy, onMount } from 'svelte';
   import { api, errorMessage, type Probe, type ProbeSetup } from '../../lib/api';
   import { live } from '../../lib/live.svelte';
-  import { clock, confirmDialog, copyText, toast } from '../../lib/ui.svelte';
+  import { clock, confirmDialog, toast } from '../../lib/ui.svelte';
   import { collator, fmtDate, fmtRelative } from '../../lib/format';
   import Modal from '../../components/Modal.svelte';
   import RowMenu, { type MenuItem } from '../../components/RowMenu.svelte';
   import Icon from '../../components/Icon.svelte';
+  import CopyButton from '../../components/CopyButton.svelte';
 
   let probes = $state.raw<Probe[]>([]);
   let loading = $state(true);
@@ -97,10 +98,6 @@
     }
   }
 
-  async function copy(text: string, what: string) {
-    if (await copyText(text)) toast.success(`${what} panoya kopyalandı`);
-    else toast.error('Kopyalanamadı; metni elle seçip kopyalayın');
-  }
 
   // Düzenle ----------------------------------------------------------------------------
   let editOpen = $state(false);
@@ -277,7 +274,7 @@
         <div class="label">Token</div>
         <div class="copybox">
           <code>{setup.token}</code>
-          <button type="button" class="btn sm primary" onclick={() => copy(setup!.token, 'Token')}><Icon name="copy" size={14} /> Kopyala</button>
+          <CopyButton text={setup.token} class="btn sm primary" />
         </div>
       </div>
       <div>
@@ -285,7 +282,7 @@
         <p class="help cmd-help">Kontrol noktası olacak sunucuda bu komutu çalıştırın.</p>
         <div class="copybox">
           <code class="cmd">{setup.docker_command}</code>
-          <button type="button" class="btn sm" onclick={() => copy(setup!.docker_command, 'Komut')}><Icon name="copy" size={14} /> Kopyala</button>
+          <CopyButton text={setup.docker_command} />
         </div>
       </div>
       <p class="help nomargin">

@@ -11,6 +11,7 @@
   import { onMount, tick } from 'svelte';
   import type { MonitorView } from '../lib/api';
   import { monitorKind } from '../lib/format';
+  import { lockScroll } from '../lib/ui.svelte';
   import Icon, { type IconName } from './Icon.svelte';
   import StatusIcon from './StatusIcon.svelte';
 
@@ -85,10 +86,12 @@
 
   const buttons = () => [...(el?.querySelectorAll<HTMLElement>('[role=menuitem]') ?? [])];
 
-  onMount(async () => {
+  onMount(() => {
+    // Alttan açılan sayfa açıkken arkadaki liste kaymasın.
+    const unlock = sheet ? lockScroll() : undefined;
     place();
-    await tick();
-    buttons()[0]?.focus({ preventScroll: true });
+    tick().then(() => buttons()[0]?.focus({ preventScroll: true }));
+    return unlock;
   });
 
   function onKey(e: KeyboardEvent) {
@@ -272,6 +275,7 @@
   }
   .menu.sheet a,
   .menu.sheet button {
+    min-height: 44px;
     padding: 11px 12px;
     font-size: 0.97rem;
     gap: 14px;

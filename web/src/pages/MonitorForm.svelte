@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount, tick } from 'svelte';
+  import { onDestroy, onMount, tick, untrack } from 'svelte';
   import {
     api,
     ApiError,
@@ -20,6 +20,7 @@
   import { collator, fmtInterval, lower } from '../lib/format';
   import { session } from '../lib/session.svelte';
   import { NOTIFY_LABELS } from '../lib/notifyTypes';
+  import { changedDestinations, destinationPhrase, guardUnsaved, markInvalid, snapshot } from '../lib/forms';
   import {
     CATEGORY_LABELS,
     CATEGORY_ORDER,
@@ -249,7 +250,9 @@
   }
 
   function pickType(t: MonitorType) {
+    const pristine = !isEdit && !isDirty();
     if (t !== type) {
+      clearedSecrets = [];
       const prevHost = ['tcp', 'ping', 'dns'].includes(type) ? host.trim() : '';
       type = t;
       const f = typeDef(t)?.fields;
@@ -262,6 +265,8 @@
         }
       }
     }
+    // Yeni monitörde yalnızca tip seçmek "kaydedilmemiş değişiklik" sayılmasın.
+    if (pristine) tick().then(resetBaseline);
     // Dar ekranda uzun listeyi kapatıp forma geç.
     if (!isEdit && matchMedia('(max-width: 640px)').matches) {
       pickerOpen = false;
@@ -323,7 +328,11 @@
       }
     }
     await chP;
+    await tick();
+    resetBaseline();
   });
+
+  onMount(() => guardUnsaved(isDirty));
 
   // Yardımcı davranışlar ------------------------------------------------------------
   function urlBlur() {
@@ -341,7 +350,15 @@
     if (!name.trim() && host.trim()) name = host.trim();
   }
 
-  const CODE_RE = /^(\d{3}|\d{3}-\d{3}|[1-5]xx)$/i;
+  /** Kabul edilen durum kodu: 100-599 arası kod, küçükten büyüğe aralık veya 2xx gibi sınıf. */
+  function validCode(c: string): boolean {
+    if (/^[1-5]xx$/i.test(c)) return true;
+    const m = c.match(/^(\d{3})(?:-(\d{3}))?$/);
+    if (!m) return false;
+    const lo = Number(m[1]);
+    const hi = m[2] ? Number(m[2]) : lo;
+    return lo >= 100 && hi <= 599 && lo <= hi;
+  }
 
   function parseCodes(): string[] {
     return acceptedCodes
@@ -353,47 +370,63 @@
   const inRange = (v: number | null, lo: number, hi: number) =>
     v !== null && Number.isInteger(v) && v >= lo && v <= hi;
 
-  /** Hata metni ve hatanın gelişmiş ayarlarda olup olmadığı. */
-  function validate(): { msg: string; advanced?: boolean } | null {
-    if (!name.trim()) return { msg: 'Monitör adı gerekli.' };
-    if (name.trim().length > 100) return { msg: 'Ad en fazla 100 karakter olabilir.' };
-    if (!inRange(interval, 20, 86400)) return { msg: 'Kontrol aralığı 20 saniye ile 24 saat (86400 sn) arasında olmalı.' };
+  /** Hata metni, hatanın gelişmiş ayarlarda olup olmadığı ve hatalı alanın kimliği. */
+  function validate(): { msg: string; advanced?: boolean; field?: string } | null {
+    if (!name.trim()) return { msg: 'Monitör adı gerekli.', field: 'name' };
+    if (name.trim().length > 100) return { msg: 'Ad en fazla 100 karakter olabilir.', field: 'name' };
+    if (!inRange(interval, 20, 86400))
+      return { msg: 'Kontrol aralığı 20 saniye ile 24 saat (86400 sn) arasında olmalı.', field: intervalPreset === 'custom' ? 'cint' : 'int' };
     switch (type) {
       case 'http': {
-        if (!/^https?:\/\/[^\s/]+/i.test(url.trim())) return { msg: 'Geçerli bir http:// veya https:// adresi girin.' };
+        if (!/^https?:\/\/[^\s/]+/i.test(url.trim())) return { msg: 'Geçerli bir http:// veya https:// adresi girin.', field: 'url' };
         const codes = parseCodes();
-        const bad = codes.find((c) => !CODE_RE.test(c));
-        if (bad) return { msg: `Geçersiz durum kodu: “${bad}”. Örnek biçimler: 200, 200-299, 2xx`, advanced: true };
-        if (!inRange(maxRedirects, 0, 30)) return { msg: 'Yönlendirme sayısı 0-30 arasında olmalı.', advanced: true };
-        if (contentMode === 'keyword' && !keyword) return { msg: 'Aranacak kelimeyi girin.', advanced: true };
-        if (contentMode === 'json' && !jsonPath.trim()) return { msg: 'JSON yolunu girin (ör. data.status).', advanced: true };
+        const bad = codes.find((c) => !validCode(c));
+        if (bad)
+          return {
+            msg: `Geçersiz durum kodu: “${bad}”. Kodlar 100-599 arasında olmalı; örnek biçimler: 200, 200-299, 2xx`,
+            advanced: true,
+            field: 'codes',
+          };
+        if (!inRange(maxRedirects, 0, 30)) return { msg: 'Yönlendirme sayısı 0-30 arasında olmalı.', advanced: true, field: 'rd' };
+        if (contentMode === 'keyword' && !keyword) return { msg: 'Aranacak kelimeyi girin.', advanced: true, field: 'kw' };
+        if (contentMode === 'json' && !jsonPath.trim()) return { msg: 'JSON yolunu girin (ör. data.status).', advanced: true, field: 'jp' };
         if (method === 'HEAD' && contentMode !== 'none')
-          return { msg: 'HEAD isteği gövde döndürmez; kelime/JSON kontrolü için GET kullanın.', advanced: true };
+          return { msg: 'HEAD isteği gövde döndürmez; kelime/JSON kontrolü için GET kullanın.', advanced: true, field: 'method' };
         const xe = fieldError(HTTP_EXTRA_FIELDS, httpExtra);
-        if (xe) return { msg: xe.msg, advanced: true };
+        if (xe) return { msg: xe.msg, advanced: true, field: `hx-${xe.key}` };
         const x = httpExtra;
         if (x.proxy_url.trim() && x.proxy_pass && !x.proxy_user.trim())
-          return { msg: 'Proxy şifresi için kullanıcı adı da gerekli.', advanced: true };
-        if (!!x.tls_cert.trim() !== !!x.tls_key.trim())
-          return { msg: 'İstemci sertifikası ve özel anahtarı birlikte girilmeli.', advanced: true };
+          return { msg: 'Proxy şifresi için kullanıcı adı da gerekli.', advanced: true, field: 'hx-proxy_user' };
+        // Sertifika silindiyse kayıtlı (maskeli) anahtar da kaldırılacak: dolu sayılmaz.
+        const keySet = !!x.tls_key.trim() && !(x.tls_key === MASK && !x.tls_cert.trim());
+        if (!!x.tls_cert.trim() !== keySet)
+          return {
+            msg: 'İstemci sertifikası ve özel anahtarı birlikte girilmeli.',
+            advanced: true,
+            field: x.tls_cert.trim() ? 'hx-tls_key' : 'hx-tls_cert',
+          };
         if (x.oauth_token_url.trim()) {
           if (!x.oauth_client_id.trim() || !x.oauth_client_secret)
-            return { msg: 'OAuth2 için istemci kimliği (Client ID) ve istemci sırrı (Client Secret) gerekli.', advanced: true };
-          if (basicUser || basicPass) return { msg: 'Basic auth ile OAuth2 birlikte kullanılamaz; birini boşaltın.', advanced: true };
+            return {
+              msg: 'OAuth2 için istemci kimliği (Client ID) ve istemci sırrı (Client Secret) gerekli.',
+              advanced: true,
+              field: x.oauth_client_id.trim() ? 'hx-oauth_client_secret' : 'hx-oauth_client_id',
+            };
+          if (basicUser || basicPass) return { msg: 'Basic auth ile OAuth2 birlikte kullanılamaz; birini boşaltın.', advanced: true, field: 'bu' };
         }
         break;
       }
       case 'tcp':
-        if (!host.trim()) return { msg: 'Sunucu adresi gerekli.' };
-        if (!inRange(port, 1, 65535)) return { msg: 'Port 1-65535 arasında olmalı.' };
+        if (!host.trim()) return { msg: 'Sunucu adresi gerekli.', field: 'host' };
+        if (!inRange(port, 1, 65535)) return { msg: 'Port 1-65535 arasında olmalı.', field: 'port' };
         break;
       case 'ping':
-        if (!host.trim()) return { msg: 'Sunucu adresi gerekli.' };
-        if (!inRange(pingCount, 1, 10)) return { msg: 'Ping sayısı 1-10 arasında olmalı.' };
+        if (!host.trim()) return { msg: 'Sunucu adresi gerekli.', field: 'host' };
+        if (!inRange(pingCount, 1, 10)) return { msg: 'Ping sayısı 1-10 arasında olmalı.', field: 'count' };
         break;
       case 'dns':
-        if (!host.trim()) return { msg: 'Sorgulanacak alan adı gerekli.' };
-        if (!inRange(dnsPort, 1, 65535)) return { msg: 'DNS sunucu portu 1-65535 arasında olmalı.' };
+        if (!host.trim()) return { msg: 'Sorgulanacak alan adı gerekli.', field: 'host' };
+        if (!inRange(dnsPort, 1, 65535)) return { msg: 'DNS sunucu portu 1-65535 arasında olmalı.', field: 'dport' };
         break;
       case 'group':
         if (groupIds.length === 0) return { msg: 'En az bir alt monitör seçin.' };
@@ -402,16 +435,16 @@
       default:
         if (genericFields.length) {
           const fe = fieldError(genericFields, extra);
-          if (fe) return fe;
+          if (fe) return { ...fe, field: `${fe.advanced ? 'mta' : 'mt'}-${fe.key}` };
         }
     }
     if (showLocations && !locLocal && locProbeIds.length === 0) return { msg: 'Konumlar: en az bir konum seçin.' };
     if (retryInterval !== null && !inRange(retryInterval, 20, 86400))
-      return { msg: 'Tekrar deneme aralığı 20 saniye ile 24 saat arasında olmalı.', advanced: true };
-    if (!inRange(maxRetries, 0, 20)) return { msg: 'Tekrar deneme sayısı 0-20 arasında olmalı.', advanced: true };
-    if (hasTimeout(type) && !inRange(timeout, 1, 300)) return { msg: 'Zaman aşımı 1-300 saniye arasında olmalı.', advanced: true };
-    if (!inRange(resendEvery, 0, 10000)) return { msg: 'Hatırlatma sıklığı 0-10000 arasında olmalı.', advanced: true };
-    if (description.trim().length > 500) return { msg: 'Açıklama en fazla 500 karakter olabilir.', advanced: true };
+      return { msg: 'Tekrar deneme aralığı 20 saniye ile 24 saat arasında olmalı.', advanced: true, field: 'ri' };
+    if (!inRange(maxRetries, 0, 20)) return { msg: 'Tekrar deneme sayısı 0-20 arasında olmalı.', advanced: true, field: 'mr' };
+    if (hasTimeout(type) && !inRange(timeout, 1, 300)) return { msg: 'Zaman aşımı 1-300 saniye arasında olmalı.', advanced: true, field: 'to' };
+    if (!inRange(resendEvery, 0, 10000)) return { msg: 'Hatırlatma sıklığı 0-10000 arasında olmalı.', advanced: true, field: 're' };
+    if (description.trim().length > 500) return { msg: 'Açıklama en fazla 500 karakter olabilir.', advanced: true, field: 'desc' };
     return null;
   }
 
@@ -460,19 +493,21 @@
     }
   }
 
-  async function showError(msg: string, advanced = false) {
+  async function showError(msg: string, advanced = false, field?: string) {
     error = msg;
     if (advanced) showAdvanced = true;
     await tick();
+    markInvalid(field, 'mf-error');
     errorEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     error = '';
+    markInvalid(null, 'mf-error');
     const v = validate();
     if (v) {
-      showError(v.msg, v.advanced);
+      showError(v.msg, v.advanced, v.field);
       return;
     }
     const input: MonitorInput = {
@@ -529,6 +564,7 @@
     }
     live.upsert(res);
     saving = false;
+    saved = true;
     if (problems.length) {
       toast.error(`Monitör kaydedildi, ancak: ${problems.join(' ')}`);
       // Yeni monitör artık var: tekrar göndermek kopya oluşturmasın diye düzenleme sayfasına geç.
@@ -538,6 +574,84 @@
     toast.success(isEdit ? 'Değişiklikler kaydedildi' : `“${res.name}” eklendi`);
     navigate(`/monitors/${res.id}`);
   }
+
+  // Kaydedilmemiş değişiklikler --------------------------------------------------------
+  let baseline = '';
+  let saved = false;
+  function formState() {
+    return {
+      name: name.trim(),
+      type,
+      description: description.trim(),
+      interval,
+      retryInterval,
+      maxRetries,
+      timeout,
+      resendEvery,
+      upsideDown,
+      cfg: buildConfig(),
+      notif: [...notifIds].sort((a, b) => a - b),
+      tags: tagKey(mtags),
+      loc: [locLocal, [...locProbeIds].sort((a, b) => a - b), locDownWhen],
+    };
+  }
+  const isDirty = () => !saved && !!baseline && !loading && !loadError && snapshot(formState()) !== baseline;
+  const resetBaseline = () => (baseline = snapshot(formState()));
+
+  // Hedef değişince kayıtlı gizli alanlar ----------------------------------------------
+  // Sunucu, adres/sunucu/port değiştiğinde maskeli (kayıtlı) gizli değeri yeni hedefe
+  // taşımaz. Bu durumda maskeli alanlar boşaltılır, gelişmiş ayarlar açılır ve ne
+  // yapılması gerektiği yazılır; hedef eski hâline dönerse kayıtlı değerler geri gelir.
+  const HTTP_SECRETS: Record<string, string> = {
+    basic_pass: 'Basic auth şifresi',
+    headers: 'HTTP başlıkları',
+    proxy_pass: 'Proxy şifresi',
+    tls_key: 'Özel anahtar',
+    oauth_client_secret: 'İstemci sırrı',
+  };
+  const secretKeys = $derived(
+    type === 'http' ? Object.keys(HTTP_SECRETS) : genericFields.filter((f) => f.kind === 'secret' || f.secret).map((f) => f.key),
+  );
+  function getSecret(k: string): string {
+    if (type === 'http') return k === 'basic_pass' ? basicPass : k === 'headers' ? headers : (httpExtra[k] ?? '');
+    return extra[k] ?? '';
+  }
+  function setSecret(k: string, v: string) {
+    if (type === 'http') {
+      if (k === 'basic_pass') basicPass = v;
+      else if (k === 'headers') headers = v;
+      else httpExtra[k] = v;
+    } else extra[k] = v;
+  }
+  const secretLabel = (k: string) => (type === 'http' ? HTTP_SECRETS[k] : genericFields.find((f) => f.key === k)?.label) ?? k;
+
+  const destChanged = $derived.by(() => {
+    if (!isEdit || loading || origType !== type) return [] as string[];
+    return changedDestinations(buildConfig(), origConfig);
+  });
+  let clearedSecrets = $state<string[]>([]);
+
+  $effect(() => {
+    const changed = destChanged.length > 0;
+    untrack(() => {
+      if (changed) {
+        const keys = secretKeys.filter((k) => getSecret(k) === MASK);
+        if (!keys.length) return;
+        for (const k of keys) setSecret(k, '');
+        clearedSecrets = [...new Set([...clearedSecrets, ...keys])];
+        const advancedKeys = type === 'http' ? keys : keys.filter((k) => genericFields.find((f) => f.key === k)?.advanced);
+        if (advancedKeys.length) showAdvanced = true;
+      } else if (clearedSecrets.length) {
+        for (const k of clearedSecrets) if (getSecret(k) === '') setSecret(k, MASK);
+        clearedSecrets = [];
+      }
+    });
+  });
+  const rebindMsg = $derived(
+    clearedSecrets.length && destChanged.length
+      ? `${destinationPhrase(destChanged)} değiştiği için kayıtlı ${clearedSecrets.map(secretLabel).join(', ')} güvenlik gereği yeni hedefe taşınmaz. Kaydetmeden önce ${clearedSecrets.length > 1 ? 'bunları' : 'bunu'} yeniden girin${type === 'http' ? ' (Gelişmiş ayarlar)' : ''}.`
+      : '',
+  );
 
   // Etiketler --------------------------------------------------------------------------
   const tagKey = (l: { id: number; value: string }[]) =>
@@ -749,6 +863,10 @@
         {#if def?.about}<p class="about text-2 small">{def.about}</p>{/if}
         {#if def?.note}<div class="alert warning">{def.note}</div>{/if}
         <ConfigFields fields={genericFields} bind:values={extra} idPrefix="mt" part="basic" onsuggest={suggestName} />
+      {/if}
+
+      {#if rebindMsg}
+        <div class="alert warning small" role="status">{rebindMsg}</div>
       {/if}
 
       <div class="grid-int">
@@ -1066,7 +1184,7 @@
     </section>
 
     {#if error}
-      <div class="alert error" role="alert" bind:this={errorEl}>{error}</div>
+      <div class="alert error" role="alert" id="mf-error" bind:this={errorEl}>{error}</div>
     {/if}
 
     <div class="actions">

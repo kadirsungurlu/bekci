@@ -139,6 +139,13 @@
     const pts = s.points ?? [];
     const last = pts.length ? pts[pts.length - 1].t : 0;
     if (d.metrics_at <= last) return;
+    // Arada boşluk varsa (bağlantı koptu, uygulama arka plandaydı) tek nokta eklemek
+    // boşluğu düz çizgiyle kapatır: grafiği baştan yükle.
+    const step = pts.length >= 2 ? pts[pts.length - 1].t - pts[pts.length - 2].t : 60;
+    if (last && d.metrics_at - last > Math.max(180, step * 3)) {
+      loadStats(s.range);
+      return;
+    }
     const sec = RANGES.find((r) => r.key === s.range)!.sec;
     const to = Math.max(s.to, d.metrics_at);
     const next = [...pts.filter((p) => p.t >= to - sec), pointFromStats(d.metrics_at, d.latest, d.temp_max)];
@@ -149,6 +156,7 @@
   let refreshTimer: ReturnType<typeof setInterval> | undefined;
   let unsub: (() => void) | undefined;
   let lastFiring = '';
+  let unsubResume: (() => void) | undefined;
 
   onMount(() => {
     servers.ensure();
@@ -170,10 +178,18 @@
       loadDetail();
       loadEvents();
     }, 60_000);
+    // Bağlantı yeniden kuruldu / uygulamaya geri dönüldü: arada kaçan örnekler için
+    // grafik tek nokta eklenerek değil, baştan yüklenir.
+    unsubResume = live.onResume(() => {
+      loadStats(range);
+      loadDetail();
+      loadEvents();
+    });
   });
 
   onDestroy(() => {
     unsub?.();
+    unsubResume?.();
     clearTimeout(reloadTimer);
     clearInterval(refreshTimer);
   });

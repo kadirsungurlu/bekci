@@ -1,12 +1,12 @@
 <script lang="ts">
   import { api, errorMessage, type Role, type UserRecord } from '../../lib/api';
   import { ROLE_DESCS, ROLE_LABELS, session } from '../../lib/session.svelte';
-  import { copyText, toast } from '../../lib/ui.svelte';
   import { randomPassword } from '../../lib/format';
   import Modal from '../../components/Modal.svelte';
   import MonitorPicker from '../../components/MonitorPicker.svelte';
   import ServerPicker from '../../components/ServerPicker.svelte';
   import Icon from '../../components/Icon.svelte';
+  import CopyButton from '../../components/CopyButton.svelte';
 
   let {
     open = $bindable(false),
@@ -37,10 +37,6 @@
   function generate() {
     password = randomPassword();
     showPw = true;
-  }
-
-  async function copyPw() {
-    if (password && (await copyText(password))) toast.success('Şifre panoya kopyalandı');
   }
 
   async function save() {
@@ -146,7 +142,7 @@
             spellcheck="false"
           />
           <button type="button" class="btn" onclick={generate}><Icon name="refresh" size={15} /> Rastgele oluştur</button>
-          <button type="button" class="btn icon" aria-label="Şifreyi kopyala" onclick={copyPw} disabled={!password}><Icon name="copy" size={15} /></button>
+          <CopyButton class="btn icon" iconOnly ariaLabel="Şifreyi kopyala" text={password} disabled={!password} size={15} />
         </div>
         <span class="help">En az 8 karakter. Kullanıcı ilk girişte bu şifreyi değiştirmek zorunda kalır; şifreyi ona güvenli bir yoldan iletin.</span>
       </div>

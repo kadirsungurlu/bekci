@@ -149,6 +149,13 @@ body {
   overflow-x: hidden;
 }
 
+/* Pencere / alttan açılan sayfa açıkken arkadaki sayfa kaymaz (bkz. lockScroll). */
+html.scroll-lock,
+html.scroll-lock body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 a {
   color: var(--accent-text);
   text-decoration: none;

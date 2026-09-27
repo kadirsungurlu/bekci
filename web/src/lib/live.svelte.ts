@@ -32,11 +32,17 @@ class Live {
   private probeListeners = new Set<ProbeListener>();
   private serverListeners = new Set<ServerListener>();
   private reconnectListeners = new Set<() => void>();
+  private resumeListeners = new Set<() => void>();
   private statsResetListeners = new Set<(id: number) => void>();
   private softRefreshTimer: ReturnType<typeof setTimeout> | undefined;
   private maintTimer: ReturnType<typeof setTimeout> | undefined;
   private lastRefresh = 0;
   private everConnected = false;
+  /** Liste isteklerinin sıra numarası: geç dönen eski yanıt yenisinin üstüne yazmasın. */
+  private refreshSeq = 0;
+  private appliedSeq = 0;
+  /** Sayfanın gizlendiği an (iPhone'da uygulama arka plana alındığında). */
+  private hiddenAt = 0;
 
   start() {
     if (this.running) return;
@@ -65,24 +71,76 @@ class Live {
     this.loadError = '';
     this.connected = false;
     this.everConnected = false;
+    this.hiddenAt = 0;
   }
 
   private onVisible = () => {
-    if (!document.hidden && this.running && Date.now() - this.lastRefresh > 30_000) this.refresh();
+    if (!this.running) return;
+    if (document.hidden) {
+      this.hiddenAt = Date.now();
+      return;
+    }
+    const away = this.hiddenAt ? Date.now() - this.hiddenAt : 0;
+    this.hiddenAt = 0;
+    if (away > 30_000) {
+      // Uzun süre arka planda kaldı (ör. iPhone'da uygulamaya geri dönüldü): SSE
+      // bağlantısı sessizce kopmuş ve olaylar kaçmış olabilir. Her şeyi tazele.
+      this.resume();
+    } else if (Date.now() - this.lastRefresh > 30_000) this.refresh();
   };
+
+  /** Kaçan olayları tamamlamak için liste ve açık ekranlar yeniden yüklenir. */
+  private resume() {
+    this.refresh();
+    this.emit(this.resumeListeners, undefined);
+    // Arka planda kopmuş ama tarayıcının fark etmediği bağlantıyı yenile.
+    if (this.es && this.es.readyState !== EventSource.OPEN) {
+      this.es.close();
+      this.es = null;
+      clearTimeout(this.reconnectTimer);
+      this.connect();
+    }
+  }
 
   async refresh() {
     this.lastRefresh = Date.now();
+    const seq = ++this.refreshSeq;
     try {
       const [list, sum] = await Promise.all([api.monitors(), api.summary()]);
-      if (!this.running) return;
-      this.monitors = list;
+      // Daha yeni bir istek zaten uygulandıysa bu eski yanıtı at.
+      if (!this.running || seq < this.appliedSeq) return;
+      this.appliedSeq = seq;
+      this.monitors = this.mergeSnapshot(list);
       this.summary = sum;
       this.loaded = true;
       this.loadError = '';
     } catch (e) {
-      if (!this.loaded) this.loadError = errorMessage(e);
+      if (!this.loaded && seq >= this.appliedSeq) this.loadError = errorMessage(e);
     }
+  }
+
+  /**
+   * Sunucudan gelen anlık listeyi yazar; ama istek yoldayken canlı akıştan daha yeni
+   * bir kontrol sonucu gelmiş monitörün durumunu eski anlık görüntüyle geri almaz.
+   */
+  private mergeSnapshot(list: MonitorView[]): MonitorView[] {
+    if (!this.monitors.length) return list;
+    const cur = this.index;
+    return list.map((n) => {
+      const c = cur.get(n.id);
+      if (!c || !(c.last_check_at > n.last_check_at)) return n;
+      return {
+        ...n,
+        status: c.status,
+        last_check_at: c.last_check_at,
+        last_ping_ms: c.last_ping_ms,
+        last_message: c.last_message,
+        last_change_at: c.last_change_at,
+        cert_expires_at: c.cert_expires_at || n.cert_expires_at,
+        in_maintenance: c.in_maintenance,
+        open_incident_id: c.status === STATUS_UP ? null : (n.open_incident_id ?? c.open_incident_id),
+      };
+    });
   }
 
   async refreshSummary() {
@@ -109,6 +167,7 @@ class Live {
       if (this.everConnected) {
         this.refresh();
         this.emit(this.reconnectListeners, undefined);
+        this.emit(this.resumeListeners, undefined);
       }
       this.everConnected = true;
     };
@@ -200,6 +259,17 @@ class Live {
   onReconnect(fn: () => void): () => void {
     this.reconnectListeners.add(fn);
     return () => this.reconnectListeners.delete(fn);
+  }
+
+  /**
+   * Kaçırılmış olabilecek değişiklikler için ekranın verisini yeniden yüklemesi
+   * gerektiğinde çağrılır: canlı bağlantı koptuktan sonra yeniden kurulunca ve sayfa
+   * 30 sn'den uzun süre arka planda kaldıktan sonra öne gelince. Abonelik bitirme
+   * fonksiyonu döner.
+   */
+  onResume(fn: () => void): () => void {
+    this.resumeListeners.add(fn);
+    return () => this.resumeListeners.delete(fn);
   }
 
   /** Kontrol noktası durumu değiştiğinde çağrılır; aboneliği bitiren fonksiyon döner. */

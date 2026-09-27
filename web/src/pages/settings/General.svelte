@@ -2,8 +2,8 @@
   import { onMount } from 'svelte';
   import { api, errorMessage, type AppSettings } from '../../lib/api';
   import { session } from '../../lib/session.svelte';
-  import { copyText, toast } from '../../lib/ui.svelte';
-  import Icon from '../../components/Icon.svelte';
+  import { toast } from '../../lib/ui.svelte';
+  import CopyButton from '../../components/CopyButton.svelte';
 
   let loaded = $state(false);
   let loadError = $state('');
@@ -77,10 +77,6 @@
       username: metrics
       password: upk_…`;
 
-  async function copy(t: string) {
-    if (await copyText(t)) toast.success('Panoya kopyalandı');
-    else toast.error('Kopyalanamadı; metni elle seçip kopyalayın');
-  }
 </script>
 
 <div class="cols">
@@ -135,7 +131,7 @@
         Metrikler <code>{metricsUrl}</code> adresindedir ve bir API anahtarı (izleyici yetkisi yeterli) gerektirir. Anahtarı
         <a href="#/settings">Hesabım › API anahtarları</a> bölümünden oluşturun.
       </p>
-      <div class="copybox"><code>{metricsUrl}</code><button type="button" class="btn sm" onclick={() => copy(metricsUrl)}><Icon name="copy" size={14} /> Kopyala</button></div>
+      <div class="copybox"><code>{metricsUrl}</code><CopyButton text={metricsUrl} /></div>
       <div>
         <div class="label">prometheus.yml</div>
         <pre class="yaml">{promYaml}</pre>

@@ -2,10 +2,11 @@
   import { onMount, tick } from 'svelte';
   import { api, errorMessage, type TwoFactorSetup, type TwoFactorStatus } from '../../lib/api';
   import { session } from '../../lib/session.svelte';
-  import { copyText, toast } from '../../lib/ui.svelte';
+  import { toast } from '../../lib/ui.svelte';
   import Modal from '../../components/Modal.svelte';
   import RecoveryCodes from '../../components/RecoveryCodes.svelte';
   import Icon from '../../components/Icon.svelte';
+  import CopyButton from '../../components/CopyButton.svelte';
 
   let status = $state<TwoFactorStatus | null>(null);
   let loadError = $state('');
@@ -90,9 +91,6 @@
     toast.success('İki adımlı doğrulama açıldı. Diğer cihazlardaki oturumlar kapatıldı.');
   }
 
-  async function copySecret() {
-    if (setup && (await copyText(setup.secret))) toast.success('Anahtar kopyalandı');
-  }
 
   const secretGroups = $derived(setup ? setup.secret.replace(/(.{4})/g, '$1 ').trim() : '');
 
@@ -209,7 +207,7 @@
         <div class="help">QR tarayamıyor musunuz? Bu anahtarı elle girin:</div>
         <div class="copybox secret">
           <code>{secretGroups}</code>
-          <button type="button" class="btn sm" onclick={copySecret}><Icon name="copy" size={14} /> Kopyala</button>
+          <CopyButton text={setup.secret} />
         </div>
       </div>
     </div>

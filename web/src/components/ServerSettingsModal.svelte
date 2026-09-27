@@ -1,7 +1,9 @@
 <script lang="ts">
   // Sunucu ayarları (yönetici): ad, metrik toplamayı duraklatma ve silme.
   // Sunucular kontrol noktalarından ayrı kayıtlardır; ayarları burada yapılır.
+  import { untrack } from 'svelte';
   import { api, errorMessage, type ServerView } from '../lib/api';
+  import { servers } from '../lib/servers.svelte';
   import { confirmDialog, toast } from '../lib/ui.svelte';
   import { navigate } from '../lib/router.svelte';
   import Modal from './Modal.svelte';
@@ -23,15 +25,23 @@
   let error = $state('');
   let busy = $state(false);
 
-  // Pencere her açıldığında güncel değerlerle başlar.
+  // Pencere her açıldığında güncel değerlerle başlar. Yalnızca `open` izlenir:
+  // canlı akışla gelen sunucu güncellemeleri yazılanları silmesin.
   $effect(() => {
-    if (open) {
-      name = server.name;
-      metrics = server.metrics;
-      ipLock = server.ip_lock;
-      lockedIp = server.locked_ip;
-      error = '';
-    }
+    if (open)
+      untrack(() => {
+        name = server.name;
+        metrics = server.metrics;
+        ipLock = server.ip_lock;
+        lockedIp = server.locked_ip;
+        error = '';
+      });
+  });
+
+  // Kilitli IP yalnızca bilgi amaçlı: canlı güncellemeyle yenilenebilir.
+  $effect(() => {
+    const ip = server.locked_ip;
+    if (open) untrack(() => (lockedIp = ip));
   });
 
   async function save(e: SubmitEvent) {
@@ -52,7 +62,7 @@
     }
   }
 
-  // Kilidi sıfırla: ajan bir sonraki bağlantıda yeni IP'ye kilitlenir.
+  // Kilidi sıfırla: ajan bir sonraki bağlantıda yeni IP’ye kilitlenir.
   async function resetIp() {
     busy = true;
     error = '';
@@ -78,6 +88,7 @@
     if (!ok) return;
     try {
       await api.deleteProbe(server.id);
+      servers.remove(server.id);
       toast.success('Sunucu silindi');
       open = false;
       navigate('/servers');
@@ -104,8 +115,8 @@
     <label class="check">
       <input type="checkbox" bind:checked={ipLock} />
       <span>
-        IP'ye kilitle
-        <small>Ajan yalnızca ilk bağlandığı IP'den veri gönderebilir; sunucu taşınırsa kilidi sıfırlayın.</small>
+        IP’ye kilitle
+        <small>Ajan yalnızca ilk bağlandığı IP’den veri gönderebilir; sunucu taşınırsa kilidi sıfırlayın.</small>
       </span>
     </label>
     {#if ipLock && lockedIp}

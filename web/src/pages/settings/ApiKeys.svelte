@@ -2,10 +2,11 @@
   import { onMount } from 'svelte';
   import { api, errorMessage, type ApiKey, type ApiKeyStatus, type Role } from '../../lib/api';
   import { ROLE_LABELS, roleRank, session } from '../../lib/session.svelte';
-  import { clock, confirmDialog, copyText, toast } from '../../lib/ui.svelte';
+  import { clock, confirmDialog, toast } from '../../lib/ui.svelte';
   import { fmtDate, fmtDay, fmtRelative, isoDay, nowSec, parseLocal } from '../../lib/format';
   import Modal from '../../components/Modal.svelte';
   import Icon from '../../components/Icon.svelte';
+  import CopyButton from '../../components/CopyButton.svelte';
 
   let keys = $state.raw<ApiKey[]>([]);
   let loading = $state(true);
@@ -98,10 +99,6 @@
     }
   }
 
-  async function copySecret() {
-    if (await copyText(secret)) toast.success('Anahtar panoya kopyalandı');
-    else toast.error('Kopyalanamadı; anahtarı elle seçip kopyalayın');
-  }
 
   const origin = location.origin;
   const curl = $derived(`curl -H "Authorization: Bearer ${secret || 'upk_…'}" ${origin}/api/monitors`);
@@ -179,7 +176,7 @@
         <div class="label">Anahtarınız:</div>
         <div class="copybox">
           <code>{secret}</code>
-          <button type="button" class="btn sm primary" onclick={copySecret}><Icon name="copy" size={14} /> Kopyala</button>
+          <CopyButton text={secret} class="btn sm primary" />
         </div>
       </div>
       <div>
