@@ -109,17 +109,17 @@ func TestRecordBeatUpdatesStatsAndMonitor(t *testing.T) {
 		t.Fatalf("1 saatlik kova bekleniyordu, %d geldi", len(series))
 	}
 	b := series[0]
-	// Bekleyen kontrol "up" sayılır; DOWN'un ping'i özete girmez.
-	if b.Up != 3 || b.Down != 1 {
-		t.Errorf("up/down = %d/%d, 3/1 bekleniyordu", b.Up, b.Down)
+	// Bekleyen kontrol ne up ne down sayılır; DOWN'un ping'i özete girmez.
+	if b.Up != 2 || b.Down != 1 {
+		t.Errorf("up/down = %d/%d, 2/1 bekleniyordu", b.Up, b.Down)
 	}
 	if b.PingAvg != 200 || b.PingMin != 100 || b.PingMax != 300 {
 		t.Errorf("ping avg/min/max = %d/%d/%d, 200/100/300 bekleniyordu", b.PingAvg, b.PingMin, b.PingMax)
 	}
 
 	pct, ok, err := s.Uptime(ctx, m.ID, base)
-	if err != nil || !ok || pct != 75 {
-		t.Errorf("uptime = %v %v %v, 75 bekleniyordu", pct, ok, err)
+	if err != nil || !ok || pct < 66.66 || pct > 66.67 {
+		t.Errorf("uptime = %v %v %v, %%66,67 bekleniyordu", pct, ok, err)
 	}
 
 	got, err := s.GetMonitor(ctx, m.ID)
@@ -131,7 +131,7 @@ func TestRecordBeatUpdatesStatsAndMonitor(t *testing.T) {
 	}
 
 	daily, err := s.Series(ctx, m.ID, 0, true)
-	if err != nil || len(daily) != 1 || daily[0].Up != 3 {
+	if err != nil || len(daily) != 1 || daily[0].Up != 2 {
 		t.Errorf("günlük özet yanlış: %+v %v", daily, err)
 	}
 }

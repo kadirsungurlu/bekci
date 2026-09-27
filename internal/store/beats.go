@@ -26,15 +26,16 @@ type BeatUpdate struct {
 
 func (s *Store) RecordBeat(ctx context.Context, u BeatUpdate) error {
 	b := u.Beat
-	// Bekleyen (tekrar denenen) kontroller uptime hesabında "çalışıyor" sayılır:
-	// kesinti ancak DOWN onaylanınca başlar. Bakımdaki kontroller ne çalışıyor
-	// ne de kesinti sayılır (uptime yüzdesini etkilemez).
-	up, down := 1, 0
+	// Uptime yalnızca onaylanmış sonuçlardan hesaplanır: bekleyen (tekrar
+	// denenen) ve bakımdaki kontroller ne çalışıyor ne de kesinti sayılır.
+	// Böylece anlık bir hata uptime'ı düşürmez, hiç çalışmamış ama tekrar
+	// denenen bir monitör de yanlışlıkla %100 görünmez.
+	up, down := 0, 0
 	switch b.Status {
+	case StatusUp:
+		up = 1
 	case StatusDown:
-		up, down = 0, 1
-	case StatusMaintenance:
-		up, down = 0, 0
+		down = 1
 	}
 	var ping any
 	pingSum, pingCount := int64(0), 0
