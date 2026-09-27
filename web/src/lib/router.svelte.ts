@@ -1,6 +1,6 @@
 // Küçük hash yönlendirici: #/, #/monitors/new, #/monitors/:id, #/monitors/:id/edit,
 // #/incidents, #/notifications, #/status-pages[/new|/:id|/:id/preview],
-// #/maintenance[/new|/:id], #/settings[/:tab], #/more
+// #/maintenance[/new|/:id], #/servers[/:id], #/settings[/:tab], #/more
 //
 // Herkese açık durum sayfası hash değil gerçek yol kullanır (/durum/<kısa-ad>);
 // bkz. publicSlugFromPath.
@@ -22,6 +22,8 @@ export type Route =
   | { name: 'maint-new' }
   | { name: 'maint-edit'; id: number }
   | { name: 'settings'; tab: SettingsTab }
+  | { name: 'servers' }
+  | { name: 'server'; id: number }
   | { name: 'more' }
   | { name: 'notfound' };
 
@@ -52,6 +54,7 @@ export function parse(path: string): Route {
   if (clean === '/maintenance') return { name: 'maintenance' };
   if (clean === '/maintenance/new') return { name: 'maint-new' };
   if (clean === '/more') return { name: 'more' };
+  if (clean === '/servers') return { name: 'servers' };
   let m = clean.match(/^\/settings(?:\/([a-z]+))?$/);
   if (m) {
     const tab = SETTINGS_TABS[m[1] ?? ''];
@@ -65,6 +68,8 @@ export function parse(path: string): Route {
   if (m) return { name: 'page-edit', id: Number(m[1]) };
   m = clean.match(/^\/status-pages\/(\d+)\/preview$/);
   if (m) return { name: 'page-preview', id: Number(m[1]) };
+  m = clean.match(/^\/servers\/(\d+)$/);
+  if (m) return { name: 'server', id: Number(m[1]) };
   m = clean.match(/^\/maintenance\/(\d+)$/);
   if (m) return { name: 'maint-edit', id: Number(m[1]) };
   return { name: 'notfound' };

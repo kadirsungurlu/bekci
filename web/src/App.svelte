@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { api, errorMessage, onPasswordChangeRequired, onUnauthorized, type User } from './lib/api';
   import { live } from './lib/live.svelte';
+  import { servers } from './lib/servers.svelte';
   import { publicSlugFromPath, router } from './lib/router.svelte';
   import { ROLE_LABELS, session } from './lib/session.svelte';
   import { toast } from './lib/ui.svelte';
@@ -23,6 +24,8 @@
   import MaintenanceList from './pages/MaintenanceList.svelte';
   import MaintenanceForm from './pages/MaintenanceForm.svelte';
   import More from './pages/More.svelte';
+  import ServerList from './pages/ServerList.svelte';
+  import ServerDetail from './pages/ServerDetail.svelte';
 
   type Phase = 'loading' | 'public' | 'setup' | 'login' | 'password' | 'app' | 'error';
 
@@ -110,6 +113,7 @@
   }
 
   const NAV_MONITORS: NavItem = { href: '#/', label: 'Monitörler', icon: 'activity', match: ['list', 'new', 'detail', 'edit'] };
+  const NAV_SERVERS: NavItem = { href: '#/servers', label: 'Sunucular', icon: 'server', match: ['servers', 'server'] };
   const NAV_INCIDENTS: NavItem = { href: '#/incidents', label: 'Olaylar', icon: 'zap', match: ['incidents'] };
   const NAV_PAGES: NavItem = {
     href: '#/status-pages',
@@ -122,28 +126,37 @@
   const NAV_NOTIF: NavItem = { href: '#/notifications', label: 'Bildirimler', icon: 'bell', match: ['notifications'] };
   const NAV_SETTINGS: NavItem = { href: '#/settings', label: 'Ayarlar', icon: 'settings', match: ['settings'] };
 
-  // İzleyici bildirim kanallarını ve durum sayfalarını yönetemez.
+  // İzleyici bildirim kanallarını ve durum sayfalarını yönetemez; yalnızca seçili
+  // monitörleri gören (müşteri) izleyici sunucu takibini de göremez.
   const nav = $derived<NavItem[]>(
     session.canEdit
-      ? [NAV_MONITORS, NAV_INCIDENTS, NAV_PAGES, NAV_MAINT, NAV_NOTIF, NAV_SETTINGS]
-      : [NAV_MONITORS, NAV_INCIDENTS, NAV_MAINT, NAV_SETTINGS],
+      ? [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_PAGES, NAV_MAINT, NAV_NOTIF, NAV_SETTINGS]
+      : session.restricted
+        ? [NAV_MONITORS, NAV_INCIDENTS, NAV_MAINT, NAV_SETTINGS]
+        : [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_MAINT, NAV_SETTINGS],
   );
   // Mobil sekme çubuğu en fazla 4 öğe: az kullanılanlar "Daha fazla" altında.
   const tabs = $derived<NavItem[]>(
-    session.canEdit
-      ? [
+    session.restricted
+      ? nav
+      : [
           NAV_MONITORS,
+          NAV_SERVERS,
           NAV_INCIDENTS,
-          NAV_PAGES,
           {
             href: '#/more',
             label: 'Daha fazla',
             icon: 'menu',
-            match: ['more', 'maintenance', 'maint-new', 'maint-edit', 'notifications', 'settings'],
+            match: ['more', 'maintenance', 'maint-new', 'maint-edit', 'notifications', 'settings', 'pages', 'page-new', 'page-edit'],
           },
-        ]
-      : nav,
+        ],
   );
+
+  // Kenar çubuğundaki sorunlu sunucu sayısı için liste uygulama açılınca bir kez
+  // yüklenir; sonrası canlı akışla güncellenir.
+  $effect(() => {
+    if (phase === 'app' && session.user && !session.restricted) untrack(() => servers.ensure());
+  });
 
   const route = $derived(router.route);
   const downCount = $derived(live.monitors.reduce((n, m) => n + (m.active && m.status === 0 ? 1 : 0), 0));
@@ -172,6 +185,10 @@
         return 'Bakım pencereleri';
       case 'settings':
         return 'Ayarlar';
+      case 'servers':
+        return 'Sunucular';
+      case 'server':
+        return servers.byId(route.id)?.name ?? 'Sunucu';
       case 'more':
         return 'Daha fazla';
       default:
@@ -201,6 +218,15 @@
     <div class="lock"><Icon name="lock" size={28} /></div>
     <h3>Bu sayfa için yetkiniz yok</h3>
     <p>Hesabınız yalnızca görüntüleme yetkisine sahip. Değişiklik yapmanız gerekiyorsa yöneticinize başvurun.</p>
+    <a class="btn primary" href="#/">Monitörlere dön</a>
+  </div>
+{/snippet}
+
+{#snippet noServers()}
+  <div class="card empty">
+    <div class="lock"><Icon name="lock" size={28} /></div>
+    <h3>Sunucu takibi hesabınıza açık değil</h3>
+    <p>Hesabınız yalnızca size atanan monitörleri görebilir. Sunucu metriklerine erişmeniz gerekiyorsa yöneticinize başvurun.</p>
     <a class="btn primary" href="#/">Monitörlere dön</a>
   </div>
 {/snippet}
@@ -235,6 +261,7 @@
             <Icon name={n.icon} />
             <span>{n.label}</span>
             {#if n.href === '#/' && downCount > 0}<span class="count">{downCount}</span>{/if}
+            {#if n.href === '#/servers' && servers.problems > 0}<span class="count">{servers.problems}</span>{/if}
           </a>
         {/each}
       </nav>
@@ -267,6 +294,12 @@
       <div class="content">
         {#if editorOnly && !session.canEdit}
           {@render forbidden()}
+        {:else if (route.name === 'servers' || route.name === 'server') && session.restricted}
+          {@render noServers()}
+        {:else if route.name === 'servers'}
+          <ServerList />
+        {:else if route.name === 'server'}
+          {#key route.id}<ServerDetail id={route.id} />{/key}
         {:else if route.name === 'list'}
           <MonitorList />
         {:else if route.name === 'new'}
@@ -311,6 +344,7 @@
           <span class="ti">
             <Icon name={n.icon} size={20} />
             {#if n.href === '#/' && downCount > 0}<span class="count">{downCount}</span>{/if}
+            {#if n.href === '#/servers' && servers.problems > 0}<span class="count">{servers.problems}</span>{/if}
           </span>
           <span>{n.short ?? n.label}</span>
         </a>

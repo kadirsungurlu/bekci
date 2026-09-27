@@ -183,6 +183,8 @@ export interface Probe {
   last_ip?: string;
   version?: string;
   monitor_count?: number;
+  /** Sunucu metrikleri toplanıyor mu (yönetici görünümü; eski sunucularda yok). */
+  metrics?: boolean;
 }
 
 export interface ProbeSetup {
@@ -190,6 +192,10 @@ export interface ProbeSetup {
   token: string;
   server_url: string;
   docker_command: string;
+  /** Sunucu ajanı (host metrikleri) için Docker komutu; eski sunucularda yok. */
+  docker_agent?: string;
+  /** Doğrudan kurulum (systemd) betiği; eski sunucularda yok. */
+  systemd?: string;
 }
 
 export type DownWhen = 'any' | 'majority' | 'all';
@@ -530,6 +536,151 @@ export interface Maintenance extends MaintenanceInput {
   next_end: number;
 }
 
+// Sunucu takibi ---------------------------------------------------------------------
+// Alanlar internal/metrics/types.go ile aynıdır (docs/PLAN.md §12.9). Zamanlar unix saniye.
+
+export interface HostInfo {
+  hostname: string;
+  os: string;
+  platform: string;
+  kernel: string;
+  arch: string;
+  cpu_model: string;
+  cores: number;
+  threads: number;
+  mem_total: number;
+  boot_time: number;
+  docker: boolean;
+}
+
+export interface DiskInfo {
+  mount: string;
+  device: string;
+  fs: string;
+  total: number;
+  used: number;
+}
+
+export interface TempInfo {
+  name: string;
+  c: number;
+}
+
+export interface ContainerInfo {
+  id: string;
+  name: string;
+  cpu: number;
+  mem: number;
+  mem_limit?: number;
+  net_rx_bps: number;
+  net_tx_bps: number;
+}
+
+export interface ServerStats {
+  cpu: number;
+  cpu_max?: number;
+  load1: number;
+  load5: number;
+  load15: number;
+  mem_total: number;
+  mem_used: number;
+  mem_cache: number;
+  swap_total: number;
+  swap_used: number;
+  disk_read_bps: number;
+  disk_write_bps: number;
+  net_rx_bps: number;
+  net_tx_bps: number;
+  uptime: number;
+  disks?: DiskInfo[] | null;
+  temps?: TempInfo[] | null;
+  containers?: ContainerInfo[] | null;
+}
+
+/** online | offline | unavailable (ajan toplayamıyor) | waiting (hiç örnek yok) | disabled */
+export type ServerState = 'online' | 'offline' | 'unavailable' | 'waiting' | 'disabled';
+
+export type ServerMetric = 'cpu' | 'mem' | 'swap' | 'disk' | 'load' | 'temp' | 'offline';
+
+export interface ServerView {
+  id: number;
+  name: string;
+  active: boolean;
+  metrics: boolean;
+  state: ServerState;
+  note: string;
+  interval: number;
+  last_seen_at: number;
+  metrics_at: number;
+  version: string;
+  host: HostInfo | null;
+  /** Liste biçiminde containers ve temps boş gelir. */
+  latest: ServerStats | null;
+  container_count: number;
+  temp_max: number | null;
+  firing: ServerMetric[] | null;
+}
+
+export interface AlertRule {
+  id: number;
+  metric: ServerMetric;
+  threshold: number;
+  minutes: number;
+  active: boolean;
+  firing: boolean;
+  fired_at: number;
+}
+
+export type AlertRuleInput = Pick<AlertRule, 'metric' | 'threshold' | 'minutes' | 'active'>;
+
+export interface ServerDetail extends ServerView {
+  alerts: AlertRule[] | null;
+  notification_ids: number[] | null;
+}
+
+export type StatsRange = '1h' | '24h' | '7d' | '30d';
+
+export interface StatsPoint {
+  t: number;
+  cpu: number;
+  cpu_max?: number;
+  load1: number;
+  load5: number;
+  load15: number;
+  mem_used: number;
+  mem_cache: number;
+  mem_total: number;
+  swap_used: number;
+  swap_total: number;
+  disk_read_bps: number;
+  disk_write_bps: number;
+  net_rx_bps: number;
+  net_tx_bps: number;
+  disk_pct: number;
+  temp?: number | null;
+  containers?: { name: string; cpu: number; mem: number }[] | null;
+}
+
+export interface StatsSeries {
+  range: StatsRange;
+  /** Çözünürlük (dakika): 1, 10 veya 60. */
+  res: number;
+  from: number;
+  to: number;
+  /** Noktalar arası beklenen süre (sn); bunun 2 katından büyük boşlukta çizgi kesilir. */
+  interval: number;
+  points: StatsPoint[] | null;
+}
+
+export interface ServerEvent {
+  id: number;
+  metric: ServerMetric;
+  value: number;
+  threshold: number;
+  started_at: number;
+  ended_at: number | null;
+}
+
 export class ApiError extends Error {
   status: number;
   code: string;
@@ -746,11 +897,24 @@ export const api = {
   // Kontrol noktaları
   probes: () => get<Probe[]>('/api/probes'),
   createProbe: (name: string) => post<ProbeSetup>('/api/probes', { name }),
-  updateProbe: (id: number, name: string, active: boolean) => put<Probe>(`/api/probes/${id}`, { name, active }),
+  // metrics yalnızca verildiğinde gönderilir (eski sunucu bilinmeyen alanı reddeder).
+  updateProbe: (id: number, name: string, active: boolean, metrics?: boolean) =>
+    put<Probe>(`/api/probes/${id}`, metrics === undefined ? { name, active } : { name, active, metrics }),
   deleteProbe: (id: number) => del<{ ok: boolean }>(`/api/probes/${id}`),
   regenerateProbeToken: (id: number) => post<ProbeSetup>(`/api/probes/${id}/token`),
   monitorLocations: (id: number) => get<MonitorLocations>(`/api/monitors/${id}/locations`),
   setMonitorLocations: (id: number, l: LocationSetup) => put<MonitorLocations>(`/api/monitors/${id}/locations`, l),
+
+  // Sunucu takibi (ajan = kontrol noktası; ekleme createProbe ile)
+  listServers: () => get<{ servers: ServerView[] | null }>('/api/servers').then((r) => r.servers ?? []),
+  getServer: (id: number) => get<ServerDetail>(`/api/servers/${id}`),
+  getServerStats: (id: number, range: StatsRange) => get<StatsSeries>(`/api/servers/${id}/stats?range=${range}`),
+  getServerEvents: (id: number) =>
+    get<{ events: ServerEvent[] | null }>(`/api/servers/${id}/events`).then((r) => r.events ?? []),
+  putServerAlerts: (id: number, alerts: AlertRuleInput[]) =>
+    put<{ alerts: AlertRule[] | null }>(`/api/servers/${id}/alerts`, { alerts }).then((r) => r.alerts ?? []),
+  putServerNotifications: (id: number, ids: number[]) =>
+    put<{ notification_ids?: number[] | null }>(`/api/servers/${id}/notifications`, { notification_ids: ids }),
 
   // Yedekle / geri yükle ve içe aktarma (yönetici)
   importBackup: (file: File, mode: 'merge' | 'replace', dryRun: boolean, onProgress?: (l: number, t: number) => void) =>
