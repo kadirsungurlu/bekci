@@ -17,6 +17,7 @@
   import MonitorDetail from './pages/MonitorDetail.svelte';
   import MonitorForm from './pages/MonitorForm.svelte';
   import Incidents from './pages/Incidents.svelte';
+  import IncidentDetail from './pages/IncidentDetail.svelte';
   import Notifications from './pages/Notifications.svelte';
   import Settings from './pages/Settings.svelte';
   import StatusPages from './pages/StatusPages.svelte';
@@ -114,7 +115,7 @@
 
   const NAV_MONITORS: NavItem = { href: '#/', label: 'Monitörler', icon: 'activity', match: ['list', 'new', 'detail', 'edit'] };
   const NAV_SERVERS: NavItem = { href: '#/servers', label: 'Sunucular', icon: 'server', match: ['servers', 'server'] };
-  const NAV_INCIDENTS: NavItem = { href: '#/incidents', label: 'Olaylar', icon: 'zap', match: ['incidents'] };
+  const NAV_INCIDENTS: NavItem = { href: '#/incidents', label: 'Olaylar', icon: 'zap', match: ['incidents', 'incident'] };
   const NAV_PAGES: NavItem = {
     href: '#/status-pages',
     label: 'Durum sayfaları',
@@ -172,6 +173,8 @@
         return live.byId(route.id)?.name ?? 'Monitör';
       case 'incidents':
         return 'Olaylar';
+      case 'incident':
+        return 'Olay';
       case 'notifications':
         return 'Bildirimler';
       case 'pages':
@@ -310,6 +313,8 @@
           {#key route.id}<MonitorForm id={route.id} />{/key}
         {:else if route.name === 'incidents'}
           <Incidents />
+        {:else if route.name === 'incident'}
+          {#key route.id}<IncidentDetail id={route.id} />{/key}
         {:else if route.name === 'notifications'}
           <Notifications />
         {:else if route.name === 'pages'}

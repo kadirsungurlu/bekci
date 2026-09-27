@@ -461,6 +461,9 @@
     {#if detail?.open_incident_since}
       <div class="alert error ongoing">
         {fmtDuration(now - detail.open_incident_since)} süredir devam eden bir kesinti var ({fmtDate(detail.open_incident_since)} başladı).
+        {#if detail.open_incident_id}
+          <a class="inc-link" href="#/incidents/{detail.open_incident_id}">Olay ayrıntıları <Icon name="chevron-right" size={14} /></a>
+        {/if}
       </div>
     {/if}
     <IncidentTable {incidents} {now} emptyText="Bu monitörde henüz olay kaydı yok. Harika!" />
@@ -746,6 +749,15 @@
   }
   .help code {
     color: var(--text-2);
+  }
+  .inc-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    color: inherit;
+    font-weight: 700;
+    text-decoration: underline;
+    white-space: nowrap;
   }
   .ongoing {
     margin-bottom: 12px;

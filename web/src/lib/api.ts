@@ -284,6 +284,8 @@ export interface MonitorDetail {
   uptime: Record<UptimeKey, number | null>;
   avg_ping_24h: number;
   open_incident_since: number;
+  /** Açık olayın kimliği (0: yok; eski sunucuda alan gelmez). */
+  open_incident_id?: number;
 }
 
 export interface Summary {
@@ -317,6 +319,70 @@ export interface Incident {
   started_at: number;
   resolved_at: number;
   cause: string;
+}
+
+/** Olay ayrıntıları (docs/PLAN.md §13). */
+export type IncidentEventKind =
+  | 'retry'
+  | 'down'
+  | 'change'
+  | 'location'
+  | 'reminder'
+  | 'maint_start'
+  | 'maint_end'
+  | 'notify'
+  | 'edited'
+  | 'paused'
+  | 'up'
+  | 'limit';
+
+export interface IncidentEvent {
+  id: number;
+  time: number;
+  kind: IncidentEventKind;
+  location: string;
+  message: string;
+  data: Record<string, unknown> | null;
+}
+
+export interface HttpHeader {
+  name: string;
+  value: string;
+}
+
+/** Başarısız HTTP kontrolünün isteği ve yanıtı (maskeli). */
+export interface CheckDetail {
+  method: string;
+  url: string;
+  request_headers?: HttpHeader[];
+  status?: number;
+  status_text?: string;
+  proto?: string;
+  final_url?: string;
+  response_headers?: HttpHeader[];
+  content_type?: string;
+  body?: string;
+  body_size?: number;
+  body_truncated?: boolean;
+  body_binary?: boolean;
+  error?: string;
+}
+
+export interface IncidentLocation {
+  probe_id: number;
+  name: string;
+  status: LocationState;
+  message: string;
+}
+
+export interface IncidentDetail {
+  incident: Incident;
+  monitor: { id: number; name: string; type: string; target: string; active: boolean; status: number };
+  location: string;
+  locations: IncidentLocation[];
+  events: IncidentEvent[];
+  capture: { time: number; location: string; detail: CheckDetail } | null;
+  details: boolean;
 }
 
 export type NotificationType =
@@ -822,6 +888,7 @@ export const api = {
   monitorIncidents: (id: number) => get<Incident[]>(`/api/monitors/${id}/incidents`),
   incidents: (before: number, limit: number) =>
     get<Incident[]>(`/api/incidents?limit=${limit}${before > 0 ? `&before=${before}` : ''}`),
+  incident: (id: number) => get<IncidentDetail>(`/api/incidents/${id}`),
 
   notifications: () => get<NotificationChannel[]>('/api/notifications'),
   createNotification: (n: NotificationInput) => post<NotificationChannel>('/api/notifications', n),

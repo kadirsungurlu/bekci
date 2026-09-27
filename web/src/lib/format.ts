@@ -98,6 +98,35 @@ export function fmtTime(ts: number): string {
 export function fmtTimeSec(ts: number): string {
   return timeSecFmt.format(new Date(ts * 1000));
 }
+const dateSecFmt = new Intl.DateTimeFormat('tr-TR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  timeZone: TZ,
+});
+/** dd.MM.yyyy HH:mm:ss */
+export function fmtDateSec(ts: number): string {
+  if (!ts) return '—';
+  return dateSecFmt.format(new Date(ts * 1000));
+}
+
+/** Saniyeye kadar süre: "12 sn", "5 dk 12 sn", "2 sa 5 dk 12 sn", "3 gün 2 sa 5 dk". */
+export function fmtDurationLong(sec: number): string {
+  sec = Math.max(0, Math.floor(sec));
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  const parts: string[] = [];
+  if (d) parts.push(`${d} gün`);
+  if (h || (d && m)) parts.push(`${h} sa`);
+  if (m || ((d || h) && !d)) parts.push(`${m} dk`);
+  if (!d) parts.push(`${s} sn`);
+  return parts.join(' ');
+}
 
 /** %99,95 — tam 100 ise %100; yuvarlama asla yukarı doğru yapılmaz. */
 export function fmtPct(v: number | null | undefined): string {
