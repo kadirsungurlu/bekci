@@ -123,9 +123,12 @@
           <select id="{idPrefix}-{f.key}" class="input" bind:value={values[f.key]}>
             {#each f.options ?? [] as o (o.v)}<option value={o.v}>{o.l}</option>{/each}
           </select>
-        {:else if f.kind === 'pem' && f.secret && values[f.key] === MASK && !replacing[f.key]}
+        {:else if (f.kind === 'pem' || f.kind === 'textarea') && f.secret && values[f.key] === MASK && !replacing[f.key]}
           <div class="kept">
-            <span class="kept-t"><span class="kept-ic"><Icon name="lock" size={14} /></span> Kayıtlı anahtar korunuyor</span>
+            <span class="kept-t"
+              ><span class="kept-ic"><Icon name="lock" size={14} /></span>
+              {f.kind === 'pem' ? 'Kayıtlı anahtar korunuyor' : 'Kayıtlı değer korunuyor (gizli)'}</span
+            >
             <button
               type="button"
               id="{idPrefix}-{f.key}"
@@ -147,14 +150,14 @@
             bind:value={values[f.key]}
             placeholder={f.placeholder}
           ></textarea>
-          {#if f.kind === 'pem' && f.secret && replacing[f.key]}
+          {#if f.secret && replacing[f.key]}
             <button
               type="button"
               class="linkbtn keep"
               onclick={() => {
                 replacing[f.key] = false;
                 values[f.key] = MASK;
-              }}>Vazgeç, kayıtlı anahtarı koru</button
+              }}>{f.kind === 'pem' ? 'Vazgeç, kayıtlı anahtarı koru' : 'Vazgeç, kayıtlı değeri koru'}</button
             >
           {/if}
         {:else if f.kind === 'secret'}

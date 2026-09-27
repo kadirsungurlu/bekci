@@ -952,8 +952,16 @@
             </div>
             <div class="field">
               <label for="hdr">Başlıklar (headers)</label>
-              <textarea id="hdr" class="input" rows="3" bind:value={headers} placeholder={'Authorization: Bearer abc123\nX-Ozel-Baslik: değer'}></textarea>
-              <span class="help">Her satıra bir başlık: <code>Ad: değer</code></span>
+              {#if headers === MASK}
+                <!-- Başlıklar gizli alan: sunucu maskeli döndürür; değiştirilmezse kayıtlı değer korunur. -->
+                <div class="kept-row">
+                  <span class="help">Kayıtlı başlıklar korunuyor (gizli).</span>
+                  <button type="button" id="hdr" class="btn sm" onclick={() => (headers = '')}>Değiştir</button>
+                </div>
+              {:else}
+                <textarea id="hdr" class="input" rows="3" bind:value={headers} placeholder={'Authorization: Bearer abc123\nX-Ozel-Baslik: değer'}></textarea>
+                <span class="help">Her satıra bir başlık: <code>Ad: değer</code>. Kayıttan sonra gizli tutulur.</span>
+              {/if}
             </div>
             <div class="field">
               <label for="body">İstek gövdesi (body)</label>
@@ -1433,5 +1441,14 @@
     .actions > :global(*) {
       flex: 1;
     }
+  }
+  .kept-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-sm);
   }
 </style>
