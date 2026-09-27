@@ -141,17 +141,31 @@ func (r *runner) process(res check.Result) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	now := r.e.now()
-	if r.m.UpsideDown {
+	if r.m.UpsideDown && !res.Pending {
 		res.Up = !res.Up
 		if !res.Up {
 			res.Message = "Ters mod: hedef erişilebilir (" + res.Message + ")"
 		}
 	}
 
+	// Bakım penceresinde kontrol yine yapılır ama sonuç MAINTENANCE olarak
+	// kaydedilir: onaylanmış durum (confirmed) değişmez, olay açılmaz/kapanmaz,
+	// bildirim gitmez. Pencere bitince ilk kontrol normal değerlendirilir.
+	inMaint := r.e.InMaintenance(r.m.ID, now)
+
 	status := store.StatusDown
 	switch {
+	case inMaint:
+		status = store.StatusMaintenance
+		if res.Message != "" {
+			res.Message = "Bakımda (" + res.Message + ")"
+		} else {
+			res.Message = "Bakımda"
+		}
 	case res.Up:
 		status = store.StatusUp
+	case res.Pending:
+		status = store.StatusPending // belirsiz sonuç: tekrar deneme hakkı harcanmaz
 	case r.confirmed != store.StatusDown && r.retries < r.m.MaxRetries:
 		status = store.StatusPending
 		r.retries++
@@ -162,7 +176,7 @@ func (r *runner) process(res check.Result) {
 
 	var lastChange int64
 	prevConfirmed := r.confirmed
-	if status != store.StatusPending && status != prevConfirmed {
+	if status != store.StatusPending && status != store.StatusMaintenance && status != prevConfirmed {
 		lastChange = now.Unix()
 		r.confirmed = status
 	}
@@ -217,7 +231,7 @@ func (r *runner) process(res check.Result) {
 		}
 	}
 
-	if res.Cert != nil && r.m.Type == "http" {
+	if res.Cert != nil && r.m.Type == "http" && !inMaint {
 		r.handleCert(ctx, now, res.Cert)
 	}
 

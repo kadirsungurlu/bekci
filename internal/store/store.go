@@ -32,9 +32,10 @@ var ErrBackupUnsupported = errors.New("PostgreSQL yedeği veritabanı tarafında
 
 // Durum kodları (Uptime Kuma ile aynı).
 const (
-	StatusDown    = 0
-	StatusUp      = 1
-	StatusPending = 2
+	StatusDown        = 0
+	StatusUp          = 1
+	StatusPending     = 2
+	StatusMaintenance = 3 // bakım penceresinde: uptime hesabına girmez, bildirim gitmez
 )
 
 type Store struct {

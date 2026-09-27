@@ -27,6 +27,7 @@ type CertInfo struct {
 // Result tek kontrolün sonucu. PingMs < 0 "ölçüm yok" demektir.
 type Result struct {
 	Up      bool
+	Pending bool // Up=false iken: sonuç henüz belirsiz (ör. grubun alt monitörü bekliyor); DOWN sayılmaz
 	PingMs  int64
 	Message string
 	Cert    *CertInfo

@@ -60,6 +60,7 @@ type monitorView struct {
 	NotificationIDs []int64        `json:"notification_ids"`
 	Uptime24h       *float64       `json:"uptime_24h"`
 	Bars            []store.Bucket `json:"bars"`
+	InMaintenance   bool           `json:"in_maintenance"` // şu an etkin bir bakım penceresinde (durdurulmuşsa false)
 }
 
 // hourlyBars son 24 saatin saatlik kovalarını, boş saatleri de doldurarak döner.
@@ -115,7 +116,8 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 			// İzleyici: ayarlar, push token'ı ve bildirim bağlantıları gizli.
 			m.Config, m.PushToken, ids = json.RawMessage("{}"), "", []int64{}
 		}
-		out = append(out, monitorView{Monitor: m, Target: engine.Target(m), NotificationIDs: ids, Uptime24h: up, Bars: bars})
+		out = append(out, monitorView{Monitor: m, Target: engine.Target(m), NotificationIDs: ids, Uptime24h: up, Bars: bars,
+			InMaintenance: m.Active && s.engine.InMaintenance(m.ID, now)})
 	}
 	return out, nil
 }
@@ -267,6 +269,9 @@ func (s *Server) createMonitor(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if !s.validateGroup(w, r, 0, m) {
+		return
+	}
 	ids, err := s.notificationIDs(r, in.NotificationIDs)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -321,6 +326,9 @@ func (s *Server) updateMonitor(w http.ResponseWriter, r *http.Request) {
 	m, err := in.toMonitor()
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if !s.validateGroup(w, r, id, m) {
 		return
 	}
 	var ids []int64
@@ -380,6 +388,7 @@ func (s *Server) deleteMonitor(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
+	s.afterMonitorDelete(r, id)
 	s.audit(r, store.User{}, "monitor.delete", "monitor", id, old.Name, "")
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
