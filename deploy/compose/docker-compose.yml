@@ -1,0 +1,79 @@
+# Uptime: bağımsız bir sunucuya Docker Compose ile kurulum.
+#
+# İçerik: uygulama (tek imaj) + Caddy (HTTPS sertifikasını Let's Encrypt'ten
+# kendisi alır ve yeniler). Coolify gerekmez.
+#
+# Kurulum:
+#   1. Bu klasörü sunucuya kopyalayın; .env.example dosyasını .env olarak
+#      kopyalayıp alan adı ve e-postayı yazın.
+#   2. Alan adının DNS A kaydı bu sunucunun IP'sini göstermeli; 80 ve 443
+#      portları açık olmalı (Cloudflare kullanıyorsanız "DNS only" ile başlayın,
+#      sertifika alındıktan sonra proxy açılabilir).
+#   3. İmaj GitHub Container Registry'de özel (private) ise önce giriş yapın
+#      (read:packages yetkili bir GitHub token'ı ile):
+#        echo <token> | docker login ghcr.io -u kadirsa1105 --password-stdin
+#   4. docker compose up -d
+#   5. https://<alan adı> adresini açıp ilk yönetici hesabını oluşturun.
+#
+# Güncelleme:  docker compose pull && docker compose up -d
+# Günlükler:   docker compose logs -f uptime
+# Şifre sıfırlama (giriş yapılamıyorsa):
+#   docker compose exec -it uptime uptime sifre-sifirla <kullanıcı-adı>
+#
+# Veriler "uptime-data" biriminde durur (SQLite veritabanı ve uygulamanın
+# günlük yedekleri). Sunucu dışına yedeklemek için bu birimi yedekleyin.
+
+name: uptime
+
+services:
+  uptime:
+    # :latest SQLite ile çalışır (önerilen, en hafif). PostgreSQL gömülü sürüm
+    # için .env'de UPTIME_TAG=postgres yapın; veriler yine /data altında durur.
+    # İki sürümün verisi birbirine taşınmaz: baştan birini seçin.
+    image: ghcr.io/kadirsa1105/uptime-kadir-app:${UPTIME_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      BASE_URL: https://${UPTIME_DOMAIN:?UPTIME_DOMAIN .env dosyasında tanımlı olmalı}
+      TZ: ${TZ:-Europe/Istanbul}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      MAX_CONCURRENT_CHECKS: ${MAX_CONCURRENT_CHECKS:-50}
+    volumes:
+      - uptime-data:/data
+    # Dışarıya doğrudan açılmaz; yalnızca Caddy üzerinden erişilir.
+    expose:
+      - "8080"
+    # Sağlık kontrolü imajın içinde tanımlı (/healthz).
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      uptime:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      UPTIME_DOMAIN: ${UPTIME_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL .env dosyasında tanımlı olmalı}
+      STATUS_DOMAIN: ${STATUS_DOMAIN:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  uptime-data:
+  caddy-data:
+  caddy-config:

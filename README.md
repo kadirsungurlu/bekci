@@ -40,6 +40,27 @@ Plan ve ilerleme: [docs/PLAN.md](docs/PLAN.md)
 | `ADDR` | `:8080` | Dinlenecek adres |
 | `AGENT_DIR` | `/usr/local/share/uptime/agents` | Diğer platformların ajan programları (`uptime-windows-amd64.exe`); imajda hazır gelir |
 
+## Kurulum (Docker Compose, bağımsız sunucu)
+
+Coolify olmadan tek bir sunucuya: `deploy/compose/` klasöründe uygulama + Caddy
+(Let's Encrypt ile otomatik HTTPS) hazır.
+
+```sh
+cd deploy/compose
+cp .env.example .env        # UPTIME_DOMAIN ve ACME_EMAIL'i yazın
+docker compose up -d
+```
+
+- En az 1 vCPU, 512 MB RAM (önerilen 1 GB), 10 GB disk. Uygulama 10 monitör ve
+  3 sunucuda ~15 MB RAM kullanır; PostgreSQL gömülü sürüm (`UPTIME_TAG=postgres`)
+  ~200 MB ekler.
+- İmaj GitHub Container Registry'de özelse önce `docker login ghcr.io`.
+- Veriler `uptime-data` biriminde; sunucu dışına yedekleyin.
+- Taşıma: eski sunucudaki `/data` içeriğini bu birime kopyalayıp DNS'i yeni
+  sunucuya çevirmek yeterli; adres aynı kaldığı için kontrol noktaları ve
+  sunucu ajanları yeniden kurulmadan bağlanır.
+- Güncelleme: `docker compose pull && docker compose up -d`.
+
 ## Push monitörü
 
 Cron işi veya betik, belirlenen aralıkta şu adresi çağırır; çağrı gelmezse
