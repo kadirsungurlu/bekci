@@ -280,8 +280,8 @@ Docker (varsayılan, arayüzde gösterilir):
 `--network host`: ağ sayaçları host'un olsun diye; sağlık uç noktası bu yüzden
 kapalı (`ADDR=-`, host'ta 8080 çakışmasın). Doğrudan kurulum (systemd) için
 arayüzde ikinci sekme: ikiliyi indirip `/etc/systemd/system/uptime-agent.service`
-yazan tek satırlık betik. Mevcut kontrol noktaları eski komutla çalışmaya devam
-eder, sadece metrik göndermez.
+yazan tek satırlık betik; üçüncü sekme Windows (PowerShell, §12.10). Mevcut
+kontrol noktaları eski komutla çalışmaya devam eder, sadece metrik göndermez.
 
 ### 12.3 Protokol
 
@@ -439,5 +439,55 @@ olmadan gelir; arayüz `interval`'in 2 katından büyük aralıkta çizgiyi kese
 `PUT /api/servers/{id}/notifications` ← `{"notification_ids": [1,2]}`.
 
 Sunucu ekleme mevcut `POST /api/probes` ile yapılır (yanıtındaki `setup` alanına
-`docker_agent` ve `systemd` komutları eklenir). Canlı akış olayı:
+`docker_agent`, `systemd` ve `windows` komutları eklenir; bkz. §12.10). Canlı akış olayı:
 `{"type": "server", "data": ServerView (liste biçimi)}`.
+
+### 12.10 Windows sunucular
+
+Karar: 2026-09-27. Windows Server'lar Linux'takiyle aynı ajanla (`uptime probe`)
+izlenir; ayrı program yok.
+
+- **Toplayıcı** (`internal/metrics/source_windows.go`, saf seçimler
+  `winfilters.go`'da, Linux'ta test edilir): CPU tüm işlemcilerin
+  kullanıcı/çekirdek/boşta sürelerinden; RAM kullanılan = toplam − kullanılabilir,
+  önbellek = bekleme listesi (PDH `\Memory\Standby Cache *`, okunamazsa 0); swap =
+  sayfa dosyaları; diskler yalnızca yerel sabit birimler (sürücü harfi `C:` ve
+  klasöre bağlanmış birimler; USB, ağ, CD, RAM diski atlanır; aynı birim bir kez);
+  disk G/Ç sabit sürücü harflerinin toplamı; ağ sanal olmayan bağdaştırıcılar
+  (loopback, `vEthernet`/Hyper-V, isatap, Teredo, WAN Miniport, Bluetooth,
+  VirtualBox/VMware host-only hariç; VPN'ler Linux'taki gibi sayılır). Host:
+  "Microsoft Windows Server 2022 Datacenter 21H2", çekirdek `10.0.20348.2340`.
+- **Yük:** Windows'ta yük ortalaması yok. gopsutil'in (psutil ile aynı) taklidi
+  kullanılır: `\System\Processor Queue Length` 5 sn'de bir örneklenip 1/5/15 dk
+  üstel ortalaması alınır. Yalnızca işlemci *bekleyen* iş parçacıklarını sayar,
+  çalışanları saymaz: değer Linux yükünden düşük çıkar, ilk dakikalarda 0'dan
+  yükselir. `load` uyarısı Windows'ta ancak ağır doygunlukta tetiklenir.
+- **Yok:** sıcaklık (WMI termal bölgeleri çoğu sunucuda yok/anlamsız), Docker
+  konteynerleri (Windows'ta kapalı), konteyner/host görünürlüğü tespiti (yalnızca Linux).
+- **Hizmet:** `uptime probe` hizmet yöneticisi başlattıysa Windows hizmeti olarak
+  çalışır (`golang.org/x/sys/windows/svc`; Durdur/Kapat'ta bağlam iptal edilir).
+  `uptime service install` (Yönetici): ayarları yazar, çalışan hizmeti durdurur,
+  kendini `%ProgramFiles%\Uptime\uptime.exe`'ye kopyalar, `uptime-agent` hizmetini
+  (otomatik başlangıç, LocalSystem) kurar/günceller, kurtarma: 10 sn / 30 sn / 60 sn'de
+  yeniden başlat (hatayla çıkışta da), başlatır. `uptime service uninstall` hizmeti
+  ve token dosyasını siler.
+- **Ayarlar ve token:** `%ProgramData%\Uptime\agent.env` (KEY=DEĞER). Klasör ve
+  dosyanın sahibi Administrators, DACL korumalı: yalnızca SYSTEM ve Administrators.
+  Hizmetin kayıt defterindeki `Environment` değeri seçilmedi (Services anahtarları
+  Users'a okunur). Günlük `%ProgramData%\Uptime\agent.log`, 5 MB'ta `agent.log.1`.
+  Sağlık uç noktası kapalı (`ADDR=-`).
+- **Dağıtım:** `GET /api/probe/binary?os=windows&arch=amd64` imajdaki
+  `/usr/local/share/uptime/agents/uptime-windows-amd64.exe` dosyasını verir
+  (`AGENT_DIR` ile değiştirilebilir; parametresiz istek eskisi gibi sunucunun kendi
+  programı; dosya yoksa açıklamalı 404). Dockerfile'lar `AGENT_PLATFORMS`
+  (varsayılan `windows/amd64`, ör. `"windows/amd64 linux/arm64"`) için aynı sürümle
+  çapraz derler; her platform imaja ~38 MB (sıkıştırılmış ~13 MB) ekler.
+- **Kurulum komutu:** `POST /api/probes` yanıtında `windows` alanı; arayüzde
+  "Windows" sekmesi. Yönetici PowerShell'de tek satır: TLS 1.2 açılır, ilerleme
+  çubuğu kapatılır, `PROBE_SERVER`/`PROBE_TOKEN` oturum ortamına yazılır (token
+  süreç argümanı olmaz), program `uptime-setup.exe` olarak indirilir,
+  `service install` çalışır, geçici dosya ve ortam değişkeni silinir. Tekrar
+  çalıştırmak günceller. PSReadLine 2.2+ "token" geçen satırı geçmiş dosyasına
+  yazmaz; daha eski sürümlerde satır kullanıcının geçmiş dosyasında kalabilir.
+- Windows'ta ping kontrolü (ajan kontrol noktası olarak kullanılırsa) ayrıcalıklı
+  ICMP ile yapılır (hizmet LocalSystem).

@@ -354,9 +354,10 @@ func (s *Server) probeMetrics(w http.ResponseWriter, r *http.Request) {
 }
 
 // serverSetupCommands ajan kurulum komutları (§12.2): host'u gören Docker
-// konteyneri ve doğrudan kurulum (systemd). İkisi de programı bu sunucudan
-// token ile indirir; aynı komut tekrar çalıştırılınca ajan güncellenir.
-func (s *Server) serverSetupCommands(server, token string) (dockerAgent, systemd string) {
+// konteyneri, doğrudan kurulum (systemd) ve Windows hizmeti (PowerShell).
+// Hepsi programı bu sunucudan token ile indirir; aynı komut tekrar
+// çalıştırılınca ajan güncellenir.
+func (s *Server) serverSetupCommands(server, token string) (dockerAgent, systemd, windows string) {
 	const hostFlags = "--network host --pid host -v /:/host:ro,rslave -v /var/run/docker.sock:/var/run/docker.sock:ro " +
 		"-e HOST_PROC=/host/proc -e HOST_SYS=/host/sys -e HOST_ETC=/host/etc -e HOST_ROOT=/host -e ADDR=- "
 	if s.ProbeImage != "" {
@@ -384,5 +385,38 @@ func (s *Server) serverSetupCommands(server, token string) (dockerAgent, systemd
 		`chmod 600 /etc/uptime-agent.env; umask 022; printf "%%s\n" "%s" > /etc/systemd/system/uptime-agent.service; `+
 		`systemctl daemon-reload && systemctl enable uptime-agent && systemctl restart uptime-agent'`,
 		server, token, server, token, strings.Join(unit, `" "`))
-	return dockerAgent, systemd
+	return dockerAgent, systemd, windowsAgentCommand(server, token)
 }
+
+// windowsAgentCommand Yönetici PowerShell'de çalıştırılan tek satırlık kurulum
+// (Windows PowerShell 5.1 ve PowerShell 7). Program %ProgramFiles%\Uptime'a
+// geçici adla indirilir; "uptime service install" ayarları yalnızca
+// yöneticilerin okuyabildiği %ProgramData%\Uptime\agent.env'e yazar, çalışan
+// hizmeti durdurup programı değiştirir, hizmeti kurar/günceller (hata olursa
+// yeniden başlat) ve başlatır. Token komut satırı argümanı olarak değil,
+// oturumun ortam değişkeniyle verilir (süreç listesinde görünmez) ve sonunda
+// silinir. PSReadLine 2.2+ "token" geçen satırı geçmiş dosyasına yazmaz;
+// eski sürümler için arayüzde not vardır. İlerleme çubuğu 5.1'de indirmeyi
+// çok yavaşlattığı için kapatılır.
+func windowsAgentCommand(server, token string) string {
+	return strings.Join([]string{
+		"$ErrorActionPreference='Stop'",
+		"$ProgressPreference='SilentlyContinue'",
+		"[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12",
+		"$env:PROBE_SERVER=" + psQuote(server),
+		"$env:PROBE_TOKEN=" + psQuote(token),
+		"$d=Join-Path $env:ProgramFiles 'Uptime'",
+		"New-Item -ItemType Directory -Force -Path $d | Out-Null",
+		"$f=Join-Path $d 'uptime-setup.exe'",
+		`Invoke-WebRequest -UseBasicParsing -Headers @{Authorization="Bearer $env:PROBE_TOKEN"} -Uri "$env:PROBE_SERVER/api/probe/binary?os=windows&arch=amd64" -OutFile $f`,
+		"& $f service install",
+		"$c=$LASTEXITCODE",
+		"Remove-Item $f -Force -ErrorAction SilentlyContinue",
+		"Remove-Item Env:PROBE_TOKEN",
+		`if ($c -ne 0) { throw "Kurulum tamamlanamadı (çıkış kodu $c)" }`,
+	}, "; ")
+}
+
+// psQuote PowerShell tek tırnaklı metni (içindeki ' iki kez yazılır; $ ve `
+// tek tırnakta yorumlanmaz).
+func psQuote(v string) string { return "'" + strings.ReplaceAll(v, "'", "''") + "'" }

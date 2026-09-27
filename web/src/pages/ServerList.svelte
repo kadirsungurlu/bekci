@@ -100,7 +100,7 @@
     </p>
     {#if session.isAdmin}
       <button class="btn primary" onclick={openAdd}><Icon name="plus" size={16} /> Sunucu ekle</button>
-      <p class="help hint">Kurulum tek komuttur (Docker veya systemd). Mevcut kontrol noktalarınız da güncellenince burada görünür.</p>
+      <p class="help hint">Kurulum tek komuttur (Docker, systemd veya Windows). Mevcut kontrol noktalarınız da güncellenince burada görünür.</p>
     {:else}
       <p class="help hint">Sunucu eklemeyi yöneticiniz yapabilir.</p>
     {/if}

@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -420,5 +422,73 @@ func TestProbeBinaryDownload(t *testing.T) {
 	admin.mustDo("PUT", fmt.Sprintf("/api/probes/%d", cp.Probe.ID), map[string]any{"name": "İndirme", "active": false}, nil, 200)
 	if code, _, _ := admin.anon().rawReq("GET", "/api/probe/binary", bearer(cp.Token), nil); code != 403 {
 		t.Errorf("devre dışı: %d", code)
+	}
+}
+
+// Başka platformun ajanı (?os=windows&arch=amd64) AgentDir'den verilir; dosya
+// yoksa sunucu çökmez, açıklamalı 404 döner.
+func TestProbeBinaryPlatforms(t *testing.T) {
+	f := newFeatureEnv(t)
+	cp := f.newProbe("Windows sunucu")
+	dir := t.TempDir()
+	f.s.AgentDir = dir
+	const winURL = "/api/probe/binary?os=windows&arch=amd64"
+	if code, _, _ := f.anon().rawReq("GET", winURL, nil, nil); code != 401 {
+		t.Errorf("token'sız: %d", code)
+	}
+	code, _, body := f.anon().rawReq("GET", winURL, bearer(cp.Token), nil)
+	if code != 404 || !strings.Contains(string(body), "windows/amd64 için ajan programı yok") || !strings.Contains(string(body), "uptime-windows-amd64.exe") {
+		t.Errorf("dosya yokken: %d %s", code, body)
+	}
+	exe := []byte("MZ sahte windows programı")
+	if err := os.WriteFile(filepath.Join(dir, "uptime-windows-amd64.exe"), exe, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, hdr, body := f.anon().rawReq("GET", winURL, bearer(cp.Token), nil)
+	if code != 200 || !bytes.Equal(body, exe) || hdr.Get("X-Uptime-Platform") != "windows/amd64" ||
+		!strings.Contains(hdr.Get("Content-Disposition"), `filename="uptime.exe"`) {
+		t.Errorf("windows indirme: %d %q %v", code, body, hdr)
+	}
+	// Yalnızca os verilirse mimari sunucununki olur.
+	if runtime.GOARCH == "amd64" {
+		if code, _, body := f.anon().rawReq("GET", "/api/probe/binary?os=windows", bearer(cp.Token), nil); code != 200 || !bytes.Equal(body, exe) {
+			t.Errorf("yalnızca os: %d", code)
+		}
+	}
+	// Klasör dışına çıkılamaz; bilinmeyen biçim 400.
+	for _, q := range []string{"?os=../../etc/passwd", "?os=windows&arch=amd64%2F..", "?os=Windows", "?arch=" + strings.Repeat("a", 17)} {
+		if code, _, _ := f.anon().rawReq("GET", "/api/probe/binary"+q, bearer(cp.Token), nil); code != 400 {
+			t.Errorf("%s: %d", q, code)
+		}
+	}
+	// Sunucunun kendi platformu açıkça istenirse kendi programı verilir.
+	own, _ := os.Executable()
+	want, _ := os.ReadFile(own)
+	code, hdr, body = f.anon().rawReq("GET", "/api/probe/binary?os="+runtime.GOOS+"&arch="+runtime.GOARCH, bearer(cp.Token), nil)
+	if code != 200 || !bytes.Equal(body, want) || hdr.Get("X-Uptime-Platform") != runtime.GOOS+"/"+runtime.GOARCH {
+		t.Errorf("kendi platformu: %d, %d bayt", code, len(body))
+	}
+	// AgentDir boşsa (ayarlanmamış) yine 404.
+	f.s.AgentDir = ""
+	if code, _, _ := f.anon().rawReq("GET", winURL, bearer(cp.Token), nil); code != 404 {
+		t.Errorf("AgentDir boş: %d", code)
+	}
+}
+
+// Windows kurulum komutunda sunucu adresi ve token tek tırnak içinde; içlerindeki
+// tek tırnak PowerShell kuralına göre ikilenir.
+func TestWindowsAgentCommandQuoting(t *testing.T) {
+	cmd := windowsAgentCommand("https://o'reilly.example", "upr_abc")
+	for _, want := range []string{
+		"$env:PROBE_SERVER='https://o''reilly.example'", "$env:PROBE_TOKEN='upr_abc'", "$ProgressPreference='SilentlyContinue'",
+		`-Headers @{Authorization="Bearer $env:PROBE_TOKEN"}`, `"$env:PROBE_SERVER/api/probe/binary?os=windows&arch=amd64"`,
+		"& $f service install", "Remove-Item Env:PROBE_TOKEN",
+	} {
+		if !strings.Contains(cmd, want) {
+			t.Errorf("komutta %q yok:\n%s", want, cmd)
+		}
+	}
+	if strings.Contains(cmd, "\n") || strings.Count(cmd, "'")%2 != 0 {
+		t.Errorf("tek satır ve dengeli tırnak olmalı: %s", cmd)
 	}
 }

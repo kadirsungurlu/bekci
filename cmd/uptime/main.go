@@ -12,10 +12,16 @@
 //	TZ                     saat dilimi (günlük özetler ve yedek saati için)
 //	PROBE_IMAGE            kontrol noktası kurulum komutunda kullanılacak Docker imajı; boşsa (varsayılan)
 //	                       komut herkese açık alpine imajıyla programı bu sunucudan indirir
+//	AGENT_DIR              diğer platformların ajan programları (uptime-windows-amd64.exe …);
+//	                       varsayılan /usr/local/share/uptime/agents (Docker imajında hazır)
 //
 // Uzak kontrol noktası modu (veritabanı kullanmaz; bkz. probe.go):
 //
 //	uptime probe            PROBE_SERVER ve PROBE_TOKEN ortam değişkenleriyle
+//	uptime service install  (Windows, Yönetici) ajanı Windows hizmeti olarak kurar/günceller;
+//	                        PROBE_SERVER ve PROBE_TOKEN ortamdan okunur (bkz. service_windows.go)
+//	uptime service uninstall
+//	uptime version          sürümü yazar
 //
 // Şifre sıfırlama (giriş yapılamadığında, container içinde):
 //
@@ -29,6 +35,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -69,14 +76,28 @@ func main() {
 	}
 }
 
-func run() error {
+// newLogger LOG_LEVEL düzeyinde metin günlüğü.
+func newLogger(w io.Writer) *slog.Logger {
 	var level slog.Level
 	if err := level.UnmarshalText([]byte(env("LOG_LEVEL", "info"))); err != nil {
 		level = slog.LevelInfo
 	}
-	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
-	if len(os.Args) > 1 && os.Args[1] == "probe" {
-		return runProbe(log)
+	return slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: level}))
+}
+
+func run() error {
+	log := newLogger(os.Stdout)
+	// Veritabanı gerektirmeyen komutlar.
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "probe":
+			return runProbe(log)
+		case "service":
+			return runServiceCommand(os.Args[2:])
+		case "version", "surum":
+			fmt.Println(version)
+			return nil
+		}
 	}
 
 	dataDir := env("DATA_DIR", "./data")
@@ -122,6 +143,9 @@ func run() error {
 	apiServer := api.New(st, eng, hub, dispatcher, log, web.Dist(), version)
 	apiServer.BaseURL = baseURL
 	apiServer.ProbeImage = env("PROBE_IMAGE", "")
+	if d := env("AGENT_DIR", ""); d != "" {
+		apiServer.AgentDir = d
+	}
 	// Sunucu takibi: çevrimdışı ajan taraması (30 sn'de bir) ve bildirim bağlantıları.
 	serverMon := apiServer.Servers()
 	serverMon.SetBaseURL(baseURL)
@@ -212,9 +236,6 @@ func runCommand(st *store.Store, args []string) error {
 		case u.TwoFactorEnabled:
 			fmt.Fprintln(os.Stderr, "Not: iki adımlı doğrulama açık; kapatmak için komutu --2fa-kapat ile çalıştırın.")
 		}
-		return nil
-	case "version", "surum":
-		fmt.Println(version)
 		return nil
 	}
 	return fmt.Errorf("bilinmeyen komut: %s", args[0])
