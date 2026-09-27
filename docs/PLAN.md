@@ -478,10 +478,10 @@ izlenir; ayrı program yok.
   (otomatik başlangıç, LocalSystem) kurar/günceller, kurtarma: 10 sn / 30 sn / 60 sn'de
   yeniden başlat (hatayla çıkışta da), başlatır. `uptime service uninstall` hizmeti
   ve token dosyasını siler.
-- **Ayarlar ve token:** `%ProgramData%\Uptime\agent.env` (KEY=DEĞER). Klasör ve
+- **Ayarlar ve token:** `%ProgramFiles%\Uptime\agent.env` (KEY=DEĞER). Klasör ve
   dosyanın sahibi Administrators, DACL korumalı: yalnızca SYSTEM ve Administrators.
   Hizmetin kayıt defterindeki `Environment` değeri seçilmedi (Services anahtarları
-  Users'a okunur). Günlük `%ProgramData%\Uptime\agent.log`, 5 MB'ta `agent.log.1`.
+  Users'a okunur). Günlük `%ProgramFiles%\Uptime\agent.log`, 5 MB'ta `agent.log.1`.
   Sağlık uç noktası kapalı (`ADDR=-`).
 - **Dağıtım:** `GET /api/probe/binary?os=windows&arch=amd64` imajdaki
   `/usr/local/share/uptime/agents/uptime-windows-amd64.exe` dosyasını verir
