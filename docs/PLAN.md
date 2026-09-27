@@ -245,10 +245,15 @@ Docker konteynerleri, geçmiş grafikleri, eşik uyarıları.
 
 ### 12.1 Mimari kararlar
 
-- **Tek ajan.** Yeni bir program yazılmaz; mevcut `uptime probe` hem uzak kontrol
-  noktası hem sunucu ajanıdır. Veri modelinde yeni varlık yok: `probes` tablosu
-  "ajan" olur. Bir ajanın monitör ataması varsa konum olarak, sunucuyu görebiliyorsa
-  sunucu olarak çalışır. Sunucu başına tek kurulum, tek token.
+- **Tek program, iki ayrı kayıt türü** (karar 2026-09-27, kullanıcı: "uptime
+  peer'ı için kullanacağımız alan ayrı, sunucu takibi ayrı olmalı"). Program aynıdır
+  (`uptime probe`), ama `probes.kind` ile kayıtlar ayrılır:
+  - `location` (kontrol noktası): atanan monitörleri kontrol eder, metrik göndermez;
+    Ayarlar → Kontrol noktaları'nda ve monitörün Konumlar seçiminde görünür.
+  - `server` (takip edilen sunucu): metrik gönderir, monitör kontrolü almaz, konum
+    olarak atanamaz; yalnızca Sunucular sayfasında görünür ve ayarları oradadır.
+  Aynı makine ikisi de olacaksa iki kayıt, iki token, iki kurulum. Ad çakışması tür
+  içinde denetlenir (aynı makine iki listede aynı adı taşıyabilir).
 - **Ana sunucunun kendi metrikleri** için de ajan kurulur (Coolify'da ayrı bir
   Docker Compose kaynağı). Uygulama konteyneri host'u görmediği için kendi kendini
   ölçmez.
@@ -438,6 +443,8 @@ olmadan gelir; arayüz `interval`'in 2 katından büyük aralıkta çizgiyi kese
 
 `PUT /api/servers/{id}/notifications` ← `{"notification_ids": [1,2]}`.
 
-Sunucu ekleme mevcut `POST /api/probes` ile yapılır (yanıtındaki `setup` alanına
-`docker_agent` ve `systemd` komutları eklenir). Canlı akış olayı:
+Sunucu ekleme `POST /api/servers` (yönetici) ile yapılır; yanıtta `docker_agent` ve
+`systemd` komutları vardır. `POST /api/probes` yalnızca kontrol noktası ekler
+(`docker_command`). Ad/etkinlik/metrik/token/silme için iki tür de mevcut
+`/api/probes/{id}` uçlarını kullanır. Canlı akış olayı:
 `{"type": "server", "data": ServerView (liste biçimi)}`.

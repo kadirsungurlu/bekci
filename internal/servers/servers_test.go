@@ -69,7 +69,7 @@ type testEnv struct {
 
 func newTestEnv(t *testing.T) *testEnv {
 	e := &testEnv{t: t, st: storetest.Open(t, time.UTC), clock: time.Date(2026, 9, 27, 10, 0, 5, 0, time.UTC)}
-	e.probe = store.Probe{Name: "CP Server İstanbul", Active: true, CreatedAt: 1, Hash: "h"}
+	e.probe = store.Probe{Kind: store.ProbeKindServer, Name: "CP Server İstanbul", Active: true, CreatedAt: 1, Hash: "h"}
 	if err := e.st.CreateProbe(context.Background(), &e.probe); err != nil {
 		t.Fatal(err)
 	}

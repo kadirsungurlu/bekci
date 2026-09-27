@@ -168,7 +168,7 @@
   {/if}
 
   {#if inactive.length}
-    <h2 class="sect">Metrik göndermeyen ajanlar</h2>
+    <h2 class="sect">Veri göndermeyen sunucular</h2>
     <div class="card list dimlist">
       {#each inactive as s (s.id)}
         <div class="irow">
@@ -182,7 +182,7 @@
           </div>
           {#if session.isAdmin}
             {#if s.state === 'disabled'}
-              <a class="btn sm" href="#/settings/probes">Ayarları aç</a>
+              <a class="btn sm" href="#/servers/{s.id}">Ayarları aç</a>
             {:else}
               <button type="button" class="btn sm" onclick={() => openRenew(s)}><Icon name="terminal" size={14} /> Kurulum komutunu göster</button>
             {/if}

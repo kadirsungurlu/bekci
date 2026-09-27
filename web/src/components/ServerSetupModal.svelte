@@ -1,6 +1,6 @@
 <script lang="ts">
   // Sunucu ekleme ve kurulum komutu penceresi (yönetici).
-  //  - create: ad sorar, ajan (kontrol noktası) oluşturur, komutu gösterir.
+  //  - create: ad sorar, sunucu kaydı oluşturur, komutu gösterir.
   //  - renew: mevcut ajanın token'ını yeniler ve güncel komutu gösterir (token bir
   //    kez gösterildiği için eski komut yeniden gösterilemez).
   // Komut gösterilirken ajanın bağlanması 5 sn'de bir sorgulanır; canlı akıştan
@@ -49,7 +49,7 @@
     busy = true;
     try {
       base = { metrics: 0, seen: 0 };
-      setup = await api.createProbe(n);
+      setup = await api.createServer(n);
       servers.load();
     } catch (err) {
       error = errorMessage(err);
@@ -205,7 +205,7 @@
       <div class="field">
         <label for="srv-name">Sunucu adı</label>
         <input id="srv-name" class="input" maxlength="100" bind:value={name} placeholder="ör. CP Server İstanbul" />
-        <span class="help">Listede ve bildirimlerde görünür. Bu ajan istenirse monitörler için kontrol noktası olarak da kullanılabilir.</span>
+        <span class="help">Listede ve bildirimlerde görünür.</span>
       </div>
       {#if error}<div class="alert error" role="alert">{error}</div>{/if}
     </form>

@@ -903,6 +903,8 @@ export const api = {
   // Kontrol noktaları
   probes: () => get<Probe[]>('/api/probes'),
   createProbe: (name: string) => post<ProbeSetup>('/api/probes', { name }),
+  /** Takip edilecek sunucu ekler (kontrol noktalarından ayrı kayıt). */
+  createServer: (name: string) => post<ProbeSetup>('/api/servers', { name }),
   // metrics yalnızca verildiğinde gönderilir (eski sunucu bilinmeyen alanı reddeder).
   updateProbe: (id: number, name: string, active: boolean, metrics?: boolean) =>
     put<Probe>(`/api/probes/${id}`, metrics === undefined ? { name, active } : { name, active, metrics }),
@@ -911,7 +913,7 @@ export const api = {
   monitorLocations: (id: number) => get<MonitorLocations>(`/api/monitors/${id}/locations`),
   setMonitorLocations: (id: number, l: LocationSetup) => put<MonitorLocations>(`/api/monitors/${id}/locations`, l),
 
-  // Sunucu takibi (ajan = kontrol noktası; ekleme createProbe ile)
+  // Sunucu takibi (sunucular kontrol noktalarından ayrıdır; ekleme createServer ile)
   listServers: () => get<{ servers: ServerView[] | null }>('/api/servers').then((r) => r.servers ?? []),
   getServer: (id: number) => get<ServerDetail>(`/api/servers/${id}`),
   getServerStats: (id: number, range: StatsRange) => get<StatsSeries>(`/api/servers/${id}/stats?range=${range}`),

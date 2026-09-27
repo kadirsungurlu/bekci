@@ -185,7 +185,7 @@ func (s *Service) CheckOffline(ctx context.Context) {
 	// metrics_at ile yanlış çevrimdışı uyarısı başlatmasın.
 	s.evalMu.Lock()
 	defer s.evalMu.Unlock()
-	probes, err := s.store.ListProbes(ctx)
+	probes, err := s.store.ListProbesOfKind(ctx, store.ProbeKindServer)
 	if err != nil {
 		if ctx.Err() == nil {
 			s.log.Error("ajanlar okunamadı", "hata", err)

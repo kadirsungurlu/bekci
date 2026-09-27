@@ -106,14 +106,12 @@
   let editOpen = $state(false);
   let editing = $state<Probe | null>(null);
   let editName = $state('');
-  let editMetrics = $state(true);
   let editError = $state('');
   let editBusy = $state(false);
 
   function openEdit(p: Probe) {
     editing = p;
     editName = p.name;
-    editMetrics = p.metrics ?? true;
     editError = '';
     editOpen = true;
   }
@@ -126,8 +124,7 @@
     if (!n) return (editError = 'Ad gerekli.');
     editBusy = true;
     try {
-      // metrics yalnızca sunucu bu alanı bildiriyorsa gönderilir (eski sunucu bilinmeyen alanı reddeder).
-      await api.updateProbe(editing.id, n, editing.active, editing.metrics === undefined ? undefined : editMetrics);
+      await api.updateProbe(editing.id, n, editing.active);
       toast.success('Kontrol noktası kaydedildi');
       editOpen = false;
       load();
@@ -192,10 +189,6 @@
         Monitörlerinizi farklı şehir veya ağlardan da kontrol edin. Kontrol noktası, bu uygulamanın başka bir sunucuda
         <code>probe</code> modunda çalışan bir kopyasıdır; kendisine atanan monitörleri kontrol edip sonuçları buraya bildirir. Monitör
         formundaki <b>Konumlar</b> bölümünden atanır.
-      </p>
-      <p class="text-2 small sub srv-link">
-        <Icon name="server" size={14} /> Aynı ajanlar sunucunun CPU, RAM, disk ve konteyner metriklerini de gönderir:
-        <a href="#/servers">Sunucular</a>
       </p>
     </div>
     <button class="btn primary" onclick={openNew}><Icon name="plus" size={16} /> Yeni kontrol noktası</button>
@@ -305,15 +298,6 @@
       <label for="pre-name">Ad</label>
       <input id="pre-name" class="input" maxlength="100" bind:value={editName} />
     </div>
-    {#if editing?.metrics !== undefined}
-      <label class="check">
-        <input type="checkbox" bind:checked={editMetrics} />
-        <span>
-          Sunucu metriklerini topla
-          <small>CPU, RAM, disk, ağ ve konteyner ölçümleri <a href="#/servers">Sunucular</a> sayfasında görünür. Kapatılırsa ajan yalnızca kontrol noktası olarak çalışır.</small>
-        </span>
-      </label>
-    {/if}
     {#if editError}<div class="alert error" role="alert">{editError}</div>{/if}
   </form>
   {#snippet footer()}
@@ -344,13 +328,6 @@
   .sub {
     margin: 0;
     max-width: 760px;
-  }
-  .srv-link {
-    margin-top: 6px;
-  }
-  .srv-link :global(svg) {
-    vertical-align: -2px;
-    color: var(--muted);
   }
   .none {
     display: flex;

@@ -40,7 +40,7 @@ func (e *Engine) watchProbes(ctx context.Context) {
 }
 
 func (e *Engine) scanProbes(ctx context.Context, known map[int64]bool) map[int64]bool {
-	probes, err := e.store.ListProbes(ctx)
+	probes, err := e.store.ListProbesOfKind(ctx, store.ProbeKindLocation)
 	if err != nil {
 		if ctx.Err() == nil {
 			e.log.Error("kontrol noktaları okunamadı", "hata", err)

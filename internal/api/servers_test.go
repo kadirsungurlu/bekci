@@ -88,10 +88,32 @@ func TestServersAPI(t *testing.T) {
 	other := store.Notification{Name: "Diğer", Type: "webhook", Config: json.RawMessage(`{"url":"http://127.0.0.1:1/y","method":"POST"}`), Active: true}
 	f.st.CreateNotification(ctx, &other, false)
 
-	// Ajan ekleme: eski komut korunur, ajan ve systemd komutları eklenir.
+	// Sunucu ekleme: host'u gören ajan ve systemd komutları; kontrol noktası
+	// komutu verilmez.
 	var cp serverSetup
-	admin.mustDo("POST", "/api/probes", map[string]any{"name": "CP Server İstanbul"}, &cp, 201)
-	for _, c := range []string{cp.DockerCommand, cp.DockerAgent, cp.Systemd} {
+	admin.mustDo("POST", "/api/servers", map[string]any{"name": "CP Server İstanbul"}, &cp, 201)
+	if cp.DockerCommand != "" || cp.Probe.Kind != store.ProbeKindServer {
+		t.Fatalf("sunucuya kontrol noktası komutu verilmemeli: %+v", cp)
+	}
+	// Ayrım: sunucu kontrol noktası listesinde görünmez, konum olarak atanamaz;
+	// kontrol noktası da sunucu listesinde/ekranında görünmez.
+	loc := admin.newProbe("Frankfurt")
+	if loc.DockerCommand == "" {
+		t.Fatal("kontrol noktasına docker_command verilmeli")
+	}
+	var locs []probeAdminView
+	admin.mustDo("GET", "/api/probes", nil, &locs, 200)
+	if len(locs) != 1 || locs[0].ID != loc.Probe.ID || locs[0].Kind != store.ProbeKindLocation {
+		t.Fatalf("kontrol noktası listesi: %+v", locs)
+	}
+	admin.mustDo("GET", fmt.Sprintf("/api/servers/%d", loc.Probe.ID), nil, nil, 404)
+	lm := store.Monitor{Name: "Site", Type: "http", Active: true, Interval: 60, RetryInterval: 60, Timeout: 10, Config: json.RawMessage(`{"url":"https://example.com"}`)}
+	if err := f.st.CreateMonitor(ctx, &lm, nil); err != nil {
+		t.Fatal(err)
+	}
+	admin.mustDo("PUT", fmt.Sprintf("/api/monitors/%d/locations", lm.ID),
+		map[string]any{"include_local": true, "probe_ids": []int64{cp.Probe.ID}, "down_when": "any"}, nil, 400)
+	for _, c := range []string{cp.DockerAgent, cp.Systemd} {
 		if !strings.Contains(c, cp.Token) || !strings.Contains(c, admin.srv.URL) {
 			t.Fatalf("kurulum komutu token/adres içermeli: %s", c)
 		}

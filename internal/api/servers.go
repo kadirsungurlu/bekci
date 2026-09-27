@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,6 +32,7 @@ const (
 func init() {
 	RegisterRoutes(func(s *Server, mux *http.ServeMux) {
 		mux.Handle("GET /api/servers", s.auth(s.serversOnly(s.listServers)))
+		mux.Handle("POST /api/servers", s.admin(s.createServer))
 		mux.Handle("GET /api/servers/{id}", s.auth(s.serversOnly(s.getServer)))
 		mux.Handle("GET /api/servers/{id}/stats", s.auth(s.serversOnly(s.serverStats)))
 		mux.Handle("GET /api/servers/{id}/events", s.auth(s.serversOnly(s.serverEvents)))
@@ -39,6 +41,16 @@ func init() {
 
 		mux.Handle("POST /api/probe/metrics", s.probeOnly(s.probeMetrics))
 	})
+}
+
+// serverProbe kimliği verilen sunucuyu okur; kayıt bir kontrol noktasıysa
+// bulunamadı sayılır (iki tür birbirinin ekranında görünmez).
+func (s *Server) serverProbe(ctx context.Context, id int64) (store.Probe, error) {
+	p, err := s.store.GetProbe(ctx, id)
+	if err == nil && p.Kind != store.ProbeKindServer {
+		return store.Probe{}, store.ErrNotFound
+	}
+	return p, err
 }
 
 // serversOnly müşteri kısıtlı izleyiciyi sunucu ekranlarından uzak tutar.
@@ -53,7 +65,7 @@ func (s *Server) serversOnly(h http.HandlerFunc) http.HandlerFunc {
 }
 
 func (s *Server) listServers(w http.ResponseWriter, r *http.Request) {
-	probes, err := s.store.ListProbes(r.Context())
+	probes, err := s.store.ListProbesOfKind(r.Context(), store.ProbeKindServer)
 	if err != nil {
 		s.dbError(w, err)
 		return
@@ -82,7 +94,7 @@ func (s *Server) getServer(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	p, err := s.store.GetProbe(r.Context(), id)
+	p, err := s.serverProbe(r.Context(), id)
 	if err != nil {
 		s.dbError(w, err)
 		return
@@ -108,7 +120,7 @@ func (s *Server) serverStats(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := s.store.GetProbe(r.Context(), id); err != nil {
+	if _, err := s.serverProbe(r.Context(), id); err != nil {
 		s.dbError(w, err)
 		return
 	}
@@ -144,7 +156,7 @@ func (s *Server) serverEvents(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := s.store.GetProbe(r.Context(), id); err != nil {
+	if _, err := s.serverProbe(r.Context(), id); err != nil {
 		s.dbError(w, err)
 		return
 	}
@@ -244,7 +256,7 @@ func (s *Server) putServerAlerts(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	p, err := s.store.GetProbe(r.Context(), id)
+	p, err := s.serverProbe(r.Context(), id)
 	if err != nil {
 		s.dbError(w, err)
 		return
@@ -275,7 +287,7 @@ func (s *Server) putServerNotifications(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	p, err := s.store.GetProbe(r.Context(), id)
+	p, err := s.serverProbe(r.Context(), id)
 	if err != nil {
 		s.dbError(w, err)
 		return

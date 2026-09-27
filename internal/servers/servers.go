@@ -127,7 +127,7 @@ func (s *Service) Wait() { s.bg.Wait() }
 
 // IntervalFor ajanın iş listesine yazılacak örnek aralığı (0: metrik kapalı).
 func IntervalFor(p store.Probe) int {
-	if !p.Metrics {
+	if p.Kind != store.ProbeKindServer || !p.Metrics {
 		return 0
 	}
 	return Interval
@@ -165,8 +165,8 @@ func (s *Service) Ingest(ctx context.Context, p store.Probe, smp metrics.Sample)
 	if smp.Stats == nil && smp.Unavailable == "" {
 		return ErrEmptySample
 	}
-	if !p.Metrics {
-		return nil
+	if p.Kind != store.ProbeKindServer || !p.Metrics {
+		return nil // kontrol noktası veya metriği kapalı sunucu: yok sayılır
 	}
 	hostInfo := ""
 	if smp.Host != nil {

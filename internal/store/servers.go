@@ -23,6 +23,7 @@ import (
 //   - probe_notifications: sunucu uyarılarının gideceği kanallar.
 func init() {
 	RegisterMigration(10, `
+ALTER TABLE probes ADD COLUMN kind TEXT NOT NULL DEFAULT 'location';
 ALTER TABLE probes ADD COLUMN metrics INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE probes ADD COLUMN host_info TEXT NOT NULL DEFAULT '';
 ALTER TABLE probes ADD COLUMN metrics_at INTEGER;

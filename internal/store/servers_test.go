@@ -10,7 +10,7 @@ import (
 func TestServerStore(t *testing.T) {
 	s := openTest(t)
 	ctx := context.Background()
-	p := Probe{Name: "CP", Active: true, CreatedAt: 100, Hash: "h1"}
+	p := Probe{Kind: ProbeKindServer, Name: "CP", Active: true, CreatedAt: 100, Hash: "h1"}
 	if err := s.CreateProbe(ctx, &p); err != nil {
 		t.Fatal(err)
 	}

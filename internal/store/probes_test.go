@@ -22,18 +22,31 @@ func TestProbeStore(t *testing.T) {
 	if err := s.CreateProbe(ctx, &Probe{Name: "x", Hash: "h1"}); !IsUniqueViolation(err) {
 		t.Fatalf("aynı token özeti: %v", err)
 	}
-	if n, _ := s.CountProbes(ctx); n != 2 {
+	if n, _ := s.CountProbes(ctx, ProbeKindLocation); n != 2 {
 		t.Fatalf("sayı %d", n)
 	}
-	if taken, _ := s.ProbeNameTaken(ctx, "FRANKFURT", 0); !taken {
+	if taken, _ := s.ProbeNameTaken(ctx, "FRANKFURT", ProbeKindLocation, 0); !taken {
 		t.Error("ad çakışması büyük/küçük harf duyarsız olmalı")
 	}
-	if taken, _ := s.ProbeNameTaken(ctx, "frankfurt", p.ID); taken {
+	if taken, _ := s.ProbeNameTaken(ctx, "frankfurt", ProbeKindLocation, p.ID); taken {
 		t.Error("kendi adı çakışma sayılmamalı")
 	}
-	list, _ := s.ListProbes(ctx)
-	if len(list) != 2 || list[0].Name != "Frankfurt" || list[1].Name != "istanbul" {
+	if taken, _ := s.ProbeNameTaken(ctx, "Frankfurt", ProbeKindServer, 0); taken {
+		t.Error("sunucu ile kontrol noktası aynı adı taşıyabilmeli")
+	}
+	if p.Kind != ProbeKindLocation || p.Metrics {
+		t.Fatalf("varsayılan tür kontrol noktası, metrik kapalı olmalı: %+v", p)
+	}
+	srv := Probe{Kind: ProbeKindServer, Name: "Frankfurt", Active: true, CreatedAt: 100, Hash: "hs"}
+	if err := s.CreateProbe(ctx, &srv); err != nil || !srv.Metrics {
+		t.Fatalf("sunucu: %+v %v", srv, err)
+	}
+	list, _ := s.ListProbesOfKind(ctx, ProbeKindLocation)
+	if len(list) != 2 || list[0].Name != "Frankfurt" || list[1].Name != "istanbul" || list[0].Kind != ProbeKindLocation {
 		t.Fatalf("sıralama: %+v", list)
+	}
+	if list, _ := s.ListProbesOfKind(ctx, ProbeKindServer); len(list) != 1 || list[0].ID != srv.ID {
+		t.Fatalf("sunucular: %+v", list)
 	}
 
 	got, err := s.ProbeByTokenHash(ctx, "h1")

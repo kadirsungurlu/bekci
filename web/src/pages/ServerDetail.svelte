@@ -48,6 +48,7 @@
   import ContainerTable from '../components/ContainerTable.svelte';
   import AlertRulesEditor from '../components/AlertRulesEditor.svelte';
   import ServerSetupModal from '../components/ServerSetupModal.svelte';
+  import ServerSettingsModal from '../components/ServerSettingsModal.svelte';
   import Icon from '../components/Icon.svelte';
 
   let { id }: { id: number } = $props();
@@ -284,6 +285,7 @@
   }
 
   let renewOpen = $state(false);
+  let settingsOpen = $state(false);
 
   /** Doluluk değerinin rengi: ≥90 kırmızı, ≥80 turuncu. */
   const lvl = (v: number | null) => ({ ok: '', warn: 'c-pending', danger: 'c-down' })[usageLevel(v)];
@@ -331,7 +333,7 @@
     {#if session.isAdmin}
       <div class="actions">
         <button class="btn" onclick={() => (renewOpen = true)}><Icon name="terminal" size={15} /> Kurulum komutu</button>
-        <a class="btn" href="#/settings/probes"><Icon name="settings" size={15} /> Ajan ayarları</a>
+        <button class="btn" onclick={() => (settingsOpen = true)}><Icon name="settings" size={15} /> Ayarlar</button>
       </div>
     {/if}
   </div>
@@ -688,13 +690,10 @@
     {/if}
   </section>
 
-  <p class="help foot">
-    Bu ajan monitörler için <a href="#/settings/probes">kontrol noktası</a> olarak da kullanılabilir.
-    {#if session.isAdmin}Ad, token, metrik toplama ve silme işlemleri <a href="#/settings/probes">Ayarlar › Kontrol noktaları</a> bölümündedir.{/if}
-  </p>
 
   {#if session.isAdmin}
     <ServerSetupModal bind:open={renewOpen} renew={view} />
+    <ServerSettingsModal bind:open={settingsOpen} server={view} onsaved={loadDetail} />
   {/if}
 {/if}
 
@@ -1047,11 +1046,6 @@
     margin: 2px 0 0;
     word-break: break-word;
   }
-  .foot {
-    margin: 4px 0 0;
-    text-align: center;
-  }
-
   @media (max-width: 900px) {
     .charts {
       grid-template-columns: minmax(0, 1fr);

@@ -212,6 +212,7 @@ type probeSummary struct {
 // probeAdminView yöneticinin gördüğü bilgi (token'ın kendisi hiçbir zaman yok).
 type probeAdminView struct {
 	probeSummary
+	Kind         string `json:"kind"` // location | server
 	TokenPrefix  string `json:"token_prefix"`
 	CreatedAt    int64  `json:"created_at"`
 	LastIP       string `json:"last_ip"`
@@ -226,13 +227,14 @@ func (s *Server) probeSummaryOf(p store.Probe) probeSummary {
 
 func (s *Server) probeAdminOf(p store.Probe, monitors int) probeAdminView {
 	return probeAdminView{
-		probeSummary: s.probeSummaryOf(p), TokenPrefix: p.TokenPrefix, CreatedAt: p.CreatedAt,
+		probeSummary: s.probeSummaryOf(p), Kind: p.Kind, TokenPrefix: p.TokenPrefix, CreatedAt: p.CreatedAt,
 		LastIP: p.LastIP, Version: p.Version, MonitorCount: monitors, Metrics: p.Metrics,
 	}
 }
 
+// listProbes yalnızca kontrol noktaları (sunucular /api/servers altında).
 func (s *Server) listProbes(w http.ResponseWriter, r *http.Request) {
-	list, err := s.store.ListProbes(r.Context())
+	list, err := s.store.ListProbesOfKind(r.Context(), store.ProbeKindLocation)
 	if err != nil {
 		s.dbError(w, err)
 		return
@@ -258,26 +260,34 @@ func (s *Server) listProbes(w http.ResponseWriter, r *http.Request) {
 }
 
 // validateProbeName adı doğrular; hata varsa yanıtı yazar.
-func (s *Server) validateProbeName(w http.ResponseWriter, r *http.Request, name string, id int64) bool {
+func (s *Server) validateProbeName(w http.ResponseWriter, r *http.Request, name, kind string, id int64) bool {
 	if name == "" || utf8.RuneCountInString(name) > 100 {
 		writeError(w, http.StatusBadRequest, "Ad 1-100 karakter olmalı")
 		return false
 	}
-	taken, err := s.store.ProbeNameTaken(r.Context(), name, id)
+	taken, err := s.store.ProbeNameTaken(r.Context(), name, kind, id)
 	if err != nil {
 		s.dbError(w, err)
 		return false
 	}
 	if taken {
-		writeError(w, http.StatusConflict, "Bu adda bir kontrol noktası zaten var")
+		writeError(w, http.StatusConflict, "Bu adda bir "+kindNoun(kind)+" zaten var")
 		return false
 	}
 	return true
 }
 
-// probeSetup yeni token'ı ve kurulum komutlarını içeren yanıt. docker_command
-// eski (yalnızca kontrol noktası) komuttur; docker_agent ve systemd sunucu
-// metriklerini de toplayan ajan kurulumudur (servers.go).
+// kindNoun ajan türünün Türkçe adı (mesajlar için).
+func kindNoun(kind string) string {
+	if kind == store.ProbeKindServer {
+		return "sunucu"
+	}
+	return "kontrol noktası"
+}
+
+// probeSetup yeni token'ı ve kurulum komutlarını içeren yanıt. Kontrol
+// noktasına docker_command, sunucuya host'u gören docker_agent ve systemd
+// komutları (servers.go) verilir.
 func (s *Server) probeSetup(r *http.Request, p store.Probe, token string, monitors int) map[string]any {
 	server := s.BaseURL
 	if server == "" {
@@ -300,11 +310,13 @@ func (s *Server) probeSetup(r *http.Request, p store.Probe, token string, monito
 			`sh -c 'wget -qO /usr/local/bin/uptime --header "Authorization: Bearer $PROBE_TOKEN" "$PROBE_SERVER/api/probe/binary" && chmod +x /usr/local/bin/uptime && exec uptime probe'`,
 			server, token)
 	}
-	agent, systemd := s.serverSetupCommands(server, token)
-	return map[string]any{
-		"probe": s.probeAdminOf(p, monitors), "token": token, "server_url": server,
-		"docker_command": cmd, "docker_agent": agent, "systemd": systemd,
+	out := map[string]any{"probe": s.probeAdminOf(p, monitors), "token": token, "server_url": server}
+	if p.Kind == store.ProbeKindServer {
+		out["docker_agent"], out["systemd"] = s.serverSetupCommands(server, token)
+	} else {
+		out["docker_command"] = cmd
 	}
+	return out
 }
 
 // probeBinary kontrol noktasına bu sunucuda çalışan programın kendisini verir
@@ -338,7 +350,17 @@ func (s *Server) probeBinary(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, "uptime", st.ModTime(), f)
 }
 
+// createProbe kontrol noktası ekler (POST /api/probes).
 func (s *Server) createProbe(w http.ResponseWriter, r *http.Request) {
+	s.createAgent(w, r, store.ProbeKindLocation)
+}
+
+// createServer takip edilecek sunucu ekler (POST /api/servers).
+func (s *Server) createServer(w http.ResponseWriter, r *http.Request) {
+	s.createAgent(w, r, store.ProbeKindServer)
+}
+
+func (s *Server) createAgent(w http.ResponseWriter, r *http.Request, kind string) {
 	var in struct {
 		Name string `json:"name"`
 	}
@@ -346,20 +368,20 @@ func (s *Server) createProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	in.Name = strings.TrimSpace(in.Name)
-	if !s.validateProbeName(w, r, in.Name, 0) {
+	if !s.validateProbeName(w, r, in.Name, kind, 0) {
 		return
 	}
-	n, err := s.store.CountProbes(r.Context())
+	n, err := s.store.CountProbes(r.Context(), kind)
 	if err != nil {
 		s.dbError(w, err)
 		return
 	}
 	if n >= probeMaxCount {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("En fazla %d kontrol noktası eklenebilir", probeMaxCount))
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("En fazla %d %s eklenebilir", probeMaxCount, kindNoun(kind)))
 		return
 	}
 	token := newProbeToken()
-	p := store.Probe{Name: in.Name, Active: true, CreatedAt: s.now().Unix(), Hash: hashToken(token), TokenPrefix: token[:probeTokenShown]}
+	p := store.Probe{Kind: kind, Name: in.Name, Active: true, CreatedAt: s.now().Unix(), Hash: hashToken(token), TokenPrefix: token[:probeTokenShown]}
 	if err := s.store.CreateProbe(r.Context(), &p); err != nil {
 		if store.IsUniqueViolation(err) {
 			writeError(w, http.StatusConflict, "Token üretilemedi, tekrar deneyin")
@@ -369,11 +391,17 @@ func (s *Server) createProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Sunucu uyarıları için varsayılan bildirim kanalları hemen seçili gelir.
-	if err := s.store.AttachDefaultProbeNotifications(r.Context(), p.ID); err != nil {
-		s.log.Error("varsayılan bildirim kanalları bağlanamadı", "hata", err)
+	if kind == store.ProbeKindServer {
+		if err := s.store.AttachDefaultProbeNotifications(r.Context(), p.ID); err != nil {
+			s.log.Error("varsayılan bildirim kanalları bağlanamadı", "hata", err)
+		}
 	}
-	s.log.Info("kontrol noktası eklendi", "kontrol_noktasi", p.Name)
-	s.audit(r, store.User{}, "probe.create", "probe", p.ID, p.Name, "")
+	s.log.Info(kindNoun(kind)+" eklendi", "ad", p.Name)
+	action := "probe.create"
+	if kind == store.ProbeKindServer {
+		action = "server.create"
+	}
+	s.audit(r, store.User{}, action, "probe", p.ID, p.Name, "")
 	writeJSON(w, http.StatusCreated, s.probeSetup(r, p, token, 0))
 }
 
@@ -396,7 +424,7 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	in.Name = strings.TrimSpace(in.Name)
-	if !s.validateProbeName(w, r, in.Name, id) {
+	if !s.validateProbeName(w, r, in.Name, old.Kind, id) {
 		return
 	}
 	active := old.Active
@@ -408,7 +436,7 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	metricsOn := old.Metrics
-	if in.Metrics != nil && *in.Metrics != old.Metrics {
+	if in.Metrics != nil && *in.Metrics != old.Metrics && old.Kind == store.ProbeKindServer {
 		metricsOn = *in.Metrics
 		if err := s.store.SetProbeMetrics(r.Context(), id, metricsOn); err != nil {
 			s.dbError(w, err)
@@ -616,7 +644,7 @@ func (s *Server) putMonitorLocations(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, pid := range setup.ProbeIDs {
 		p, ok := probes[pid]
-		if !ok {
+		if !ok || p.Kind != store.ProbeKindLocation {
 			writeError(w, http.StatusBadRequest, "Seçilen kontrol noktası bulunamadı")
 			return
 		}
@@ -664,10 +692,14 @@ func (s *Server) assignedJobs(ctx context.Context, probeID int64) ([]store.Monit
 
 func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 	p := probeFrom(r)
-	list, err := s.assignedJobs(r.Context(), p.ID)
-	if err != nil {
-		s.dbError(w, err)
-		return
+	// Sunucu ajanı monitör kontrolü yapmaz (konum olarak atanamaz).
+	var list []store.Monitor
+	if p.Kind == store.ProbeKindLocation {
+		var err error
+		if list, err = s.assignedJobs(r.Context(), p.ID); err != nil {
+			s.dbError(w, err)
+			return
+		}
 	}
 	jobs := make([]probeJob, len(list))
 	for i, m := range list {

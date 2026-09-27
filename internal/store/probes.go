@@ -60,9 +60,21 @@ func ValidDownWhen(s string) bool {
 	return s == DownWhenAny || s == DownWhenMajority || s == DownWhenAll
 }
 
-// Probe uzak kontrol noktası. Zaman damgaları unix saniye, 0 "yok".
+// Ajan türleri: aynı program ("uptime probe") iki ayrı amaçla kurulur ve
+// kayıtlar birbirine karışmaz.
+const (
+	ProbeKindLocation = "location" // kontrol noktası: atanan monitörleri kontrol eder, metrik göndermez
+	ProbeKindServer   = "server"   // takip edilen sunucu: metrik gönderir, monitör kontrolü almaz
+)
+
+// ValidProbeKind türün geçerli olup olmadığını söyler.
+func ValidProbeKind(k string) bool { return k == ProbeKindLocation || k == ProbeKindServer }
+
+// Probe uzak ajan: kontrol noktası veya takip edilen sunucu (Kind). Zaman
+// damgaları unix saniye, 0 "yok".
 type Probe struct {
 	ID          int64  `json:"id"`
+	Kind        string `json:"kind"`
 	Name        string `json:"name"`
 	TokenPrefix string `json:"token_prefix"`
 	Active      bool   `json:"active"`
@@ -82,13 +94,13 @@ type Probe struct {
 }
 
 const probeCols = `id, name, token_prefix, active, created_at, last_seen_at, last_ip, version, token_hash,
-	metrics, host_info, metrics_at, metrics_note`
+	metrics, host_info, metrics_at, metrics_note, kind`
 
 func scanProbe(sc scanner) (Probe, error) {
 	var p Probe
 	var seen, metricsAt sql.NullInt64
 	err := sc.Scan(&p.ID, &p.Name, &p.TokenPrefix, &p.Active, &p.CreatedAt, &seen, &p.LastIP, &p.Version, &p.Hash,
-		&p.Metrics, &p.HostInfo, &metricsAt, &p.MetricsNote)
+		&p.Metrics, &p.HostInfo, &metricsAt, &p.MetricsNote, &p.Kind)
 	p.LastSeenAt, p.MetricsAt = seen.Int64, metricsAt.Int64
 	return p, err
 }
@@ -110,9 +122,14 @@ func (s *Store) queryProbes(ctx context.Context, q string, args ...any) ([]Probe
 	return out, rows.Err()
 }
 
-// ListProbes tüm kontrol noktaları, ada göre sıralı.
+// ListProbes tüm ajanlar (kontrol noktaları ve sunucular), ada göre sıralı.
 func (s *Store) ListProbes(ctx context.Context) ([]Probe, error) {
 	return s.queryProbes(ctx, "SELECT "+probeCols+" FROM probes ORDER BY LOWER(name), id")
+}
+
+// ListProbesOfKind yalnızca verilen türdeki ajanlar, ada göre sıralı.
+func (s *Store) ListProbesOfKind(ctx context.Context, kind string) ([]Probe, error) {
+	return s.queryProbes(ctx, "SELECT "+probeCols+" FROM probes WHERE kind = ? ORDER BY LOWER(name), id", kind)
 }
 
 func (s *Store) getProbe(ctx context.Context, where string, arg any) (Probe, error) {
@@ -132,28 +149,34 @@ func (s *Store) ProbeByTokenHash(ctx context.Context, hash string) (Probe, error
 	return s.getProbe(ctx, "token_hash = ?", hash)
 }
 
-// ProbeNameTaken aynı adda (büyük/küçük harf farkı gözetmeden) başka bir
-// kontrol noktası var mı? exceptID düzenlenen kaydın kendisidir.
-func (s *Store) ProbeNameTaken(ctx context.Context, name string, exceptID int64) (bool, error) {
+// ProbeNameTaken aynı türde aynı adda (büyük/küçük harf farkı gözetmeden)
+// başka bir ajan var mı? exceptID düzenlenen kaydın kendisidir. Bir kontrol
+// noktası ile bir sunucu aynı adı taşıyabilir (ör. aynı makine).
+func (s *Store) ProbeNameTaken(ctx context.Context, name, kind string, exceptID int64) (bool, error) {
 	var n int
 	err := s.db.QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM probes WHERE LOWER(name) = LOWER(?) AND id <> ?", name, exceptID).Scan(&n)
+		"SELECT COUNT(*) FROM probes WHERE LOWER(name) = LOWER(?) AND kind = ? AND id <> ?", name, kind, exceptID).Scan(&n)
 	return n > 0, err
 }
 
-func (s *Store) CountProbes(ctx context.Context) (int, error) {
+// CountProbes verilen türdeki ajan sayısı.
+func (s *Store) CountProbes(ctx context.Context, kind string) (int, error) {
 	var n int
-	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM probes").Scan(&n)
+	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM probes WHERE kind = ?", kind).Scan(&n)
 	return n, err
 }
 
-// CreateProbe kontrol noktasını ekler; metrik toplama yeni kayıtta açıktır.
+// CreateProbe ajanı ekler. Tür boşsa kontrol noktasıdır; metrik toplama
+// yalnızca sunucularda açıktır.
 func (s *Store) CreateProbe(ctx context.Context, p *Probe) error {
-	p.Metrics = true
+	if !ValidProbeKind(p.Kind) {
+		p.Kind = ProbeKindLocation
+	}
+	p.Metrics = p.Kind == ProbeKindServer
 	return s.db.QueryRowContext(ctx, `
-		INSERT INTO probes (name, token_hash, token_prefix, active, created_at)
-		VALUES (?, ?, ?, ?, ?) RETURNING id`,
-		p.Name, p.Hash, p.TokenPrefix, boolInt(p.Active), p.CreatedAt).Scan(&p.ID)
+		INSERT INTO probes (name, kind, token_hash, token_prefix, active, created_at, metrics)
+		VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		p.Name, p.Kind, p.Hash, p.TokenPrefix, boolInt(p.Active), p.CreatedAt, boolInt(p.Metrics)).Scan(&p.ID)
 }
 
 // UpdateProbe adı ve etkinliği değiştirir.

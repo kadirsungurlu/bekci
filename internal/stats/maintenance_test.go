@@ -106,7 +106,7 @@ func TestNoBackupBeforeHour(t *testing.T) {
 func TestServerStatsRetention(t *testing.T) {
 	st := storetest.Open(t, time.UTC)
 	ctx := context.Background()
-	p := store.Probe{Name: "cp", Active: true, CreatedAt: 1, Hash: "h"}
+	p := store.Probe{Kind: store.ProbeKindServer, Name: "cp", Active: true, CreatedAt: 1, Hash: "h"}
 	if err := st.CreateProbe(ctx, &p); err != nil {
 		t.Fatal(err)
 	}
