@@ -26,6 +26,13 @@ type runner struct {
 	downBeats int // DOWN'dayken art arda kontrol sayısı (hatırlatma için)
 
 	locs *locationSet // nil: tek konumlu (yalnızca ana sunucu); bkz. locations.go
+
+	// Olay ayrıntıları (incidents.go).
+	incidentID  int64                 // açık olayın kimliği (0: yok)
+	preDown     []store.IncidentEvent // olay açılmadan önceki başarısız denemeler
+	lastCause   string                // işlem geçmişine yazılan son hata
+	maintLogged bool                  // olay sürerken "bakım başladı" yazıldı
+	locPrev     map[int64]string      // çok konumlu: olay sürerken konumların son yazılan durumu
 }
 
 // initialConfirmed yeniden başlatmada sahte bildirim gitmesin diye son
@@ -38,6 +45,10 @@ type runner struct {
 func (r *runner) initialConfirmed(ctx context.Context) int {
 	started, err := r.e.store.OpenIncidentStart(ctx, r.m.ID)
 	hasIncident := err == nil && started > 0
+	if hasIncident {
+		r.incidentID, _ = r.e.store.OpenIncidentID(ctx, r.m.ID)
+		r.lastCause = r.m.LastMessage
+	}
 	switch {
 	case r.m.Status == store.StatusDown:
 		if err == nil && !hasIncident {
@@ -48,9 +59,11 @@ func (r *runner) initialConfirmed(ctx context.Context) int {
 			if since == 0 {
 				since = r.e.now().Unix()
 			}
-			if err := r.e.store.OpenIncident(ctx, r.m.ID, since, r.m.LastMessage); err != nil {
+			id, err := r.e.store.StartIncident(ctx, r.m.ID, since, r.m.LastMessage)
+			if err != nil {
 				r.e.log.Error("eksik olay tamamlanamadı", "monitor", r.m.Name, "hata", err)
 			}
+			r.incidentID, r.lastCause = id, r.m.LastMessage
 		}
 		return store.StatusDown
 	case r.m.Status == store.StatusUp:
@@ -172,6 +185,7 @@ func (r *runner) process(res check.Result) {
 	inMaint := r.e.InMaintenance(r.m.ID, now)
 
 	status := store.StatusDown
+	retried := false // olay açılmadan önceki bir tekrar deneme hakkı kullanıldı
 	switch {
 	case inMaint:
 		status = store.StatusMaintenance
@@ -187,6 +201,7 @@ func (r *runner) process(res check.Result) {
 	case r.locs == nil && r.confirmed != store.StatusDown && r.retries < r.m.MaxRetries:
 		status = store.StatusPending
 		r.retries++
+		retried = true
 	}
 	if status != store.StatusPending {
 		r.retries = 0
@@ -216,12 +231,21 @@ func (r *runner) process(res check.Result) {
 		r.m.LastChangeAt = lastChange
 	}
 
+	// Olay açılmadan önceki denemeler bellekte bekler (çok konumluda tekrar
+	// deneme konum başınadır; birleşik "tekrar deneniyor" sonucu kaydedilir).
+	switch {
+	case status == store.StatusUp:
+		r.preDown = nil
+	case r.incidentID == 0 && prevConfirmed != store.StatusDown &&
+		(retried || (r.locs != nil && status == store.StatusPending && res.Message != NoLocationData)):
+		r.rememberRetry(now, res)
+	}
+	r.incidentProgress(ctx, now, status, inMaint, res)
+
 	switch {
 	case status == store.StatusDown && prevConfirmed != store.StatusDown:
 		r.downBeats = 0
-		if err := r.e.store.OpenIncident(ctx, r.m.ID, now.Unix(), res.Message); err != nil {
-			r.e.log.Error("olay açılamadı", "monitor", r.m.Name, "hata", err)
-		}
+		r.openIncident(ctx, now, res)
 		r.e.log.Warn("monitör DOWN", "monitor", r.m.Name, "neden", res.Message)
 		r.notify(notify.KindDown, now, res.Message, 0)
 
@@ -234,8 +258,10 @@ func (r *runner) process(res check.Result) {
 		if started > 0 {
 			downtime = now.Sub(time.Unix(started, 0))
 		}
+		r.resolveEvent(ctx, r.incidentID, now, res.Message, downtime)
 		r.e.log.Info("monitör tekrar UP", "monitor", r.m.Name, "kesinti", downtime.Round(time.Second))
 		r.notify(notify.KindUp, now, res.Message, downtime)
+		r.incidentID, r.locPrev, r.maintLogged = 0, nil, false
 
 	case status == store.StatusDown:
 		r.downBeats++
@@ -245,6 +271,8 @@ func (r *runner) process(res check.Result) {
 			if started > 0 {
 				downtime = now.Sub(time.Unix(started, 0))
 			}
+			r.addEvents(ctx, r.incidentID, store.IncidentEvent{Time: now.Unix(), Kind: store.EventReminder,
+				Message: "Hatırlatma bildirimi", Data: store.EventData(map[string]int64{"downtime": int64(downtime / time.Second)})})
 			r.notify(notify.KindReminder, now, res.Message, downtime)
 		}
 	}
@@ -262,11 +290,16 @@ func (r *runner) process(res check.Result) {
 }
 
 func (r *runner) notify(kind string, now time.Time, msg string, downtime time.Duration) {
-	r.e.notifier.Notify(notify.Event{
+	ev := notify.Event{
 		Kind: kind, MonitorID: r.m.ID, MonitorName: r.m.Name, MonitorType: r.m.Type,
 		Target: r.checker.Target(r.m.Config), Message: msg, Time: now, Downtime: downtime,
 		URL: r.e.MonitorURL(r.m.ID),
-	})
+	}
+	if r.incidentID != 0 {
+		// "Detay" bağlantısı olay sayfasına gider; gönderim sonuçları olaya yazılır.
+		ev.IncidentID, ev.IncidentURL = r.incidentID, r.e.IncidentURL(r.incidentID)
+	}
+	r.e.notifier.Notify(ev)
 }
 
 // handleCert sertifika bilgisini günceller ve eşiğe girildiyse bir kez uyarır.

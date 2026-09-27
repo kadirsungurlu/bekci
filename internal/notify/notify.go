@@ -44,6 +44,12 @@ type Event struct {
 	CertIssuer  string
 	URL         string // monitörün arayüzdeki adresi (varsa)
 
+	// IncidentID doluysa her kanalın gönderim sonucu olayın işlem geçmişine
+	// yazılır (docs/PLAN.md §13). Yalnızca monitör olaylarında (down/up/reminder).
+	// IncidentURL olay sayfasının adresi; varsa "Detay" bağlantısı odur.
+	IncidentID  int64
+	IncidentURL string
+
 	// Sunucu uyarıları: ProbeID doluysa olay bir sunucuya (ajana) aittir;
 	// MonitorName sunucunun adı, Target host adıdır. Metric: cpu, mem, swap,
 	// disk, load, temp, offline. Value ortalama değer (offline: veri gelmeyen
@@ -150,8 +156,16 @@ func (e Event) Text() string {
 		line("Ayrıntı", e.Message)
 	}
 	line("Zaman", e.Time.Local().Format("02.01.2006 15:04:05"))
-	line("Detay", e.URL)
+	line("Detay", e.DetailURL())
 	return b.String()
+}
+
+// DetailURL bildirimdeki "Detay" bağlantısı: olay sayfası, yoksa monitör sayfası.
+func (e Event) DetailURL() string {
+	if e.IncidentURL != "" {
+		return e.IncidentURL
+	}
+	return e.URL
 }
 
 // IsProblem olayın kötü haber olup olmadığı (öncelik/renk seçimi için).

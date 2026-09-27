@@ -57,8 +57,8 @@ func (bark) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	if ev.IsProblem() {
 		payload["level"] = "critical"
 	}
-	if ev.URL != "" {
-		payload["url"] = ev.URL
+	if u := ev.DetailURL(); u != "" {
+		payload["url"] = u
 	}
 	return postJSON(ctx, c.Server+"/push", payload, nil)
 }
