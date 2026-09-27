@@ -205,9 +205,33 @@ func (s *Server) getMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	incidentStart, _ := s.store.OpenIncidentStart(r.Context(), id)
+	incidentID, _ := s.store.OpenIncidentID(r.Context(), id)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"monitor": views[0], "uptime": uptime, "avg_ping_24h": avg, "open_incident_since": incidentStart,
+		"open_incident_id": incidentID,
 	})
+}
+
+// incidentNote monitörün açık olayı varsa işlem geçmişine kullanıcı işlemini
+// yazar (düzenleme, durdurma). closed: bu işlem olayı kapatıyor.
+func (s *Server) incidentNote(r *http.Request, monitorID int64, kind string, closed bool) {
+	msg := "Monitör ayarları değiştirildi"
+	switch {
+	case kind == store.EventPaused:
+		msg = "Monitör durduruldu; olay kapatıldı"
+	case closed:
+		msg = "Monitörün hedefi değiştirildi; olay kapatıldı"
+	}
+	u := userFrom(r)
+	name := u.DisplayName
+	if name == "" {
+		name = u.Username
+	}
+	ev := store.IncidentEvent{Time: s.now().Unix(), Kind: kind, Message: msg,
+		Data: store.EventData(map[string]any{"user": name, "closed": closed})}
+	if err := s.store.AddOpenIncidentEvent(r.Context(), monitorID, ev); err != nil {
+		s.log.Error("olay kaydı yazılamadı", "monitor", monitorID, "hata", err)
+	}
 }
 
 // monitorInput monitör ekleme/düzenleme gövdesi.
@@ -391,6 +415,7 @@ func (s *Server) updateMonitor(w http.ResponseWriter, r *http.Request) {
 	// Hedef değiştiyse eski durum ve açık olay yeni hedefe ait değildir.
 	targetChanged := m.Type != old.Type || engine.Target(m) != engine.Target(old)
 	s.engine.Remove(id)
+	s.incidentNote(r, id, store.EventEdited, targetChanged)
 	if targetChanged {
 		if _, err := s.store.ResolveIncident(r.Context(), id, s.now().Unix()); err != nil {
 			s.dbError(w, err)
@@ -441,6 +466,7 @@ func (s *Server) pauseMonitor(w http.ResponseWriter, r *http.Request) {
 	}
 	// Durdurulan monitörün açık kesintisi kapanır; tekrar başlatıldığında
 	// geçen süre kesinti sayılmaz.
+	s.incidentNote(r, id, store.EventPaused, true)
 	if _, err := s.store.ResolveIncident(r.Context(), id, s.now().Unix()); err != nil {
 		s.dbError(w, err)
 		return

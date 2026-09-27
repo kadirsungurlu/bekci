@@ -190,13 +190,39 @@ func (httpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 		req.SetBasicAuth(c.BasicUser, c.BasicPass)
 	}
 
+	// capture başarısız sonuca isteğin ve (varsa) yanıtın maskeli kopyasını
+	// ekler (olay sayfası için; başarılı kontrolde çağrılmaz).
+	var bearer string
+	capture := func(res Result, resp *http.Response, data []byte, total int64) Result {
+		d := &Detail{Method: req.Method, URL: c.URL, RequestHeaders: headerList(req.Header)}
+		if req.Host != "" {
+			d.RequestHeaders = append([]Header{{Name: "Host", Value: req.Host}}, d.RequestHeaders...)
+		}
+		if resp == nil {
+			d.Error = res.Message
+		} else {
+			d.Status, d.StatusText, d.Proto = resp.StatusCode, http.StatusText(resp.StatusCode), resp.Proto
+			if resp.Request != nil && resp.Request.URL != nil {
+				if final := resp.Request.URL.String(); final != c.URL {
+					d.FinalURL = final
+				}
+			}
+			d.ResponseHeaders = headerList(resp.Header)
+			d.setBody(resp, data, total)
+		}
+		maskHTTPDetail(d, c, bearer)
+		d.Sanitize()
+		res.Detail = d
+		return res
+	}
+
 	tlsConfig, err := clientTLSConfig(c)
 	if err != nil {
-		return down(err.Error())
+		return capture(down(err.Error()), nil, nil, -1)
 	}
 	proxy, err := proxyFunc(c)
 	if err != nil {
-		return down(err.Error())
+		return capture(down(err.Error()), nil, nil, -1)
 	}
 	// Her kontrol yeni bağlantıyla yapılır: ölçülen süre gerçek bir ziyaretçininkine
 	// benzer ve kopan bağlantılar bir sonraki kontrolü etkilemez.
@@ -227,19 +253,20 @@ func (httpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	if c.OAuthTokenURL != "" {
 		token, cached, err := oauthToken(ctx, client, c)
 		if err != nil {
-			return down("OAuth2 token alınamadı: " + err.Error())
+			return capture(down("OAuth2 token alınamadı: "+err.Error()), nil, nil, -1)
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
+		bearer = token
 		oauthCached = cached
 	}
 
 	start := time.Now()
 	resp, err := client.Do(req)
 	if errors.Is(err, errTooManyRedirects) {
-		return down(fmt.Sprintf("Çok fazla yönlendirme (en fazla %d)", maxRedirects))
+		return capture(down(fmt.Sprintf("Çok fazla yönlendirme (en fazla %d)", maxRedirects)), nil, nil, -1)
 	}
 	if err != nil {
-		return down(describeHTTPErr(ctx, c, err))
+		return capture(down(describeHTTPErr(ctx, c, err)), nil, nil, -1)
 	}
 	defer resp.Body.Close()
 	ping := msSince(start)
@@ -256,7 +283,12 @@ func (httpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 
 	if !codeAccepted(resp.StatusCode, c.AcceptedCodes) {
 		res.Message = "HTTP " + statusLine(resp.StatusCode)
-		return res
+		data, err := io.ReadAll(io.LimitReader(resp.Body, DetailBodyMax+1))
+		total := int64(-1)
+		if err == nil && len(data) <= DetailBodyMax {
+			total = int64(len(data))
+		}
+		return capture(res, resp, data, total)
 	}
 
 	if c.Keyword == "" && c.JSONPath == "" {
@@ -268,7 +300,15 @@ func (httpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
 	if err != nil {
 		res.Message = "Yanıt gövdesi okunamadı: " + describeErr(ctx, err)
-		return res
+		return capture(res, resp, data, -1)
+	}
+	// Olay ayrıntısı için gövdenin başı (tamamı okundu; boyut kesin).
+	head, total := data, int64(-1)
+	if len(data) < maxBody {
+		total = int64(len(data))
+	}
+	if len(head) > DetailBodyMax {
+		head = head[:DetailBodyMax+1]
 	}
 
 	if c.Keyword != "" {
@@ -279,7 +319,7 @@ func (httpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 			} else {
 				res.Message = fmt.Sprintf("Kelime bulunamadı: %q", c.Keyword)
 			}
-			return res
+			return capture(res, resp, head, total)
 		}
 	}
 
@@ -287,7 +327,7 @@ func (httpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 		ok, msg := evalJSON(data, c.JSONPath, c.JSONOp, c.JSONExpected)
 		if !ok {
 			res.Message = msg
-			return res
+			return capture(res, resp, head, total)
 		}
 	}
 

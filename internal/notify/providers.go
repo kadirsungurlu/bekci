@@ -207,6 +207,13 @@ type WebhookPayload struct {
 	// Server yalnızca sunucu uyarılarında (server_alert, server_resolved)
 	// doludur; o zaman Monitor sunucunun adını ve host adını taşır, kimliği 0'dır.
 	Server *WebhookServer `json:"server,omitempty"`
+	// Incident down/up/hatırlatmada olayın kimliği ve sayfası.
+	Incident *WebhookIncident `json:"incident,omitempty"`
+}
+
+type WebhookIncident struct {
+	ID  int64  `json:"id"`
+	URL string `json:"url,omitempty"`
 }
 
 type WebhookServer struct {
@@ -238,6 +245,9 @@ func (webhook) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	if ev.Kind == KindCert {
 		d := ev.CertDays
 		p.CertDays = &d
+	}
+	if ev.IncidentID != 0 {
+		p.Incident = &WebhookIncident{ID: ev.IncidentID, URL: ev.IncidentURL}
 	}
 	if ev.ProbeID != 0 {
 		p.Server = &WebhookServer{ID: ev.ProbeID, Name: ev.MonitorName, Metric: ev.Metric,
@@ -323,8 +333,8 @@ func (ntfy) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 		"Priority": strconv.Itoa(prio),
 		"Tags":     tag,
 	}
-	if ev.URL != "" {
-		headers["Click"] = ev.URL
+	if u := ev.DetailURL(); u != "" {
+		headers["Click"] = u
 	}
 	if c.Token != "" {
 		headers["Authorization"] = "Bearer " + c.Token
@@ -422,8 +432,8 @@ func (pushover) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	if c.Device != "" {
 		form.Set("device", c.Device)
 	}
-	if ev.URL != "" {
-		form.Set("url", ev.URL)
+	if u := ev.DetailURL(); u != "" {
+		form.Set("url", u)
 	}
 	return doRequest(ctx, http.MethodPost, pushoverAPI, strings.NewReader(form.Encode()),
 		map[string]string{"Content-Type": "application/x-www-form-urlencoded"})

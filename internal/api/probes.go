@@ -53,6 +53,7 @@ const (
 	probeMaxAge       = time.Hour
 	probeRatePerMin   = 120 // kontrol noktası başına dakikada en fazla istek
 	probeMaxMessage   = 500
+	probeMaxBody      = 2 << 20 // sonuç gönderimi; ayrıntılar (olay sayfası) dahil
 	probeVersionMax   = 50
 )
 
@@ -726,6 +727,9 @@ type probeResultIn struct {
 	Message      string `json:"message"`
 	CertNotAfter int64  `json:"cert_not_after"` // unix saniye; 0: yok
 	CertIssuer   string `json:"cert_issuer"`
+	// Detail başarısız HTTP kontrolünün isteği ve yanıtı (isteğe bağlı; eski
+	// kontrol noktaları göndermez). Sunucuda yeniden sınırlanır ve maskelenir.
+	Detail *check.Detail `json:"detail"`
 }
 
 type probeRejected struct {
@@ -742,7 +746,7 @@ func (s *Server) probeResults(w http.ResponseWriter, r *http.Request) {
 		SentAt  int64           `json:"sent_at"`
 		Results []probeResultIn `json:"results"`
 	}
-	body := http.MaxBytesReader(w, r.Body, 1<<20)
+	body := http.MaxBytesReader(w, r.Body, probeMaxBody)
 	if err := json.NewDecoder(body).Decode(&in); err != nil {
 		var tooBig *http.MaxBytesError
 		if errors.As(err, &tooBig) {
@@ -762,9 +766,9 @@ func (s *Server) probeResults(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
-	assigned := make(map[int64]bool, len(jobs))
+	assigned := make(map[int64]store.Monitor, len(jobs))
 	for _, m := range jobs {
-		assigned[m.ID] = true
+		assigned[m.ID] = m
 	}
 	now := s.now()
 	sentAt := in.SentAt
@@ -774,7 +778,8 @@ func (s *Server) probeResults(w http.ResponseWriter, r *http.Request) {
 	accepted := make([]engine.ProbeResult, 0, len(in.Results))
 	rejected := []probeRejected{}
 	for i, res := range in.Results {
-		if !assigned[res.MonitorID] {
+		mon, ok := assigned[res.MonitorID]
+		if !ok {
 			rejected = append(rejected, probeRejected{i, res.MonitorID, "Monitör bu kontrol noktasına atanmamış"})
 			continue
 		}
@@ -790,6 +795,11 @@ func (s *Server) probeResults(w http.ResponseWriter, r *http.Request) {
 		cr.PingMs = min(cr.PingMs, 600_000)
 		if res.CertNotAfter > 0 {
 			cr.Cert = &check.CertInfo{NotAfter: time.Unix(res.CertNotAfter, 0), Issuer: cleanProbeText(res.CertIssuer, 200)}
+		}
+		if res.Detail != nil && !cr.Up {
+			res.Detail.Sanitize()
+			check.MaskDetail(mon.Type, mon.Config, res.Detail)
+			cr.Detail = res.Detail
 		}
 		accepted = append(accepted, engine.ProbeResult{MonitorID: res.MonitorID, Time: now.Add(-age), Result: cr})
 	}

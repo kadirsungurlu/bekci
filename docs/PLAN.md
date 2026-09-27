@@ -448,3 +448,127 @@ Sunucu ekleme `POST /api/servers` (yönetici) ile yapılır; yanıtta `docker_ag
 (`docker_command`). Ad/etkinlik/metrik/token/silme için iki tür de mevcut
 `/api/probes/{id}` uçlarını kullanır. Canlı akış olayı:
 `{"type": "server", "data": ServerView (liste biçimi)}`.
+
+## 13. Olay ayrıntıları (UptimeRobot benzeri olay sayfası)
+
+Karar: 2026-09-27. Bugün bir olay yalnızca "çözüldü, X sürdü" gösteriyor. Hedef:
+her olayın kendi sayfası (`#/incidents/{id}`): kök neden, durum, süre, konumlar,
+işlem geçmişi ve (HTTP'de) hatayı üreten isteğin ve yanıtın kendisi.
+
+### 13.1 Yakalama (capture)
+
+- `check.Result`'a isteğe bağlı `Detail *check.Detail` eklenir. Yalnızca **HTTP**
+  denetçisi doldurur ve yalnızca **başarısız** kontrolde (başarılı kontrolde ek
+  maliyet yok). Diğer tiplerde sadece hata mesajı vardır; arayüzde İstek/Yanıt
+  kartları gizlenir.
+- İçerik: istek (metot, adres, başlıklar), yanıt (durum kodu ve metni, protokol,
+  başlıklar, gövde, son adres — yönlendirme sonrası), yanıt alınamadıysa hata.
+- **Gövde:** en fazla 16 KB; yalnızca metin türleri (`text/*`, JSON, XML,
+  JavaScript, form, YAML, CSV; tür yoksa içerikten koklanır ve geçerli UTF-8
+  olmalı). İkili içerikte gövde yerine `(ikili içerik, N bayt)`. Kırpıldıysa
+  `body_truncated` ve bilinen toplam boyut (`body_size`, Content-Length veya
+  okunan).
+- **Maskeleme (yakalama anında, saklanmadan önce):**
+  - İstek başlıkları: `Authorization`, `Proxy-Authorization`, `Cookie` her zaman;
+    kullanıcının girdiği başlıkların değerleri (`headers` ayarı monitorSecrets'ta
+    gizli alan) zararsız bilinen adlar (`Accept*`, `Content-Type`, `User-Agent`,
+    `Cache-Control`, `Host`, `Origin`, `Referer`…) dışında maskelenir.
+  - Yanıt başlıkları: `Set-Cookie`, `Authorization`, `Proxy-Authorization`,
+    `Cookie` maskelenir.
+  - Gizli değerler (maskelenen başlık değerleri, basic auth şifresi, proxy şifresi,
+    OAuth istemci sırrı ve alınan erişim token'ı; ≥ 4 karakter) yanıt
+    başlıklarında ve gövdede geçiyorsa `••••••` ile değiştirilir (yankılayan API'ler).
+  - Adresteki kullanıcı şifresi gizlenir (`url.Redacted`).
+- Sınırlar (`Detail.Sanitize`): en fazla 64 başlık, ad 128 / değer 2048 karakter,
+  adres 2048, hata 500 karakter, geçersiz UTF-8 temizlenir.
+
+### 13.2 Uzak kontrol noktaları
+
+- Sonuç protokolüne isteğe bağlı `detail` alanı eklenir (`POST /api/probe/results`).
+  Eski ajanlar göndermez, sorun olmaz; eski sunucu bilinmeyen alanı yok sayar.
+- Ajan tek partide en fazla 256 KB ayrıntı gönderir (fazlası o parti için atılır,
+  sonuç yine gider): böylece eski sunucunun 1 MB gövde sınırı aşılmaz.
+- Sunucu gelen ayrıntıyı yeniden `Sanitize` eder ve monitörün kendi ayarıyla
+  maskelemeyi tekrar uygular (ajana tam güvenilmez). Gövde sınırı 1 → 2 MB.
+- Motor her konumun son başarısız ayrıntısını bellekte tutar; olay açılınca
+  kullanılır. Öncelik: ana sunucu, sonra kimliğe göre ilk çalışmayan konum.
+
+### 13.3 Veri modeli (migration 11)
+
+    incident_events(id, incident_id → incidents ON DELETE CASCADE, time, kind,
+                    location, message, data)          -- data: JSON ('' = yok)
+    incident_captures(incident_id PK → incidents ON DELETE CASCADE, time,
+                      location, data)                  -- data: check.Detail JSON
+
+- **Yalnızca ilk** başarısız yakalama saklanır (olayı açan kontrol); olay sürerken
+  güncellenmez — kök nedeni o gösterir, yazma yükü olmaz. Hata değişirse işlem
+  geçmişine "hata değişti" olayı düşer.
+- Olay başına en fazla **500** olay kaydı; sınıra gelince tek bir "sınıra
+  ulaşıldı" kaydı yazılır, sonrası atılır (çözülme kaydı her zaman yazılır).
+  Çok sık kesilip düzelen monitör sınırsız büyüyemez.
+- Saklama: olay kayıtları olayla yaşar (olaylar silinmez; monitör silinince
+  cascade). Yakalamalar büyük olduğu için çözülmesinden **90 gün** sonra
+  bakım işinde silinir (olay sayfası o zaman İstek/Yanıt'sız görünür).
+- SQLite + PostgreSQL: ortak DDL alt kümesi, `?` yer tutucular, `insertID`.
+
+### 13.4 İşlem geçmişi türleri (`kind`)
+
+| kind | Ne zaman | Mesaj / data |
+|---|---|---|
+| `retry` | Olay açılmadan önceki başarısız denemeler (bellekte tutulur, olay açılınca kendi zamanlarıyla yazılır; en fazla 20) | hata; `{attempt, max}` |
+| `down` | Olay başladı | kök neden; `location` gözlendiği yer; `{locations:[{probe_id,name,status,message}]}` |
+| `change` | Olay sürerken hata mesajı değişti (çok konumluda birleşik mesaj değil, konum başına: `location` dolu) | yeni hata |
+| `location` | Çok konumluda olay sürerken bir konumun durumu değişti | durum + mesaj |
+| `reminder` | Hatırlatma bildirimi tetiklendi | `{downtime}` |
+| `maint_start` / `maint_end` | Olay sürerken bakım penceresi başladı/bitti | — |
+| `notify` | Her kanala gönderim sonucu (down/up/reminder) veya "bağlı kanal yok" | `{event, channel, type, ok, error}` |
+| `edited` / `paused` | Olay sürerken monitör düzenlendi / durduruldu (durdurma olayı kapatır) | `{user}` |
+| `up` | Olay çözüldü | son kontrol mesajı; `{downtime}` |
+| `limit` | 500 sınırına ulaşıldı | — |
+
+Bildirim kaydı: `notify.Event`'e `IncidentID` eklenir; dağıtıcı (zaten arka
+planda) her kanalın sonucunu `incident_events`'e yazar. Hata metni temizlenir:
+`redactURLError`, kanal ayarındaki gizli değerler maskelenir, adreslerin yolu
+atılır, 200 karakter. Sunucu takibi uyarıları (`ProbeID != 0`) kaydedilmez.
+Bildirimlerdeki "Detay" bağlantısı down/up/hatırlatma için olay sayfasıdır.
+
+### 13.5 Yetki
+
+| | Editör / yönetici | İzleyici | Müşteri kısıtlı izleyici |
+|---|---|---|---|
+| Kök neden, durum, süre, konumlar | ✓ | ✓ (mesajlar `viewerMessage` ile temizlenir) | yalnızca izinli monitörler; aksi 404 |
+| İşlem geçmişi | tam | bildirim kayıtları yok, kullanıcı adı yok | aynı |
+| İstek / yanıt, hedef adresin tamamı | ✓ | ✗ (`publicTarget`) | ✗ |
+
+Herkese açık durum sayfaları değişmez (olay nedeni zaten gösterilmiyor).
+
+### 13.6 API
+
+- `GET /api/incidents/{id}` →
+
+      {"incident": Incident,
+       "monitor": {"id","name","type","target","active","status"},
+       "location": "Ana sunucu",             // kök nedenin gözlendiği yer
+       "locations": [{"probe_id","name","status","message"}],  // olay başında
+       "events": [{"id","time","kind","location","message","data"}],  // yeniden eskiye
+       "capture": null | {"time","location","detail": Detail},  // yalnızca editör+
+       "details": true}                       // kullanıcı istek/yanıtı görebilir mi
+
+  Eski olaylarda kayıt yoksa başlangıç/çözülme kayıtları olay satırından üretilir.
+- `GET /api/monitors/{id}`: `open_incident_id` eklenir (detaydaki uyarıdan bağlantı).
+- Mevcut uç noktalar değişmez (liste zaten `id` içeriyor).
+
+### 13.7 Arayüz
+
+- Yeni rota `#/incidents/{id}` (`IncidentDetail.svelte`). Masaüstünde iki sütun:
+  solda kartlar (Kök neden; Durum + Süre yan yana; Konumlar; İşlem geçmişi
+  zaman çizelgesi), sağda İstek (URL / Başlıklar sekmeleri) ve Yanıt (Gövde /
+  Başlıklar sekmeleri, kopyala düğmeleri). ≤ 960 px tek sütun.
+- Başlık: durum noktası, "Süren olay: <monitör>" / "Çözülen olay: <monitör>",
+  tip rozeti + hedef, "Monitöre git" ve "Yanıtı indir" (yakalamayı JSON dosyası
+  olarak indirir; tarayıcıda üretilir).
+- Süre sürerken canlı artar; monitörün durumu değişince (canlı akış) sayfa
+  yeniden yüklenir.
+- Bağlantılar: Olaylar listesi ve monitör detayındaki olay tablosu (satır
+  tıklanabilir), monitör detayındaki "devam eden kesinti" uyarısı.
+- Teal vurgu, mevcut kart/rozet stilleri; mor yok.

@@ -1,5 +1,5 @@
 // Küçük hash yönlendirici: #/, #/monitors/new, #/monitors/:id, #/monitors/:id/edit,
-// #/incidents, #/notifications, #/status-pages[/new|/:id|/:id/preview],
+// #/incidents[/:id], #/notifications, #/status-pages[/new|/:id|/:id/preview],
 // #/maintenance[/new|/:id], #/servers[/:id], #/settings[/:tab], #/more
 //
 // Herkese açık durum sayfası hash değil gerçek yol kullanır (/durum/<kısa-ad>);
@@ -13,6 +13,7 @@ export type Route =
   | { name: 'detail'; id: number }
   | { name: 'edit'; id: number }
   | { name: 'incidents' }
+  | { name: 'incident'; id: number }
   | { name: 'notifications' }
   | { name: 'pages' }
   | { name: 'page-new' }
@@ -68,6 +69,8 @@ export function parse(path: string): Route {
   if (m) return { name: 'page-edit', id: Number(m[1]) };
   m = clean.match(/^\/status-pages\/(\d+)\/preview$/);
   if (m) return { name: 'page-preview', id: Number(m[1]) };
+  m = clean.match(/^\/incidents\/(\d+)$/);
+  if (m) return { name: 'incident', id: Number(m[1]) };
   m = clean.match(/^\/servers\/(\d+)$/);
   if (m) return { name: 'server', id: Number(m[1]) };
   m = clean.match(/^\/maintenance\/(\d+)$/);

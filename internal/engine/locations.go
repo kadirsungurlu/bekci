@@ -75,8 +75,9 @@ type location struct {
 	name    string
 	have    bool
 	at      time.Time
-	res     check.Result // ters mod uygulanmış
-	fails   int          // art arda başarısız sonuç
+	res     check.Result  // ters mod uygulanmış
+	fails   int           // art arda başarısız sonuç
+	detail  *check.Detail // son başarısız sonucun istek/yanıtı (olay kaydı için)
 }
 
 type inboxItem struct {
@@ -221,10 +222,14 @@ func (r *runner) applyLocation(l *location, at time.Time, res check.Result) {
 	}
 	switch {
 	case res.Up:
-		l.fails = 0
+		l.fails, l.detail = 0, nil
 	case !res.Pending:
 		l.fails++
+		if res.Detail != nil {
+			l.detail = res.Detail
+		}
 	}
+	res.Detail = nil // konum durumunda tutulmaz; son hatanınki l.detail'de
 	l.have, l.at, l.res = true, at, res
 }
 

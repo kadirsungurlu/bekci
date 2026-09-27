@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/url"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,12 +48,24 @@ func (d *Dispatcher) Notify(ev Event) {
 			d.log.Error("bildirim kanalları okunamadı", "monitor", ev.MonitorID, "sunucu", ev.ProbeID, "hata", err)
 			return
 		}
+		logIncident := ev.IncidentID != 0 && ev.ProbeID == 0
+		if logIncident && len(channels) == 0 {
+			d.incidentEvent(ev, deliveryData{Event: ev.Kind, None: true})
+		}
 		var inner sync.WaitGroup
 		for _, ch := range channels {
 			inner.Add(1)
 			go func(ch store.Notification) {
 				defer inner.Done()
-				if err := d.send(ch.Type, ch.Config, ev); err != nil {
+				err := d.send(ch.Type, ch.Config, ev)
+				if logIncident {
+					dd := deliveryData{Event: ev.Kind, ChannelID: ch.ID, Channel: ch.Name, Type: ch.Type, OK: err == nil}
+					if err != nil {
+						dd.Error = SanitizeSendError(ch.Type, ch.Config, err)
+					}
+					d.incidentEvent(ev, dd)
+				}
+				if err != nil {
 					d.log.Warn("bildirim gönderilemedi", "kanal", ch.Name, "tip", ch.Type, "olay", ev.Kind, "monitor", ev.MonitorName, "hata", err)
 					return
 				}
@@ -59,6 +74,74 @@ func (d *Dispatcher) Notify(ev Event) {
 		}
 		inner.Wait()
 	}()
+}
+
+// deliveryData olayın işlem geçmişindeki bildirim kaydının data alanı.
+type deliveryData struct {
+	Event     string `json:"event"` // down | up | reminder
+	ChannelID int64  `json:"channel_id,omitempty"`
+	Channel   string `json:"channel,omitempty"`
+	Type      string `json:"type,omitempty"`
+	OK        bool   `json:"ok"`
+	Error     string `json:"error,omitempty"`
+	None      bool   `json:"none,omitempty"` // monitöre bağlı etkin kanal yok
+}
+
+// incidentEvent gönderim sonucunu olayın işlem geçmişine yazar. Zaman gönderimin
+// bittiği andır (yavaş kanal geç görünür).
+func (d *Dispatcher) incidentEvent(ev Event, dd deliveryData) {
+	msg := "Bildirim gönderildi"
+	switch {
+	case dd.None:
+		msg = "Bağlı etkin bildirim kanalı yok"
+	case !dd.OK:
+		msg = "Bildirim gönderilemedi"
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err := d.store.AddIncidentEvents(ctx, ev.IncidentID, store.IncidentEvent{
+		Time: time.Now().Unix(), Kind: store.EventNotify, Message: msg, Data: store.EventData(dd),
+	})
+	if err != nil {
+		d.log.Error("bildirim kaydı yazılamadı", "olay", ev.IncidentID, "hata", err)
+	}
+}
+
+// maxSendError işlem geçmişindeki gönderim hatasının en fazla uzunluğu.
+const maxSendError = 200
+
+var errURLRe = regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9+.-]*://[^\s"'<>/]+[^\s"'<>]*`)
+
+// SanitizeSendError gönderim hatasını arayüzde gösterilecek hale getirir:
+// adreslerin yalnızca şema ve sunucu adı kalır (Telegram token'ı, webhook
+// adresleri gizli bilgidir), kanal ayarındaki gizli değerler maskelenir, kısaltılır.
+func SanitizeSendError(typ string, cfg json.RawMessage, err error) string {
+	msg := redactURLError(err).Error()
+	msg = errURLRe.ReplaceAllStringFunc(msg, func(s string) string {
+		u, perr := url.Parse(s)
+		if perr != nil || u.Host == "" {
+			return "…"
+		}
+		if u.Path == "" && u.RawQuery == "" && u.User == nil {
+			return s
+		}
+		return u.Scheme + "://" + u.Host + "/…"
+	})
+	if p, ok := Get(typ); ok {
+		var m map[string]any
+		if json.Unmarshal(cfg, &m) == nil {
+			for _, k := range p.Secrets() {
+				if v, ok := m[k].(string); ok && len(v) >= 4 {
+					msg = strings.ReplaceAll(msg, v, Mask)
+				}
+			}
+		}
+	}
+	msg = strings.Join(strings.Fields(msg), " ")
+	if r := []rune(msg); len(r) > maxSendError {
+		msg = string(r[:maxSendError]) + "…"
+	}
+	return msg
 }
 
 // Test verilen ayarla hemen bir test bildirimi gönderir ve sonucu döner.
