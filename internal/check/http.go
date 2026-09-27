@@ -3,7 +3,6 @@ package check
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -45,6 +44,22 @@ type HTTPConfig struct {
 	JSONPath     string `json:"json_path"`
 	JSONOp       string `json:"json_op"`
 	JSONExpected string `json:"json_expected"`
+
+	// Gelişmiş: proxy, istemci sertifikası (mTLS), OAuth2 (bkz. http_extras.go).
+	// Boşken kayıtlı ayara yazılmaz; eski kayıtlar olduğu gibi geçerli kalır.
+	ProxyURL  string `json:"proxy_url,omitempty"` // http://, https://, socks5://, socks5h:// (kimlik bilgisi ayrı alanlarda)
+	ProxyUser string `json:"proxy_user,omitempty"`
+	ProxyPass string `json:"proxy_pass,omitempty"` // gizli
+
+	TLSCert string `json:"tls_cert,omitempty"` // PEM istemci sertifikası
+	TLSKey  string `json:"tls_key,omitempty"`  // PEM özel anahtar (gizli)
+	TLSCA   string `json:"tls_ca,omitempty"`   // PEM özel kök sertifika(lar)
+
+	OAuthTokenURL     string `json:"oauth_token_url,omitempty"`
+	OAuthClientID     string `json:"oauth_client_id,omitempty"`
+	OAuthClientSecret string `json:"oauth_client_secret,omitempty"` // gizli
+	OAuthScopes       string `json:"oauth_scopes,omitempty"`        // boşlukla ayrılmış
+	OAuthAuthStyle    string `json:"oauth_auth_style,omitempty"`    // header (varsayılan) | body
 }
 
 var httpMethods = map[string]bool{"GET": true, "HEAD": true, "POST": true, "PUT": true, "PATCH": true, "DELETE": true, "OPTIONS": true}
@@ -110,6 +125,9 @@ func (httpChecker) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 	if c.Method == "HEAD" && (c.Keyword != "" || c.JSONPath != "") {
 		return nil, invalid("HEAD isteği gövde döndürmez; kelime/JSON kontrolü için GET kullanın")
 	}
+	if err := normalizeHTTPExtras(&c); err != nil {
+		return nil, err
+	}
 	return encode(c), nil
 }
 
@@ -166,12 +184,20 @@ func (httpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 		req.SetBasicAuth(c.BasicUser, c.BasicPass)
 	}
 
+	tlsConfig, err := clientTLSConfig(c)
+	if err != nil {
+		return down(err.Error())
+	}
+	proxy, err := proxyFunc(c)
+	if err != nil {
+		return down(err.Error())
+	}
 	// Her kontrol yeni bağlantıyla yapılır: ölçülen süre gerçek bir ziyaretçininkine
 	// benzer ve kopan bağlantılar bir sonraki kontrolü etkilemez.
 	transport := &http.Transport{
-		Proxy:                  nil,
+		Proxy:                  proxy,
 		DialContext:            (&net.Dialer{KeepAlive: -1}).DialContext,
-		TLSClientConfig:        &tls.Config{InsecureSkipVerify: c.IgnoreTLS},
+		TLSClientConfig:        tlsConfig,
 		DisableKeepAlives:      true,
 		ForceAttemptHTTP2:      true,
 		MaxResponseHeaderBytes: 1 << 20,
@@ -190,16 +216,31 @@ func (httpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 		},
 	}
 
+	// OAuth2 token'ı ölçülen süreye dahil değildir (çoğu zaman önbellekten gelir).
+	oauthCached := false
+	if c.OAuthTokenURL != "" {
+		token, cached, err := oauthToken(ctx, client, c)
+		if err != nil {
+			return down("OAuth2 token alınamadı: " + err.Error())
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		oauthCached = cached
+	}
+
 	start := time.Now()
 	resp, err := client.Do(req)
 	if errors.Is(err, errTooManyRedirects) {
 		return down(fmt.Sprintf("Çok fazla yönlendirme (en fazla %d)", maxRedirects))
 	}
 	if err != nil {
-		return down(describeErr(ctx, err))
+		return down(describeHTTPErr(ctx, c, err))
 	}
 	defer resp.Body.Close()
 	ping := msSince(start)
+	if resp.StatusCode == http.StatusUnauthorized && oauthCached {
+		// Token sunucu tarafında iptal edilmiş olabilir; sonraki kontrol yenisini alır.
+		forgetOAuthToken(c)
+	}
 
 	res := Result{PingMs: ping, Message: statusLine(resp.StatusCode)}
 	if resp.TLS != nil && len(resp.TLS.PeerCertificates) > 0 {
