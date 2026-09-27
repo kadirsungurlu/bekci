@@ -41,6 +41,7 @@ type User struct {
 	MonitorIDs         []int64 `json:"monitor_ids"`
 	LastLoginAt        int64   `json:"last_login_at"`
 	CreatedAt          int64   `json:"created_at"`
+	TwoFactorEnabled   bool    `json:"two_factor_enabled"` // TOTP (migration 6, twofactor.go)
 	PasswordHash       string  `json:"-"`
 }
 
@@ -49,13 +50,13 @@ type User struct {
 func (u User) Restricted() bool { return u.Role == RoleViewer && !u.AllMonitors }
 
 const userCols = `id, username, display_name, role, disabled, must_change_password,
-	all_monitors, last_login_at, created_at, password_hash`
+	all_monitors, last_login_at, created_at, password_hash, totp_enabled`
 
 func scanUserRow(sc scanner) (User, error) {
 	var u User
 	var lastLogin sql.NullInt64
 	err := sc.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role, &u.Disabled,
-		&u.MustChangePassword, &u.AllMonitors, &lastLogin, &u.CreatedAt, &u.PasswordHash)
+		&u.MustChangePassword, &u.AllMonitors, &lastLogin, &u.CreatedAt, &u.PasswordHash, &u.TwoFactorEnabled)
 	u.LastLoginAt = lastLogin.Int64
 	u.MonitorIDs = []int64{}
 	return u, err
@@ -277,7 +278,7 @@ func (s *Store) CreateSession(ctx context.Context, tokenHash string, userID int6
 func (s *Store) SessionUser(ctx context.Context, tokenHash string) (User, error) {
 	return s.scanUser(ctx, s.db.QueryRowContext(ctx, `
 		SELECT u.id, u.username, u.display_name, u.role, u.disabled, u.must_change_password,
-			u.all_monitors, u.last_login_at, u.created_at, u.password_hash
+			u.all_monitors, u.last_login_at, u.created_at, u.password_hash, u.totp_enabled
 		FROM sessions s JOIN users u ON u.id = s.user_id
 		WHERE s.token_hash = ? AND s.expires_at > ? AND u.disabled = 0`, tokenHash, time.Now().Unix()))
 }

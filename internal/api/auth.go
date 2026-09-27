@@ -161,10 +161,11 @@ type userView struct {
 	Role               string `json:"role"`
 	MustChangePassword bool   `json:"must_change_password"`
 	AllMonitors        bool   `json:"all_monitors"`
+	TwoFactorEnabled   bool   `json:"two_factor_enabled"`
 }
 
 func viewOf(u store.User) userView {
-	return userView{u.ID, u.Username, u.DisplayName, u.Role, u.MustChangePassword, u.AllMonitors || u.Role != store.RoleViewer}
+	return userView{u.ID, u.Username, u.DisplayName, u.Role, u.MustChangePassword, u.AllMonitors || u.Role != store.RoleViewer, u.TwoFactorEnabled}
 }
 
 func (s *Server) authState(w http.ResponseWriter, r *http.Request) {
@@ -255,10 +256,18 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "Kullanıcı adı veya şifre hatalı")
 		return
 	}
-	s.limiter.success(ip)
+	if !u.TwoFactorEnabled {
+		// 2FA açıksa IP sayacı ancak kod da doğrulanınca sıfırlanır; yoksa şifreyi
+		// bilen biri her seferinde yeniden giriş yaparak kod denemesi sınırını aşardı.
+		s.limiter.success(ip)
+	}
 	if u.Disabled {
 		// Şifre doğru ama hesap kapalı: bunu söylemek bilgi sızdırmaz (şifreyi bilen kişiye söyleniyor).
 		writeError(w, http.StatusForbidden, "Hesabınız devre dışı bırakılmış; yöneticinize başvurun")
+		return
+	}
+	if u.TwoFactorEnabled {
+		s.beginTwoFactorLogin(w, r, u) // oturum /api/auth/login/2fa'da açılır (twofactor.go)
 		return
 	}
 	if err := s.startSession(w, r, u); err != nil {

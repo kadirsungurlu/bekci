@@ -121,11 +121,14 @@ func securityHeaders(next http.Handler) http.Handler {
 
 // csrf: API'yi değiştiren istekler özel bir başlık taşımalı. Başka bir siteden
 // gelen form veya basit istek bu başlığı ekleyemez (CORS ön kontrolüne takılır).
-// Push adresi dışarıdan çağrıldığı için muaftır.
+// Push adresi dışarıdan çağrıldığı için muaftır. Oturum çerezi olmadan API
+// anahtarıyla (Authorization: Bearer upk_…) gelen istekler de muaftır:
+// tarayıcı bu başlığı başka siteden kendiliğinden eklemez (bkz. isAPIKeyRequest).
 func csrf(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") && !strings.HasPrefix(r.URL.Path, "/api/push/") &&
-			r.Method != http.MethodGet && r.Method != http.MethodHead && r.Header.Get("X-Uptime") != "1" {
+			r.Method != http.MethodGet && r.Method != http.MethodHead && r.Header.Get("X-Uptime") != "1" &&
+			!isAPIKeyRequest(r) {
 			writeError(w, http.StatusForbidden, "Geçersiz istek")
 			return
 		}
