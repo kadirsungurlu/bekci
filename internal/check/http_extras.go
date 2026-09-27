@@ -202,10 +202,17 @@ func oauthEntryFor(key string) *oauthEntry {
 	e := oauthCache.m[key]
 	if e == nil {
 		// Silinen monitörlerin eski kayıtları birikmesin.
+		// Kullanımda olan kayıtlara dokunulmaz (sem alınamıyorsa atlanır).
 		now := oauthNow()
 		for k, old := range oauthCache.m {
-			if len(old.sem) == 0 && now.Sub(old.expires) > time.Hour {
-				delete(oauthCache.m, k)
+			select {
+			case old.sem <- struct{}{}:
+				stale := now.Sub(old.expires) > time.Hour
+				<-old.sem
+				if stale {
+					delete(oauthCache.m, k)
+				}
+			default:
 			}
 		}
 		e = &oauthEntry{sem: make(chan struct{}, 1)}
