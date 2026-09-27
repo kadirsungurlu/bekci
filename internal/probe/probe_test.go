@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/kadirsa1105/uptime-kadir-app/internal/metrics"
 )
 
 // fakeServer ana sunucunun kontrol noktası uç noktalarını taklit eder.
@@ -22,11 +24,15 @@ type fakeServer struct {
 	batches   [][]Result
 	versions  []string
 	authFails int
+	metricsIv int // -1: alan hiç gönderilmez (eski sunucu)
+	metCode   int
+	samples   []metrics.Sample
+	metAuth   []string
 	srv       *httptest.Server
 }
 
 func newFakeServer(t *testing.T) *fakeServer {
-	f := &fakeServer{jobsCode: 200, resCode: 200}
+	f := &fakeServer{jobsCode: 200, resCode: 200, metricsIv: -1, metCode: 200}
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
@@ -39,7 +45,11 @@ func newFakeServer(t *testing.T) *fakeServer {
 		switch r.URL.Path {
 		case "/api/probe/jobs":
 			w.WriteHeader(f.jobsCode)
-			json.NewEncoder(w).Encode(map[string]any{"poll_after": 5, "jobs": f.jobs})
+			resp := map[string]any{"poll_after": 5, "jobs": f.jobs}
+			if f.metricsIv >= 0 {
+				resp["metrics_interval"] = f.metricsIv
+			}
+			json.NewEncoder(w).Encode(resp)
 		case "/api/probe/results":
 			var in struct {
 				SentAt  int64    `json:"sent_at"`
@@ -50,6 +60,17 @@ func newFakeServer(t *testing.T) *fakeServer {
 			if f.resCode == 200 {
 				f.batches = append(f.batches, in.Results)
 				io.WriteString(w, `{"accepted":1,"rejected":[]}`)
+			}
+		case "/api/probe/metrics":
+			var in metrics.Sample
+			if err := json.NewDecoder(r.Body).Decode(&in); err != nil || r.Method != http.MethodPost {
+				w.WriteHeader(400)
+				return
+			}
+			f.metAuth = append(f.metAuth, r.Header.Get("Authorization"))
+			w.WriteHeader(f.metCode)
+			if f.metCode == 200 {
+				f.samples = append(f.samples, in)
 			}
 		default:
 			w.WriteHeader(404)

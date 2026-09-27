@@ -1,16 +1,20 @@
-// Package probe uzak kontrol noktası istemcisidir: aynı ikili başka bir
+// Package probe uzak kontrol noktası (ajan) istemcisidir: aynı ikili başka bir
 // sunucuda "uptime probe" olarak çalışır, ana sunucudan kendisine atanan
 // monitörleri (iş listesi) alır, kontrolleri internal/check ile kendisi yapar
-// ve sonuçları toplu halde ana sunucuya gönderir.
+// ve sonuçları toplu halde ana sunucuya gönderir. Ana sunucu istediğinde
+// (metrics_interval > 0) bulunduğu sunucunun ölçümlerini de (CPU, RAM, disk,
+// ağ, Docker; internal/metrics) bu aralıkla gönderir.
 //
 // Protokol (HTTPS + JSON, Authorization: Bearer upr_…):
 //
-//	GET  /api/probe/jobs     → {"probe": {...}, "poll_after": 30, "jobs": [...]}
+//	GET  /api/probe/jobs     → {"probe": {...}, "poll_after": 30, "metrics_interval": 60, "jobs": [...]}
 //	POST /api/probe/results  ← {"sent_at": ms, "results": [{monitor_id, time, up, ping_ms, message, cert_not_after, cert_issuer}]}
+//	POST /api/probe/metrics  ← metrics.Sample: {"time": ms, "host": {...}, "stats": {...}} veya {"time": ms, "unavailable": "neden"}
 //
 // Ana sunucuya ulaşılamazsa istekler artan beklemeyle tekrarlanır; bu sırada
 // kontroller sürer ve sonuçlar sınırlı bir tamponda bekletilir (dolunca en
-// eskisi düşer).
+// eskisi düşer). Metrik örnekleri biriktirilmez: gönderilemeyen örneğin
+// yerine bir sonraki aralıkta yenisi gönderilir.
 package probe
 
 import (
@@ -30,22 +34,36 @@ import (
 	"time"
 
 	"github.com/kadirsa1105/uptime-kadir-app/internal/check"
+	"github.com/kadirsa1105/uptime-kadir-app/internal/metrics"
 )
 
 // Config istemci ayarları. Sıfır değerli alanlar varsayılanla doldurulur.
 type Config struct {
-	Server        string        // ana sunucu adresi, ör. https://uptime.kadir.app
-	Token         string        // kontrol noktası token'ı (upr_…)
-	Version       string        // sunucuya bildirilen sürüm
-	Unit          time.Duration // aralık birimi; üretimde saniye, testlerde daha kısa
-	FlushEvery    time.Duration // sonuç gönderme sıklığı (varsayılan 5 birim)
-	MaxConcurrent int           // aynı anda en fazla kontrol (varsayılan 20)
-	MaxBuffer     int           // gönderilemeyen en fazla sonuç (varsayılan 5000)
-	BatchSize     int           // tek istekteki en fazla sonuç (varsayılan 200)
-	MaxBackoff    time.Duration // tekrar denemeler arası en uzun bekleme (varsayılan 60 birim)
+	Server        string           // ana sunucu adresi, ör. https://uptime.kadir.app
+	Token         string           // kontrol noktası token'ı (upr_…)
+	Version       string           // sunucuya bildirilen sürüm
+	Unit          time.Duration    // aralık birimi; üretimde saniye, testlerde daha kısa
+	FlushEvery    time.Duration    // sonuç gönderme sıklığı (varsayılan 5 birim)
+	MaxConcurrent int              // aynı anda en fazla kontrol (varsayılan 20)
+	MaxBuffer     int              // gönderilemeyen en fazla sonuç (varsayılan 5000)
+	BatchSize     int              // tek istekteki en fazla sonuç (varsayılan 200)
+	MaxBackoff    time.Duration    // tekrar denemeler arası en uzun bekleme (varsayılan 60 birim)
+	NoMetrics     bool             // sunucu metrikleri hiç toplanmaz (METRICS=0), ana sunucu istese de
+	Metrics       MetricsCollector // varsayılan metrics.NewCollector
 	HTTPClient    *http.Client
 	Log           *slog.Logger
 }
+
+// MetricsCollector sunucu ölçümlerini toplar (metrics.Collector; testlerde sahtesi).
+// Collect ilk çağrıda (ve Reset sonrası) yalnızca sayaçları hazırlar, false döner.
+type MetricsCollector interface {
+	Collect(ctx context.Context) (metrics.Sample, bool)
+	Reset()
+}
+
+// minMetricsInterval ana sunucu daha kısa bir aralık istese de örnekler en az
+// bu kadar birim arayla alınır (Docker istatistikleri her örnekte sorgulanır).
+const minMetricsInterval = 5
 
 // Job ana sunucudan gelen iş: bir monitörün kontrol ayarı. Süreler birim
 // (saniye) cinsinden.
@@ -75,8 +93,9 @@ type jobsResponse struct {
 		ID   int64  `json:"id"`
 		Name string `json:"name"`
 	} `json:"probe"`
-	PollAfter int   `json:"poll_after"`
-	Jobs      []Job `json:"jobs"`
+	PollAfter       int   `json:"poll_after"`
+	MetricsInterval int   `json:"metrics_interval"` // sn; 0 veya alan yok (eski sunucu) = metrik gönderilmez
+	Jobs            []Job `json:"jobs"`
 }
 
 // Client bir kontrol noktası.
@@ -92,6 +111,9 @@ type Client struct {
 	tasks   map[int64]*task
 	unknown map[string]bool // uyarısı yazılmış bilinmeyen tipler
 	reach   map[string]bool // uç nokta başına erişilebilirlik (log tekrarını önler)
+
+	metricsIv  chan int // iş listesindeki son metrics_interval (yalnızca en yenisi bekler)
+	metricsBad int      // son reddedilen metrik gönderiminin durumu (log tekrarını önler; yalnızca metricsLoop)
 }
 
 type task struct {
@@ -139,9 +161,13 @@ func New(cfg Config) (*Client, error) {
 	if cfg.Version == "" {
 		cfg.Version = "dev"
 	}
+	if cfg.Metrics == nil && !cfg.NoMetrics {
+		cfg.Metrics = metrics.NewCollector(metrics.Options{Log: cfg.Log})
+	}
 	return &Client{
 		cfg: cfg, base: u, log: cfg.Log, sem: make(chan struct{}, cfg.MaxConcurrent),
 		tasks: map[int64]*task{}, unknown: map[string]bool{}, reach: map[string]bool{},
+		metricsIv: make(chan int, 1),
 	}, nil
 }
 
@@ -156,6 +182,12 @@ func (c *Client) Run(ctx context.Context) error {
 	wg.Add(2)
 	go func() { defer wg.Done(); c.jobsLoop(ctx) }()
 	go func() { defer wg.Done(); c.flushLoop(ctx) }()
+	if c.cfg.NoMetrics {
+		c.log.Info("sunucu metrikleri bu ajanda kapalı (METRICS=0)")
+	} else {
+		wg.Add(1)
+		go func() { defer wg.Done(); c.metricsLoop(ctx) }()
+	}
 	wg.Wait()
 	c.stopAll()
 
@@ -198,6 +230,7 @@ func (c *Client) jobsLoop(ctx context.Context) {
 			// (yönetici tekrar etkinleştirebilir).
 			c.stopAll()
 			c.clearBuffer()
+			c.setMetricsInterval(0)
 			wait = c.cfg.MaxBackoff
 		case err != nil:
 			backoff = c.nextBackoff(backoff)
@@ -233,6 +266,7 @@ func (c *Client) pollJobs(ctx context.Context) (time.Duration, error) {
 	}
 	c.reachable("jobs")
 	c.apply(ctx, resp.Jobs)
+	c.setMetricsInterval(resp.MetricsInterval)
 	poll := resp.PollAfter
 	if poll <= 0 {
 		poll = 30
@@ -474,6 +508,107 @@ func (c *Client) flushOnce(ctx context.Context) (retryAfter time.Duration, err e
 		c.reachable("results")
 		c.log.Error("sonuçlar kabul edilmedi, parti atıldı", "durum", status, "sonuc_sayisi", len(batch))
 		return 0, nil
+	}
+}
+
+// Sunucu metrikleri --------------------------------------------------------------------------
+
+// setMetricsInterval metrik döngüsüne yeni aralığı bildirir; henüz alınmamış
+// eski değer atılır, döngü yalnızca en yenisini görür.
+func (c *Client) setMetricsInterval(n int) {
+	if c.cfg.NoMetrics {
+		return
+	}
+	select {
+	case <-c.metricsIv:
+	default:
+	}
+	c.metricsIv <- max(n, 0)
+}
+
+// metricsLoop ana sunucunun istediği aralıkla örnek alıp gönderir; aralık 0
+// iken bekler. Başlarken ilk örnek yalnızca sayaçları hazırlar, ilk gönderim
+// kurulumdan sonra çabuk görünsün diye en geç 10 birim sonra yapılır.
+// Kontrollerden ve sonuç gönderiminden bağımsız çalışır.
+func (c *Client) metricsLoop(ctx context.Context) {
+	var interval time.Duration
+	timer := time.NewTimer(time.Hour)
+	timer.Stop()
+	defer timer.Stop()
+	lastReason := ""
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case n := <-c.metricsIv:
+			if n > 0 {
+				n = max(n, minMetricsInterval)
+			}
+			iv := time.Duration(n) * c.cfg.Unit
+			if iv == interval {
+				continue
+			}
+			was := interval
+			interval = iv
+			timer.Stop()
+			switch {
+			case iv == 0:
+				c.log.Info("sunucu metrik gönderimi kapatıldı")
+			case was == 0:
+				// Uzun aradan sonra hızlar eski sayaçlarla hesaplanmasın.
+				c.cfg.Metrics.Reset()
+				lastReason, c.metricsBad = "", 0
+				c.log.Info("sunucu metrikleri gönderiliyor", "aralik", n)
+				timer.Reset(0)
+			default:
+				c.log.Info("sunucu metrik aralığı değişti", "aralik", n)
+				timer.Reset(iv)
+			}
+		case <-timer.C:
+			cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			s, ok := c.cfg.Metrics.Collect(cctx)
+			cancel()
+			if ctx.Err() != nil {
+				return
+			}
+			if !ok {
+				timer.Reset(min(interval, 10*c.cfg.Unit)) // hazırlık örneği gönderilmez
+				continue
+			}
+			timer.Reset(interval)
+			if s.Unavailable != lastReason {
+				if s.Unavailable != "" {
+					c.log.Warn("sunucu metrikleri toplanamıyor", "neden", s.Unavailable)
+				}
+				lastReason = s.Unavailable
+			}
+			c.sendMetrics(ctx, s)
+		}
+	}
+}
+
+// sendMetrics tek örneği gönderir. Gönderilemeyen örnek saklanmaz, bir sonraki
+// aralıkta yerine yenisi gider (eski ölçümleri biriktirmenin anlamı yok).
+// 401/403'te iş listesi yoklaması da aynı yanıtı alır ve metrikleri durdurur.
+func (c *Client) sendMetrics(ctx context.Context, s metrics.Sample) {
+	status, err := c.call(ctx, http.MethodPost, "/api/probe/metrics", s, nil)
+	switch {
+	case err != nil:
+		if ctx.Err() == nil {
+			c.unreachable("metrics", err)
+		}
+	case status >= 200 && status < 300:
+		c.reachable("metrics")
+		c.metricsBad = 0
+	case status == http.StatusTooManyRequests || status >= 500:
+		c.unreachable("metrics", fmt.Errorf("sunucu yanıtı: %d", status))
+	default:
+		// 400/413 veya yetki hatası: aynı örneği tekrar göndermek düzeltmez.
+		c.reachable("metrics")
+		if status != c.metricsBad {
+			c.metricsBad = status
+			c.log.Warn("metrik örneği kabul edilmedi", "durum", status)
+		}
 	}
 }
 
