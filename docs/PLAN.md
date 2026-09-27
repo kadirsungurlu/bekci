@@ -137,37 +137,90 @@ kalıcı `/data`, health check `/healthz`, `TZ=Europe/Istanbul`.
 - Arayüz dili Türkçe; İngilizce Aşama 3'te.
 - Veri saklama: ham 14 gün, saatlik 1 yıl, günlük süresiz.
 - Ana bildirim kanalı WhatsApp (WP API); anahtar ve alıcı sonra girilecek.
-- Aşama 1–2 tek yönetici; çoklu kullanıcı Aşama 3'te.
+- ~~Aşama 1–2 tek yönetici; çoklu kullanıcı Aşama 3'te.~~ Güncellendi (2026-09-27):
+  çoklu kullanıcı ve yetkiler Aşama 2'nin ilk işi (bkz. bölüm 10).
 - Alan adı `uptime.kadir.app`.
 
 ## 9. İlerleme
 
-### Aşama 1
+### Aşama 1 — tamamlandı (2026-09-27)
 
-- [ ] Proje iskeleti, ayarlar, veritabanı ve migration'lar
-- [ ] Monitör tipleri: HTTP (keyword, JSON sorgusu dahil), TCP, Ping, DNS, Push
-- [ ] Kontrol motoru: zamanlayıcı, durum makinesi, olaylar, SSL uyarıları
-- [ ] İstatistikler: saatlik/günlük özet, uptime hesabı, veri temizliği, gece yedeği
-- [ ] Bildirimler: WhatsApp, Telegram, e-posta, Discord, Slack, Webhook, ntfy, Gotify, Pushover
-- [ ] API: oturum, monitörler, özet, olaylar, bildirimler, SSE, push, healthz
-- [ ] Arayüz: kurulum/giriş, liste, detay, form, olaylar, bildirimler, ayarlar
-- [ ] Dockerfile ve uçtan uca test
-- [ ] Coolify kurulumu ve canlıya çıkış
+- [x] Proje iskeleti, ayarlar, veritabanı ve migration'lar
+- [x] Monitör tipleri: HTTP (keyword, JSON sorgusu dahil), TCP, Ping, DNS, Push
+- [x] Kontrol motoru: zamanlayıcı, durum makinesi, olaylar, SSL uyarıları
+- [x] İstatistikler: saatlik/günlük özet, uptime hesabı, veri temizliği, gece yedeği
+- [x] Bildirimler: WhatsApp, Telegram, e-posta, Discord, Slack, Webhook, ntfy, Gotify, Pushover
+- [x] API: oturum, monitörler, özet, olaylar, bildirimler, SSE, push, healthz
+- [x] Arayüz: kurulum/giriş, liste, detay, form, olaylar, bildirimler, ayarlar
+- [x] Dockerfile ve uçtan uca test
+- [x] Coolify kurulumu ve canlıya çıkış (`uptime.kadir.app`)
+- [x] Bağımsız inceleme (Fable): backend + arayüz bulguları düzeltildi
+- [ ] Tasarım kontrolü ve düzeltmeleri (devam ediyor)
 - [ ] UptimeRobot monitörlerinin taşınması, bir hafta paralel çalışma
 
-### Aşama 2
+### Aşama 2 — sıradaki (öncelik sırasıyla)
 
-- [ ] Durum sayfaları
-- [ ] Bakım pencereleri
-- [ ] Etiketler ve gruplar
-- [ ] Rozetler, REST API + API anahtarları, Prometheus metrikleri
-- [ ] Dışa/içe aktarma, Uptime Kuma'dan içe aktarma
-- [ ] Ek bildirim servisleri
+- [ ] **2a. Kullanıcılar ve yetkiler** (bölüm 10)
+- [ ] **2b. Herkese açık durum sayfaları** (bölüm 11)
+- [ ] 2c. Bakım pencereleri (durum sayfasında "bakımda" gösterimi dahil)
+- [ ] 2d. Etiketler ve gruplar
+- [ ] 2e. Rozetler, REST API + API anahtarları, Prometheus metrikleri
+- [ ] 2f. Dışa/içe aktarma, Uptime Kuma'dan içe aktarma
+- [ ] 2g. Ek bildirim servisleri (Teams, Google Chat, Mattermost, Matrix, Signal,
+      PagerDuty, Opsgenie, Home Assistant, Netgsm SMS)
 
 ### Aşama 3
 
 - [ ] Docker ve veritabanı monitörleri
 - [ ] gRPC, MQTT, SMTP, WebSocket, SNMP, gerçek tarayıcı
 - [ ] Proxy, mTLS / OAuth2
-- [ ] 2FA, çoklu kullanıcı, PostgreSQL depolama, İngilizce arayüz
+- [ ] 2FA, PostgreSQL depolama, İngilizce arayüz
 - [ ] Uzak kontrol noktaları
+
+## 10. Aşama 2a — Kullanıcılar ve yetkiler
+
+Roller (API her istekte rolü kontrol eder; arayüzde gizlemek tek başına yetmez):
+
+| Rol | Yetki |
+|---|---|
+| Yönetici | Her şey: kullanıcılar, ayarlar, işlem kaydı, monitörler, bildirimler, durum sayfaları |
+| Editör | Monitör, bildirim, durum sayfası ve duyuru yönetimi; kullanıcılar/ayarlar yok |
+| İzleyici | Sadece görüntüleme. İsteğe bağlı **monitör kısıtı**: yalnızca seçilen monitörleri görür (müşteri erişimi) |
+
+- Kullanıcı yönetimi (Ayarlar → Kullanıcılar): ekle, rol değiştir, monitör kısıtı,
+  şifre sıfırla, devre dışı bırak, sil.
+- Yönetici tarafından verilen şifreyle ilk girişte şifre değiştirme zorunlu.
+- Devre dışı bırakılan/silinen kullanıcının oturumları anında kapanır.
+- Son aktif yönetici silinemez, devre dışı bırakılamaz, rolü düşürülemez; kişi
+  kendini devre dışı bırakamaz/silemez.
+- İzleyiciye monitör ayarları (başlıklar, gövde, şifreler), push token'ı ve
+  bildirim kanalları gösterilmez; kısıtlıysa listede, detayda, özetlerde,
+  olaylarda ve canlı akışta sadece izinli monitörler görünür.
+- İşlem kaydı: kim, ne zaman, neyi değiştirdi (monitör, bildirim, kullanıcı,
+  ayar, durum sayfası, giriş). Yöneticiler görür, 1 yıl saklanır.
+
+## 11. Aşama 2b — Herkese açık durum sayfaları
+
+- Birden fazla sayfa; adres `uptime.kadir.app/durum/<ad>`, isteğe bağlı özel alan
+  adı (ör. `durum.kadir.app`; Coolify'a alan adı eklenir, DNS kaydı açılır).
+- İçerik: başlık, açıklama, logo (PNG/JPEG/WebP, en fazla 512 KB), alt bilgi,
+  gruplar halinde monitörler (her monitör için görünen ad), genel durum özeti,
+  monitör başına 90 günlük uptime çubuğu ve yüzde, son 14 günün olayları.
+- Gizlilik: hedef adresleri varsayılan olarak gizli; olay nedenleri (iç IP, hata
+  ayrıntısı içerebilir) herkese açık sayfada gösterilmez. İsteğe bağlı şifre.
+- Duyurular: sayfa başına bilgi/uyarı/sorun/çözüldü duyuruları, başlangıç-bitiş
+  zamanıyla.
+- Güvenlik ve yük: herkese açık uç noktalar giriş gerektirmez, sonuçlar kısa süre
+  önbelleğe alınır; özel alan adından sadece durum sayfası ve herkese açık API
+  erişilebilir (yönetim paneli değil). Sayfa 60 saniyede bir kendini yeniler.
+- Yönetim: arayüzde "Durum sayfaları" bölümü (Yönetici ve Editör): oluştur,
+  grupları ve monitörleri düzenle, önizle, yayınla/gizle, duyuru ekle.
+
+### Uygulama sırası (2a + 2b)
+
+1. Backend: migration, rol/kapsam kontrolü, kullanıcı ve durum sayfası API'leri,
+   herkese açık uç noktalar, özel alan adı yönlendirmesi, işlem kaydı, testler.
+2. Arayüz (ajan, tasarım düzeltmeleri bittikten sonra): kullanıcı yönetimi, zorunlu
+   şifre değişimi, rol bazlı menü, durum sayfası yönetimi ve herkese açık sayfa.
+3. Bağımsız inceleme (Fable, özellikle yetki atlatma denemeleri) → düzeltmeler →
+   canlıya çıkış.
