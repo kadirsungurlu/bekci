@@ -1,17 +1,26 @@
-# main dalına her gönderimde iki imaj derlenir ve GitHub Container Registry'ye yüklenir:
+# Testler, arayüz denetimi ve imaj duman testleri her gönderimde (main,
+# gelistirme) ve her pull request'te çalışır. İmajlar YALNIZCA main dalında ve
+# yalnızca bunların hepsi geçtikten sonra GitHub Container Registry'ye yüklenir:
 #   ghcr.io/<sahip>/uptime-kadir-app:latest     — SQLite gömülü (Dockerfile)
 #   ghcr.io/<sahip>/uptime-kadir-app:postgres   — PostgreSQL gömülü (Dockerfile.postgres)
-# Her ikisi ayrıca commit kısa özetiyle de etiketlenir (ör. :abc1234, :postgres-abc1234).
+# Her ikisi ayrıca commit kısa özetiyle de etiketlenir (ör. :abc1234,
+# :postgres-abc1234); geri dönmek için bu etiketler kullanılabilir.
 name: İmajlar
 
 on:
   push:
-    branches: [main]
+    branches: [main, gelistirme]
+  pull_request:
   workflow_dispatch:
+
+# Aynı dalda yeni bir çalıştırma başlayınca eskisi iptal edilir: eski bir
+# commit'in imajı yenisinin üstüne yazılıp :latest geriye gidemez.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   test:
@@ -36,11 +45,107 @@ jobs:
       - name: Testler (PostgreSQL)
         env:
           UPTIME_TEST_PG: postgres://postgres:test@localhost:5432/postgres?sslmode=disable
-        run: go test -count=1 ./...
+        run: go test -race -count=1 ./...
 
-  imaj:
-    needs: test
+  arayuz:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Tip denetimi (svelte-check)
+        run: npm run check
+      - name: Derleme
+        run: npm run build
+
+  # İmajı derler, çalıştırır ve temel işlevleri dener (yüklemez).
+  duman:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerfile: Dockerfile
+            etiket: latest
+          - dockerfile: Dockerfile.postgres
+            etiket: postgres
+    env:
+      IMAJ: uptime-duman:${{ matrix.etiket }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          load: true
+          push: false
+          build-args: SOURCE_COMMIT=${{ github.sha }}
+          tags: ${{ env.IMAJ }}
+          cache-from: type=gha,scope=${{ matrix.etiket }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.etiket }}
+      - name: Duman testi
+        env:
+          TUR: ${{ matrix.etiket }}
+        run: |
+          set -euo pipefail
+          docker volume create duman-data
+          docker run -d --name duman -p 127.0.0.1:8080:8080 -v duman-data:/data "$IMAJ"
+
+          # /healthz 200 dönene kadar bekle (en fazla 120 sn).
+          for _ in $(seq 1 120); do
+            kod=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/healthz || true)
+            [ "$kod" = 200 ] && break
+            sleep 1
+          done
+          [ "$kod" = 200 ] || { echo "::error::/healthz 200 dönmedi ($kod)"; exit 1; }
+
+          # Sürüm: commit'in kısa özeti gömülü olmalı.
+          surum=$(docker exec duman uptime version)
+          echo "sürüm: $surum"
+          [ "$surum" = "${GITHUB_SHA::7}" ] || { echo "::error::beklenen sürüm ${GITHUB_SHA::7}, gelen $surum"; exit 1; }
+
+          # İlk yönetici + komut satırından şifre sıfırlama (ek bayrak olmadan).
+          giris() {
+            curl -s -o /dev/null -w '%{http_code}' -X POST -H 'X-Uptime: 1' -H 'Content-Type: application/json' \
+              -d "{\"username\":\"duman\",\"password\":\"$1\"}" "http://127.0.0.1:8080/api/auth/$2"
+          }
+          [ "$(giris eski-sifre-123 setup)" = 200 ] || { echo "::error::ilk kurulum başarısız"; exit 1; }
+          printf 'yeni-sifre-456\n' | docker exec -i duman uptime sifre-sifirla duman
+          [ "$(giris eski-sifre-123 login)" = 401 ] || { echo "::error::eski şifre hâlâ geçiyor"; exit 1; }
+          [ "$(giris yeni-sifre-456 login)" = 200 ] || { echo "::error::yeni şifreyle giriş olmadı"; exit 1; }
+
+          if [ "$TUR" = postgres ]; then
+            # Aynı /data'da ikinci container PostgreSQL'i açmamalı: kilidi
+            # bekleyip süre dolunca hata ile çıkmalı; ilki çalışmaya devam etmeli.
+            docker run -d --name duman-2 -e UPTIME_LOCK_WAIT=5 -v duman-data:/data "$IMAJ"
+            cikis=$(timeout 60 docker wait duman-2)
+            docker logs duman-2
+            [ "$cikis" = 1 ] || { echo "::error::ikinci container beklenmedik çıkış kodu: $cikis"; exit 1; }
+            [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/healthz)" = 200 ] || { echo "::error::ilk container etkilendi"; exit 1; }
+          fi
+
+          # Düzgün kapanış.
+          docker stop duman
+          [ "$(docker inspect duman --format '{{.State.ExitCode}}')" = 0 ] || { echo "::error::kapanış çıkış kodu sıfır değil"; exit 1; }
+      - name: Container günlükleri
+        if: failure()
+        run: docker logs duman || true
+
+  yayinla:
+    needs: [test, arayuz, duman]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
         include:
@@ -61,6 +166,7 @@ jobs:
       - name: Kısa commit
         id: sha
         run: echo "kisa=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      # Katmanlar duman testindeki derlemenin önbelleğinden gelir (aynı imaj).
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -71,4 +177,3 @@ jobs:
             ghcr.io/${{ github.repository }}:${{ matrix.etiket }}
             ghcr.io/${{ github.repository }}:${{ matrix.onek }}${{ steps.sha.outputs.kisa }}
           cache-from: type=gha,scope=${{ matrix.etiket }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.etiket }}
