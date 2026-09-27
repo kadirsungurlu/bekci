@@ -4,11 +4,12 @@
 // geldiğinde yalnızca o monitörün nesnesi yenisiyle değiştirilir. Böylece keyed each
 // bloğunda sadece değişen satır yeniden çizilir; yüzlerce monitörde de hızlı kalır.
 
-import { api, errorMessage, STATUS_MAINTENANCE, type BeatEvent, type MonitorView, type ProbeEvent, type Summary } from './api';
+import { api, errorMessage, STATUS_MAINTENANCE, type BeatEvent, type MonitorView, type ProbeEvent, type ServerView, type Summary } from './api';
 
 type BeatListener = (b: BeatEvent) => void;
 type MaintListener = (id: number) => void;
 type ProbeListener = (p: ProbeEvent) => void;
+type ServerListener = (s: ServerView) => void;
 
 class Live {
   monitors = $state.raw<MonitorView[]>([]);
@@ -29,6 +30,8 @@ class Live {
   private listeners = new Set<BeatListener>();
   private maintListeners = new Set<MaintListener>();
   private probeListeners = new Set<ProbeListener>();
+  private serverListeners = new Set<ServerListener>();
+  private reconnectListeners = new Set<() => void>();
   private maintTimer: ReturnType<typeof setTimeout> | undefined;
   private lastRefresh = 0;
   private everConnected = false;
@@ -100,7 +103,10 @@ class Live {
     es.onopen = () => {
       this.connected = true;
       // Bağlantı koptuysa arada kaçan değişiklikleri almak için listeyi yenile.
-      if (this.everConnected) this.refresh();
+      if (this.everConnected) {
+        this.refresh();
+        this.emit(this.reconnectListeners, undefined);
+      }
       this.everConnected = true;
     };
     es.onerror = () => {
@@ -126,6 +132,7 @@ class Live {
       if (msg.type === 'beat' && msg.data) this.handleBeat(msg.data as BeatEvent);
       else if (msg.type === 'maintenance') this.handleMaintenance((msg.data as { maintenance_id?: number })?.maintenance_id ?? 0);
       else if (msg.type === 'probe' && msg.data) this.handleProbe(msg.data as ProbeEvent);
+      else if (msg.type === 'server' && msg.data) this.emit(this.serverListeners, msg.data as ServerView);
     };
   }
 
@@ -151,6 +158,28 @@ class Live {
         /* dinleyici hatası akışı bozmasın */
       }
     }
+  }
+
+  private emit<T>(set: Set<(v: T) => void>, v: T) {
+    for (const fn of set) {
+      try {
+        fn(v);
+      } catch {
+        /* dinleyici hatası akışı bozmasın */
+      }
+    }
+  }
+
+  /** Sunucu ajanından yeni örnek veya durum değişimi geldiğinde (liste biçimi) çağrılır. */
+  onServer(fn: ServerListener): () => void {
+    this.serverListeners.add(fn);
+    return () => this.serverListeners.delete(fn);
+  }
+
+  /** Canlı bağlantı koptuktan sonra yeniden kurulduğunda (kaçan olayları tamamlamak için). */
+  onReconnect(fn: () => void): () => void {
+    this.reconnectListeners.add(fn);
+    return () => this.reconnectListeners.delete(fn);
   }
 
   /** Kontrol noktası durumu değiştiğinde çağrılır; aboneliği bitiren fonksiyon döner. */

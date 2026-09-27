@@ -101,6 +101,16 @@
   --tag-x-hover: rgba(0, 0, 0, 0.18);
   --tag-swatch-ring: rgba(255, 255, 255, 0.85);
 
+  /* Grafik serileri (sunucu takibi): sabit sırayla atanır, mor yok. Renk körlüğü
+     ayrımı ve koyu zemin kontrastı doğrulandı (teal, turuncu, mavi, sarı, pembe). */
+  --chart-1: #16a797;
+  --chart-2: #dc6a28;
+  --chart-3: #3a86dc;
+  --chart-4: #b88600;
+  --chart-5: #d4538a;
+  /* Doluluk çubuğu zemini. */
+  --meter-track: #243049;
+
   /* İlerleme çubuğu (dosya yükleme). */
   --progress-track: #111a29;
 
@@ -905,7 +915,16 @@ input[type='search'].input::-webkit-search-decoration {
     --accent-text-soft: #115e59;
     --accent-contrast: #ffffff;
 
+    --chart-1: #0d9488;
+    --chart-2: #e0661f;
+    --chart-3: #2a78d6;
+    --chart-4: #c98500;
+    --chart-5: #d6457f;
+    --meter-track: #e6ebf2;
+
     --tip-bg: #0f1b2d;
+    --tip-text: #f3f6fb; /* ipucu zemini açık temada da koyu */
+    --tip-text-2: #b9c3d3;
     --shadow: 0 8px 30px rgba(15, 27, 45, 0.12);
     --pub-shadow: 0 1px 2px rgba(15, 27, 45, 0.05), 0 6px 20px rgba(15, 27, 45, 0.06);
     --pub-hero-up: linear-gradient(135deg, #16a34a, #0d9488);

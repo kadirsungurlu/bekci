@@ -28,6 +28,8 @@ class Session {
   /** Monitör, bildirim, durum sayfası ve bakım ekleyip değiştirebilir. */
   canEdit = $derived(roleRank(this.role) >= RANK.editor);
   isAdmin = $derived(this.role === 'admin');
+  /** Yalnızca seçili monitörleri gören (müşteri) izleyici: sunucu takibini göremez. */
+  restricted = $derived(!!this.user && !this.user.all_monitors);
   displayName = $derived(this.user ? this.user.display_name || this.user.username : '');
 
   set(u: User | null) {

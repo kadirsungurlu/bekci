@@ -6,9 +6,10 @@
   let { onLogout }: { onLogout: () => void } = $props();
 
   const items = $derived.by(() => {
-    const out: { href: string; label: string; desc: string; icon: IconName }[] = [
-      { href: '#/maintenance', label: 'Bakım pencereleri', desc: 'Planlı bakımlarda bildirimleri sustur', icon: 'wrench' },
-    ];
+    const out: { href: string; label: string; desc: string; icon: IconName }[] = [];
+    if (session.canEdit)
+      out.push({ href: '#/status-pages', label: 'Durum sayfaları', desc: 'Müşterilerinize açık durum sayfaları', icon: 'layout' });
+    out.push({ href: '#/maintenance', label: 'Bakım pencereleri', desc: 'Planlı bakımlarda bildirimleri sustur', icon: 'wrench' });
     if (session.canEdit)
       out.push({ href: '#/notifications', label: 'Bildirimler', desc: 'WhatsApp, Telegram, e-posta ve diğer kanallar', icon: 'bell' });
     out.push({ href: '#/settings', label: 'Hesabım', desc: 'Şifre, iki adımlı doğrulama, API anahtarları', icon: 'user' });

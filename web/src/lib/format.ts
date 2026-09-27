@@ -235,3 +235,50 @@ export function fmtSize(n: number): string {
   if (n < 1024 * 1024) return `${(n / 1024).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} KB`;
   return `${(n / 1024 / 1024).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} MB`;
 }
+
+// Sunucu takibi ------------------------------------------------------------------------
+
+const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+
+/** Bayt (1024 tabanlı): "512 B", "12,3 KB", "7,8 GB", "1,2 TB". */
+export function fmtBytes(n: number | null | undefined): string {
+  if (n === null || n === undefined || !Number.isFinite(n)) return '—';
+  let v = Math.max(0, n);
+  let i = 0;
+  while (v >= 1024 && i < BYTE_UNITS.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  if (i === 0) return `${Math.round(v)} B`;
+  return `${v.toLocaleString('tr-TR', { maximumFractionDigits: v < 100 ? 1 : 0 })} ${BYTE_UNITS[i]}`;
+}
+
+/** Hız: "1,2 MB/sn". */
+export function fmtRate(bps: number | null | undefined): string {
+  if (bps === null || bps === undefined || !Number.isFinite(bps)) return '—';
+  return `${fmtBytes(bps)}/sn`;
+}
+
+/** Tam sayı yüzde: "%42". */
+export function fmtPctInt(v: number | null | undefined): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return '—';
+  return '%' + Math.round(v);
+}
+
+/** Sabit ondalıklı sayı (virgüllü): fmtDec(0.4213, 2) → "0,42". */
+export function fmtDec(v: number | null | undefined, digits = 1): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return '—';
+  return v.toLocaleString('tr-TR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+
+/** Sıcaklık: "48 °C". */
+export function fmtTemp(c: number | null | undefined): string {
+  if (c === null || c === undefined || !Number.isFinite(c)) return '—';
+  return `${Math.round(c)} °C`;
+}
+
+/** Çalışma süresi: "12 gün 4 sa", "3 sa 20 dk". */
+export function fmtUptime(sec: number | null | undefined): string {
+  if (!sec || sec <= 0) return '—';
+  return fmtDuration(sec);
+}
