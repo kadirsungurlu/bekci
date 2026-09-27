@@ -43,9 +43,10 @@ type Engine struct {
 	maint    atomic.Pointer[maintenance.Index] // aktif bakım pencereleri (ReloadMaintenance)
 	now      func() time.Time
 
-	mu      sync.Mutex
-	ctx     context.Context
-	runners map[int64]*runner
+	mu       sync.Mutex
+	ctx      context.Context
+	runners  map[int64]*runner
+	monLocks map[int64]*sync.Mutex // monitör başına: Reload/Remove/start sıraya girer (bkz. lockMonitor)
 
 	bg              sync.WaitGroup // arka plan işleri (watchProbes)
 	probeWatchEvery time.Duration  // kontrol noktası durum taraması; testlerde kısaltılır
@@ -60,9 +61,10 @@ func New(st *store.Store, n Notifier, hub *Hub, log *slog.Logger, cfg Config) *E
 	}
 	e := &Engine{
 		store: st, notifier: n, hub: hub, log: log, cfg: cfg,
-		sem:     make(chan struct{}, cfg.MaxConcurrent),
-		now:     time.Now,
-		runners: map[int64]*runner{},
+		sem:      make(chan struct{}, cfg.MaxConcurrent),
+		now:      time.Now,
+		runners:  map[int64]*runner{},
+		monLocks: map[int64]*sync.Mutex{},
 
 		probeWatchEvery: 10 * time.Second,
 	}
@@ -91,7 +93,10 @@ func (e *Engine) Start(ctx context.Context) error {
 	n := 0
 	for _, m := range monitors {
 		if m.Active {
-			if err := e.start(m); err != nil {
+			unlock := e.lockMonitor(m.ID)
+			err := e.start(m)
+			unlock()
+			if err != nil {
 				e.log.Error("monitör başlatılamadı", "monitor", m.Name, "hata", err)
 				continue
 			}
@@ -106,8 +111,13 @@ func (e *Engine) Start(ctx context.Context) error {
 func (e *Engine) SetSettings(s store.AppSettings) { e.settings.Store(&s) }
 
 // Reload monitör eklendi/düzenlendi/durduruldu/başlatıldıktan sonra çağrılır.
+//
+// Aynı monitör için eşzamanlı Reload/Remove çağrıları sıraya girer: aksi
+// halde eski ayarı okuyan çağrı, yeni ayarı okuyanın ardından runner'ı
+// eski ayarla başlatabilir (ikincisi "zaten çalışıyor" hatası alırdı).
 func (e *Engine) Reload(ctx context.Context, id int64) error {
-	e.Remove(id)
+	defer e.lockMonitor(id)()
+	e.stop(id)
 	m, err := e.store.GetMonitor(ctx, id)
 	if err != nil {
 		return err
@@ -120,6 +130,27 @@ func (e *Engine) Reload(ctx context.Context, id int64) error {
 
 // Remove monitörün runner'ını durdurur ve bitmesini bekler.
 func (e *Engine) Remove(id int64) {
+	defer e.lockMonitor(id)()
+	e.stop(id)
+}
+
+// lockMonitor monitörün kilidini alır; dönen fonksiyon bırakır. Kilitler
+// monitör başına bir kez oluşturulur ve silinmez (bekleyen varken silinen
+// kilit sıralamayı bozardı; monitör sayısı kadar küçük bir harita).
+func (e *Engine) lockMonitor(id int64) func() {
+	e.mu.Lock()
+	l := e.monLocks[id]
+	if l == nil {
+		l = &sync.Mutex{}
+		e.monLocks[id] = l
+	}
+	e.mu.Unlock()
+	l.Lock()
+	return l.Unlock
+}
+
+// stop runner'ı durdurur ve bitmesini bekler (monitör kilidi tutulurken).
+func (e *Engine) stop(id int64) {
 	e.mu.Lock()
 	r := e.runners[id]
 	delete(e.runners, id)
@@ -203,11 +234,14 @@ func Target(m store.Monitor) string {
 	return ""
 }
 
+// start monitörün runner'ını başlatır; çalışan bir runner varsa önce onu
+// durdurur (yeni ayar geçerli olsun). Çağıran monitör kilidini tutar.
 func (e *Engine) start(m store.Monitor) error {
 	checker, ok := check.Get(m.Type)
 	if !ok {
 		return fmt.Errorf("bilinmeyen monitör tipi: %s", m.Type)
 	}
+	e.stop(m.ID)
 	locs := e.loadLocations(m) // kilit dışında: veritabanı okur
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -215,7 +249,7 @@ func (e *Engine) start(m store.Monitor) error {
 		return errors.New("motor başlatılmadı")
 	}
 	if old := e.runners[m.ID]; old != nil {
-		return fmt.Errorf("monitör %d zaten çalışıyor", m.ID)
+		return fmt.Errorf("monitör %d zaten çalışıyor", m.ID) // monitör kilidi tutulduğu sürece olmaz
 	}
 	ctx, cancel := context.WithCancel(e.ctx)
 	ctx = check.WithStatusSource(ctx, e.monitorStatuses) // grup monitörleri alt monitörleri okur

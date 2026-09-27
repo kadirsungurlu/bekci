@@ -33,6 +33,17 @@ type runner struct {
 	lastCause   string                // işlem geçmişine yazılan son hata
 	maintLogged bool                  // olay sürerken "bakım başladı" yazıldı
 	locPrev     map[int64]locMark     // çok konumlu: olay sürerken konumların son yazılan durumu
+
+	// Monitör UP'a döndüğü halde veritabanında kapatılamamış olay: sonraki
+	// her sonuçta (yeni olay açılmadan önce) yeniden kapatılmaya çalışılır.
+	unresolved *pendingResolve
+}
+
+// pendingResolve kapatılamamış olayın kimliği ve çözülme anı.
+type pendingResolve struct {
+	id  int64
+	at  time.Time
+	msg string
 }
 
 // initialConfirmed yeniden başlatmada sahte bildirim gitmesin diye son
@@ -67,6 +78,18 @@ func (r *runner) initialConfirmed(ctx context.Context) int {
 		}
 		return store.StatusDown
 	case r.m.Status == store.StatusUp:
+		if hasIncident {
+			// UP kaydedilmiş ama olay kapatılamamış (UP yazıldıktan sonra çökme
+			// veya kapatma hatası): olay UP'a dönüş anında kapatılır; yoksa açık
+			// kalır ve sonraki kesinti yeni olay açamaz.
+			at := time.Unix(r.m.LastChangeAt, 0)
+			if r.m.LastChangeAt < started {
+				at = r.e.now()
+			}
+			r.unresolved = &pendingResolve{id: r.incidentID, at: at, msg: r.m.LastMessage}
+			r.incidentID, r.lastCause = 0, ""
+			r.retryResolve(ctx)
+		}
 		return store.StatusUp
 	case hasIncident:
 		return store.StatusDown
@@ -230,6 +253,8 @@ func (r *runner) process(res check.Result) {
 	if lastChange > 0 {
 		r.m.LastChangeAt = lastChange
 	}
+	// Önceki UP'ta kapatılamayan olay, yeni bir olay açılmadan önce kapatılır.
+	r.retryResolve(ctx)
 
 	// Olay açılmadan önceki denemeler bellekte bekler (çok konumluda tekrar
 	// deneme konum başınadır; birleşik "tekrar deneniyor" sonucu kaydedilir).
@@ -257,14 +282,19 @@ func (r *runner) process(res check.Result) {
 		// pencere kısa kalsın); son değişimler ve çözülme kaydı sonra yazılır.
 		started, err := r.e.store.ResolveIncident(ctx, r.m.ID, now.Unix())
 		if err != nil {
-			r.e.log.Error("olay kapatılamadı", "monitor", r.m.Name, "hata", err)
+			// Olay açık kalmasın: sonraki sonuçlarda yeniden denenir (retryResolve).
+			r.e.log.Error("olay kapatılamadı, sonraki kontrolde yeniden denenecek", "monitor", r.m.Name, "hata", err)
 		}
 		r.incidentProgress(ctx, now, status, inMaint, res)
 		var downtime time.Duration
 		if started > 0 {
 			downtime = now.Sub(time.Unix(started, 0))
 		}
-		r.resolveEvent(ctx, r.incidentID, now, res.Message, downtime)
+		if err != nil {
+			r.unresolved = &pendingResolve{id: r.incidentID, at: now, msg: res.Message}
+		} else {
+			r.resolveEvent(ctx, r.incidentID, now, res.Message, downtime)
+		}
 		r.e.log.Info("monitör tekrar UP", "monitor", r.m.Name, "kesinti", downtime.Round(time.Second))
 		r.notify(notify.KindUp, now, res.Message, downtime)
 		r.incidentID, r.locPrev, r.maintLogged = 0, nil, false
