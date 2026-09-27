@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/kadirsa1105/uptime-kadir-app/internal/check"
+	"github.com/kadirsa1105/uptime-kadir-app/internal/maintenance"
 	"github.com/kadirsa1105/uptime-kadir-app/internal/notify"
 	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
 )
@@ -39,6 +40,7 @@ type Engine struct {
 	cfg      Config
 	sem      chan struct{}
 	settings atomic.Pointer[store.AppSettings]
+	maint    atomic.Pointer[maintenance.Index] // aktif bakım pencereleri (ReloadMaintenance)
 	now      func() time.Time
 
 	mu      sync.Mutex
@@ -68,6 +70,9 @@ func New(st *store.Store, n Notifier, hub *Hub, log *slog.Logger, cfg Config) *E
 func (e *Engine) Start(ctx context.Context) error {
 	if s, err := e.store.LoadSettings(ctx); err == nil {
 		e.settings.Store(&s)
+	}
+	if err := e.ReloadMaintenance(ctx); err != nil {
+		e.log.Error("bakım pencereleri yüklenemedi", "hata", err)
 	}
 	monitors, err := e.store.ListMonitors(ctx)
 	if err != nil {
@@ -204,6 +209,7 @@ func (e *Engine) start(m store.Monitor) error {
 		return fmt.Errorf("monitör %d zaten çalışıyor", m.ID)
 	}
 	ctx, cancel := context.WithCancel(e.ctx)
+	ctx = check.WithStatusSource(ctx, e.monitorStatuses) // grup monitörleri alt monitörleri okur
 	r := &runner{
 		e: e, m: m, checker: checker, cancel: cancel,
 		done:   make(chan struct{}),

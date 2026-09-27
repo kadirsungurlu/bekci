@@ -27,7 +27,7 @@ func (s *Server) summary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	vis := visibleTo(userFrom(r))
-	var up, down, pending, paused, total int
+	var up, down, pending, paused, maint, total int
 	var sumUp, sumDown int64
 	for _, m := range monitors {
 		if !vis.can(m.ID) {
@@ -38,10 +38,12 @@ func (s *Server) summary(w http.ResponseWriter, r *http.Request) {
 			paused++
 			continue
 		}
-		switch m.Status {
-		case store.StatusUp:
+		switch {
+		case m.Status == store.StatusMaintenance || s.engine.InMaintenance(m.ID, now):
+			maint++
+		case m.Status == store.StatusUp:
 			up++
-		case store.StatusDown:
+		case m.Status == store.StatusDown:
 			down++
 		default:
 			pending++
@@ -74,7 +76,7 @@ func (s *Server) summary(w http.ResponseWriter, r *http.Request) {
 		uptime = &pct
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"total": total, "up": up, "down": down, "pending": pending, "paused": paused,
+		"total": total, "up": up, "down": down, "pending": pending, "paused": paused, "maintenance": maint,
 		"uptime_24h": uptime, "incidents_24h": incidents,
 	})
 }
