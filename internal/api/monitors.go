@@ -127,18 +127,18 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 			continue
 		}
 		bars, up := hourlyBars(now, hourly[m.ID])
+		// Hedef, gizli alanlar maskelenmeden önce hesaplanır (ör. MongoDB URI'sinden
+		// kimlik bilgisi atılmış sunucu adresi); Target zaten şifre içermez.
+		target := engine.Target(m)
 		m.Config = maskMonitorConfig(m.Type, m.Config)
 		ids := links[m.ID]
 		if ids == nil {
 			ids = []int64{}
 		}
-		target := engine.Target(m) // ayarlar izleyici için gizlenmeden önce
 		if !full {
-			// Adrese gömülü kullanıcı adı/şifre ve sorgu (token olabilir) izleyiciye gösterilmez.
+			// İzleyici: adrese gömülü kullanıcı adı/şifre ve sorgu (token olabilir),
+			// ayarlar, push token'ı ve bildirim bağlantıları gizli.
 			target = publicTarget(target)
-		}
-		if !full {
-			// İzleyici: ayarlar, push token'ı ve bildirim bağlantıları gizli.
 			m.Config, m.PushToken, ids = json.RawMessage("{}"), "", []int64{}
 		}
 		loc, ok := locs[m.ID]
