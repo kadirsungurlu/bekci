@@ -11,7 +11,9 @@
 //
 // Şifre sıfırlama (giriş yapılamadığında, container içinde):
 //
-//	uptime sifre-sifirla <kullanıcı-adı>   (yeni şifre standart girdiden okunur)
+//	uptime sifre-sifirla <kullanıcı-adı> [--2fa-kapat]
+//	  yeni şifre standart girdiden okunur; --2fa-kapat iki adımlı doğrulamayı
+//	  da kapatır (telefon ve kurtarma kodları kaybolduysa)
 package main
 
 import (
@@ -129,13 +131,27 @@ func run() error {
 func runCommand(st *store.Store, args []string) error {
 	switch args[0] {
 	case "sifre-sifirla":
-		if len(args) != 2 {
-			return errors.New("kullanım: uptime sifre-sifirla <kullanıcı-adı>")
+		usage := errors.New("kullanım: uptime sifre-sifirla <kullanıcı-adı> [--2fa-kapat]")
+		var names []string
+		disable2FA := false
+		for _, a := range args[1:] {
+			switch {
+			case a == "--2fa-kapat":
+				disable2FA = true
+			case strings.HasPrefix(a, "-"):
+				return usage
+			default:
+				names = append(names, a)
+			}
 		}
+		if len(names) != 1 {
+			return usage
+		}
+		name := names[0]
 		ctx := context.Background()
-		u, err := st.UserByName(ctx, args[1])
+		u, err := st.UserByName(ctx, name)
 		if err != nil {
-			return fmt.Errorf("kullanıcı bulunamadı: %s", args[1])
+			return fmt.Errorf("kullanıcı bulunamadı: %s", name)
 		}
 		fmt.Fprint(os.Stderr, "Yeni şifre: ")
 		line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
@@ -155,6 +171,15 @@ func runCommand(st *store.Store, args []string) error {
 			return err
 		}
 		fmt.Fprintln(os.Stderr, "Şifre değiştirildi, tüm oturumlar kapatıldı.")
+		switch {
+		case disable2FA && u.TwoFactorEnabled:
+			if err := st.DisableTwoFactor(ctx, u.ID); err != nil {
+				return err
+			}
+			fmt.Fprintln(os.Stderr, "İki adımlı doğrulama kapatıldı.")
+		case u.TwoFactorEnabled:
+			fmt.Fprintln(os.Stderr, "Not: iki adımlı doğrulama açık; kapatmak için komutu --2fa-kapat ile çalıştırın.")
+		}
 		return nil
 	case "version", "surum":
 		fmt.Println(version)

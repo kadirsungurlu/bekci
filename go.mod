@@ -5,6 +5,7 @@ go 1.27
 require (
 	github.com/miekg/dns v1.1.73
 	github.com/prometheus-community/pro-bing v0.9.1
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/tidwall/gjson v1.19.0
 	golang.org/x/crypto v0.57.0
 	modernc.org/sqlite v1.59.0
