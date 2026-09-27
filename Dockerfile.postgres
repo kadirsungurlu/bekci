@@ -2,9 +2,13 @@
 # Coolify: Build Pack = Dockerfile, Dockerfile Location = /Dockerfile.postgres,
 # Port 8080, kalıcı depolama /data (veritabanı /data/postgres, yedekler /data/backups).
 # Varsayılan (SQLite) imaj için: Dockerfile.
+#
+# Temel imajlar digest ile sabitlenmiştir (tekrarlanabilir derleme). Güncellemek
+# için: docker buildx imagetools inspect <imaj:etiket> → "Digest" satırı.
 
 # 1) Arayüz
-FROM node:24-alpine AS web
+# node:24-alpine
+FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS web
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -12,7 +16,8 @@ COPY web/ ./
 RUN npm run build
 
 # 2) Uygulama
-FROM golang:1.27-alpine AS build
+# golang:1.27-alpine
+FROM golang:1.27-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -31,20 +36,39 @@ RUN mkdir -p /out/agents && for p in ${AGENT_PLATFORMS}; do \
         -o /out/agents/uptime-$os-$arch$ext ./cmd/uptime || exit 1; \
     done
 
-# 3) Çalışma imajı: resmi PostgreSQL 18 (Alpine) + uygulama
-FROM postgres:18-alpine
-RUN apk add --no-cache tini ca-certificates
+# 3) Çalışma imajı: Alpine + Alpine'ın PostgreSQL 18 paketi + uygulama.
+# Resmi postgres imajı yerine düz Alpine: resmi imaj VOLUME /var/lib/postgresql
+# tanımlar ve her container için kullanılmayan anonim bir birim oluşturur
+# (veri /data/postgres'te durur); ayrıca JIT/LLVM vb. yüzünden ~4 kat büyüktür.
+# Ana sürüm paket adıyla (postgresql18) sabittir; ara sürüm (18.x) Alpine
+# 3.24 deposundaki güncel pakettir. Veri klasörü resmi postgres:18-alpine ile
+# oluşturulmuş olanlarla uyumludur (aynı ana sürüm, aynı uid 70).
+# alpine:3.24
+FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+ENV PG_MAJOR=18
+RUN apk add --no-cache "postgresql${PG_MAJOR}" "postgresql${PG_MAJOR}-client" \
+      su-exec tini ca-certificates \
+    && postgres --version | grep -q " ${PG_MAJOR}\."
 COPY --from=build /out/uptime /usr/local/bin/uptime
 COPY --from=build /out/agents/ /usr/local/share/uptime/agents/
-COPY deploy/postgres-entrypoint.sh /usr/local/bin/uptime-entrypoint
+COPY --chmod=755 deploy/postgres-entrypoint.sh /usr/local/bin/uptime-entrypoint
 
+# DATABASE_URL imajda tanımlı: "docker exec <container> uptime sifre-sifirla
+# <kullanıcı>" gibi komutlar da gömülü veritabanına bağlansın. Yerel sokette
+# kimlik doğrulaması "trust" olduğundan root da postgres kullanıcısı olarak
+# bağlanabilir (PostgreSQL ağa açık değildir).
 ENV ADDR=:8080 \
     DATA_DIR=/data \
-    TZ=Europe/Istanbul
+    TZ=Europe/Istanbul \
+    DATABASE_URL="postgres:///uptime?host=/run/postgresql&user=postgres&sslmode=disable"
 VOLUME ["/data"]
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-    CMD wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1
+# /run/uptime-bekliyor: container, aynı /data'yı kullanan eski container'ın
+# kapanmasını bekliyor (bkz. deploy/postgres-entrypoint.sh). Bu sırada
+# "sağlıklı" sayılır ki Coolify'ın rolling update'i eski container'ı
+# durdurabilsin; eski kapanınca yenisi kilidi alıp saniyeler içinde açılır.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --start-interval=2s --retries=3 \
+    CMD [ -e /run/uptime-bekliyor ] || wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1
 
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/uptime-entrypoint"]

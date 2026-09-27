@@ -1,7 +1,11 @@
 # Uptime — Coolify: Build Pack = Dockerfile, Port 8080, kalıcı depolama /data
+#
+# Temel imajlar digest ile sabitlenmiştir (tekrarlanabilir derleme). Güncellemek
+# için: docker buildx imagetools inspect <imaj:etiket> → "Digest" satırı.
 
 # 1) Arayüz
-FROM node:24-alpine AS web
+# node:24-alpine
+FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS web
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -9,7 +13,8 @@ COPY web/ ./
 RUN npm run build
 
 # 2) Uygulama (arayüz ikilinin içine gömülür)
-FROM golang:1.27-alpine AS build
+# golang:1.27-alpine
+FROM golang:1.27-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -32,7 +37,8 @@ RUN mkdir -p /out/agents && for p in ${AGENT_PLATFORMS}; do \
     done
 
 # 3) Çalışma imajı
-FROM alpine:3
+# alpine:3.24
+FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 RUN apk add --no-cache ca-certificates \
     && adduser -D -H -u 1000 uptime \
     && mkdir -p /data \
@@ -49,7 +55,7 @@ ENV ADDR=:8080 \
 VOLUME ["/data"]
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --start-interval=2s --retries=3 \
     CMD wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1
 
 ENTRYPOINT ["uptime"]
