@@ -13,7 +13,31 @@ export const NOTIFY_LABELS: Record<NotificationType, string> = {
   ntfy: 'ntfy',
   gotify: 'Gotify',
   pushover: 'Pushover',
+  teams: 'Microsoft Teams',
+  googlechat: 'Google Chat',
+  mattermost: 'Mattermost',
+  rocketchat: 'Rocket.Chat',
+  matrix: 'Matrix',
+  signal: 'Signal',
+  pagerduty: 'PagerDuty',
+  opsgenie: 'Opsgenie',
+  homeassistant: 'Home Assistant',
+  netgsm: 'Netgsm (SMS)',
+  twilio: 'Twilio (SMS)',
+  pushbullet: 'Pushbullet',
+  bark: 'Bark (iOS)',
+  line: 'LINE',
+  apprise: 'Apprise',
 };
+
+/** Tip seçicideki gruplar (sıra korunur). */
+export const NOTIFY_GROUPS: { label: string; types: NotificationType[] }[] = [
+  { label: 'Mesajlaşma', types: ['whatsapp', 'telegram', 'discord', 'slack', 'teams', 'googlechat', 'mattermost', 'rocketchat', 'matrix', 'signal', 'line'] },
+  { label: 'E-posta ve SMS', types: ['email', 'netgsm', 'twilio'] },
+  { label: 'Mobil bildirim', types: ['ntfy', 'gotify', 'pushover', 'pushbullet', 'bark', 'homeassistant'] },
+  { label: 'Olay yönetimi', types: ['pagerduty', 'opsgenie'] },
+  { label: 'Genel', types: ['webhook', 'apprise'] },
+];
 
 /** Liste simgeleri: tip başına ikon ve app.css'teki renk değişkeni. */
 export const NOTIFY_STYLE: Record<NotificationType, { color: string; icon: IconName }> = {
@@ -26,9 +50,24 @@ export const NOTIFY_STYLE: Record<NotificationType, { color: string; icon: IconN
   ntfy: { color: 'var(--ch-ntfy)', icon: 'bell' },
   gotify: { color: 'var(--ch-gotify)', icon: 'server' },
   pushover: { color: 'var(--ch-pushover)', icon: 'smartphone' },
+  teams: { color: 'var(--ch-teams)', icon: 'users' },
+  googlechat: { color: 'var(--ch-googlechat)', icon: 'messages' },
+  mattermost: { color: 'var(--ch-mattermost)', icon: 'at-sign' },
+  rocketchat: { color: 'var(--ch-rocketchat)', icon: 'rocket' },
+  matrix: { color: 'var(--ch-matrix)', icon: 'brackets' },
+  signal: { color: 'var(--ch-signal)', icon: 'message-circle' },
+  pagerduty: { color: 'var(--ch-pagerduty)', icon: 'siren' },
+  opsgenie: { color: 'var(--ch-opsgenie)', icon: 'alert-circle' },
+  homeassistant: { color: 'var(--ch-homeassistant)', icon: 'home' },
+  netgsm: { color: 'var(--ch-netgsm)', icon: 'sms' },
+  twilio: { color: 'var(--ch-twilio)', icon: 'sms' },
+  pushbullet: { color: 'var(--ch-pushbullet)', icon: 'arrow-up-circle' },
+  bark: { color: 'var(--ch-bark)', icon: 'bell-ring' },
+  line: { color: 'var(--ch-line)', icon: 'message-dots' },
+  apprise: { color: 'var(--ch-apprise)', icon: 'share' },
 };
 
-export type FieldKind = 'text' | 'secret' | 'number' | 'select' | 'textarea' | 'url';
+export type FieldKind = 'text' | 'secret' | 'number' | 'select' | 'textarea' | 'url' | 'bool';
 
 export interface Field {
   key: string;
@@ -43,6 +82,11 @@ export interface Field {
   min?: number;
   max?: number;
   wide?: boolean;
+  /** Sayı olarak gönderilir (select olsa bile). */
+  numeric?: boolean;
+  /** Doluysa uyması gereken biçim ve uymazsa gösterilecek mesaj. */
+  pattern?: RegExp;
+  patternMsg?: string;
 }
 
 export interface NotifySchema {
@@ -82,6 +126,7 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
         key: 'thread_id',
         label: 'Konu kimliği (thread ID)',
         kind: 'number',
+        numeric: true,
         optional: true,
         help: 'Konulara ayrılmış gruplarda mesajın gideceği konu.',
       },
@@ -101,7 +146,7 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
           { v: 'none', l: 'Yok (25)' },
         ],
       },
-      { key: 'port', label: 'Port', kind: 'number', def: 587, min: 1, max: 65535 },
+      { key: 'port', label: 'Port', kind: 'number', numeric: true, def: 587, min: 1, max: 65535 },
       { key: 'username', label: 'Kullanıcı adı', kind: 'text', optional: true },
       { key: 'password', label: 'Şifre', kind: 'secret', optional: true },
       { key: 'from', label: 'Gönderen', kind: 'text', placeholder: 'Uptime <uptime@ornek.com>', required: true },
@@ -171,14 +216,14 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
       { key: 'server', label: 'Sunucu', kind: 'url', def: 'https://ntfy.sh', placeholder: 'https://ntfy.sh' },
       { key: 'topic', label: 'Konu (topic)', kind: 'text', placeholder: 'benim-uptime-konum', required: true },
       { key: 'token', label: 'Erişim token', kind: 'secret', optional: true, help: 'Korumalı konular için.' },
-      { key: 'priority', label: 'Öncelik (1-5)', kind: 'number', def: 4, min: 1, max: 5, help: 'Sorun bildirimlerinde kullanılır.' },
+      { key: 'priority', label: 'Öncelik (1-5)', kind: 'number', numeric: true, def: 4, min: 1, max: 5, help: 'Sorun bildirimlerinde kullanılır.' },
     ],
   },
   gotify: {
     fields: [
       { key: 'server', label: 'Sunucu', kind: 'url', placeholder: 'https://gotify.ornek.com', required: true, wide: true },
       { key: 'app_token', label: 'Uygulama token', kind: 'secret', required: true },
-      { key: 'priority', label: 'Öncelik (1-10)', kind: 'number', def: 8, min: 1, max: 10 },
+      { key: 'priority', label: 'Öncelik (1-10)', kind: 'number', numeric: true, def: 8, min: 1, max: 10 },
     ],
   },
   pushover: {
@@ -190,6 +235,7 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
         key: 'priority',
         label: 'Öncelik',
         kind: 'select',
+        numeric: true,
         def: '0',
         options: [
           { v: '-2', l: 'En düşük (-2)' },
@@ -200,10 +246,287 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
       },
     ],
   },
+  teams: {
+    help: 'Teams kanalına Adaptive Card ile bildirim gönderir (Workflows webhook’u).',
+    fields: [
+      {
+        key: 'webhook_url',
+        label: 'Webhook adresi',
+        kind: 'secret',
+        placeholder: 'https://prod-xx.westus.logic.azure.com/...',
+        help: 'Teams kanalında “Workflows” › “Post to a channel when a webhook request is received” akışı oluşturup verilen adresi yapıştırın (eski “Incoming Webhook” bağlayıcısı kapatıldı).',
+        required: true,
+        wide: true,
+      },
+    ],
+  },
+  googlechat: {
+    help: 'Google Chat alanına (space) web kancası ile bildirim gönderir.',
+    fields: [
+      {
+        key: 'webhook_url',
+        label: 'Webhook adresi',
+        kind: 'secret',
+        placeholder: 'https://chat.googleapis.com/v1/spaces/.../messages?key=...&token=...',
+        help: 'Alan ayarlarından “Web kancaları” ile oluşturun.',
+        required: true,
+        wide: true,
+      },
+    ],
+  },
+  mattermost: {
+    help: 'Mattermost gelen web kancasına bildirim gönderir.',
+    fields: [
+      {
+        key: 'webhook_url',
+        label: 'Webhook adresi',
+        kind: 'secret',
+        placeholder: 'https://mattermost.ornek.com/hooks/xxxxx',
+        help: 'Sistem Konsolu › Entegrasyonlar › Gelen Web Kancaları',
+        required: true,
+        wide: true,
+      },
+      { key: 'channel', label: 'Kanal', kind: 'text', placeholder: '#uyarilar', optional: true, help: 'Boşsa web kancasının kanalı.' },
+      { key: 'username', label: 'Görünen ad', kind: 'text', def: 'Uptime', optional: true },
+      { key: 'icon_url', label: 'Simge adresi', kind: 'url', optional: true, wide: true, placeholder: 'https://ornek.com/simge.png' },
+    ],
+  },
+  rocketchat: {
+    help: 'Rocket.Chat gelen web kancasına bildirim gönderir.',
+    fields: [
+      {
+        key: 'webhook_url',
+        label: 'Webhook adresi',
+        kind: 'secret',
+        placeholder: 'https://chat.ornek.com/hooks/...',
+        help: 'Yönetim › Entegrasyonlar › Gelen',
+        required: true,
+        wide: true,
+      },
+      { key: 'channel', label: 'Kanal', kind: 'text', placeholder: '#uyarilar', optional: true },
+      { key: 'alias', label: 'Görünen ad', kind: 'text', def: 'Uptime', optional: true },
+      { key: 'avatar', label: 'Avatar adresi', kind: 'url', optional: true, wide: true, placeholder: 'https://ornek.com/avatar.png' },
+    ],
+  },
+  matrix: {
+    help: 'Matrix odasına mesaj gönderir.',
+    fields: [
+      { key: 'homeserver_url', label: 'Sunucu adresi', kind: 'url', placeholder: 'https://matrix.org', required: true, wide: true },
+      {
+        key: 'access_token',
+        label: 'Erişim jetonu',
+        kind: 'secret',
+        placeholder: 'syt_...',
+        help: 'Element › Ayarlar › Yardım ve Hakkında › Gelişmiş › Erişim Jetonu (tercihen ayrı bir bot hesabı).',
+        required: true,
+        wide: true,
+      },
+      {
+        key: 'room_id',
+        label: 'Oda ID’si',
+        kind: 'text',
+        placeholder: '!AbCdEf:matrix.org',
+        help: 'Oda ayarları › Gelişmiş (takma ad değil).',
+        required: true,
+        wide: true,
+      },
+    ],
+  },
+  signal: {
+    help: 'signal-cli-rest-api sunucusu üzerinden Signal mesajı gönderir.',
+    fields: [
+      { key: 'url', label: 'Sunucu adresi', kind: 'url', placeholder: 'http://signal-cli:8080', required: true, wide: true },
+      { key: 'number', label: 'Gönderen numara', kind: 'text', placeholder: '+905551112233', required: true },
+      {
+        key: 'recipients',
+        label: 'Alıcılar',
+        kind: 'text',
+        placeholder: '+905551112233, +905553334455',
+        help: 'Birden fazla alıcıyı virgülle ayırın.',
+        required: true,
+        wide: true,
+      },
+    ],
+  },
+  pagerduty: {
+    help: 'PagerDuty’de Events API v2 ile olay açar ve düzelince çözer.',
+    fields: [
+      {
+        key: 'routing_key',
+        label: 'Routing key',
+        kind: 'secret',
+        help: 'Servisin “Events API v2” entegrasyon anahtarı.',
+        required: true,
+        wide: true,
+      },
+      {
+        key: 'severity',
+        label: 'Önem derecesi',
+        kind: 'select',
+        def: 'critical',
+        help: 'SSL sertifikası uyarıları her zaman “warning” gönderilir.',
+        options: [
+          { v: 'critical', l: 'Kritik (critical)' },
+          { v: 'error', l: 'Hata (error)' },
+          { v: 'warning', l: 'Uyarı (warning)' },
+          { v: 'info', l: 'Bilgi (info)' },
+        ],
+      },
+    ],
+  },
+  opsgenie: {
+    help: 'Opsgenie’de alarm açar ve düzelince kapatır.',
+    fields: [
+      { key: 'api_key', label: 'API anahtarı', kind: 'secret', help: 'Takımlar › Entegrasyonlar › API', required: true, wide: true },
+      {
+        key: 'region',
+        label: 'Bölge',
+        kind: 'select',
+        def: 'us',
+        options: [
+          { v: 'us', l: 'ABD (us)' },
+          { v: 'eu', l: 'Avrupa (eu)' },
+        ],
+      },
+      {
+        key: 'priority',
+        label: 'Öncelik',
+        kind: 'select',
+        def: 'P3',
+        options: [
+          { v: 'P1', l: 'P1 — Kritik' },
+          { v: 'P2', l: 'P2 — Yüksek' },
+          { v: 'P3', l: 'P3 — Orta' },
+          { v: 'P4', l: 'P4 — Düşük' },
+          { v: 'P5', l: 'P5 — Bilgi' },
+        ],
+      },
+    ],
+  },
+  homeassistant: {
+    help: 'Home Assistant notify servisi üzerinden bildirim gönderir (mobil uygulama vb.).',
+    fields: [
+      { key: 'url', label: 'Home Assistant adresi', kind: 'url', placeholder: 'http://homeassistant.local:8123', required: true, wide: true },
+      {
+        key: 'token',
+        label: 'Uzun ömürlü erişim jetonu',
+        kind: 'secret',
+        help: 'Profil › Güvenlik › Uzun Ömürlü Erişim Jetonları',
+        required: true,
+        wide: true,
+      },
+      {
+        key: 'service',
+        label: 'Bildirim servisi',
+        kind: 'text',
+        placeholder: 'mobile_app_kadir_iphone',
+        help: '“notify.” öneki olmadan.',
+        required: true,
+        pattern: /^[a-z0-9_]+$/,
+        patternMsg: 'Bildirim servisi yalnızca küçük harf, rakam ve alt çizgi içerebilir (notify. öneki olmadan).',
+        wide: true,
+      },
+    ],
+  },
+  netgsm: {
+    help: 'Netgsm üzerinden Türkiye numaralarına SMS gönderir.',
+    fields: [
+      { key: 'usercode', label: 'Kullanıcı kodu', kind: 'text', required: true },
+      { key: 'password', label: 'API şifresi', kind: 'secret', required: true },
+      { key: 'msgheader', label: 'Gönderici başlığı', kind: 'text', placeholder: 'FIRMA', help: 'Netgsm’de onaylı başlık.', required: true },
+      {
+        key: 'gsm',
+        label: 'Telefon numaraları',
+        kind: 'text',
+        placeholder: '5551112233, 5553334455',
+        help: 'Virgülle ayırın. 0, 90 ve +90 önekleri otomatik düzeltilir.',
+        required: true,
+        wide: true,
+      },
+      {
+        key: 'turkish_chars',
+        label: 'Türkçe karakterler',
+        kind: 'bool',
+        help: 'Açıksa ç, ğ, ı, ö, ş, ü korunur (SMS başına karakter hakkı azalabilir).',
+        wide: true,
+      },
+    ],
+  },
+  twilio: {
+    help: 'Twilio ile SMS gönderir.',
+    fields: [
+      { key: 'account_sid', label: 'Account SID', kind: 'text', placeholder: 'ACxxxxxxxx…', required: true },
+      { key: 'auth_token', label: 'Auth token', kind: 'secret', required: true },
+      {
+        key: 'from',
+        label: 'Gönderen numara',
+        kind: 'text',
+        placeholder: '+15551234567',
+        help: 'Ülke koduyla, + ile başlayarak.',
+        required: true,
+      },
+      {
+        key: 'to',
+        label: 'Alıcı numaralar',
+        kind: 'text',
+        placeholder: '+905551112233, +905553334455',
+        help: 'Virgülle ayırın; her numara + ve ülke koduyla.',
+        required: true,
+        wide: true,
+      },
+    ],
+  },
+  pushbullet: {
+    help: 'Pushbullet bildirimi gönderir.',
+    fields: [
+      { key: 'access_token', label: 'Erişim jetonu', kind: 'secret', help: 'Ayarlar › Erişim Jetonları', required: true, wide: true },
+      { key: 'channel_tag', label: 'Kanal etiketi', kind: 'text', optional: true, help: 'Cihaz ID’si ile birlikte kullanılamaz.' },
+      { key: 'device_iden', label: 'Cihaz ID’si', kind: 'text', optional: true, help: 'Boşsa tüm cihazlarınıza gider.' },
+    ],
+  },
+  bark: {
+    help: 'Bark uygulamasına iOS bildirimi gönderir.',
+    fields: [
+      { key: 'server', label: 'Sunucu adresi', kind: 'url', def: 'https://api.day.app', placeholder: 'https://api.day.app', wide: true },
+      { key: 'device_key', label: 'Cihaz anahtarı', kind: 'secret', required: true, wide: true },
+      { key: 'sound', label: 'Ses', kind: 'text', optional: true, placeholder: 'alarm' },
+      { key: 'group', label: 'Grup', kind: 'text', def: 'Uptime', optional: true },
+    ],
+  },
+  line: {
+    help: 'LINE Messaging API ile mesaj gönderir (LINE Notify kapatıldı).',
+    fields: [
+      { key: 'channel_access_token', label: 'Kanal erişim jetonu', kind: 'secret', required: true, wide: true },
+      {
+        key: 'to',
+        label: 'Alıcı ID’si',
+        kind: 'text',
+        placeholder: 'U0123456789abcdef0123456789abcdef',
+        help: 'Kullanıcı (U…), grup (C…) veya oda (R…) kimliği.',
+        required: true,
+        pattern: /^[UCR][0-9a-f]{32}$/,
+        patternMsg: 'Alıcı ID’si U, C veya R ile başlayan 33 karakterlik bir kimlik olmalı.',
+        wide: true,
+      },
+    ],
+  },
+  apprise: {
+    help: 'Kendi Apprise API sunucunuz üzerinden 100’den fazla servise gönderir.',
+    fields: [
+      { key: 'server', label: 'Apprise sunucu adresi', kind: 'url', placeholder: 'http://apprise:8000', required: true, wide: true },
+      {
+        key: 'urls',
+        label: 'Apprise URL’leri',
+        kind: 'secret',
+        placeholder: 'tgram://token/chatid, discord://…',
+        help: 'Birden fazla adresi virgülle ayırın. Gizli bilgi olarak saklanır.',
+        required: true,
+        wide: true,
+      },
+    ],
+  },
 };
 
-/** Sayı olarak gönderilmesi gereken alanlar (select olsa bile). */
-export const NUMERIC_KEYS = new Set(['port', 'thread_id', 'priority']);
 
 export const EMAIL_PORTS: Record<string, number> = { starttls: 587, tls: 465, none: 25 };
 

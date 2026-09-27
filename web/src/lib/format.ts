@@ -1,6 +1,6 @@
 // Türkçe biçimlendirme yardımcıları. Zamanlar unix saniyesidir.
 
-import { STATUS_DOWN, STATUS_PENDING, STATUS_UP, type Bucket, type MonitorType } from './api';
+import { STATUS_DOWN, STATUS_MAINTENANCE, STATUS_PENDING, STATUS_UP, type Bucket, type MonitorView } from './api';
 
 export const nowSec = () => Math.floor(Date.now() / 1000);
 
@@ -126,35 +126,42 @@ export function fmtInterval(sec: number): string {
   return `${sec} sn`;
 }
 
-export const TYPE_LABELS: Record<MonitorType, string> = {
-  http: 'HTTP',
-  tcp: 'TCP',
-  ping: 'PING',
-  dns: 'DNS',
-  push: 'PUSH',
-};
+export type StatusKind = 'up' | 'down' | 'pending' | 'paused' | 'maintenance';
 
-export type StatusKind = 'up' | 'down' | 'pending' | 'paused';
-
-export function statusKind(status: number, active: boolean): StatusKind {
+export function statusKind(status: number, active: boolean, inMaintenance = false): StatusKind {
   if (!active) return 'paused';
+  if (status === STATUS_MAINTENANCE || inMaintenance) return 'maintenance';
   if (status === STATUS_UP) return 'up';
   if (status === STATUS_DOWN) return 'down';
   return 'pending';
 }
+
+/** Monitörün şu anki görünen durumu (bakım penceresi dahil). */
+export const monitorKind = (m: MonitorView): StatusKind => statusKind(m.status, m.active, m.in_maintenance);
 
 export const STATUS_LABELS: Record<StatusKind, string> = {
   up: 'Çalışıyor',
   down: 'Çalışmıyor',
   pending: 'Bekleniyor',
   paused: 'Durduruldu',
+  maintenance: 'Bakımda',
 };
 
 export function pointStatusLabel(s: number): string {
   if (s === STATUS_UP) return 'Çalışıyor';
   if (s === STATUS_DOWN) return 'Çalışmıyor';
   if (s === STATUS_PENDING) return 'Tekrar deneniyor';
+  if (s === STATUS_MAINTENANCE) return 'Bakımda';
   return 'Bilinmiyor';
+}
+
+/** Ham nokta durumunun renk sınıfı (c-up, c-down …). */
+export function pointStatusClass(s: number): string {
+  if (s === STATUS_UP) return 'up';
+  if (s === STATUS_DOWN) return 'down';
+  if (s === STATUS_PENDING) return 'pending';
+  if (s === STATUS_MAINTENANCE) return 'maint';
+  return 'paused';
 }
 
 export type BarKind = 'up' | 'down' | 'mixed' | 'nodata';
@@ -187,4 +194,37 @@ export const collator = new Intl.Collator('tr', { sensitivity: 'base', numeric: 
 export function certDaysLeft(expiresAt: number, now: number): number | null {
   if (!expiresAt) return null;
   return Math.floor((expiresAt - now) / 86400);
+}
+
+/** <input type="date"> değeri (İstanbul saatine göre): "2026-09-27" */
+export function isoDay(ts: number): string {
+  const off = tzOffset(ts);
+  return new Date((ts + off) * 1000).toISOString().slice(0, 10);
+}
+
+/** <input type="datetime-local"> değeri (İstanbul saatine göre): "2026-09-27T14:30" */
+export function isoLocal(ts: number): string {
+  const off = tzOffset(ts);
+  return new Date((ts + off) * 1000).toISOString().slice(0, 16);
+}
+
+/** "2026-09-27T14:30" (İstanbul saati) → unix saniye; geçersizse 0. */
+export function parseLocal(v: string): number {
+  const m = v.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!m) return 0;
+  const asUtc = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) / 1000;
+  // Yaz saati geçişlerinde de doğru sonuç için fark iki kez hesaplanır.
+  let ts = asUtc - tzOffset(asUtc);
+  ts = asUtc - tzOffset(ts);
+  return ts;
+}
+
+/** Rastgele, okunaklı geçici şifre (karışabilen 0/O/l/1 yok). */
+export function randomPassword(len = 14): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const buf = new Uint32Array(len);
+  crypto.getRandomValues(buf);
+  let out = '';
+  for (const n of buf) out += chars[n % chars.length];
+  return out;
 }

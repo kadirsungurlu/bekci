@@ -12,6 +12,11 @@
       <path d="m6 9 6 6 6-6" />
     {:else if kind === 'pending'}
       <path d="M6.5 12h.01M12 12h.01M17.5 12h.01" stroke-width="4" />
+    {:else if kind === 'maintenance'}
+      <path
+        d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+        stroke-width="2.4"
+      />
     {:else}
       <path d="M9 6v12M15 6v12" />
     {/if}
@@ -40,6 +45,10 @@
   .si.pending {
     background: var(--pending);
     color: var(--on-pending);
+  }
+  .si.maintenance {
+    background: var(--maint);
+    color: var(--on-maint);
   }
   .si.paused {
     background: var(--paused);

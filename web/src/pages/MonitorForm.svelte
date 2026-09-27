@@ -15,19 +15,31 @@
   import { toast } from '../lib/ui.svelte';
   import { fmtInterval } from '../lib/format';
   import { NOTIFY_LABELS } from '../lib/notifyTypes';
-  import Icon, { type IconName } from '../components/Icon.svelte';
+  import {
+    CATEGORY_LABELS,
+    GROUP_MODES,
+    MONITOR_TYPES,
+    hasTimeout,
+    hasUpsideDown,
+    typeDef,
+    type TypeCategory,
+  } from '../lib/monitorTypes';
+  import Icon from '../components/Icon.svelte';
+  import MonitorPicker from '../components/MonitorPicker.svelte';
+  import ConfigFields, { fieldConfig, fieldDefaults, fieldError, fieldValues } from '../components/ConfigFields.svelte';
 
   let { id }: { id?: number } = $props();
   // svelte-ignore state_referenced_locally
   const isEdit = id !== undefined;
 
-  const TYPES: { key: MonitorType; label: string; desc: string; icon: IconName }[] = [
-    { key: 'http', label: 'HTTP(S)', desc: 'Web sitesi veya API adresini kontrol eder', icon: 'globe' },
-    { key: 'tcp', label: 'TCP Port', desc: 'Sunucudaki bir portun açık olduğunu kontrol eder', icon: 'plug' },
-    { key: 'ping', label: 'Ping', desc: 'Sunucunun ağdan yanıt verdiğini kontrol eder', icon: 'radio' },
-    { key: 'dns', label: 'DNS', desc: 'Alan adının DNS kaydını sorgular', icon: 'server' },
-    { key: 'push', label: 'Push', desc: 'Cron işlerinin düzenli sinyal göndermesini bekler', icon: 'inbox' },
-  ];
+  // Tip seçici: kayıt defteri 8'den fazla tip içerince kategorilere ayrılır.
+  const typeGroups = (() => {
+    if (MONITOR_TYPES.length <= 8) return [{ label: '', types: MONITOR_TYPES }];
+    const order: TypeCategory[] = ['web', 'network', 'passive'];
+    return order
+      .map((c) => ({ label: CATEGORY_LABELS[c], types: MONITOR_TYPES.filter((t) => t.category === c) }))
+      .filter((g) => g.types.length);
+  })();
 
   const PRESETS = [30, 60, 120, 300, 600, 900, 1800, 3600, 86400];
   const METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
@@ -96,6 +108,15 @@
   let recordType = $state('A');
   let dnsExpected = $state('');
 
+  // Grup
+  let groupIds = $state<number[]>([]);
+  let groupMode = $state<'any_down' | 'all_down'>('any_down');
+
+  // Kayıt defterinde alanlarıyla tanımlı (özel bölümü olmayan) tipler
+  let extra = $state<Record<string, string>>({});
+  const def = $derived(typeDef(type));
+  const genericFields = $derived(def?.fields ?? []);
+
   const interval = $derived(intervalPreset === 'custom' ? (customInterval ?? 0) : Number(intervalPreset));
 
   const str = (c: Record<string, unknown>, k: string, d = '') => (typeof c[k] === 'string' ? (c[k] as string) : d);
@@ -156,7 +177,22 @@
         recordType = str(c, 'record_type', 'A') || 'A';
         dnsExpected = str(c, 'expected');
         break;
+      case 'group':
+        groupIds = Array.isArray(c.monitor_ids) ? (c.monitor_ids as number[]).slice() : [];
+        groupMode = c.mode === 'all_down' ? 'all_down' : 'any_down';
+        break;
+      default: {
+        const f = typeDef(m.type)?.fields;
+        if (f) extra = fieldValues(f, c);
+      }
     }
+  }
+
+  function pickType(t: MonitorType) {
+    if (t === type) return;
+    type = t;
+    const f = typeDef(t)?.fields;
+    if (f) extra = fieldDefaults(f);
   }
 
   onMount(async () => {
@@ -242,11 +278,20 @@
         if (!host.trim()) return { msg: 'Sorgulanacak alan adı gerekli.' };
         if (!inRange(dnsPort, 1, 65535)) return { msg: 'DNS sunucu portu 1-65535 arasında olmalı.' };
         break;
+      case 'group':
+        if (groupIds.length === 0) return { msg: 'En az bir alt monitör seçin.' };
+        if (isEdit && groupIds.includes(id!)) return { msg: 'Grup kendisini alt monitör olarak içeremez.' };
+        break;
+      default:
+        if (genericFields.length) {
+          const msg = fieldError(genericFields, extra);
+          if (msg) return { msg };
+        }
     }
     if (retryInterval !== null && !inRange(retryInterval, 20, 86400))
       return { msg: 'Tekrar deneme aralığı 20 saniye ile 24 saat arasında olmalı.', advanced: true };
     if (!inRange(maxRetries, 0, 20)) return { msg: 'Tekrar deneme sayısı 0-20 arasında olmalı.', advanced: true };
-    if (type !== 'push' && !inRange(timeout, 1, 300)) return { msg: 'Zaman aşımı 1-300 saniye arasında olmalı.', advanced: true };
+    if (hasTimeout(type) && !inRange(timeout, 1, 300)) return { msg: 'Zaman aşımı 1-300 saniye arasında olmalı.', advanced: true };
     if (!inRange(resendEvery, 0, 10000)) return { msg: 'Hatırlatma sıklığı 0-10000 arasında olmalı.', advanced: true };
     if (description.trim().length > 500) return { msg: 'Açıklama en fazla 500 karakter olabilir.', advanced: true };
     return null;
@@ -285,8 +330,10 @@
           record_type: recordType,
           expected: dnsExpected.trim(),
         };
+      case 'group':
+        return { monitor_ids: groupIds, mode: groupMode };
       default:
-        return {};
+        return genericFields.length ? fieldConfig(genericFields, extra) : {};
     }
   }
 
@@ -314,7 +361,7 @@
       max_retries: maxRetries ?? 0,
       timeout: timeout ?? 30,
       resend_every: resendEvery ?? 0,
-      upside_down: upsideDown,
+      upside_down: hasUpsideDown(type) ? upsideDown : false,
       config: buildConfig(),
       // Kanal listesi alınamadıysa null: yeni monitörde varsayılanlar, düzenlemede mevcut bağlantılar korunur.
       notification_ids: channelsOk ? notifIds.filter((nid) => channels.some((c) => c.id === nid)) : null,
@@ -352,22 +399,25 @@
   <form class="form" onsubmit={submit} novalidate>
     <section class="card">
       <h2 class="card-title">Monitör tipi</h2>
-      <div class="types" role="radiogroup" aria-label="Monitör tipi">
-        {#each TYPES as t (t.key)}
-          <button
-            type="button"
-            role="radio"
-            aria-checked={type === t.key}
-            class="type"
-            class:active={type === t.key}
-            onclick={() => (type = t.key)}
-          >
-            <span class="ticon"><Icon name={t.icon} size={20} /></span>
-            <span class="tlabel">{t.label}</span>
-            <span class="tdesc">{t.desc}</span>
-          </button>
-        {/each}
-      </div>
+      {#each typeGroups as g (g.label)}
+        {#if g.label}<h3 class="tgroup">{g.label}</h3>{/if}
+        <div class="types" role="radiogroup" aria-label={g.label || 'Monitör tipi'}>
+          {#each g.types as t (t.key)}
+            <button
+              type="button"
+              role="radio"
+              aria-checked={type === t.key}
+              class="type"
+              class:active={type === t.key}
+              onclick={() => pickType(t.key)}
+            >
+              <span class="ticon"><Icon name={t.icon} size={20} /></span>
+              <span class="tlabel">{t.label}</span>
+              <span class="tdesc">{t.desc}</span>
+            </button>
+          {/each}
+        </div>
+      {/each}
     </section>
 
     <section class="card stack">
@@ -444,6 +494,24 @@
           Kaydettikten sonra bu monitöre özel bir <b>push adresi</b> oluşturulur. Zamanlanmış işiniz her çalıştığında bu
           adrese istek gönderir; belirlediğiniz süre içinde istek gelmezse size haber veririz.
         </div>
+      {:else if type === 'group'}
+        <div class="field">
+          <span class="label" id="grp-l">Alt monitörler</span>
+          <MonitorPicker bind:selected={groupIds} exclude={isEdit ? [id!] : []} label="Alt monitörler" id="grp" />
+        </div>
+        <div class="field">
+          <span class="label" id="grp-mode">Mod</span>
+          <div class="seg" role="radiogroup" aria-labelledby="grp-mode">
+            {#each GROUP_MODES as gm (gm.v)}
+              <button type="button" role="radio" aria-checked={groupMode === gm.v} class:active={groupMode === gm.v} onclick={() => (groupMode = gm.v)}>
+                {gm.l}
+              </button>
+            {/each}
+          </div>
+          <span class="help">Durdurulmuş ve bakımdaki alt monitörler hesaba katılmaz.</span>
+        </div>
+      {:else if genericFields.length}
+        <ConfigFields fields={genericFields} bind:values={extra} idPrefix="mt" />
       {/if}
 
       <div class="grid-int">
@@ -514,7 +582,7 @@
               <input id="ri" class="input" type="number" min="20" max="86400" bind:value={retryInterval} placeholder="Kontrol aralığıyla aynı ({interval || 60})" />
               <span class="help">Hata sonrası tekrar denemeler arasındaki süre.</span>
             </div>
-            {#if type !== 'push'}
+            {#if hasTimeout(type)}
               <div class="field">
                 <label for="to">Zaman aşımı (sn)</label>
                 <input id="to" class="input" type="number" min="1" max="300" bind:value={timeout} />
@@ -528,10 +596,12 @@
             </div>
           </div>
 
-          <label class="check">
-            <input type="checkbox" bind:checked={upsideDown} />
-            <span>Ters mod<small>Hedef erişilebilir olduğunda “çalışmıyor”, erişilemediğinde “çalışıyor” sayılır.</small></span>
-          </label>
+          {#if hasUpsideDown(type)}
+            <label class="check">
+              <input type="checkbox" bind:checked={upsideDown} />
+              <span>Ters mod<small>Hedef erişilebilir olduğunda “çalışmıyor”, erişilemediğinde “çalışıyor” sayılır.</small></span>
+            </label>
+          {/if}
 
           {#if type === 'http'}
             <div class="divider"></div>
@@ -671,8 +741,18 @@
   }
   .types {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 10px;
+  }
+  .tgroup {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 14px 0 8px;
+  }
+  .tgroup:first-of-type {
+    margin-top: 0;
   }
   .type {
     display: flex;
@@ -691,8 +771,10 @@
       border-color 0.15s,
       background 0.15s;
   }
-  .type:hover {
-    border-color: var(--border-hover);
+  @media (hover: hover) {
+    .type:hover {
+      border-color: var(--border-hover);
+    }
   }
   .type.active {
     border-color: var(--accent);
@@ -790,29 +872,6 @@
     font-size: 0.95rem;
     margin-bottom: -4px;
   }
-  .seg {
-    display: inline-flex;
-    align-self: flex-start;
-    background: var(--input);
-    border: 1px solid var(--border-strong);
-    border-radius: 9px;
-    padding: 3px;
-  }
-  .seg button {
-    background: none;
-    border: none;
-    color: var(--text-2);
-    font: inherit;
-    font-size: 0.88rem;
-    font-weight: 600;
-    padding: 6px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-  }
-  .seg button.active {
-    background: var(--accent);
-    color: var(--accent-contrast);
-  }
   textarea.plain {
     font-family: var(--font);
     font-size: 0.92rem;
@@ -826,7 +885,7 @@
     color: var(--text-2);
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 900px) and (min-width: 641px) {
     .types {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }

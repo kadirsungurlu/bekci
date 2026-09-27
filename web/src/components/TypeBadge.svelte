@@ -1,8 +1,7 @@
 <script lang="ts">
-  import type { MonitorType } from '../lib/api';
-  import { TYPE_LABELS } from '../lib/format';
+  import { typeLabel } from '../lib/monitorTypes';
 
-  let { type }: { type: MonitorType } = $props();
+  let { type }: { type: string } = $props();
 </script>
 
-<span class="badge">{TYPE_LABELS[type] ?? type.toUpperCase()}</span>
+<span class="badge">{typeLabel(type)}</span>
