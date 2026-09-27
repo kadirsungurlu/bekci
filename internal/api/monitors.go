@@ -15,7 +15,11 @@ import (
 )
 
 // monitorSecrets monitör ayarlarında maskelenecek alanlar.
-var monitorSecrets = map[string][]string{"http": {"basic_pass"}}
+var monitorSecrets = map[string][]string{
+	"http": {"basic_pass"},
+	"mqtt": {"password"},
+	"snmp": {"community", "auth_password", "priv_password"},
+}
 
 func maskMonitorConfig(typ string, cfg json.RawMessage) json.RawMessage {
 	keys := monitorSecrets[typ]

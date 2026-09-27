@@ -217,7 +217,7 @@ func (r *runner) process(res check.Result) {
 		}
 	}
 
-	if res.Cert != nil && r.m.Type == "http" {
+	if res.Cert != nil {
 		r.handleCert(ctx, now, res.Cert)
 	}
 
@@ -245,8 +245,9 @@ func (r *runner) handleCert(ctx context.Context, now time.Time, cert *check.Cert
 		}
 		r.m.CertExpiresAt, r.m.CertIssuer = notAfter, cert.Issuer
 	}
-	cfg := check.HTTPConfigOf(r.m.Config)
-	if cfg.CertExpiry != nil && !*cfg.CertExpiry {
+	// Sertifika uyarısını açip kapatabilen tipler CertExpiryChecker'ı uygular;
+	// uygulamayan tipler için uyarı her zaman açık kabul edilir.
+	if ce, ok := r.checker.(check.CertExpiryChecker); ok && !ce.CertExpiryEnabled(r.m.Config) {
 		return
 	}
 	daysLeft := int(math.Floor(cert.NotAfter.Sub(now).Hours() / 24))
@@ -260,7 +261,7 @@ func (r *runner) handleCert(ctx context.Context, now time.Time, cert *check.Cert
 	}
 	r.e.notifier.Notify(notify.Event{
 		Kind: notify.KindCert, MonitorID: r.m.ID, MonitorName: r.m.Name, MonitorType: r.m.Type,
-		Target: cfg.URL, Time: now, CertDays: daysLeft, CertExpires: cert.NotAfter,
+		Target: r.checker.Target(r.m.Config), Time: now, CertDays: daysLeft, CertExpires: cert.NotAfter,
 		CertIssuer: cert.Issuer, URL: r.e.MonitorURL(r.m.ID),
 	})
 }

@@ -44,6 +44,13 @@ type Checker interface {
 	Target(cfg json.RawMessage) string
 }
 
+// CertExpiryChecker sertifika bitiş uyarısını açıp kapatabilen tiplerin
+// isteğe bağlı olarak uyguladığı arayüz. Bir Checker bunu uygulamazsa ve
+// Result.Cert doldurulmuşsa uyarı her zaman açık kabul edilir.
+type CertExpiryChecker interface {
+	CertExpiryEnabled(cfg json.RawMessage) bool
+}
+
 // TypePush pasif monitör tipi: kontrolü uygulama yapmaz, hedef /api/push'a
 // sinyal gönderir. Motor bu tipi özel olarak ele alır.
 const TypePush = "push"
