@@ -80,4 +80,43 @@ func TestMSSQLLive(t *testing.T) {
 	if !r.Up || !strings.Contains(r.Message, "Sorgu başarılı") {
 		t.Errorf("canlı MSSQL kontrolü başarısız: %+v", r)
 	}
+
+	// Diğer ayarlar: beklenen değer, veritabanı, şifreli bağlantı ve hata durumları.
+	for _, tc := range []struct {
+		name string
+		cfg  map[string]any
+		up   bool
+		msg  string // mesajda geçmesi gereken parça
+	}{
+		{"beklenen değer tutuyor", map[string]any{"query": "SELECT 40 + 2", "expected": "42"}, true, "Sorgu başarılı"},
+		{"beklenen değer tutmuyor", map[string]any{"query": "SELECT 40 + 2", "expected": "43"}, false, "42"},
+		{"metin sonucu", map[string]any{"query": "SELECT DB_NAME()", "database": "master", "expected": "master"}, true, "Sorgu başarılı"},
+		{"şifreli bağlantı", map[string]any{"encrypt": true}, true, "Sorgu başarılı"},
+		{"olmayan veritabanı", map[string]any{"database": "yok_boyle_bir_db"}, false, "Veritabanı açılamadı"},
+		{"hatalı sorgu", map[string]any{"query": "SELECT * FROM yok_boyle_tablo"}, false, ""},
+		{"yanlış şifre", map[string]any{"password": "yanlis-parola"}, false, "Giriş başarısız"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := map[string]any{"host": host, "port": json.Number(port), "username": user, "password": pass}
+			for k, v := range tc.cfg {
+				cfg[k] = v
+			}
+			raw, _ := json.Marshal(cfg)
+			norm, err := c.Normalize(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			start := time.Now()
+			r := c.Check(ctx, norm)
+			t.Logf("up=%v ping=%dms süre=%s mesaj=%q", r.Up, r.PingMs, time.Since(start).Round(time.Millisecond), r.Message)
+			if r.Up != tc.up || !strings.Contains(r.Message, tc.msg) {
+				t.Errorf("beklenmeyen sonuç: %+v", r)
+			}
+			if strings.Contains(r.Message, pass) || strings.Contains(r.Message, "yanlis-parola") {
+				t.Errorf("mesajda şifre görünüyor: %q", r.Message)
+			}
+		})
+	}
 }

@@ -4,13 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
-	_ "github.com/microsoft/go-mssqldb"
+	mssql "github.com/microsoft/go-mssqldb"
 )
 
 // MSSQLConfig Microsoft SQL Server kontrol ayarları.
@@ -76,9 +78,24 @@ func (mssqlChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 
 	start := time.Now()
 	if err := db.PingContext(ctx); err != nil {
-		return down(describeErr(ctx, err))
+		return down(mssqlConnErr(ctx, err))
 	}
 	return runSQLQuery(ctx, db, start, c.Query, c.Expected)
+}
+
+// mssqlConnErr sık görülen bağlantı hatalarını Türkçe açıklar; SQL Server'ın
+// hata numarası parantez içinde kalır (arama için).
+func mssqlConnErr(ctx context.Context, err error) string {
+	var me mssql.Error
+	if errors.As(err, &me) {
+		switch me.Number {
+		case 18456:
+			return fmt.Sprintf("Giriş başarısız: kullanıcı adı veya şifre yanlış ya da SQL Server kimlik doğrulaması kapalı (%d)", me.Number)
+		case 4060, 4063:
+			return fmt.Sprintf("Veritabanı açılamadı: veritabanı yok ya da kullanıcının erişim izni yok (%d)", me.Number)
+		}
+	}
+	return describeErr(ctx, err)
 }
 
 // mssqlDSN şifreyi güvenli biçimde kodlayan bir bağlantı URL'si üretir.
