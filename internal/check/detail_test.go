@@ -90,6 +90,10 @@ func TestHTTPDetailCapture(t *testing.T) {
 		if v, _ := headerValue(d.ResponseHeaders, "X-Echo"); v != detailMaskedValue {
 			t.Errorf("yankılanan gizli değer maskelenmedi: %q", v)
 		}
+		// İzin listesindeki standart başlık gösterilir (maskesiz).
+		if v, ok := headerValue(d.ResponseHeaders, "Content-Type"); !ok || v != "application/json" {
+			t.Errorf("standart başlık maskelenmemeli: %q (%v)", v, ok)
+		}
 		basic := base64.StdEncoding.EncodeToString([]byte("kadir:sifre123"))
 		if strings.Contains(d.Body, "cok-gizli-anahtar") || strings.Contains(d.Body, basic) || !strings.Contains(d.Body, "geçersiz") {
 			t.Errorf("gövde maskelenmedi: %s", d.Body)
@@ -133,10 +137,41 @@ func TestHTTPDetailCapture(t *testing.T) {
 		}
 	})
 
-	t.Run("kelime bulunamadı: gövde yakalanır", func(t *testing.T) {
+	t.Run("kelime bulunamadı (200): gövde yakalanmaz, durum+başlık kalır", func(t *testing.T) {
+		// Durum <400 ve kontrol yalnızca keyword eşleşmediği için başarısız:
+		// gerçek 2xx gövdesi (hedef verisi sızdırabilir) yakalanmaz; durum ve
+		// başlıklar tutulur.
 		res := run(t, "http", map[string]any{"url": srv.URL + "/kelime", "keyword": "hoş geldiniz"})
-		if res.Up || res.Detail == nil || res.Detail.Status != 200 || !strings.Contains(res.Detail.Body, "bakımdayız") {
-			t.Fatalf("%+v", res.Detail)
+		d := res.Detail
+		if res.Up || d == nil || d.Status != 200 {
+			t.Fatalf("%+v", d)
+		}
+		if d.Body != "" {
+			t.Errorf("2xx gövdesi yakalanmamalı: %q", d.Body)
+		}
+		if len(d.ResponseHeaders) == 0 {
+			t.Errorf("başlıklar tutulmalı: %+v", d)
+		}
+	})
+
+	t.Run("accepted_codes uyuşmazlığı (2xx): gövde yakalanmaz", func(t *testing.T) {
+		// Saldırgan seçimli accepted_codes ile gerçek bir 200 "başarısız"
+		// sayılsa bile gövde alınmaz (yalnızca durum kodu hata olduğunda alınır).
+		res := run(t, "http", map[string]any{"url": srv.URL + "/ok", "accepted_codes": []string{"500"}})
+		d := res.Detail
+		if res.Up || d == nil || d.Status != 200 {
+			t.Fatalf("%+v", d)
+		}
+		if d.Body != "" || d.BodyBinary {
+			t.Errorf("2xx gövdesi yakalanmamalı: %q (binary=%v)", d.Body, d.BodyBinary)
+		}
+	})
+
+	t.Run("durum >=400: gövde yakalanır", func(t *testing.T) {
+		// HTTP durumunun kendisi hata (503): gerçek bir başarısızlık, gövde alınır.
+		d := run(t, "http", map[string]any{"url": srv.URL + "/buyuk?boyut"}).Detail
+		if d == nil || d.Status != 503 || d.Body == "" {
+			t.Fatalf("hata durumunda gövde yakalanmalı: %+v", d)
 		}
 	})
 

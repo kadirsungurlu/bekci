@@ -126,7 +126,10 @@ func (dockerChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 		return down("Konteyner bulunamadı: " + c.Container)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return down(fmt.Sprintf("Docker API hatası: HTTP %d %s", resp.StatusCode, truncate(strings.TrimSpace(string(body)), 200)))
+		// Uzak yanıt gövdesi mesaja EKLENMEZ: iç bir Docker soketine/servise
+		// yönlendirilen istekte gövde, hedef verisini sızdırabilir. Yalnızca
+		// durum kodu bırakılır.
+		return down(fmt.Sprintf("Docker API hatası: HTTP %d", resp.StatusCode))
 	}
 
 	var info dockerInspect

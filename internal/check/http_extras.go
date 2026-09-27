@@ -298,14 +298,14 @@ func fetchOAuthToken(ctx context.Context, client *http.Client, c HTTPConfig) (st
 		json.Unmarshal(data, &tr)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode > 299 || tr.AccessToken == "" {
-		detail := strings.TrimSpace(tr.Error + " " + tr.ErrorDesc)
-		if detail == "" {
-			detail = truncate(strings.TrimSpace(string(data)), 120)
-		}
+		// Token adresinin yanıt gövdesi (error/error_description dahil) mesaja
+		// YANSITILMAZ: iç bir servise yönlendirilen token isteğinde bu, hedef
+		// verisini monitörün son mesajına sızdırabilir. Yalnızca genel durum
+		// bilgisi bırakılır.
 		if resp.StatusCode >= 200 && resp.StatusCode <= 299 {
-			return "", 0, fmt.Errorf("yanıtta access_token yok %s", detail)
+			return "", 0, errors.New("yanıtta access_token yok")
 		}
-		return "", 0, fmt.Errorf("HTTP %d %s", resp.StatusCode, truncate(detail, 160))
+		return "", 0, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 	ttl := 5 * time.Minute // süre bildirilmezse kısa tutulur
 	s := strings.Trim(string(tr.ExpiresIn), `"`)

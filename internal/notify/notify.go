@@ -403,7 +403,9 @@ func doRequest(ctx context.Context, method, u string, body io.Reader, headers ma
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 300))
+		// Uzak yanıt gövdesi mesaja EKLENMEZ: iç bir servise yönlendirilen
+		// istekte gövde/hata sayfası kullanıcıya iç veri sızdırabilir. Yalnızca
+		// durum kodu ve (varsa) Türkçe ipucu bırakılır; gövde okunmadan atılır.
 		msg := fmt.Sprintf("HTTP %d", resp.StatusCode)
 		switch {
 		case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
@@ -413,10 +415,7 @@ func doRequest(ctx context.Context, method, u string, body io.Reader, headers ma
 		case resp.StatusCode == http.StatusBadGateway || resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusGatewayTimeout:
 			msg += " (hedef sunucu yanıt vermiyor: adres doğru ve servis çalışıyor mu?)"
 		}
-		// HTML hata sayfaları (proxy) mesajı kalabalıklaştırır; yalnızca düz metin/JSON eklenir.
-		if t := strings.TrimSpace(string(snippet)); t != "" && !strings.HasPrefix(t, "<") {
-			msg += ": " + t
-		}
+		io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 		return errors.New(msg)
 	}
 	io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))

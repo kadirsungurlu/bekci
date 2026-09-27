@@ -11,10 +11,12 @@ import (
 
 // Olay ayrıntıları (docs/PLAN.md §13) -------------------------------------------------
 //
-// Editör ve yönetici her şeyi görür: işlem geçmişinin tamamı (bildirim
-// kanallarının adları ve gönderim hataları dahil) ve olayı açan kontrolün
-// istek/yanıtı. İzleyiciye mesajlar temizlenerek gider; bildirim kayıtları,
-// kullanıcı adları, istek/yanıt ve hedef adresin sorgu kısmı gösterilmez.
+// Editör ve yönetici işlem geçmişinin tamamını görür (bildirim kanallarının
+// adları ve gönderim hataları dahil). Olayı açan kontrolün ham istek/yanıtı
+// (metot, adres, yanıt gövdesi ve başlıkları) YALNIZCA yöneticiye gösterilir;
+// editör bunu görmez (iç servislere yöneltilen kontrollerin yanıtları sızmasın).
+// İzleyiciye mesajlar temizlenerek gider; bildirim kayıtları, kullanıcı adları,
+// istek/yanıt ve hedef adresin sorgu kısmı gösterilmez.
 // Müşteri kısıtlı izleyici yalnızca izinli monitörlerin olaylarını görür
 // (diğerleri 404). Herkese açık durum sayfaları bu uç noktayı kullanmaz.
 
@@ -74,13 +76,14 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
-	full := canSeeConfig(u)
+	full := canSeeConfig(u)     // editör+: tüm işlem geçmişi, bildirim kayıtları, adresin tamamı
+	capture := canSeeCapture(u) // yalnızca yönetici: ham istek/yanıt yakalaması (gövde + başlıklar)
 	out := incidentDetailView{
 		Incident: inc,
 		Monitor: incidentMonitor{ID: m.ID, Name: m.Name, Type: m.Type, Target: engine.Target(m),
 			Active: m.Active, Status: m.Status},
 		Locations: []incidentLocationView{},
-		Details:   full,
+		Details:   capture,
 	}
 	events = completeEvents(inc, events)
 
@@ -100,13 +103,17 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if full {
-		c, ok, err := s.store.GetIncidentCapture(r.Context(), id)
-		if err != nil {
-			s.dbError(w, err)
-			return
-		}
-		if ok {
-			out.Capture = &c
+		// Ham istek/yanıt yakalaması yalnızca yöneticiye verilir; editör olayın
+		// kendisini ve tüm işlem geçmişini görür ama yakalamayı görmez.
+		if capture {
+			c, ok, err := s.store.GetIncidentCapture(r.Context(), id)
+			if err != nil {
+				s.dbError(w, err)
+				return
+			}
+			if ok {
+				out.Capture = &c
+			}
 		}
 		out.Events = events
 		writeJSON(w, http.StatusOK, out)

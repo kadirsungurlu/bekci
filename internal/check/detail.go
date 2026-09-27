@@ -130,16 +130,26 @@ func MaskDetail(typ string, cfg json.RawMessage, d *Detail) {
 	}
 }
 
-// Her zaman maskelenen başlıklar (küçük harf).
+// Her zaman maskelenen istek başlıkları (küçük harf).
 var (
-	secretRequestHeaders  = map[string]bool{"authorization": true, "proxy-authorization": true, "cookie": true}
-	secretResponseHeaders = map[string]bool{"set-cookie": true, "authorization": true, "proxy-authorization": true, "cookie": true}
+	secretRequestHeaders = map[string]bool{"authorization": true, "proxy-authorization": true, "cookie": true}
 	// safeHeaders kullanıcının girdiği başlıklardan değeri gizli sayılmayanlar.
 	safeHeaders = map[string]bool{
 		"accept": true, "accept-encoding": true, "accept-language": true, "accept-charset": true,
 		"cache-control": true, "pragma": true, "content-type": true, "content-length": true,
 		"user-agent": true, "host": true, "origin": true, "referer": true, "connection": true,
 		"x-requested-with": true, "dnt": true, "if-none-match": true, "if-modified-since": true,
+	}
+	// safeResponseHeaders yanıt başlıklarında değeri gösterilebilecek standart
+	// başlıkların izin listesi (allowlist). Bu listede olmayan her başlığın
+	// (ör. X-Internal-Token) yalnızca ADI gösterilir, DEĞERİ maskelenir; böylece
+	// iç servislerin özel başlıkları olay yakalamasından sızmaz.
+	safeResponseHeaders = map[string]bool{
+		"content-type": true, "content-length": true, "content-encoding": true, "date": true,
+		"server": true, "cache-control": true, "expires": true, "last-modified": true,
+		"etag": true, "location": true, "retry-after": true, "content-language": true,
+		"age": true, "vary": true, "connection": true, "transfer-encoding": true,
+		"strict-transport-security": true, "x-content-type-options": true, "x-frame-options": true,
 	}
 )
 
@@ -189,11 +199,14 @@ func maskHTTPDetail(d *Detail, c HTTPConfig, extra ...string) {
 			d.RequestHeaders[i].Value = redact(h.Value)
 		}
 	}
+	// Yanıt başlıklarında izin listesi (allowlist): yalnızca standart başlıkların
+	// değeri gösterilir (gizli değerler ayrıca maskelenir); listede olmayan her
+	// başlığın adı kalır ama değeri maskelenir.
 	for i, h := range d.ResponseHeaders {
-		if secretResponseHeaders[strings.ToLower(h.Name)] {
-			d.ResponseHeaders[i].Value = detailMaskedValue
-		} else {
+		if safeResponseHeaders[strings.ToLower(h.Name)] {
 			d.ResponseHeaders[i].Value = redact(h.Value)
+		} else {
+			d.ResponseHeaders[i].Value = detailMaskedValue
 		}
 	}
 	d.URL = redact(redactedURL(d.URL))

@@ -143,10 +143,15 @@ func TestIncidentDetailEndToEnd(t *testing.T) {
 	allowed, _ := admin.newUser("musteri1", store.RoleViewer, []int64{mon.ID})
 	denied, _ := admin.newUser("musteri2", store.RoleViewer, []int64{other.ID})
 
+	// Editör: tüm işlem geçmişini görür (bildirim kaydı, düzenleme dahil) ama
+	// ham istek/yanıt yakalamasını GÖRMEZ (yalnızca yönetici).
 	var ed incidentResp
 	editor.mustDo("GET", path, nil, &ed, 200)
-	if !ed.Details || ed.Capture == nil || !ed.has(store.EventEdited) {
-		t.Fatalf("editör: %v %v", ed.Details, ed.kinds())
+	if ed.Details || ed.Capture != nil {
+		t.Fatalf("editör ham yakalamayı görmemeli: details=%v capture=%v", ed.Details, ed.Capture)
+	}
+	if !ed.has(store.EventEdited) || !ed.has(store.EventNotify) || !ed.has(store.EventDown) {
+		t.Fatalf("editör işlem geçmişini görmeli: %v", ed.kinds())
 	}
 
 	for name, cl := range map[string]*env{"izleyici": viewer, "müşteri": allowed} {

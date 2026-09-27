@@ -75,6 +75,39 @@ func TestWhatsApp(t *testing.T) {
 	}
 }
 
+// TestDoRequestNoBodyLeak: hata durumunda mesaj, uzak yanıt gövdesini içermez
+// (iç servise yönlendirilen webhook/bildirim isteğinde gövde iç veri
+// sızdırabilir); durum kodu ve Türkçe ipucu korunur.
+func TestDoRequestNoBodyLeak(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, "DAHILI-SIZINTI-GOVDESI")
+	}))
+	defer srv.Close()
+
+	err := doRequest(context.Background(), http.MethodGet, srv.URL, nil, nil)
+	if err == nil || !strings.Contains(err.Error(), "HTTP 500") {
+		t.Fatalf("HTTP 500 hatası bekleniyordu: %v", err)
+	}
+	if strings.Contains(err.Error(), "DAHILI-SIZINTI-GOVDESI") {
+		t.Errorf("uzak yanıt gövdesi hataya sızdı: %v", err)
+	}
+
+	// 401 yetki ipucu korunur ama gövde yine sızmaz.
+	srv2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		io.WriteString(w, "gizli-401-govdesi")
+	}))
+	defer srv2.Close()
+	err = doRequest(context.Background(), http.MethodGet, srv2.URL, nil, nil)
+	if err == nil || !strings.Contains(err.Error(), "401") || !strings.Contains(err.Error(), "yetki") {
+		t.Fatalf("401 yetki ipucu bekleniyordu: %v", err)
+	}
+	if strings.Contains(err.Error(), "gizli-401-govdesi") {
+		t.Errorf("uzak yanıt gövdesi hataya sızdı: %v", err)
+	}
+}
+
 func TestTelegramAndErrors(t *testing.T) {
 	c, srv := newCapture(t)
 	old := telegramAPI

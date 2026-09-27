@@ -208,7 +208,15 @@ func (httpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 				}
 			}
 			d.ResponseHeaders = headerList(resp.Header)
-			d.setBody(resp, data, total)
+			d.ContentType = resp.Header.Get("Content-Type")
+			// Gövde yalnızca GERÇEK başarısızlıkta yakalanır: HTTP durum kodunun
+			// kendisi hata (>=400) olduğunda. Durum <400 iken kontrol yalnızca
+			// accepted_codes/keyword/json eşleşmediği için "başarısız" sayıldıysa
+			// gerçek bir 2xx yanıtının gövdesi (hedeften iç veri sızdırabilir)
+			// alınmaz; durum ve (izin listeli) başlıklar yine tutulur.
+			if resp.StatusCode >= 400 {
+				d.setBody(resp, data, total)
+			}
 		}
 		maskHTTPDetail(d, c, bearer)
 		d.Sanitize()
@@ -427,7 +435,11 @@ func evalJSON(data []byte, path, op, expected string) (bool, string) {
 		return false, fmt.Sprintf("JSON alanı yok: %s", path)
 	}
 	got := v.String()
-	fail := fmt.Sprintf("JSON: %s = %s (beklenen: %s %s)", path, truncate(got, 80), op, expected)
+	// Hedeften okunan gerçek değer mesaja YAZILMAZ: bu mesaj izleyici rolüne
+	// kadar ulaşır ve hedef verisini (ör. iç bir sırrı) sızdırabilir. Yalnızca
+	// yolun beklenenle eşleşmediği ve kullanıcının kendi girdiği beklenen değer
+	// gösterilir.
+	fail := fmt.Sprintf("JSON: %s beklenen değerle eşleşmedi (beklenen: %s %s)", path, op, expected)
 
 	gotNum, errA := strconv.ParseFloat(strings.TrimSpace(got), 64)
 	expNum, errB := strconv.ParseFloat(strings.TrimSpace(expected), 64)
@@ -443,7 +455,8 @@ func evalJSON(data []byte, path, op, expected string) (bool, string) {
 		ok = strings.Contains(got, expected)
 	case ">", ">=", "<", "<=":
 		if !numeric {
-			return false, fmt.Sprintf("JSON: %s sayısal değil (%s)", path, truncate(got, 80))
+			// Gerçek değer sızdırmamak için yalnızca yolun sayısal olmadığı bildirilir.
+			return false, fmt.Sprintf("JSON: %s sayısal değil", path)
 		}
 		switch op {
 		case ">":

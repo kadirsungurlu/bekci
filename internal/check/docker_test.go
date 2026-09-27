@@ -36,6 +36,10 @@ func fakeDockerServer(t *testing.T) *httptest.Server {
 			fmt.Fprint(w, `{"State":{"Status":"exited"}}`)
 		case "yeniden":
 			fmt.Fprint(w, `{"State":{"Status":"restarting"}}`)
+		case "sunucu-hatasi":
+			// Yanıt gövdesinde iç veri: mesaja sızmamalı.
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, `{"message":"DAHILI-SIZINTI-DEGERI"}`)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprint(w, `{"message":"No such container"}`)
@@ -123,6 +127,17 @@ func TestDockerNotFound(t *testing.T) {
 	r := run(t, "docker", map[string]any{"endpoint": srv.URL, "container": "yok-boyle-bir-sey"})
 	if r.Up || !strings.Contains(r.Message, "bulunamadı") {
 		t.Errorf("olmayan konteyner DOWN olmalı: %+v", r)
+	}
+}
+
+func TestDockerServerErrorNoBodyLeak(t *testing.T) {
+	srv := fakeDockerServer(t)
+	r := run(t, "docker", map[string]any{"endpoint": srv.URL, "container": "sunucu-hatasi"})
+	if r.Up || !strings.Contains(r.Message, "Docker API hatası: HTTP 500") {
+		t.Errorf("500 hatası bekleniyordu: %+v", r)
+	}
+	if strings.Contains(r.Message, "DAHILI-SIZINTI-DEGERI") {
+		t.Errorf("uzak yanıt gövdesi mesaja sızdı: %q", r.Message)
 	}
 }
 

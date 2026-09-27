@@ -425,8 +425,13 @@ func TestHTTPOAuth2(t *testing.T) {
 	}
 	cfg["oauth_client_secret"] = "yanlış"
 	res := run(t, "http", cfg)
-	if res.Up || !strings.Contains(res.Message, "OAuth2 token alınamadı") || !strings.Contains(res.Message, "invalid_client") {
+	// Genel mesaj: durum kodu var; token adresinin yanıt gövdesi (invalid_client,
+	// error_description) sızdırılmaz.
+	if res.Up || !strings.Contains(res.Message, "OAuth2 token alınamadı") || !strings.Contains(res.Message, "HTTP 400") {
 		t.Errorf("hatalı kimlik: %+v", res)
+	}
+	if strings.Contains(res.Message, "invalid_client") || strings.Contains(res.Message, "kimlik hatalı") {
+		t.Errorf("uzak yanıt gövdesi mesaja sızdı: %q", res.Message)
 	}
 }
 

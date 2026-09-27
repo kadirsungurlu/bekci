@@ -85,6 +85,14 @@ func canSeeConfig(u store.User) bool {
 	return store.RoleRank(u.Role) >= store.RoleRank(store.RoleEditor)
 }
 
+// canSeeCapture: olayı açan kontrolün ham istek/yanıt yakalaması (metot, adres,
+// yanıt gövdesi ve başlıklar) yalnızca YÖNETİCİYE gösterilir. Editör olayın
+// kendisini, işlem geçmişini ve kök nedeni görür ama bu ham yakalamayı görmez;
+// böylece iç servislere yöneltilen kontrollerin yanıtları editörden sızmaz.
+func canSeeCapture(u store.User) bool {
+	return store.RoleRank(u.Role) >= store.RoleRank(store.RoleAdmin)
+}
+
 // Kullanıcı yönetimi (yönetici) -----------------------------------------------------
 
 type userInput struct {

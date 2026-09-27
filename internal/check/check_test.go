@@ -83,7 +83,7 @@ func TestHTTP(t *testing.T) {
 		{"ters keyword", map[string]any{"url": u + "/ok", "keyword": "Home", "keyword_invert": true}, false, "olmaması"},
 		{"json eşit", map[string]any{"url": u + "/json", "json_path": "status", "json_expected": "ok"}, true, ""},
 		{"json sayısal >", map[string]any{"url": u + "/json", "json_path": "count", "json_op": ">", "json_expected": "5"}, true, ""},
-		{"json sayısal < başarısız", map[string]any{"url": u + "/json", "json_path": "count", "json_op": "<", "json_expected": "5"}, false, "count = 7"},
+		{"json sayısal < başarısız", map[string]any{"url": u + "/json", "json_path": "count", "json_op": "<", "json_expected": "5"}, false, "beklenen değerle eşleşmedi"},
 		{"json dizi yolu", map[string]any{"url": u + "/json", "json_path": "items.0.name", "json_expected": "a"}, true, ""},
 		{"json alan yok", map[string]any{"url": u + "/json", "json_path": "yok", "json_op": "exists"}, false, "alanı yok"},
 		{"json değil", map[string]any{"url": u + "/ok", "json_path": "a"}, false, "JSON değil"},
@@ -102,6 +102,32 @@ func TestHTTP(t *testing.T) {
 				t.Errorf("ping ölçülmedi: %d", r.PingMs)
 			}
 		})
+	}
+}
+
+// TestHTTPJSONMismatchNoLeak: JSON yolu uyuşmadığında mesaj, hedeften okunan
+// GERÇEK değeri yankılamaz (izleyiciye kadar ulaşan bu mesaj hedef verisini
+// sızdırabilir). Kullanıcının kendi girdiği beklenen değer görülebilir.
+func TestHTTPJSONMismatchNoLeak(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"secret":"S3CR3T-DAHILI-DEGER","sayi":"metin-degeri"}`)
+	}))
+	defer srv.Close()
+
+	// Eşitlik uyuşmazlığı: gerçek değer mesaja yazılmamalı.
+	res := run(t, "http", map[string]any{"url": srv.URL, "json_path": "secret", "json_op": "==", "json_expected": "BEKLENEN"})
+	if res.Up || strings.Contains(res.Message, "S3CR3T-DAHILI-DEGER") {
+		t.Errorf("gerçek değer sızdı: %q", res.Message)
+	}
+	if !strings.Contains(res.Message, "BEKLENEN") || !strings.Contains(res.Message, "secret") {
+		t.Errorf("beklenen değer ve yol mesajda olmalı: %q", res.Message)
+	}
+
+	// Sayısal olmayan değer: yine gerçek değer yazılmamalı.
+	res = run(t, "http", map[string]any{"url": srv.URL, "json_path": "sayi", "json_op": ">", "json_expected": "5"})
+	if res.Up || strings.Contains(res.Message, "metin-degeri") {
+		t.Errorf("sayısal olmayan değer sızdı: %q", res.Message)
 	}
 }
 
