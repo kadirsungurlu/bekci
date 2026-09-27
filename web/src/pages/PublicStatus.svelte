@@ -265,19 +265,24 @@
     {@const ov = OVERALL[page.status] ?? OVERALL.unknown}
     <header class="top">
       <div class="wrap top-in">
-        {#if logo}
-          <img class="logo" src={logo} alt={page.title} />
-        {:else}
-          <span class="brand"><span class="brand-dot"></span>{page.title}</span>
-        {/if}
+        <div class="brand">
+          {#if logo}
+            <img class="logo" src={logo} alt="" />
+          {:else}
+            <span class="mark" aria-hidden="true"><Icon name="activity" size={22} stroke={2.4} /></span>
+          {/if}
+          <div class="brand-t">
+            <h1>{page.title}</h1>
+            {#if page.description}<p class="desc">{page.description}</p>{/if}
+          </div>
+        </div>
+        <div class="refresh">
+          <span class="live" aria-hidden="true"></span>Son güncelleme {fmtTime(page.updated_at)} · 60 sn'de bir yenilenir
+        </div>
       </div>
     </header>
 
     <main class="wrap">
-      <div class="intro">
-        <h1>{page.title}</h1>
-        {#if page.description}<p class="desc">{page.description}</p>{/if}
-      </div>
 
       <section class="hero st-{page.status}" aria-live="polite">
         <span class="hero-ic"><Icon name={ov.icon} size={26} stroke={2.6} /></span>
@@ -497,29 +502,64 @@
   .top-in {
     display: flex;
     align-items: center;
-    min-height: 64px;
-    padding-top: 10px;
-    padding-bottom: 10px;
+    justify-content: space-between;
+    gap: 16px;
+    padding-top: 22px;
+    padding-bottom: 22px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
   }
   .logo {
     max-height: 40px;
-    max-width: min(240px, 70vw);
+    max-width: min(160px, 40vw);
     object-fit: contain;
+    flex: none;
   }
-  .brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 800;
-    font-size: 1.05rem;
+  .mark {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    background: #0f766e;
+    color: #fff;
+  }
+  .brand-t {
+    min-width: 0;
+  }
+  .brand-t h1 {
+    margin: 0;
+    font-size: 1.2rem;
+    line-height: 1.2;
+    font-weight: 650;
+    letter-spacing: -0.01em;
     overflow-wrap: anywhere;
   }
-  .brand-dot {
-    width: 11px;
-    height: 11px;
+  .brand-t .desc {
+    margin: 2px 0 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .refresh {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+  .live {
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: var(--up);
-    flex-shrink: 0;
+    box-shadow: 0 0 0 3px var(--up-soft);
+    flex: none;
   }
 
   main.wrap {
@@ -530,13 +570,7 @@
     padding-top: 32px;
     padding-bottom: 40px;
   }
-  .intro h1 {
-    font-size: 1.75rem;
-    overflow-wrap: anywhere;
-  }
   .desc {
-    margin: 8px 0 0;
-    color: var(--text-2);
     white-space: pre-line;
     overflow-wrap: anywhere;
   }
@@ -742,14 +776,14 @@
   }
   .bars {
     display: flex;
-    gap: 2px;
+    gap: 3px;
     height: 32px;
     cursor: pointer;
   }
   .bar {
     flex: 1 1 0;
     min-width: 0;
-    border-radius: 2px;
+    border-radius: 999px;
     background: var(--empty-bar);
     transition: opacity 0.1s;
   }
@@ -891,8 +925,15 @@
       padding-top: 20px;
       gap: 14px;
     }
-    .intro h1 {
-      font-size: 1.4rem;
+    .top-in {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      padding-top: 16px;
+      padding-bottom: 16px;
+    }
+    .refresh {
+      white-space: normal;
     }
     .hero {
       padding: 16px 18px;
