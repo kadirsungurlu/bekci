@@ -3,6 +3,8 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +12,9 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -395,4 +400,24 @@ func probeCall(t *testing.T, base, token, method, path string, body any) int {
 	}
 	resp.Body.Close()
 	return resp.StatusCode
+}
+
+// Windows kurulum komutu Windows programının özetini gömmeli (sunucunun
+// kendi programının değil).
+func TestWindowsCommandUsesWindowsSHA(t *testing.T) {
+	dir := t.TempDir()
+	exe := []byte("sahte windows programi")
+	if err := os.WriteFile(filepath.Join(dir, "uptime-windows-amd64.exe"), exe, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{AgentDir: dir}
+	sum := sha256.Sum256(exe)
+	want := strings.ToUpper(hex.EncodeToString(sum[:]))
+	_, _, win := s.serverSetupCommands("https://uptime.example", "upr_x")
+	if !strings.Contains(win, want) {
+		t.Fatalf("windows komutunda windows programının özeti yok:\n%s", win)
+	}
+	if own := strings.ToUpper(s.agentBinarySHA256(runtime.GOOS, runtime.GOARCH)); own != "" && strings.Contains(win, own) {
+		t.Fatal("windows komutu sunucunun kendi programının özetini içermemeli")
+	}
 }

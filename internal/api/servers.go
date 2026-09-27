@@ -414,7 +414,9 @@ func (s *Server) serverSetupCommands(server, token string) (dockerAgent, systemd
 		`chmod 600 /etc/uptime-agent.env; umask 022; printf "%%s\n" "%s" > /etc/systemd/system/uptime-agent.service; `+
 		`systemctl daemon-reload && systemctl enable uptime-agent && systemctl restart uptime-agent'`,
 		server, token, verify, server, token, insecureEnvLine(server), strings.Join(unit, `" "`))
-	return dockerAgent, systemd, windowsAgentCommand(server, token, sha)
+	// Windows komutu Windows programının kendi özetiyle doğrular (sunucunun
+	// Linux programının özeti değil).
+	return dockerAgent, systemd, windowsAgentCommand(server, token, s.agentBinarySHA256("windows", "amd64"))
 }
 
 // insecureEnvLine http sunucu adresinde env dosyasına PROBE_ALLOW_INSECURE ekler.

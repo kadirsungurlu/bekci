@@ -38,7 +38,11 @@ func installEnv(server, token string) string {
 func dockerFetchScript(binPath, sha string) string {
 	verify := ""
 	if sha != "" {
-		verify = fmt.Sprintf(`echo "%s  $B.dl" | sha256sum -c -; `, sha)
+		// Özet uyuşmazsa (ör. komut eski, sunucu güncellendi) indirilen dosya
+		// silinir ve bir saat beklenir: yeniden başlatma döngüsünde program her
+		// dakika tekrar indirilmesin. Komut panelden yenilenmelidir.
+		verify = fmt.Sprintf(`if ! echo "%s  $B.dl" | sha256sum -c -; then rm -f "$B.dl"; `+
+			`echo "Program özeti uyuşmuyor: kurulum komutunu panelden yenileyin" >&2; sleep 3600; exit 1; fi; `, sha)
 	}
 	return fmt.Sprintf(`sh -c 'set -e; B=%s; if [ ! -x "$B" ]; then `+
 		`wget -qO "$B.dl" --header "Authorization: Bearer $PROBE_TOKEN" "$PROBE_SERVER/api/probe/binary"; `+
