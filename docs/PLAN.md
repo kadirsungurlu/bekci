@@ -155,34 +155,37 @@ kalıcı `/data`, health check `/healthz`, `TZ=Europe/Istanbul`.
 - [x] Dockerfile ve uçtan uca test
 - [x] Coolify kurulumu ve canlıya çıkış (`uptime.kadir.app`)
 - [x] Bağımsız inceleme (Fable): backend + arayüz bulguları düzeltildi
-- [ ] Tasarım kontrolü ve düzeltmeleri (devam ediyor)
+- [x] Tasarım kontrolü ve düzeltmeleri
 - [ ] UptimeRobot monitörlerinin taşınması, bir hafta paralel çalışma
 
 ### Aşama 2 — sıradaki (öncelik sırasıyla)
 
-- [ ] **2a. Kullanıcılar ve yetkiler** (bölüm 10)
-- [ ] **2b. Herkese açık durum sayfaları** (bölüm 11)
-- [ ] 2c. Bakım pencereleri (durum sayfasında "bakımda" gösterimi dahil)
-- [ ] 2d. Etiketler ve gruplar
-- [ ] 2e. Rozetler, REST API + API anahtarları, Prometheus metrikleri
-- [ ] 2f. Dışa/içe aktarma, Uptime Kuma'dan içe aktarma
-- [ ] 2g. Ek bildirim servisleri (Teams, Google Chat, Mattermost, Matrix, Signal,
-      PagerDuty, Opsgenie, Home Assistant, Netgsm SMS)
+- [x] **2a. Kullanıcılar ve yetkiler** (bölüm 10) — backend
+- [x] **2b. Herkese açık durum sayfaları** (bölüm 11) — backend
+- [x] 2c. Bakım pencereleri + grup monitörü — backend
+- [x] 2d. Etiketler ve gruplar — backend
+- [x] 2e. Rozetler, REST API + API anahtarları, Prometheus metrikleri — backend
+- [x] 2f. Dışa/içe aktarma, Uptime Kuma ve UptimeRobot'tan içe aktarma — backend
+- [x] 2g. Ek bildirim servisleri (15 yeni: Teams, Google Chat, Mattermost, Rocket.Chat,
+      Matrix, Signal, PagerDuty, Opsgenie, Home Assistant, Netgsm SMS, Twilio, Pushbullet,
+      Bark, LINE, Apprise)
+- [ ] Aşama 2-3 özelliklerinin arayüzü (devam ediyor)
 
 ### Aşama 3
 
-- [ ] Docker ve veritabanı monitörleri
-- [ ] gRPC, MQTT, SMTP, WebSocket, SNMP
-- [ ] Gerçek tarayıcıyla kontrol: Uptime Kuma'daki "Browser Engine" karşılığı. Tarayıcı
+- [x] Docker ve veritabanı monitörleri (MySQL/MariaDB, PostgreSQL, MSSQL, Redis, MongoDB)
+- [x] gRPC, MQTT, SMTP, WebSocket, SNMP, TLS sertifika
+- [x] Gerçek tarayıcıyla kontrol: Uptime Kuma'daki "Browser Engine" karşılığı. Tarayıcı
       ayrı bir container'da (Chrome DevTools uç noktası), uygulama ona bağlanır; imaj
       küçük kalır, sadece kullanan kurar.
-- [ ] Proxy, mTLS / OAuth2
-- [ ] 2FA
-- [ ] **PostgreSQL depolama** (karar 2026-09-27: desteklenecek). `DATABASE_URL`
+- [x] Proxy, mTLS / OAuth2
+- [x] 2FA (TOTP + kurtarma kodları)
+- [x] **PostgreSQL depolama** (karar 2026-09-27: desteklenecek). Ayrıca PostgreSQL
+      gömülü tek imaj: `Dockerfile.postgres`. `DATABASE_URL`
       verilirse PostgreSQL, yoksa SQLite. Tüm SQL iki veritabanında çalışır;
       migration'lar ortak bir alt kümede yazılıp PostgreSQL'e çevrilir. Testler iki
       veritabanında da çalışır. PostgreSQL'de gece yedeği veritabanı tarafında alınır.
-- [ ] Uzak kontrol noktaları
+- [x] Uzak kontrol noktaları (probe) ve çok konumlu kontrol
 - [ ] İngilizce arayüz (tüm ekranlar bittikten sonra)
 
 ## 10. Aşama 2a — Kullanıcılar ve yetkiler
