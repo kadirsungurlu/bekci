@@ -19,7 +19,7 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
 // İki adımlı doğrulama (TOTP, RFC 6238) ------------------------------------------

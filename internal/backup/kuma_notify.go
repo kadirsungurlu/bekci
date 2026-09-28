@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/notify"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
 )
 
 // kumaNotifier bir Kuma bildirim türünün bu uygulamadaki karşılığı.

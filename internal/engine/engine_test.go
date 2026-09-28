@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/check"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/notify"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/store/storetest"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store/storetest"
 )
 
 // fakeChecker sonucu testten değiştirilebilen sahte monitör tipi.

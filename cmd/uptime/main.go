@@ -51,12 +51,12 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/api"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/engine"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/notify"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/stats"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
-	"github.com/kadirsa1105/uptime-kadir-app/web"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/api"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/stats"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/uptime-kadir-app/web"
 )
 
 // version derlemede -ldflags "-X main.version=..." ile verilir.

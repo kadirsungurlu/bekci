@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/metrics"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/notify"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/servers"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/metrics"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/servers"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
 // Sunucu takibi (docs/PLAN.md §12) -----------------------------------------------------

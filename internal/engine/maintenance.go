@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/check"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/maintenance"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/maintenance"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
 // ReloadMaintenance bakım pencerelerini veritabanından okuyup bellekteki

@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/check"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
 )
 
 // FakeUptimeRobot getMonitors uç noktasını taklit eder (sayfalama dahil).

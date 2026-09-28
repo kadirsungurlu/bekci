@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
 type createdProbe struct {

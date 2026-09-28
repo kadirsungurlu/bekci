@@ -21,7 +21,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
 var slugRe = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$`)

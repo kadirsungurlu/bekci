@@ -6,8 +6,8 @@ import (
 	"math"
 	"sort"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/metrics"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/metrics"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
 // Aggregate örnekleri tek bir özet kaydında birleştirir (10 dk'lık kova 1 dk

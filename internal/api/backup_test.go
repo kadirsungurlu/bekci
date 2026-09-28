@@ -18,9 +18,9 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/backup"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/check"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/backup"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
 // Grup tipi bu dalda henüz yoksa içe aktarmadaki kimlik çevirisini sınamak için sahtesi.

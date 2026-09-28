@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
 // BackupHour yedeğin alınacağı yerel saat (03:xx, trafiğin en az olduğu zaman).

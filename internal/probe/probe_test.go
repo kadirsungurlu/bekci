@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/metrics"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/metrics"
 )
 
 // fakeServer ana sunucunun kontrol noktası uç noktalarını taklit eder.

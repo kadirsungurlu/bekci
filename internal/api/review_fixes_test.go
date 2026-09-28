@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/backup"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/servers"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/backup"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/servers"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
 // Webhook adresi gizli olan kanal (Discord) maskeli adresle yeniden

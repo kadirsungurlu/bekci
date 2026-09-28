@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/engine"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
 // Bulgu 1: özel alan adı yalnızca yöneticiye açık ve kendini kilitleyemez.

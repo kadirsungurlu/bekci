@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/metrics"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/metrics"
 )
 
 func TestAggregate(t *testing.T) {

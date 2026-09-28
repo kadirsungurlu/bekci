@@ -79,7 +79,7 @@ HATA: PostgreSQL ana sürümü uyuşmuyor.
 Ana sürümler arasında veri klasörü doğrudan açılamaz. Veriyi taşımak için:
 
   1. Bu container'ı durdurun ve ESKİ imaja (PostgreSQL $DATA_MAJOR içeren sürüm,
-     ör. ghcr.io/kadirsa1105/uptime-kadir-app:postgres-<eski-sha>) geri dönün.
+     ör. ghcr.io/kadirsungurlu/uptime-kadir-app:postgres-<eski-sha>) geri dönün.
   2. Eski imaj çalışırken yedek alın:
        docker exec <container> pg_dump -h /run/postgresql -U postgres \\
          --format=custom --file=/data/backups/tasima.dump uptime

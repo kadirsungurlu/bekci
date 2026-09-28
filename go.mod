@@ -1,4 +1,4 @@
-module github.com/kadirsa1105/uptime-kadir-app
+module github.com/kadirsungurlu/uptime-kadir-app
 
 go 1.27
 

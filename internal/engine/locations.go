@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kadirsa1105/uptime-kadir-app/internal/check"
-	"github.com/kadirsa1105/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
 // Çok konumlu kontrol ----------------------------------------------------------------
