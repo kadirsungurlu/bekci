@@ -1,13 +1,23 @@
 // Bildirim kanalı tipleri ve form alanları.
+//
+// Metinler lib/i18n/{tr,en}/notifyTypes.ts'tedir. Tablolar modül düzeyinde bir kez
+// kurulduğundan çevrilen değerler getter'dır: her okunuşta geçerli dilde t() çağrılır
+// (şablonda veya $derived içinde okununca dil değişince yeniden çizilir).
 
 import type { NotificationType } from './api';
 import type { IconName } from '../components/Icon.svelte';
 import { APP_NAME } from './brand';
+import { t } from './i18n';
+
+/** Örnek adreslerdeki alan adı dile göre: tr "ornek.com", en "example.com". */
+const ex = (s: string) => s.replaceAll('ornek.com', t('notifyTypes.exampleDomain'));
 
 export const NOTIFY_LABELS: Record<NotificationType, string> = {
   whatsapp: 'WhatsApp',
   telegram: 'Telegram',
-  email: 'E-posta (SMTP)',
+  get email() {
+    return t('notifyTypes.email.label');
+  },
   discord: 'Discord',
   slack: 'Slack',
   webhook: 'Webhook',
@@ -31,13 +41,15 @@ export const NOTIFY_LABELS: Record<NotificationType, string> = {
   apprise: 'Apprise',
 };
 
-/** Tip seçicideki gruplar (sıra korunur). */
-export const NOTIFY_GROUPS: { label: string; types: NotificationType[] }[] = [
-  { label: 'Mesajlaşma', types: ['whatsapp', 'telegram', 'discord', 'slack', 'teams', 'googlechat', 'mattermost', 'rocketchat', 'matrix', 'signal', 'line'] },
-  { label: 'E-posta ve SMS', types: ['email', 'netgsm', 'twilio'] },
-  { label: 'Mobil bildirim', types: ['ntfy', 'gotify', 'pushover', 'pushbullet', 'bark', 'homeassistant'] },
-  { label: 'Olay yönetimi', types: ['pagerduty', 'opsgenie'] },
-  { label: 'Genel', types: ['webhook', 'apprise'] },
+export type NotifyGroupId = 'messaging' | 'emailSms' | 'mobile' | 'incident' | 'general';
+
+/** Tip seçicideki gruplar (sıra korunur). Etiket: t(`notifyTypes.groups.${id}`). */
+export const NOTIFY_GROUPS: { id: NotifyGroupId; types: NotificationType[] }[] = [
+  { id: 'messaging', types: ['whatsapp', 'telegram', 'discord', 'slack', 'teams', 'googlechat', 'mattermost', 'rocketchat', 'matrix', 'signal', 'line'] },
+  { id: 'emailSms', types: ['email', 'netgsm', 'twilio'] },
+  { id: 'mobile', types: ['ntfy', 'gotify', 'pushover', 'pushbullet', 'bark', 'homeassistant'] },
+  { id: 'incident', types: ['pagerduty', 'opsgenie'] },
+  { id: 'general', types: ['webhook', 'apprise'] },
 ];
 
 /** Liste simgeleri: tip başına ikon ve app.css'teki renk değişkeni. */
@@ -97,77 +109,180 @@ export interface NotifySchema {
 
 export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
   whatsapp: {
-    help: 'WP API üzerinden WhatsApp mesajı gönderir.',
+    get help() {
+      return t('notifyTypes.whatsapp.help');
+    },
     fields: [
-      { key: 'url', label: 'WP API adresi', kind: 'url', placeholder: 'https://wp-api.k3r.app', required: true, wide: true },
-      { key: 'api_key', label: 'API anahtarı', kind: 'secret', required: true, wide: true },
+      {
+        key: 'url',
+        get label() {
+          return t('notifyTypes.whatsapp.fields.url.label');
+        },
+        kind: 'url',
+        placeholder: 'https://wp-api.k3r.app',
+        required: true,
+        wide: true,
+      },
+      {
+        key: 'api_key',
+        get label() {
+          return t('notifyTypes.whatsapp.fields.api_key.label');
+        },
+        kind: 'secret',
+        required: true,
+        wide: true,
+      },
       {
         key: 'to',
-        label: 'Alıcı',
+        get label() {
+          return t('notifyTypes.whatsapp.fields.to.label');
+        },
         kind: 'text',
-        placeholder: '905xxxxxxxxx veya 1203...@g.us',
-        help: 'Ülke koduyla telefon numarası (+ olmadan) ya da @g.us ile biten grup kimliği.',
+        get placeholder() {
+          return t('notifyTypes.whatsapp.fields.to.placeholder');
+        },
+        get help() {
+          return t('notifyTypes.whatsapp.fields.to.help');
+        },
         required: true,
       },
       {
         key: 'from_number_id',
-        label: 'Gönderen numara kimliği',
+        get label() {
+          return t('notifyTypes.whatsapp.fields.from_number_id.label');
+        },
         kind: 'text',
         optional: true,
-        help: 'Birden fazla bağlı numaranız varsa hangisinden gönderileceği.',
+        get help() {
+          return t('notifyTypes.whatsapp.fields.from_number_id.help');
+        },
       },
     ],
   },
   telegram: {
-    help: '@BotFather ile bot oluşturun, botu gruba/kanala ekleyin ve sohbet kimliğini girin.',
+    get help() {
+      return t('notifyTypes.telegram.help');
+    },
     fields: [
-      { key: 'bot_token', label: 'Bot token’ı', kind: 'secret', placeholder: '123456789:ABC...', required: true, wide: true },
-      { key: 'chat_id', label: 'Sohbet kimliği (chat ID)', kind: 'text', placeholder: '-1001234567890', required: true },
+      {
+        key: 'bot_token',
+        get label() {
+          return t('notifyTypes.telegram.fields.bot_token.label');
+        },
+        kind: 'secret',
+        placeholder: '123456789:ABC...',
+        required: true,
+        wide: true,
+      },
+      {
+        key: 'chat_id',
+        get label() {
+          return t('notifyTypes.telegram.fields.chat_id.label');
+        },
+        kind: 'text',
+        placeholder: '-1001234567890',
+        required: true,
+      },
       {
         key: 'thread_id',
-        label: 'Konu kimliği (thread ID)',
+        get label() {
+          return t('notifyTypes.telegram.fields.thread_id.label');
+        },
         kind: 'number',
         numeric: true,
         optional: true,
-        help: 'Konulara ayrılmış gruplarda mesajın gideceği konu.',
+        get help() {
+          return t('notifyTypes.telegram.fields.thread_id.help');
+        },
       },
     ],
   },
   email: {
     fields: [
-      { key: 'host', label: 'SMTP sunucusu', kind: 'text', placeholder: 'smtp.ornek.com', required: true },
+      {
+        key: 'host',
+        get label() {
+          return t('notifyTypes.email.fields.host.label');
+        },
+        kind: 'text',
+        get placeholder() {
+          return ex('smtp.ornek.com');
+        },
+        required: true,
+      },
       {
         key: 'security',
-        label: 'Güvenlik',
+        get label() {
+          return t('notifyTypes.email.fields.security.label');
+        },
         kind: 'select',
         def: 'starttls',
         options: [
           { v: 'starttls', l: 'STARTTLS (587)' },
           { v: 'tls', l: 'TLS/SSL (465)' },
-          { v: 'none', l: 'Yok (25)' },
+          {
+            v: 'none',
+            get l() {
+              return t('notifyTypes.email.fields.security.none');
+            },
+          },
         ],
       },
       { key: 'port', label: 'Port', kind: 'number', numeric: true, def: 587, min: 1, max: 65535 },
-      { key: 'username', label: 'Kullanıcı adı', kind: 'text', optional: true },
-      { key: 'password', label: 'Şifre', kind: 'secret', optional: true },
-      { key: 'from', label: 'Gönderen', kind: 'text', placeholder: 'Uptime <uptime@ornek.com>', required: true },
+      {
+        key: 'username',
+        get label() {
+          return t('common.username');
+        },
+        kind: 'text',
+        optional: true,
+      },
+      {
+        key: 'password',
+        get label() {
+          return t('common.password');
+        },
+        kind: 'secret',
+        optional: true,
+      },
+      {
+        key: 'from',
+        get label() {
+          return t('notifyTypes.email.fields.from.label');
+        },
+        kind: 'text',
+        get placeholder() {
+          return ex('Uptime <uptime@ornek.com>');
+        },
+        required: true,
+      },
       {
         key: 'to',
-        label: 'Alıcılar',
+        get label() {
+          return t('notifyTypes.email.fields.to.label');
+        },
         kind: 'text',
-        placeholder: 'ben@ornek.com, ekip@ornek.com',
-        help: 'Birden fazla adresi virgülle ayırın.',
+        get placeholder() {
+          return t('notifyTypes.email.fields.to.placeholder');
+        },
+        get help() {
+          return t('notifyTypes.email.fields.to.help');
+        },
         required: true,
         wide: true,
       },
     ],
   },
   discord: {
-    help: 'Kanal ayarları → Entegrasyonlar → Webhook oluşturun ve adresini yapıştırın.',
+    get help() {
+      return t('notifyTypes.discord.help');
+    },
     fields: [
       {
         key: 'webhook_url',
-        label: 'Webhook adresi',
+        get label() {
+          return t('notifyTypes.discord.fields.webhook_url.label');
+        },
         kind: 'secret',
         placeholder: 'https://discord.com/api/webhooks/...',
         required: true,
@@ -176,11 +291,15 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
     ],
   },
   slack: {
-    help: 'Slack uygulamanızda “Incoming Webhooks” açıp oluşan adresi yapıştırın.',
+    get help() {
+      return t('notifyTypes.slack.help');
+    },
     fields: [
       {
         key: 'webhook_url',
-        label: 'Webhook adresi',
+        get label() {
+          return t('notifyTypes.slack.fields.webhook_url.label');
+        },
         kind: 'secret',
         placeholder: 'https://hooks.slack.com/services/...',
         required: true,
@@ -190,10 +309,23 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
   },
   webhook: {
     fields: [
-      { key: 'url', label: 'Adres', kind: 'url', placeholder: 'https://ornek.com/uptime-webhook', required: true, wide: true },
+      {
+        key: 'url',
+        get label() {
+          return t('notifyTypes.webhook.fields.url.label');
+        },
+        kind: 'url',
+        get placeholder() {
+          return ex('https://ornek.com/uptime-webhook');
+        },
+        required: true,
+        wide: true,
+      },
       {
         key: 'method',
-        label: 'Metot',
+        get label() {
+          return t('notifyTypes.webhook.fields.method.label');
+        },
         kind: 'select',
         def: 'POST',
         options: [
@@ -203,324 +335,816 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
       },
       {
         key: 'headers',
-        label: 'Başlıklar',
+        get label() {
+          return t('notifyTypes.webhook.fields.headers.label');
+        },
         kind: 'textarea',
         optional: true,
         placeholder: 'Authorization: Bearer abc123',
-        help: 'Her satıra bir başlık: “Ad: değer”. Gizli bilgi olarak saklanır.',
+        get help() {
+          return t('notifyTypes.webhook.fields.headers.help');
+        },
         wide: true,
       },
     ],
   },
   ntfy: {
     fields: [
-      { key: 'server', label: 'Sunucu', kind: 'url', def: 'https://ntfy.sh', placeholder: 'https://ntfy.sh' },
-      { key: 'topic', label: 'Konu (topic)', kind: 'text', placeholder: 'benim-uptime-konum', required: true },
-      { key: 'token', label: 'Erişim token’ı', kind: 'secret', optional: true, help: 'Korumalı konular için.' },
-      { key: 'priority', label: 'Öncelik (1-5)', kind: 'number', numeric: true, def: 4, min: 1, max: 5, help: 'Sorun bildirimlerinde kullanılır.' },
+      {
+        key: 'server',
+        get label() {
+          return t('notifyTypes.ntfy.fields.server.label');
+        },
+        kind: 'url',
+        def: 'https://ntfy.sh',
+        placeholder: 'https://ntfy.sh',
+      },
+      {
+        key: 'topic',
+        get label() {
+          return t('notifyTypes.ntfy.fields.topic.label');
+        },
+        kind: 'text',
+        get placeholder() {
+          return t('notifyTypes.ntfy.fields.topic.placeholder');
+        },
+        required: true,
+      },
+      {
+        key: 'token',
+        get label() {
+          return t('notifyTypes.ntfy.fields.token.label');
+        },
+        kind: 'secret',
+        optional: true,
+        get help() {
+          return t('notifyTypes.ntfy.fields.token.help');
+        },
+      },
+      {
+        key: 'priority',
+        get label() {
+          return t('notifyTypes.ntfy.fields.priority.label');
+        },
+        kind: 'number',
+        numeric: true,
+        def: 4,
+        min: 1,
+        max: 5,
+        get help() {
+          return t('notifyTypes.ntfy.fields.priority.help');
+        },
+      },
     ],
   },
   gotify: {
     fields: [
-      { key: 'server', label: 'Sunucu', kind: 'url', placeholder: 'https://gotify.ornek.com', required: true, wide: true },
-      { key: 'app_token', label: 'Uygulama token’ı', kind: 'secret', required: true },
-      { key: 'priority', label: 'Öncelik (1-10)', kind: 'number', numeric: true, def: 8, min: 1, max: 10 },
+      {
+        key: 'server',
+        get label() {
+          return t('notifyTypes.gotify.fields.server.label');
+        },
+        kind: 'url',
+        get placeholder() {
+          return ex('https://gotify.ornek.com');
+        },
+        required: true,
+        wide: true,
+      },
+      {
+        key: 'app_token',
+        get label() {
+          return t('notifyTypes.gotify.fields.app_token.label');
+        },
+        kind: 'secret',
+        required: true,
+      },
+      {
+        key: 'priority',
+        get label() {
+          return t('notifyTypes.gotify.fields.priority.label');
+        },
+        kind: 'number',
+        numeric: true,
+        def: 8,
+        min: 1,
+        max: 10,
+      },
     ],
   },
   pushover: {
     fields: [
-      { key: 'user_key', label: 'Kullanıcı anahtarı', kind: 'secret', required: true },
-      { key: 'app_token', label: 'Uygulama token’ı', kind: 'secret', required: true },
-      { key: 'device', label: 'Cihaz', kind: 'text', optional: true, help: 'Boşsa tüm cihazlara gider.' },
+      {
+        key: 'user_key',
+        get label() {
+          return t('notifyTypes.pushover.fields.user_key.label');
+        },
+        kind: 'secret',
+        required: true,
+      },
+      {
+        key: 'app_token',
+        get label() {
+          return t('notifyTypes.pushover.fields.app_token.label');
+        },
+        kind: 'secret',
+        required: true,
+      },
+      {
+        key: 'device',
+        get label() {
+          return t('notifyTypes.pushover.fields.device.label');
+        },
+        kind: 'text',
+        optional: true,
+        get help() {
+          return t('notifyTypes.pushover.fields.device.help');
+        },
+      },
       {
         key: 'priority',
-        label: 'Öncelik',
+        get label() {
+          return t('notifyTypes.pushover.fields.priority.label');
+        },
         kind: 'select',
         numeric: true,
         def: '0',
         options: [
-          { v: '-2', l: 'En düşük (-2)' },
-          { v: '-1', l: 'Düşük (-1)' },
+          {
+            v: '-2',
+            get l() {
+              return t('notifyTypes.pushover.fields.priority.lowest');
+            },
+          },
+          {
+            v: '-1',
+            get l() {
+              return t('notifyTypes.pushover.fields.priority.low');
+            },
+          },
           { v: '0', l: 'Normal (0)' },
-          { v: '1', l: 'Yüksek (1)' },
+          {
+            v: '1',
+            get l() {
+              return t('notifyTypes.pushover.fields.priority.high');
+            },
+          },
         ],
       },
     ],
   },
   teams: {
-    help: 'Teams kanalına Adaptive Card ile bildirim gönderir (Workflows webhook’u).',
+    get help() {
+      return t('notifyTypes.teams.help');
+    },
     fields: [
       {
         key: 'webhook_url',
-        label: 'Webhook adresi',
+        get label() {
+          return t('notifyTypes.teams.fields.webhook_url.label');
+        },
         kind: 'secret',
         placeholder: 'https://prod-xx.westus.logic.azure.com/...',
-        help: 'Teams kanalında “Workflows” › “Post to a channel when a webhook request is received” akışı oluşturup verilen adresi yapıştırın (eski “Incoming Webhook” bağlayıcısı kapatıldı).',
+        get help() {
+          return t('notifyTypes.teams.fields.webhook_url.help');
+        },
         required: true,
         wide: true,
       },
     ],
   },
   googlechat: {
-    help: 'Google Chat alanına (space) web kancası ile bildirim gönderir.',
+    get help() {
+      return t('notifyTypes.googlechat.help');
+    },
     fields: [
       {
         key: 'webhook_url',
-        label: 'Webhook adresi',
+        get label() {
+          return t('notifyTypes.googlechat.fields.webhook_url.label');
+        },
         kind: 'secret',
         placeholder: 'https://chat.googleapis.com/v1/spaces/.../messages?key=...&token=...',
-        help: 'Alan ayarlarından “Web kancaları” ile oluşturun.',
+        get help() {
+          return t('notifyTypes.googlechat.fields.webhook_url.help');
+        },
         required: true,
         wide: true,
       },
     ],
   },
   mattermost: {
-    help: 'Mattermost gelen web kancasına bildirim gönderir.',
+    get help() {
+      return t('notifyTypes.mattermost.help');
+    },
     fields: [
       {
         key: 'webhook_url',
-        label: 'Webhook adresi',
+        get label() {
+          return t('notifyTypes.mattermost.fields.webhook_url.label');
+        },
         kind: 'secret',
-        placeholder: 'https://mattermost.ornek.com/hooks/xxxxx',
-        help: 'Sistem Konsolu › Entegrasyonlar › Gelen Web Kancaları',
+        get placeholder() {
+          return ex('https://mattermost.ornek.com/hooks/xxxxx');
+        },
+        get help() {
+          return t('notifyTypes.mattermost.fields.webhook_url.help');
+        },
         required: true,
         wide: true,
       },
-      { key: 'channel', label: 'Kanal', kind: 'text', placeholder: '#uyarilar', optional: true, help: 'Boşsa web kancasının kanalı.' },
-      { key: 'username', label: 'Görünen ad', kind: 'text', def: APP_NAME, optional: true },
-      { key: 'icon_url', label: 'Simge adresi', kind: 'url', optional: true, wide: true, placeholder: 'https://ornek.com/simge.png' },
+      {
+        key: 'channel',
+        get label() {
+          return t('notifyTypes.mattermost.fields.channel.label');
+        },
+        kind: 'text',
+        get placeholder() {
+          return t('notifyTypes.mattermost.fields.channel.placeholder');
+        },
+        optional: true,
+        get help() {
+          return t('notifyTypes.mattermost.fields.channel.help');
+        },
+      },
+      {
+        key: 'username',
+        get label() {
+          return t('notifyTypes.mattermost.fields.username.label');
+        },
+        kind: 'text',
+        def: APP_NAME,
+        optional: true,
+      },
+      {
+        key: 'icon_url',
+        get label() {
+          return t('notifyTypes.mattermost.fields.icon_url.label');
+        },
+        kind: 'url',
+        optional: true,
+        wide: true,
+        get placeholder() {
+          return t('notifyTypes.mattermost.fields.icon_url.placeholder');
+        },
+      },
     ],
   },
   rocketchat: {
-    help: 'Rocket.Chat gelen web kancasına bildirim gönderir.',
+    get help() {
+      return t('notifyTypes.rocketchat.help');
+    },
     fields: [
       {
         key: 'webhook_url',
-        label: 'Webhook adresi',
+        get label() {
+          return t('notifyTypes.rocketchat.fields.webhook_url.label');
+        },
         kind: 'secret',
-        placeholder: 'https://chat.ornek.com/hooks/...',
-        help: 'Yönetim › Entegrasyonlar › Gelen',
+        get placeholder() {
+          return ex('https://chat.ornek.com/hooks/...');
+        },
+        get help() {
+          return t('notifyTypes.rocketchat.fields.webhook_url.help');
+        },
         required: true,
         wide: true,
       },
-      { key: 'channel', label: 'Kanal', kind: 'text', placeholder: '#uyarilar', optional: true },
-      { key: 'alias', label: 'Görünen ad', kind: 'text', def: APP_NAME, optional: true },
-      { key: 'avatar', label: 'Avatar adresi', kind: 'url', optional: true, wide: true, placeholder: 'https://ornek.com/avatar.png' },
+      {
+        key: 'channel',
+        get label() {
+          return t('notifyTypes.rocketchat.fields.channel.label');
+        },
+        kind: 'text',
+        get placeholder() {
+          return t('notifyTypes.rocketchat.fields.channel.placeholder');
+        },
+        optional: true,
+      },
+      {
+        key: 'alias',
+        get label() {
+          return t('notifyTypes.rocketchat.fields.alias.label');
+        },
+        kind: 'text',
+        def: APP_NAME,
+        optional: true,
+      },
+      {
+        key: 'avatar',
+        get label() {
+          return t('notifyTypes.rocketchat.fields.avatar.label');
+        },
+        kind: 'url',
+        optional: true,
+        wide: true,
+        get placeholder() {
+          return ex('https://ornek.com/avatar.png');
+        },
+      },
     ],
   },
   matrix: {
-    help: 'Matrix odasına mesaj gönderir.',
+    get help() {
+      return t('notifyTypes.matrix.help');
+    },
     fields: [
-      { key: 'homeserver_url', label: 'Sunucu adresi', kind: 'url', placeholder: 'https://matrix.org', required: true, wide: true },
+      {
+        key: 'homeserver_url',
+        get label() {
+          return t('notifyTypes.matrix.fields.homeserver_url.label');
+        },
+        kind: 'url',
+        placeholder: 'https://matrix.org',
+        required: true,
+        wide: true,
+      },
       {
         key: 'access_token',
-        label: 'Erişim jetonu',
+        get label() {
+          return t('notifyTypes.matrix.fields.access_token.label');
+        },
         kind: 'secret',
         placeholder: 'syt_...',
-        help: 'Element › Ayarlar › Yardım ve Hakkında › Gelişmiş › Erişim Jetonu (tercihen ayrı bir bot hesabı).',
+        get help() {
+          return t('notifyTypes.matrix.fields.access_token.help');
+        },
         required: true,
         wide: true,
       },
       {
         key: 'room_id',
-        label: 'Oda kimliği',
+        get label() {
+          return t('notifyTypes.matrix.fields.room_id.label');
+        },
         kind: 'text',
         placeholder: '!AbCdEf:matrix.org',
-        help: 'Oda ayarları › Gelişmiş (takma ad değil).',
+        get help() {
+          return t('notifyTypes.matrix.fields.room_id.help');
+        },
         required: true,
         wide: true,
       },
     ],
   },
   signal: {
-    help: 'signal-cli-rest-api sunucusu üzerinden Signal mesajı gönderir.',
+    get help() {
+      return t('notifyTypes.signal.help');
+    },
     fields: [
-      { key: 'url', label: 'Sunucu adresi', kind: 'url', placeholder: 'http://signal-cli:8080', required: true, wide: true },
-      { key: 'number', label: 'Gönderen numara', kind: 'text', placeholder: '+905551112233', required: true },
+      {
+        key: 'url',
+        get label() {
+          return t('notifyTypes.signal.fields.url.label');
+        },
+        kind: 'url',
+        placeholder: 'http://signal-cli:8080',
+        required: true,
+        wide: true,
+      },
+      {
+        key: 'number',
+        get label() {
+          return t('notifyTypes.signal.fields.number.label');
+        },
+        kind: 'text',
+        placeholder: '+905551112233',
+        required: true,
+      },
       {
         key: 'recipients',
-        label: 'Alıcılar',
+        get label() {
+          return t('notifyTypes.signal.fields.recipients.label');
+        },
         kind: 'text',
         placeholder: '+905551112233, +905553334455',
-        help: 'Birden fazla alıcıyı virgülle ayırın.',
+        get help() {
+          return t('notifyTypes.signal.fields.recipients.help');
+        },
         required: true,
         wide: true,
       },
     ],
   },
   pagerduty: {
-    help: 'PagerDuty’de Events API v2 ile olay açar ve düzelince çözer.',
+    get help() {
+      return t('notifyTypes.pagerduty.help');
+    },
     fields: [
       {
         key: 'routing_key',
         label: 'Routing key',
         kind: 'secret',
-        help: 'Servisin “Events API v2” entegrasyon anahtarı.',
+        get help() {
+          return t('notifyTypes.pagerduty.fields.routing_key.help');
+        },
         required: true,
         wide: true,
       },
       {
         key: 'severity',
-        label: 'Önem derecesi',
+        get label() {
+          return t('notifyTypes.pagerduty.fields.severity.label');
+        },
         kind: 'select',
         def: 'critical',
-        help: 'SSL sertifikası uyarıları her zaman “warning” gönderilir.',
+        get help() {
+          return t('notifyTypes.pagerduty.fields.severity.help');
+        },
         options: [
-          { v: 'critical', l: 'Kritik (critical)' },
-          { v: 'error', l: 'Hata (error)' },
-          { v: 'warning', l: 'Uyarı (warning)' },
-          { v: 'info', l: 'Bilgi (info)' },
+          {
+            v: 'critical',
+            get l() {
+              return t('notifyTypes.pagerduty.fields.severity.critical');
+            },
+          },
+          {
+            v: 'error',
+            get l() {
+              return t('notifyTypes.pagerduty.fields.severity.error');
+            },
+          },
+          {
+            v: 'warning',
+            get l() {
+              return t('notifyTypes.pagerduty.fields.severity.warning');
+            },
+          },
+          {
+            v: 'info',
+            get l() {
+              return t('notifyTypes.pagerduty.fields.severity.info');
+            },
+          },
         ],
       },
     ],
   },
   opsgenie: {
-    help: 'Opsgenie’de alarm açar ve düzelince kapatır.',
+    get help() {
+      return t('notifyTypes.opsgenie.help');
+    },
     fields: [
-      { key: 'api_key', label: 'API anahtarı', kind: 'secret', help: 'Takımlar › Entegrasyonlar › API', required: true, wide: true },
+      {
+        key: 'api_key',
+        get label() {
+          return t('notifyTypes.opsgenie.fields.api_key.label');
+        },
+        kind: 'secret',
+        get help() {
+          return t('notifyTypes.opsgenie.fields.api_key.help');
+        },
+        required: true,
+        wide: true,
+      },
       {
         key: 'region',
-        label: 'Bölge',
+        get label() {
+          return t('notifyTypes.opsgenie.fields.region.label');
+        },
         kind: 'select',
         def: 'us',
         options: [
-          { v: 'us', l: 'ABD (us)' },
-          { v: 'eu', l: 'Avrupa (eu)' },
+          {
+            v: 'us',
+            get l() {
+              return t('notifyTypes.opsgenie.fields.region.us');
+            },
+          },
+          {
+            v: 'eu',
+            get l() {
+              return t('notifyTypes.opsgenie.fields.region.eu');
+            },
+          },
         ],
       },
       {
         key: 'priority',
-        label: 'Öncelik',
+        get label() {
+          return t('notifyTypes.opsgenie.fields.priority.label');
+        },
         kind: 'select',
         def: 'P3',
         options: [
-          { v: 'P1', l: 'P1 — Kritik' },
-          { v: 'P2', l: 'P2 — Yüksek' },
-          { v: 'P3', l: 'P3 — Orta' },
-          { v: 'P4', l: 'P4 — Düşük' },
-          { v: 'P5', l: 'P5 — Bilgi' },
+          {
+            v: 'P1',
+            get l() {
+              return t('notifyTypes.opsgenie.fields.priority.p1');
+            },
+          },
+          {
+            v: 'P2',
+            get l() {
+              return t('notifyTypes.opsgenie.fields.priority.p2');
+            },
+          },
+          {
+            v: 'P3',
+            get l() {
+              return t('notifyTypes.opsgenie.fields.priority.p3');
+            },
+          },
+          {
+            v: 'P4',
+            get l() {
+              return t('notifyTypes.opsgenie.fields.priority.p4');
+            },
+          },
+          {
+            v: 'P5',
+            get l() {
+              return t('notifyTypes.opsgenie.fields.priority.p5');
+            },
+          },
         ],
       },
     ],
   },
   homeassistant: {
-    help: 'Home Assistant notify servisi üzerinden bildirim gönderir (mobil uygulama vb.).',
+    get help() {
+      return t('notifyTypes.homeassistant.help');
+    },
     fields: [
-      { key: 'url', label: 'Home Assistant adresi', kind: 'url', placeholder: 'http://homeassistant.local:8123', required: true, wide: true },
+      {
+        key: 'url',
+        get label() {
+          return t('notifyTypes.homeassistant.fields.url.label');
+        },
+        kind: 'url',
+        placeholder: 'http://homeassistant.local:8123',
+        required: true,
+        wide: true,
+      },
       {
         key: 'token',
-        label: 'Uzun ömürlü erişim jetonu',
+        get label() {
+          return t('notifyTypes.homeassistant.fields.token.label');
+        },
         kind: 'secret',
-        help: 'Profil › Güvenlik › Uzun Ömürlü Erişim Jetonları',
+        get help() {
+          return t('notifyTypes.homeassistant.fields.token.help');
+        },
         required: true,
         wide: true,
       },
       {
         key: 'service',
-        label: 'Bildirim servisi',
+        get label() {
+          return t('notifyTypes.homeassistant.fields.service.label');
+        },
         kind: 'text',
         placeholder: 'mobile_app_kadir_iphone',
-        help: '“notify.” öneki olmadan.',
+        get help() {
+          return t('notifyTypes.homeassistant.fields.service.help');
+        },
         required: true,
         pattern: /^[a-z0-9_]+$/,
-        patternMsg: 'Bildirim servisi yalnızca küçük harf, rakam ve alt çizgi içerebilir (notify. öneki olmadan).',
+        get patternMsg() {
+          return t('notifyTypes.homeassistant.fields.service.pattern');
+        },
         wide: true,
       },
     ],
   },
   netgsm: {
-    help: 'Netgsm üzerinden Türkiye numaralarına SMS gönderir.',
+    get help() {
+      return t('notifyTypes.netgsm.help');
+    },
     fields: [
-      { key: 'usercode', label: 'Kullanıcı kodu', kind: 'text', required: true },
-      { key: 'password', label: 'API şifresi', kind: 'secret', required: true },
-      { key: 'msgheader', label: 'Gönderici başlığı', kind: 'text', placeholder: 'FIRMA', help: 'Netgsm’de onaylı başlık.', required: true },
+      {
+        key: 'usercode',
+        get label() {
+          return t('notifyTypes.netgsm.fields.usercode.label');
+        },
+        kind: 'text',
+        required: true,
+      },
+      {
+        key: 'password',
+        get label() {
+          return t('notifyTypes.netgsm.fields.password.label');
+        },
+        kind: 'secret',
+        required: true,
+      },
+      {
+        key: 'msgheader',
+        get label() {
+          return t('notifyTypes.netgsm.fields.msgheader.label');
+        },
+        kind: 'text',
+        get placeholder() {
+          return t('notifyTypes.netgsm.fields.msgheader.placeholder');
+        },
+        get help() {
+          return t('notifyTypes.netgsm.fields.msgheader.help');
+        },
+        required: true,
+      },
       {
         key: 'gsm',
-        label: 'Telefon numaraları',
+        get label() {
+          return t('notifyTypes.netgsm.fields.gsm.label');
+        },
         kind: 'text',
         placeholder: '5551112233, 5553334455',
-        help: 'Virgülle ayırın. 0, 90 ve +90 önekleri otomatik düzeltilir.',
+        get help() {
+          return t('notifyTypes.netgsm.fields.gsm.help');
+        },
         required: true,
         wide: true,
       },
       {
         key: 'turkish_chars',
-        label: 'Türkçe karakterler',
+        get label() {
+          return t('notifyTypes.netgsm.fields.turkish_chars.label');
+        },
         kind: 'bool',
-        help: 'Açıksa ç, ğ, ı, ö, ş, ü korunur (SMS başına karakter hakkı azalabilir).',
+        get help() {
+          return t('notifyTypes.netgsm.fields.turkish_chars.help');
+        },
         wide: true,
       },
     ],
   },
   twilio: {
-    help: 'Twilio ile SMS gönderir.',
+    get help() {
+      return t('notifyTypes.twilio.help');
+    },
     fields: [
       { key: 'account_sid', label: 'Account SID', kind: 'text', placeholder: 'ACxxxxxxxx…', required: true },
       { key: 'auth_token', label: 'Auth token', kind: 'secret', required: true },
       {
         key: 'from',
-        label: 'Gönderen numara',
+        get label() {
+          return t('notifyTypes.twilio.fields.from.label');
+        },
         kind: 'text',
         placeholder: '+15551234567',
-        help: 'Ülke koduyla, + ile başlayarak.',
+        get help() {
+          return t('notifyTypes.twilio.fields.from.help');
+        },
         required: true,
       },
       {
         key: 'to',
-        label: 'Alıcı numaralar',
+        get label() {
+          return t('notifyTypes.twilio.fields.to.label');
+        },
         kind: 'text',
         placeholder: '+905551112233, +905553334455',
-        help: 'Virgülle ayırın; her numara + ve ülke koduyla.',
+        get help() {
+          return t('notifyTypes.twilio.fields.to.help');
+        },
         required: true,
         wide: true,
       },
     ],
   },
   pushbullet: {
-    help: 'Pushbullet bildirimi gönderir.',
+    get help() {
+      return t('notifyTypes.pushbullet.help');
+    },
     fields: [
-      { key: 'access_token', label: 'Erişim jetonu', kind: 'secret', help: 'Ayarlar › Erişim Jetonları', required: true, wide: true },
-      { key: 'channel_tag', label: 'Kanal etiketi', kind: 'text', optional: true, help: 'Cihaz kimliği ile birlikte kullanılamaz.' },
-      { key: 'device_iden', label: 'Cihaz kimliği', kind: 'text', optional: true, help: 'Boşsa tüm cihazlarınıza gider.' },
+      {
+        key: 'access_token',
+        get label() {
+          return t('notifyTypes.pushbullet.fields.access_token.label');
+        },
+        kind: 'secret',
+        get help() {
+          return t('notifyTypes.pushbullet.fields.access_token.help');
+        },
+        required: true,
+        wide: true,
+      },
+      {
+        key: 'channel_tag',
+        get label() {
+          return t('notifyTypes.pushbullet.fields.channel_tag.label');
+        },
+        kind: 'text',
+        optional: true,
+        get help() {
+          return t('notifyTypes.pushbullet.fields.channel_tag.help');
+        },
+      },
+      {
+        key: 'device_iden',
+        get label() {
+          return t('notifyTypes.pushbullet.fields.device_iden.label');
+        },
+        kind: 'text',
+        optional: true,
+        get help() {
+          return t('notifyTypes.pushbullet.fields.device_iden.help');
+        },
+      },
     ],
   },
   bark: {
-    help: 'Bark uygulamasına iOS bildirimi gönderir.',
+    get help() {
+      return t('notifyTypes.bark.help');
+    },
     fields: [
-      { key: 'server', label: 'Sunucu adresi', kind: 'url', def: 'https://api.day.app', placeholder: 'https://api.day.app', wide: true },
-      { key: 'device_key', label: 'Cihaz anahtarı', kind: 'secret', required: true, wide: true },
-      { key: 'sound', label: 'Ses', kind: 'text', optional: true, placeholder: 'alarm' },
-      { key: 'group', label: 'Grup', kind: 'text', def: APP_NAME, optional: true },
+      {
+        key: 'server',
+        get label() {
+          return t('notifyTypes.bark.fields.server.label');
+        },
+        kind: 'url',
+        def: 'https://api.day.app',
+        placeholder: 'https://api.day.app',
+        wide: true,
+      },
+      {
+        key: 'device_key',
+        get label() {
+          return t('notifyTypes.bark.fields.device_key.label');
+        },
+        kind: 'secret',
+        required: true,
+        wide: true,
+      },
+      {
+        key: 'sound',
+        get label() {
+          return t('notifyTypes.bark.fields.sound.label');
+        },
+        kind: 'text',
+        optional: true,
+        placeholder: 'alarm',
+      },
+      {
+        key: 'group',
+        get label() {
+          return t('notifyTypes.bark.fields.group.label');
+        },
+        kind: 'text',
+        def: APP_NAME,
+        optional: true,
+      },
     ],
   },
   line: {
-    help: 'LINE Messaging API ile mesaj gönderir (LINE Notify kapatıldı).',
+    get help() {
+      return t('notifyTypes.line.help');
+    },
     fields: [
-      { key: 'channel_access_token', label: 'Kanal erişim jetonu', kind: 'secret', required: true, wide: true },
+      {
+        key: 'channel_access_token',
+        get label() {
+          return t('notifyTypes.line.fields.channel_access_token.label');
+        },
+        kind: 'secret',
+        required: true,
+        wide: true,
+      },
       {
         key: 'to',
-        label: 'Alıcı kimliği',
+        get label() {
+          return t('notifyTypes.line.fields.to.label');
+        },
         kind: 'text',
         placeholder: 'U0123456789abcdef0123456789abcdef',
-        help: 'Kullanıcı (U…), grup (C…) veya oda (R…) kimliği.',
+        get help() {
+          return t('notifyTypes.line.fields.to.help');
+        },
         required: true,
         pattern: /^[UCR][0-9a-f]{32}$/,
-        patternMsg: 'Alıcı ID’si U, C veya R ile başlayan 33 karakterlik bir kimlik olmalı.',
+        get patternMsg() {
+          return t('notifyTypes.line.fields.to.pattern');
+        },
         wide: true,
       },
     ],
   },
   apprise: {
-    help: 'Kendi Apprise API sunucunuz üzerinden 100’den fazla servise gönderir.',
+    get help() {
+      return t('notifyTypes.apprise.help');
+    },
     fields: [
-      { key: 'server', label: 'Apprise sunucu adresi', kind: 'url', placeholder: 'http://apprise:8000', required: true, wide: true },
+      {
+        key: 'server',
+        get label() {
+          return t('notifyTypes.apprise.fields.server.label');
+        },
+        kind: 'url',
+        placeholder: 'http://apprise:8000',
+        required: true,
+        wide: true,
+      },
       {
         key: 'urls',
-        label: 'Apprise URL’leri',
+        get label() {
+          return t('notifyTypes.apprise.fields.urls.label');
+        },
         kind: 'secret',
         placeholder: 'tgram://token/chatid, discord://…',
-        help: 'Birden fazla adresi virgülle ayırın. Gizli bilgi olarak saklanır.',
+        get help() {
+          return t('notifyTypes.apprise.fields.urls.help');
+        },
         required: true,
         wide: true,
       },
@@ -528,10 +1152,10 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
   },
 };
 
-
 export const EMAIL_PORTS: Record<string, number> = { starttls: 587, tls: 465, none: 25 };
 
-export const WEBHOOK_EXAMPLE = `{
+/** Webhook kanalının gönderdiği JSON örneği (monitör adı örnek veridir, dile göre). */
+export const webhookExample = (d = t('notifyTypes.exampleDomain')) => `{
   "event": "up",
   "title": "…",
   "text": "…",
@@ -540,9 +1164,9 @@ export const WEBHOOK_EXAMPLE = `{
   "downtime_seconds": 754,
   "monitor": {
     "id": 1,
-    "name": "Web sitesi",
+    "name": ${JSON.stringify(t('notifyTypes.webhook.exampleName'))},
     "type": "http",
-    "target": "https://ornek.com",
-    "url": "https://uptime.ornek.com/#/monitors/1"
+    "target": "https://${d}",
+    "url": "https://uptime.${d}/#/monitors/1"
   }
 }`;

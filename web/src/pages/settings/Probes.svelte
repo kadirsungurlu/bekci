@@ -8,6 +8,7 @@
   import RowMenu, { type MenuItem } from '../../components/RowMenu.svelte';
   import Icon from '../../components/Icon.svelte';
   import CopyButton from '../../components/CopyButton.svelte';
+  import { t, tParts } from '../../lib/i18n';
 
   let probes = $state.raw<Probe[]>([]);
   let loading = $state(true);
@@ -42,8 +43,8 @@
   const sorted = $derived(probes.slice().sort((a, b) => collator.compare(a.name, b.name)));
 
   function probeState(p: Probe): { l: string; c: string } {
-    if (!p.active) return { l: 'Devre dışı', c: 'paused' };
-    return p.online ? { l: 'Çevrimiçi', c: 'up' } : { l: 'Çevrimdışı', c: 'down' };
+    if (!p.active) return { l: t('probes.state.disabled'), c: 'paused' };
+    return p.online ? { l: t('probes.state.online'), c: 'up' } : { l: t('probes.state.offline'), c: 'down' };
   }
 
   // Yeni / token ----------------------------------------------------------------------
@@ -52,13 +53,21 @@
   let newError = $state('');
   let newBusy = $state(false);
   let setup = $state<ProbeSetup | null>(null);
-  let setupTitle = $state('');
+  // Başlık şablonda çevrilir (dil değişince yenilensin): eklendi / yeni token.
+  let setupFor = $state<{ kind: 'added' | 'newToken'; name: string } | null>(null);
+  const setupTitle = $derived(
+    setupFor
+      ? setupFor.kind === 'added'
+        ? t('probes.setup.addedTitle', { name: setupFor.name })
+        : t('probes.setup.newTokenTitle', { name: setupFor.name })
+      : '',
+  );
 
   function openNew() {
     newName = '';
     newError = '';
     setup = null;
-    setupTitle = '';
+    setupFor = null;
     newOpen = true;
   }
 
@@ -66,11 +75,11 @@
     e.preventDefault();
     newError = '';
     const n = newName.trim();
-    if (!n) return (newError = 'Kontrol noktasına bir ad verin (ör. Frankfurt).');
+    if (!n) return (newError = t('probes.form.errName'));
     newBusy = true;
     try {
       setup = await api.createProbe(n);
-      setupTitle = `“${setup.probe.name}” eklendi`;
+      setupFor = { kind: 'added', name: setup.probe.name };
       load();
     } catch (err) {
       newError = errorMessage(err);
@@ -81,15 +90,15 @@
 
   async function regenerate(p: Probe) {
     const ok = await confirmDialog({
-      title: 'Token’ı yenile',
-      message: `“${p.name}” — Eski token hemen geçersiz olur; kontrol noktasını yeni token ile yeniden başlatın.`,
-      confirmText: 'Token’ı yenile',
+      title: t('probes.confirm.regenerateTitle'),
+      message: t('probes.confirm.regenerateMessage', { name: p.name }),
+      confirmText: t('probes.confirm.regenerateConfirm'),
       danger: true,
     });
     if (!ok) return;
     try {
       setup = await api.regenerateProbeToken(p.id);
-      setupTitle = `“${p.name}” için yeni token`;
+      setupFor = { kind: 'newToken', name: p.name };
       newError = '';
       newOpen = true;
       load();
@@ -122,11 +131,11 @@
     if (!editing) return;
     editError = '';
     const n = editName.trim();
-    if (!n) return (editError = 'Ad gerekli.');
+    if (!n) return (editError = t('probes.form.errNameRequired'));
     editBusy = true;
     try {
       await api.updateProbe(editing.id, n, editing.active, undefined, { ipLock: editIpLock });
-      toast.success('Kontrol noktası kaydedildi');
+      toast.success(t('probes.toast.saved'));
       editOpen = false;
       load();
     } catch (err) {
@@ -144,7 +153,7 @@
     try {
       await api.updateProbe(editing.id, editing.name, editing.active, undefined, { resetIp: true });
       editLockedIp = '';
-      toast.success('IP kilidi sıfırlandı');
+      toast.success(t('probes.toast.ipReset'));
       load();
     } catch (err) {
       editError = errorMessage(err);
@@ -156,16 +165,16 @@
   async function toggle(p: Probe) {
     if (p.active) {
       const ok = await confirmDialog({
-        title: 'Devre dışı bırak',
-        message: `“${p.name}” sonuç gönderemeyecek ve konum hesaplarına katılmayacak. Daha sonra yeniden etkinleştirebilirsiniz.`,
-        confirmText: 'Devre dışı bırak',
+        title: t('probes.confirm.disableTitle'),
+        message: t('probes.confirm.disableMessage', { name: p.name }),
+        confirmText: t('probes.confirm.disableConfirm'),
         danger: true,
       });
       if (!ok) return;
     }
     try {
       await api.updateProbe(p.id, p.name, !p.active);
-      toast.success(p.active ? 'Kontrol noktası devre dışı bırakıldı' : 'Kontrol noktası etkinleştirildi');
+      toast.success(p.active ? t('probes.toast.disabled') : t('probes.toast.enabled'));
       load();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -174,71 +183,72 @@
 
   async function remove(p: Probe) {
     const ok = await confirmDialog({
-      title: 'Kontrol noktasını sil',
-      message: `“${p.name}” — Bu kontrol noktası tüm monitörlerden çıkarılacak.`,
-      confirmText: 'Sil',
+      title: t('probes.confirm.deleteTitle'),
+      message: t('probes.confirm.deleteMessage', { name: p.name }),
+      confirmText: t('common.delete'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.deleteProbe(p.id);
       probes = probes.filter((x) => x.id !== p.id);
-      toast.success('Kontrol noktası silindi');
+      toast.success(t('probes.toast.deleted'));
     } catch (e) {
       toast.error(errorMessage(e));
     }
   }
 
   const menu = (p: Probe): MenuItem[] => [
-    { label: 'Düzenle', icon: 'edit', onclick: () => openEdit(p) },
+    { label: t('common.edit'), icon: 'edit', onclick: () => openEdit(p) },
     p.active
-      ? { label: 'Devre dışı bırak', icon: 'ban', onclick: () => toggle(p) }
-      : { label: 'Etkinleştir', icon: 'check-circle', onclick: () => toggle(p) },
-    { label: 'Token’ı yenile', icon: 'key', onclick: () => regenerate(p) },
-    { label: 'Sil', icon: 'trash', danger: true, onclick: () => remove(p) },
+      ? { label: t('probes.menu.disable'), icon: 'ban', onclick: () => toggle(p) }
+      : { label: t('probes.menu.enable'), icon: 'check-circle', onclick: () => toggle(p) },
+    { label: t('probes.menu.regenerate'), icon: 'key', onclick: () => regenerate(p) },
+    { label: t('common.delete'), icon: 'trash', danger: true, onclick: () => remove(p) },
   ];
 </script>
 
 <section class="card">
   <div class="head">
     <div>
-      <h2 class="card-title">Kontrol noktaları</h2>
+      <h2 class="card-title">{t('probes.title')}</h2>
       <p class="text-2 small sub">
-        Monitörlerinizi farklı şehir veya ağlardan da kontrol edin. Kontrol noktası, bu uygulamanın başka bir sunucuda
-        <code>probe</code> modunda çalışan bir kopyasıdır; kendisine atanan monitörleri kontrol edip sonuçları buraya bildirir. Monitör
-        formundaki <b>Konumlar</b> bölümünden atanır.
+        {#each tParts('probes.intro') as part, i (i)}
+          {#if part.slot === 'probe'}<code>probe</code>{:else if part.slot === 'locations'}<b>{t('probes.locations')}</b
+            >{:else}{part.text}{/if}
+        {/each}
       </p>
     </div>
-    <button class="btn primary" onclick={openNew}><Icon name="plus" size={16} /> Yeni kontrol noktası</button>
+    <button class="btn primary" onclick={openNew}><Icon name="plus" size={16} /> {t('probes.newProbe')}</button>
   </div>
 
   {#if loading}
     <div class="skeleton" style="height:120px"></div>
   {:else if loadError}
-    <div class="alert error">{loadError} <button class="linkbtn" onclick={load}>Tekrar dene</button></div>
+    <div class="alert error">{loadError} <button class="linkbtn" onclick={load}>{t('common.retry')}</button></div>
   {:else if probes.length === 0}
     <div class="none">
       <Icon name="map-pin" size={22} />
-      <span>Henüz kontrol noktası yok. Tüm kontroller şu an yalnızca bu sunucudan yapılıyor.</span>
+      <span>{t('probes.empty')}</span>
     </div>
   {:else}
     <table class="table responsive probes">
       <thead>
         <tr>
-          <th>Ad</th>
-          <th>Durum</th>
-          <th>Son görülme</th>
-          <th>Adres</th>
-          <th>Sürüm</th>
-          <th>Monitör</th>
-          <th><span class="sr">İşlemler</span></th>
+          <th>{t('common.name')}</th>
+          <th>{t('probes.col.status')}</th>
+          <th>{t('probes.col.lastSeen')}</th>
+          <th>{t('probes.col.address')}</th>
+          <th>{t('common.version')}</th>
+          <th>{t('probes.col.monitors')}</th>
+          <th><span class="sr">{t('common.actions')}</span></th>
         </tr>
       </thead>
       <tbody>
         {#each sorted as p (p.id)}
           {@const st = probeState(p)}
           <tr class:dim={!p.active}>
-            <td data-label="Ad" class="nm">
+            <td data-label={t('common.name')} class="nm">
               <span class="nmw">
                 <span class="odot {st.c}" aria-hidden="true"></span>
                 <span>
@@ -247,68 +257,76 @@
                 </span>
               </span>
             </td>
-            <td data-label="Durum"><span class="badge {st.c}">{st.l}</span></td>
-            <td data-label="Son görülme" class="nowrap" title={p.last_seen_at ? fmtDate(p.last_seen_at) : ''}>
-              {p.last_seen_at ? fmtRelative(p.last_seen_at, clock.now) : 'Hiç bağlanmadı'}
+            <td data-label={t('probes.col.status')}><span class="badge {st.c}">{st.l}</span></td>
+            <td data-label={t('probes.col.lastSeen')} class="nowrap" title={p.last_seen_at ? fmtDate(p.last_seen_at) : ''}>
+              {p.last_seen_at ? fmtRelative(p.last_seen_at, clock.now) : t('probes.neverConnected')}
             </td>
-            <td data-label="Adres" class="mono small">
+            <td data-label={t('probes.col.address')} class="mono small">
               {p.last_ip || '—'}
-              {#if p.ip_lock}<span class="iplock" title={p.locked_ip ? `${p.locked_ip} IP’sine kilitli` : 'IP kilidi açık; ilk bağlantıda sabitlenir'}><Icon name="lock" size={12} /></span>{/if}
+              {#if p.ip_lock}<span class="iplock" title={p.locked_ip ? t('probes.lockedTo', { ip: p.locked_ip }) : t('probes.lockPending')}><Icon name="lock" size={12} /></span>{/if}
             </td>
-            <td data-label="Sürüm" class="small">{p.version || '—'}</td>
-            <td data-label="Monitör">{p.monitor_count ?? 0}</td>
-            <td class="act"><RowMenu items={menu(p)} label="{p.name} için işlemler" /></td>
+            <td data-label={t('common.version')} class="small">{p.version || '—'}</td>
+            <td data-label={t('probes.col.monitors')}>{p.monitor_count ?? 0}</td>
+            <td class="act"><RowMenu items={menu(p)} label={t('probes.actionsFor', { name: p.name })} /></td>
           </tr>
         {/each}
       </tbody>
     </table>
     <p class="help foot">
-      Son 90 saniyede sonuç gönderen kontrol noktası çevrimiçi sayılır. Güncellemek için sunucuda:
-      <code>docker rm -f uptime-probe; docker volume rm uptime-probe-bin</code>, sonra kurulum komutunu tekrar çalıştırın
-      (komut, satır menüsündeki “Token’ı yenile” ile yeniden alınır).
+      {#each tParts('probes.foot') as part, i (i)}
+        {#if part.slot === 'cmd'}<code>docker rm -f uptime-probe; docker volume rm uptime-probe-bin</code>{:else}{part.text}{/if}
+      {/each}
     </p>
   {/if}
 </section>
 
-<Modal bind:open={newOpen} title={setup ? setupTitle : 'Yeni kontrol noktası'} width={600}>
+<Modal bind:open={newOpen} title={setup ? setupTitle : t('probes.newProbe')} width={600}>
   {#if setup}
     <div class="stack">
-      <div class="alert warning">Bu token yalnızca bir kez gösterilir; kopyalayıp saklayın.</div>
+      <div class="alert warning">{t('probes.setup.shownOnce')}</div>
       <div>
-        <div class="label">Token</div>
+        <div class="label">{t('probes.setup.token')}</div>
         <div class="copybox">
           <code>{setup.token}</code>
           <CopyButton text={setup.token} class="btn sm primary" />
         </div>
       </div>
       <div>
-        <div class="label"><Icon name="terminal" size={14} /> Kurulum komutu</div>
+        <div class="label"><Icon name="terminal" size={14} /> {t('probes.setup.command')}</div>
         <p class="help cmd-help">
-          Kontrol noktası olacak sunucuda komutun tamamını <b>root</b> olarak yapıştırın (ya da ilk satırı
-          <code>sudo sh &lt;&lt;'UPTIME_KURULUM'</code> yapın).
+          {#each tParts('probes.setup.commandHelp') as part, i (i)}
+            {#if part.slot === 'root'}<b>root</b>{:else if part.slot === 'sudo'}<code>sudo sh &lt;&lt;'UPTIME_KURULUM'</code
+              >{:else}{part.text}{/if}
+          {/each}
         </p>
         <div class="cmdwrap">
           <!-- Çok satırlı komut: satır sonları korunur, uzun satırlar yatay kayar; klavyeyle kaydırılabilsin diye odaklanabilir. -->
           <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-          <pre class="cmd" tabindex="0" aria-label="Kurulum komutu">{setup.docker_command}</pre>
+          <pre class="cmd" tabindex="0" aria-label={t('probes.setup.command')}>{setup.docker_command}</pre>
           <div class="cmdcopy"><CopyButton text={setup.docker_command} /></div>
         </div>
         <p class="help cmd-help after">
-          Token sunucuda <code>/etc/uptime-probe.env</code> dosyasında (600 izinle) tutulur. Güncellemek için:
-          <code>docker rm -f uptime-probe; docker volume rm uptime-probe-bin</code>, sonra komutu tekrar çalıştırın.
+          {#each tParts('probes.setup.commandAfter') as part, i (i)}
+            {#if part.slot === 'path'}<code>/etc/uptime-probe.env</code>{:else if part.slot === 'cmd'}<code
+                >docker rm -f uptime-probe; docker volume rm uptime-probe-bin</code
+              >{:else}{part.text}{/if}
+          {/each}
         </p>
       </div>
       <p class="help nomargin">
-        Sunucu adresi: <code>{setup.server_url}</code>. Kontrol noktası bu adrese dışarıdan erişebilmeli; birkaç saniye içinde listede
-        <b>Çevrimiçi</b> görünür.
+        {#each tParts('probes.setup.serverUrl') as part, i (i)}
+          {#if part.slot === 'url'}<code>{setup.server_url}</code>{:else if part.slot === 'online'}<b
+              >{t('probes.state.online')}</b
+            >{:else}{part.text}{/if}
+        {/each}
       </p>
     </div>
   {:else}
     <form id="prf" class="stack" onsubmit={create} novalidate>
       <div class="field">
-        <label for="pr-name">Ad</label>
-        <input id="pr-name" class="input" maxlength="100" bind:value={newName} placeholder="ör. Frankfurt" />
-        <span class="help">Konumu anlatan kısa bir ad; monitör detayında ve bildirimlerde görünür.</span>
+        <label for="pr-name">{t('common.name')}</label>
+        <input id="pr-name" class="input" maxlength="100" bind:value={newName} placeholder={t('probes.form.namePlaceholder')} />
+        <span class="help">{t('probes.form.nameHelp')}</span>
       </div>
       {#if newError}<div class="alert error" role="alert">{newError}</div>{/if}
     </form>
@@ -316,42 +334,45 @@
   {#snippet footer()}
     <div class="spacer"></div>
     {#if setup}
-      <button type="button" class="btn primary" onclick={() => (newOpen = false)}>Kopyaladım, kapat</button>
+      <button type="button" class="btn primary" onclick={() => (newOpen = false)}>{t('probes.setup.copiedClose')}</button>
     {:else}
-      <button type="button" class="btn" onclick={() => (newOpen = false)}>Vazgeç</button>
+      <button type="button" class="btn" onclick={() => (newOpen = false)}>{t('common.cancel')}</button>
       <button type="submit" form="prf" class="btn primary" disabled={newBusy}>
-        {#if newBusy}<span class="spinner"></span>{/if} Oluştur
+        {#if newBusy}<span class="spinner"></span>{/if} {t('common.create')}
       </button>
     {/if}
   {/snippet}
 </Modal>
 
-<Modal bind:open={editOpen} title="Kontrol noktasını düzenle" width={440}>
+<Modal bind:open={editOpen} title={t('probes.form.editTitle')} width={440}>
   <form id="pref" class="stack" onsubmit={saveEdit} novalidate>
     <div class="field">
-      <label for="pre-name">Ad</label>
+      <label for="pre-name">{t('common.name')}</label>
       <input id="pre-name" class="input" maxlength="100" bind:value={editName} />
     </div>
     <label class="check">
       <input type="checkbox" bind:checked={editIpLock} />
       <span>
-        IP’ye kilitle
-        <small>Kontrol noktası yalnızca ilk bağlandığı IP’den sonuç gönderebilir; sunucu taşınırsa kilidi sıfırlayın.</small>
+        {t('probes.form.ipLock')}
+        <small>{t('probes.form.ipLockHelp')}</small>
       </span>
     </label>
     {#if editIpLock && editLockedIp}
       <div class="field">
-        <span class="help">Kilitli IP: <strong>{editLockedIp}</strong></span>
-        <button type="button" class="btn sm" onclick={resetEditIp} disabled={editBusy}>Kilidi sıfırla</button>
+        <span class="help"
+          >{#each tParts('probes.form.lockedIp') as part, i (i)}{#if part.slot === 'ip'}<strong>{editLockedIp}</strong
+              >{:else}{part.text}{/if}{/each}</span
+        >
+        <button type="button" class="btn sm" onclick={resetEditIp} disabled={editBusy}>{t('probes.form.resetLock')}</button>
       </div>
     {/if}
     {#if editError}<div class="alert error" role="alert">{editError}</div>{/if}
   </form>
   {#snippet footer()}
     <div class="spacer"></div>
-    <button type="button" class="btn" onclick={() => (editOpen = false)}>Vazgeç</button>
+    <button type="button" class="btn" onclick={() => (editOpen = false)}>{t('common.cancel')}</button>
     <button type="submit" form="pref" class="btn primary" disabled={editBusy}>
-      {#if editBusy}<span class="spinner"></span>{/if} Kaydet
+      {#if editBusy}<span class="spinner"></span>{/if} {t('common.save')}
     </button>
   {/snippet}
 </Modal>

@@ -9,6 +9,7 @@
   import Icon from '../../components/Icon.svelte';
   import CopyButton from '../../components/CopyButton.svelte';
   import UserForm from './UserForm.svelte';
+  import { t, tParts } from '../../lib/i18n';
 
   let users = $state.raw<UserRecord[]>([]);
   let loading = $state(true);
@@ -46,15 +47,15 @@
 
   function saved(u: UserRecord, created: boolean) {
     users = created ? [...users, u] : users.map((x) => (x.id === u.id ? u : x));
-    toast.success(created ? `“${u.username}” eklendi. Geçici şifreyi kendisine iletin.` : 'Kullanıcı kaydedildi');
+    toast.success(created ? t('users.toast.created', { name: u.username }) : t('users.toast.saved'));
   }
 
   async function toggleDisabled(u: UserRecord) {
     if (!u.disabled) {
       const ok = await confirmDialog({
-        title: 'Hesabı devre dışı bırak',
-        message: `“${u.username}” giriş yapamayacak ve API anahtarları çalışmayacak. Daha sonra yeniden etkinleştirebilirsiniz.`,
-        confirmText: 'Devre dışı bırak',
+        title: t('users.confirm.disableTitle'),
+        message: t('users.confirm.disableMessage', { name: u.username }),
+        confirmText: t('users.confirm.disableConfirm'),
         danger: true,
       });
       if (!ok) return;
@@ -69,7 +70,7 @@
         server_ids: u.server_ids ?? [],
       });
       users = users.map((x) => (x.id === u.id ? res : x));
-      toast.success(res.disabled ? 'Hesap devre dışı bırakıldı' : 'Hesap etkinleştirildi');
+      toast.success(res.disabled ? t('users.toast.disabled') : t('users.toast.enabled'));
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -77,16 +78,16 @@
 
   async function remove(u: UserRecord) {
     const ok = await confirmDialog({
-      title: 'Kullanıcıyı sil',
-      message: `“${u.username}” kalıcı olarak silinecek; oturumları ve API anahtarları da kapanır. İşlem kaydındaki geçmişi korunur.`,
-      confirmText: 'Sil',
+      title: t('users.confirm.deleteTitle'),
+      message: t('users.confirm.deleteMessage', { name: u.username }),
+      confirmText: t('common.delete'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.deleteUser(u.id);
       users = users.filter((x) => x.id !== u.id);
-      toast.success(`“${u.username}” silindi`);
+      toast.success(t('users.toast.deleted', { name: u.username }));
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -94,16 +95,16 @@
 
   async function reset2fa(u: UserRecord) {
     const ok = await confirmDialog({
-      title: 'İki adımlı doğrulamayı sıfırla',
-      message: 'Kullanıcının iki adımlı doğrulaması kapatılacak; bir sonraki girişte sadece şifre istenecek.',
-      confirmText: '2FA’yı sıfırla',
+      title: t('users.confirm.reset2faTitle'),
+      message: t('users.confirm.reset2faMessage'),
+      confirmText: t('users.confirm.reset2faConfirm'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.resetUser2fa(u.id);
       users = users.map((x) => (x.id === u.id ? { ...x, two_factor_enabled: false } : x));
-      toast.success('İki adımlı doğrulama sıfırlandı');
+      toast.success(t('users.toast.reset2fa'));
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -127,13 +128,13 @@
     e.preventDefault();
     if (!pwUser) return;
     pwError = '';
-    if (pw.length < 8) return (pwError = 'Geçici şifre en az 8 karakter olmalı.');
+    if (pw.length < 8) return (pwError = t('users.errTempPassword'));
     pwBusy = true;
     try {
       await api.resetUserPassword(pwUser.id, pw);
       users = users.map((x) => (x.id === pwUser!.id ? { ...x, must_change_password: true } : x));
       pwOpen = false;
-      toast.success('Geçici şifre ayarlandı. Kullanıcıya iletin.');
+      toast.success(t('users.toast.passwordSet'));
     } catch (err) {
       pwError = errorMessage(err);
     } finally {
@@ -144,16 +145,16 @@
 
   function menu(u: UserRecord): MenuItem[] {
     const self = u.id === session.user?.id;
-    const out: MenuItem[] = [{ label: 'Düzenle', icon: 'edit', onclick: () => openForm(u) }];
-    if (!self) out.push({ label: 'Şifre sıfırla', icon: 'key', onclick: () => openPw(u) });
-    if (!self && u.two_factor_enabled) out.push({ label: '2FA’yı sıfırla', icon: 'shield', onclick: () => reset2fa(u) });
+    const out: MenuItem[] = [{ label: t('common.edit'), icon: 'edit', onclick: () => openForm(u) }];
+    if (!self) out.push({ label: t('users.menu.resetPassword'), icon: 'key', onclick: () => openPw(u) });
+    if (!self && u.two_factor_enabled) out.push({ label: t('users.menu.reset2fa'), icon: 'shield', onclick: () => reset2fa(u) });
     if (!self)
       out.push(
         u.disabled
-          ? { label: 'Etkinleştir', icon: 'check-circle', onclick: () => toggleDisabled(u) }
-          : { label: 'Devre dışı bırak', icon: 'ban', onclick: () => toggleDisabled(u) },
+          ? { label: t('users.menu.enable'), icon: 'check-circle', onclick: () => toggleDisabled(u) }
+          : { label: t('users.menu.disable'), icon: 'ban', onclick: () => toggleDisabled(u) },
       );
-    if (!self) out.push({ label: 'Sil', icon: 'trash', danger: true, onclick: () => remove(u) });
+    if (!self) out.push({ label: t('common.delete'), icon: 'trash', danger: true, onclick: () => remove(u) });
     return out;
   }
 </script>
@@ -161,74 +162,78 @@
 <div class="card">
   <div class="head">
     <div>
-      <h2 class="card-title">Kullanıcılar</h2>
+      <h2 class="card-title">{t('users.title')}</h2>
       <p class="text-2 small sub">
-        <b>Yönetici</b> her şeyi yönetir, <b>Editör</b> monitörleri ve kanalları yönetir, <b>İzleyici</b> yalnızca görüntüler.
-        Müşterilerinize yalnızca kendi monitörlerini gösteren izleyici hesapları açabilirsiniz.
+        {#each tParts('users.intro') as p, i (i)}
+          {#if p.slot === 'admin' || p.slot === 'editor' || p.slot === 'viewer'}<b>{ROLE_LABELS[p.slot]}</b
+            >{:else}{p.text}{/if}
+        {/each}
       </p>
     </div>
-    <button class="btn primary" onclick={() => openForm(null)}><Icon name="user-plus" size={16} /> Kullanıcı ekle</button>
+    <button class="btn primary" onclick={() => openForm(null)}><Icon name="user-plus" size={16} /> {t('users.add')}</button>
   </div>
 
   {#if loading}
     <div class="skeleton" style="height:180px"></div>
   {:else if loadError}
     <div class="empty">
-      <h3>Kullanıcılar yüklenemedi</h3>
+      <h3>{t('users.loadFailed')}</h3>
       <p>{loadError}</p>
-      <button class="btn primary" onclick={load}>Tekrar dene</button>
+      <button class="btn primary" onclick={load}>{t('common.retry')}</button>
     </div>
   {:else}
     <table class="table responsive users">
       <thead>
         <tr>
-          <th>Kullanıcı</th>
-          <th>Görünen ad</th>
-          <th>Rol</th>
-          <th>Durum</th>
+          <th>{t('users.list.user')}</th>
+          <th>{t('users.list.displayName')}</th>
+          <th>{t('users.list.role')}</th>
+          <th>{t('users.list.status')}</th>
           <th>2FA</th>
-          <th>Son giriş</th>
-          <th><span class="sr">İşlemler</span></th>
+          <th>{t('users.list.lastLogin')}</th>
+          <th><span class="sr">{t('common.actions')}</span></th>
         </tr>
       </thead>
       <tbody>
         {#each sorted as u (u.id)}
           <tr class:dim={u.disabled}>
-            <td data-label="Kullanıcı" class="un">
+            <td data-label={t('users.list.user')} class="un">
               <span class="unw">
                 <span class="av" aria-hidden="true">{(u.display_name || u.username).slice(0, 1).toLocaleUpperCase('tr')}</span>
-                <span class="uname">{u.username}{#if u.id === session.user?.id}<span class="you">(siz)</span>{/if}</span>
+                <span class="uname">{u.username}{#if u.id === session.user?.id}<span class="you">{t('users.list.you')}</span>{/if}</span>
               </span>
             </td>
-            <td data-label="Görünen ad" class="dn">{u.display_name || '—'}</td>
-            <td data-label="Rol">
+            <td data-label={t('users.list.displayName')} class="dn">{u.display_name || '—'}</td>
+            <td data-label={t('users.list.role')}>
               <span class="badge {u.role === 'admin' ? 'accent' : ''}">{ROLE_LABELS[u.role]}</span>
               {#if u.role === 'viewer' && !u.all_monitors}
-                <span class="scope" title="Yalnızca seçili monitörleri ve sunucuları görür"
-                  >{u.monitor_ids?.length ?? 0} monitör{u.server_ids?.length ? ` · ${u.server_ids.length} sunucu` : ''}</span
+                <span class="scope" title={t('users.list.scopeTitle')}
+                  >{t('users.list.monitorCount', { count: u.monitor_ids?.length ?? 0 })}{u.server_ids?.length
+                    ? ` · ${t('users.list.serverCount', { count: u.server_ids.length })}`
+                    : ''}</span
                 >
               {/if}
             </td>
-            <td data-label="Durum">
+            <td data-label={t('users.list.status')}>
               {#if u.disabled}
-                <span class="badge down">Devre dışı</span>
+                <span class="badge down">{t('users.list.disabled')}</span>
               {:else if u.must_change_password}
-                <span class="badge pending">Şifre değişimi bekliyor</span>
+                <span class="badge pending">{t('users.list.mustChange')}</span>
               {:else}
-                <span class="badge up">Etkin</span>
+                <span class="badge up">{t('users.list.active')}</span>
               {/if}
             </td>
             <td data-label="2FA">
               {#if u.two_factor_enabled}
-                <span class="badge up" title="İki adımlı doğrulama açık"><Icon name="shield-check" size={12} /> 2FA</span>
+                <span class="badge up" title={t('users.list.twoFactorOn')}><Icon name="shield-check" size={12} /> 2FA</span>
               {:else}
-                <span class="muted small">Kapalı</span>
+                <span class="muted small">{t('common.off')}</span>
               {/if}
             </td>
-            <td data-label="Son giriş" class="nowrap muted" title={u.last_login_at ? fmtDate(u.last_login_at) : ''}>
-              {u.last_login_at ? fmtRelative(u.last_login_at, clock.now) : 'Hiç'}
+            <td data-label={t('users.list.lastLogin')} class="nowrap muted" title={u.last_login_at ? fmtDate(u.last_login_at) : ''}>
+              {u.last_login_at ? fmtRelative(u.last_login_at, clock.now) : t('users.list.never')}
             </td>
-            <td class="act"><RowMenu items={menu(u)} label="{u.username} için işlemler" /></td>
+            <td class="act"><RowMenu items={menu(u)} label={t('users.list.actionsFor', { name: u.username })} /></td>
           </tr>
         {/each}
       </tbody>
@@ -242,27 +247,28 @@
   {/if}
 {/key}
 
-<Modal bind:open={pwOpen} title="Şifre sıfırla" width={460}>
+<Modal bind:open={pwOpen} title={t('users.resetPassword.title')} width={460}>
   <form id="pwf" class="stack" onsubmit={resetPw} novalidate>
     <p class="text-2 nomargin">
-      <b>{pwUser?.username}</b> için geçici bir şifre belirlenecek. Kullanıcının açık oturumları kapanır ve bir sonraki girişte kendi
-      şifresini belirlemesi istenir.
+      {#each tParts('users.resetPassword.intro') as p, i (i)}
+        {#if p.slot === 'user'}<b>{pwUser?.username}</b>{:else}{p.text}{/if}
+      {/each}
     </p>
     <div class="field">
-      <label for="pw-new">Geçici şifre</label>
+      <label for="pw-new">{t('users.tempPassword')}</label>
       <div class="pw">
         <input id="pw-new" class="input mono" bind:value={pw} autocomplete="new-password" spellcheck="false" />
-        <button type="button" class="btn icon" aria-label="Yeni rastgele şifre" onclick={() => (pw = randomPassword())}><Icon name="refresh" size={15} /></button>
-        <CopyButton class="btn icon" iconOnly ariaLabel="Şifreyi kopyala" text={pw} size={15} />
+        <button type="button" class="btn icon" aria-label={t('users.resetPassword.random')} onclick={() => (pw = randomPassword())}><Icon name="refresh" size={15} /></button>
+        <CopyButton class="btn icon" iconOnly ariaLabel={t('users.copyPassword')} text={pw} size={15} />
       </div>
     </div>
     {#if pwError}<div class="alert error" role="alert">{pwError}</div>{/if}
   </form>
   {#snippet footer()}
     <div class="spacer"></div>
-    <button type="button" class="btn" onclick={() => (pwOpen = false)}>Vazgeç</button>
+    <button type="button" class="btn" onclick={() => (pwOpen = false)}>{t('common.cancel')}</button>
     <button type="submit" form="pwf" class="btn primary" disabled={pwBusy}>
-      {#if pwBusy}<span class="spinner"></span>{/if} Şifreyi sıfırla
+      {#if pwBusy}<span class="spinner"></span>{/if} {t('users.resetPassword.submit')}
     </button>
   {/snippet}
 </Modal>

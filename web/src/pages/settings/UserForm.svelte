@@ -7,6 +7,7 @@
   import ServerPicker from '../../components/ServerPicker.svelte';
   import Icon from '../../components/Icon.svelte';
   import CopyButton from '../../components/CopyButton.svelte';
+  import { t } from '../../lib/i18n';
 
   let {
     open = $bindable(false),
@@ -42,13 +43,13 @@
   async function save() {
     error = '';
     if (!orig && !USERNAME_RE.test(username.trim()))
-      return (error = 'Kullanıcı adı 3-32 karakter olmalı; harf, rakam, nokta, tire ve alt çizgi kullanılabilir.');
-    if (displayName.trim().length > 100) return (error = 'Görünen ad en fazla 100 karakter olabilir.');
-    if (!orig && password.length < 8) return (error = 'Geçici şifre en az 8 karakter olmalı.');
+      return (error = t('users.form.errUsername'));
+    if (displayName.trim().length > 100) return (error = t('users.form.errDisplayName'));
+    if (!orig && password.length < 8) return (error = t('users.errTempPassword'));
     const onlySelected = role === 'viewer' && restricted;
     // Yalnızca sunucu görecek müşteri de olabilir: en az bir monitör veya sunucu yeterli.
     if (onlySelected && monitorIds.length === 0 && serverIds.length === 0)
-      return (error = 'Müşteri erişimi için en az bir monitör veya sunucu seçin.');
+      return (error = t('users.form.errScope'));
     const body = {
       display_name: displayName.trim(),
       role,
@@ -72,7 +73,7 @@
   }
 </script>
 
-<Modal bind:open title={orig ? 'Kullanıcıyı düzenle' : 'Kullanıcı ekle'} width={620}>
+<Modal bind:open title={orig ? t('users.form.editTitle') : t('users.form.addTitle')} width={620}>
   <form
     id="uf"
     class="stack"
@@ -84,24 +85,24 @@
   >
     <div class="grid-2">
       <div class="field">
-        <label for="uf-u">Kullanıcı adı</label>
+        <label for="uf-u">{t('common.username')}</label>
         {#if orig}
           <input id="uf-u" class="input" value={orig.username} disabled />
-          <span class="help">Kullanıcı adı değiştirilemez.</span>
+          <span class="help">{t('users.form.usernameFixed')}</span>
         {:else}
-          <input id="uf-u" class="input" bind:value={username} maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="ör. ayse.yilmaz" />
-          <span class="help">3-32 karakter: harf, rakam, nokta, tire, alt çizgi.</span>
+          <input id="uf-u" class="input" bind:value={username} maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder={t('users.form.usernamePlaceholder')} />
+          <span class="help">{t('users.form.usernameHelp')}</span>
         {/if}
       </div>
       <div class="field">
-        <label for="uf-d">Görünen ad <span class="muted">(isteğe bağlı)</span></label>
-        <input id="uf-d" class="input" bind:value={displayName} maxlength="100" placeholder="ör. Ayşe Yılmaz" />
+        <label for="uf-d">{t('users.form.displayName')} <span class="muted">{t('users.form.optional')}</span></label>
+        <input id="uf-d" class="input" bind:value={displayName} maxlength="100" placeholder={t('users.form.displayNamePlaceholder')} />
       </div>
     </div>
 
     <fieldset class="roles">
-      <legend class="label">Rol</legend>
-      {#if isSelf}<span class="help">Kendi rolünüzü değiştiremezsiniz.</span>{/if}
+      <legend class="label">{t('users.form.role')}</legend>
+      {#if isSelf}<span class="help">{t('users.form.ownRole')}</span>{/if}
       <div class="role-list">
         {#each ROLES as r (r)}
           <label class="role" class:active={role === r} class:off={isSelf && role !== r}>
@@ -120,20 +121,20 @@
         <label class="check">
           <input type="checkbox" bind:checked={restricted} />
           <span>
-            Müşteri erişimi: yalnızca seçili monitörleri ve sunucuları görsün
-            <small>Kapalıysa tüm monitörleri ve sunucuları görebilir. Açıksa listede, olaylarda ve canlı akışta yalnızca seçtikleriniz görünür; sunucu seçilmezse Sunucular sekmesi gizlenir.</small>
+            {t('users.form.restricted')}
+            <small>{t('users.form.restrictedHelp')}</small>
           </span>
         </label>
         {#if restricted}
-          <MonitorPicker bind:selected={monitorIds} label="Görebileceği monitörler" id="uf-mp" />
-          <ServerPicker bind:selected={serverIds} label="Görebileceği sunucular" id="uf-sp" />
+          <MonitorPicker bind:selected={monitorIds} label={t('users.form.monitors')} id="uf-mp" />
+          <ServerPicker bind:selected={serverIds} label={t('users.form.servers')} id="uf-sp" />
         {/if}
       </div>
     {/if}
 
     {#if !orig}
       <div class="field">
-        <label for="uf-p">Geçici şifre</label>
+        <label for="uf-p">{t('users.tempPassword')}</label>
         <div class="pw">
           <input
             id="uf-p"
@@ -143,15 +144,15 @@
             autocomplete="new-password"
             spellcheck="false"
           />
-          <button type="button" class="btn" onclick={generate}><Icon name="refresh" size={15} /> Rastgele oluştur</button>
-          <CopyButton class="btn icon" iconOnly ariaLabel="Şifreyi kopyala" text={password} disabled={!password} size={15} />
+          <button type="button" class="btn" onclick={generate}><Icon name="refresh" size={15} /> {t('users.form.generate')}</button>
+          <CopyButton class="btn icon" iconOnly ariaLabel={t('users.copyPassword')} text={password} disabled={!password} size={15} />
         </div>
-        <span class="help">En az 8 karakter. Kullanıcı ilk girişte bu şifreyi değiştirmek zorunda kalır; şifreyi ona güvenli bir yoldan iletin.</span>
+        <span class="help">{t('users.form.passwordHelp')}</span>
       </div>
     {:else if !isSelf}
       <label class="check">
         <input type="checkbox" bind:checked={disabled} />
-        <span>Hesap devre dışı<small>Devre dışı hesap giriş yapamaz ve API anahtarları çalışmaz.</small></span>
+        <span>{t('users.form.disabled')}<small>{t('users.form.disabledHelp')}</small></span>
       </label>
     {/if}
 
@@ -159,10 +160,10 @@
   </form>
   {#snippet footer()}
     <div class="spacer"></div>
-    <button type="button" class="btn" onclick={() => (open = false)}>Vazgeç</button>
+    <button type="button" class="btn" onclick={() => (open = false)}>{t('common.cancel')}</button>
     <button type="submit" form="uf" class="btn primary" disabled={busy}>
       {#if busy}<span class="spinner"></span>{/if}
-      {orig ? 'Kaydet' : 'Kullanıcıyı ekle'}
+      {orig ? t('common.save') : t('users.form.submitAdd')}
     </button>
   {/snippet}
 </Modal>

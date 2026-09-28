@@ -1,19 +1,21 @@
 <script lang="ts">
   // Docker konteynerleri: sütuna göre sıralanır, 10'dan fazlaysa filtre kutusu çıkar.
   import type { ContainerInfo } from '../lib/api';
-  import { collator, fmtBytes, fmtDec, fmtRate, lower } from '../lib/format';
+  import { collator, fmtBytes, fmtRate, lower } from '../lib/format';
+  import { t } from '../lib/i18n';
+  import { fmtPct1, metricLabel } from '../lib/servers.svelte';
   import Icon from './Icon.svelte';
 
   let { containers }: { containers: ContainerInfo[] } = $props();
 
   type Key = 'name' | 'cpu' | 'mem' | 'rx' | 'tx';
-  const COLS: { key: Key; label: string }[] = [
-    { key: 'name', label: 'Ad' },
-    { key: 'cpu', label: 'CPU' },
-    { key: 'mem', label: 'RAM' },
-    { key: 'rx', label: 'Ağ ↓' },
-    { key: 'tx', label: 'Ağ ↑' },
-  ];
+  const COLS: { key: Key; label: string }[] = $derived([
+    { key: 'name', label: t('common.name') },
+    { key: 'cpu', label: metricLabel('cpu') },
+    { key: 'mem', label: metricLabel('mem') },
+    { key: 'rx', label: t('servers.containers.netRx') },
+    { key: 'tx', label: t('servers.containers.netTx') },
+  ]);
   const LIMIT = 10;
 
   let sortKey = $state<Key>('cpu');
@@ -49,15 +51,15 @@
   <div class="tools">
     <div class="search">
       <span class="s-ic"><Icon name="search" size={15} /></span>
-      <input class="input" type="search" placeholder="Konteyner ara" bind:value={q} aria-label="Konteyner ara" />
+      <input class="input" type="search" placeholder={t('servers.containers.search')} bind:value={q} aria-label={t('servers.containers.search')} />
     </div>
-    <select class="input msort" aria-label="Sıralama" value={sortKey} onchange={(e) => setSort((e.currentTarget as HTMLSelectElement).value as Key)}>
+    <select class="input msort" aria-label={t('servers.containers.sort')} value={sortKey} onchange={(e) => setSort((e.currentTarget as HTMLSelectElement).value as Key)}>
       {#each COLS as c (c.key)}<option value={c.key}>{c.label}</option>{/each}
     </select>
   </div>
 {/if}
 
-<div class="ct" role="table" aria-label="Konteynerler">
+<div class="ct" role="table" aria-label={t('servers.detail.containers.title')}>
   <div class="hrow" role="row">
     {#each COLS as c (c.key)}
       <span role="columnheader" aria-sort={ariaSort(c.key)} class="h-{c.key}">
@@ -71,21 +73,21 @@
   {#each shown as c (c.id || c.name)}
     <div class="crow" role="row">
       <span class="c-name" role="cell" title={c.name}>{c.name}</span>
-      <span class="c-cpu" role="cell"><span class="ml">CPU</span>%{fmtDec(c.cpu, 1)}</span>
+      <span class="c-cpu" role="cell"><span class="ml">{metricLabel('cpu')}</span>{fmtPct1(c.cpu)}</span>
       <span class="c-mem" role="cell">
-        <span class="ml">RAM</span>{fmtBytes(c.mem)}{#if c.mem_limit}<span class="lim">&nbsp;/ {fmtBytes(c.mem_limit)}</span>{/if}
+        <span class="ml">{metricLabel('mem')}</span>{fmtBytes(c.mem)}{#if c.mem_limit}<span class="lim">&nbsp;/ {fmtBytes(c.mem_limit)}</span>{/if}
       </span>
       <span class="c-rx" role="cell"><span class="ml">↓</span>{fmtRate(c.net_rx_bps)}</span>
       <span class="c-tx" role="cell"><span class="ml">↑</span>{fmtRate(c.net_tx_bps)}</span>
     </div>
   {:else}
-    <div class="empty-row">Eşleşen konteyner yok.</div>
+    <div class="empty-row">{t('servers.containers.noMatch')}</div>
   {/each}
 </div>
 
 {#if !q.trim() && rows.length > LIMIT}
   <button type="button" class="linkbtn more" onclick={() => (showAll = !showAll)}>
-    {showAll ? 'Daha az göster' : `Tümünü göster (${rows.length})`}
+    {showAll ? t('servers.containers.showLess') : t('servers.containers.showAll', { n: rows.length })}
   </button>
 {/if}
 

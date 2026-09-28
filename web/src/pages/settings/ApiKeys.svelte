@@ -7,6 +7,7 @@
   import Modal from '../../components/Modal.svelte';
   import Icon from '../../components/Icon.svelte';
   import CopyButton from '../../components/CopyButton.svelte';
+  import { t } from '../../lib/i18n';
 
   let keys = $state.raw<ApiKey[]>([]);
   let loading = $state(true);
@@ -36,24 +37,25 @@
     load();
   }
 
-  const STATUS: Record<ApiKeyStatus, { l: string; c: string }> = {
-    active: { l: 'Etkin', c: 'up' },
-    expired: { l: 'Süresi doldu', c: 'paused' },
-    revoked: { l: 'İptal edildi', c: 'down' },
+  // Etiket şablonda t(`apiKeys.status.${k.status}`) ile çevrilir (dil değişince yenilensin).
+  const STATUS_CLASS: Record<ApiKeyStatus, string> = {
+    active: 'up',
+    expired: 'paused',
+    revoked: 'down',
   };
 
   async function revoke(k: ApiKey) {
     const ok = await confirmDialog({
-      title: 'Anahtarı iptal et',
-      message: `“${k.name}” — Bu anahtar iptal edilsin mi? Onu kullanan betikler çalışmayı durdurur.`,
-      confirmText: 'İptal et',
-      cancelText: 'Vazgeç',
+      title: t('apiKeys.revokeTitle'),
+      message: t('apiKeys.revokeMessage', { name: k.name }),
+      confirmText: t('apiKeys.revoke'),
+      cancelText: t('common.cancel'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.revokeApiKey(k.id);
-      toast.success('Anahtar iptal edildi');
+      toast.success(t('apiKeys.revoked'));
       load();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -85,12 +87,12 @@
     e.preventDefault();
     error = '';
     const n = name.trim();
-    if (!n) return (error = 'Anahtara bir ad verin (ör. “Grafana” veya “yedek betiği”).');
+    if (!n) return (error = t('apiKeys.form.errName'));
     let exp = 0;
     if (expires) {
       // Seçilen günün sonuna kadar geçerli (İstanbul saati).
       exp = parseLocal(`${expires}T23:59`) + 59;
-      if (exp <= nowSec()) return (error = 'Son kullanım tarihi gelecekte olmalı.');
+      if (exp <= nowSec()) return (error = t('apiKeys.form.errExpires'));
     }
     busy = true;
     try {
@@ -112,58 +114,60 @@
 <section class="card">
   <div class="head">
     <div>
-      <h2 class="card-title">API anahtarları</h2>
-      <p class="text-2 small sub">Betiklerinizden ve Prometheus gibi araçlardan API’ye erişmek için. Örnek:</p>
+      <h2 class="card-title">{t('apiKeys.title')}</h2>
+      <p class="text-2 small sub">{t('apiKeys.intro')}</p>
       <pre class="ex">curl -H "Authorization: Bearer upk_…" {origin}/api/monitors</pre>
     </div>
-    <button class="btn primary" onclick={openNew}><Icon name="plus" size={16} /> Yeni anahtar</button>
+    <button class="btn primary" onclick={openNew}><Icon name="plus" size={16} /> {t('apiKeys.newKey')}</button>
   </div>
 
   {#if session.isAdmin}
     <label class="check all">
       <input type="checkbox" checked={showAll} onchange={(e) => toggleAll(e.currentTarget.checked)} />
-      <span>Tüm kullanıcıların anahtarları</span>
+      <span>{t('apiKeys.showAll')}</span>
     </label>
   {/if}
 
   {#if loading}
     <div class="skeleton" style="height:90px"></div>
   {:else if loadError}
-    <div class="alert error">{loadError} <button class="linkbtn" onclick={load}>Tekrar dene</button></div>
+    <div class="alert error">{loadError} <button class="linkbtn" onclick={load}>{t('common.retry')}</button></div>
   {:else if keys.length === 0}
     <div class="none">
       <Icon name="key" size={22} />
-      <span>Henüz API anahtarı yok.</span>
+      <span>{t('apiKeys.empty')}</span>
     </div>
   {:else}
     <table class="table responsive keys">
       <thead>
         <tr>
-          <th>Ad</th>
-          {#if showAll}<th>Sahibi</th>{/if}
-          <th>Yetki</th>
-          <th>Önek</th>
-          <th>Son kullanıldı</th>
-          <th>Son kullanım tarihi</th>
-          <th>Durum</th>
-          <th><span class="sr">İşlem</span></th>
+          <th>{t('common.name')}</th>
+          {#if showAll}<th>{t('apiKeys.col.owner')}</th>{/if}
+          <th>{t('apiKeys.col.scope')}</th>
+          <th>{t('apiKeys.col.prefix')}</th>
+          <th>{t('apiKeys.col.lastUsed')}</th>
+          <th>{t('apiKeys.col.expires')}</th>
+          <th>{t('apiKeys.col.status')}</th>
+          <th><span class="sr">{t('apiKeys.col.action')}</span></th>
         </tr>
       </thead>
       <tbody>
         {#each keys as k (k.id)}
           <tr class:dim={k.status !== 'active'}>
-            <td data-label="Ad" class="nm">{k.name}</td>
-            {#if showAll}<td data-label="Sahibi">{k.username}</td>{/if}
-            <td data-label="Yetki">{ROLE_LABELS[k.role] ?? k.role}</td>
-            <td data-label="Önek"><code>{k.prefix}…</code></td>
-            <td data-label="Son kullanıldı" class="nowrap" title={k.last_used_at ? fmtDate(k.last_used_at) : ''}>
-              {k.last_used_at ? fmtRelative(k.last_used_at, clock.now) : 'Hiç'}
+            <td data-label={t('common.name')} class="nm">{k.name}</td>
+            {#if showAll}<td data-label={t('apiKeys.col.owner')}>{k.username}</td>{/if}
+            <td data-label={t('apiKeys.col.scope')}>{ROLE_LABELS[k.role] ?? k.role}</td>
+            <td data-label={t('apiKeys.col.prefix')}><code>{k.prefix}…</code></td>
+            <td data-label={t('apiKeys.col.lastUsed')} class="nowrap" title={k.last_used_at ? fmtDate(k.last_used_at) : ''}>
+              {k.last_used_at ? fmtRelative(k.last_used_at, clock.now) : t('apiKeys.never')}
             </td>
-            <td data-label="Son kullanım tarihi" class="nowrap">{k.expires_at ? fmtDay(k.expires_at) : 'Süresiz'}</td>
-            <td data-label="Durum"><span class="badge {STATUS[k.status].c}">{STATUS[k.status].l}</span></td>
+            <td data-label={t('apiKeys.col.expires')} class="nowrap">{k.expires_at ? fmtDay(k.expires_at) : t('apiKeys.noExpiry')}</td>
+            <td data-label={t('apiKeys.col.status')}
+              ><span class="badge {STATUS_CLASS[k.status]}">{t(`apiKeys.status.${k.status}`)}</span></td
+            >
             <td class="act">
               {#if k.status === 'active'}
-                <button class="btn sm danger" onclick={() => revoke(k)}>İptal et</button>
+                <button class="btn sm danger" onclick={() => revoke(k)}>{t('apiKeys.revoke')}</button>
               {/if}
             </td>
           </tr>
@@ -173,55 +177,52 @@
   {/if}
 </section>
 
-<Modal bind:open title={secret ? 'Anahtarınız hazır' : 'Yeni API anahtarı'} width={520}>
+<Modal bind:open title={secret ? t('apiKeys.form.readyTitle') : t('apiKeys.form.title')} width={520}>
   {#if secret}
     <div class="stack">
-      <div class="alert warning">Bu anahtar bir daha gösterilmeyecek; şimdi kopyalayıp güvenli bir yerde saklayın.</div>
+      <div class="alert warning">{t('apiKeys.form.shownOnce')}</div>
       <div>
-        <div class="label">Anahtarınız:</div>
+        <div class="label">{t('apiKeys.form.yourKey')}</div>
         <div class="copybox">
           <code>{secret}</code>
           <CopyButton text={secret} class="btn sm primary" />
         </div>
       </div>
       <div>
-        <div class="label">Kullanım örneği</div>
+        <div class="label">{t('apiKeys.form.example')}</div>
         <div class="copybox"><code>{curl}</code></div>
       </div>
     </div>
   {:else}
     <form id="akf" class="stack" onsubmit={create} novalidate>
       <div class="field">
-        <label for="ak-name">Ad</label>
-        <input id="ak-name" class="input" maxlength="100" bind:value={name} placeholder="Ör. Grafana, yedek betiği" />
+        <label for="ak-name">{t('common.name')}</label>
+        <input id="ak-name" class="input" maxlength="100" bind:value={name} placeholder={t('apiKeys.form.namePlaceholder')} />
       </div>
       <div class="grid-2">
         <div class="field">
-          <label for="ak-role">Yetki</label>
+          <label for="ak-role">{t('apiKeys.col.scope')}</label>
           <select id="ak-role" class="input" bind:value={role}>
             {#each roles as r (r)}<option value={r}>{ROLE_LABELS[r]}</option>{/each}
           </select>
         </div>
         <div class="field">
-          <label for="ak-exp">Son kullanım tarihi <span class="muted">(isteğe bağlı)</span></label>
+          <label for="ak-exp">{t('apiKeys.col.expires')} <span class="muted">{t('apiKeys.form.optional')}</span></label>
           <input id="ak-exp" class="input" type="date" min={minDay} bind:value={expires} />
         </div>
       </div>
-      <span class="help">
-        Anahtar, sizin rolünüzü aşamaz; rolünüz düşerse anahtarın yetkisi de düşer. Son kullanım tarihi boş bırakılırsa süresiz.
-        Yalnızca izleme ve Prometheus için “İzleyici” yeterlidir.
-      </span>
+      <span class="help">{t('apiKeys.form.help', { viewer: ROLE_LABELS.viewer })}</span>
       {#if error}<div class="alert error" role="alert">{error}</div>{/if}
     </form>
   {/if}
   {#snippet footer()}
     <div class="spacer"></div>
     {#if secret}
-      <button type="button" class="btn primary" onclick={() => (open = false)}>Kopyaladım, kapat</button>
+      <button type="button" class="btn primary" onclick={() => (open = false)}>{t('apiKeys.form.copiedClose')}</button>
     {:else}
-      <button type="button" class="btn" onclick={() => (open = false)}>Vazgeç</button>
+      <button type="button" class="btn" onclick={() => (open = false)}>{t('common.cancel')}</button>
       <button type="submit" form="akf" class="btn primary" disabled={busy}>
-        {#if busy}<span class="spinner"></span>{/if} Oluştur
+        {#if busy}<span class="spinner"></span>{/if} {t('common.create')}
       </button>
     {/if}
   {/snippet}

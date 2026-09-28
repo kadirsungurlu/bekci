@@ -4,11 +4,13 @@
   import { session } from '../lib/session.svelte';
   import { clock } from '../lib/ui.svelte';
   import { fmtDec, fmtRate, fmtRelative, fmtUptime } from '../lib/format';
+  import { t } from '../lib/i18n';
   import {
     STATE_LABELS,
     diskPct,
     diskSummary,
     fullestMount,
+    hostLine,
     inactiveReason,
     isInactive,
     memPct,
@@ -51,37 +53,32 @@
     renewOpen = true;
   }
 
-  /** Alt satır: host adı · işletim sistemi. */
-  function subLine(s: ServerView): string {
-    const parts = [s.host?.hostname, s.host?.platform].filter(Boolean);
-    return parts.join(' · ');
-  }
-
-  const firingLabels = (s: ServerView) => (s.firing ?? []).filter((m) => m !== 'offline').map(metricLabel);
+  // Disk bölüm başına ayrı kural olabildiği için aynı metrik birden fazla gelebilir ("disk", "disk"): rozet bir kez.
+  const firingLabels = (s: ServerView) => [...new Set((s.firing ?? []).filter((m) => m !== 'offline'))].map(metricLabel);
 </script>
 
 <div class="page-head">
   <div class="ph">
-    <h1>Sunucular<span class="dot">.</span></h1>
+    <h1>{t('servers.list.title')}<span class="dot">.</span></h1>
     {#if servers.loaded && servers.list.length}
       <div class="sum">
-        <span><i class="sd up"></i>{counts.online} çevrimiçi</span>
-        {#if counts.warn}<span class="c-pending"><i class="sd warn"></i>{counts.warn} uyarıda</span>{/if}
-        {#if counts.offline}<span class="c-down"><i class="sd down"></i>{counts.offline} çevrimdışı</span>{/if}
+        <span><i class="sd up"></i>{t('servers.list.online', { count: counts.online })}</span>
+        {#if counts.warn}<span class="c-pending"><i class="sd warn"></i>{t('servers.list.warn', { count: counts.warn })}</span>{/if}
+        {#if counts.offline}<span class="c-down"><i class="sd down"></i>{t('servers.list.offline', { count: counts.offline })}</span>{/if}
       </div>
     {/if}
   </div>
   {#if session.isAdmin && servers.list.length > 0}
-    <button class="btn primary" onclick={openAdd}><Icon name="plus" size={16} /> Sunucu ekle</button>
+    <button class="btn primary" onclick={openAdd}><Icon name="plus" size={16} /> {t('servers.list.add')}</button>
   {/if}
 </div>
 
 {#if !servers.loaded}
   {#if servers.loadError}
     <div class="card empty">
-      <h3>Sunucular yüklenemedi</h3>
+      <h3>{t('servers.list.loadFailed')}</h3>
       <p>{servers.loadError}</p>
-      <button class="btn primary" onclick={() => servers.load()}>Tekrar dene</button>
+      <button class="btn primary" onclick={() => servers.load()}>{t('common.retry')}</button>
     </div>
   {:else}
     <div class="card list">
@@ -93,62 +90,61 @@
 {:else if servers.list.length === 0}
   <div class="card empty first">
     <div class="hero-ic"><Icon name="server" size={30} /></div>
-    <h3>Sunucularınızı da buradan izleyin</h3>
-    <p>
-      Sunucunuza küçük bir ajan kurun; CPU, RAM, disk, ağ ve Docker konteynerlerinin kullanımı dakikada bir buraya gelsin. Bir değer
-      eşiği aşınca veya sunucu yanıt vermeyince monitörlerinizle aynı kanallardan haber verelim.
-    </p>
+    <h3>{t('servers.list.emptyTitle')}</h3>
+    <p>{t('servers.list.emptyText')}</p>
     {#if session.isAdmin}
-      <button class="btn primary" onclick={openAdd}><Icon name="plus" size={16} /> Sunucu ekle</button>
-      <p class="help hint">Kurulum tek komuttur (Docker, systemd veya Windows). Mevcut kontrol noktalarınız da güncellenince burada görünür.</p>
+      <button class="btn primary" onclick={openAdd}><Icon name="plus" size={16} /> {t('servers.list.add')}</button>
+      <p class="help hint">{t('servers.list.emptyHintAdmin')}</p>
     {:else}
-      <p class="help hint">Sunucu eklemeyi yöneticiniz yapabilir.</p>
+      <p class="help hint">{t('servers.list.emptyHintViewer')}</p>
     {/if}
   </div>
 {:else}
   {#if active.length}
     <div class="card list">
       <div class="lhead" aria-hidden="true">
-        <span>Sunucu</span>
-        <span>CPU</span>
-        <span>RAM</span>
-        <span>Disk</span>
-        <span>Ağ</span>
-        <span>Yük</span>
-        <span>Çalışma</span>
+        <span>{t('servers.list.cols.server')}</span>
+        <span>{metricLabel('cpu')}</span>
+        <span>{metricLabel('mem')}</span>
+        <span>{metricLabel('disk')}</span>
+        <span>{metricLabel('net')}</span>
+        <span>{metricLabel('load')}</span>
+        <span>{t('servers.list.cols.uptime')}</span>
       </div>
       {#each active as s (s.id)}
         {@const tone = serverTone(s)}
         {@const st = s.latest}
         {@const fl = firingLabels(s)}
+        {@const hl = hostLine(s)}
         <a class="srow {tone}" href="#/servers/{s.id}">
           <div class="nm">
             <span class="sdot {tone}" title={STATE_LABELS[s.state]} aria-hidden="true"></span>
             <div class="nmt">
               <div class="n1">
                 <span class="name">{s.name}</span>
-                {#each fl as l (l)}<span class="badge pending fire" title="{l} eşiği aşıldı"><Icon name="alert" size={11} /> {l}</span>{/each}
+                {#each fl as l (l)}<span class="badge pending fire" title={t('servers.list.firingTitle', { metric: l })}><Icon name="alert" size={11} /> {l}</span>{/each}
               </div>
               {#if s.state === 'offline'}
-                <div class="sub c-down">Çevrimdışı · son veri {fmtRelative(s.metrics_at, clock.now)}</div>
+                <div class="sub c-down">{t('servers.list.offlineSince', { ago: fmtRelative(s.metrics_at, clock.now) })}</div>
               {:else}
-                <div class="sub">{subLine(s) || '—'}</div>
+                <div class="sub" title={hl.full !== hl.short ? hl.full : undefined}>{hl.short || '—'}</div>
               {/if}
             </div>
           </div>
           {#if st}
-            <div class="m cpu"><span class="ml" aria-hidden="true">CPU</span><UsageBar value={st.cpu} label="{s.name}: CPU" inline /></div>
-            <div class="m mem"><span class="ml" aria-hidden="true">RAM</span><UsageBar value={memPct(st)} label="{s.name}: RAM" inline /></div>
+            <div class="m cpu"><span class="ml" aria-hidden="true">{metricLabel('cpu')}</span><UsageBar value={st.cpu} label="{s.name}: {metricLabel('cpu')}" inline /></div>
+            <div class="m mem"><span class="ml" aria-hidden="true">{metricLabel('mem')}</span><UsageBar value={memPct(st)} label="{s.name}: {metricLabel('mem')}" inline /></div>
             {@const fm = fullestMount(st)}
             <div class="m disk" title={diskSummary(st) || undefined}>
-              <span class="ml" aria-hidden="true">Disk</span><UsageBar value={diskPct(st)} label="{s.name}: Disk" inline />
-              {#if fm}<span class="dm">{fm}</span>{/if}
+              <span class="ml" aria-hidden="true">{metricLabel('disk')}</span>
+              <UsageBar value={diskPct(st)} label="{s.name}: {metricLabel('disk')}{fm ? ` ${fm}` : ''}" inline />
+              {#if fm}<span class="dm" aria-hidden="true">{fm}</span>{/if}
             </div>
             <div class="net">
-              <span title="Gelen"><Icon name="arrow-down" size={12} />{fmtRate(st.net_rx_bps)}</span>
-              <span title="Giden"><Icon name="arrow-up" size={12} />{fmtRate(st.net_tx_bps)}</span>
+              <span title={t('servers.list.netIn')}><Icon name="arrow-down" size={12} />{fmtRate(st.net_rx_bps)}</span>
+              <span title={t('servers.list.netOut')}><Icon name="arrow-up" size={12} />{fmtRate(st.net_tx_bps)}</span>
             </div>
-            <div class="load" title="Yük (1 / 5 / 15 dk): {fmtDec(st.load1, 2)} / {fmtDec(st.load5, 2)} / {fmtDec(st.load15, 2)}">
+            <div class="load" title={t('servers.list.loadTitle', { a: fmtDec(st.load1, 2), b: fmtDec(st.load5, 2), c: fmtDec(st.load15, 2) })}>
               {fmtDec(st.load1, 2)}
             </div>
             <div class="up-t">{fmtUptime(st.uptime)}</div>
@@ -156,11 +152,11 @@
             <div class="foot">
               <span><Icon name="arrow-down" size={12} />{fmtRate(st.net_rx_bps)}</span>
               <span><Icon name="arrow-up" size={12} />{fmtRate(st.net_tx_bps)}</span>
-              <span>Yük <b>{fmtDec(st.load1, 2)}</b></span>
+              <span>{metricLabel('load')} <b>{fmtDec(st.load1, 2)}</b></span>
               <span><Icon name="clock" size={12} />{fmtUptime(st.uptime)}</span>
             </div>
           {:else}
-            <div class="nodata">Henüz ölçüm yok</div>
+            <div class="nodata">{t('servers.list.noData')}</div>
           {/if}
         </a>
       {/each}
@@ -168,7 +164,7 @@
   {/if}
 
   {#if inactive.length}
-    <h2 class="sect">Veri göndermeyen sunucular</h2>
+    <h2 class="sect">{t('servers.list.inactiveTitle')}</h2>
     <div class="card list dimlist">
       {#each inactive as s (s.id)}
         <div class="irow">
@@ -182,9 +178,9 @@
           </div>
           {#if session.isAdmin}
             {#if s.state === 'disabled'}
-              <a class="btn sm" href="#/servers/{s.id}">Ayarları aç</a>
+              <a class="btn sm" href="#/servers/{s.id}">{t('servers.list.openSettings')}</a>
             {:else}
-              <button type="button" class="btn sm" onclick={() => openRenew(s)}><Icon name="terminal" size={14} /> Kurulum komutunu göster</button>
+              <button type="button" class="btn sm" onclick={() => openRenew(s)}><Icon name="terminal" size={14} /> {t('servers.list.showCommand')}</button>
             {/if}
           {/if}
         </div>
@@ -360,10 +356,17 @@
   .disk {
     grid-area: disk;
     min-width: 0;
+    position: relative;
   }
+  /* Gösterilen bölüm ("/", "C:", "/var/lib/pgsql") her satırda çubuğun altında:
+     masaüstünde çubuklar aynı hizada kalsın diye akış dışında. */
   .dm {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
     display: block;
-    margin-top: 2px;
+    margin-top: 1px;
     font-family: var(--mono);
     font-size: 0.7rem;
     color: var(--muted);
@@ -508,6 +511,14 @@
     }
     .m :global(.inline .v) {
       min-width: 30px;
+    }
+    /* Mobil: CPU / RAM / Disk başlıkları ve çubukları aynı hizada; bölüm adı altta. */
+    .m {
+      align-self: start;
+    }
+    .dm {
+      position: static;
+      margin-top: 2px;
     }
     .net,
     .load,
