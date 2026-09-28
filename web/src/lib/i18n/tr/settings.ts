@@ -1,0 +1,45 @@
+// Ayarlar sayfasının kabuğu (sekmeler) ve Ayarlar › Genel.
+export default {
+  title: 'Ayarlar',
+  sectionsLabel: 'Ayar bölümleri',
+  tabs: {
+    account: 'Hesabım',
+    users: 'Kullanıcılar',
+    general: 'Genel',
+    tags: 'Etiketler',
+    probes: 'Kontrol noktaları',
+    backup: 'Yedekle / Geri yükle',
+    audit: 'İşlem kaydı',
+  },
+  forbiddenTitle: 'Bu bölüm için yetkiniz yok',
+  forbiddenText:
+    'Kullanıcıları, genel ayarları, kontrol noktalarını, yedekleri ve işlem kaydını yalnızca yönetici rolündeki hesaplar görebilir; etiketleri editörler de yönetebilir.',
+  backToAccount: 'Hesabıma dön',
+  general: {
+    retentionTitle: 'Veri saklama ve uyarılar',
+    rawDays: 'Ham kayıt süresi (gün)',
+    rawDaysHelp: 'Her kontrolün ayrı kaydı. 1-90 gün.',
+    hourlyDays: 'Saatlik özet süresi (gün)',
+    hourlyDaysHelp: '90-3650 gün. 30 ve 90 günlük grafikler bu özetlerden çizilir; günlük özetler süresiz saklanır.',
+    certDays: 'SSL uyarı günleri',
+    certDaysPlaceholder: 'Ör. 21, 14, 7',
+    certDaysHelp:
+      'Sertifikanın bitmesine bu kadar gün kala bildirim gönderilir. Virgülle ayırın (en fazla 10); boş bırakırsanız SSL uyarısı gönderilmez.',
+    backupKeep: 'Gece yedeği sayısı',
+    backupKeepHelp: 'Her gece veritabanı yedeklenir ve son N yedek tutulur. 0 = yedek alma.',
+    notifyLang: 'Bildirim dili',
+    notifyLangHelp: 'Tüm bildirim kanallarına giden mesajların (e-posta, Telegram, webhook…) dili.',
+    errRaw: 'Ham kayıt süresi 1-90 gün arasında olmalı.',
+    errHourly: 'Saatlik özet süresi 90-3650 gün arasında olmalı.',
+    errHourlyShort: 'Saatlik özet süresi ham kayıt süresinden kısa olamaz.',
+    errCertDays: 'SSL uyarı günleri 0-90 arasında tam sayılar olmalı (virgülle ayırın).',
+    errCertCount: 'En fazla 10 SSL uyarı günü girilebilir.',
+    errBackup: 'Yedek sayısı 0-60 arasında olmalı.',
+    saved: 'Ayarlar kaydedildi',
+    promText:
+      'Metrikler {url} adresindedir ve bir API anahtarı (izleyici yetkisi yeterli) gerektirir. Anahtarı {link} bölümünden oluşturun.',
+    promLink: 'Hesabım › API anahtarları',
+    promAlt: '{a} yerine {b} da kullanılabilir.',
+    about: 'Hakkında',
+  },
+};

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { toast } from '../lib/ui.svelte';
   import Icon from './Icon.svelte';
+  import { t } from '../lib/i18n';
 
   // Kutucuklar üst katmanda (popover="manual") durur: açık bir pencerenin (<dialog>)
   // arkasında kalmasınlar diye her yeni bildirimde yeniden gösterilip en üste alınır.
@@ -31,11 +32,11 @@
 
 <!-- Tek canlı bölge: bilgi/başarı kibarca okunur, hatalar role="alert" ile hemen. -->
 <div class="toasts" bind:this={el} popover={canPopover ? 'manual' : undefined} aria-live="polite" aria-relevant="additions">
-  {#each toast.items as t (t.id)}
-    <div class="toast {t.kind}" role={t.kind === 'error' ? 'alert' : undefined}>
-      <span class="ic" aria-hidden="true"><Icon name={t.kind === 'error' ? 'alert' : t.kind === 'success' ? 'check' : 'info'} size={16} /></span>
-      <span class="txt">{t.text}</span>
-      <button type="button" class="close" aria-label="Bildirimi kapat" onclick={() => toast.dismiss(t.id)}><Icon name="x" size={14} /></button>
+  {#each toast.items as item (item.id)}
+    <div class="toast {item.kind}" role={item.kind === 'error' ? 'alert' : undefined}>
+      <span class="ic" aria-hidden="true"><Icon name={item.kind === 'error' ? 'alert' : item.kind === 'success' ? 'check' : 'info'} size={16} /></span>
+      <span class="txt">{item.text}</span>
+      <button type="button" class="close" aria-label={t('common.dismissToast')} onclick={() => toast.dismiss(item.id)}><Icon name="x" size={14} /></button>
     </div>
   {/each}
 </div>

@@ -7,6 +7,7 @@
   import RecoveryCodes from '../../components/RecoveryCodes.svelte';
   import Icon from '../../components/Icon.svelte';
   import CopyButton from '../../components/CopyButton.svelte';
+  import { t } from '../../lib/i18n';
 
   let status = $state<TwoFactorStatus | null>(null);
   let loadError = $state('');
@@ -46,7 +47,7 @@
   async function doSetup(e: SubmitEvent) {
     e.preventDefault();
     error = '';
-    if (!password) return (error = 'Şifrenizi girin.');
+    if (!password) return (error = t('account.twoFactor.errPassword'));
     busy = true;
     try {
       setup = await api.twoFactorSetup(password);
@@ -70,7 +71,7 @@
     e.preventDefault();
     error = '';
     const c = code.replace(/\s+/g, '');
-    if (!/^\d{6}$/.test(c)) return (error = 'Uygulamadaki 6 haneli kodu girin.');
+    if (!/^\d{6}$/.test(c)) return (error = t('account.twoFactor.errCode'));
     busy = true;
     try {
       const res = await api.twoFactorEnable(c);
@@ -88,7 +89,7 @@
 
   function finish() {
     wizOpen = false;
-    toast.success('İki adımlı doğrulama açıldı. Diğer cihazlardaki oturumlar kapatıldı.');
+    toast.success(t('account.twoFactor.enabledToast'));
   }
 
 
@@ -113,15 +114,15 @@
   async function doAct(e: SubmitEvent) {
     e.preventDefault();
     error = '';
-    if (!actPassword) return (error = 'Şifrenizi girin.');
-    if (!actCode.trim()) return (error = 'Doğrulama kodunu girin.');
+    if (!actPassword) return (error = t('account.twoFactor.errPassword'));
+    if (!actCode.trim()) return (error = t('account.twoFactor.errCodeRequired'));
     busy = true;
     try {
       if (act === 'disable') {
         await api.twoFactorDisable(actPassword, actCode.trim());
         if (session.user) session.set({ ...session.user, two_factor_enabled: false });
         actOpen = false;
-        toast.success('İki adımlı doğrulama kapatıldı');
+        toast.success(t('account.twoFactor.disabledToast'));
       } else {
         const res = await api.twoFactorRecovery(actPassword, actCode.trim());
         newCodes = res.recovery_codes;
@@ -134,19 +135,24 @@
     }
   }
 
-  const STEPS = ['Şifre', 'QR kodu', 'Doğrulama', 'Kurtarma kodları'];
+  const STEPS = $derived([
+    t('account.twoFactor.steps.password'),
+    t('account.twoFactor.steps.qr'),
+    t('account.twoFactor.steps.verify'),
+    t('account.twoFactor.steps.recovery'),
+  ]);
 </script>
 
 <div class="card tf">
   <div class="head">
     <span class="ic" class:on={status?.enabled}><Icon name={status?.enabled ? 'shield-check' : 'shield'} size={20} /></span>
     <div class="t">
-      <h2 class="card-title">İki adımlı doğrulama</h2>
+      <h2 class="card-title">{t('account.twoFactor.title')}</h2>
       {#if status}
         {#if status.enabled}
-          <div class="state on">Açık — kalan kurtarma kodu: {status.recovery_codes_left}</div>
+          <div class="state on">{t('account.twoFactor.enabled', { count: status.recovery_codes_left })}</div>
         {:else}
-          <div class="state">Kapalı</div>
+          <div class="state">{t('account.twoFactor.disabled')}</div>
         {/if}
       {:else if loadError}
         <div class="state c-down">{loadError}</div>
@@ -154,32 +160,32 @@
     </div>
   </div>
   <p class="text-2 small desc">
-    Girişte şifrenize ek olarak telefonunuzdaki doğrulama uygulamasının ürettiği kodu ister. Şifreniz ele geçse bile hesabınız korunur.
+    {t('account.twoFactor.desc')}
   </p>
   {#if status?.enabled && status.recovery_codes_left <= 3}
-    <div class="alert warning small">Kurtarma kodlarınız azaldı. Yenilerini oluşturup güvenli bir yere kaydedin.</div>
+    <div class="alert warning small">{t('account.twoFactor.lowCodes')}</div>
   {/if}
   {#if !status}
     {#if loadError}
-      <button class="btn sm" onclick={load}>Tekrar dene</button>
+      <button class="btn sm" onclick={load}>{t('common.retry')}</button>
     {:else}
       <div class="skeleton" style="height:38px"></div>
     {/if}
   {:else if status.enabled}
     <div class="row">
-      <button class="btn" onclick={() => openAct('recovery')}><Icon name="refresh" size={15} /> Kurtarma kodlarını yenile</button>
-      <button class="btn danger" onclick={() => openAct('disable')}>Kapat</button>
+      <button class="btn" onclick={() => openAct('recovery')}><Icon name="refresh" size={15} /> {t('account.twoFactor.regenerate')}</button>
+      <button class="btn danger" onclick={() => openAct('disable')}>{t('account.twoFactor.disable')}</button>
     </div>
   {:else}
     <div class="row">
-      <button class="btn primary" onclick={openWizard}><Icon name="shield-check" size={16} /> Etkinleştir</button>
+      <button class="btn primary" onclick={openWizard}><Icon name="shield-check" size={16} /> {t('account.twoFactor.enable')}</button>
     </div>
   {/if}
 </div>
 
 <!-- Kurtarma kodları adımı "Kodları kaydettim" onaylanmadan kapatılamaz (Esc, arka plan ve × devre dışı). -->
-<Modal bind:open={wizOpen} title="İki adımlı doğrulama" width={520} dismissable={step !== 4}>
-  <ol class="steps" aria-label="Adımlar">
+<Modal bind:open={wizOpen} title={t('account.twoFactor.title')} width={520} dismissable={step !== 4}>
+  <ol class="steps" aria-label={t('account.twoFactor.stepsLabel')}>
     {#each STEPS as s, i (s)}
       <li class:done={step > i + 1} class:cur={step === i + 1} aria-current={step === i + 1 ? 'step' : undefined}>
         <span class="n">{#if step > i + 1}<Icon name="check" size={12} stroke={3} />{:else}{i + 1}{/if}</span>
@@ -190,22 +196,22 @@
 
   {#if step === 1}
     <form id="tf1" class="stack" onsubmit={doSetup} novalidate>
-      <p class="text-2 nomargin">Devam etmek için şifrenizi girin.</p>
+      <p class="text-2 nomargin">{t('account.twoFactor.enterPassword')}</p>
       <input type="text" name="username" autocomplete="username" value={session.user?.username ?? ''} hidden readonly />
       <div class="field">
-        <label for="tf-pw">Şifre</label>
+        <label for="tf-pw">{t('common.password')}</label>
         <input id="tf-pw" class="input" type="password" autocomplete="current-password" bind:value={password} />
       </div>
       {#if error}<div class="alert error" role="alert">{error}</div>{/if}
     </form>
   {:else if step === 2 && setup}
     <div class="stack">
-      <p class="text-2 nomargin">Google Authenticator, Authy, 1Password gibi bir uygulamayla QR kodunu tarayın.</p>
+      <p class="text-2 nomargin">{t('account.twoFactor.scanQr')}</p>
       {#if setup.qr_png}
-        <div class="qr"><img src={setup.qr_png} alt="Doğrulama uygulaması için QR kodu" width="200" height="200" /></div>
+        <div class="qr"><img src={setup.qr_png} alt={t('account.twoFactor.qrAlt')} width="200" height="200" /></div>
       {/if}
       <div>
-        <div class="help">QR tarayamıyor musunuz? Bu anahtarı elle girin:</div>
+        <div class="help">{t('account.twoFactor.manualKey')}</div>
         <div class="copybox secret">
           <code>{secretGroups}</code>
           <CopyButton text={setup.secret} />
@@ -214,9 +220,9 @@
     </div>
   {:else if step === 3}
     <form id="tf3" class="stack" onsubmit={doEnable} novalidate>
-      <p class="text-2 nomargin">Uygulamadaki 6 haneli kodu girin.</p>
+      <p class="text-2 nomargin">{t('account.twoFactor.enterCode')}</p>
       <div class="field">
-        <label for="tf-code">Doğrulama kodu</label>
+        <label for="tf-code">{t('account.twoFactor.codeLabel')}</label>
         <input
           id="tf-code"
           class="input code"
@@ -237,26 +243,26 @@
   {#snippet footer()}
     <div class="spacer"></div>
     {#if step === 1}
-      <button type="button" class="btn" onclick={() => (wizOpen = false)}>Vazgeç</button>
+      <button type="button" class="btn" onclick={() => (wizOpen = false)}>{t('common.cancel')}</button>
       <button type="submit" form="tf1" class="btn primary" disabled={busy}>
-        {#if busy}<span class="spinner"></span>{/if} Devam
+        {#if busy}<span class="spinner"></span>{/if} {t('common.continue')}
       </button>
     {:else if step === 2}
-      <button type="button" class="btn primary" onclick={toCode}>QR kodunu taradım</button>
+      <button type="button" class="btn primary" onclick={toCode}>{t('account.twoFactor.scanned')}</button>
     {:else if step === 3}
-      <button type="button" class="btn" onclick={() => (step = 2)}>Geri</button>
+      <button type="button" class="btn" onclick={() => (step = 2)}>{t('common.back')}</button>
       <button type="submit" form="tf3" class="btn primary" disabled={busy}>
-        {#if busy}<span class="spinner"></span>{/if} Doğrula ve aç
+        {#if busy}<span class="spinner"></span>{/if} {t('account.twoFactor.verifyEnable')}
       </button>
     {:else}
-      <button type="button" class="btn primary" disabled={!saved} onclick={finish}>Bitti</button>
+      <button type="button" class="btn primary" disabled={!saved} onclick={finish}>{t('common.done')}</button>
     {/if}
   {/snippet}
 </Modal>
 
 <Modal
   bind:open={actOpen}
-  title={act === 'disable' ? 'İki adımlı doğrulamayı kapat' : 'Kurtarma kodlarını yenile'}
+  title={act === 'disable' ? t('account.twoFactor.disableTitle') : t('account.twoFactor.regenerateTitle')}
   width={480}
   dismissable={!newCodes.length}
 >
@@ -265,18 +271,16 @@
   {:else}
     <form id="tfa" class="stack" onsubmit={doAct} novalidate>
       <p class="text-2 nomargin">
-        {act === 'disable'
-          ? 'Kapatınca girişte yalnızca şifreniz istenir.'
-          : 'Eski kurtarma kodlarınız geçersiz olur ve 10 yeni kod oluşturulur.'}
-        Onaylamak için şifrenizi ve uygulamanızdaki kodu girin.
+        {act === 'disable' ? t('account.twoFactor.disableInfo') : t('account.twoFactor.regenerateInfo')}
+        {t('account.twoFactor.confirmInfo')}
       </p>
       <input type="text" name="username" autocomplete="username" value={session.user?.username ?? ''} hidden readonly />
       <div class="field">
-        <label for="tfa-pw">Şifre</label>
+        <label for="tfa-pw">{t('common.password')}</label>
         <input id="tfa-pw" class="input" type="password" autocomplete="current-password" bind:value={actPassword} />
       </div>
       <div class="field">
-        <label for="tfa-code">Doğrulama kodu</label>
+        <label for="tfa-code">{t('account.twoFactor.codeLabel')}</label>
         <input
           id="tfa-code"
           class="input code"
@@ -288,7 +292,7 @@
           maxlength="32"
           placeholder="123456"
         />
-        <span class="help">6 haneli kod veya bir kurtarma kodu.</span>
+        <span class="help">{t('account.twoFactor.codeHelp')}</span>
       </div>
       {#if error}<div class="alert error" role="alert">{error}</div>{/if}
     </form>
@@ -296,12 +300,12 @@
   {#snippet footer()}
     <div class="spacer"></div>
     {#if newCodes.length}
-      <button type="button" class="btn primary" disabled={!newSaved} onclick={() => (actOpen = false)}>Bitti</button>
+      <button type="button" class="btn primary" disabled={!newSaved} onclick={() => (actOpen = false)}>{t('common.done')}</button>
     {:else}
-      <button type="button" class="btn" onclick={() => (actOpen = false)}>Vazgeç</button>
+      <button type="button" class="btn" onclick={() => (actOpen = false)}>{t('common.cancel')}</button>
       <button type="submit" form="tfa" class="btn {act === 'disable' ? 'danger solid' : 'primary'}" disabled={busy}>
         {#if busy}<span class="spinner"></span>{/if}
-        {act === 'disable' ? 'Kapat' : 'Yeni kodlar oluştur'}
+        {act === 'disable' ? t('account.twoFactor.disable') : t('account.twoFactor.newCodes')}
       </button>
     {/if}
   {/snippet}

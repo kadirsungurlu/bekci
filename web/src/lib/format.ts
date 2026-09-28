@@ -1,57 +1,88 @@
-// Türkçe biçimlendirme yardımcıları. Zamanlar unix saniyesidir.
+// Biçimlendirme yardımcıları. Zamanlar unix saniyesidir. Hepsi geçerli dili
+// (i18n.locale) okur: bileşende çağrıldıklarında dil değişince yeniden çizilir.
 
 import { STATUS_DOWN, STATUS_MAINTENANCE, STATUS_PENDING, STATUS_UP, type Bucket, type MonitorView } from './api';
+import { i18n, intlLocale, t, type Locale } from './i18n';
 
 export const nowSec = () => Math.floor(Date.now() / 1000);
 
-/** "45 sn", "12 dk", "2 sa 5 dk", "3 gün 4 sa" */
+// Süre birimleri: tr "5 sn / 12 dk / 2 sa / 3 gün", en "5s / 12m / 2h / 3d".
+const uSec = (n: number) => t('status.time.sec', { n });
+const uMin = (n: number) => t('status.time.min', { n });
+const uHour = (n: number) => t('status.time.hour', { n });
+const uDay = (n: number) => t('status.time.day', { n });
+
+/** tr "45 sn", "12 dk", "2 sa 5 dk", "3 gün 4 sa"; en "45s", "12m", "2h 5m", "3d 4h" */
 export function fmtDuration(sec: number): string {
   sec = Math.max(0, Math.floor(sec));
-  if (sec < 60) return `${sec} sn`;
+  if (sec < 60) return uSec(sec);
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min} dk`;
+  if (min < 60) return uMin(min);
   const h = Math.floor(min / 60);
   if (h < 24) {
     const m = min % 60;
-    return m ? `${h} sa ${m} dk` : `${h} sa`;
+    return m ? `${uHour(h)} ${uMin(m)}` : uHour(h);
   }
   const d = Math.floor(h / 24);
   const hh = h % 24;
-  return hh ? `${d} gün ${hh} sa` : `${d} gün`;
+  return hh ? `${uDay(d)} ${uHour(hh)}` : uDay(d);
 }
 
-/** En büyük birimle kısa süre: "3 dk", "2 sa", "5 gün". */
+/** En büyük birimle kısa süre: "3 dk", "2 sa", "5 gün" (en: "3m", "2h", "5d"). */
 export function fmtDurationShort(sec: number): string {
   sec = Math.max(0, Math.floor(sec));
-  if (sec < 60) return `${sec} sn`;
-  if (sec < 3600) return `${Math.floor(sec / 60)} dk`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)} sa`;
-  return `${Math.floor(sec / 86400)} gün`;
+  if (sec < 60) return uSec(sec);
+  if (sec < 3600) return uMin(Math.floor(sec / 60));
+  if (sec < 86400) return uHour(Math.floor(sec / 3600));
+  return uDay(Math.floor(sec / 86400));
 }
 
-/** "3 dk önce" */
+/** "3 dk önce" / "3m ago" */
 export function fmtRelative(ts: number, now: number): string {
   if (!ts) return '—';
   const diff = now - ts;
-  if (diff < 5) return 'az önce';
-  return `${fmtDurationShort(diff)} önce`;
+  if (diff < 5) return t('status.time.justNow');
+  return t('status.time.ago', { d: fmtDurationShort(diff) });
 }
 
 // Sunucu günlük özetleri İstanbul saatine göre kovalar; tarihler de aynı dilimde
 // gösterilsin ki başka dilimdeki bir tarayıcıda 90 günlük çubuklar kaymasın.
 const TZ = 'Europe/Istanbul';
-const dateFmt = new Intl.DateTimeFormat('tr-TR', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: TZ,
-});
-const dateOnlyFmt = new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: TZ });
-const shortDateFmt = new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: '2-digit', timeZone: TZ });
-const timeFmt = new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: TZ });
-const timeSecFmt = new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: TZ });
+
+// Dil başına biçimleyiciler (bir kez oluşturulur). tr: "27.09.2026 14:30";
+// en: "Sep 27, 2026, 14:30" (ay adıyla: gün/ay sırası karışmaz; saat 24 saatlik).
+interface Fmts {
+  date: Intl.DateTimeFormat;
+  dateSec: Intl.DateTimeFormat;
+  dateOnly: Intl.DateTimeFormat;
+  shortDate: Intl.DateTimeFormat;
+  time: Intl.DateTimeFormat;
+  timeSec: Intl.DateTimeFormat;
+  num: Intl.NumberFormat;
+}
+const fmtCache: Partial<Record<Locale, Fmts>> = {};
+
+function makeFmts(l: Locale): Fmts {
+  const tag = intlLocale(l);
+  const hm: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: TZ };
+  const day: Intl.DateTimeFormatOptions =
+    l === 'tr' ? { day: '2-digit', month: '2-digit', year: 'numeric' } : { day: 'numeric', month: 'short', year: 'numeric' };
+  const dm: Intl.DateTimeFormatOptions = l === 'tr' ? { day: '2-digit', month: '2-digit' } : { day: 'numeric', month: 'short' };
+  return {
+    date: new Intl.DateTimeFormat(tag, { ...day, ...hm }),
+    dateSec: new Intl.DateTimeFormat(tag, { ...day, ...hm, second: '2-digit' }),
+    dateOnly: new Intl.DateTimeFormat(tag, { ...day, timeZone: TZ }),
+    shortDate: new Intl.DateTimeFormat(tag, { ...dm, timeZone: TZ }),
+    time: new Intl.DateTimeFormat(tag, hm),
+    timeSec: new Intl.DateTimeFormat(tag, { ...hm, second: '2-digit' }),
+    num: new Intl.NumberFormat(tag),
+  };
+}
+
+/** Geçerli dilin biçimleyicileri (i18n.locale okunur → reaktif). */
+function fmts(l: Locale = i18n.locale): Fmts {
+  return (fmtCache[l] ??= makeFmts(l));
+}
 
 const tzParts = new Intl.DateTimeFormat('en-US', {
   timeZone: TZ,
@@ -78,53 +109,47 @@ export function tzDayStart(ts: number): number {
   return Math.floor((ts + off) / 86400) * 86400 - off;
 }
 
-/** dd.MM.yyyy HH:mm */
+/** tr dd.MM.yyyy HH:mm, en "Sep 27, 2026, 14:30" */
 export function fmtDate(ts: number): string {
   if (!ts) return '—';
-  return dateFmt.format(new Date(ts * 1000));
+  return fmts().date.format(new Date(ts * 1000));
 }
+/** tr dd.MM.yyyy, en "Sep 27, 2026" */
 export function fmtDay(ts: number): string {
-  return dateOnlyFmt.format(new Date(ts * 1000));
+  return fmts().dateOnly.format(new Date(ts * 1000));
 }
 /**
  * Saatin okunuşuna göre bulunma eki: "14:30" → "’da", "09:15" → "’te", "12:00" → "’de".
- * Son okunan sayı dakika (00 ise saat) belirler.
+ * Son okunan sayı dakika (00 ise saat) belirler. YALNIZCA Türkçe: İngilizcede ""
+ * döner (cümleyi dile göre ayrı bir anahtarla kurun, ör. "at {time}").
  */
 export function timeLocative(ts: number): string {
-  const [h, m] = timeFmt.format(new Date(ts * 1000)).split(':').map(Number);
+  if (i18n.locale !== 'tr') return '';
+  const [h, m] = fmts('tr').time.format(new Date(ts * 1000)).split(':').map(Number);
   const n = m || h;
   const ONES = ['da', 'de', 'de', 'te', 'te', 'te', 'da', 'de', 'de', 'da']; // sıfır/bir/iki/üç/dört/beş/altı/yedi/sekiz/dokuz
   const TENS = ['da', 'da', 'de', 'da', 'ta', 'de']; // sıfır/on/yirmi/otuz/kırk/elli
   return '’' + (n % 10 ? ONES[n % 10] : TENS[Math.floor(n / 10)] ?? 'da');
 }
-/** dd.MM */
+/** tr dd.MM, en "Sep 27" */
 export function fmtShortDate(ts: number): string {
-  return shortDateFmt.format(new Date(ts * 1000));
+  return fmts().shortDate.format(new Date(ts * 1000));
 }
 /** HH:mm */
 export function fmtTime(ts: number): string {
-  return timeFmt.format(new Date(ts * 1000));
+  return fmts().time.format(new Date(ts * 1000));
 }
 /** HH:mm:ss */
 export function fmtTimeSec(ts: number): string {
-  return timeSecFmt.format(new Date(ts * 1000));
+  return fmts().timeSec.format(new Date(ts * 1000));
 }
-const dateSecFmt = new Intl.DateTimeFormat('tr-TR', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  timeZone: TZ,
-});
-/** dd.MM.yyyy HH:mm:ss */
+/** tr dd.MM.yyyy HH:mm:ss, en "Sep 27, 2026, 14:30:05" */
 export function fmtDateSec(ts: number): string {
   if (!ts) return '—';
-  return dateSecFmt.format(new Date(ts * 1000));
+  return fmts().dateSec.format(new Date(ts * 1000));
 }
 
-/** Saniyeye kadar süre: "12 sn", "5 dk 12 sn", "2 sa 5 dk 12 sn", "3 gün 2 sa 5 dk". */
+/** Saniyeye kadar süre: "12 sn", "5 dk 12 sn", "2 sa 5 dk 12 sn", "3 gün 2 sa 5 dk" (en: "5m 12s"). */
 export function fmtDurationLong(sec: number): string {
   sec = Math.max(0, Math.floor(sec));
   const d = Math.floor(sec / 86400);
@@ -132,38 +157,43 @@ export function fmtDurationLong(sec: number): string {
   const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
   const parts: string[] = [];
-  if (d) parts.push(`${d} gün`);
-  if (h || (d && m)) parts.push(`${h} sa`);
-  if (m || ((d || h) && !d)) parts.push(`${m} dk`);
-  if (!d) parts.push(`${s} sn`);
+  if (d) parts.push(uDay(d));
+  if (h || (d && m)) parts.push(uHour(h));
+  if (m || ((d || h) && !d)) parts.push(uMin(m));
+  if (!d) parts.push(uSec(s));
   return parts.join(' ');
 }
 
-/** %99,95 — tam 100 ise %100; yuvarlama asla yukarı doğru yapılmaz. */
-export function fmtPct(v: number | null | undefined): string {
-  if (v === null || v === undefined || Number.isNaN(v)) return '—';
-  if (v >= 100) return '%100';
-  const floored = Math.floor(v * 100) / 100;
-  return '%' + floored.toFixed(2).replace('.', ',');
+/** Yüzde işaretini dile göre koyar: tr "%42", en "42%". */
+function pctSign(n: string): string {
+  return i18n.locale === 'tr' ? '%' + n : n + '%';
 }
 
-const numFmt = new Intl.NumberFormat('tr-TR');
+/** tr %99,95 / en 99.95% — tam 100 ise %100; yuvarlama asla yukarı doğru yapılmaz. */
+export function fmtPct(v: number | null | undefined): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return '—';
+  if (v >= 100) return pctSign('100');
+  const floored = (Math.floor(v * 100) / 100).toFixed(2);
+  return pctSign(i18n.locale === 'tr' ? floored.replace('.', ',') : floored);
+}
+
+/** Binlik ayraçlı sayı: tr 1.234, en 1,234 */
 export function fmtNum(n: number): string {
-  return numFmt.format(n);
+  return fmts().num.format(n);
 }
 
 /** "123 ms"; -1 → "—" */
 export function fmtMs(ms: number | null | undefined): string {
   if (ms === null || ms === undefined || ms < 0) return '—';
-  return `${numFmt.format(Math.round(ms))} ms`;
+  return `${fmts().num.format(Math.round(ms))} ms`;
 }
 
-/** Kontrol aralığı: "30 sn", "5 dk", "1 sa", "1 dk 30 sn" */
+/** Kontrol aralığı: "30 sn", "5 dk", "1 sa", "1 dk 30 sn" (en: "30s", "5m", "1h", "1m 30s") */
 export function fmtInterval(sec: number): string {
-  if (sec >= 3600 && sec % 3600 === 0) return `${sec / 3600} sa`;
-  if (sec >= 60 && sec % 60 === 0) return `${sec / 60} dk`;
-  if (sec > 60) return `${Math.floor(sec / 60)} dk ${sec % 60} sn`;
-  return `${sec} sn`;
+  if (sec >= 3600 && sec % 3600 === 0) return uHour(sec / 3600);
+  if (sec >= 60 && sec % 60 === 0) return uMin(sec / 60);
+  if (sec > 60) return `${uMin(Math.floor(sec / 60))} ${uSec(sec % 60)}`;
+  return uSec(sec);
 }
 
 export type StatusKind = 'up' | 'down' | 'pending' | 'paused' | 'maintenance';
@@ -179,20 +209,31 @@ export function statusKind(status: number, active: boolean, inMaintenance = fals
 /** Monitörün şu anki görünen durumu (bakım penceresi dahil). */
 export const monitorKind = (m: MonitorView): StatusKind => statusKind(m.status, m.active, m.in_maintenance);
 
+/** Durum adları. Getter: her okumada geçerli dilde döner, STATUS_LABELS[kind] reaktiftir. */
 export const STATUS_LABELS: Record<StatusKind, string> = {
-  up: 'Çalışıyor',
-  down: 'Çalışmıyor',
-  pending: 'Kontrol ediliyor',
-  paused: 'Durduruldu',
-  maintenance: 'Bakımda',
+  get up() {
+    return t('status.up');
+  },
+  get down() {
+    return t('status.down');
+  },
+  get pending() {
+    return t('status.pending');
+  },
+  get paused() {
+    return t('status.paused');
+  },
+  get maintenance() {
+    return t('status.maintenance');
+  },
 };
 
 export function pointStatusLabel(s: number): string {
-  if (s === STATUS_UP) return 'Çalışıyor';
-  if (s === STATUS_DOWN) return 'Çalışmıyor';
-  if (s === STATUS_PENDING) return 'Tekrar deneniyor';
-  if (s === STATUS_MAINTENANCE) return 'Bakımda';
-  return 'Bilinmiyor';
+  if (s === STATUS_UP) return t('status.up');
+  if (s === STATUS_DOWN) return t('status.down');
+  if (s === STATUS_PENDING) return t('status.retrying');
+  if (s === STATUS_MAINTENANCE) return t('status.maintenance');
+  return t('status.unknown');
 }
 
 /** Ham nokta durumunun renk sınıfı (c-up, c-down …). */
@@ -223,11 +264,12 @@ export function hourRange(t: number): string {
   return `${fmtTime(t)} – ${fmtTime(t + 3600)}`;
 }
 
-/** Karşılaştırma için Türkçe küçük harf. */
+/** Karşılaştırma için Türkçe küçük harf (veriler Türkçe olabilir; arayüz dilinden bağımsız). */
 export function lower(s: string): string {
   return s.toLocaleLowerCase('tr');
 }
 
+/** Sıralama (veriler Türkçe olabilir; arayüz dilinden bağımsız). */
 export const collator = new Intl.Collator('tr', { sensitivity: 'base', numeric: true });
 
 /** Sertifikanın kalan gün sayısı (0 → bilgi yok). */
@@ -269,18 +311,18 @@ export function randomPassword(len = 14): string {
   return out;
 }
 
-/** Dosya boyutu: "512 B", "12,3 KB", "4,5 MB". */
+/** Dosya boyutu: "512 B", "12,3 KB", "4,5 MB" (en: "12.3 KB"). */
 export function fmtSize(n: number): string {
   if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} KB`;
-  return `${(n / 1024 / 1024).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} MB`;
+  if (n < 1024 * 1024) return `${(n / 1024).toLocaleString(intlLocale(), { maximumFractionDigits: 1 })} KB`;
+  return `${(n / 1024 / 1024).toLocaleString(intlLocale(), { maximumFractionDigits: 1 })} MB`;
 }
 
 // Sunucu takibi ------------------------------------------------------------------------
 
 const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
 
-/** Bayt (1024 tabanlı): "512 B", "12,3 KB", "7,8 GB", "1,2 TB". */
+/** Bayt (1024 tabanlı): "512 B", "12,3 KB", "7,8 GB", "1,2 TB" (en: "7.8 GB"). */
 export function fmtBytes(n: number | null | undefined): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return '—';
   let v = Math.max(0, n);
@@ -290,25 +332,25 @@ export function fmtBytes(n: number | null | undefined): string {
     i++;
   }
   if (i === 0) return `${Math.round(v)} B`;
-  return `${v.toLocaleString('tr-TR', { maximumFractionDigits: v < 100 ? 1 : 0 })} ${BYTE_UNITS[i]}`;
+  return `${v.toLocaleString(intlLocale(), { maximumFractionDigits: v < 100 ? 1 : 0 })} ${BYTE_UNITS[i]}`;
 }
 
-/** Hız: "1,2 MB/sn". */
+/** Hız: "1,2 MB/sn" (en: "1.2 MB/s"). */
 export function fmtRate(bps: number | null | undefined): string {
   if (bps === null || bps === undefined || !Number.isFinite(bps)) return '—';
-  return `${fmtBytes(bps)}/sn`;
+  return `${fmtBytes(bps)}${t('status.time.perSec')}`;
 }
 
-/** Tam sayı yüzde: "%42". */
+/** Tam sayı yüzde: "%42" (en: "42%"). */
 export function fmtPctInt(v: number | null | undefined): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return '—';
-  return '%' + Math.round(v);
+  return pctSign(String(Math.round(v)));
 }
 
-/** Sabit ondalıklı sayı (virgüllü): fmtDec(0.4213, 2) → "0,42". */
+/** Sabit ondalıklı sayı: fmtDec(0.4213, 2) → tr "0,42", en "0.42". */
 export function fmtDec(v: number | null | undefined, digits = 1): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return '—';
-  return v.toLocaleString('tr-TR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return v.toLocaleString(intlLocale(), { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
 /** Sıcaklık: "48 °C". */
@@ -317,7 +359,7 @@ export function fmtTemp(c: number | null | undefined): string {
   return `${Math.round(c)} °C`;
 }
 
-/** Çalışma süresi: "12 gün 4 sa", "3 sa 20 dk". */
+/** Çalışma süresi: "12 gün 4 sa", "3 sa 20 dk" (en: "12d 4h"). */
 export function fmtUptime(sec: number | null | undefined): string {
   if (!sec || sec <= 0) return '—';
   return fmtDuration(sec);

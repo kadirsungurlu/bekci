@@ -1,16 +1,17 @@
 <script lang="ts">
   import type { Bucket } from '../lib/api';
   import { barKind, bucketUptime, fmtMs, fmtPct, hourRange } from '../lib/format';
+  import { t } from '../lib/i18n';
 
   let { bars }: { bars: Bucket[] } = $props();
 
   function tip(b: Bucket, current: boolean): string {
-    const head = hourRange(b.t) + (current ? ' (devam ediyor)' : '');
+    const head = hourRange(b.t) + (current ? t('status.bars.ongoing') : '');
     const up = bucketUptime(b);
-    if (up === null) return `${head}\nVeri yok`;
-    let s = `${head}\nUptime ${fmtPct(up)}`;
-    if (b.down > 0) s += ` · ${b.down} hatalı kontrol`;
-    if (b.ping >= 0) s += `\nOrt. yanıt ${fmtMs(b.ping)}`;
+    if (up === null) return `${head}\n${t('common.noData')}`;
+    let s = `${head}\n${t('status.bars.uptime', { pct: fmtPct(up) })}`;
+    if (b.down > 0) s += ` · ${t('status.bars.failedChecks', { count: b.down })}`;
+    if (b.ping >= 0) s += `\n${t('status.bars.avgResponse', { ms: fmtMs(b.ping) })}`;
     return s;
   }
 
@@ -24,8 +25,11 @@
       down += b.down;
       if (b.down > 0) bad++;
     }
-    if (up + down === 0) return `Son ${bars.length} saat: veri yok`;
-    return `Son ${bars.length} saat: uptime ${fmtPct((100 * up) / (up + down))}${bad ? `, ${bad} saatte hata` : ', hata yok'}`;
+    if (up + down === 0) return t('status.bars.summaryNoData', { n: bars.length });
+    return (
+      t('status.bars.summary', { n: bars.length, pct: fmtPct((100 * up) / (up + down)) }) +
+      (bad ? t('status.bars.summaryErrors', { count: bad }) : t('status.bars.summaryNoErrors'))
+    );
   });
 
   /** Hem çalışan hem çalışmayan kontrol olan saatte kırmızının payı (%). */

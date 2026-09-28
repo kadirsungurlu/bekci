@@ -15,8 +15,10 @@
 
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import { t } from '../lib/i18n';
 
-  let { items, label = 'İşlemler' }: { items: MenuItem[]; label?: string } = $props();
+  let { items, label: labelProp }: { items: MenuItem[]; label?: string } = $props();
+  const label = $derived(labelProp ?? t('common.actions'));
 
   let open = $state(false);
   let up = $state(false);

@@ -3,17 +3,31 @@
 // düğmeleri ve menüleri gizlenir.
 
 import type { Role, User } from './api';
+import { t } from './i18n';
 
+/** Rol adları ve açıklamaları (getter: her okumada geçerli dilde → reaktif). */
 export const ROLE_LABELS: Record<Role, string> = {
-  admin: 'Yönetici',
-  editor: 'Editör',
-  viewer: 'İzleyici',
+  get admin() {
+    return t('roles.admin');
+  },
+  get editor() {
+    return t('roles.editor');
+  },
+  get viewer() {
+    return t('roles.viewer');
+  },
 };
 
 export const ROLE_DESCS: Record<Role, string> = {
-  admin: 'Her şeyi yönetir: kullanıcılar, ayarlar ve işlem kaydı dahil.',
-  editor: 'Monitörleri, bildirimleri, durum sayfalarını ve bakımları yönetir.',
-  viewer: 'Yalnızca görüntüler; hiçbir şeyi değiştiremez.',
+  get admin() {
+    return t('roles.adminDesc');
+  },
+  get editor() {
+    return t('roles.editorDesc');
+  },
+  get viewer() {
+    return t('roles.viewerDesc');
+  },
 };
 
 const RANK: Record<Role, number> = { viewer: 1, editor: 2, admin: 3 };

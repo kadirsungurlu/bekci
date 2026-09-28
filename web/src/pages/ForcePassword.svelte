@@ -4,6 +4,8 @@
   import { session } from '../lib/session.svelte';
   import { toast } from '../lib/ui.svelte';
   import Icon from '../components/Icon.svelte';
+  import { t } from '../lib/i18n';
+  import { APP_NAME } from '../lib/brand';
 
   let { onDone, onLogout }: { onDone: () => void; onLogout: () => void } = $props();
 
@@ -16,14 +18,14 @@
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     error = '';
-    if (!current) return (error = 'Size verilen geçici şifreyi girin.');
-    if (next.length < 8) return (error = 'Yeni şifre en az 8 karakter olmalı.');
-    if (next === current) return (error = 'Yeni şifre geçici şifreden farklı olmalı.');
-    if (next !== next2) return (error = 'Yeni şifreler birbiriyle aynı değil.');
+    if (!current) return (error = t('auth.force.errTemporary'));
+    if (next.length < 8) return (error = t('auth.force.errLength'));
+    if (next === current) return (error = t('auth.force.errSame'));
+    if (next !== next2) return (error = t('auth.force.errMismatch'));
     busy = true;
     try {
       await api.changePassword(current, next);
-      toast.success('Şifreniz belirlendi. Hoş geldiniz!');
+      toast.success(t('auth.force.done'));
       onDone();
     } catch (err) {
       error = errorMessage(err);
@@ -34,35 +36,34 @@
 </script>
 
 <div class="wrap">
-  <div class="brand"><span class="logo-dot"></span> Uptime</div>
+  <div class="brand"><span class="logo-dot"></span> {APP_NAME}</div>
   <form class="card auth" onsubmit={submit} novalidate>
     <div class="ic"><Icon name="lock" size={24} /></div>
-    <h1>Yeni şifre belirleyin<span class="dot">.</span></h1>
+    <h1>{t('auth.force.title')}<span class="dot">.</span></h1>
     <p class="muted intro">
-      Hesabınıza geçici bir şifreyle giriş yaptınız{session.user ? ` (${session.user.username})` : ''}. Devam etmeden önce yalnızca
-      sizin bildiğiniz yeni bir şifre belirleyin.
+      {t('auth.force.intro', { user: session.user ? ` (${session.user.username})` : '' })}
     </p>
     <input type="text" name="username" autocomplete="username" value={session.user?.username ?? ''} hidden readonly />
     <div class="field">
-      <label for="fp-cur">Geçici şifre</label>
+      <label for="fp-cur">{t('auth.force.temporary')}</label>
       <!-- svelte-ignore a11y_autofocus -->
       <input id="fp-cur" class="input" type="password" autocomplete="current-password" bind:value={current} autofocus />
     </div>
     <div class="field">
-      <label for="fp-new">Yeni şifre</label>
+      <label for="fp-new">{t('auth.force.newPassword')}</label>
       <input id="fp-new" class="input" type="password" autocomplete="new-password" bind:value={next} />
-      <span class="help">En az 8 karakter.</span>
+      <span class="help">{t('common.minChars', { n: 8 })}</span>
     </div>
     <div class="field">
-      <label for="fp-new2">Yeni şifre (tekrar)</label>
+      <label for="fp-new2">{t('auth.force.newPasswordAgain')}</label>
       <input id="fp-new2" class="input" type="password" autocomplete="new-password" bind:value={next2} />
     </div>
     {#if error}<div class="alert error" role="alert">{error}</div>{/if}
     <button class="btn primary big" type="submit" disabled={busy}>
       {#if busy}<span class="spinner"></span>{/if}
-      Şifreyi kaydet ve devam et
+      {t('auth.force.submit')}
     </button>
-    <button type="button" class="linkbtn out" onclick={onLogout}>Çıkış yap</button>
+    <button type="button" class="linkbtn out" onclick={onLogout}>{t('common.logoutLong')}</button>
   </form>
 </div>
 

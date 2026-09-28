@@ -7,6 +7,8 @@
   import { ROLE_LABELS, session } from './lib/session.svelte';
   import { toast } from './lib/ui.svelte';
   import { pwa, stripAppManifest } from './lib/pwa.svelte';
+  import { deviceLocale, isLocale, setLocale, t } from './lib/i18n';
+  import { APP_NAME } from './lib/brand';
   import Icon, { type IconName } from './components/Icon.svelte';
   import Toasts from './components/Toasts.svelte';
   import ConfirmDialog from './components/ConfirmDialog.svelte';
@@ -72,6 +74,9 @@
   }
 
   function enter(u: User) {
+    // Hesapta dil tercihi varsa o (bu cihazda hatırlanmaz); yoksa cihazın dili
+    // (giriş ekranında seçilen veya tarayıcı dili).
+    setLocale(isLocale(u.lang) ? u.lang : deviceLocale(), false);
     session.set(u);
     if (u.must_change_password) {
       live.stop();
@@ -90,6 +95,7 @@
     }
     live.stop();
     session.set(null);
+    setLocale(deviceLocale(), false); // giriş ekranı bu cihazın dilinde
     phase = 'login';
   }
 
@@ -97,8 +103,9 @@
     if (phase !== 'app' && phase !== 'password') return;
     live.stop();
     session.set(null);
+    setLocale(deviceLocale(), false);
     phase = 'login';
-    toast.info('Oturumunuz sona erdi. Lütfen tekrar giriş yapın.');
+    toast.info(t('nav.sessionExpired'));
   });
 
   onPasswordChangeRequired(() => {
@@ -118,19 +125,74 @@
     match: string[];
   }
 
-  const NAV_MONITORS: NavItem = { href: '#/', label: 'Monitörler', icon: 'activity', match: ['list', 'new', 'detail', 'edit'] };
-  const NAV_SERVERS: NavItem = { href: '#/servers', label: 'Sunucular', icon: 'server', match: ['servers', 'server'] };
-  const NAV_INCIDENTS: NavItem = { href: '#/incidents', label: 'Olaylar', icon: 'zap', match: ['incidents', 'incident'] };
+  // label/short getter: her okumada geçerli dilde (dil değişince menü yeniden çizilir).
+  const NAV_MONITORS: NavItem = {
+    href: '#/',
+    get label() {
+      return t('nav.monitors');
+    },
+    icon: 'activity',
+    match: ['list', 'new', 'detail', 'edit'],
+  };
+  const NAV_SERVERS: NavItem = {
+    href: '#/servers',
+    get label() {
+      return t('nav.servers');
+    },
+    icon: 'server',
+    match: ['servers', 'server'],
+  };
+  const NAV_INCIDENTS: NavItem = {
+    href: '#/incidents',
+    get label() {
+      return t('nav.incidents');
+    },
+    icon: 'zap',
+    match: ['incidents', 'incident'],
+  };
   const NAV_PAGES: NavItem = {
     href: '#/status-pages',
-    label: 'Durum sayfaları',
-    short: 'Sayfalar',
+    get label() {
+      return t('nav.statusPages');
+    },
+    get short() {
+      return t('nav.statusPagesShort');
+    },
     icon: 'layout',
     match: ['pages', 'page-new', 'page-edit'],
   };
-  const NAV_MAINT: NavItem = { href: '#/maintenance', label: 'Bakım', icon: 'wrench', match: ['maintenance', 'maint-new', 'maint-edit'] };
-  const NAV_NOTIF: NavItem = { href: '#/notifications', label: 'Bildirimler', icon: 'bell', match: ['notifications'] };
-  const NAV_SETTINGS: NavItem = { href: '#/settings', label: 'Ayarlar', icon: 'settings', match: ['settings'] };
+  const NAV_MAINT: NavItem = {
+    href: '#/maintenance',
+    get label() {
+      return t('nav.maintenance');
+    },
+    icon: 'wrench',
+    match: ['maintenance', 'maint-new', 'maint-edit'],
+  };
+  const NAV_NOTIF: NavItem = {
+    href: '#/notifications',
+    get label() {
+      return t('nav.notifications');
+    },
+    icon: 'bell',
+    match: ['notifications'],
+  };
+  const NAV_SETTINGS: NavItem = {
+    href: '#/settings',
+    get label() {
+      return t('nav.settings');
+    },
+    icon: 'settings',
+    match: ['settings'],
+  };
+  const NAV_MORE: NavItem = {
+    href: '#/more',
+    get label() {
+      return t('nav.more');
+    },
+    icon: 'menu',
+    match: ['more', 'maintenance', 'maint-new', 'maint-edit', 'notifications', 'settings', 'pages', 'page-new', 'page-edit'],
+  };
 
   // İzleyici bildirim kanallarını ve durum sayfalarını yönetemez; yalnızca seçili
   // monitörleri gören (müşteri) izleyici Sunucular'ı kendisine sunucu atanmışsa görür.
@@ -147,17 +209,7 @@
   const tabs = $derived<NavItem[]>(
     session.restricted && !session.canSeeServers
       ? nav
-      : [
-          NAV_MONITORS,
-          NAV_SERVERS,
-          NAV_INCIDENTS,
-          {
-            href: '#/more',
-            label: 'Daha fazla',
-            icon: 'menu',
-            match: ['more', 'maintenance', 'maint-new', 'maint-edit', 'notifications', 'settings', 'pages', 'page-new', 'page-edit'],
-          },
-        ],
+      : [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_MORE],
   );
 
   // Kenar çubuğundaki sorunlu sunucu sayısı için liste uygulama açılınca bir kez
@@ -172,46 +224,46 @@
   const pageTitle = $derived.by(() => {
     switch (route.name) {
       case 'list':
-        return 'Monitörler';
+        return t('nav.monitors');
       case 'new':
-        return 'Yeni monitör';
+        return t('nav.titles.newMonitor');
       case 'detail':
       case 'edit':
-        return live.byId(route.id)?.name ?? 'Monitör';
+        return live.byId(route.id)?.name ?? t('nav.titles.monitor');
       case 'incidents':
-        return 'Olaylar';
+        return t('nav.incidents');
       case 'incident':
-        return 'Olay';
+        return t('nav.titles.incident');
       case 'notifications':
-        return 'Bildirimler';
+        return t('nav.notifications');
       case 'pages':
       case 'page-new':
       case 'page-edit':
       case 'page-preview':
-        return 'Durum sayfaları';
+        return t('nav.statusPages');
       case 'maintenance':
       case 'maint-new':
       case 'maint-edit':
-        return 'Bakım pencereleri';
+        return t('nav.titles.maintenanceWindows');
       case 'settings':
-        return 'Ayarlar';
+        return t('nav.settings');
       case 'servers':
-        return 'Sunucular';
+        return t('nav.servers');
       case 'server':
-        return servers.byId(route.id)?.name ?? 'Sunucu';
+        return servers.byId(route.id)?.name ?? t('nav.titles.server');
       case 'more':
-        return 'Daha fazla';
+        return t('nav.more');
       default:
-        return 'Bulunamadı';
+        return t('nav.titles.notFound');
     }
   });
 
   $effect(() => {
     if (phase === 'public') return; // başlığı sayfanın kendisi belirler
-    if (phase === 'app') document.title = `${downCount > 0 ? `(${downCount}) ` : ''}${pageTitle} · Uptime`;
-    else if (phase === 'setup') document.title = 'Kurulum · Uptime';
-    else if (phase === 'password') document.title = 'Yeni şifre · Uptime';
-    else document.title = 'Giriş · Uptime';
+    if (phase === 'app') document.title = `${downCount > 0 ? `(${downCount}) ` : ''}${pageTitle} · ${APP_NAME}`;
+    else if (phase === 'setup') document.title = `${t('nav.titles.setup')} · ${APP_NAME}`;
+    else if (phase === 'password') document.title = `${t('nav.titles.newPassword')} · ${APP_NAME}`;
+    else document.title = `${t('nav.titles.login')} · ${APP_NAME}`;
   });
 
   // Ana ekran uygulamasında tarayıcının yenile düğmesi yok: üst çubukta elle yenileme.
@@ -236,27 +288,27 @@
 {#if pwa.updateReady && phase !== 'public'}
   <div class="update" role="status">
     <Icon name="refresh" size={16} />
-    <span>Yeni sürüm hazır</span>
-    <button type="button" class="btn sm primary" onclick={() => pwa.applyUpdate()}>Yenile</button>
-    <button type="button" class="btn sm ghost icon" aria-label="Sonra" onclick={() => pwa.dismissUpdate()}><Icon name="x" size={15} /></button>
+    <span>{t('nav.updateReady')}</span>
+    <button type="button" class="btn sm primary" onclick={() => pwa.applyUpdate()}>{t('common.refresh')}</button>
+    <button type="button" class="btn sm ghost icon" aria-label={t('common.later')} onclick={() => pwa.dismissUpdate()}><Icon name="x" size={15} /></button>
   </div>
 {/if}
 
 {#snippet forbidden()}
   <div class="card empty">
     <div class="lock"><Icon name="lock" size={28} /></div>
-    <h3>Bu sayfa için yetkiniz yok</h3>
-    <p>Hesabınız yalnızca görüntüleme yetkisine sahip. Değişiklik yapmanız gerekiyorsa yöneticinize başvurun.</p>
-    <a class="btn primary" href="#/">Monitörlere dön</a>
+    <h3>{t('nav.forbiddenTitle')}</h3>
+    <p>{t('nav.forbiddenText')}</p>
+    <a class="btn primary" href="#/">{t('nav.backToMonitors')}</a>
   </div>
 {/snippet}
 
 {#snippet noServers()}
   <div class="card empty">
     <div class="lock"><Icon name="lock" size={28} /></div>
-    <h3>Sunucu takibi hesabınıza açık değil</h3>
-    <p>Hesabınız yalnızca size atanan monitörleri görebilir. Sunucu metriklerine erişmeniz gerekiyorsa yöneticinize başvurun.</p>
-    <a class="btn primary" href="#/">Monitörlere dön</a>
+    <h3>{t('nav.noServersTitle')}</h3>
+    <p>{t('nav.noServersText')}</p>
+    <a class="btn primary" href="#/">{t('nav.backToMonitors')}</a>
   </div>
 {/snippet}
 
@@ -267,9 +319,9 @@
 {:else if phase === 'error'}
   <div class="center">
     <div class="card errcard">
-      <h2>Sunucuya bağlanılamadı</h2>
+      <h2>{t('nav.connectFailed')}</h2>
       <p class="muted">{loadError}</p>
-      <button class="btn primary" onclick={init}>Tekrar dene</button>
+      <button class="btn primary" onclick={init}>{t('common.retry')}</button>
     </div>
   </div>
 {:else if phase === 'setup' || phase === 'login'}
@@ -283,8 +335,8 @@
 {:else}
   <div class="shell">
     <aside class="sidebar">
-      <a class="logo" href="#/"><span class="logo-dot"></span> Uptime</a>
-      <nav aria-label="Ana menü">
+      <a class="logo" href="#/"><span class="logo-dot"></span> {APP_NAME}</a>
+      <nav aria-label={t('nav.mainMenu')}>
         {#each nav as n (n.href)}
           <a href={n.href} class:active={n.match.includes(route.name)} aria-current={n.match.includes(route.name) ? 'page' : undefined}>
             <Icon name={n.icon} />
@@ -296,31 +348,31 @@
       </nav>
       <div class="side-foot">
         {#if !live.connected && live.loaded}
-          <div class="offline" title="Canlı bağlantı yeniden kuruluyor"><Icon name="wifi-off" size={15} /> <span>Bağlantı yok</span></div>
+          <div class="offline" title={t('nav.offlineTip')}><Icon name="wifi-off" size={15} /> <span>{t('nav.offline')}</span></div>
         {/if}
-        <a class="who" href="#/settings" title="Hesabım">
+        <a class="who" href="#/settings" title={t('nav.myAccount')}>
           <Icon name="user" size={16} />
           <span class="who-t">
             <span class="who-n">{session.displayName}</span>
             <span class="who-r">{ROLE_LABELS[session.role]}</span>
           </span>
         </a>
-        <button class="logout" onclick={logout}><Icon name="logout" size={16} /> Çıkış</button>
+        <button class="logout" onclick={logout}><Icon name="logout" size={16} /> {t('common.logout')}</button>
       </div>
     </aside>
 
     <header class="topbar">
-      <a class="logo" href="#/"><span class="logo-dot"></span> Uptime</a>
+      <a class="logo" href="#/"><span class="logo-dot"></span> {APP_NAME}</a>
       <div class="top-right">
         {#if !live.connected && live.loaded}
-          <span class="offline" title="Canlı bağlantı yeniden kuruluyor"><Icon name="wifi-off" size={14} /> Bağlantı yok</span>
+          <span class="offline" title={t('nav.offlineTip')}><Icon name="wifi-off" size={14} /> {t('nav.offline')}</span>
         {/if}
         {#if pwa.standalone}
-          <button class="btn ghost icon top-btn" class:spin={syncing} onclick={resync} aria-label="Verileri yenile">
+          <button class="btn ghost icon top-btn" class:spin={syncing} onclick={resync} aria-label={t('nav.refreshData')}>
             <Icon name="refresh" size={18} />
           </button>
         {/if}
-        <button class="btn ghost top-btn" onclick={logout} aria-label="Çıkış"><Icon name="logout" size={16} /> Çıkış</button>
+        <button class="btn ghost top-btn" onclick={logout} aria-label={t('common.logout')}><Icon name="logout" size={16} /> {t('common.logout')}</button>
       </div>
     </header>
 
@@ -366,15 +418,15 @@
           <More onLogout={logout} />
         {:else}
           <div class="card empty">
-            <h3>Sayfa bulunamadı</h3>
-            <p>Aradığınız sayfa mevcut değil.</p>
-            <a class="btn primary" href="#/">Monitörlere dön</a>
+            <h3>{t('nav.notFoundTitle')}</h3>
+            <p>{t('nav.notFoundText')}</p>
+            <a class="btn primary" href="#/">{t('nav.backToMonitors')}</a>
           </div>
         {/if}
       </div>
     </main>
 
-    <nav class="tabbar" aria-label="Ana menü" style="--tabs:{tabs.length}">
+    <nav class="tabbar" aria-label={t('nav.mainMenu')} style="--tabs:{tabs.length}">
       {#each tabs as n (n.href)}
         <a href={n.href} class:active={n.match.includes(route.name)} aria-current={n.match.includes(route.name) ? 'page' : undefined}>
           <span class="ti">

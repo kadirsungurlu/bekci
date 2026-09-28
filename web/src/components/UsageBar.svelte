@@ -2,6 +2,7 @@
   // Küçük doluluk çubuğu: %80'de turuncuya, %90'da kırmızıya döner.
   import { fmtPctInt } from '../lib/format';
   import { usageLevel } from '../lib/servers.svelte';
+  import { t } from '../lib/i18n';
 
   let {
     value,
@@ -27,7 +28,7 @@
   const width = $derived(has ? Math.max(0, Math.min(100, value!)) : 0);
 </script>
 
-<div class="ub {level}" class:inline role="meter" aria-label={label || 'Doluluk'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={has ? Math.round(value!) : undefined}>
+<div class="ub {level}" class:inline role="meter" aria-label={label || t('status.chart.usage')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={has ? Math.round(value!) : undefined}>
   {#if !inline && !bare && (label || has)}
     <div class="top">
       {#if label}<span class="l">{label}</span>{/if}

@@ -3,6 +3,7 @@
 
 import { setLeaveGuard } from './router.svelte';
 import { confirmDialog } from './ui.svelte';
+import { i18n, t, tOr } from './i18n';
 
 /**
  * Kaydedilmemiş değişiklik koruması: sekme kapatılırken/yenilenirken tarayıcının
@@ -20,10 +21,10 @@ export function guardUnsaved(dirty: () => boolean): () => void {
     dirty,
     confirm: () =>
       confirmDialog({
-        title: 'Kaydedilmemiş değişiklikler',
-        message: 'Yaptığınız değişiklikler kaydedilmedi. Sayfadan ayrılırsanız kaybolacak.',
-        confirmText: 'Kaydetmeden ayrıl',
-        cancelText: 'Sayfada kal',
+        title: t('common.forms.unsavedTitle'),
+        message: t('common.forms.unsavedMessage'),
+        confirmText: t('common.forms.leave'),
+        cancelText: t('common.forms.stay'),
         danger: true,
       }),
   });
@@ -90,20 +91,7 @@ export const DESTINATION_KEYS = [
   'token_url',
 ];
 
-const DEST_LABELS: Record<string, string> = {
-  url: 'adres',
-  host: 'sunucu',
-  port: 'port',
-  server: 'sunucu',
-  endpoint: 'uç nokta',
-  webhook_url: 'webhook adresi',
-  homeserver_url: 'sunucu adresi',
-  broker_url: 'broker adresi',
-  target: 'hedef',
-  proxy_url: 'proxy adresi',
-  oauth_token_url: 'token adresi',
-  token_url: 'token adresi',
-};
+// Hedef alanlarının kısa adları: common.forms.dest.<alan> (ör. url → "adres" / "address").
 
 const norm = (v: unknown) => (v === undefined || v === null ? '' : String(v).trim().toLowerCase());
 
@@ -112,9 +100,12 @@ export function changedDestinations(next: Record<string, unknown>, prev: Record<
   return DESTINATION_KEYS.filter((k) => norm(next[k]) !== norm(prev[k]));
 }
 
-/** "Adres ve port değiştiği için" gibi kısa açıklama. */
+/** "Adres ve port" / "Address and port" gibi kısa özne (cümlenin gerisi çağıranda). */
 export function destinationPhrase(keys: string[]): string {
-  const l = [...new Set(keys.map((k) => DEST_LABELS[k] ?? k))];
-  const s = l.length > 1 ? `${l.slice(0, -1).join(', ')} ve ${l[l.length - 1]}` : (l[0] ?? 'hedef');
-  return s.charAt(0).toLocaleUpperCase('tr') + s.slice(1);
+  const l = [...new Set(keys.map((k) => tOr(`common.forms.dest.${k}`, k)))];
+  const s =
+    l.length > 1
+      ? `${l.slice(0, -1).join(', ')} ${t('common.forms.and')} ${l[l.length - 1]}`
+      : (l[0] ?? t('common.forms.dest.target'));
+  return s.charAt(0).toLocaleUpperCase(i18n.locale) + s.slice(1);
 }

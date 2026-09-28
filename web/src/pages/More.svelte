@@ -2,36 +2,32 @@
   // Mobil "Daha fazla" menüsü: sekme çubuğuna sığmayan bölümler.
   import { ROLE_LABELS, session } from '../lib/session.svelte';
   import Icon, { type IconName } from '../components/Icon.svelte';
+  import { t } from '../lib/i18n';
 
   let { onLogout }: { onLogout: () => void } = $props();
 
   const items = $derived.by(() => {
     const out: { href: string; label: string; desc: string; icon: IconName }[] = [];
     if (session.canEdit)
-      out.push({ href: '#/status-pages', label: 'Durum sayfaları', desc: 'Müşterilerinize açık durum sayfaları', icon: 'layout' });
-    out.push({ href: '#/maintenance', label: 'Bakım pencereleri', desc: 'Planlı bakımlarda bildirimleri sustur', icon: 'wrench' });
+      out.push({ href: '#/status-pages', label: t('nav.statusPages'), desc: t('nav.moreItems.statusPagesDesc'), icon: 'layout' });
+    out.push({ href: '#/maintenance', label: t('nav.titles.maintenanceWindows'), desc: t('nav.moreItems.maintenanceDesc'), icon: 'wrench' });
     if (session.canEdit)
-      out.push({ href: '#/notifications', label: 'Bildirimler', desc: 'WhatsApp, Telegram, e-posta ve diğer kanallar', icon: 'bell' });
-    out.push({ href: '#/settings', label: 'Hesabım', desc: 'Şifre, iki adımlı doğrulama, API anahtarları', icon: 'user' });
-    if (session.canEdit) out.push({ href: '#/settings/tags', label: 'Etiketler', desc: 'Monitörleri ortam, müşteri veya ekibe göre grupla', icon: 'tag' });
+      out.push({ href: '#/notifications', label: t('nav.notifications'), desc: t('nav.moreItems.notificationsDesc'), icon: 'bell' });
+    out.push({ href: '#/settings', label: t('nav.myAccount'), desc: t('nav.moreItems.accountDesc'), icon: 'user' });
+    if (session.canEdit) out.push({ href: '#/settings/tags', label: t('nav.moreItems.tags'), desc: t('nav.moreItems.tagsDesc'), icon: 'tag' });
     if (session.isAdmin) {
-      out.push({ href: '#/settings/users', label: 'Kullanıcılar', desc: 'Hesaplar, roller ve müşteri erişimi', icon: 'users' });
-      out.push({ href: '#/settings/general', label: 'Genel ayarlar', desc: 'Veri saklama, SSL uyarıları, yedekler', icon: 'settings' });
-      out.push({ href: '#/settings/probes', label: 'Kontrol noktaları', desc: 'Farklı konumlardan kontrol', icon: 'map-pin' });
-      out.push({
-        href: '#/settings/backup',
-        label: 'Yedekle / Geri yükle',
-        desc: 'Yedek al, geri yükle; UptimeRobot veya Uptime Kuma’dan taşı',
-        icon: 'archive',
-      });
-      out.push({ href: '#/settings/audit', label: 'İşlem kaydı', desc: 'Kim ne zaman ne yaptı', icon: 'list' });
+      out.push({ href: '#/settings/users', label: t('nav.moreItems.users'), desc: t('nav.moreItems.usersDesc'), icon: 'users' });
+      out.push({ href: '#/settings/general', label: t('nav.moreItems.general'), desc: t('nav.moreItems.generalDesc'), icon: 'settings' });
+      out.push({ href: '#/settings/probes', label: t('nav.moreItems.probes'), desc: t('nav.moreItems.probesDesc'), icon: 'map-pin' });
+      out.push({ href: '#/settings/backup', label: t('nav.moreItems.backup'), desc: t('nav.moreItems.backupDesc'), icon: 'archive' });
+      out.push({ href: '#/settings/audit', label: t('nav.moreItems.audit'), desc: t('nav.moreItems.auditDesc'), icon: 'list' });
     }
     return out;
   });
 </script>
 
 <div class="page-head">
-  <h1>Daha fazla<span class="dot">.</span></h1>
+  <h1>{t('nav.more')}<span class="dot">.</span></h1>
 </div>
 
 <div class="card list">
@@ -53,7 +49,7 @@
     <span class="l">{session.displayName}</span>
     <span class="d">{session.user?.username} · {ROLE_LABELS[session.role]}</span>
   </span>
-  <button class="btn sm" onclick={onLogout}><Icon name="logout" size={15} /> Çıkış</button>
+  <button class="btn sm" onclick={onLogout}><Icon name="logout" size={15} /> {t('common.logout')}</button>
 </div>
 
 <style>

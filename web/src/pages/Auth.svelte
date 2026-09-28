@@ -2,6 +2,9 @@
   import { tick } from 'svelte';
   import { api, ApiError, errorMessage, type User } from '../lib/api';
   import Icon from '../components/Icon.svelte';
+  import LangSwitch from '../components/LangSwitch.svelte';
+  import { t } from '../lib/i18n';
+  import { APP_NAME } from '../lib/brand';
 
   let { mode, onDone }: { mode: 'setup' | 'login'; onDone: (u: User) => void } = $props();
 
@@ -34,19 +37,19 @@
     const u = username.trim();
     if (mode === 'setup') {
       if (!USERNAME_RE.test(u)) {
-        error = 'Kullanıcı adı 3-32 karakter olmalı; harf, rakam, nokta, tire ve alt çizgi kullanılabilir.';
+        error = t('auth.errUsername');
         return;
       }
       if (password.length < 8) {
-        error = 'Şifre en az 8 karakter olmalı.';
+        error = t('auth.errPasswordLength');
         return;
       }
       if (password !== password2) {
-        error = 'Şifreler eşleşmiyor.';
+        error = t('auth.errPasswordMismatch');
         return;
       }
     } else if (!u || !password) {
-      error = 'Kullanıcı adı ve şifre gerekli.';
+      error = t('auth.errCredentialsRequired');
       return;
     }
     busy = true;
@@ -80,7 +83,7 @@
     error = '';
     const c = code.trim();
     if (!c) {
-      error = 'Doğrulama kodunu girin.';
+      error = t('auth.errCodeRequired');
       return;
     }
     busy = true;
@@ -107,16 +110,16 @@
 </script>
 
 <div class="wrap">
-  <div class="brand"><span class="logo-dot"></span> Uptime</div>
+  <div class="brand"><span class="logo-dot"></span> {APP_NAME}</div>
   {#if challenge}
     <form class="card auth" onsubmit={submitCode} novalidate>
       <div class="shield"><Icon name="shield-check" size={26} /></div>
-      <h1>Doğrulama kodu<span class="dot">.</span></h1>
+      <h1>{t('auth.codeTitle')}<span class="dot">.</span></h1>
       <p class="muted intro">
-        {useRecovery ? 'Kaydettiğiniz kurtarma kodlarından birini girin. Her kod bir kez kullanılabilir.' : 'Doğrulama uygulamanızdaki 6 haneli kodu girin.'}
+        {useRecovery ? t('auth.codeIntroRecovery') : t('auth.codeIntroApp')}
       </p>
       <div class="field">
-        <label for="code">{useRecovery ? 'Kurtarma kodu' : 'Doğrulama kodu'}</label>
+        <label for="code">{useRecovery ? t('auth.recoveryCodeLabel') : t('auth.codeLabel')}</label>
         {#if useRecovery}
           <input
             id="code"
@@ -148,27 +151,27 @@
         {/if}
       </div>
       <button type="button" class="linkbtn toggle" onclick={toggleRecovery}>
-        {useRecovery ? 'Doğrulama uygulamasındaki kodu kullan' : 'Telefonuma erişemiyorum — kurtarma kodu kullan'}
+        {useRecovery ? t('auth.useAppCode') : t('auth.useRecoveryCode')}
       </button>
       {#if error}<div class="alert error" role="alert">{error}</div>{/if}
       <button class="btn primary big" type="submit" disabled={busy}>
         {#if busy}<span class="spinner"></span>{/if}
-        Doğrula ve giriş yap
+        {t('auth.verifyAndLogin')}
       </button>
-      <button type="button" class="linkbtn backlink" onclick={back}><Icon name="chevron-left" size={15} /> Farklı hesapla giriş yap</button>
+      <button type="button" class="linkbtn backlink" onclick={back}><Icon name="chevron-left" size={15} /> {t('auth.otherAccount')}</button>
     </form>
   {:else}
     <form class="card auth" onsubmit={submit} novalidate>
       {#if mode === 'setup'}
-        <h1>Hoş geldiniz<span class="dot">.</span></h1>
-        <p class="muted intro">İlk kurulum: yönetici hesabınızı oluşturun. Bu hesapla giriş yapıp monitörlerinizi yöneteceksiniz.</p>
+        <h1>{t('auth.setupTitle')}<span class="dot">.</span></h1>
+        <p class="muted intro">{t('auth.setupIntro')}</p>
       {:else}
-        <h1>Giriş yap<span class="dot">.</span></h1>
-        <p class="muted intro">Devam etmek için hesabınızla giriş yapın.</p>
+        <h1>{t('auth.loginTitle')}<span class="dot">.</span></h1>
+        <p class="muted intro">{t('auth.loginIntro')}</p>
       {/if}
 
       <div class="field">
-        <label for="u">Kullanıcı adı</label>
+        <label for="u">{t('common.username')}</label>
         <!-- svelte-ignore a11y_autofocus -->
         <input
           id="u"
@@ -180,10 +183,10 @@
           autofocus
           maxlength="32"
         />
-        {#if mode === 'setup'}<span class="help">3-32 karakter: harf, rakam, nokta, tire, alt çizgi.</span>{/if}
+        {#if mode === 'setup'}<span class="help">{t('auth.usernameHelp')}</span>{/if}
       </div>
       <div class="field">
-        <label for="p">Şifre</label>
+        <label for="p">{t('common.password')}</label>
         <input
           id="p"
           class="input"
@@ -191,11 +194,11 @@
           bind:value={password}
           autocomplete={mode === 'setup' ? 'new-password' : 'current-password'}
         />
-        {#if mode === 'setup'}<span class="help">En az 8 karakter.</span>{/if}
+        {#if mode === 'setup'}<span class="help">{t('common.minChars', { n: 8 })}</span>{/if}
       </div>
       {#if mode === 'setup'}
         <div class="field">
-          <label for="p2">Şifre (tekrar)</label>
+          <label for="p2">{t('auth.passwordAgain')}</label>
           <input id="p2" class="input" type="password" bind:value={password2} autocomplete="new-password" />
         </div>
       {/if}
@@ -204,10 +207,11 @@
 
       <button class="btn primary big" type="submit" disabled={busy}>
         {#if busy}<span class="spinner"></span>{/if}
-        {mode === 'setup' ? 'Hesabı oluştur' : 'Giriş yap'}
+        {mode === 'setup' ? t('auth.createAccount') : t('auth.login')}
       </button>
     </form>
   {/if}
+  <LangSwitch />
 </div>
 
 <style>
