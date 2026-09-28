@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -45,6 +46,7 @@ type Store struct {
 	path     string         // SQLite dosya yolu
 	loc      *time.Location // günlük özetlerin gün sınırı bu saat dilimine göre
 	opts     Options
+	lockFile *os.File // InstanceLock: süreç boyunca tutulan veri klasörü kilidi
 }
 
 // Options Open'ın isteğe bağlı ayarları.
@@ -54,6 +56,15 @@ type Options struct {
 	BackupDir string
 	// Log migration kayıtları için; nil ise slog.Default().
 	Log *slog.Logger
+	// InstanceLock SQLite dosyasına özel kilit alır: aynı veri klasörünü iki
+	// örnek aynı anda kullanamaz, ikinci örnek birincinin kapanmasını bekler.
+	// Yalnızca uygulama açar; testler aynı dosyayı birden çok kez açabilir.
+	InstanceLock bool
+	// LockWait kilidin en fazla ne kadar bekleneceği (0 → 10 dk).
+	LockWait time.Duration
+	// StandbyFile kilit beklenirken oluşturulan dosya; sağlık kontrolü bu
+	// dosya varken bekleyen örneği sağlıklı sayar (bkz. Dockerfile).
+	StandbyFile string
 }
 
 // IsPostgresDSN bağlantı adresinin PostgreSQL olup olmadığını söyler.
@@ -96,8 +107,14 @@ func OpenWith(target string, loc *time.Location, opts Options) (*Store, error) {
 		}
 	} else {
 		s.path = target
+		if opts.InstanceLock {
+			if err := s.acquireInstanceLock(target); err != nil {
+				return nil, err
+			}
+		}
 		raw, err = sql.Open("sqlite", sqliteDSN(target))
 		if err != nil {
+			s.releaseLock()
 			return nil, err
 		}
 		raw.SetMaxOpenConns(1)
@@ -106,6 +123,7 @@ func OpenWith(target string, loc *time.Location, opts Options) (*Store, error) {
 	s.db = &conn{db: raw, pg: s.postgres}
 	if err := s.migrate(context.Background()); err != nil {
 		raw.Close()
+		s.releaseLock()
 		return nil, fmt.Errorf("migration: %w", err)
 	}
 	return s, nil
@@ -119,7 +137,19 @@ func sqliteDSN(path string) string {
 		"&_pragma=foreign_keys(1)"
 }
 
-func (s *Store) Close() error { return s.db.db.Close() }
+func (s *Store) Close() error {
+	err := s.db.db.Close()
+	s.releaseLock()
+	return err
+}
+
+// releaseLock veri klasörü kilidini bırakır (dosyayı kapatmak flock'u bırakır).
+func (s *Store) releaseLock() {
+	if s.lockFile != nil {
+		s.lockFile.Close()
+		s.lockFile = nil
+	}
+}
 
 // Postgres veritabanının PostgreSQL olup olmadığı.
 func (s *Store) Postgres() bool { return s.postgres }
