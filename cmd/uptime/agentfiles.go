@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"sync"
+
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
 )
 
 // Windows hizmetinin yapılandırma ve günlük dosyaları. Platformdan bağımsız
@@ -46,7 +48,7 @@ func formatEnvFile(kv map[string]string) string {
 	}
 	slices.Sort(keys)
 	var b strings.Builder
-	b.WriteString("# Uptime ajanı ayarları (uptime service install yazar). Token içerir:\r\n")
+	b.WriteString("# " + brand.Name + " ajanı ayarları (uptime service install yazar). Token içerir:\r\n")
 	b.WriteString("# yalnızca SYSTEM ve Administrators okuyabilir. Değişiklikten sonra hizmeti yeniden başlatın.\r\n")
 	for _, k := range keys {
 		b.WriteString(k + "=" + kv[k] + "\r\n")

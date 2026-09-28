@@ -10,4 +10,4 @@ package brand
 // Name ürünün görünen adı: bildirim metinleri, bildirim kanallarındaki
 // gönderen adı, TOTP uygulamasında görünen düzenleyici, Windows hizmetinin
 // görünen adı vb.
-const Name = "Uptime"
+const Name = "Bekci"

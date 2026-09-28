@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
 )
 
 var trLetters = regexp.MustCompile(`[çğıöşüÇĞİÖŞÜ]`)
@@ -50,7 +52,7 @@ func TestEnglishEvents(t *testing.T) {
 	}
 
 	test := Event{Kind: KindTest, MonitorName: "Test", Time: now, Lang: "en"}
-	if got := test.Text(); !strings.HasPrefix(got, "✅ Test notification\nYour Uptime notification channel is working.") {
+	if got := test.Text(); !strings.HasPrefix(got, "✅ Test notification\nYour "+brand.Name+" notification channel is working.") {
 		t.Errorf("test bildirimi: %q", got)
 	}
 	cert := Event{Kind: KindCert, MonitorName: "Site", CertDays: 1, Lang: "en", Time: now}

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
@@ -86,7 +87,7 @@ func TestTwoFactorFlow(t *testing.T) {
 		QR         string `json:"qr_png"`
 	}
 	admin.mustDo("POST", "/api/auth/2fa/setup", map[string]string{"password": "cok-gizli-sifre"}, &setup, 200)
-	if len(setup.Secret) != 32 || !strings.HasPrefix(setup.OtpauthURL, "otpauth://totp/Uptime:kadir?") ||
+	if len(setup.Secret) != 32 || !strings.HasPrefix(setup.OtpauthURL, "otpauth://totp/"+brand.Name+":kadir?") ||
 		!strings.Contains(setup.OtpauthURL, "secret="+setup.Secret) || !strings.HasPrefix(setup.QR, "data:image/png;base64,") {
 		t.Fatalf("kurulum yanıtı: %+v", setup)
 	}

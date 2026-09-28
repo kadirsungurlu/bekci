@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
 )
 
 // upEvent downEvent'in "up" karşılığı; birçok sağlayıcı trigger/resolve
@@ -54,7 +56,7 @@ func TestMattermost(t *testing.T) {
 	}
 	var body map[string]any
 	json.Unmarshal([]byte(c.body), &body)
-	if body["username"] != "Uptime" || body["channel"] != nil {
+	if body["username"] != brand.Name || body["channel"] != nil {
 		t.Errorf("varsayılanlar yanlış: %v", body)
 	}
 	if err := send(t, "mattermost", map[string]any{"webhook_url": srv.URL, "channel": "#uyari", "username": "Bot", "icon_url": srv.URL + "/i.png"}, downEvent); err != nil {
@@ -326,7 +328,7 @@ func TestBark(t *testing.T) {
 	}
 	var body map[string]any
 	json.Unmarshal([]byte(c.body), &body)
-	if body["device_key"] != "dk_x" || body["group"] != "Uptime" || body["level"] != "critical" {
+	if body["device_key"] != "dk_x" || body["group"] != brand.Name || body["level"] != "critical" {
 		t.Errorf("gövde yanlış: %v", body)
 	}
 }
