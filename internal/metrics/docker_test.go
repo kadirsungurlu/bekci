@@ -169,8 +169,12 @@ func TestContainersTimeout(t *testing.T) {
 	}
 	block := make(chan struct{})
 	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/containers/json" {
-			fmt.Fprint(w, `[{"Id":"x1","Names":["/a"]}]`)
+		switch r.URL.Path {
+		case "/containers/json":
+			fmt.Fprint(w, `[{"Id":"x1","Names":["/a"]},{"Id":"x2","Names":["/b"]}]`)
+			return
+		case "/containers/x2/stats":
+			fmt.Fprint(w, `{"cpu_stats":{"cpu_usage":{"total_usage":1000}},"memory_stats":{"usage":4096}}`)
 			return
 		}
 		<-block
@@ -191,8 +195,8 @@ func TestContainersTimeout(t *testing.T) {
 	}
 	clk.add(time.Second)
 	s, _ := c.Collect(context.Background())
-	if !s.Host.Docker || len(s.Stats.Containers) != 1 || s.Stats.Containers[0].Name != "a" {
-		t.Fatalf("istatistiği okunamayan konteyner boş değerlerle listelenmeli: %+v", s.Stats.Containers)
+	if !s.Host.Docker || len(s.Stats.Containers) != 1 || s.Stats.Containers[0].Name != "b" || s.Stats.Containers[0].Mem != 4096 {
+		t.Fatalf("istatistiği okunamayan konteyner sıfır değerlerle gönderilmemeli, okunan gönderilmeli: %+v", s.Stats.Containers)
 	}
 }
 

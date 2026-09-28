@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -31,15 +32,23 @@ import (
 //     alanı; --pid host olmadan da host procfs'i olduğu için doğrudur), okunamazsa
 //     ajanın kendi mountinfo'sundaki HOST_ROOT altı bağlamalardan,
 //   - doluluk statfs(HOST_ROOT + bağlama noktası) ile,
-//   - ağ HOST_PROC/1/net/dev'den (host'un ağ ad alanı; --network host olmasa da).
+//   - ağ HOST_PROC/1/net/dev'den (host'un ağ ad alanı; --network host olmasa da);
+//     köprü, bond üyesi ve VLAN arayüzleri HOST_SYS/class/net ve
+//     HOST_PROC/1/net/vlan'a bakılarak ayıklanır (netKeeper).
 type systemSource struct {
-	proc, root, etc string
+	proc, root, etc, sys string
 
 	// Bloklayabilen syscall'lar alan olarak tutulur: testte sahtesi verilir.
 	// diskTimeout, usage'daki Stat/Statfs için üst süre sınırıdır.
 	stat        func(string, *syscall.Stat_t) error
 	statfs      func(string, *syscall.Statfs_t) error
 	diskTimeout time.Duration
+
+	// inflight zaman aşımına uğramış ve hâlâ dönmemiş disk sorgularının
+	// bağlama noktaları: askıdaki bir bağlama için her toplamada yeni bir
+	// goroutine (ve çekirdekte takılı bir iş parçacığı) açılmaz.
+	mu       sync.Mutex
+	inflight map[string]bool
 }
 
 func newSystemSource(getenv func(string) string) (source, string) {
@@ -47,6 +56,7 @@ func newSystemSource(getenv func(string) string) (source, string) {
 		proc:        strings.TrimRight(getenv("HOST_PROC"), "/"),
 		root:        strings.TrimRight(getenv("HOST_ROOT"), "/"),
 		etc:         strings.TrimRight(getenv("HOST_ETC"), "/"),
+		sys:         strings.TrimRight(getenv("HOST_SYS"), "/"),
 		stat:        syscall.Stat,
 		statfs:      syscall.Statfs,
 		diskTimeout: 2 * time.Second,
@@ -54,7 +64,18 @@ func newSystemSource(getenv func(string) string) (source, string) {
 	if s.proc == "" {
 		s.proc = "/proc"
 	}
+	if s.sys == "" {
+		s.sys = "/sys"
+	}
 	return s, ""
+}
+
+// keepDisk ve keepNet collector'ın ioFilter arayüzü: diskler adlarına göre,
+// ağ arayüzleri adlarına ve host'un sysfs/procfs bilgisine göre süzülür.
+func (s *systemSource) keepDisk(name string) bool { return isPhysicalDisk(name) }
+
+func (s *systemSource) keepNet(name string) bool {
+	return netKeeper(s.sys, filepath.Join(s.proc, "1"))(name)
 }
 
 func (s *systemSource) hostInfo(ctx context.Context) (Host, error) {
@@ -161,10 +182,28 @@ type diskUsage struct {
 // syscall'lar süreli bir goroutine'de çalıştırılır; diskTimeout içinde dönmezse
 // bölüm "bilinmiyor" sayılıp atlanır (ok=false). Böylece tek bir kötü disk tüm
 // metrik toplamayı (ve toplayıcının kilidini) süresiz bloklamaz. Askıdaki
-// goroutine yalnızca syscall çekirdekte gerçekten takılı kaldığı sürece yaşar ve
-// çağrı başına en fazla bir tanedir; toplama başına bağlama sayısıyla sınırlıdır.
+// goroutine yalnızca syscall çekirdekte gerçekten takılı kaldığı sürece yaşar.
+// Önceki sorgusu hâlâ dönmemiş bağlama sonraki toplamalarda hiç sorgulanmaz
+// (bilinmiyor sayılır): askıdaki bağlama başına en fazla bir goroutine olur,
+// toplamalar boyunca birikmez. Sorgu dönünce bağlama yeniden ölçülür.
 func (s *systemSource) usage(m mount) (total, used uint64, ok bool) {
+	key := s.root + m.Point
+	s.mu.Lock()
+	if s.inflight[key] {
+		s.mu.Unlock()
+		return 0, 0, false
+	}
+	if s.inflight == nil {
+		s.inflight = map[string]bool{}
+	}
+	s.inflight[key] = true
+	s.mu.Unlock()
 	r, timedOut := callWithTimeout(s.diskTimeout, func() diskUsage {
+		defer func() {
+			s.mu.Lock()
+			delete(s.inflight, key)
+			s.mu.Unlock()
+		}()
 		t, u, k := s.usageBlocking(m)
 		return diskUsage{total: t, used: u, ok: k}
 	})
