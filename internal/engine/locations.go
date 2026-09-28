@@ -247,14 +247,15 @@ func (r *runner) locationTick(ctx context.Context) bool {
 		r.drainInbox() // kontrol sürerken gelenler
 	}
 	now := r.e.now()
+	// Konum durumu kayıttan ÖNCE yayınlanır: veritabanında yeni genel durumu
+	// gören okuyucu (API) konumların eski ("bilinmiyor") halini görmesin.
+	r.publishSnapshot(now)
 	if !ls.anyData() && now.Sub(ls.started) < r.staleAfter() {
 		// Başlangıçta kontrol noktalarına ilk sonuçları göndermeleri için süre
 		// tanınır; hemen "sonuç gelmiyor" yazılmaz.
-		r.publishSnapshot(now)
 		return true
 	}
 	r.process(r.aggregate(now))
-	r.publishSnapshot(now)
 	return true
 }
 
@@ -263,7 +264,8 @@ func (r *runner) locationTick(ctx context.Context) bool {
 func (r *runner) locationWake() bool {
 	r.drainInbox()
 	now := r.e.now()
-	defer r.publishSnapshot(now)
+	// Kayıttan önce yayınlanır (bkz. locationTick).
+	r.publishSnapshot(now)
 	if !r.locs.anyData() || r.e.InMaintenance(r.m.ID, now) {
 		return false
 	}

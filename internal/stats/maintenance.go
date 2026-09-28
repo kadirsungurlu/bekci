@@ -75,6 +75,12 @@ func (m *Maintenance) Tick(ctx context.Context) {
 	if _, err := m.store.DeleteIncidentCapturesBefore(ctx, now.AddDate(0, 0, -store.CaptureKeepDays).Unix()); err != nil {
 		m.log.Error("eski olay istek/yanıt kayıtları silinemedi", "hata", err)
 	}
+	// Çözülmüş eski olaylar işlem geçmişleriyle birlikte silinir; süren olaya dokunulmaz.
+	if n, err := m.store.DeleteResolvedIncidentsBefore(ctx, now.AddDate(0, 0, -store.IncidentKeepDays).Unix()); err != nil {
+		m.log.Error("eski olaylar silinemedi", "hata", err)
+	} else if n > 0 {
+		m.log.Info("eski olaylar silindi", "adet", n)
+	}
 	if err := m.store.DeleteExpiredSessions(ctx); err != nil {
 		m.log.Error("süresi dolan oturumlar silinemedi", "hata", err)
 	}

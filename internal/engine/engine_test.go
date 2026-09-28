@@ -55,17 +55,22 @@ func (n *fakeNotifier) kinds() []string {
 }
 
 type fixture struct {
-	st    *store.Store
-	e     *Engine
-	n     *fakeNotifier
-	clock time.Time
+	st     *store.Store
+	target string // veritabanı adresi (ham SQL gereken testler için)
+	e      *Engine
+	n      *fakeNotifier
+	clock  time.Time
 }
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
-	st := storetest.Open(t, time.UTC)
+	target := storetest.Target(t)
+	st, err := store.Open(target, time.UTC)
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { st.Close() })
-	f := &fixture{st: st, n: &fakeNotifier{}, clock: time.Date(2026, 9, 27, 10, 0, 0, 0, time.UTC)}
+	f := &fixture{st: st, target: target, n: &fakeNotifier{}, clock: time.Date(2026, 9, 27, 10, 0, 0, 0, time.UTC)}
 	f.e = New(st, f.n, NewHub(), slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Config{Unit: time.Millisecond, BaseURL: "https://uptime.test"})
 	f.e.now = func() time.Time { return f.clock }

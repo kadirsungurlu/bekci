@@ -230,20 +230,4 @@ func (s *Store) Beats(ctx context.Context, monitorID int64, since int64) ([]Beat
 	return out, rows.Err()
 }
 
-// Veri temizliği ------------------------------------------------------------
-
-func (s *Store) DeleteBeatsBefore(ctx context.Context, t int64) (int64, error) {
-	return s.deleteBefore(ctx, "DELETE FROM heartbeats WHERE time < ?", t)
-}
-
-func (s *Store) DeleteHourlyBefore(ctx context.Context, t int64) (int64, error) {
-	return s.deleteBefore(ctx, "DELETE FROM stats_hourly WHERE bucket < ?", t)
-}
-
-func (s *Store) deleteBefore(ctx context.Context, q string, t int64) (int64, error) {
-	res, err := s.db.ExecContext(ctx, q, t)
-	if err != nil {
-		return 0, err
-	}
-	return res.RowsAffected()
-}
+// Veri temizliği: bkz. cleanup.go (parçalı silme).

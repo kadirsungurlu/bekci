@@ -62,10 +62,14 @@ func dockerHTTPClient(endpoint string) (*http.Client, string, error) {
 		if sockPath == "" {
 			return nil, "", fmt.Errorf("soket yolu boş")
 		}
+		// Her kontrol kendi Transport'unu kurar; bağlantı havuzda bekletilmez
+		// (DisableKeepAlives). Aksi halde her kontrolden kalan boşta bağlantı
+		// ve okuma/yazma goroutine'leri hiç kapanmadan birikir.
 		transport := &http.Transport{
 			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 				return (&net.Dialer{}).DialContext(ctx, "unix", sockPath)
 			},
+			DisableKeepAlives: true,
 		}
 		return &http.Client{Transport: transport}, "http://docker", nil
 	case strings.HasPrefix(endpoint, "tcp://"):
@@ -105,6 +109,10 @@ func (dockerChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	client, base, err := dockerHTTPClient(c.Endpoint)
 	if err != nil {
 		return down("Endpoint geçersiz: " + err.Error())
+	}
+	if t, ok := client.Transport.(*http.Transport); ok {
+		// Kontrole özel Transport: kalan bağlantılar kontrol bitince kapanır.
+		defer t.CloseIdleConnections()
 	}
 
 	reqURL := base + "/containers/" + url.PathEscape(c.Container) + "/json"

@@ -192,15 +192,6 @@ func (s *Store) LastServerStat(ctx context.Context, probeID, before int64) (Stat
 	return r, err
 }
 
-// DeleteServerStatsBefore res çözünürlüğündeki eski satırları siler.
-func (s *Store) DeleteServerStatsBefore(ctx context.Context, res int, before int64) (int64, error) {
-	r, err := s.db.ExecContext(ctx, "DELETE FROM server_stats WHERE res = ? AND time < ?", res, before)
-	if err != nil {
-		return 0, err
-	}
-	return r.RowsAffected()
-}
-
 // Uyarı kuralları --------------------------------------------------------------------
 
 // ServerAlert bir eşik kuralı. Threshold offline için kullanılmaz; Minutes
@@ -365,6 +356,19 @@ func (s *Store) ResolveServerAlert(ctx context.Context, alertID, now int64) (boo
 	return resolved, err
 }
 
+// OpenServerAlertMount kuralın süren uyarı kaydındaki bölüm (disk uyarısı
+// başladığında dolan bölüm); süren kayıt yoksa "".
+func (s *Store) OpenServerAlertMount(ctx context.Context, alertID int64) (string, error) {
+	var mount string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT mount FROM server_alert_events WHERE alert_id = ? AND ended_at IS NULL
+		ORDER BY id DESC LIMIT 1`, alertID).Scan(&mount)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return mount, err
+}
+
 func resolveAlertTx(ctx context.Context, tx *Tx, alertID, now int64) error {
 	if _, err := tx.ExecContext(ctx,
 		"UPDATE server_alerts SET firing = 0, fired_at = NULL WHERE id = ?", alertID); err != nil {
@@ -409,16 +413,6 @@ func (s *Store) ServerAlertEvents(ctx context.Context, probeID, since int64, lim
 		out = append(out, e)
 	}
 	return out, rows.Err()
-}
-
-// DeleteServerAlertEventsBefore bitmiş eski uyarı kayıtlarını siler.
-func (s *Store) DeleteServerAlertEventsBefore(ctx context.Context, before int64) (int64, error) {
-	r, err := s.db.ExecContext(ctx,
-		"DELETE FROM server_alert_events WHERE started_at < ? AND ended_at IS NOT NULL", before)
-	if err != nil {
-		return 0, err
-	}
-	return r.RowsAffected()
 }
 
 // InitServerDefaults ajanın hiç kuralı yoksa verilen varsayılan kuralları,

@@ -62,9 +62,15 @@ func (webSocketChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	for _, h := range hdrs {
 		header.Add(h[0], h[1])
 	}
-	httpClient := &http.Client{Transport: &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: c.IgnoreTLS},
-	}}
+	// Kontrole özel Transport: el sıkışma başarısız olursa (ör. 404, upgrade
+	// yok) bağlantı havuzda boşta kalıp birikmesin. Upgrade isteğinde
+	// DisableKeepAlives "Connection: close" eklemez (protokol değişimi).
+	transport := &http.Transport{
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: c.IgnoreTLS},
+		DisableKeepAlives: true,
+	}
+	defer transport.CloseIdleConnections()
+	httpClient := &http.Client{Transport: transport}
 
 	start := time.Now()
 	conn, resp, err := websocket.Dial(ctx, c.URL, &websocket.DialOptions{HTTPClient: httpClient, HTTPHeader: header})

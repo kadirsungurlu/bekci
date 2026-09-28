@@ -146,10 +146,65 @@ func windowAvg(h []point, metric, mount string, minutes int, now int64) (float64
 	return sum / float64(n), true
 }
 
+// resolveBelow tetiklenmiş kuralın bitmesi için ortalamanın inmesi gereken
+// sınır: eşik eksi histerezis payı. Pay eşiğin %5'idir, en az: yüzde
+// metriklerinde 2 puan, yükte 0,05, sıcaklıkta 2 °C (ağda yalnızca %5). Pay
+// eşiğin yarısını geçmez (çok küçük eşikte kural hiç bitmez olmasın).
+// Böylece eşiğin hemen çevresinde gidip gelen değer uyarıyı her dakika
+// başlatıp bitirmez.
+func resolveBelow(metric string, threshold float64) float64 {
+	margin := threshold * 0.05
+	switch metric {
+	case MetricLoad:
+		margin = max(margin, 0.05)
+	case MetricTemp:
+		margin = max(margin, 2)
+	case MetricNet: // yalnızca eşiğin %5'i
+	default: // cpu, mem, swap, disk (%)
+		margin = max(margin, 2)
+	}
+	return threshold - min(margin, threshold/2)
+}
+
+// absentAfter tetiklenmiş kuralın değeri (bölüm veya sıcaklık sensörü artık
+// raporlanmıyor) bu kadar dakika hiç gelmezse kural kapatılır: kuralın
+// penceresi, en az 10 dk (bellekteki geçmişle sınırlı).
+func absentAfter(minutes int) int { return min(max(minutes, 10), historyKeep) }
+
+// valueGone ajan örnek göndermeyi sürdürürken (pencerenin en az %80'i) kuralın
+// değeri son absentAfter dakikada hiç gelmediyse true: ör. bölüm ayrıldı veya
+// sensör kayboldu. Aksi halde kural sonsuza dek tetiklenmiş kalırdı.
+func valueGone(h []point, metric, mount string, minutes int, now int64) bool {
+	n := absentAfter(minutes)
+	from := now - int64(n)*60
+	samples := 0
+	for _, p := range h {
+		if p.t <= from || p.t > now {
+			continue
+		}
+		if _, ok := p.value(metric, mount); ok {
+			return false
+		}
+		samples++
+	}
+	return samples >= minCoverage(n)
+}
+
+// lastValue geçmişte kuralın görülen son değeri (hiç yoksa 0).
+func lastValue(h []point, metric, mount string) float64 {
+	for i := len(h) - 1; i >= 0; i-- {
+		if v, ok := h[i].value(metric, mount); ok {
+			return v
+		}
+	}
+	return 0
+}
+
 // evaluate yeni örnekten sonra ajanın kurallarını değerlendirir ve güncel
-// kuralları döner. Histerezis: ortalama eşiği geçince bir kez "başladı",
-// eşiğe veya altına inince bir kez "bitti" bildirimi gider. Tetiklenme
-// durumu veritabanındadır; yeniden başlatma aynı uyarıyı tekrar bildirmez.
+// kuralları döner. Pencere ortalaması eşiğe ulaşınca (>=) bir kez "başladı",
+// eşiğin histerezis payı kadar altına inince (resolveBelow) bir kez "bitti"
+// bildirimi gider. Tetiklenme durumu veritabanındadır; yeniden başlatma aynı
+// uyarıyı tekrar bildirmez.
 func (s *Service) evaluate(ctx context.Context, p store.Probe, host *metrics.Host, t int64, now time.Time) ([]store.ServerAlert, error) {
 	rules, err := s.store.ServerAlerts(ctx, p.ID)
 	if err != nil {
@@ -164,7 +219,7 @@ func (s *Service) evaluate(ctx context.Context, p store.Probe, host *metrics.Hos
 		if a.Metric == MetricOffline {
 			// Veri geldi: çevrimdışı uyarısı bitti.
 			if a.Firing {
-				s.resolve(ctx, p, host, a, 0, now)
+				s.resolve(ctx, p, host, a, 0, now, "")
 			}
 			continue
 		}
@@ -174,10 +229,14 @@ func (s *Service) evaluate(ctx context.Context, p store.Probe, host *metrics.Hos
 		v, ok := windowAvg(h, a.Metric, a.Mount, a.Minutes, t)
 		switch {
 		case !ok:
-		case !a.Firing && v > a.Threshold:
+			if a.Firing && valueGone(h, a.Metric, a.Mount, a.Minutes, t) {
+				msg := fmt.Sprintf("Değer %d dakikadır gelmiyor (bölüm veya sensör artık raporlanmıyor)", absentAfter(a.Minutes))
+				s.resolve(ctx, p, host, a, lastValue(h, a.Metric, a.Mount), now, msg)
+			}
+		case !a.Firing && v >= a.Threshold:
 			s.fire(ctx, p, host, a, v, now, "", alertMount(h, a))
-		case a.Firing && v <= a.Threshold:
-			s.resolve(ctx, p, host, a, v, now)
+		case a.Firing && v < resolveBelow(a.Metric, a.Threshold):
+			s.resolve(ctx, p, host, a, v, now, "")
 		}
 	}
 	return rules, nil
@@ -297,8 +356,17 @@ func (s *Service) fire(ctx context.Context, p store.Probe, host *metrics.Host, a
 	}
 }
 
-// resolve tetiklenmiş kuralı bitirir ve "düzeldi" bildirimi gönderir.
-func (s *Service) resolve(ctx context.Context, p store.Probe, host *metrics.Host, a *store.ServerAlert, v float64, now time.Time) {
+// resolve tetiklenmiş kuralı bitirir ve "düzeldi" bildirimi gönderir. Bölümsüz
+// disk kuralında bildirimdeki bölüm, uyarı başladığında dolan bölümdür
+// (geçmiş kaydından okunur; o an en dolu bölüm başka olabilir).
+func (s *Service) resolve(ctx context.Context, p store.Probe, host *metrics.Host, a *store.ServerAlert, v float64, now time.Time, msg string) {
+	mount := a.Mount
+	if a.Metric == MetricDisk && mount == "" {
+		var err error
+		if mount, err = s.store.OpenServerAlertMount(ctx, a.ID); err != nil {
+			s.log.Error("sunucu uyarısının bölümü okunamadı", "sunucu", p.Name, "hata", err)
+		}
+	}
 	ok, err := s.store.ResolveServerAlert(ctx, a.ID, now.Unix())
 	if err != nil {
 		s.log.Error("sunucu uyarısı kapatılamadı", "sunucu", p.Name, "metrik", a.Metric, "hata", err)
@@ -308,8 +376,10 @@ func (s *Service) resolve(ctx context.Context, p store.Probe, host *metrics.Host
 	if !ok {
 		return
 	}
-	s.log.Info("sunucu uyarısı bitti", "sunucu", p.Name, "metrik", a.Metric)
+	s.log.Info("sunucu uyarısı bitti", "sunucu", p.Name, "metrik", a.Metric, "bolum", mount)
 	if s.notifier != nil {
-		s.notifier.Notify(s.event(notify.KindServerResolved, p, host, a, v, now, a.Mount))
+		ev := s.event(notify.KindServerResolved, p, host, a, v, now, mount)
+		ev.Message = msg
+		s.notifier.Notify(ev)
 	}
 }

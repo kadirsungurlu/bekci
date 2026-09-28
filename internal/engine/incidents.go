@@ -72,6 +72,11 @@ func (r *runner) openIncident(ctx context.Context, now time.Time, res check.Resu
 		return
 	}
 	r.incidentID, r.lastCause, r.maintLogged = id, res.Message, false
+	if r.unresolved != nil && r.unresolved.id == id {
+		// Eski olay hâlâ kapatılamadı ve yeni kesinti onun devamı sayıldı
+		// (açık olay varken yenisi açılmaz): artık kapatılmaya çalışılmaz.
+		r.unresolved = nil
+	}
 
 	var locs []incidentLocation
 	where := LocalName
@@ -186,6 +191,28 @@ func (r *runner) locationChanges(now time.Time) []store.IncidentEvent {
 			Message: msg, Data: store.EventData(map[string]string{"status": s.Status})})
 	}
 	return out
+}
+
+// retryResolve UP'a dönüşte kapatılamamış olayı (r.unresolved) çözülme
+// anıyla kapatır ve çözülme kaydını yazar. Hata olursa sonraki sonuçta
+// yeniden denenir.
+func (r *runner) retryResolve(ctx context.Context) {
+	u := r.unresolved
+	if u == nil {
+		return
+	}
+	started, err := r.e.store.ResolveIncident(ctx, r.m.ID, u.at.Unix())
+	if err != nil {
+		r.e.log.Error("olay kapatılamadı, sonraki kontrolde yeniden denenecek", "monitor", r.m.Name, "hata", err)
+		return
+	}
+	r.unresolved = nil
+	if started == 0 {
+		return // bu arada başka yoldan kapatılmış
+	}
+	downtime := u.at.Sub(time.Unix(started, 0))
+	r.resolveEvent(ctx, u.id, u.at, u.msg, downtime)
+	r.e.log.Info("açık kalan olay kapatıldı", "monitor", r.m.Name, "olay", u.id, "kesinti", downtime.Round(time.Second))
 }
 
 // resolveEvent olayın çözülme kaydı.
