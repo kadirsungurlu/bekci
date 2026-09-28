@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -197,14 +198,23 @@ func (e Event) IsRecovery() bool { return e.Kind == KindUp || e.Kind == KindServ
 
 // AlertKey olayın dış servislerdeki kimliği: aynı sorunun başlangıç ve bitiş
 // olayları aynı anahtarı taşır (PagerDuty dedup_key, Opsgenie alias).
+// Örnek ve test bildirimleri ayrı bir ad alanı kullanır: gerçek monitör/sunucu
+// kimliğini taşısalar bile gerçek olayları açıp kapatamazlar.
 func (e Event) AlertKey() string {
+	if e.Kind == KindTest {
+		return "uptime-test"
+	}
+	prefix := "uptime-"
+	if e.Sample {
+		prefix = "uptime-sample-"
+	}
 	switch {
 	case e.ProbeID != 0:
-		return fmt.Sprintf("uptime-server-%d-%s", e.ProbeID, e.Metric)
+		return fmt.Sprintf("%sserver-%d-%s", prefix, e.ProbeID, e.Metric)
 	case e.Kind == KindCert:
-		return fmt.Sprintf("uptime-monitor-%d-cert", e.MonitorID)
+		return fmt.Sprintf("%smonitor-%d-cert", prefix, e.MonitorID)
 	}
-	return fmt.Sprintf("uptime-monitor-%d", e.MonitorID)
+	return fmt.Sprintf("%smonitor-%d", prefix, e.MonitorID)
 }
 
 // FormatDuration süreyi Türkçe kısa biçimde yazar: "45 sn", "12 dk", "2 sa 5 dk", "3 gün 4 sa".
@@ -324,6 +334,10 @@ func MaskSecrets(typ string, cfg json.RawMessage) json.RawMessage {
 // birlikte gönderildi.
 var ErrSecretRebind = ValidationError("Hedef adres değiştiği için şifre/token gibi gizli alanları yeniden girmeniz gerekiyor")
 
+// ErrSecretBound maskeli gizli alan, gizli bilgiye bağlı bir ayar (sorgu,
+// kullanıcı adı, veritabanı vb.) değiştirilmiş halde gönderildi.
+var ErrSecretBound = ValidationError("Bağlantı ayarları (sorgu, kullanıcı adı, veritabanı vb.) değiştiği için şifre/token gibi gizli alanları yeniden girmeniz gerekiyor")
+
 // destinationKeys gizli bilginin gönderildiği yeri belirleyen alanlar. Bunlardan
 // biri değişirse kayıtlı gizli bilgi maskeli değerle yeni hedefe taşınamaz;
 // aksi halde gizli bilgiyi hiç görmemiş biri adresi kendi sunucusuna çevirip
@@ -334,7 +348,10 @@ var destinationKeys = []string{
 }
 
 // DestinationChanged yeni ayarda hedef alanlarından biri eskisinden farklı mı?
-func DestinationChanged(nm, om map[string]any) bool {
+// secrets verilirse, kendisi gizli olup maskeli gönderilen hedef alanı
+// değişmemiş sayılır: ör. Discord'da webhook_url hem hedef hem gizlidir;
+// arayüz onu maskeli geri gönderir ve birleştirmede eski değer korunur.
+func DestinationChanged(nm, om map[string]any, secrets ...string) bool {
 	norm := func(v any) string {
 		if v == nil {
 			return ""
@@ -342,6 +359,39 @@ func DestinationChanged(nm, om map[string]any) bool {
 		return strings.ToLower(strings.TrimSpace(fmt.Sprint(v)))
 	}
 	for _, k := range destinationKeys {
+		if nm[k] == Mask && slices.Contains(secrets, k) {
+			continue
+		}
+		if norm(nm[k]) != norm(om[k]) {
+			return true
+		}
+	}
+	return false
+}
+
+// boundChanged gizli bilgiye bağlı alanlardan biri değişti mi? Boş değerler
+// (yok, "", 0, false) eşit sayılır; metinler büyük/küçük harf duyarlıdır
+// (SQL sorgusu gibi).
+func boundChanged(keys []string, nm, om map[string]any) bool {
+	norm := func(v any) string {
+		switch x := v.(type) {
+		case nil:
+			return ""
+		case bool:
+			if !x {
+				return ""
+			}
+		case float64:
+			if x == 0 {
+				return ""
+			}
+		case string:
+			return strings.TrimSpace(x)
+		}
+		b, _ := json.Marshal(v)
+		return string(b)
+	}
+	for _, k := range keys {
 		if norm(nm[k]) != norm(om[k]) {
 			return true
 		}
@@ -353,6 +403,16 @@ func DestinationChanged(nm, om map[string]any) bool {
 // doldurur; böylece arayüz gizli değeri hiç görmeden kaydedebilir. Hedef adres
 // değiştiyse maskeli değer kabul edilmez (ErrSecretRebind).
 func MergeSecretsFor(secrets []string, newCfg, oldCfg json.RawMessage) (json.RawMessage, error) {
+	return MergeSecretsBound(secrets, nil, nil, newCfg, oldCfg)
+}
+
+// MergeSecretsBound MergeSecretsFor gibidir; ek olarak bound alanlarından biri
+// değiştiyse de maskeli değeri kabul etmez (ErrSecretBound). Ör. veritabanı
+// monitöründe kayıtlı şifreyle başka bir sorgu çalıştırıp sonucunu okumayı
+// engeller: sorgu değişiyorsa şifre yeniden girilmelidir. normalize verilirse
+// karşılaştırma iki ayarın normalize edilmiş halleri üzerinde yapılır (eksik
+// gönderilen alan varsayılanıyla eşit sayılsın diye).
+func MergeSecretsBound(secrets, bound []string, normalize func(json.RawMessage) (json.RawMessage, error), newCfg, oldCfg json.RawMessage) (json.RawMessage, error) {
 	var nm, om map[string]any
 	if json.Unmarshal(newCfg, &nm) != nil {
 		return newCfg, nil
@@ -367,7 +427,7 @@ func MergeSecretsFor(secrets []string, newCfg, oldCfg json.RawMessage) (json.Raw
 	if !masked {
 		return newCfg, nil
 	}
-	if DestinationChanged(nm, om) {
+	if DestinationChanged(nm, om, secrets...) {
 		return nil, ErrSecretRebind
 	}
 	for _, k := range secrets {
@@ -375,7 +435,24 @@ func MergeSecretsFor(secrets []string, newCfg, oldCfg json.RawMessage) (json.Raw
 			nm[k] = om[k]
 		}
 	}
-	return encode(nm), nil
+	merged := encode(nm)
+	if len(bound) > 0 {
+		a, b := nm, om
+		if normalize != nil {
+			if na, err := normalize(merged); err == nil {
+				if nb, err := normalize(oldCfg); err == nil {
+					var ma, mb map[string]any
+					if json.Unmarshal(na, &ma) == nil && json.Unmarshal(nb, &mb) == nil {
+						a, b = ma, mb
+					}
+				}
+			}
+		}
+		if boundChanged(bound, a, b) {
+			return nil, ErrSecretBound
+		}
+	}
+	return merged, nil
 }
 
 // MergeSecrets bildirim kanalı için MergeSecretsFor.
