@@ -217,7 +217,7 @@ func (s *Server) runImport(w http.ResponseWriter, r *http.Request, source string
 	}
 	defer importMu.Unlock()
 	ctx := r.Context()
-	pl, err := s.planImport(ctx, conv, replace)
+	pl, err := s.planImport(ctx, conv, replace, requestHost(r))
 	if err != nil {
 		s.writeImportError(w, err, 0)
 		return

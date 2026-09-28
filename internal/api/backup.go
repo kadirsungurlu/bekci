@@ -265,7 +265,7 @@ func (e importInputError) Error() string { return string(e) }
 
 // planImport dosyadaki her kaydı doğrular, mevcut kayıtlarla karşılaştırır ve
 // yazılacak veriyi hazırlar. Veritabanına yazmaz.
-func (s *Server) planImport(ctx context.Context, conv *backup.Result, replace bool) (*importPlan, error) {
+func (s *Server) planImport(ctx context.Context, conv *backup.Result, replace bool, reqHost string) (*importPlan, error) {
 	doc := conv.Doc
 	switch {
 	case len(doc.Monitors) > maxImportMonitors:
@@ -527,8 +527,18 @@ func (s *Server) planImport(ctx context.Context, conv *backup.Result, replace bo
 			domains[p.CustomDomain] = true
 		}
 	}
+	// Uygulamanın kendi adresi (BASE_URL) ve isteğin geldiği adres özel alan
+	// adı olamaz (normalizePage ile aynı kural): aksi halde içe aktarma o
+	// alan adında yönetim API'sini kapatıp herkesi dışarıda bırakırdı.
+	selfHosts := map[string]bool{}
+	if reqHost != "" {
+		selfHosts[reqHost] = true
+	}
+	if b := s.baseHost(); b != "" {
+		selfHosts[b] = true
+	}
 	for _, bp := range doc.StatusPages {
-		ip, it := planPage(bp, known, slugs, domains)
+		ip, it := planPage(bp, known, slugs, domains, selfHosts)
 		if it.Result == "created" {
 			pl.data.Pages = append(pl.data.Pages, ip)
 		}
@@ -614,7 +624,7 @@ func importHostnameOK(h string) bool {
 
 // planPage durum sayfasını doğrular; çakışmaları ve bulunamayan monitörleri not eder.
 // known: içe aktarılan veya zaten var olan monitörlerin dosya kimlikleri.
-func planPage(bp backup.Page, known map[int64]bool, slugs, domains map[string]bool) (store.ImportPage, importItem) {
+func planPage(bp backup.Page, known map[int64]bool, slugs, domains, selfHosts map[string]bool) (store.ImportPage, importItem) {
 	it := importItem{Kind: "status_page", Name: strings.TrimSpace(bp.Title)}
 	skip := func(msg string) (store.ImportPage, importItem) {
 		it.Result, it.Messages = "skipped", append(it.Messages, msg)
@@ -650,6 +660,8 @@ func planPage(bp backup.Page, known map[int64]bool, slugs, domains map[string]bo
 		switch {
 		case !importHostnameOK(d):
 			it.Messages = append(it.Messages, "Özel alan adı geçersiz; kaldırıldı")
+		case selfHosts[d]:
+			it.Messages = append(it.Messages, "Özel alan adı ("+d+") uygulamanın kendi adresi olamaz; kaldırıldı")
 		case domains[d]:
 			it.Messages = append(it.Messages, "Özel alan adı ("+d+") başka bir sayfada kullanılıyor; kaldırıldı")
 		default:

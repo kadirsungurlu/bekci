@@ -53,9 +53,16 @@ type View struct {
 	ContainerCount int            `json:"container_count"`
 	TempMax        *float64       `json:"temp_max"`
 	Firing         []string       `json:"firing"`
-	IPLock         bool           `json:"ip_lock"`   // yalnızca kilitli IP'den bağlanabilir mi
-	LockedIP       string         `json:"locked_ip"` // sabitlenmiş IP (boş: henüz bağlanmadı)
+	// IP kilidi yalnızca yöneticiye gösterilir: API katmanı yönetici olmayan
+	// kullanıcıya giden liste/detay yanıtında ve canlı akıştaki "server"
+	// olayında bu alanları atar (HideIPLock, api.viewerEvent).
+	IPLock   bool   `json:"ip_lock"`   // yalnızca kilitli IP'den bağlanabilir mi
+	LockedIP string `json:"locked_ip"` // sabitlenmiş IP(ler) (boş: henüz bağlanmadı)
 }
+
+// HideIPLock yönetici olmayan kullanıcıya gidecek görünümden IP kilidi
+// bilgisini (sunucunun sabitlenmiş IP adresi dahil) çıkarır.
+func (v *View) HideIPLock() { v.IPLock, v.LockedIP = false, "" }
 
 // View ajanın görünümü. full=false (liste ve canlı akış) ise son örnekte
 // konteyner ve sıcaklık listeleri yer almaz; yerine sayı ve en yüksek değer gelir.

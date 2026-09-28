@@ -30,11 +30,16 @@ type Server struct {
 	version  string
 	limiter  *loginLimiter
 	now      func() time.Time
-	pages    *pagesState    // durum sayfası önbellekleri (pages.go)
-	probeRL  *probeLimiter  // kontrol noktası istek sınırı (probes.go)
-	badges   *badgeState    // rozet önbelleği ve IP hız sınırı (badges.go)
-	notifyRL *notifyLimiter // bildirim test/örnek hız sınırı (notifications.go)
-	servers  *servers.Service
+	pages    *pagesState   // durum sayfası önbellekleri (pages.go)
+	probeRL  *probeLimiter // kontrol noktası istek sınırı (probes.go)
+	// probeAuthRL başarısız ajan kimlik doğrulaması için IP başına ön sınır (probe_guard.go)
+	probeAuthRL *probeAuthLimiter
+	badges      *badgeState    // rozet önbelleği ve IP hız sınırı (badges.go)
+	notifyRL    *notifyLimiter // bildirim test/örnek hız sınırı (notifications.go)
+	servers     *servers.Service
+	// sseRecheck canlı akışta keepalive ve erişimin yeniden doğrulanma aralığı
+	// (varsayılan 25 sn; testler kısaltır).
+	sseRecheck time.Duration
 
 	// BaseURL uygulamanın dış adresi (BASE_URL); durum sayfası özel alan adı
 	// bu adresin sunucu adıyla aynı olamaz. Boş olabilir.
@@ -55,9 +60,11 @@ func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatche
 	s := &Server{
 		store: st, engine: e, hub: hub, notifier: n, log: log, static: static, version: version,
 		limiter: newLoginLimiter(), now: time.Now, pages: newPagesState(), probeRL: newProbeLimiter(),
-		badges:   newBadgeState(),
-		notifyRL: newNotifyLimiter(),
-		AgentDir: DefaultAgentDir,
+		badges:      newBadgeState(),
+		notifyRL:    newNotifyLimiter(),
+		probeAuthRL: newProbeAuthLimiter(),
+		sseRecheck:  25 * time.Second,
+		AgentDir:    DefaultAgentDir,
 	}
 	var (
 		pub servers.Publisher
@@ -151,6 +158,12 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+		// HSTS yalnızca HTTPS isteğinde: düz HTTP yanıtındaki başlık tarayıcılarca
+		// yok sayılır, ayrıca yalnız HTTP ile çalışan kurulumu kilitlememeli.
+		// Alt alan adları dahil edilmez (özel alan adları ayrı yönetilir).
+		if isHTTPS(r) {
+			h.Set("Strict-Transport-Security", "max-age=31536000")
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -214,7 +227,7 @@ func (s *Server) recoverer(next http.Handler) http.Handler {
 				if p == http.ErrAbortHandler {
 					panic(p)
 				}
-				s.log.Error("istek paniği", "yol", r.URL.Path, "panik", p)
+				s.log.Error("istek paniği", "yol", maskLogPath(r.URL.Path), "panik", p)
 				writeError(w, http.StatusInternalServerError, "Sunucu hatası")
 			}
 		}()

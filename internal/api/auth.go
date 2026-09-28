@@ -104,6 +104,20 @@ var extraAuthenticators []Authenticator
 
 func RegisterAuthenticator(a Authenticator) { extraAuthenticators = append(extraAuthenticators, a) }
 
+// authenticate istekteki oturum çerezini, yoksa kayıtlı diğer yöntemleri (API
+// anahtarı) veritabanından doğrular ve güncel kullanıcıyı döner.
+func (s *Server) authenticate(r *http.Request) (store.User, string, bool) {
+	u, sess, ok := s.currentUser(r)
+	if !ok {
+		for _, a := range extraAuthenticators {
+			if u, ok = a(s, r); ok {
+				break
+			}
+		}
+	}
+	return u, sess, ok
+}
+
 // userFrom auth ile sarılmış bir istekteki kullanıcı.
 func userFrom(r *http.Request) store.User {
 	u, _ := r.Context().Value(userKey).(store.User)
@@ -127,14 +141,7 @@ var passwordChangeAllowed = map[string]bool{"/api/auth/password": true}
 // rolü düşürülen kullanıcı yeni yetkisiyle hemen sınırlanır.
 func (s *Server) role(min string, h http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		u, sess, ok := s.currentUser(r)
-		if !ok {
-			for _, a := range extraAuthenticators {
-				if u, ok = a(s, r); ok {
-					break
-				}
-			}
-		}
+		u, sess, ok := s.authenticate(r)
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Oturum açmanız gerekiyor")
 			return

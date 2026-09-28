@@ -152,15 +152,21 @@ func probeFrom(r *http.Request) store.Probe {
 // (ayrı bir "heartbeat" isteği yoktur; her istek bir yaşam belirtisidir).
 func (s *Server) probeOnly(h http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqIP := clientIP(r)
+		// Aynı IP'den çok sayıda başarısız istek: veritabanına gitmeden reddet.
+		if blocked, wait := s.probeAuthRL.blocked(reqIP, s.now()); blocked {
+			w.Header().Set("Retry-After", strconv.Itoa(wait))
+			writeError(w, http.StatusTooManyRequests, "Çok fazla başarısız istek; biraz sonra tekrar deneyin")
+			return
+		}
 		token, ok := bearerProbeToken(r)
 		if !ok {
-			writeError(w, http.StatusUnauthorized, "Geçersiz kontrol noktası token'ı")
+			s.probeAuthFail(w, reqIP, http.StatusUnauthorized, "Geçersiz kontrol noktası token'ı", "")
 			return
 		}
 		p, err := s.store.ProbeByTokenHash(r.Context(), hashToken(token))
 		if errors.Is(err, store.ErrNotFound) {
-			s.log.Warn("geçersiz kontrol noktası token'ı", "ip", clientIP(r))
-			writeError(w, http.StatusUnauthorized, "Geçersiz kontrol noktası token'ı")
+			s.probeAuthFail(w, reqIP, http.StatusUnauthorized, "Geçersiz kontrol noktası token'ı", "geçersiz kontrol noktası token'ı")
 			return
 		}
 		if err != nil {
@@ -171,22 +177,17 @@ func (s *Server) probeOnly(h http.HandlerFunc) http.Handler {
 			writeError(w, http.StatusForbidden, "Kontrol noktası devre dışı")
 			return
 		}
-		// IP kilidi: kilitli IP boşsa ilk bağlantı sabitler; farklı IP reddedilir.
-		reqIP := clientIP(r)
-		if p.IPLock {
-			switch {
-			case p.LockedIP == "":
-				if err := s.store.LockProbeIP(r.Context(), p.ID, reqIP); err != nil {
-					s.log.Warn("ajan IP kilidi yazılamadı", "hata", err)
-				} else {
-					s.log.Info("ajan IP'ye kilitlendi", "ajan", p.Name, "ip", reqIP)
-					p.LockedIP = reqIP
-				}
-			case p.LockedIP != reqIP:
-				s.log.Warn("kilitli ajana farklı IP'den erişim reddedildi", "ajan", p.Name, "kilitli", p.LockedIP, "gelen", reqIP)
-				writeError(w, http.StatusForbidden, "Bu ajan başka bir IP'ye kilitli; taşındıysa Ayarlar'dan kilidi sıfırlayın")
-				return
-			}
+		// IP kilidi: adres ailesi başına (IPv4 tam adres, IPv6 /64) ilk bağlantı
+		// sabitler; sabitlenmiş ailede farklı adres reddedilir (probe_guard.go).
+		allowed, err := s.enforceIPLock(r.Context(), &p, reqIP)
+		if err != nil {
+			s.dbError(w, err)
+			return
+		}
+		if !allowed {
+			s.probeAuthFail(w, reqIP, http.StatusForbidden, "Bu ajan başka bir IP'ye kilitli; taşındıysa Ayarlar'dan kilidi sıfırlayın",
+				"kilitli ajana farklı IP'den erişim reddedildi", "ajan", p.Name, "kilitli", p.LockedIP)
+			return
 		}
 		now := s.now()
 		if ok, wait := s.probeRL.allow(p.ID, now); !ok {
@@ -263,10 +264,30 @@ func (s *Server) listProbes(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
-	if userFrom(r).Role != store.RoleAdmin {
-		out := make([]probeSummary, len(list))
-		for i, p := range list {
-			out[i] = s.probeSummaryOf(p)
+	if u := userFrom(r); u.Role != store.RoleAdmin {
+		// Kısıtlı izleyici (müşteri) yalnızca görebildiği monitörlerde
+		// kullanılan kontrol noktalarının adlarını görür.
+		var used map[int64]bool
+		if vis := visibleTo(u); !vis.all {
+			locs, err := s.store.AllMonitorLocations(r.Context())
+			if err != nil {
+				s.dbError(w, err)
+				return
+			}
+			used = map[int64]bool{}
+			for mid, l := range locs {
+				if vis.can(mid) {
+					for _, pid := range l.ProbeIDs {
+						used[pid] = true
+					}
+				}
+			}
+		}
+		out := make([]probeSummary, 0, len(list))
+		for _, p := range list {
+			if used == nil || used[p.ID] {
+				out = append(out, s.probeSummaryOf(p))
+			}
 		}
 		writeJSON(w, http.StatusOK, out)
 		return
@@ -658,13 +679,25 @@ func (s *Server) locationsOf(ctx context.Context, m store.Monitor) (locationsVie
 	return v, nil
 }
 
+// locationStatusCode konum durum metnini beat durum koduna çevirir (viewerMessage için).
+func locationStatusCode(status string) int {
+	switch status {
+	case "up":
+		return store.StatusUp
+	case "down":
+		return store.StatusDown
+	}
+	return store.StatusPending
+}
+
 func (s *Server) getMonitorLocations(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
 		return
 	}
+	u := userFrom(r)
 	m, err := s.store.GetMonitor(r.Context(), id)
-	if err == nil && !visibleTo(userFrom(r)).can(id) {
+	if err == nil && !visibleTo(u).can(id) {
 		err = store.ErrNotFound
 	}
 	if err != nil {
@@ -675,6 +708,15 @@ func (s *Server) getMonitorLocations(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.dbError(w, err)
 		return
+	}
+	if !canSeeConfig(u) {
+		// Konum mesajları da kontrol hata metinleridir (adres, kimlik bilgisi
+		// içerebilir); izleyiciye diğer mesajlar gibi temizlenmiş gider. Dilim
+		// motorun yayınladığı ortak kopyadır; değiştirmeden önce kopyalanır.
+		v.Locations = slices.Clone(v.Locations)
+		for i, l := range v.Locations {
+			v.Locations[i].Message = viewerMessage(u, m.Type, locationStatusCode(l.Status), l.Message)
+		}
 	}
 	writeJSON(w, http.StatusOK, v)
 }

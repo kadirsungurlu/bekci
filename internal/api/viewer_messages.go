@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"regexp"
 
@@ -47,16 +48,40 @@ func viewerMessage(u store.User, monitorType string, status int, msg string) str
 }
 
 // viewerEvent canlı akıştaki "beat" olayının mesajını kullanıcıya göre
-// temizler; diğer olaylar olduğu gibi döner. groups: grup monitörlerinin kimlikleri.
+// temizler; "server" olayından yönetici olmayan kullanıcı için IP kilidi
+// bilgisini (sabitlenmiş IP) atar. Diğer olaylar olduğu gibi döner. groups:
+// grup monitörlerinin kimlikleri.
 func viewerEvent(u store.User, msg []byte, groups map[int64]bool) []byte {
-	if canSeeConfig(u) {
+	if isPageAdmin(u) {
+		return msg
+	}
+	if canSeeConfig(u) && !bytes.Contains(msg, []byte(`"locked_ip"`)) {
 		return msg
 	}
 	var ev struct {
 		Type string         `json:"type"`
 		Data map[string]any `json:"data"`
 	}
-	if json.Unmarshal(msg, &ev) != nil || ev.Type != "beat" {
+	if json.Unmarshal(msg, &ev) != nil {
+		return msg
+	}
+	if ev.Type == "server" {
+		if ev.Data == nil {
+			return msg
+		}
+		if _, ok := ev.Data["locked_ip"]; ok {
+			ev.Data["locked_ip"] = ""
+		}
+		if _, ok := ev.Data["ip_lock"]; ok {
+			ev.Data["ip_lock"] = false
+		}
+		out, err := json.Marshal(ev)
+		if err != nil {
+			return nil // güvenli taraf: IP'li hali gönderilmez
+		}
+		return out
+	}
+	if ev.Type != "beat" || canSeeConfig(u) {
 		return msg
 	}
 	text, _ := ev.Data["message"].(string)

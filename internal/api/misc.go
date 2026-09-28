@@ -216,8 +216,15 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	if rc.Flush() != nil {
 		return
 	}
-	// Cloudflare ve proxy'ler boşta kalan bağlantıyı kesmesin diye düzenli yorum satırı.
-	keepAlive := time.NewTicker(25 * time.Second)
+	// Cloudflare ve proxy'ler boşta kalan bağlantıyı kesmesin diye düzenli yorum
+	// satırı. Aynı anda erişim yeniden doğrulanır: oturum kapatılan, anahtarı
+	// iptal edilen, devre dışı bırakılan veya yetkisi değişen kullanıcının açık
+	// akışı eski yetkiyle olay almaya devam etmez.
+	every := s.sseRecheck
+	if every <= 0 {
+		every = 25 * time.Second
+	}
+	keepAlive := time.NewTicker(every)
 	defer keepAlive.Stop()
 	for {
 		select {
@@ -227,11 +234,27 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 			if !vis.all && !eventVisible(msg, vis) {
 				continue
 			}
-			msg = viewerEvent(u, msg, groups)
+			if msg = viewerEvent(u, msg, groups); msg == nil {
+				continue
+			}
 			if _, err := fmt.Fprintf(w, "data: %s\n\n", msg); err != nil {
 				return
 			}
 		case <-keepAlive.C:
+			cur, _, ok := s.authenticate(r)
+			if !ok || cur.ID != u.ID || cur.MustChangePassword ||
+				store.RoleRank(cur.Role) < store.RoleRank(store.RoleViewer) {
+				return
+			}
+			u = cur
+			vis = visibleTo(u)
+			if !canSeeConfig(u) {
+				if g, err := s.groupIDs(r); err == nil {
+					groups = g
+				}
+			} else {
+				groups = nil
+			}
 			if _, err := fmt.Fprint(w, ": ping\n\n"); err != nil {
 				return
 			}
