@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"regexp"
 
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
@@ -45,6 +46,60 @@ func viewerMessage(u store.User, monitorType string, status int, msg string) str
 		return groupMessageFor(status)
 	}
 	return sanitizeMessage(msg)
+}
+
+// displayMessage kontrol mesajını kullanıcıya göre temizler (viewerMessage)
+// ve yanıt diline çevirir. Mesajlar veritabanında Türkçe saklanır; çeviri
+// okuma anındadır (bkz. i18n.Message). Temizlik Türkçe metin üzerinde yapılır.
+func displayMessage(u store.User, lang, monitorType string, status int, msg string) string {
+	return i18n.Message(lang, viewerMessage(u, monitorType, status, msg))
+}
+
+// localizeEvent canlı akış olayındaki Türkçe metinleri bağlantının diline
+// çevirir: "beat" olayının mesajı ve "server" olayının ajan notu. Ortak
+// yayın (hub) Türkçe kalır; çeviri abone başına, viewerEvent'ten sonra yapılır.
+// tr bağlantılarda ve metin içermeyen olaylarda hiçbir şey çözülmez.
+func localizeEvent(lang string, msg []byte) []byte {
+	if i18n.Or(lang) == i18n.TR {
+		return msg
+	}
+	if !bytes.Contains(msg, []byte(`"type":"beat"`)) && !bytes.Contains(msg, []byte(`"type":"server"`)) {
+		return msg // ucuz ön eleme: diğer olaylar çözülmez
+	}
+	var ev struct {
+		Type string                     `json:"type"`
+		Data map[string]json.RawMessage `json:"data"`
+	}
+	if json.Unmarshal(msg, &ev) != nil || ev.Data == nil {
+		return msg
+	}
+	var field string
+	switch ev.Type {
+	case "beat":
+		field = "message"
+	case "server":
+		field = "note"
+	default:
+		return msg
+	}
+	var text string
+	if raw, ok := ev.Data[field]; !ok || json.Unmarshal(raw, &text) != nil || text == "" {
+		return msg
+	}
+	en := i18n.Message(lang, text)
+	if en == text {
+		return msg
+	}
+	b, err := json.Marshal(en)
+	if err != nil {
+		return msg
+	}
+	ev.Data[field] = b
+	out, err := json.Marshal(ev)
+	if err != nil {
+		return msg
+	}
+	return out
 }
 
 // viewerEvent canlı akıştaki "beat" olayının mesajını kullanıcıya göre

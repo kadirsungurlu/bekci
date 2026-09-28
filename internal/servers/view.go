@@ -6,6 +6,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/metrics"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
@@ -63,6 +64,11 @@ type View struct {
 // HideIPLock yönetici olmayan kullanıcıya gidecek görünümden IP kilidi
 // bilgisini (sunucunun sabitlenmiş IP adresi dahil) çıkarır.
 func (v *View) HideIPLock() { v.IPLock, v.LockedIP = false, "" }
+
+// Localize ajanın Türkçe gönderdiği/saklanan notu ("metrik toplanamıyor"
+// nedeni) istenen dile çevirir (bkz. i18n.Message). Canlı akıştaki "server"
+// olayı abone başına ayrıca çevrilir.
+func (v *View) Localize(lang string) { v.Note = i18n.Message(lang, v.Note) }
 
 // View ajanın görünümü. full=false (liste ve canlı akış) ise son örnekte
 // konteyner ve sıcaklık listeleri yer almaz; yerine sayı ve en yüksek değer gelir.

@@ -1,12 +1,16 @@
 // Package i18n sunucu tarafındaki metinlerin (bildirimler, rozetler, API hata
 // mesajları) dil desteğidir. Diller: tr (varsayılan, kaynak metin) ve en.
 //
-// Üç parça vardır:
+// Dört parça vardır:
 //   - T / TN: anahtarlı mesaj kataloğu (messages.go). Her girdide iki dil
 //     birlikte durur; eksik çeviri derlenmez, biçim fiilleri testte denetlenir.
 //   - Error: API'nin döndürdüğü Türkçe hata metnini İngilizceye çevirir
 //     (errors.go + errors_en.go). Anahtar Türkçe metnin kendisidir; böylece
 //     işleyiciler değişmeden merkezi yazıcıda (api.writeError) çevrilir.
+//   - Message: veritabanında Türkçe saklanan kontrol sonucu / olay geçmişi
+//     metnini (heartbeat mesajı, olay nedeni, konum mesajı, ajan notu) okuma
+//     anında çevirir (checkmsg.go + checkmsg_en.go; kalıp motoru pattern.go,
+//     Error ile ortak). Saklanan veri Türkçe kalır.
 //   - Biçimlendirme: süre, tarih, yüzde, ondalık (format.go).
 package i18n
 

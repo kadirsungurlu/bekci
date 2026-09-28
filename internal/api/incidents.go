@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
@@ -116,6 +117,7 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		out.Events = events
+		localizeIncident(u, responseLang(w), m.Type, &out)
 		writeJSON(w, http.StatusOK, out)
 		return
 	}
@@ -142,7 +144,99 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 		ev.Message = clean(ev.Message)
 		out.Events = append(out.Events, ev)
 	}
+	localizeIncident(u, responseLang(w), m.Type, &out)
 	writeJSON(w, http.StatusOK, out)
+}
+
+// localizeIncident olay ayrıntısındaki Türkçe saklanan metinleri (neden,
+// konum mesajları, işlem geçmişi, ana sunucunun konum adı, yakalanan
+// isteğin hata metni) yanıt diline çevirir. İşlem geçmişi arayüzde tür +
+// data ile kurulsa bile message yedek olarak çevrilir. Konum kaydının
+// data.message'ı ham kontrol mesajıdır: izleyici için ayrıca temizlenir.
+func localizeIncident(u store.User, lang, monitorType string, out *incidentDetailView) {
+	out.Incident.Cause = i18n.Message(lang, out.Incident.Cause)
+	out.Location = locationName(lang, out.Location)
+	for i := range out.Locations {
+		out.Locations[i].Name = locationName(lang, out.Locations[i].Name)
+		out.Locations[i].Message = i18n.Message(lang, out.Locations[i].Message)
+	}
+	for i := range out.Events {
+		ev := &out.Events[i]
+		ev.Message = i18n.Message(lang, ev.Message)
+		ev.Location = locationName(lang, ev.Location)
+		switch ev.Kind {
+		case store.EventLocation:
+			ev.Data = mapEventData(ev.Data, func(d map[string]any) {
+				if msg, ok := d["message"].(string); ok && msg != "" {
+					st, _ := d["status"].(string)
+					d["message"] = displayMessage(u, lang, monitorType, locationStatusCode(st), msg)
+				}
+			})
+		case store.EventDown:
+			if lang == i18n.TR {
+				continue
+			}
+			ev.Data = mapEventData(ev.Data, func(d map[string]any) {
+				locs, _ := d["locations"].([]any)
+				for _, l := range locs {
+					if lm, ok := l.(map[string]any); ok {
+						if msg, ok := lm["message"].(string); ok {
+							lm["message"] = i18n.Message(lang, msg)
+						}
+						if name, ok := lm["name"].(string); ok {
+							lm["name"] = locationName(lang, name)
+						}
+					}
+				}
+			})
+		}
+	}
+	if out.Capture != nil && lang != i18n.TR {
+		c := *out.Capture
+		var d map[string]any
+		if json.Unmarshal(c.Detail, &d) == nil && d != nil {
+			if e, ok := d["error"].(string); ok {
+				d["error"] = i18n.Message(lang, e)
+			}
+			if bin, _ := d["body_binary"].(bool); bin {
+				if b, ok := d["body"].(string); ok {
+					d["body"] = i18n.Message(lang, b) // "(ikili içerik, 2048 bayt)"
+				}
+			}
+			if b, err := json.Marshal(d); err == nil {
+				c.Detail = b
+			}
+		}
+		c.Location = locationName(lang, c.Location)
+		out.Capture = &c
+	}
+}
+
+// mapEventData işlem geçmişi kaydının data nesnesini değiştirir; çözülemezse
+// olduğu gibi döner.
+func mapEventData(raw json.RawMessage, f func(map[string]any)) json.RawMessage {
+	if len(raw) == 0 || string(raw) == "null" {
+		return raw
+	}
+	var d map[string]any
+	if json.Unmarshal(raw, &d) != nil || d == nil {
+		return raw
+	}
+	f(d)
+	b, err := json.Marshal(d)
+	if err != nil {
+		return raw
+	}
+	return b
+}
+
+// locationName ana sunucunun konum adını ("Ana sunucu") yanıt diline çevirir;
+// kullanıcının verdiği konum adları değişmez.
+func locationName(lang, name string) string {
+	if name == engine.LocalName {
+		return i18n.Message(lang, name)
+	}
+	return name
 }
 
 // completeEvents eski (işlem geçmişi tutulmadan önceki) olaylar için

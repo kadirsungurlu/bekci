@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
 // Yanıt dili ---------------------------------------------------------------------
@@ -42,6 +43,32 @@ func requestLang(r *http.Request) string {
 		return l
 	}
 	return i18n.Default
+}
+
+// userLang oturumdaki kullanıcının dili; tercihi yoksa istek başlıklarından.
+// (Kimliği doğrulanmış uç noktalarda responseLang ile aynı sonucu verir;
+// ResponseWriter'a erişmeyen yardımcılar için.)
+func userLang(r *http.Request) string {
+	if l := i18n.Normalize(userFrom(r).Lang); l != "" {
+		return l
+	}
+	return requestLang(r)
+}
+
+// streamLang canlı akış (SSE) bağlantısının dili. EventSource özel başlık
+// gönderemediği için X-Uptime-Lang yerine ?lang= de kabul edilir:
+// kullanıcı tercihi, X-Uptime-Lang, ?lang=, Accept-Language, tr.
+func streamLang(u store.User, r *http.Request) string {
+	if l := i18n.Normalize(u.Lang); l != "" {
+		return l
+	}
+	if l := i18n.Normalize(r.Header.Get(langHeader)); l != "" {
+		return l
+	}
+	if l := i18n.Normalize(r.URL.Query().Get("lang")); l != "" {
+		return l
+	}
+	return requestLang(r)
 }
 
 func findLangWriter(w http.ResponseWriter) *langWriter {

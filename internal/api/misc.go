@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
@@ -107,6 +108,10 @@ func (s *Server) listIncidents(w http.ResponseWriter, r *http.Request) {
 			}
 			list[k].Cause = viewerMessage(u, typ, store.StatusDown, list[k].Cause)
 		}
+	}
+	lang := responseLang(w)
+	for k := range list {
+		list[k].Cause = i18n.Message(lang, list[k].Cause)
 	}
 	writeJSON(w, http.StatusOK, list)
 }
@@ -206,6 +211,7 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	vis := visibleTo(u)
+	lang := streamLang(u, r) // mesajlar bu bağlantının diline çevrilir (bkz. localizeEvent)
 	var groups map[int64]bool
 	if !canSeeConfig(u) {
 		// İzleyici: canlı olay mesajları da temizlenir (grup kimlikleri bağlantı başında alınır).
@@ -237,6 +243,7 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 			if msg = viewerEvent(u, msg, groups); msg == nil {
 				continue
 			}
+			msg = localizeEvent(lang, msg)
 			if _, err := fmt.Fprintf(w, "data: %s\n\n", msg); err != nil {
 				return
 			}
@@ -248,6 +255,7 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 			}
 			u = cur
 			vis = visibleTo(u)
+			lang = streamLang(u, r) // dil tercihi bağlantı açıkken değişmiş olabilir
 			if !canSeeConfig(u) {
 				if g, err := s.groupIDs(r); err == nil {
 					groups = g
