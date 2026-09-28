@@ -187,8 +187,10 @@ func (r *runner) locationChanges(now time.Time) []store.IncidentEvent {
 				msg += ": " + s.Message
 			}
 		}
+		// Data: arayüz metni dile göre kurabilsin diye durum ve ham kontrol mesajı
+		// (Message Türkçe özet olarak kalır; eski kayıtlarda data.message yok).
 		out = append(out, store.IncidentEvent{Time: now.Unix(), Kind: store.EventLocation, Location: s.Name,
-			Message: msg, Data: store.EventData(map[string]string{"status": s.Status})})
+			Message: msg, Data: store.EventData(map[string]string{"status": s.Status, "message": s.Message})})
 	}
 	return out
 }

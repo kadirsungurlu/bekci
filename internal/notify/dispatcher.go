@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
@@ -42,6 +43,9 @@ func (d *Dispatcher) Notify(ev Event) {
 			channels, err = d.store.NotificationsForProbe(ctx, ev.ProbeID)
 		} else {
 			channels, err = d.store.NotificationsForMonitor(ctx, ev.MonitorID)
+		}
+		if err == nil && ev.Lang == "" {
+			ev.Lang = d.Lang(ctx)
 		}
 		cancel()
 		if err != nil {
@@ -144,9 +148,22 @@ func SanitizeSendError(typ string, cfg json.RawMessage, err error) string {
 	return msg
 }
 
+// Lang bildirim metinlerinin dili: ayarlardaki bildirim dili
+// (AppSettings.NotifyLang); okunamazsa varsayılan (tr).
+func (d *Dispatcher) Lang(ctx context.Context) string {
+	st, err := d.store.LoadSettings(ctx)
+	if err != nil {
+		return i18n.Default
+	}
+	return i18n.Or(st.NotifyLang)
+}
+
 // Test verilen ayarla hemen bir test bildirimi gönderir ve sonucu döner.
 func (d *Dispatcher) Test(typ string, cfg json.RawMessage) error {
-	return d.send(typ, cfg, Event{Kind: KindTest, MonitorName: "Test", Time: time.Now()})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	lang := d.Lang(ctx)
+	cancel()
+	return d.send(typ, cfg, Event{Kind: KindTest, MonitorName: "Test", Time: time.Now(), Lang: lang})
 }
 
 // SendSamples örnek olayları arka planda, aralarında gap bekleyerek sırayla

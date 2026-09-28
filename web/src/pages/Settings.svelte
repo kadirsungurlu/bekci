@@ -2,6 +2,7 @@
   import type { SettingsTab } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
   import Icon, { type IconName } from '../components/Icon.svelte';
+  import { t } from '../lib/i18n';
   import Account from './settings/Account.svelte';
   import Users from './settings/Users.svelte';
   import General from './settings/General.svelte';
@@ -13,19 +14,20 @@
   let { tab }: { tab: SettingsTab } = $props();
 
   // need: sekmeyi görebilecek en düşük rol (editör: etiketler; yönetici: diğerleri).
-  const TABS: { key: SettingsTab; href: string; label: string; icon: IconName; need: 'viewer' | 'editor' | 'admin' }[] = [
-    { key: 'account', href: '#/settings', label: 'Hesabım', icon: 'user', need: 'viewer' },
-    { key: 'users', href: '#/settings/users', label: 'Kullanıcılar', icon: 'users', need: 'admin' },
-    { key: 'general', href: '#/settings/general', label: 'Genel', icon: 'settings', need: 'admin' },
-    { key: 'tags', href: '#/settings/tags', label: 'Etiketler', icon: 'tag', need: 'editor' },
-    { key: 'probes', href: '#/settings/probes', label: 'Kontrol noktaları', icon: 'map-pin', need: 'admin' },
-    { key: 'backup', href: '#/settings/backup', label: 'Yedekle / Geri yükle', icon: 'archive', need: 'admin' },
-    { key: 'audit', href: '#/settings/audit', label: 'İşlem kaydı', icon: 'list', need: 'admin' },
+  // Sekme adı: t(`settings.tabs.${key}`).
+  const TABS: { key: SettingsTab; href: string; icon: IconName; need: 'viewer' | 'editor' | 'admin' }[] = [
+    { key: 'account', href: '#/settings', icon: 'user', need: 'viewer' },
+    { key: 'users', href: '#/settings/users', icon: 'users', need: 'admin' },
+    { key: 'general', href: '#/settings/general', icon: 'settings', need: 'admin' },
+    { key: 'tags', href: '#/settings/tags', icon: 'tag', need: 'editor' },
+    { key: 'probes', href: '#/settings/probes', icon: 'map-pin', need: 'admin' },
+    { key: 'backup', href: '#/settings/backup', icon: 'archive', need: 'admin' },
+    { key: 'audit', href: '#/settings/audit', icon: 'list', need: 'admin' },
   ];
 
   const can = (need: 'viewer' | 'editor' | 'admin') => need === 'viewer' || (need === 'editor' ? session.canEdit : session.isAdmin);
-  const visible = $derived(TABS.filter((t) => can(t.need)));
-  const allowed = $derived(visible.some((t) => t.key === tab));
+  const visible = $derived(TABS.filter((x) => can(x.need)));
+  const allowed = $derived(visible.some((x) => x.key === tab));
 
   // Dar ekranda sekme şeridi yatay kayar: seçili sekme görünür alanın ortasına gelsin.
   let navEl: HTMLElement | undefined = $state();
@@ -40,15 +42,15 @@
 </script>
 
 <div class="page-head">
-  <h1>Ayarlar<span class="dot">.</span></h1>
+  <h1>{t('settings.title')}<span class="dot">.</span></h1>
 </div>
 
 {#if visible.length > 1}
-  <nav class="stabs" aria-label="Ayar bölümleri" bind:this={navEl}>
-    {#each visible as t (t.key)}
-      <a href={t.href} class:active={t.key === tab} aria-current={t.key === tab ? 'page' : undefined}>
-        <Icon name={t.icon} size={16} />
-        {t.label}
+  <nav class="stabs" aria-label={t('settings.sectionsLabel')} bind:this={navEl}>
+    {#each visible as tb (tb.key)}
+      <a href={tb.href} class:active={tb.key === tab} aria-current={tb.key === tab ? 'page' : undefined}>
+        <Icon name={tb.icon} size={16} />
+        {t(`settings.tabs.${tb.key}`)}
       </a>
     {/each}
   </nav>
@@ -56,9 +58,9 @@
 
 {#if !allowed}
   <div class="card empty">
-    <h3>Bu bölüm için yetkiniz yok</h3>
-    <p>Kullanıcıları, genel ayarları, kontrol noktalarını, yedekleri ve işlem kaydını yalnızca yönetici rolündeki hesaplar görebilir; etiketleri editörler de yönetebilir.</p>
-    <a class="btn primary" href="#/settings">Hesabıma dön</a>
+    <h3>{t('settings.forbiddenTitle')}</h3>
+    <p>{t('settings.forbiddenText')}</p>
+    <a class="btn primary" href="#/settings">{t('settings.backToAccount')}</a>
   </div>
 {:else if tab === 'account'}
   <Account />

@@ -4,6 +4,7 @@
   import { session } from '../../lib/session.svelte';
   import { toast } from '../../lib/ui.svelte';
   import CopyButton from '../../components/CopyButton.svelte';
+  import { LOCALES, t, tParts, type Locale } from '../../lib/i18n';
 
   let loaded = $state(false);
   let loadError = $state('');
@@ -11,6 +12,7 @@
   let hourlyDays = $state<number | null>(365);
   let certDays = $state('21, 14, 7, 3, 1');
   let backupKeep = $state<number | null>(7);
+  let notifyLang = $state<Locale>('tr');
   let stError = $state('');
   let stBusy = $state(false);
 
@@ -19,6 +21,7 @@
     hourlyDays = s.retention_hourly_days;
     certDays = (s.cert_days ?? []).join(', ');
     backupKeep = s.backup_keep;
+    notifyLang = s.notify_lang ?? 'tr';
   }
 
   async function load() {
@@ -37,18 +40,18 @@
   async function saveSettings(e: SubmitEvent) {
     e.preventDefault();
     stError = '';
-    if (!isInt(rawDays, 1, 90)) return (stError = 'Ham kayıt süresi 1-90 gün arasında olmalı.');
-    if (!isInt(hourlyDays, 90, 3650)) return (stError = 'Saatlik özet süresi 90-3650 gün arasında olmalı.');
-    if (hourlyDays! < rawDays!) return (stError = 'Saatlik özet süresi ham kayıt süresinden kısa olamaz.');
+    if (!isInt(rawDays, 1, 90)) return (stError = t('settings.general.errRaw'));
+    if (!isInt(hourlyDays, 90, 3650)) return (stError = t('settings.general.errHourly'));
+    if (hourlyDays! < rawDays!) return (stError = t('settings.general.errHourlyShort'));
     const parts = certDays
       .split(/[,\s]+/)
       .map((s) => s.trim())
       .filter(Boolean);
     const days = parts.map(Number);
     if (days.some((d) => !Number.isInteger(d) || d < 0 || d > 90))
-      return (stError = 'SSL uyarı günleri 0-90 arasında tam sayılar olmalı (virgülle ayırın).');
-    if (days.length > 10) return (stError = 'En fazla 10 SSL uyarı günü girilebilir.');
-    if (!isInt(backupKeep, 0, 60)) return (stError = 'Yedek sayısı 0-60 arasında olmalı.');
+      return (stError = t('settings.general.errCertDays'));
+    if (days.length > 10) return (stError = t('settings.general.errCertCount'));
+    if (!isInt(backupKeep, 0, 60)) return (stError = t('settings.general.errBackup'));
     stBusy = true;
     try {
       const res = await api.saveSettings({
@@ -56,9 +59,10 @@
         retention_hourly_days: hourlyDays!,
         cert_days: days,
         backup_keep: backupKeep!,
+        notify_lang: notifyLang,
       });
       apply(res);
-      toast.success('Ayarlar kaydedildi');
+      toast.success(t('settings.general.saved'));
     } catch (err) {
       stError = errorMessage(err);
     } finally {
@@ -81,44 +85,52 @@
 
 <div class="cols">
   <form class="card stack" onsubmit={saveSettings} novalidate>
-    <h2 class="card-title">Veri saklama ve uyarılar</h2>
+    <h2 class="card-title">{t('settings.general.retentionTitle')}</h2>
     {#if !loaded}
       {#if loadError}
-        <div class="alert error load-err"><span>{loadError}</span> <button type="button" class="btn sm" onclick={load}>Tekrar dene</button></div>
+        <div class="alert error load-err"><span>{loadError}</span> <button type="button" class="btn sm" onclick={load}>{t('common.retry')}</button></div>
       {:else}
         <div class="skeleton" style="height:200px"></div>
       {/if}
     {:else}
       <div class="grid-2">
         <div class="field">
-          <label for="raw">Ham kayıt süresi (gün)</label>
+          <label for="raw">{t('settings.general.rawDays')}</label>
           <input id="raw" class="input" type="number" min="1" max="90" bind:value={rawDays} />
-          <span class="help">Her kontrolün ayrı kaydı. 1-90 gün.</span>
+          <span class="help">{t('settings.general.rawDaysHelp')}</span>
         </div>
         <div class="field">
-          <label for="hourly">Saatlik özet süresi (gün)</label>
+          <label for="hourly">{t('settings.general.hourlyDays')}</label>
           <input id="hourly" class="input" type="number" min="90" max="3650" bind:value={hourlyDays} />
-          <span class="help">90-3650 gün. 30 ve 90 günlük grafikler bu özetlerden çizilir; günlük özetler süresiz saklanır.</span>
+          <span class="help">{t('settings.general.hourlyDaysHelp')}</span>
         </div>
       </div>
       <div class="field">
-        <label for="cert">SSL uyarı günleri</label>
-        <input id="cert" class="input" bind:value={certDays} placeholder="Ör. 21, 14, 7" />
-        <span class="help">
-          Sertifikanın bitmesine bu kadar gün kala bildirim gönderilir. Virgülle ayırın (en fazla 10); boş bırakırsanız SSL
-          uyarısı gönderilmez.
-        </span>
+        <label for="cert">{t('settings.general.certDays')}</label>
+        <input id="cert" class="input" bind:value={certDays} placeholder={t('settings.general.certDaysPlaceholder')} />
+        <span class="help">{t('settings.general.certDaysHelp')}</span>
       </div>
-      <div class="field narrow">
-        <label for="bk">Gece yedeği sayısı</label>
-        <input id="bk" class="input" type="number" min="0" max="60" bind:value={backupKeep} />
-        <span class="help">Her gece veritabanı yedeklenir ve son N yedek tutulur. 0 = yedek alma.</span>
+      <div class="grid-2">
+        <div class="field">
+          <label for="bk">{t('settings.general.backupKeep')}</label>
+          <input id="bk" class="input" type="number" min="0" max="60" bind:value={backupKeep} />
+          <span class="help">{t('settings.general.backupKeepHelp')}</span>
+        </div>
+        <div class="field">
+          <label for="nlang">{t('settings.general.notifyLang')}</label>
+          <select id="nlang" class="input" bind:value={notifyLang}>
+            {#each LOCALES as l (l)}
+              <option value={l} lang={l}>{t(`common.languages.${l}`)}</option>
+            {/each}
+          </select>
+          <span class="help">{t('settings.general.notifyLangHelp')}</span>
+        </div>
       </div>
       {#if stError}<div class="alert error" role="alert">{stError}</div>{/if}
       <div class="actions">
         <button class="btn primary" type="submit" disabled={stBusy}>
           {#if stBusy}<span class="spinner"></span>{/if}
-          Kaydet
+          {t('common.save')}
         </button>
       </div>
     {/if}
@@ -128,22 +140,29 @@
     <div class="card stack prom">
       <h2 class="card-title">Prometheus</h2>
       <p class="text-2 small nomargin">
-        Metrikler <code>{metricsUrl}</code> adresindedir ve bir API anahtarı (izleyici yetkisi yeterli) gerektirir. Anahtarı
-        <a href="#/settings">Hesabım › API anahtarları</a> bölümünden oluşturun.
+        {#each tParts('settings.general.promText') as p, i (i)}
+          {#if p.slot === 'url'}<code>{metricsUrl}</code>{:else if p.slot === 'link'}<a href="#/settings"
+              >{t('settings.general.promLink')}</a
+            >{:else}{p.text}{/if}
+        {/each}
       </p>
       <div class="copybox"><code>{metricsUrl}</code><CopyButton text={metricsUrl} /></div>
       <div>
         <div class="label">prometheus.yml</div>
         <pre class="yaml">{promYaml}</pre>
         <p class="help nomargin">
-          <code>basic_auth</code> yerine <code>authorization: {'{'}credentials: upk_…{'}'}</code> da kullanılabilir.
+          {#each tParts('settings.general.promAlt') as p, i (i)}
+            {#if p.slot === 'a'}<code>basic_auth</code>{:else if p.slot === 'b'}<code
+                >authorization: {'{'}credentials: upk_…{'}'}</code
+              >{:else}{p.text}{/if}
+          {/each}
         </p>
       </div>
     </div>
     <div class="card">
-      <h2 class="card-title">Hakkında</h2>
+      <h2 class="card-title">{t('settings.general.about')}</h2>
       <dl>
-        <dt>Sürüm</dt>
+        <dt>{t('common.version')}</dt>
         <dd class="mono">{session.version || '—'}</dd>
       </dl>
     </div>
@@ -160,9 +179,6 @@
   }
   .card-title {
     margin-bottom: 0;
-  }
-  .narrow {
-    max-width: 260px;
   }
   .actions {
     display: flex;
@@ -217,9 +233,6 @@
   @media (max-width: 1000px) {
     .cols {
       grid-template-columns: minmax(0, 1fr);
-    }
-    .narrow {
-      max-width: none;
     }
   }
   @media (max-width: 640px) {

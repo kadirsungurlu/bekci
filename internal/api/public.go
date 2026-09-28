@@ -25,10 +25,10 @@ import (
 	"strconv"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -97,6 +97,8 @@ type publicPageView struct {
 	ShowIncidents bool `json:"show_incidents"`
 	// Collapsible true ise ziyaretçi grupları açıp kapatabilir.
 	Collapsible bool `json:"collapsible"`
+	// Lang sayfanın dili (tr | en): arayüz sayfayı bu dilde gösterir.
+	Lang string `json:"lang"`
 }
 
 func logoURL(p store.StatusPage) *string {
@@ -269,7 +271,7 @@ func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byt
 			ID: a.ID, Title: a.Title, Body: a.Body, Severity: a.Severity, StartsAt: a.StartsAt, EndsAt: a.EndsAt,
 		})
 	}
-	view.ShowIncidents, view.Collapsible = p.ShowIncidents, p.Collapsible
+	view.ShowIncidents, view.Collapsible, view.Lang = p.ShowIncidents, p.Collapsible, i18n.Or(p.Lang)
 	if !p.ShowIncidents {
 		return json.Marshal(view)
 	}
@@ -403,10 +405,12 @@ func (s *Server) publicPage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "Durum sayfası bulunamadı")
 		return
 	}
+	setResponseLang(w, e.page.Lang)
 	if e.page.HasPassword && !s.unlocked(r, e.page) {
 		writeJSON(w, http.StatusUnauthorized, map[string]any{
 			"error": "Bu sayfa şifre korumalı", "password_required": true,
 			"title": e.page.Title, "has_logo": e.page.HasLogo, "logo_url": logoURL(e.page),
+			"lang": i18n.Or(e.page.Lang),
 		})
 		return
 	}
@@ -440,6 +444,7 @@ func (s *Server) publicUnlock(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "Durum sayfası bulunamadı")
 		return
 	}
+	setResponseLang(w, e.page.Lang)
 	if !e.page.HasPassword {
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return

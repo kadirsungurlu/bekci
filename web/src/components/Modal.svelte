@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte';
   import { lockScroll } from '../lib/ui.svelte';
   import Icon from './Icon.svelte';
+  import { t } from '../lib/i18n';
 
   let {
     open = $bindable(false),
@@ -76,7 +77,7 @@
       <header>
         <h2 id={titleId}>{title}</h2>
         {#if dismissable}
-          <button type="button" class="btn ghost icon" aria-label="Kapat" onclick={() => dialog?.close()}>
+          <button type="button" class="btn ghost icon" aria-label={t('common.close')} onclick={() => dialog?.close()}>
             <Icon name="x" />
           </button>
         {/if}

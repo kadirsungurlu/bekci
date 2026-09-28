@@ -13,6 +13,7 @@
   import Icon from '../components/Icon.svelte';
   import CopyButton from '../components/CopyButton.svelte';
   import Announcements from './Announcements.svelte';
+  import { LOCALES, t, type Locale } from '../lib/i18n';
 
   let { id }: { id?: number } = $props();
   // svelte-ignore state_referenced_locally
@@ -45,6 +46,7 @@
   let showIncidents = $state(true);
   let collapsible = $state(false);
   let barRange = $state<BarRange>('recent');
+  let pageLang = $state<Locale>('tr');
   let published = $state(true);
   let pwMode = $state<'keep' | 'set' | 'remove'>('keep');
   let password = $state('');
@@ -81,6 +83,7 @@
     showIncidents = p.show_incidents ?? true;
     collapsible = p.collapsible ?? false;
     barRange = p.bar_range ?? 'recent';
+    pageLang = p.lang ?? 'tr';
     published = p.published;
     pwMode = 'keep';
     password = '';
@@ -115,6 +118,7 @@
     showIncidents,
     collapsible,
     barRange,
+    pageLang,
     published,
     pwMode,
     password,
@@ -254,6 +258,7 @@
       show_incidents: showIncidents,
       collapsible,
       bar_range: barRange,
+      lang: pageLang,
       published,
     };
     if (pwMode === 'set') body.password = password;
@@ -540,6 +545,15 @@
           >Ziyaretçiler çoğunlukla anlık durumu merak eder. "Son kontroller"de her çubuk bir kontroldür (Uptime Kuma gibi); uzun
           vadeli güvenilirliği göstermek için 90 gün seçilebilir.</span
         >
+      </div>
+      <div class="field">
+        <label for="page-lang">{t('pages.lang.label')}</label>
+        <select id="page-lang" class="input" bind:value={pageLang}>
+          {#each LOCALES as l (l)}
+            <option value={l} lang={l}>{t(`common.languages.${l}`)}</option>
+          {/each}
+        </select>
+        <span class="help">{t('pages.lang.help')}</span>
       </div>
       <label class="check">
         <input type="checkbox" bind:checked={showTargets} />

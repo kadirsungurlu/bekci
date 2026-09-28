@@ -18,9 +18,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"golang.org/x/crypto/bcrypt"
-
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -134,7 +134,7 @@ func (s *Server) editor(h http.HandlerFunc) http.Handler { return s.role(store.R
 func (s *Server) admin(h http.HandlerFunc) http.Handler { return s.role(store.RoleAdmin, h) }
 
 // passwordChangeAllowed şifre değişimi zorunluyken erişilebilen uç noktalar.
-var passwordChangeAllowed = map[string]bool{"/api/auth/password": true}
+var passwordChangeAllowed = map[string]bool{"/api/auth/password": true, "/api/auth/preferences": true}
 
 // role oturum (veya kayıtlı başka bir kimlik doğrulama) ve en az min rolünü
 // gerektirir. Yetki her istekte veritabanındaki güncel rolden kontrol edilir;
@@ -146,6 +146,7 @@ func (s *Server) role(min string, h http.HandlerFunc) http.Handler {
 			writeError(w, http.StatusUnauthorized, "Oturum açmanız gerekiyor")
 			return
 		}
+		setResponseLang(w, u.Lang)
 		if u.MustChangePassword && !passwordChangeAllowed[r.URL.Path] {
 			writeJSON(w, http.StatusForbidden, map[string]string{
 				"error": "Devam etmeden önce şifrenizi değiştirmeniz gerekiyor", "code": "password_change_required",
@@ -173,11 +174,39 @@ type userView struct {
 	// Servers Sunucular ekranı açık mı: kısıtsız kullanıcıda her zaman, kısıtlı
 	// izleyicide kendisine en az bir sunucu atanmışsa.
 	Servers bool `json:"servers"`
+	// Lang arayüz dili tercihi (tr | en); "" = tarayıcı dili.
+	Lang string `json:"lang"`
 }
 
 func viewOf(u store.User) userView {
 	return userView{u.ID, u.Username, u.DisplayName, u.Role, u.MustChangePassword, u.AllMonitors || u.Role != store.RoleViewer,
-		u.TwoFactorEnabled, !u.Restricted() || len(u.ServerIDs) > 0}
+		u.TwoFactorEnabled, !u.Restricted() || len(u.ServerIDs) > 0, u.Lang}
+}
+
+// updatePreferences: PUT /api/auth/preferences {"lang": "tr" | "en" | ""}.
+// Kullanıcının kendi arayüz dili; "" tarayıcı diline döner.
+func (s *Server) updatePreferences(w http.ResponseWriter, r *http.Request) {
+	u := userFrom(r)
+	var in struct {
+		Lang *string `json:"lang"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if in.Lang != nil {
+		lang := *in.Lang
+		if lang != "" && !i18n.Valid(lang) {
+			writeError(w, http.StatusBadRequest, "Dil tr veya en olmalı")
+			return
+		}
+		if err := s.store.SetUserLang(r.Context(), u.ID, lang); err != nil {
+			s.dbError(w, err)
+			return
+		}
+		u.Lang = lang
+		setResponseLang(w, lang)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"user": viewOf(u)})
 }
 
 func (s *Server) authState(w http.ResponseWriter, r *http.Request) {
@@ -189,6 +218,7 @@ func (s *Server) authState(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{"setup_needed": n == 0, "user": nil, "version": s.version}
 	if u, _, ok := s.currentUser(r); ok {
 		resp["user"] = viewOf(u)
+		setResponseLang(w, u.Lang)
 	}
 	writeJSON(w, http.StatusOK, resp)
 }

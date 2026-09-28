@@ -193,12 +193,12 @@ func TestBadgeRendering(t *testing.T) {
 
 func TestBadgeHelpers(t *testing.T) {
 	for in, want := range map[float64]string{100: "%100", 99.999: "%99,99", 95.5: "%95,50", 0: "%0,00"} {
-		if got := fmtPercent(in); got != want {
+		if got := fmtPercent("tr", in); got != want {
 			t.Errorf("fmtPercent(%v) = %q, %q bekleniyordu", in, got, want)
 		}
 	}
 	for in, want := range map[int64]string{5: "5", 1234: "1.234", 1234567: "1.234.567"} {
-		if got := fmtThousands(in); got != want {
+		if got := fmtThousands("tr", in); got != want {
 			t.Errorf("fmtThousands(%d) = %q", in, got)
 		}
 	}

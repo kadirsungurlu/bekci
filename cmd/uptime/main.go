@@ -49,14 +49,14 @@ import (
 	"time"
 	_ "time/tzdata" // imajda tzdata olmasa da TZ çalışsın
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/api"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/stats"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 	"github.com/kadirsungurlu/uptime-kadir-app/web"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // version derlemede -ldflags "-X main.version=..." ile verilir.
@@ -173,7 +173,7 @@ func run() error {
 	}
 	errCh := make(chan error, 1)
 	go func() {
-		log.Info("Uptime başladı", "sürüm", version, "adres", srv.Addr, "veri", dataDir, "saat_dilimi", time.Local.String())
+		log.Info(brand.Name+" başladı", "sürüm", version, "adres", srv.Addr, "veri", dataDir, "saat_dilimi", time.Local.String())
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}

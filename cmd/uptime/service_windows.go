@@ -14,6 +14,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/eventlog"
@@ -48,8 +49,8 @@ import (
 
 const (
 	serviceName    = "uptime-agent"
-	serviceDisplay = "Uptime agent"
-	serviceDesc    = "Uptime sunucu ajanı: sunucu metriklerini ve atanan kontrollerin sonuçlarını ana sunucuya gönderir."
+	serviceDisplay = brand.Name + " agent"
+	serviceDesc    = brand.Name + " sunucu ajanı: sunucu metriklerini ve atanan kontrollerin sonuçlarını ana sunucuya gönderir."
 	logLimit       = 5 << 20
 )
 
@@ -165,7 +166,7 @@ func (a *agentService) Execute(_ []string, req <-chan svc.ChangeRequest, st chan
 		case err := <-done:
 			if err != nil {
 				a.log.Error("ajan durdu", "hata", err)
-				eventLogError("Uptime ajanı durdu: " + err.Error())
+				eventLogError(brand.Name + " ajanı durdu: " + err.Error())
 				return true, 1
 			}
 			return false, 0
@@ -290,7 +291,7 @@ func installService() error {
 	if exists {
 		verb = "güncellendi"
 	}
-	fmt.Printf("Uptime ajanı %s ve çalışıyor (hizmet: %s, sürüm: %s).\n", verb, serviceName, version)
+	fmt.Printf(brand.Name+" ajanı %s ve çalışıyor (hizmet: %s, sürüm: %s).\n", verb, serviceName, version)
 	fmt.Printf("Program: %s\nAyarlar: %s (yalnızca yöneticiler okuyabilir)\nGünlük:  %s\n", target, envPath, filepath.Join(dir, "agent.log"))
 	return nil
 }
@@ -319,7 +320,7 @@ func uninstallService() error {
 	}
 	removeLegacyEnv()
 	eventlog.Remove(serviceName) // en iyi çaba
-	fmt.Printf("Uptime ajanı kaldırıldı. İsterseniz %s klasörünü silebilirsiniz.\n", dir)
+	fmt.Printf(brand.Name+" ajanı kaldırıldı. İsterseniz %s klasörünü silebilirsiniz.\n", dir)
 	return nil
 }
 

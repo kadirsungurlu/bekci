@@ -4,10 +4,11 @@
   import { onDestroy } from 'svelte';
   import { copyText, toast } from '../lib/ui.svelte';
   import Icon from './Icon.svelte';
+  import { t } from '../lib/i18n';
 
   let {
     text,
-    label = 'Kopyala',
+    label: labelProp,
     class: cls = 'btn sm',
     iconOnly = false,
     ariaLabel,
@@ -25,18 +26,20 @@
     size?: number;
   } = $props();
 
+  // Varsayılan etiket geçerli dilde ("Kopyala" / "Copy").
+  const label = $derived(labelProp ?? t('common.copy'));
   let copied = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   async function copy() {
-    const t = typeof text === 'function' ? text() : text;
-    if (!t) return;
-    if (await copyText(t)) {
+    const value = typeof text === 'function' ? text() : text;
+    if (!value) return;
+    if (await copyText(value)) {
       copied = true;
       clearTimeout(timer);
       timer = setTimeout(() => (copied = false), 2000);
     } else {
-      toast.error('Panoya kopyalanamadı; metni elle seçip kopyalayın.');
+      toast.error(t('common.copyFailed'));
     }
   }
 
@@ -47,13 +50,13 @@
   type="button"
   class={cls}
   class:copied
-  aria-label={iconOnly ? (copied ? 'Kopyalandı' : (ariaLabel ?? label)) : ariaLabel}
-  data-tip={iconOnly ? (copied ? 'Kopyalandı' : (ariaLabel ?? label)) : undefined}
+  aria-label={iconOnly ? (copied ? t('common.copied') : (ariaLabel ?? label)) : ariaLabel}
+  data-tip={iconOnly ? (copied ? t('common.copied') : (ariaLabel ?? label)) : undefined}
   onclick={copy}
   {disabled}
 >
   <Icon name={copied ? 'check' : 'copy'} {size} />
-  {#if !iconOnly}<span aria-live="polite">{copied ? 'Kopyalandı' : label}</span>{/if}
+  {#if !iconOnly}<span aria-live="polite">{copied ? t('common.copied') : label}</span>{/if}
 </button>
 
 <style>

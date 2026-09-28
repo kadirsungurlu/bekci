@@ -19,6 +19,15 @@
   import { clock } from '../lib/ui.svelte';
   import { fmtDate, fmtDay, fmtDuration, fmtPct, fmtTime, fmtTimeSec, hourRange, nowSec } from '../lib/format';
   import Icon, { type IconName } from '../components/Icon.svelte';
+  import { i18n, isLocale, setLocale, t } from '../lib/i18n';
+
+  // Sayfa kendi dilinde gösterilir (sayfa ayarı; eski sunucuda tr). Dil
+  // tarayıcıda hatırlanmaz; önizlemeden çıkınca panelin dili geri gelir.
+  const prevLocale = i18n.locale;
+  function applyPageLang(l: unknown) {
+    const want = isLocale(l) ? l : 'tr';
+    if (i18n.locale !== want) setLocale(want, false);
+  }
 
   /** Web adreslerinde yalnızca alan adı (aydertesisat.com.tr); diğer hedefler olduğu gibi. */
   function targetLabel(t: string): string {
@@ -66,6 +75,7 @@
   async function load() {
     try {
       const p = previewId !== undefined ? await api.previewPage(previewId) : await api.publicPage(slug);
+      applyPageLang(p.lang);
       page = p;
       locked = null;
       notFound = false;
@@ -74,6 +84,7 @@
     } catch (e) {
       if (e instanceof ApiError && e.status === 401 && (e.data as PublicLocked | null)?.password_required) {
         locked = e.data as PublicLocked;
+        applyPageLang(locked.lang);
         page = null;
       } else if (e instanceof ApiError && e.status === 404) {
         notFound = true;
@@ -119,11 +130,12 @@
     root.classList.remove('public');
     if (metaScheme) metaScheme.content = prevScheme;
     if (metaTheme) metaTheme.content = prevTheme;
+    if (i18n.locale !== prevLocale) setLocale(prevLocale, false);
   });
 
   $effect(() => {
-    const t = page?.title ?? locked?.title;
-    document.title = notFound ? 'Sayfa bulunamadı' : t ? `${t} · Durum` : 'Durum';
+    const title = page?.title ?? locked?.title;
+    document.title = notFound ? t('pub.notFoundDoc') : title ? t('pub.docTitle', { title }) : t('pub.docTitleDefault');
   });
 
   const logo = $derived.by(() => {
@@ -141,7 +153,7 @@
   async function unlock(e: SubmitEvent) {
     e.preventDefault();
     unlockError = '';
-    if (!password) return (unlockError = 'Şifreyi girin.');
+    if (!password) return (unlockError = t('pub.errPassword'));
     unlocking = true;
     try {
       await api.publicUnlock(slug, password);
@@ -155,25 +167,25 @@
   }
 
   // Görünüm yardımcıları -------------------------------------------------------------------
-  const OVERALL: Record<OverallStatus, { l: string; icon: IconName }> = {
-    up: { l: 'Tüm sistemler çalışıyor', icon: 'check' },
-    partial: { l: 'Bazı sistemlerde sorun var', icon: 'alert' },
-    down: { l: 'Sistemlerde kesinti var', icon: 'x' },
-    unknown: { l: 'Durum bilinmiyor', icon: 'info' },
-  };
-  const MON: Record<PublicMonitorStatus, { l: string; c: string }> = {
-    up: { l: 'Çalışıyor', c: 'up' },
-    down: { l: 'Kesinti', c: 'down' },
-    pending: { l: 'Kontrol ediliyor', c: 'pending' },
-    paused: { l: 'Durduruldu', c: 'paused' },
-    maintenance: { l: 'Bakımda', c: 'maint' },
-  };
-  const SEV: Record<Severity, { icon: IconName; l: string }> = {
-    info: { icon: 'info', l: 'Bilgi' },
-    warning: { icon: 'alert', l: 'Uyarı' },
-    danger: { icon: 'alert-circle', l: 'Sorun' },
-    success: { icon: 'check-circle', l: 'Çözüldü' },
-  };
+  const OVERALL: Record<OverallStatus, { l: string; icon: IconName }> = $derived({
+    up: { l: t('pub.overall.up'), icon: 'check' },
+    partial: { l: t('pub.overall.partial'), icon: 'alert' },
+    down: { l: t('pub.overall.down'), icon: 'x' },
+    unknown: { l: t('pub.overall.unknown'), icon: 'info' },
+  });
+  const MON: Record<PublicMonitorStatus, { l: string; c: string }> = $derived({
+    up: { l: t('pub.mon.up'), c: 'up' },
+    down: { l: t('pub.mon.down'), c: 'down' },
+    pending: { l: t('pub.mon.pending'), c: 'pending' },
+    paused: { l: t('pub.mon.paused'), c: 'paused' },
+    maintenance: { l: t('pub.mon.maintenance'), c: 'maint' },
+  });
+  const SEV: Record<Severity, { icon: IconName; l: string }> = $derived({
+    info: { icon: 'info', l: t('pub.sev.info') },
+    warning: { icon: 'alert', l: t('pub.sev.warning') },
+    danger: { icon: 'alert-circle', l: t('pub.sev.danger') },
+    success: { icon: 'check-circle', l: t('pub.sev.success') },
+  });
 
   let width = $state(800);
   // Sayfanın çubuk görünümü (eski sunucu: 90 gün). Dar ekranda çubuklar okunur
@@ -198,30 +210,30 @@
   }
 
   function barTip(b: PublicBar | null): string {
-    if (!b) return 'Henüz kontrol yok';
+    if (!b) return t('pub.noChecksYet');
     const total = b.up + b.down;
     if (range === 'recent') {
       const when = `${fmtDate(b.t)} ${fmtTimeSec(b.t)}`;
-      return `${when}\n${b.up ? 'Çalışıyor' : b.down ? 'Kesinti' : 'Kontrol ediliyor / bakımda'}`;
+      return `${when}\n${b.up ? t('pub.barRecentUp') : b.down ? t('pub.barRecentDown') : t('pub.barRecentOther')}`;
     }
     const head = range === '24h' ? hourRange(b.t) : fmtDay(b.t);
-    if (total === 0) return `${head}\nVeri yok`;
-    let s = `${head}\nUptime ${fmtPct((100 * b.up) / total)}`;
-    if (b.down > 0) s += ` · ${b.down} başarısız kontrol`;
+    if (total === 0) return `${head}\n${t('common.noData')}`;
+    let s = `${head}\n${t('pub.barUptime', { pct: fmtPct((100 * b.up) / total) })}`;
+    if (b.down > 0) s += ` · ${t('pub.barFailed', { count: b.down })}`;
     return s;
   }
 
   /** Alt eksenin sol ucu: görünümün başladığı an. */
   function axisStart(bars: (PublicBar | null)[]): string {
-    if (range === '90d') return `${bars.length} gün önce`;
-    if (range === '24h') return '24 saat önce';
+    if (range === '90d') return t('pub.daysAgo', { count: bars.length });
+    if (range === '24h') return t('pub.hours24Ago');
     const first = bars.find((b) => b) ?? null;
-    if (!first) return 'Henüz kontrol yok';
+    if (!first) return t('pub.noChecksYet');
     const min = Math.max(1, Math.round((nowSec() - first.t) / 60));
-    return min < 120 ? `${min} dk önce` : `${Math.round(min / 60)} saat önce`;
+    return min < 120 ? t('pub.minAgo', { count: min }) : t('pub.hoursAgo', { count: Math.round(min / 60) });
   }
 
-  const uptimeLabel = $derived(page?.uptime_window === '24h' ? 'Son 24 saat' : '90 günlük uptime');
+  const uptimeLabel = $derived(page?.uptime_window === '24h' ? t('pub.uptime24h') : t('pub.uptime90d'));
   const upOf = (m: PublicMonitor) => (m.uptime !== undefined ? m.uptime : m.uptime_90d);
 
   // Dokunmatik ekranda çubuğa dokununca bilgisi çubukların altında gösterilir.
@@ -238,7 +250,7 @@
 
   function annWhen(a: { starts_at: number; ends_at: number }): string {
     if (a.ends_at) return `${fmtDate(a.starts_at)} – ${fmtDate(a.ends_at)}`;
-    return `${fmtDate(a.starts_at)} itibarıyla`;
+    return t('pub.since', { time: fmtDate(a.starts_at) });
   }
 
   async function focusPw() {
@@ -257,8 +269,8 @@
   {#if previewId !== undefined}
     <div class="preview-bar" role="note">
       <Icon name="eye" size={15} />
-      <span>Önizleme — yayın durumu ve şifre yok sayılır.</span>
-      <a href="#/status-pages/{previewId}">Düzenlemeye dön</a>
+      <span>{t('pub.preview')}</span>
+      <a href="#/status-pages/{previewId}">{t('pub.backToEdit')}</a>
     </div>
   {/if}
 
@@ -266,8 +278,8 @@
     <div class="center">
       <div class="panel msg">
         <div class="msg-ic"><Icon name="layout" size={26} /></div>
-        <h1>Durum sayfası bulunamadı</h1>
-        <p>Adres yanlış olabilir veya sayfa yayından kaldırılmış olabilir.</p>
+        <h1>{t('pub.notFoundTitle')}</h1>
+        <p>{t('pub.notFoundText')}</p>
       </div>
     </div>
   {:else if locked}
@@ -275,15 +287,15 @@
       <form class="panel lock" onsubmit={unlock} novalidate>
         {#if logo}<img class="lock-logo" src={logo} alt={locked.title} />{/if}
         <h1>{locked.title}</h1>
-        <p class="lock-sub"><Icon name="lock" size={15} /> Bu sayfa şifre korumalı</p>
+        <p class="lock-sub"><Icon name="lock" size={15} /> {t('pub.locked')}</p>
         <div class="field">
-          <label for="pub-pw">Şifre</label>
+          <label for="pub-pw">{t('pub.password')}</label>
           <input id="pub-pw" class="input" type="password" autocomplete="current-password" bind:value={password} />
         </div>
         {#if unlockError}<div class="alert error" role="alert">{unlockError}</div>{/if}
         <button class="btn primary big" type="submit" disabled={unlocking}>
           {#if unlocking}<span class="spinner"></span>{/if}
-          Aç
+          {t('pub.unlock')}
         </button>
       </form>
     </div>
@@ -291,9 +303,9 @@
     {#if loadError}
       <div class="center">
         <div class="panel msg">
-          <h1>Sayfa yüklenemedi</h1>
+          <h1>{t('pub.loadFailed')}</h1>
           <p>{loadError}</p>
-          <button class="btn primary" onclick={load}>Tekrar dene</button>
+          <button class="btn primary" onclick={load}>{t('common.retry')}</button>
         </div>
       </div>
     {:else}
@@ -315,7 +327,7 @@
           </div>
         </div>
         <div class="refresh">
-          <span class="live" aria-hidden="true"></span>Son güncelleme {fmtTime(page.updated_at)} · 60 sn'de bir yenilenir
+          <span class="live" aria-hidden="true"></span>{t('pub.refreshInfo', { time: fmtTime(page.updated_at) })}
         </div>
       </div>
     </header>
@@ -326,7 +338,7 @@
         <span class="hero-ic"><Icon name={ov.icon} size={26} stroke={2.6} /></span>
         <div>
           <div class="hero-l">{ov.l}</div>
-          <div class="hero-s">Son güncelleme: {fmtTime(page.updated_at)}</div>
+          <div class="hero-s">{t('pub.lastUpdate', { time: fmtTime(page.updated_at) })}</div>
         </div>
       </section>
 
@@ -349,9 +361,9 @@
             {#if sec.title}
               {#snippet gStatus()}
                 {#if issues(sec.monitors) > 0}
-                  <span class="g-st down">{issues(sec.monitors)} serviste kesinti</span>
+                  <span class="g-st down">{t('pub.groupDown', { count: issues(sec.monitors) })}</span>
                 {:else}
-                  <span class="g-st up">Çalışıyor</span>
+                  <span class="g-st up">{t('pub.groupUp')}</span>
                 {/if}
               {/snippet}
               {#if canFold}
@@ -397,7 +409,7 @@
                 <div class="axis" aria-hidden="true">
                   <span>{axisStart(bars)}</span>
                   <span class="axis-mid">{uptimeLabel}: {fmtPct(upOf(m))}</span>
-                  <span>{range === '90d' ? 'Bugün' : 'Şimdi'}</span>
+                  <span>{range === '90d' ? t('pub.today') : t('pub.now')}</span>
                 </div>
                 {#if picked?.key === key && bars[picked.i]}
                   <div class="picked">{barTip(bars[picked.i]).replace('\n', ' · ')}</div>
@@ -411,9 +423,9 @@
 
       {#if page.show_incidents !== false}
       <section class="panel inc">
-        <h2>Son 14 günün olayları</h2>
+        <h2>{t('pub.incidentsTitle')}</h2>
         {#if incidents.length === 0}
-          <div class="no-inc"><Icon name="check-circle" size={18} /> Olay yok</div>
+          <div class="no-inc"><Icon name="check-circle" size={18} /> {t('pub.noIncidents')}</div>
         {:else}
           <ul>
             {#each incidents as inc, i (i)}
@@ -424,14 +436,16 @@
                   <div class="i-t">
                     <b>{inc.monitor}</b>
                     {#if ongoing}
-                      <span class="i-badge">Devam ediyor</span>
+                      <span class="i-badge">{t('pub.ongoing')}</span>
                     {:else}
-                      <span class="i-badge ok">Çözüldü</span>
+                      <span class="i-badge ok">{t('pub.resolved')}</span>
                     {/if}
                   </div>
                   <div class="i-w">
                     {fmtDate(inc.started_at)} ·
-                    {ongoing ? `${fmtDuration(clock.now - inc.started_at)} sürüyor` : `${fmtDuration(inc.resolved_at - inc.started_at)} sürdü`}
+                    {ongoing
+                      ? t('pub.lasting', { d: fmtDuration(clock.now - inc.started_at) })
+                      : t('pub.lasted', { d: fmtDuration(inc.resolved_at - inc.started_at) })}
                   </div>
                 </div>
               </li>
@@ -445,7 +459,7 @@
     <footer class="foot">
       <div class="wrap foot-in">
         {#if page.footer}<p class="foot-t">{page.footer}</p>{/if}
-        <p class="foot-s">Son güncelleme: {fmtDate(page.updated_at)} · Sayfa her dakika kendiliğinden yenilenir.</p>
+        <p class="foot-s">{t('pub.footer', { time: fmtDate(page.updated_at) })}</p>
       </div>
     </footer>
   {/if}

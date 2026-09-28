@@ -431,7 +431,7 @@ func (s *Server) addPageMonitor(w http.ResponseWriter, r *http.Request) {
 		Slug: p.Slug, Title: p.Title, Description: p.Description, Footer: p.Footer,
 		Sections: sections, CustomDomain: p.CustomDomain,
 		ShowTargets: &p.ShowTargets, Published: &p.Published, BarRange: &p.BarRange, ShowIncidents: &p.ShowIncidents,
-		Collapsible: &p.Collapsible,
+		Collapsible: &p.Collapsible, Lang: &p.Lang,
 	}
 	// Özel alan adı değişmiyor (mevcut sayfadan alınıyor); editör de kaydedebilir.
 	np, err := s.normalizePage(ctx, &pin, &old, requestHost(r), isPageAdmin(userFrom(r)))

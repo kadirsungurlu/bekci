@@ -3,31 +3,32 @@
   import { session } from '../lib/session.svelte';
   import Icon from './Icon.svelte';
   import CopyButton from './CopyButton.svelte';
+  import { t } from '../lib/i18n';
+  import { APP_NAME } from '../lib/brand';
 
   let { codes, saved = $bindable(false) }: { codes: string[]; saved?: boolean } = $props();
 
   const text = $derived(
-    `Uptime kurtarma kodları (${session.user?.username ?? ''})\n` +
-      `Her kod yalnızca bir kez kullanılabilir.\n\n${codes.join('\n')}\n`,
+    `${t('account.recovery.fileTitle', { app: APP_NAME, user: session.user?.username ?? '' })}\n` +
+      `${t('account.recovery.fileNote')}\n\n${codes.join('\n')}\n`,
   );
   const href = $derived('data:text/plain;charset=utf-8,' + encodeURIComponent(text));
 
 </script>
 
 <p class="text-2 small intro">
-  <b>Kurtarma kodları</b> — telefonunuzu kaybederseniz bu kodlarla giriş yapabilirsiniz. Her kod bir kez kullanılabilir. Bunlar
-  bir daha gösterilmeyecek.
+  <b>{t('account.recovery.title')}</b> {t('account.recovery.intro')}
 </p>
 <ol class="codes">
   {#each codes as c (c)}<li><code>{c}</code></li>{/each}
 </ol>
 <div class="row btns">
-  <a class="btn sm" {href} download="uptime-kurtarma-kodlari.txt"><Icon name="download" size={15} /> İndir</a>
+  <a class="btn sm" {href} download={t('account.recovery.fileName')}><Icon name="download" size={15} /> {t('common.download')}</a>
   <CopyButton text={codes.join('\n')} size={15} />
 </div>
 <label class="check ack">
   <input type="checkbox" bind:checked={saved} />
-  <span>Kodları güvenli bir yere kaydettim</span>
+  <span>{t('account.recovery.saved')}</span>
 </label>
 
 <style>

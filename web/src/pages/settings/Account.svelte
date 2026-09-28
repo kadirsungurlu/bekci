@@ -2,6 +2,7 @@
   import { api, errorMessage } from '../../lib/api';
   import { ROLE_LABELS, session } from '../../lib/session.svelte';
   import { toast } from '../../lib/ui.svelte';
+  import { browserLocale, forgetLocale, isLocale, LOCALES, setLocale, t, type Locale } from '../../lib/i18n';
   import TwoFactor from './TwoFactor.svelte';
   import ApiKeys from './ApiKeys.svelte';
 
@@ -14,38 +15,60 @@
   async function changePassword(e: SubmitEvent) {
     e.preventDefault();
     pwError = '';
-    if (!current) return (pwError = 'Mevcut şifrenizi girin.');
-    if (next.length < 8) return (pwError = 'Yeni şifre en az 8 karakter olmalı.');
-    if (next !== next2) return (pwError = 'Yeni şifreler birbiriyle aynı değil.');
+    if (!current) return (pwError = t('account.errCurrent'));
+    if (next.length < 8) return (pwError = t('account.errLength'));
+    if (next !== next2) return (pwError = t('account.errMismatch'));
     pwBusy = true;
     try {
       await api.changePassword(current, next);
       current = next = next2 = '';
-      toast.success('Şifreniz değiştirildi. Diğer cihazlardaki oturumlar kapatıldı.');
+      toast.success(t('account.passwordChanged'));
     } catch (err) {
       pwError = errorMessage(err);
     } finally {
       pwBusy = false;
     }
   }
+
+  // Dil tercihi: "" = tarayıcı dili; hesapta saklanır (her cihazda geçerli).
+  const langPref = $derived<'' | Locale>(isLocale(session.user?.lang) ? session.user.lang : '');
+  let langBusy = $state(false);
+
+  async function changeLang(e: Event) {
+    const v = (e.currentTarget as HTMLSelectElement).value;
+    const lang: '' | Locale = isLocale(v) ? v : '';
+    langBusy = true;
+    try {
+      const res = await api.setPreferences({ lang });
+      session.set(res.user);
+      if (lang) setLocale(lang);
+      else forgetLocale();
+      toast.success(t('account.language.saved'));
+    } catch (err) {
+      toast.error(errorMessage(err));
+      (e.currentTarget as HTMLSelectElement).value = langPref;
+    } finally {
+      langBusy = false;
+    }
+  }
 </script>
 
 <div class="cols">
   <form class="card stack" onsubmit={changePassword} novalidate>
-    <h2 class="card-title">Şifre değiştir</h2>
+    <h2 class="card-title">{t('account.changePassword')}</h2>
     <input type="text" name="username" autocomplete="username" value={session.user?.username ?? ''} hidden readonly />
     <div class="field">
-      <label for="cur">Mevcut şifre</label>
+      <label for="cur">{t('account.currentPassword')}</label>
       <input id="cur" class="input" type="password" autocomplete="current-password" bind:value={current} />
     </div>
     <div class="grid-2">
       <div class="field">
-        <label for="new">Yeni şifre</label>
+        <label for="new">{t('account.newPassword')}</label>
         <input id="new" class="input" type="password" autocomplete="new-password" bind:value={next} />
-        <span class="help">En az 8 karakter.</span>
+        <span class="help">{t('common.minChars', { n: 8 })}</span>
       </div>
       <div class="field">
-        <label for="new2">Yeni şifre (tekrar)</label>
+        <label for="new2">{t('account.newPasswordAgain')}</label>
         <input id="new2" class="input" type="password" autocomplete="new-password" bind:value={next2} />
       </div>
     </div>
@@ -53,25 +76,44 @@
     <div class="actions">
       <button class="btn primary" type="submit" disabled={pwBusy}>
         {#if pwBusy}<span class="spinner"></span>{/if}
-        Şifreyi değiştir
+        {t('account.submitPassword')}
       </button>
     </div>
   </form>
 
   <div class="stack">
     <TwoFactor />
+    <div class="card stack">
+      <h2 class="card-title">{t('account.language.title')}</h2>
+      <div class="field">
+        <label for="ui-lang">{t('account.language.label')}</label>
+        <select id="ui-lang" class="input" value={langPref} onchange={changeLang} disabled={langBusy}>
+          <option value="">{t('account.language.auto', { lang: t(`common.languages.${browserLocale()}`) })}</option>
+          {#each LOCALES as l (l)}
+            <option value={l} lang={l}>{t(`common.languages.${l}`)}</option>
+          {/each}
+        </select>
+        <span class="help">{t('account.language.help')}</span>
+      </div>
+    </div>
     <div class="card">
-      <h2 class="card-title">Hesap</h2>
+      <h2 class="card-title">{t('account.account')}</h2>
       <dl>
-        <dt>Kullanıcı adı</dt>
+        <dt>{t('common.username')}</dt>
         <dd>{session.user?.username}</dd>
         {#if session.user?.display_name}
-          <dt>Görünen ad</dt>
+          <dt>{t('account.displayName')}</dt>
           <dd>{session.user.display_name}</dd>
         {/if}
-        <dt>Rol</dt>
-        <dd>{ROLE_LABELS[session.role]}{session.user && !session.user.all_monitors ? (session.canSeeServers ? ' · yalnızca seçili monitörler ve sunucular' : ' · yalnızca seçili monitörler') : ''}</dd>
-        <dt>Sürüm</dt>
+        <dt>{t('account.role')}</dt>
+        <dd>
+          {ROLE_LABELS[session.role]}{session.user && !session.user.all_monitors
+            ? session.canSeeServers
+              ? t('account.onlySelectedMonitorsServers')
+              : t('account.onlySelectedMonitors')
+            : ''}
+        </dd>
+        <dt>{t('common.version')}</dt>
         <dd class="mono">{session.version || '—'}</dd>
       </dl>
     </div>

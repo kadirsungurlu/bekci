@@ -1,12 +1,16 @@
 package notify
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
 )
 
 // Test edilebilirlik için değiştirilebilir; gerçek adresler bölgeye göre seçilir.
@@ -73,7 +77,7 @@ func (opsgenie) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 
 	if ev.IsRecovery() {
 		u := base + "/v2/alerts/" + url.PathEscape(alias) + "/close?identifierType=alias"
-		return doRequest(ctx, http.MethodPost, u, strings.NewReader(`{"note":"Uptime: sorun giderildi"}`), mergeHeaders(headers, map[string]string{"Content-Type": "application/json"}))
+		return doRequest(ctx, http.MethodPost, u, bytes.NewReader(encode(map[string]string{"note": i18n.T(ev.Lang, "notify.opsgenie.close_note", brand.Name)})), mergeHeaders(headers, map[string]string{"Content-Type": "application/json"}))
 	}
 	priority := c.Priority
 	if ev.Kind == KindCert {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { confirmer } from '../lib/ui.svelte';
   import Modal from './Modal.svelte';
+  import { t } from '../lib/i18n';
 
   let open = $state(false);
   const req = $derived(confirmer.current);
@@ -14,11 +15,11 @@
   <p class="msg">{req?.message}</p>
   {#snippet footer()}
     <div class="spacer"></div>
-    <button type="button" class="btn" onclick={() => confirmer.answer(false)}>{req?.cancelText ?? 'Vazgeç'}</button>
+    <button type="button" class="btn" onclick={() => confirmer.answer(false)}>{req?.cancelText ?? t('common.cancel')}</button>
     <button
       type="button"
       class="btn {req?.danger ? 'danger solid' : 'primary'}"
-      onclick={() => confirmer.answer(true)}>{req?.confirmText ?? 'Onayla'}</button
+      onclick={() => confirmer.answer(true)}>{req?.confirmText ?? t('common.confirm')}</button
     >
   {/snippet}
 </Modal>

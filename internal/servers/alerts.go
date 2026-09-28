@@ -219,7 +219,7 @@ func (s *Service) evaluate(ctx context.Context, p store.Probe, host *metrics.Hos
 		if a.Metric == MetricOffline {
 			// Veri geldi: çevrimdışı uyarısı bitti.
 			if a.Firing {
-				s.resolve(ctx, p, host, a, 0, now, "")
+				s.resolve(ctx, p, host, a, 0, now, nil)
 			}
 			continue
 		}
@@ -230,13 +230,13 @@ func (s *Service) evaluate(ctx context.Context, p store.Probe, host *metrics.Hos
 		switch {
 		case !ok:
 			if a.Firing && valueGone(h, a.Metric, a.Mount, a.Minutes, t) {
-				msg := fmt.Sprintf("Değer %d dakikadır gelmiyor (bölüm veya sensör artık raporlanmıyor)", absentAfter(a.Minutes))
-				s.resolve(ctx, p, host, a, lastValue(h, a.Metric, a.Mount), now, msg)
+				gone := func(ev *notify.Event) { ev.GoneMinutes = absentAfter(a.Minutes) }
+				s.resolve(ctx, p, host, a, lastValue(h, a.Metric, a.Mount), now, gone)
 			}
 		case !a.Firing && v >= a.Threshold:
-			s.fire(ctx, p, host, a, v, now, "", alertMount(h, a))
+			s.fire(ctx, p, host, a, v, now, nil, alertMount(h, a))
 		case a.Firing && v < resolveBelow(a.Metric, a.Threshold):
-			s.resolve(ctx, p, host, a, v, now, "")
+			s.resolve(ctx, p, host, a, v, now, nil)
 		}
 	}
 	return rules, nil
@@ -299,8 +299,8 @@ func (s *Service) CheckOffline(ctx context.Context) {
 				limit := max(time.Duration(a.Minutes)*time.Minute, OfflineAfter)
 				if stale > limit {
 					a.ProbeID = p.ID
-					msg := "Son veri: " + time.Unix(p.MetricsAt, 0).Local().Format("02.01.2006 15:04:05")
-					s.fire(ctx, p, hostOf(p), a, float64(int(stale/time.Minute)), now, msg, "")
+					last := time.Unix(p.MetricsAt, 0)
+					s.fire(ctx, p, hostOf(p), a, float64(int(stale/time.Minute)), now, func(ev *notify.Event) { ev.LastSeen = last }, "")
 					changed = true
 				}
 			}
@@ -338,7 +338,9 @@ func (s *Service) event(kind string, p store.Probe, host *metrics.Host, a *store
 }
 
 // fire kuralı tetikler; kural zaten tetiklenmişse (başka yoldan) bildirim gitmez.
-func (s *Service) fire(ctx context.Context, p store.Probe, host *metrics.Host, a *store.ServerAlert, v float64, now time.Time, msg, mount string) {
+// detail verilirse olaya ayrıntı alanlarını (LastSeen, GoneMinutes) yazar;
+// metin bildirim dilinde notify tarafında üretilir.
+func (s *Service) fire(ctx context.Context, p store.Probe, host *metrics.Host, a *store.ServerAlert, v float64, now time.Time, detail func(*notify.Event), mount string) {
 	ok, err := s.store.FireServerAlert(ctx, *a, v, mount, now.Unix())
 	if err != nil {
 		s.log.Error("sunucu uyarısı yazılamadı", "sunucu", p.Name, "metrik", a.Metric, "hata", err)
@@ -351,7 +353,9 @@ func (s *Service) fire(ctx context.Context, p store.Probe, host *metrics.Host, a
 	s.log.Warn("sunucu uyarısı", "sunucu", p.Name, "metrik", a.Metric, "deger", fmt.Sprintf("%.1f", v), "esik", a.Threshold)
 	if s.notifier != nil {
 		ev := s.event(notify.KindServerAlert, p, host, a, v, now, mount)
-		ev.Message = msg
+		if detail != nil {
+			detail(&ev)
+		}
 		s.notifier.Notify(ev)
 	}
 }
@@ -359,7 +363,7 @@ func (s *Service) fire(ctx context.Context, p store.Probe, host *metrics.Host, a
 // resolve tetiklenmiş kuralı bitirir ve "düzeldi" bildirimi gönderir. Bölümsüz
 // disk kuralında bildirimdeki bölüm, uyarı başladığında dolan bölümdür
 // (geçmiş kaydından okunur; o an en dolu bölüm başka olabilir).
-func (s *Service) resolve(ctx context.Context, p store.Probe, host *metrics.Host, a *store.ServerAlert, v float64, now time.Time, msg string) {
+func (s *Service) resolve(ctx context.Context, p store.Probe, host *metrics.Host, a *store.ServerAlert, v float64, now time.Time, detail func(*notify.Event)) {
 	mount := a.Mount
 	if a.Metric == MetricDisk && mount == "" {
 		var err error
@@ -379,7 +383,9 @@ func (s *Service) resolve(ctx context.Context, p store.Probe, host *metrics.Host
 	s.log.Info("sunucu uyarısı bitti", "sunucu", p.Name, "metrik", a.Metric, "bolum", mount)
 	if s.notifier != nil {
 		ev := s.event(notify.KindServerResolved, p, host, a, v, now, mount)
-		ev.Message = msg
+		if detail != nil {
+			detail(&ev)
+		}
 		s.notifier.Notify(ev)
 	}
 }

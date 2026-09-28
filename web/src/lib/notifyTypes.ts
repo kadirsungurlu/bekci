@@ -2,6 +2,7 @@
 
 import type { NotificationType } from './api';
 import type { IconName } from '../components/Icon.svelte';
+import { APP_NAME } from './brand';
 
 export const NOTIFY_LABELS: Record<NotificationType, string> = {
   whatsapp: 'WhatsApp',
@@ -287,7 +288,7 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
         wide: true,
       },
       { key: 'channel', label: 'Kanal', kind: 'text', placeholder: '#uyarilar', optional: true, help: 'Boşsa web kancasının kanalı.' },
-      { key: 'username', label: 'Görünen ad', kind: 'text', def: 'Uptime', optional: true },
+      { key: 'username', label: 'Görünen ad', kind: 'text', def: APP_NAME, optional: true },
       { key: 'icon_url', label: 'Simge adresi', kind: 'url', optional: true, wide: true, placeholder: 'https://ornek.com/simge.png' },
     ],
   },
@@ -304,7 +305,7 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
         wide: true,
       },
       { key: 'channel', label: 'Kanal', kind: 'text', placeholder: '#uyarilar', optional: true },
-      { key: 'alias', label: 'Görünen ad', kind: 'text', def: 'Uptime', optional: true },
+      { key: 'alias', label: 'Görünen ad', kind: 'text', def: APP_NAME, optional: true },
       { key: 'avatar', label: 'Avatar adresi', kind: 'url', optional: true, wide: true, placeholder: 'https://ornek.com/avatar.png' },
     ],
   },
@@ -490,7 +491,7 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
       { key: 'server', label: 'Sunucu adresi', kind: 'url', def: 'https://api.day.app', placeholder: 'https://api.day.app', wide: true },
       { key: 'device_key', label: 'Cihaz anahtarı', kind: 'secret', required: true, wide: true },
       { key: 'sound', label: 'Ses', kind: 'text', optional: true, placeholder: 'alarm' },
-      { key: 'group', label: 'Grup', kind: 'text', def: 'Uptime', optional: true },
+      { key: 'group', label: 'Grup', kind: 'text', def: APP_NAME, optional: true },
     ],
   },
   line: {

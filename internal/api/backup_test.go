@@ -16,11 +16,11 @@ import (
 	"strings"
 	"testing"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/backup"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Grup tipi bu dalda henüz yoksa içe aktarmadaki kimlik çevirisini sınamak için sahtesi.
@@ -304,7 +304,7 @@ func TestImportValidation(t *testing.T) {
 		msg        string
 	}{
 		{"/api/import", `çöp`, 400, "JSON"},
-		{"/api/import", `{"format":"baska","version":1}`, 400, "Uptime yedeği değil"},
+		{"/api/import", `{"format":"baska","version":1}`, 400, brand.Name + " yedeği değil"},
 		{"/api/import", `{"version":"1.23","monitorList":[]}`, 400, "Uptime Kuma"},
 		{"/api/import", `{"format":"uptime-kadir","version":2}`, 400, "sürümü"},
 		{"/api/import?mode=hepsi", `{}`, 400, "Mod"},

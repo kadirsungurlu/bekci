@@ -1,5 +1,7 @@
 // Go sunucusunun REST API'si için tipler ve küçük bir fetch sarmalayıcısı.
 
+import { i18n, t, type Locale } from './i18n';
+
 export const MASK = '••••••';
 
 export const STATUS_DOWN = 0;
@@ -40,6 +42,8 @@ export interface User {
   two_factor_enabled: boolean;
   /** Sunucular ekranı açık mı (kısıtlı izleyicide kendisine sunucu atanmışsa). Eski sunucuda gelmez. */
   servers?: boolean;
+  /** Arayüz dili tercihi; "" = tarayıcı dili. Eski sunucuda gelmez. */
+  lang?: '' | Locale;
 }
 
 /** Kullanıcılar sayfasındaki kayıt (yalnızca yönetici). */
@@ -462,6 +466,8 @@ export interface AppSettings {
   retention_hourly_days: number;
   cert_days: number[];
   backup_keep: number;
+  /** Bildirim metinlerinin dili (eski sunucuda gelmez → tr). */
+  notify_lang?: Locale;
 }
 
 export interface BeatEvent {
@@ -501,6 +507,8 @@ export interface StatusPage {
   show_incidents?: boolean;
   /** Gruplar ziyaretçi tarafından açılıp kapanabilir mi (eski sunucuda gelmez: hayır). */
   collapsible?: boolean;
+  /** Herkese açık sayfanın dili (eski sunucuda gelmez: tr). */
+  lang?: Locale;
   published: boolean;
   has_logo: boolean;
   created_at: number;
@@ -518,6 +526,8 @@ export interface PageInput {
   bar_range: BarRange;
   show_incidents: boolean;
   collapsible: boolean;
+  /** Gönderilmezse değişmez (yeni sayfada tr). */
+  lang?: Locale;
   published: boolean;
   /** Gönderilmezse değişmez, "" kaldırır, dolu değer yeni şifredir. */
   password?: string;
@@ -595,6 +605,8 @@ export interface PublicPage {
   show_incidents?: boolean;
   /** true ise gruplar açılıp kapanabilir. */
   collapsible?: boolean;
+  /** Sayfanın dili; sayfa bu dilde gösterilir (eski sunucuda gelmez: tr). */
+  lang?: Locale;
 }
 
 /** Şifreli sayfanın 401 yanıtı. */
@@ -603,6 +615,7 @@ export interface PublicLocked {
   title: string;
   has_logo: boolean;
   logo_url: string | null;
+  lang?: Locale;
 }
 
 // Bakım pencereleri -------------------------------------------------------------------
@@ -823,7 +836,8 @@ const NO_SESSION_401 = ['/api/auth/login', '/api/auth/login/2fa', '/api/auth/set
 const noSession401 = (path: string) => NO_SESSION_401.includes(path) || path.startsWith('/api/public/');
 
 async function request<T>(method: string, path: string, body?: unknown, raw?: { type: string; data: Blob }): Promise<T> {
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  // X-Uptime-Lang: sunucu hata mesajlarını arayüzün dilinde döndürsün.
+  const headers: Record<string, string> = { Accept: 'application/json', 'X-Uptime-Lang': i18n.locale };
   if (method !== 'GET') {
     headers['X-Uptime'] = '1';
     headers['Content-Type'] = raw ? raw.type : 'application/json';
@@ -837,7 +851,7 @@ async function request<T>(method: string, path: string, body?: unknown, raw?: { 
       body: raw ? raw.data : body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
-    throw new ApiError(0, 'Sunucuya ulaşılamadı. Bağlantınızı kontrol edin.');
+    throw new ApiError(0, t('common.errors.unreachable'));
   }
   let data: unknown = null;
   const text = await res.text();
@@ -855,13 +869,13 @@ async function request<T>(method: string, path: string, body?: unknown, raw?: { 
 /** Başarısız yanıttan ApiError üretir; oturum/şifre işleyicilerini tetikler. */
 function failure(path: string, status: number, data: unknown, retryAfter: string | null): ApiError {
   const obj = data && typeof data === 'object' ? (data as { error?: unknown; code?: unknown }) : null;
-  let msg = typeof obj?.error === 'string' ? obj.error : `İstek başarısız oldu (HTTP ${status})`;
+  let msg = typeof obj?.error === 'string' ? obj.error : t('common.errors.requestFailed', { status });
   const code = typeof obj?.code === 'string' ? obj.code : '';
   if (status === 429 && typeof obj?.error !== 'string') {
     const wait = Number(retryAfter);
-    msg = wait > 0 ? `Çok fazla deneme. ${Math.ceil(wait / 60)} dakika sonra tekrar deneyin.` : 'Çok fazla deneme. Biraz sonra tekrar deneyin.';
+    msg = wait > 0 ? t('common.errors.tooManyWait', { min: Math.ceil(wait / 60) }) : t('common.errors.tooMany');
   }
-  if (status === 413 && typeof obj?.error !== 'string') msg = 'Dosya çok büyük.';
+  if (status === 413 && typeof obj?.error !== 'string') msg = t('common.errors.tooLarge');
   // Giriş denemesindeki 401 "hatalı şifre" demektir; diğerlerinde oturum düşmüştür.
   if (status === 401 && !noSession401(path)) unauthorizedHandler?.();
   if (status === 403 && code === 'password_change_required') passwordChangeHandler?.();
@@ -882,9 +896,10 @@ export function upload<T>(path: string, file: File, onProgress?: (loaded: number
     xhr.withCredentials = true;
     xhr.setRequestHeader('Accept', 'application/json');
     xhr.setRequestHeader('X-Uptime', '1');
+    xhr.setRequestHeader('X-Uptime-Lang', i18n.locale);
     if (onProgress) xhr.upload.onprogress = (e) => onProgress(e.loaded, e.lengthComputable ? e.total : file.size);
-    xhr.onerror = () => reject(new ApiError(0, 'Sunucuya ulaşılamadı. Bağlantınızı kontrol edin.'));
-    xhr.onabort = () => reject(new ApiError(0, 'Yükleme iptal edildi.'));
+    xhr.onerror = () => reject(new ApiError(0, t('common.errors.unreachable')));
+    xhr.onabort = () => reject(new ApiError(0, t('common.errors.uploadAborted')));
     xhr.onload = () => {
       let data: unknown = null;
       if (xhr.responseText) {
@@ -921,6 +936,8 @@ export const api = {
   logout: () => post<{ ok: boolean }>('/api/auth/logout'),
   changePassword: (current: string, next: string) =>
     post<{ ok: boolean }>('/api/auth/password', { current, new: next }),
+  /** Kendi arayüz dili tercihi; "" = tarayıcı dili. */
+  setPreferences: (p: { lang: '' | Locale }) => put<{ user: User }>('/api/auth/preferences', p),
 
   summary: () => get<Summary>('/api/summary'),
   monitors: () => get<MonitorView[]>('/api/monitors'),
@@ -1068,5 +1085,5 @@ export const api = {
 export function errorMessage(e: unknown): string {
   if (e instanceof ApiError) return e.message;
   if (e instanceof Error) return e.message;
-  return 'Beklenmeyen bir hata oluştu';
+  return t('common.errors.unexpected');
 }

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/metrics"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/servers"
@@ -256,7 +257,7 @@ func alertSummary(rules []store.ServerAlert) string {
 			p += a.Mount + " "
 		}
 		if a.Metric != servers.MetricOffline {
-			p += notify.FormatMetric(a.Metric, a.Threshold) + "/"
+			p += notify.FormatMetric("tr", a.Metric, a.Threshold) + "/"
 		}
 		p += strconv.Itoa(a.Minutes) + " dk"
 		if !a.Active {
@@ -411,7 +412,7 @@ func (s *Server) serverSetupCommands(server, token string) (dockerAgent, systemd
 	body = append(body, envFileSteps(agentEnvPath, installEnvLines(server, token, "ADDR=-"))...)
 	body = append(body,
 		"cat > /etc/systemd/system/uptime-agent.service <<'UPTIME_UNIT'",
-		"[Unit]", "Description=Uptime agent", "After=network-online.target", "Wants=network-online.target", "",
+		"[Unit]", "Description="+brand.Name+" agent", "After=network-online.target", "Wants=network-online.target", "",
 		"[Service]", "EnvironmentFile="+agentEnvPath,
 		"ExecStart=/usr/local/bin/uptime probe", "Restart=always", "RestartSec=10",
 		"NoNewPrivileges=yes", "PrivateTmp=yes", "MemoryMax=256M", "CapabilityBoundingSet=CAP_NET_RAW", "",
@@ -420,7 +421,7 @@ func (s *Server) serverSetupCommands(server, token string) (dockerAgent, systemd
 		"systemctl daemon-reload",
 		"systemctl enable uptime-agent",
 		"systemctl restart uptime-agent",
-		`echo "Uptime ajanı kuruldu ve başlatıldı (durum: systemctl status uptime-agent)"`,
+		`echo "`+brand.Name+` ajanı kuruldu ve başlatıldı (durum: systemctl status uptime-agent)"`,
 	)
 	systemd = rootScript(body...)
 	// Windows komutu Windows programının kendi özetiyle doğrular (sunucunun

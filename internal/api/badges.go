@@ -13,6 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
@@ -148,14 +149,13 @@ type badgeOpts struct {
 	warnColor, greyColor             string
 	windowSec                        int64
 	windowLabel                      string
+	// lang rozet metinlerinin dili (?lang=tr|en; varsayılan tr — rozet
+	// README'lere gömülür, tarayıcı diline göre değişmemeli).
+	lang string
 }
 
-var badgeWindows = map[string]struct {
-	sec   int64
-	label string
-}{
-	"24h": {86400, "24 saat"}, "7d": {7 * 86400, "7 gün"}, "30d": {30 * 86400, "30 gün"}, "90d": {90 * 86400, "90 gün"},
-}
+// badgeWindows süre → saniye; etiket i18n "badge.window.<süre>".
+var badgeWindows = map[string]int64{"24h": 86400, "7d": 7 * 86400, "30d": 30 * 86400, "90d": 90 * 86400}
 
 // cleanLabel etiketi sınırlar: en fazla 64 karakter, XML'de geçersiz kontrol
 // karakterleri atılır (kaçırma ayrıca yazarken yapılır).
@@ -178,7 +178,7 @@ func parseBadgeOpts(r *http.Request) (badgeOpts, error) {
 	o := badgeOpts{
 		style: "flat", labelColor: "#555", color: "#007ec6",
 		upColor: "#4c1", downColor: "#e05d44", pendingColor: "#dfb317",
-		warnColor: "#dfb317", greyColor: "#9f9f9f",
+		warnColor: "#dfb317", greyColor: "#9f9f9f", lang: i18n.Or(q.Get("lang")),
 	}
 	if st := q.Get("style"); st != "" {
 		switch st {
@@ -204,11 +204,11 @@ func parseBadgeOpts(r *http.Request) (badgeOpts, error) {
 	if d == "" {
 		d = "24h"
 	}
-	w, ok := badgeWindows[d]
+	sec, ok := badgeWindows[d]
 	if !ok {
 		return o, fmt.Errorf("Geçersiz süre; 24h, 7d, 30d veya 90d olmalı")
 	}
-	o.windowSec, o.windowLabel = w.sec, w.label
+	o.windowSec, o.windowLabel = sec, i18n.T(o.lang, "badge.window."+d)
 	o.label = cleanLabel(q.Get("label"))
 	return o, nil
 }
@@ -270,25 +270,26 @@ func (s *Server) badge(w http.ResponseWriter, r *http.Request) {
 	}
 	now := s.now().Unix()
 	var label, value, color string
+	l := o.lang
 	switch kind {
 	case "status.svg":
-		label = "durum"
+		label = i18n.T(l, "badge.status")
 		switch {
 		case !m.Active:
-			value, color = "durduruldu", o.greyColor
+			value, color = i18n.T(l, "badge.paused"), o.greyColor
 		case m.Status == store.StatusUp:
-			value, color = "çalışıyor", o.upColor
+			value, color = i18n.T(l, "badge.up"), o.upColor
 		case m.Status == store.StatusDown:
-			value, color = "çalışmıyor", o.downColor
+			value, color = i18n.T(l, "badge.down"), o.downColor
 		case m.Status == store.StatusPending:
-			value, color = "bekliyor", o.pendingColor
+			value, color = i18n.T(l, "badge.pending"), o.pendingColor
 		case m.Status == store.StatusMaintenance:
-			value, color = "bakımda", o.greyColor
+			value, color = i18n.T(l, "badge.maintenance"), o.greyColor
 		default:
-			value, color = "bilinmiyor", o.greyColor
+			value, color = i18n.T(l, "badge.unknown"), o.greyColor
 		}
 	case "uptime.svg":
-		label = "uptime (" + o.windowLabel + ")"
+		label = i18n.T(l, "badge.uptime", o.windowLabel)
 		pct, ok, err := s.store.Uptime(r.Context(), id, now-o.windowSec)
 		if err != nil {
 			s.dbError(w, err)
@@ -296,36 +297,36 @@ func (s *Server) badge(w http.ResponseWriter, r *http.Request) {
 		}
 		switch {
 		case !ok:
-			value, color = "veri yok", o.greyColor
+			value, color = i18n.T(l, "badge.no_data"), o.greyColor
 		case pct >= 99:
-			value, color = fmtPercent(pct), o.upColor
+			value, color = fmtPercent(l, pct), o.upColor
 		case pct >= 95:
-			value, color = fmtPercent(pct), o.warnColor
+			value, color = fmtPercent(l, pct), o.warnColor
 		default:
-			value, color = fmtPercent(pct), o.downColor
+			value, color = fmtPercent(l, pct), o.downColor
 		}
 	case "ping.svg":
-		label = "yanıt süresi (" + o.windowLabel + ")"
+		label = i18n.T(l, "badge.ping", o.windowLabel)
 		avg, err := s.store.AvgPing(r.Context(), id, now-o.windowSec)
 		if err != nil {
 			s.dbError(w, err)
 			return
 		}
 		if avg < 0 {
-			value, color = "veri yok", o.greyColor
+			value, color = i18n.T(l, "badge.no_data"), o.greyColor
 		} else {
-			value, color = fmtThousands(avg)+" ms", o.color
+			value, color = fmtThousands(l, avg)+" ms", o.color
 		}
 	case "cert-exp.svg":
-		label = "sertifika"
+		label = i18n.T(l, "badge.cert")
 		switch {
 		case m.CertExpiresAt == 0:
-			value, color = "yok", o.greyColor
+			value, color = i18n.T(l, "badge.cert_none"), o.greyColor
 		case m.CertExpiresAt <= now:
-			value, color = "süresi doldu", o.downColor
+			value, color = i18n.T(l, "badge.cert_expired"), o.downColor
 		default:
 			days := (m.CertExpiresAt - now) / 86400
-			value, color = strconv.FormatInt(days, 10)+" gün", o.upColor
+			value, color = i18n.TN(l, "badge.days", int(days), days), o.upColor
 			if days < 14 {
 				color = o.warnColor
 			}
@@ -346,19 +347,30 @@ func (s *Server) badge(w http.ResponseWriter, r *http.Request) {
 }
 
 // fmtPercent arayüzle aynı biçim: %99,95; yuvarlama aşağı, tam 100 ise %100.
-func fmtPercent(v float64) string {
+func fmtPercent(lang string, v float64) string {
+	en := i18n.Or(lang) == i18n.EN
 	if v >= 100 {
+		if en {
+			return "100%"
+		}
 		return "%100"
 	}
 	f := math.Floor(v*100) / 100
+	if en {
+		return strconv.FormatFloat(f, 'f', 2, 64) + "%"
+	}
 	return "%" + strings.Replace(strconv.FormatFloat(f, 'f', 2, 64), ".", ",", 1)
 }
 
-// fmtThousands 1234 → "1.234" (Türkçe binlik ayracı).
-func fmtThousands(n int64) string {
+// fmtThousands 1234 → tr "1.234", en "1,234".
+func fmtThousands(lang string, n int64) string {
+	sep := "."
+	if i18n.Or(lang) == i18n.EN {
+		sep = ","
+	}
 	s := strconv.FormatInt(n, 10)
 	for i := len(s) - 3; i > 0; i -= 3 {
-		s = s[:i] + "." + s[i:]
+		s = s[:i] + sep + s[i:]
 	}
 	return s
 }

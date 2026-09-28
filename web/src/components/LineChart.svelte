@@ -25,6 +25,7 @@
   // Çok seri, isteğe bağlı bant, yığılı alan, boşlukta kesilen çizgi ve
   // fare/dokunmatik ile tüm serileri gösteren ipucu. Kütüphane kullanılmaz.
   import { fmtShortDate, fmtTime, tzDayStart, tzOffset } from '../lib/format';
+  import { t } from '../lib/i18n';
 
   let {
     times,
@@ -216,8 +217,8 @@
       sum += v;
       n++;
     }
-    if (!n) return `${label}: bu aralıkta veri yok`;
-    return `${label}. ${s.label}: en düşük ${format(min)}, ortalama ${format(sum / n)}, en yüksek ${format(maxV)}.`;
+    if (!n) return t('status.chart.summaryNoData', { label });
+    return t('status.chart.summary', { label, series: s.label, min: format(min), avg: format(sum / n), max: format(maxV) });
   });
 
   const hasData = $derived(series.some((s) => s.values.some((v) => v !== null)));
@@ -280,7 +281,7 @@
   <div class="chart" bind:clientWidth={w} bind:this={chartEl}>
     {#if w > 0}
       {#if !hasData}
-        <div class="nodata" style="height:{H}px">Bu aralıkta veri yok</div>
+        <div class="nodata" style="height:{H}px">{t('common.noDataRange')}</div>
       {:else}
         <svg
           bind:this={svgEl}

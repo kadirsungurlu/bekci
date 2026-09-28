@@ -291,7 +291,7 @@ func TestFormatDuration(t *testing.T) {
 		48*time.Hour + 30*time.Minute: "2 gün",
 	}
 	for d, want := range cases {
-		if got := FormatDuration(d); got != want {
+		if got := FormatDuration("tr", d); got != want {
 			t.Errorf("%v → %q, %q bekleniyordu", d, got, want)
 		}
 	}

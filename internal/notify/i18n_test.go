@@ -1,0 +1,84 @@
+package notify
+
+import (
+	"regexp"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
+)
+
+var trLetters = regexp.MustCompile(`[çğıöşüÇĞİÖŞÜ]`)
+
+// TestEnglishEvents her olay türünün İngilizce metninde Türkçe kalıntı
+// olmadığını ve beklenen ifadeleri içerdiğini denetler.
+func TestEnglishEvents(t *testing.T) {
+	now := time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)
+	evs := SampleEvents(SampleNames{}, now, "en")
+	if len(evs) == 0 {
+		t.Fatal("örnek yok")
+	}
+	for _, ev := range evs {
+		txt := ev.Text()
+		if trLetters.MatchString(txt) {
+			t.Errorf("%s/%s: Türkçe kalıntı:\n%s", ev.Kind, ev.Metric, txt)
+		}
+		if !strings.Contains(txt, "(Sample notification — not a real event)") || !strings.Contains(txt, "Time: 2026-09-28") {
+			t.Errorf("%s: örnek notu/zaman yok:\n%s", ev.Kind, txt)
+		}
+	}
+	want := map[int]string{
+		0: "🔴 Example Site is down",
+		1: "🔴 Example Site is still down",
+		2: "🟢 Example Site is up again",
+		3: "⚠️ Example Site: SSL certificate expires in 7 days",
+		4: "🔴 Example Server: CPU 94% (10 min average, threshold 90%)",
+		6: "🔴 Example Server: Disk (/home) 91% (1 min average, threshold 85%)",
+		7: "🔴 Example Server: no data from the server",
+		8: "🟢 Example Server: CPU back to normal",
+		9: "🟢 Example Server: sending data again",
+	}
+	for i, w := range want {
+		if got := evs[i].Title(); got != w {
+			t.Errorf("başlık %d: %q, %q bekleniyordu", i, got, w)
+		}
+	}
+	if txt := evs[2].Text(); !strings.Contains(txt, "Downtime: 1h 12m") {
+		t.Errorf("kesinti süresi:\n%s", txt)
+	}
+	if txt := evs[7].Text(); !strings.Contains(txt, "Info: Last data: 2026-09-28") || !strings.Contains(txt, "Server: server01") {
+		t.Errorf("çevrimdışı ayrıntısı:\n%s", txt)
+	}
+
+	test := Event{Kind: KindTest, MonitorName: "Test", Time: now, Lang: "en"}
+	if got := test.Text(); !strings.HasPrefix(got, "✅ Test notification\nYour "+brand.Name+" notification channel is working.") {
+		t.Errorf("test bildirimi: %q", got)
+	}
+	cert := Event{Kind: KindCert, MonitorName: "Site", CertDays: 1, Lang: "en", Time: now}
+	if got := cert.Title(); got != "⚠️ Site: SSL certificate expires in 1 day" {
+		t.Errorf("tekil gün: %q", got)
+	}
+	load := Event{Kind: KindServerAlert, MonitorName: "S", Metric: "load", Value: 1.254, Threshold: 1, Minutes: 5, Lang: "en"}
+	if got := load.Title(); got != "🔴 S: Load 1.25 (5 min average, per core, threshold 1.00)" {
+		t.Errorf("yük: %q", got)
+	}
+	gone := Event{Kind: KindServerResolved, MonitorName: "S", Metric: "temp", GoneMinutes: 3, Lang: "en", Time: now}
+	if txt := gone.Text(); !strings.Contains(txt, "Info: No value for 3 minutes") {
+		t.Errorf("değer gelmiyor:\n%s", txt)
+	}
+}
+
+// TestTurkishUnchanged Lang boşken metin eskisiyle birebir aynı kalır.
+func TestTurkishUnchanged(t *testing.T) {
+	now := time.Date(2026, 9, 28, 12, 0, 0, 0, time.Local)
+	up := Event{Kind: KindUp, MonitorName: "API", Target: "https://x", Time: now, Downtime: 72 * time.Minute}
+	want := "🟢 API tekrar çalışıyor\nHedef: https://x\nKesinti süresi: 1 sa 12 dk\nZaman: 28.09.2026 12:00:00"
+	if got := up.Text(); got != want {
+		t.Errorf("tr metin değişti:\n%q\n%q", got, want)
+	}
+	off := Event{Kind: KindServerAlert, ProbeID: 1, MonitorName: "S", Metric: "offline", Target: "h", Time: now, LastSeen: now.Add(-3 * time.Minute)}
+	if txt := off.Text(); !strings.Contains(txt, "Ayrıntı: Son veri: 28.09.2026 11:57:00") {
+		t.Errorf("tr çevrimdışı:\n%s", txt)
+	}
+}

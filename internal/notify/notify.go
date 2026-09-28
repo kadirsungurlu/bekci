@@ -15,6 +15,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
 )
 
 // Olay türleri.
@@ -62,75 +65,88 @@ type Event struct {
 	Minutes   int
 	Mount     string // disk uyarısında bölüm (ör. "/home")
 
+	// LastSeen çevrimdışı uyarısında son verinin zamanı; GoneMinutes değeri
+	// artık gelmeyen metrikte kaç dakikadır gelmediği. "Ayrıntı" satırı
+	// bunlardan bildirim dilinde üretilir (ikisi de boşsa Message).
+	LastSeen    time.Time
+	GoneMinutes int
+
 	// Sample örnek bildirim (gerçek bir olay değil); metne not düşülür.
 	Sample bool
+
+	// Lang bildirim metninin dili (tr/en). Boşsa Dispatcher ayarlardaki
+	// bildirim dilini (AppSettings.NotifyLang) doldurur; yine boşsa tr.
+	Lang string
 }
 
-// metricNames sunucu metriklerinin bildirimlerdeki adları.
-var metricNames = map[string]string{
-	"cpu": "CPU", "mem": "RAM", "swap": "Swap", "disk": "Disk", "load": "Yük", "temp": "Sıcaklık", "net": "Ağ",
+// MetricName sunucu metriğinin bildirimlerdeki adı ("Yük" / "Load").
+func MetricName(lang, metric string) string {
+	if k := "metric." + metric; i18n.Has(k) {
+		return i18n.T(lang, k)
+	}
+	return metric
 }
 
-// FormatMetric sunucu metriğinin değerini birimiyle yazar: "%94", "1,25", "72 °C".
-func FormatMetric(metric string, v float64) string {
+// FormatMetric sunucu metriğinin değerini birimiyle yazar: tr "%94", "1,25",
+// "72 °C"; en "94%", "1.25", "72 °C".
+func FormatMetric(lang, metric string, v float64) string {
 	switch metric {
 	case "load":
-		return strings.Replace(fmt.Sprintf("%.2f", v), ".", ",", 1)
+		return i18n.Decimal(lang, v, 2)
 	case "temp":
 		return fmt.Sprintf("%.0f °C", v)
 	case "net":
 		if v >= 1000 {
-			return strings.Replace(fmt.Sprintf("%.2f Gbit/s", v/1000), ".", ",", 1)
+			return i18n.Decimal(lang, v/1000, 2) + " Gbit/s"
 		}
 		return fmt.Sprintf("%.0f Mbit/s", v)
 	}
-	return fmt.Sprintf("%%%.0f", v)
+	return i18n.Percent(lang, v)
 }
 
 // serverTitle sunucu uyarısının başlığı.
 func (e Event) serverTitle() string {
-	name := metricNames[e.Metric]
-	if name == "" {
-		name = e.Metric
-	}
+	l := e.Lang
+	name := MetricName(l, e.Metric)
 	switch {
 	case e.Metric == "offline" && e.Kind == KindServerAlert:
-		return "🔴 " + e.MonitorName + ": sunucudan veri gelmiyor"
+		return i18n.T(l, "notify.server.offline", e.MonitorName)
 	case e.Metric == "offline":
-		return "🟢 " + e.MonitorName + ": tekrar veri gönderiyor"
+		return i18n.T(l, "notify.server.online", e.MonitorName)
 	case e.Kind == KindServerAlert:
-		detail := "ortalama"
+		detail := i18n.T(l, "notify.server.avg")
 		if e.Metric == "load" {
-			detail = "ortalama, çekirdek başına"
+			detail = i18n.T(l, "notify.server.avg_per_core")
 		}
 		if e.Mount != "" {
 			name += " (" + e.Mount + ")"
 		}
-		return fmt.Sprintf("🔴 %s: %s %s (%d dk %s, eşik %s)", e.MonitorName, name,
-			FormatMetric(e.Metric, e.Value), e.Minutes, detail, FormatMetric(e.Metric, e.Threshold))
+		return i18n.T(l, "notify.server.alert", e.MonitorName, name,
+			FormatMetric(l, e.Metric, e.Value), e.Minutes, detail, FormatMetric(l, e.Metric, e.Threshold))
 	}
 	if e.Mount != "" {
 		name += " (" + e.Mount + ")"
 	}
-	return "🟢 " + e.MonitorName + ": " + name + " normale döndü"
+	return i18n.T(l, "notify.server.resolved", e.MonitorName, name)
 }
 
 // Title kısa başlık (e-posta konusu, push başlığı).
 func (e Event) Title() string {
+	l := e.Lang
 	switch e.Kind {
 	case KindDown:
-		return "🔴 " + e.MonitorName + " çalışmıyor"
+		return i18n.T(l, "notify.down.title", e.MonitorName)
 	case KindUp:
-		return "🟢 " + e.MonitorName + " tekrar çalışıyor"
+		return i18n.T(l, "notify.up.title", e.MonitorName)
 	case KindReminder:
-		return "🔴 " + e.MonitorName + " hâlâ çalışmıyor"
+		return i18n.T(l, "notify.reminder.title", e.MonitorName)
 	case KindCert:
 		if e.CertDays <= 0 {
-			return "⚠️ " + e.MonitorName + ": SSL sertifikasının süresi doldu"
+			return i18n.T(l, "notify.cert.expired", e.MonitorName)
 		}
-		return fmt.Sprintf("⚠️ %s: SSL sertifikası %d gün içinde bitiyor", e.MonitorName, e.CertDays)
+		return i18n.TN(l, "notify.cert.expiring", e.CertDays, e.MonitorName, e.CertDays)
 	case KindTest:
-		return "✅ Test bildirimi"
+		return i18n.T(l, "notify.test.title")
 	case KindServerAlert, KindServerResolved:
 		return e.serverTitle()
 	}
@@ -139,44 +155,57 @@ func (e Event) Title() string {
 
 // Text başlık dahil tam düz metin.
 func (e Event) Text() string {
+	l := e.Lang
 	var b strings.Builder
 	b.WriteString(e.Title())
-	line := func(k, v string) {
+	line := func(key, v string) {
 		if v != "" {
-			fmt.Fprintf(&b, "\n%s: %s", k, v)
+			fmt.Fprintf(&b, "\n%s: %s", i18n.T(l, "notify.field."+key), v)
 		}
 	}
 	if e.Kind == KindTest {
-		b.WriteString("\nUptime bildirim kanalınız çalışıyor.")
+		b.WriteString("\n" + i18n.T(l, "notify.test.body", brand.Name))
 	}
 	if e.Sample {
-		b.WriteString("\n(Örnek bildirim — gerçek bir olay değil)")
+		b.WriteString("\n" + i18n.T(l, "notify.sample.note"))
 	}
 	if e.ProbeID != 0 {
-		line("Sunucu", e.Target)
+		line("server", e.Target)
 	} else {
-		line("Hedef", e.Target)
+		line("target", e.Target)
 	}
 	switch e.Kind {
 	case KindDown:
-		line("Neden", e.Message)
+		line("reason", e.Message)
 	case KindUp:
-		line("Kesinti süresi", FormatDuration(e.Downtime))
+		line("downtime", i18n.Duration(l, e.Downtime))
 	case KindReminder:
-		line("Kesinti süresi", FormatDuration(e.Downtime))
-		line("Neden", e.Message)
+		line("downtime", i18n.Duration(l, e.Downtime))
+		line("reason", e.Message)
 	case KindCert:
-		line("Bitiş", e.CertExpires.Local().Format("02.01.2006 15:04"))
-		line("Veren", e.CertIssuer)
+		line("expires", i18n.DateTimeMin(l, e.CertExpires.Local()))
+		line("issuer", e.CertIssuer)
 	case KindServerAlert, KindServerResolved:
 		if e.Metric != "offline" && e.Kind == KindServerResolved {
-			line("Son ortalama", FormatMetric(e.Metric, e.Value))
+			line("last_avg", FormatMetric(l, e.Metric, e.Value))
 		}
-		line("Ayrıntı", e.Message)
+		line("info", e.info())
 	}
-	line("Zaman", e.Time.Local().Format("02.01.2006 15:04:05"))
-	line("Detay", e.DetailURL())
+	line("time", i18n.DateTime(l, e.Time.Local()))
+	line("link", e.DetailURL())
 	return b.String()
+}
+
+// info sunucu uyarısının "Ayrıntı" satırı: yapılandırılmış alanlardan (dile
+// göre) üretilir, yoksa Message.
+func (e Event) info() string {
+	switch {
+	case !e.LastSeen.IsZero():
+		return i18n.T(e.Lang, "notify.server.last_data", i18n.DateTime(e.Lang, e.LastSeen.Local()))
+	case e.GoneMinutes > 0:
+		return i18n.T(e.Lang, "notify.server.value_gone", e.GoneMinutes)
+	}
+	return e.Message
 }
 
 // DetailURL bildirimdeki "Detay" bağlantısı: olay sayfası, yoksa monitör sayfası.
@@ -217,30 +246,8 @@ func (e Event) AlertKey() string {
 	return fmt.Sprintf("%smonitor-%d", prefix, e.MonitorID)
 }
 
-// FormatDuration süreyi Türkçe kısa biçimde yazar: "45 sn", "12 dk", "2 sa 5 dk", "3 gün 4 sa".
-func FormatDuration(d time.Duration) string {
-	if d < 0 {
-		d = 0
-	}
-	switch {
-	case d < time.Minute:
-		return fmt.Sprintf("%d sn", int(d.Seconds()))
-	case d < time.Hour:
-		return fmt.Sprintf("%d dk", int(d.Minutes()))
-	case d < 24*time.Hour:
-		h := int(d.Hours())
-		if m := int(d.Minutes()) % 60; m > 0 {
-			return fmt.Sprintf("%d sa %d dk", h, m)
-		}
-		return fmt.Sprintf("%d sa", h)
-	default:
-		days := int(d.Hours()) / 24
-		if h := int(d.Hours()) % 24; h > 0 {
-			return fmt.Sprintf("%d gün %d sa", days, h)
-		}
-		return fmt.Sprintf("%d gün", days)
-	}
-}
+// FormatDuration süreyi kısa biçimde yazar (tr: "45 sn", "2 sa 5 dk"; en: "45s", "2h 5m").
+func FormatDuration(lang string, d time.Duration) string { return i18n.Duration(lang, d) }
 
 type Provider interface {
 	// Normalize ayarı doğrular ve varsayılanları doldurur.

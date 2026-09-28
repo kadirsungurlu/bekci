@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/backup"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
@@ -114,7 +115,7 @@ func (s *Server) importBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if probe.Format != backup.Format {
-		msg := "Bu dosya bir Uptime yedeği değil"
+		msg := "Bu dosya bir " + brand.Name + " yedeği değil"
 		if probe.MonitorList != nil {
 			msg += "; Uptime Kuma yedeği için “Uptime Kuma'dan içe aktar”ı kullanın"
 		}
@@ -239,7 +240,7 @@ func (s *Server) runImport(w http.ResponseWriter, r *http.Request, source string
 		}
 	}
 	if sum.DryRun {
-		writeJSON(w, http.StatusOK, sum)
+		writeJSON(w, http.StatusOK, sum.localized(responseLang(w)))
 		return
 	}
 
@@ -280,5 +281,5 @@ func (s *Server) runImport(w http.ResponseWriter, r *http.Request, source string
 		sum.Skipped.Monitors+sum.Skipped.Notifications+sum.Skipped.Tags+sum.Skipped.StatusPages)
 	s.audit(r, store.User{}, "backup.import", "backup", 0, source, detail)
 	s.log.Info("içe aktarma tamamlandı", "kaynak", source, "mod", sum.Mode, "monitör", sum.Created.Monitors)
-	writeJSON(w, http.StatusOK, sum)
+	writeJSON(w, http.StatusOK, sum.localized(responseLang(w)))
 }

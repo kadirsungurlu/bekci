@@ -17,6 +17,7 @@
     tzDayStart,
     tzOffset,
   } from '../lib/format';
+  import { t } from '../lib/i18n';
 
   let { series, from, to, interval }: { series: Series; from: number; to: number; interval: number } = $props();
 
@@ -305,14 +306,14 @@
 <div class="chart" bind:clientWidth={w} bind:this={chartEl}>
   {#if w > 0}
     {#if pts.length === 0}
-      <div class="nodata" style="height:{H}px">Bu aralıkta veri yok</div>
+      <div class="nodata" style="height:{H}px">{t('common.noDataRange')}</div>
     {:else}
       <svg
         bind:this={svgEl}
         width={w}
         height={H}
         role="img"
-        aria-label="Yanıt süresi grafiği"
+        aria-label={t('status.chart.responseChart')}
         onpointermove={move}
         onpointerdown={move}
         onpointerleave={leave}
@@ -380,10 +381,10 @@
             </div>
             {#if hp.m}<div class="m">{hp.m}</div>{/if}
           {:else}
-            <div>Ort. <b>{fmtMs(hp.v)}</b>{#if hp.min !== null && hp.max !== null}<span class="muted"> ({fmtNum(hp.min)}–{fmtNum(hp.max)})</span>{/if}</div>
+            <div>{t('status.chart.avgShort')} <b>{fmtMs(hp.v)}</b>{#if hp.min !== null && hp.max !== null}<span class="muted"> ({fmtNum(hp.min)}–{fmtNum(hp.max)})</span>{/if}</div>
             <div>
               Uptime <b class={hp.down > 0 ? 'c-down' : 'c-up'}>{hp.up + hp.down > 0 ? fmtPct((100 * hp.up) / (hp.up + hp.down)) : '—'}</b>
-              {#if hp.down > 0}<span class="muted"> · {hp.down} hata</span>{/if}
+              {#if hp.down > 0}<span class="muted"> · {t('status.chart.errors', { count: hp.down })}</span>{/if}
             </div>
           {/if}
         </div>
@@ -394,15 +395,15 @@
 
 {#if stats}
   <div class="stats">
-    <span>En düşük <b>{fmtMs(stats.min)}</b></span>
-    <span>Ortalama <b>{fmtMs(stats.avg)}</b></span>
-    <span>En yüksek <b>{fmtMs(stats.max)}</b></span>
+    <span>{t('status.chart.min')} <b>{fmtMs(stats.min)}</b></span>
+    <span>{t('status.chart.avg')} <b>{fmtMs(stats.avg)}</b></span>
+    <span>{t('status.chart.max')} <b>{fmtMs(stats.max)}</b></span>
     {#if isRaw && pts.length}
       <span class="legend" aria-hidden="true">
-        <span><i class="lg up"></i>Çalışıyor</span>
-        <span><i class="lg down"></i>Çalışmıyor</span>
-        <span><i class="lg pending"></i>Tekrar deneniyor</span>
-        {#if hasMaint}<span><i class="lg maint"></i>Bakımda</span>{/if}
+        <span><i class="lg up"></i>{t('status.up')}</span>
+        <span><i class="lg down"></i>{t('status.down')}</span>
+        <span><i class="lg pending"></i>{t('status.retrying')}</span>
+        {#if hasMaint}<span><i class="lg maint"></i>{t('status.maintenance')}</span>{/if}
       </span>
     {/if}
   </div>
