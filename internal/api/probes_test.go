@@ -289,8 +289,13 @@ func TestProbeScopingAndResults(t *testing.T) {
 		m, _ := f.st.GetMonitor(ctx, m1.ID)
 		return m.Status == store.StatusDown && m.LastMessage == "A: HTTP 503  Service Unavailable"
 	})
+	// Motor önce durumu kaydeder, konum görüntüsünü hemen ardından yayınlar;
+	// arada okunmasın diye görüntü de beklenir.
 	var lv locationsView
-	admin.mustDo("GET", fmt.Sprintf("/api/monitors/%d/locations", m1.ID), nil, &lv, 200)
+	waitFor(t, "konum görüntüsü", func() bool {
+		admin.mustDo("GET", fmt.Sprintf("/api/monitors/%d/locations", m1.ID), nil, &lv, 200)
+		return len(lv.Locations) == 1 && lv.Locations[0].LastCheckAt != 0
+	})
 	if lv.IncludeLocal || len(lv.ProbeIDs) != 1 || lv.DownWhen != "any" || !lv.Supported || len(lv.Locations) != 1 ||
 		lv.Locations[0].Name != "A" || lv.Locations[0].Status != "down" || lv.Locations[0].ProbeID != a.Probe.ID {
 		t.Fatalf("konumlar: %+v", lv)
@@ -481,6 +486,25 @@ func TestProbeIPLock(t *testing.T) {
 	}
 	if code := job("203.0.113.9"); code != 403 {
 		t.Fatalf("yeniden silahlandıktan sonra farklı IP: %d, 403 bekleniyordu", code)
+	}
+
+	// (f) Kilit adres ailesi başınadır: IPv4 sabitken ilk IPv6 isteği kendi
+	// ailesini (/64) sabitler; aynı /64'teki başka adres (gizlilik adresi)
+	// kabul, başka /64 reddedilir. IPv4 kilidi etkilenmez.
+	if code := job("2001:db8:5:6::1"); code != 200 {
+		t.Fatalf("ilk IPv6 isteği: %d", code)
+	}
+	if ip := lockedIP(); ip != "198.51.100.7,2001:db8:5:6::/64" {
+		t.Fatalf("çift yığın kilidi: %q", ip)
+	}
+	if code := job("2001:db8:5:6:1234:5678:9abc:def0"); code != 200 {
+		t.Fatalf("aynı /64'teki gizlilik adresi: %d", code)
+	}
+	if code := job("2001:db8:5:7::1"); code != 403 {
+		t.Fatalf("başka /64: %d, 403 bekleniyordu", code)
+	}
+	if code := job("198.51.100.7"); code != 200 {
+		t.Fatalf("IPv4 kilidi korunmalı: %d", code)
 	}
 }
 

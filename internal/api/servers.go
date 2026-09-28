@@ -80,9 +80,13 @@ func (s *Server) listServers(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
+	admin := isPageAdmin(userFrom(r))
 	out := make([]servers.View, len(probes))
 	for i, p := range probes {
 		out[i] = s.servers.View(r.Context(), p, rules[p.ID], false)
+		if !admin {
+			out[i].HideIPLock() // sabitlenmiş IP yalnızca yöneticiye
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"servers": out})
 }
@@ -117,7 +121,11 @@ func (s *Server) getServer(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeJSON(w, http.StatusOK, serverDetail{View: s.servers.View(r.Context(), p, rules, true), Alerts: rules, NotificationIDs: ids})
+	v := s.servers.View(r.Context(), p, rules, true)
+	if !isPageAdmin(userFrom(r)) {
+		v.HideIPLock() // sabitlenmiş IP yalnızca yöneticiye
+	}
+	writeJSON(w, http.StatusOK, serverDetail{View: v, Alerts: rules, NotificationIDs: ids})
 }
 
 func (s *Server) serverStats(w http.ResponseWriter, r *http.Request) {

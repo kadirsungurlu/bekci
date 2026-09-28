@@ -46,12 +46,35 @@ func maskMonitorConfig(typ string, cfg json.RawMessage) json.RawMessage {
 	return b
 }
 
+// monitorSecretBound gizli alan maskeli (yani eski değeriyle) gönderildiğinde
+// değişmemesi gereken alanlar. Hedef adres (host/port/url) zaten korunur; bu
+// alanlar ise kayıtlı şifreyle başka bir sorgu çalıştırıp sonucunu okumayı,
+// başka bir kullanıcı/veritabanı/anahtar/OID'e erişmeyi veya TLS'i kapatıp
+// şifreyi açık ağda göndermeyi engeller. Değişiklik gerekiyorsa gizli alan
+// yeniden girilmelidir.
+var monitorSecretBound = map[string][]string{
+	"http":      {"basic_user", "proxy_user", "oauth_client_id", "oauth_scopes", "method", "body"},
+	"postgres":  {"username", "database", "query", "expected", "sslmode"},
+	"mysql":     {"username", "database", "query", "expected", "tls"},
+	"mssql":     {"username", "database", "query", "expected", "encrypt"},
+	"redis":     {"username", "db", "tls", "key", "expected"},
+	"mongodb":   {"database"},
+	"mqtt":      {"username", "topic", "ignore_tls", "keyword", "json_path", "json_op", "json_expected"},
+	"snmp":      {"version", "oid", "condition", "expected", "username", "auth_protocol", "priv_protocol"},
+	"grpc":      {"service", "tls", "ignore_tls"},
+	"websocket": {"send", "keyword", "ignore_tls"},
+}
+
 func mergeMonitorSecrets(typ string, newCfg, oldCfg json.RawMessage) (json.RawMessage, error) {
 	keys := monitorSecrets[typ]
 	if len(keys) == 0 {
 		return newCfg, nil
 	}
-	return notify.MergeSecretsFor(keys, newCfg, oldCfg)
+	var normalize func(json.RawMessage) (json.RawMessage, error)
+	if c, ok := check.Get(typ); ok {
+		normalize = c.Normalize
+	}
+	return notify.MergeSecretsBound(keys, monitorSecretBound[typ], normalize, newCfg, oldCfg)
 }
 
 type monitorView struct {
