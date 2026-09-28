@@ -38,6 +38,11 @@ func TestMergeAgentEnv(t *testing.T) {
 	if err != nil || got["PROBE_TOKEN"] != "upr_2" || got["ADDR"] != ":9090" || got["METRICS"] != "0" || cur["PROBE_TOKEN"] != "upr_1" {
 		t.Errorf("güncelleme %v %v", got, err)
 	}
+	// http sunucu: Windows kurulum komutu PROBE_ALLOW_INSECURE'ı ortamla verir.
+	got, err = mergeAgentEnv(map[string]string{}, env(map[string]string{"PROBE_SERVER": "http://a", "PROBE_TOKEN": "upr_1", "PROBE_ALLOW_INSECURE": "1"}))
+	if err != nil || got["PROBE_ALLOW_INSECURE"] != "1" {
+		t.Errorf("PROBE_ALLOW_INSECURE aktarılmalı: %v %v", got, err)
+	}
 	if _, err := mergeAgentEnv(map[string]string{}, env(map[string]string{"PROBE_SERVER": "https://a"})); err == nil {
 		t.Error("token'sız kurulum hata vermeli")
 	}
