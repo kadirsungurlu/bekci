@@ -10,7 +10,7 @@
 [![Go 1.27](https://img.shields.io/badge/Go-1.27-0d9488?logo=go&logoColor=white)](go.mod)
 [![Platformlar](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-475569)](https://hub.docker.com/r/kadirsungurlu/bekci/tags)
 [![Veritabanı](https://img.shields.io/badge/veritaban%C4%B1-SQLite%20%7C%20PostgreSQL-475569)](#ortam-değişkenleri)
-[![Arayüz](https://img.shields.io/badge/aray%C3%BCz-T%C3%BCrk%C3%A7e-475569)](#neden)
+[![Arayüz](https://img.shields.io/badge/aray%C3%BCz-T%C3%BCrk%C3%A7e%20%7C%20English-475569)](#neden)
 
 **Türkçe** · [English](README.en.md)
 
@@ -33,7 +33,7 @@ PostgreSQL; yüzlerce monitörde de hızlı kalacak şekilde tasarlanmıştır.
 - **Güvenli ajanlar** — token'lar özet (hash) olarak saklanır, IP kilidi, SHA-256
   ile doğrulanan ve kendiliğinden güncellenmeyen sabit sürüm.
 - **Telefonda uygulama gibi (PWA)** — ana ekrana eklenir, canlı güncellenir.
-- **Türkçe arayüz** — bildirimler, tarih ve sayı biçimleri dahil.
+- **Türkçe ve İngilizce arayüz** — kullanıcı başına dil; durum sayfaları ve bildirimler için ayrı dil ayarı, tarih ve sayı biçimleri dahil.
 - **Kolay geçiş** — Uptime Kuma yedeğinden ve UptimeRobot hesabından içe aktarma.
 
 ## Hızlı başlangıç

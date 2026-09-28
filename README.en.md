@@ -10,7 +10,7 @@
 [![Go 1.27](https://img.shields.io/badge/Go-1.27-0d9488?logo=go&logoColor=white)](go.mod)
 [![Platforms](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-475569)](https://hub.docker.com/r/kadirsungurlu/bekci/tags)
 [![Database](https://img.shields.io/badge/database-SQLite%20%7C%20PostgreSQL-475569)](#environment-variables)
-[![UI](https://img.shields.io/badge/UI-Turkish-475569)](#why)
+[![UI](https://img.shields.io/badge/UI-English%20%7C%20Turkish-475569)](#why)
 
 [Türkçe](README.md) · **English**
 
@@ -24,10 +24,11 @@ resource tracking for servers (similar to Beszel). One Docker image, SQLite or
 PostgreSQL; designed to stay fast with hundreds of monitors.
 
 > [!NOTE]
-> **The UI is currently Turkish-only.** This page explains everything in
-> English; menu and button names are given in Turkish with a translation, e.g.
-> **Sunucular** (Servers). Commands, paths and settings are identical to the
-> Turkish README.
+> **The UI is available in English and Turkish.** Each user picks their own
+> language (Account → Language); status pages and notifications have their own
+> language setting. The screenshots below show the Turkish UI; where a menu name
+> is mentioned, the Turkish name is given with its English label, e.g.
+> **Sunucular** (Servers).
 
 ## Why?
 
