@@ -1,4 +1,4 @@
-# Uptime: bağımsız bir sunucuya Docker Compose ile kurulum.
+# Bekci: bağımsız bir sunucuya Docker Compose ile kurulum.
 #
 # İçerik: uygulama (tek imaj) + Caddy (HTTPS sertifikasını Let's Encrypt'ten
 # kendisi alır ve yeniler). Coolify gerekmez.
@@ -16,12 +16,12 @@
 #   0. ÖNCE YEDEK ALIN. Uygulama çalışırken değil, durdurup birimin kopyasını
 #      alın (PostgreSQL sürümünde veri klasörü açıkken kopyalanırsa tutarsız
 #      olabilir):
-#        docker compose stop uptime
-#        docker run --rm -v uptime_uptime-data:/data -v "$PWD":/yedek alpine \
-#          tar czf /yedek/uptime-data-$(date +%F).tgz -C /data .
-#        docker compose start uptime
-#      (Birimin tam adı "docker volume ls" ile görülebilir; proje adı "uptime"
-#      olduğundan uptime_uptime-data'dır.)
+#        docker compose stop bekci
+#        docker run --rm -v bekci_bekci-data:/data -v "$PWD":/yedek alpine \
+#          tar czf /yedek/bekci-data-$(date +%F).tgz -C /data .
+#        docker compose start bekci
+#      (Birimin tam adı "docker volume ls" ile görülebilir; proje adı "bekci"
+#      olduğundan bekci_bekci-data'dır.)
 #   1. docker compose pull && docker compose up -d
 #
 # Sürüm sabitleme ve geri dönüş: sürümler numarayla (SQLite: :1.2.3,
@@ -33,29 +33,29 @@
 # Veritabanı yeni sürümde yükseltildiyse (migration) eski sürüme dönmeden önce
 # yukarıdaki yedeği geri yükleyin.
 #
-# Günlükler:   docker compose logs -f uptime
+# Günlükler:   docker compose logs -f bekci
 #
 # Şifre sıfırlama (giriş yapılamıyorsa), iki imajda da aynı komut:
-#   docker compose exec -it uptime uptime sifre-sifirla <kullanıcı-adı>
+#   docker compose exec -it bekci uptime sifre-sifirla <kullanıcı-adı>
 #   (iki adımlı doğrulamayı da kapatmak için sona --2fa-kapat ekleyin)
 # Compose dışında: docker exec -it <container> uptime sifre-sifirla <kullanıcı-adı>
 #
-# Veriler "uptime-data" biriminde durur (SQLite veya PostgreSQL veritabanı ve
+# Veriler "bekci-data" biriminde durur (SQLite veya PostgreSQL veritabanı ve
 # uygulamanın günlük yedekleri /data/backups). Sunucu dışına yedeklemek için
 # bu birimi (ya da en azından /data/backups klasörünü) düzenli kopyalayın.
 #
 # Temel imajlar (caddy) digest ile sabitlenmiştir; güncellemek için:
 #   docker buildx imagetools inspect caddy:2-alpine → "Digest" satırı.
 
-name: uptime
+name: bekci
 
 services:
-  uptime:
+  bekci:
     # :latest SQLite ile çalışır (önerilen, en hafif). PostgreSQL gömülü sürüm
     # için .env'de UPTIME_TAG=postgres yapın; veriler yine /data altında durur.
     # İki sürümün verisi birbirine taşınmaz: baştan birini seçin.
     # Docker Hub (amd64 + arm64). Aynı imaj ghcr.io/kadirsungurlu/uptime-kadir-app'te de var.
-    image: kadirsungurlu/uptime:${UPTIME_TAG:-latest}
+    image: kadirsungurlu/bekci:${UPTIME_TAG:-latest}
     restart: unless-stopped
     # Kapanışta uygulama (ve PostgreSQL sürümünde veritabanı) düzgünce
     # kapansın diye 10 sn yerine 30 sn beklenir.
@@ -66,7 +66,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       MAX_CONCURRENT_CHECKS: ${MAX_CONCURRENT_CHECKS:-50}
     volumes:
-      - uptime-data:/data
+      - bekci-data:/data
     # Dışarıya doğrudan açılmaz; yalnızca Caddy üzerinden erişilir.
     expose:
       - "8080"
@@ -82,7 +82,7 @@ services:
     image: caddy:2-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
     restart: unless-stopped
     depends_on:
-      uptime:
+      bekci:
         condition: service_healthy
     ports:
       - "80:80"
@@ -103,6 +103,6 @@ services:
         max-file: "3"
 
 volumes:
-  uptime-data:
+  bekci-data:
   caddy-data:
   caddy-config:

@@ -2,13 +2,13 @@
 
 <img src="web/public/favicon.svg" width="64" height="64" alt="">
 
-# Uptime
+# Bekci
 
 **A lightweight, single-image monitoring system for websites, services and servers.**
 
-[![Docker Hub](https://img.shields.io/badge/docker-kadirsungurlu%2Fuptime-0d9488?logo=docker&logoColor=white)](https://hub.docker.com/r/kadirsungurlu/uptime)
+[![Docker Hub](https://img.shields.io/badge/docker-kadirsungurlu%2Fbekci-0d9488?logo=docker&logoColor=white)](https://hub.docker.com/r/kadirsungurlu/bekci)
 [![Go 1.27](https://img.shields.io/badge/Go-1.27-0d9488?logo=go&logoColor=white)](go.mod)
-[![Platforms](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-475569)](https://hub.docker.com/r/kadirsungurlu/uptime/tags)
+[![Platforms](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-475569)](https://hub.docker.com/r/kadirsungurlu/bekci/tags)
 [![Database](https://img.shields.io/badge/database-SQLite%20%7C%20PostgreSQL-475569)](#environment-variables)
 [![UI](https://img.shields.io/badge/UI-Turkish-475569)](#why)
 
@@ -18,7 +18,7 @@
 
 </div>
 
-A monitoring system written in Go with an interface as simple as UptimeRobot's:
+**Bekci** (Turkish for "night watchman") is a monitoring system written in Go with an interface as simple as UptimeRobot's:
 uptime checks for websites and services (the Uptime Kuma feature set) and
 resource tracking for servers (similar to Beszel). One Docker image, SQLite or
 PostgreSQL; designed to stay fast with hundreds of monitors.
@@ -46,16 +46,16 @@ PostgreSQL; designed to stay fast with hundreds of monitors.
 ## Quick start
 
 ```bash
-docker run -d --name uptime --restart unless-stopped \
-  -p 8080:8080 -v uptime-data:/data \
-  -e BASE_URL=https://uptime.ornek.com \
-  kadirsungurlu/uptime
+docker run -d --name bekci --restart unless-stopped \
+  -p 8080:8080 -v bekci-data:/data \
+  -e BASE_URL=https://bekci.ornek.com \
+  kadirsungurlu/bekci
 ```
 
 Open `http://server:8080` and create the first admin account. To expose it over
 HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
 [Compose setup](#docker-compose-standalone-server) below. Image:
-[Docker Hub `kadirsungurlu/uptime`](https://hub.docker.com/r/kadirsungurlu/uptime)
+[Docker Hub `kadirsungurlu/bekci`](https://hub.docker.com/r/kadirsungurlu/bekci)
 (linux/amd64 and linux/arm64). Coolify and other ways to install:
 [Installation](#installation).
 
@@ -209,7 +209,7 @@ docker compose up -d
 
 ### Images and system requirements
 
-| Tag (`kadirsungurlu/uptime`) | Contents |
+| Tag (`kadirsungurlu/bekci`) | Contents |
 |---|---|
 | `:latest` | SQLite (recommended, lightest) |
 | `:postgres` | Embedded PostgreSQL 18 (data still under `/data`) |
@@ -432,7 +432,7 @@ If you cannot log in (same for both images; works while the app is running):
 docker exec -it <container> uptime sifre-sifirla <kullanıcı-adı>
 ```
 
-With Compose: `docker compose exec -it uptime uptime sifre-sifirla <kullanıcı-adı>`
+With Compose: `docker compose exec -it bekci uptime sifre-sifirla <kullanıcı-adı>`
 (`<kullanıcı-adı>` = username). The new password is read from standard input;
 all sessions are logged out. To also turn off two-factor authentication, append
 `--2fa-kapat`.
@@ -481,7 +481,7 @@ CI (`.github/workflows/imajlar.yml`) runs on every push (`gelistirme`, `main`,
 `v*` tags) and PR: Go tests (SQLite and PostgreSQL, `-race`), a Windows build
 check, `svelte-check`, and smoke tests for both images. Images are published
 only from `main` and `v*` tags, once everything passes, to Docker Hub
-(`kadirsungurlu/uptime`) and GitHub Container Registry as amd64 + arm64.
+(`kadirsungurlu/bekci`) and GitHub Container Registry as amd64 + arm64.
 
 To publish a new release:
 

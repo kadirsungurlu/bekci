@@ -2,13 +2,13 @@
 
 <img src="web/public/favicon.svg" width="64" height="64" alt="">
 
-# Uptime
+# Bekci
 
 **Web siteleri, servisler ve sunucular için tek imajlık, hafif ve Türkçe izleme sistemi.**
 
-[![Docker Hub](https://img.shields.io/badge/docker-kadirsungurlu%2Fuptime-0d9488?logo=docker&logoColor=white)](https://hub.docker.com/r/kadirsungurlu/uptime)
+[![Docker Hub](https://img.shields.io/badge/docker-kadirsungurlu%2Fbekci-0d9488?logo=docker&logoColor=white)](https://hub.docker.com/r/kadirsungurlu/bekci)
 [![Go 1.27](https://img.shields.io/badge/Go-1.27-0d9488?logo=go&logoColor=white)](go.mod)
-[![Platformlar](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-475569)](https://hub.docker.com/r/kadirsungurlu/uptime/tags)
+[![Platformlar](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-475569)](https://hub.docker.com/r/kadirsungurlu/bekci/tags)
 [![Veritabanı](https://img.shields.io/badge/veritaban%C4%B1-SQLite%20%7C%20PostgreSQL-475569)](#ortam-değişkenleri)
 [![Arayüz](https://img.shields.io/badge/aray%C3%BCz-T%C3%BCrk%C3%A7e-475569)](#neden)
 
@@ -18,7 +18,7 @@
 
 </div>
 
-Go ile yazılmış, UptimeRobot sadeliğinde arayüzü olan izleme sistemi: web
+**Bekci** (bekçi), Go ile yazılmış, UptimeRobot sadeliğinde arayüzü olan izleme sistemi: web
 siteleri ve servisler için uptime kontrolü (Uptime Kuma'nın özellik seti) ve
 sunucular için kaynak takibi (Beszel benzeri). Tek Docker imajı, SQLite veya
 PostgreSQL; yüzlerce monitörde de hızlı kalacak şekilde tasarlanmıştır.
@@ -39,16 +39,16 @@ PostgreSQL; yüzlerce monitörde de hızlı kalacak şekilde tasarlanmıştır.
 ## Hızlı başlangıç
 
 ```bash
-docker run -d --name uptime --restart unless-stopped \
-  -p 8080:8080 -v uptime-data:/data \
-  -e BASE_URL=https://uptime.ornek.com \
-  kadirsungurlu/uptime
+docker run -d --name bekci --restart unless-stopped \
+  -p 8080:8080 -v bekci-data:/data \
+  -e BASE_URL=https://bekci.ornek.com \
+  kadirsungurlu/bekci
 ```
 
 `http://sunucu:8080` adresini açıp ilk yönetici hesabını oluşturun. Dışarıya
 HTTPS ile açmak için önüne bir ters vekil (Caddy, Traefik, Nginx) koyun ya da
 aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın. İmaj:
-[Docker Hub `kadirsungurlu/uptime`](https://hub.docker.com/r/kadirsungurlu/uptime)
+[Docker Hub `kadirsungurlu/bekci`](https://hub.docker.com/r/kadirsungurlu/bekci)
 (linux/amd64 ve linux/arm64). Coolify ve diğer kurulum yolları:
 [Kurulum](#kurulum).
 
@@ -198,7 +198,7 @@ docker compose up -d
 
 ### İmajlar ve sistem gereksinimi
 
-| Etiket (`kadirsungurlu/uptime`) | İçerik |
+| Etiket (`kadirsungurlu/bekci`) | İçerik |
 |---|---|
 | `:latest` | SQLite (önerilen, en hafif) |
 | `:postgres` | Gömülü PostgreSQL 18 (veriler yine `/data` altında) |
@@ -412,7 +412,7 @@ Giriş yapılamıyorsa (iki imajda da aynı; uygulama çalışırken kullanılab
 docker exec -it <container> uptime sifre-sifirla <kullanıcı-adı>
 ```
 
-Compose'da: `docker compose exec -it uptime uptime sifre-sifirla <kullanıcı-adı>`.
+Compose'da: `docker compose exec -it bekci uptime sifre-sifirla <kullanıcı-adı>`.
 Yeni şifre standart girdiden okunur; tüm oturumlar kapatılır. İki adımlı
 doğrulamayı da kapatmak için sona `--2fa-kapat` ekleyin.
 
@@ -454,7 +454,7 @@ CI (`.github/workflows/imajlar.yml`) her push'ta (`gelistirme`, `main`, `v*`
 etiketleri) ve PR'da çalışır: Go testleri (SQLite ve PostgreSQL, `-race`),
 Windows derleme kontrolü, `svelte-check`, iki imajın duman testi. İmajlar
 yalnızca `main`'de ve `v*` etiketlerinde, hepsi geçince Docker Hub'a
-(`kadirsungurlu/uptime`) ve GitHub Container Registry'ye amd64 + arm64 olarak
+(`kadirsungurlu/bekci`) ve GitHub Container Registry'ye amd64 + arm64 olarak
 yayınlanır.
 
 Yeni sürüm yayınlamak:

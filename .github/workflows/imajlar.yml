@@ -2,7 +2,7 @@
 # gelistirme, v* etiketleri) ve her pull request'te çalışır. İmajlar YALNIZCA
 # main dalında ve v* etiketlerinde, bunların hepsi geçtikten sonra yüklenir;
 # linux/amd64 + linux/arm64, iki kayıt deposuna:
-#   docker.io/kadirsungurlu/uptime            (herkese açık, Docker Hub)
+#   docker.io/kadirsungurlu/bekci            (herkese açık, Docker Hub)
 #   ghcr.io/<sahip>/uptime-kadir-app
 # Etiketler (SQLite | PostgreSQL gömülü):
 #   main:        :latest | :postgres            ve :<kısa-sha> | :postgres-<kısa-sha>
@@ -151,7 +151,7 @@ jobs:
       contents: read
       packages: write
     env:
-      DOCKERHUB_IMAGE: docker.io/kadirsungurlu/uptime
+      DOCKERHUB_IMAGE: docker.io/kadirsungurlu/bekci
     strategy:
       matrix:
         include:
