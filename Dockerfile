@@ -26,9 +26,9 @@ RUN CGO_ENABLED=0 go build -trimpath \
       -o /out/uptime ./cmd/uptime
 # Başka platformların ajan programları (aynı sürüm): Windows sunucular
 # panelden indirir (GET /api/probe/binary?os=windows&arch=amd64). Her biri
-# imaja ~38 MB ekler; örn. ARM sunucular için:
-#   --build-arg AGENT_PLATFORMS="windows/amd64 linux/arm64"
-ARG AGENT_PLATFORMS="windows/amd64"
+# imaja ~38 MB ekler. Varsayılan: Windows ve ARM (linux/arm64) sunucular;
+#   yalnızca Windows için: --build-arg AGENT_PLATFORMS="windows/amd64"
+ARG AGENT_PLATFORMS="windows/amd64 linux/arm64"
 RUN mkdir -p /out/agents && for p in ${AGENT_PLATFORMS}; do \
       os=${p%/*}; arch=${p#*/}; ext=; [ "$os" = windows ] && ext=.exe; \
       CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \

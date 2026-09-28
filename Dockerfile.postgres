@@ -28,7 +28,7 @@ RUN CGO_ENABLED=0 go build -trimpath \
       -ldflags "-s -w -X main.version=$(echo ${SOURCE_COMMIT} | cut -c1-7)" \
       -o /out/uptime ./cmd/uptime
 # Başka platformların ajan programları (bkz. Dockerfile).
-ARG AGENT_PLATFORMS="windows/amd64"
+ARG AGENT_PLATFORMS="windows/amd64 linux/arm64"
 RUN mkdir -p /out/agents && for p in ${AGENT_PLATFORMS}; do \
       os=${p%/*}; arch=${p#*/}; ext=; [ "$os" = windows ] && ext=.exe; \
       CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \

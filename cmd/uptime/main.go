@@ -111,7 +111,18 @@ func run() error {
 		}
 		target, dbDesc = u, "PostgreSQL "+redactDSN(u)
 	}
-	st, err := store.Open(target, time.Local)
+	// Sunucu modunda SQLite dosyasına tek örnek kilidi alınır (Coolify yeni
+	// konteyneri eskisi kapanmadan başlatır). Komutlar (sifre-sifirla vb.)
+	// çalışan sunucunun yanında kullanıldığı için kilit almaz.
+	serverMode := len(os.Args) <= 1
+	lockWait, _ := strconv.Atoi(env("UPTIME_LOCK_WAIT", "600"))
+	st, err := store.OpenWith(target, time.Local, store.Options{
+		Log:          log,
+		BackupDir:    filepath.Join(dataDir, "backups"),
+		InstanceLock: serverMode,
+		LockWait:     time.Duration(lockWait) * time.Second,
+		StandbyFile:  filepath.Join(os.TempDir(), "uptime-bekliyor"),
+	})
 	if err != nil {
 		return fmt.Errorf("veritabanı açılamadı: %w", err)
 	}
