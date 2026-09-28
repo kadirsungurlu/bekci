@@ -24,6 +24,7 @@ import (
 
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/servers"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
@@ -700,13 +701,15 @@ func (s *Server) getMonitorLocations(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
-	if !canSeeConfig(u) {
-		// Konum mesajları da kontrol hata metinleridir (adres, kimlik bilgisi
-		// içerebilir); izleyiciye diğer mesajlar gibi temizlenmiş gider. Dilim
-		// motorun yayınladığı ortak kopyadır; değiştirmeden önce kopyalanır.
+	// Konum mesajları da kontrol hata metinleridir (adres, kimlik bilgisi
+	// içerebilir); izleyiciye diğer mesajlar gibi temizlenmiş gider ve herkese
+	// yanıt dilinde (Türkçe saklanır). Dilim motorun yayınladığı ortak
+	// kopyadır; değiştirmeden önce kopyalanır.
+	if lang := responseLang(w); !canSeeConfig(u) || lang != i18n.TR {
 		v.Locations = slices.Clone(v.Locations)
 		for i, l := range v.Locations {
-			v.Locations[i].Message = viewerMessage(u, m.Type, locationStatusCode(l.Status), l.Message)
+			v.Locations[i].Message = displayMessage(u, lang, m.Type, locationStatusCode(l.Status), l.Message)
+			v.Locations[i].Name = locationName(lang, l.Name)
 		}
 	}
 	writeJSON(w, http.StatusOK, v)

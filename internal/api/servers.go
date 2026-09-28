@@ -81,9 +81,11 @@ func (s *Server) listServers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	admin := isPageAdmin(userFrom(r))
+	lang := responseLang(w)
 	out := make([]servers.View, len(probes))
 	for i, p := range probes {
 		out[i] = s.servers.View(r.Context(), p, rules[p.ID], false)
+		out[i].Localize(lang)
 		if !admin {
 			out[i].HideIPLock() // sabitlenmiş IP yalnızca yöneticiye
 		}
@@ -122,6 +124,7 @@ func (s *Server) getServer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	v := s.servers.View(r.Context(), p, rules, true)
+	v.Localize(responseLang(w))
 	if !isPageAdmin(userFrom(r)) {
 		v.HideIPLock() // sabitlenmiş IP yalnızca yöneticiye
 	}

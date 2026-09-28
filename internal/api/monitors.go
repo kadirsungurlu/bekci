@@ -10,6 +10,7 @@ import (
 
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
@@ -137,6 +138,7 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 	}
 	u := userFrom(r)
 	vis, full := visibleTo(u), canSeeConfig(u)
+	lang := userLang(r) // son mesaj Türkçe saklanır; yanıt diline çevrilir
 	// Açık olay yalnızca çalışmayan (veya tekrar denenen) monitörlerde aranır;
 	// sorgu monitör dizinini kullanır, olay tablosu taranmaz.
 	var troubled []int64
@@ -169,6 +171,10 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 			target = publicTarget(target)
 			m.LastMessage = viewerMessage(u, m.Type, m.Status, m.LastMessage)
 			m.Config, m.PushToken, ids = json.RawMessage("{}"), "", []int64{}
+		}
+		m.LastMessage = i18n.Message(lang, m.LastMessage)
+		if m.Type == check.TypeGroup {
+			target = i18n.Message(lang, target) // "3 monitör"
 		}
 		loc, ok := locs[m.ID]
 		if !ok {
@@ -562,11 +568,12 @@ func (s *Server) monitorSeries(w http.ResponseWriter, r *http.Request) {
 			P int64  `json:"p"`
 			M string `json:"m,omitempty"`
 		}
+		lang := responseLang(w)
 		pts := make([]point, len(beats))
 		for i, b := range beats {
 			pts[i] = point{T: b.Time, S: b.Status, P: b.PingMs}
 			if b.Status != store.StatusUp {
-				pts[i].M = viewerMessage(u, mon.Type, b.Status, b.Message) // başarılı kontrollerin mesajı gereksiz yük
+				pts[i].M = displayMessage(u, lang, mon.Type, b.Status, b.Message) // başarılı kontrollerin mesajı gereksiz yük
 			}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"range": "24h", "kind": "raw", "points": pts})
@@ -610,6 +617,10 @@ func (s *Server) monitorIncidents(w http.ResponseWriter, r *http.Request) {
 		for k := range list {
 			list[k].Cause = viewerMessage(u, m.Type, store.StatusDown, list[k].Cause)
 		}
+	}
+	lang := responseLang(w)
+	for k := range list {
+		list[k].Cause = i18n.Message(lang, list[k].Cause)
 	}
 	writeJSON(w, http.StatusOK, list)
 }
