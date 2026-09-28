@@ -1,31 +1,20 @@
 <script lang="ts">
   // Monitör rozeti oluşturucu: README veya web sitesine eklenecek SVG rozet adresi.
   import CopyButton from './CopyButton.svelte';
+  import { LOCALES, i18n, intlLocale, t, tIn, type Locale } from '../lib/i18n';
 
   let { id, https = false }: { id: number; https?: boolean } = $props();
 
   type Kind = 'status' | 'uptime' | 'ping' | 'cert-exp';
-  const KINDS: { v: Kind; l: string }[] = [
-    { v: 'status', l: 'Durum' },
-    { v: 'uptime', l: 'Uptime' },
-    { v: 'ping', l: 'Yanıt süresi' },
-    { v: 'cert-exp', l: 'Sertifika' },
-  ];
-  const DURATIONS = [
-    { v: '24h', l: '24 saat' },
-    { v: '7d', l: '7 gün' },
-    { v: '30d', l: '30 gün' },
-    { v: '90d', l: '90 gün' },
-  ];
-  const STYLES = [
-    { v: 'flat', l: 'Düz' },
-    { v: 'flat-square', l: 'Düz köşeli' },
-    { v: 'for-the-badge', l: 'Büyük' },
-  ];
+  const KINDS: Kind[] = ['status', 'uptime', 'ping', 'cert-exp'];
+  const DURATIONS = ['24h', '7d', '30d', '90d'] as const;
+  const STYLES = ['flat', 'flat-square', 'for-the-badge'] as const;
 
   let kind = $state<Kind>('status');
-  let duration = $state('30d');
-  let style = $state('flat');
+  let duration = $state<(typeof DURATIONS)[number]>('30d');
+  let style = $state<(typeof STYLES)[number]>('flat');
+  // Rozet metinlerinin dili (sunucu ?lang=tr|en; varsayılan tr): başlangıçta arayüz dili.
+  let lang = $state<Locale>(i18n.locale);
   let label = $state('');
   let labelColor = $state('');
   let color = $state('');
@@ -41,9 +30,10 @@
     if ((kind === 'uptime' || kind === 'ping') && duration !== '24h') q.set('duration', duration);
     if (style !== 'flat') q.set('style', style);
     if (label.trim()) q.set('label', label.trim());
+    if (lang !== 'tr') q.set('lang', lang);
     const add = (k: string, v: string) => {
-      const t = v.trim();
-      if (t && COLOR_RE.test(t)) q.set(k, t.replace(/^#/, ''));
+      const c = v.trim();
+      if (c && COLOR_RE.test(c)) q.set(k, c.replace(/^#/, ''));
     };
     add('labelColor', labelColor);
     if (kind === 'status') {
@@ -57,7 +47,7 @@
 
   const path = $derived(`/api/badge/${id}/${kind}.svg${query}`);
   const url = $derived(`${location.origin}${path}`);
-  const alt = $derived(label.trim() || KINDS.find((k) => k.v === kind)!.l.toLocaleLowerCase('tr'));
+  const alt = $derived(label.trim() || tIn(lang, `pages.badge.kinds.${kind}`).toLocaleLowerCase(intlLocale(lang)));
   const md = $derived(`![${alt}](${url})`);
   const html = $derived(`<img src="${url}" alt="${alt.replace(/"/g, '&quot;')}">`);
 
@@ -66,82 +56,89 @@
   let failed = $state(false);
   $effect(() => {
     const p = path;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       failed = false;
       preview = p;
     }, 350);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   });
 
 </script>
 
 <div class="bb">
   <p class="help nomargin">
-    Rozet yalnızca monitör yayında ve şifresiz bir durum sayfasındaysa herkese açıktır; aksi halde yalnızca oturum açmış kullanıcılar ve
-    API anahtarları görebilir. Rozetler 60 saniye önbelleğe alınır. Monitörün adı rozette gösterilmez.
+    {t('pages.badge.intro')}
   </p>
   <div class="grid">
     <div class="field">
-      <label for="bb-kind">Tür</label>
+      <label for="bb-kind">{t('pages.badge.kind')}</label>
       <select id="bb-kind" class="input" bind:value={kind}>
-        {#each KINDS as k (k.v)}<option value={k.v}>{k.l}{k.v === 'cert-exp' && !https ? ' (yalnızca HTTPS)' : ''}</option>{/each}
+        {#each KINDS as k (k)}<option value={k}
+            >{t(`pages.badge.kinds.${k}`)}{k === 'cert-exp' && !https ? t('pages.badge.httpsOnly') : ''}</option
+          >{/each}
       </select>
     </div>
     {#if kind === 'uptime' || kind === 'ping'}
       <div class="field">
-        <label for="bb-dur">Süre</label>
+        <label for="bb-dur">{t('pages.badge.duration')}</label>
         <select id="bb-dur" class="input" bind:value={duration}>
-          {#each DURATIONS as d (d.v)}<option value={d.v}>{d.l}</option>{/each}
+          {#each DURATIONS as d (d)}<option value={d}>{t(`pages.badge.durations.${d}`)}</option>{/each}
         </select>
       </div>
     {/if}
     <div class="field">
-      <label for="bb-style">Stil</label>
+      <label for="bb-style">{t('pages.badge.style')}</label>
       <select id="bb-style" class="input" bind:value={style}>
-        {#each STYLES as s (s.v)}<option value={s.v}>{s.l}</option>{/each}
+        {#each STYLES as s (s)}<option value={s}>{t(`pages.badge.styles.${s}`)}</option>{/each}
       </select>
     </div>
     <div class="field">
-      <label for="bb-label">Etiket <span class="muted">(boşsa varsayılan)</span></label>
+      <label for="bb-lang">{t('pages.badge.lang')}</label>
+      <select id="bb-lang" class="input" bind:value={lang}>
+        {#each LOCALES as l (l)}<option value={l} lang={l}>{t(`common.languages.${l}`)}</option>{/each}
+      </select>
+    </div>
+    <div class="field">
+      <label for="bb-label">{t('pages.badge.label')} <span class="muted">{t('pages.badge.labelDefault')}</span></label>
       <input id="bb-label" class="input" maxlength="64" bind:value={label} placeholder={alt} />
     </div>
   </div>
   <fieldset>
-    <legend class="label">Renkler <span class="muted">(#rrggbb veya renk adı, ör. green)</span></legend>
+    <legend class="label">{t('pages.badge.colors')} <span class="muted">{t('pages.badge.colorsHint')}</span></legend>
     <div class="grid">
       <div class="field">
-        <label for="bb-lc">Etiket rengi</label>
+        <label for="bb-lc">{t('pages.badge.labelColor')}</label>
         <input id="bb-lc" class="input mono" bind:value={labelColor} placeholder="#555" autocapitalize="none" spellcheck="false" />
       </div>
       {#if kind === 'status'}
         <div class="field">
-          <label for="bb-uc">Çalışıyor rengi</label>
+          <label for="bb-uc">{t('pages.badge.upColor')}</label>
           <input id="bb-uc" class="input mono" bind:value={upColor} placeholder="#4c1" autocapitalize="none" spellcheck="false" />
         </div>
         <div class="field">
-          <label for="bb-dc">Çalışmıyor rengi</label>
+          <label for="bb-dc">{t('pages.badge.downColor')}</label>
           <input id="bb-dc" class="input mono" bind:value={downColor} placeholder="#e05d44" autocapitalize="none" spellcheck="false" />
         </div>
       {:else if kind === 'ping'}
         <div class="field">
-          <label for="bb-c">Değer rengi</label>
-          <input id="bb-c" class="input mono" bind:value={color} placeholder="otomatik" autocapitalize="none" spellcheck="false" />
+          <label for="bb-c">{t('pages.badge.valueColor')}</label>
+          <input id="bb-c" class="input mono" bind:value={color} placeholder={t('pages.badge.auto')} autocapitalize="none" spellcheck="false" />
         </div>
       {/if}
     </div>
     {#if kind === 'uptime' || kind === 'cert-exp'}
-      <div class="help">Değer rengi orana / kalan güne göre otomatik seçilir (yeşil, turuncu, kırmızı).</div>
+      <div class="help">{t('pages.badge.autoHelp')}</div>
     {/if}
-    {#if bad}<div class="help c-down">Geçersiz renk yok sayıldı. Örnek: #2dd4bf, 0a0, brightgreen.</div>{/if}
+    {#if bad}<div class="help c-down">{t('pages.badge.badColor')}</div>{/if}
   </fieldset>
 
   <div class="prev">
-    <span class="label">Önizleme</span>
+    <span class="label">{t('pages.badge.preview')}</span>
     <div class="prev-box">
       {#if preview && !failed}
-        <img src={preview} alt="Rozet önizlemesi" onerror={() => (failed = true)} />
+        <img src={preview} alt={t('pages.badge.previewAlt')} onerror={() => (failed = true)} />
       {:else if failed}
-        <span class="muted small">Rozet yüklenemedi.</span>
+        <span class="muted small">{t('pages.badge.loadFailed')}</span>
       {/if}
     </div>
   </div>

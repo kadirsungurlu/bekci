@@ -1,6 +1,7 @@
 <script lang="ts">
   import { DEFAULT_TAG_COLOR, isHexColor, tagInk } from '../lib/tags';
   import Icon from './Icon.svelte';
+  import { t } from '../lib/i18n';
 
   let {
     name,
@@ -25,7 +26,7 @@
 <span class="tag-chip {ink} {size}" style="--tag-bg:{bg}" title={value ? `${name}: ${value}` : name}>
   <span class="tn">{name}</span>{#if value}<span class="tv">: {value}</span>{/if}
   {#if onremove}
-    <button type="button" class="tx" aria-label="“{name}” etiketini kaldır" onclick={onremove}><Icon name="x" size={12} stroke={2.5} /></button>
+    <button type="button" class="tx" aria-label={t('tags.removeTag', { name })} onclick={onremove}><Icon name="x" size={12} stroke={2.5} /></button>
   {/if}
 </span>
 

@@ -1,2 +1,32 @@
-// Etiketler (C grubu). Aşama 2'de doldurulacak.
-export default {};
+// Ayarlar › Etiketler, etiket penceresi ve etiket çipi (Tags, TagDialog, TagChip).
+export default {
+  title: 'Etiketler',
+  intro:
+    'Monitörleri ortam, müşteri veya ekip gibi başlıklarla gruplayın. Bir etiketi monitöre eklerken isteğe bağlı bir değer de verebilirsiniz (ör. {example}). Monitör listesinde etikete göre filtreleyebilirsiniz.',
+  example: 'ortam: canlı',
+  newTag: 'Yeni etiket',
+  empty: 'Henüz etiket yok. İlk etiketinizi ekleyin veya monitör formundan oluşturun.',
+  monitorCount: '{count} monitör',
+  actionsFor: '{name} için işlemler',
+  added: '“{name}” etiketi eklendi',
+  saved: 'Etiket kaydedildi',
+  deleteTitle: 'Etiketi sil',
+  deleteMsg: '“{name}” etiketi silinsin mi? {count} monitörden kaldırılacak.',
+  deleted: 'Etiket silindi',
+  dialog: {
+    edit: 'Etiketi düzenle',
+    name: 'Etiket adı',
+    namePlaceholder: 'Ör. ortam, müşteri, ekip',
+    color: 'Renk',
+    customColor: 'Özel renk seç',
+    colorCode: 'Renk kodu',
+    preview: 'Önizleme',
+    sampleName: 'etiket',
+    sampleValue: 'değer',
+    add: 'Etiketi ekle',
+    errName: 'Etiket adı gerekli.',
+    errLong: 'Etiket adı en fazla 50 karakter olabilir.',
+    errColor: 'Renk #rrggbb biçiminde olmalı (ör. #2563eb).',
+  },
+  removeTag: '“{name}” etiketini kaldır',
+};

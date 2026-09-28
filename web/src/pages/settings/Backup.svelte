@@ -4,7 +4,8 @@
   import { live } from '../../lib/live.svelte';
   import { router } from '../../lib/router.svelte';
   import { confirmDialog, toast } from '../../lib/ui.svelte';
-  import { fmtSize } from '../../lib/format';
+  import { fmtPctInt, fmtSize } from '../../lib/format';
+  import { t, tParts } from '../../lib/i18n';
   import FilePick from '../../components/FilePick.svelte';
   import ImportResult from '../../components/ImportResult.svelte';
   import Icon from '../../components/Icon.svelte';
@@ -36,12 +37,12 @@
   });
 
   function tooBig(f: File, limitMB: number, what: string): string {
-    return f.size > limitMB * MB ? `${what} en fazla ${limitMB} MB olabilir (seçilen: ${fmtSize(f.size)}).` : '';
+    return f.size > limitMB * MB ? t('backup.tooBig', { what, limit: limitMB, size: fmtSize(f.size) }) : '';
   }
 
   async function restore(dry: boolean) {
-    if (!rFile) return (rError = 'Önce yedek dosyasını seçin.');
-    const big = tooBig(rFile, 20, 'Yedek dosyası');
+    if (!rFile) return (rError = t('backup.restore.noFile'));
+    const big = tooBig(rFile, 20, t('backup.backupFile'));
     if (big) return (rError = big);
     rError = '';
     const file = rFile;
@@ -59,9 +60,14 @@
         rProg = null;
         const d = preview.deleted ?? { monitors: 0, notifications: 0, tags: 0, status_pages: 0 };
         const ok = await confirmDialog({
-          title: 'Mevcut kayıtlar silinecek',
-          message: `Mevcut ${d.monitors} monitör, ${d.notifications} bildirim kanalı, ${d.tags} etiket ve ${d.status_pages} durum sayfası kalıcı olarak silinecek; kontrol geçmişleri de silinir. Kısıtlı izleyicilerin monitör atamaları da kalkar.`,
-          confirmText: 'Sil ve geri yükle',
+          title: t('backup.restore.confirmTitle'),
+          message: t('backup.restore.confirmMsg', {
+            monitors: d.monitors,
+            notifications: d.notifications,
+            tags: d.tags,
+            pages: d.status_pages,
+          }),
+          confirmText: t('backup.restore.confirmBtn'),
           danger: true,
         });
         if (!ok) return;
@@ -69,7 +75,7 @@
       rProg = { loaded: 0, total: file.size };
       const res = await api.importBackup(file, mode, dry, (loaded, total) => (rProg = { loaded, total }));
       rResult = res;
-      if (!dry) done(res, 'Yedek geri yüklendi');
+      if (!dry) done(res, t('backup.restore.done'));
     } catch (e) {
       rError = errorMessage(e);
     } finally {
@@ -91,8 +97,8 @@
   });
 
   async function kuma(dry: boolean) {
-    if (!kFile) return (kError = 'Önce Uptime Kuma yedeğini (JSON) veya kuma.db dosyasını seçin.');
-    const big = tooBig(kFile, 200, 'Dosya');
+    if (!kFile) return (kError = t('backup.kuma.noFile'));
+    const big = tooBig(kFile, 200, t('backup.file'));
     if (big) return (kError = big);
     kError = '';
     busy = 'kuma';
@@ -100,7 +106,7 @@
     try {
       const res = await api.importKuma(kFile, dry, (loaded, total) => (kProg = { loaded, total }));
       kResult = res;
-      if (!dry) done(res, 'Uptime Kuma verileri içe aktarıldı');
+      if (!dry) done(res, t('backup.kuma.done'));
     } catch (e) {
       kError = errorMessage(e);
     } finally {
@@ -122,18 +128,18 @@
 
   async function uptimeRobot(dry: boolean) {
     const key = urKey.trim();
-    if (!key) return (urError = 'UptimeRobot salt okunur API anahtarını girin.');
-    if (/\s/.test(key)) return (urError = 'API anahtarı boşluk içeremez.');
+    if (!key) return (urError = t('backup.ur.noKey'));
+    if (/\s/.test(key)) return (urError = t('backup.ur.spaces'));
     urError = '';
     busy = 'ur';
     try {
       const res = await api.importUptimeRobot(key, dry);
       urResult = res;
-      if (!dry) done(res, 'UptimeRobot monitörleri içe aktarıldı');
+      if (!dry) done(res, t('backup.ur.done'));
     } catch (e) {
       urError =
         e instanceof ApiError && e.status === 502
-          ? `UptimeRobot’a bağlanılamadı: ${e.message}`
+          ? t('backup.ur.connectFailed', { error: e.message })
           : errorMessage(e);
     } finally {
       busy = '';
@@ -142,7 +148,7 @@
 
   function done(res: ImportSummary, msg: string) {
     const n = res.created.monitors;
-    toast.success(n > 0 ? `${msg}: ${n} monitör eklendi` : msg);
+    toast.success(n > 0 ? t('backup.addedMonitors', { msg, count: n }) : msg);
     live.refresh();
   }
 
@@ -164,9 +170,9 @@
     <div class="prog-t small">
       <span class="spinner sm-spin"></span>
       {#if v < 100}
-        {what} yükleniyor… %{v} <span class="muted">({fmtSize(p.loaded)} / {fmtSize(p.total)})</span>
+        {t('backup.uploading', { what, pct: fmtPctInt(v) })} <span class="muted">({fmtSize(p.loaded)} / {fmtSize(p.total)})</span>
       {:else}
-        Yüklendi; sunucu dosyayı işliyor…
+        {t('backup.processing')}
       {/if}
     </div>
     <div class="bar" aria-hidden="true"><span style="width:{v}%"></span></div>
@@ -178,49 +184,45 @@
     <div class="sec-head">
       <span class="sic"><Icon name="download" size={18} /></span>
       <div>
-        <h2 class="card-title">Yedeği indir</h2>
-        <p class="text-2 small sub">
-          Monitörler, bildirim kanalları, etiketler, durum sayfaları ve ayarlar tek bir JSON dosyasına aktarılır. Dosya şifreleri,
-          token’ları ve API anahtarlarını açık halde içerir; güvenli bir yerde saklayın. Kullanıcılar, kontrol geçmişi ve işlem kaydı
-          dahil değildir.
-        </p>
+        <h2 class="card-title">{t('backup.download.title')}</h2>
+        <p class="text-2 small sub">{t('backup.download.text')}</p>
       </div>
     </div>
-    <a class="btn primary" href="/api/export" download><Icon name="download" size={16} /> Yedeği indir</a>
+    <a class="btn primary" href="/api/export" download><Icon name="download" size={16} /> {t('backup.download.title')}</a>
   </section>
 
   <section class="card">
     <div class="sec-head">
       <span class="sic"><Icon name="upload" size={18} /></span>
       <div>
-        <h2 class="card-title">Geri yükle</h2>
-        <p class="text-2 small sub">Bu uygulamadan indirdiğiniz yedek dosyasını (JSON, en fazla 20 MB) yükleyin. Önce önizleyip neyin değişeceğini görebilirsiniz.</p>
+        <h2 class="card-title">{t('backup.restore.title')}</h2>
+        <p class="text-2 small sub">{t('backup.restore.text')}</p>
       </div>
     </div>
     <div class="stack">
-      <FilePick bind:file={rFile} accept=".json,application/json" id="rs-file" label="Yedek seç" disabled={busy !== ''} />
-      <div class="modes" role="radiogroup" aria-label="Geri yükleme modu">
+      <FilePick bind:file={rFile} accept=".json,application/json" id="rs-file" label={t('backup.restore.pick')} disabled={busy !== ''} />
+      <div class="modes" role="radiogroup" aria-label={t('backup.restore.modeLabel')}>
         <label class="mode" class:on={rMode === 'merge'}>
           <input type="radio" name="rmode" value="merge" bind:group={rMode} />
-          <span><b>Birleştir (önerilen)</b><small>Mevcut kayıtlar korunur, aynı ad ve hedefli monitörler tekrar eklenmez.</small></span>
+          <span><b>{t('backup.restore.merge')}</b><small>{t('backup.restore.mergeHelp')}</small></span>
         </label>
         <label class="mode danger" class:on={rMode === 'replace'}>
           <input type="radio" name="rmode" value="replace" bind:group={rMode} />
           <span>
-            <b>Değiştir</b>
-            <small>Mevcut tüm monitörler, bildirim kanalları, etiketler ve durum sayfaları silinir; ayarlar da geri yüklenir.</small>
+            <b>{t('backup.restore.replace')}</b>
+            <small>{t('backup.restore.replaceHelp')}</small>
           </span>
         </label>
       </div>
-      {#if rProg}{@render progress(rProg, 'Yedek')}{/if}
+      {#if rProg}{@render progress(rProg, t('backup.backupShort'))}{/if}
       {#if rError}<div class="alert error" role="alert">{rError}</div>{/if}
       <div class="acts">
         <button class="btn" onclick={() => restore(true)} disabled={busy !== '' || !rFile}>
-          {#if busy === 'restore' && !rResult}<span class="spinner"></span>{:else}<Icon name="eye" size={15} />{/if} Önizle
+          {#if busy === 'restore' && !rResult}<span class="spinner"></span>{:else}<Icon name="eye" size={15} />{/if} {t('backup.preview')}
         </button>
         <button class="btn {rMode === 'replace' ? 'danger solid' : 'primary'}" onclick={() => restore(false)} disabled={busy !== '' || !rFile}>
           {#if busy === 'restore' && rResult}<span class="spinner"></span>{/if}
-          Geri yükle
+          {t('backup.restore.title')}
         </button>
       </div>
       {#if rResult}<ImportResult result={rResult} />{/if}
@@ -228,8 +230,8 @@
   </section>
 
   <div class="migrate" bind:this={migrateEl}>
-    <h2 class="mig-title">Başka bir servisten taşıyın<span class="dot">.</span></h2>
-    <p class="text-2 small mig-sub">Monitörlerinizi tek tek yeniden eklemenize gerek yok. İçe aktarma her zaman birleştirme modunda çalışır; mevcut kayıtlarınız silinmez.</p>
+    <h2 class="mig-title">{t('backup.migrate.title')}<span class="dot">.</span></h2>
+    <p class="text-2 small mig-sub">{t('backup.migrate.text')}</p>
   </div>
 
   <div class="mig-grid">
@@ -237,17 +239,17 @@
       <div class="sec-head">
         <span class="sic brand"><Icon name="log-in" size={18} /></span>
         <div>
-          <h2 class="card-title">UptimeRobot’tan içe aktar</h2>
+          <h2 class="card-title">{t('backup.ur.title')}</h2>
           <p class="text-2 small sub">
-            UptimeRobot’ta <b>Integrations &amp; API → API</b> bölümünden “Read-only API key” oluşturup buraya yapıştırın. Anahtar kaydedilmez.
-            HTTP, anahtar kelime, ping, port ve heartbeat monitörleri aktarılır; duraklatılmış olanlar durdurulmuş eklenir. Uyarı kişileri
-            aktarılmaz. Heartbeat monitörleri için yeni push adresleri oluşturulur; cron işlerinizi güncelleyin.
+            {#each tParts('backup.ur.text') as p, i (i)}
+              {#if p.slot === 'path'}<b>Integrations &amp; API → API</b>{:else}{p.text}{/if}
+            {/each}
           </p>
         </div>
       </div>
       <div class="stack">
         <div class="field">
-          <label for="ur-key">Salt okunur API anahtarı</label>
+          <label for="ur-key">{t('backup.ur.key')}</label>
           <input
             id="ur-key"
             class="input mono"
@@ -262,13 +264,13 @@
         {#if urError}<div class="alert error" role="alert">{urError}</div>{/if}
         <div class="acts">
           <button class="btn" onclick={() => uptimeRobot(true)} disabled={busy !== '' || !urKey.trim()}>
-            {#if busy === 'ur' && !urResult}<span class="spinner"></span>{:else}<Icon name="eye" size={15} />{/if} Önizle
+            {#if busy === 'ur' && !urResult}<span class="spinner"></span>{:else}<Icon name="eye" size={15} />{/if} {t('backup.preview')}
           </button>
           <button class="btn primary" onclick={() => uptimeRobot(false)} disabled={busy !== '' || !urResult?.dry_run}>
-            {#if busy === 'ur' && urResult}<span class="spinner"></span>{/if} İçe aktar
+            {#if busy === 'ur' && urResult}<span class="spinner"></span>{/if} {t('backup.import')}
           </button>
         </div>
-        {#if !urResult}<p class="help nomargin">Önce önizleyin; ne aktarılacağını gördükten sonra “İçe aktar” açılır.</p>{/if}
+        {#if !urResult}<p class="help nomargin">{t('backup.previewFirst')}</p>{/if}
         {#if urResult}<ImportResult result={urResult} />{/if}
       </div>
     </section>
@@ -277,12 +279,11 @@
       <div class="sec-head">
         <span class="sic brand"><Icon name="archive" size={18} /></span>
         <div>
-          <h2 class="card-title">Uptime Kuma’dan içe aktar</h2>
+          <h2 class="card-title">{t('backup.kuma.title')}</h2>
           <p class="text-2 small sub">
-            Uptime Kuma’da <b>Ayarlar → Yedekle → Dışa aktar</b> ile aldığınız JSON dosyasını (Kuma 1.x) veya veri klasöründeki
-            <code>kuma.db</code> dosyasını yükleyin (en fazla 200 MB; kuma.db’yi Kuma durdurulmuşken kopyalayın). Monitörler, bildirim
-            kanalları ve etiketler aktarılır; geçmiş, durum sayfaları ve bakım pencereleri aktarılmaz. Push adresleri korunur: cron
-            işlerinde yalnızca sunucu adını değiştirin.
+            {#each tParts('backup.kuma.text') as p, i (i)}
+              {#if p.slot === 'path'}<b>{t('backup.kuma.path')}</b>{:else if p.slot === 'db'}<code>kuma.db</code>{:else}{p.text}{/if}
+            {/each}
           </p>
         </div>
       </div>
@@ -291,20 +292,20 @@
           bind:file={kFile}
           accept=".json,.db,.sqlite,application/json,application/vnd.sqlite3,application/x-sqlite3"
           id="kuma-file"
-          label="Dosya seç"
+          label={t('backup.kuma.pick')}
           disabled={busy !== ''}
         />
-        {#if kProg}{@render progress(kProg, 'Dosya')}{/if}
+        {#if kProg}{@render progress(kProg, t('backup.file'))}{/if}
         {#if kError}<div class="alert error" role="alert">{kError}</div>{/if}
         <div class="acts">
           <button class="btn" onclick={() => kuma(true)} disabled={busy !== '' || !kFile}>
-            {#if busy === 'kuma' && !kResult}<span class="spinner"></span>{:else}<Icon name="eye" size={15} />{/if} Önizle
+            {#if busy === 'kuma' && !kResult}<span class="spinner"></span>{:else}<Icon name="eye" size={15} />{/if} {t('backup.preview')}
           </button>
           <button class="btn primary" onclick={() => kuma(false)} disabled={busy !== '' || !kResult?.dry_run}>
-            {#if busy === 'kuma' && kResult}<span class="spinner"></span>{/if} İçe aktar
+            {#if busy === 'kuma' && kResult}<span class="spinner"></span>{/if} {t('backup.import')}
           </button>
         </div>
-        {#if !kResult}<p class="help nomargin">Önce önizleyin; ne aktarılacağını gördükten sonra “İçe aktar” açılır.</p>{/if}
+        {#if !kResult}<p class="help nomargin">{t('backup.previewFirst')}</p>{/if}
         {#if kResult}<ImportResult result={kResult} />{/if}
       </div>
     </section>

@@ -8,6 +8,7 @@
   import TagChip from '../../components/TagChip.svelte';
   import TagDialog from '../../components/TagDialog.svelte';
   import Icon from '../../components/Icon.svelte';
+  import { t, tParts } from '../../lib/i18n';
 
   let tags = $state.raw<Tag[]>([]);
   let loading = $state(true);
@@ -31,75 +32,78 @@
   let editing = $state<Tag | null>(null);
   let formKey = $state(0);
 
-  function openForm(t: Tag | null) {
-    editing = t;
+  function openForm(tag: Tag | null) {
+    editing = tag;
     formKey++;
     formOpen = true;
   }
 
-  function saved(t: Tag, created: boolean) {
-    tags = created ? [...tags, { ...t, monitor_count: 0 }] : tags.map((x) => (x.id === t.id ? { ...t, monitor_count: x.monitor_count } : x));
-    toast.success(created ? `“${t.name}” etiketi eklendi` : 'Etiket kaydedildi');
+  function saved(tag: Tag, created: boolean) {
+    tags = created
+      ? [...tags, { ...tag, monitor_count: 0 }]
+      : tags.map((x) => (x.id === tag.id ? { ...tag, monitor_count: x.monitor_count } : x));
+    toast.success(created ? t('tags.added', { name: tag.name }) : t('tags.saved'));
     // Monitör listesindeki etiket adları/renkleri güncellensin.
     if (!created) live.refresh();
   }
 
-  async function remove(t: Tag) {
+  async function remove(tag: Tag) {
     const ok = await confirmDialog({
-      title: 'Etiketi sil',
-      message: `“${t.name}” etiketi silinsin mi? ${t.monitor_count} monitörden kaldırılacak.`,
-      confirmText: 'Sil',
+      title: t('tags.deleteTitle'),
+      message: t('tags.deleteMsg', { name: tag.name, count: tag.monitor_count }),
+      confirmText: t('common.delete'),
       danger: true,
     });
     if (!ok) return;
     try {
-      await api.deleteTag(t.id);
-      tags = tags.filter((x) => x.id !== t.id);
-      toast.success('Etiket silindi');
+      await api.deleteTag(tag.id);
+      tags = tags.filter((x) => x.id !== tag.id);
+      toast.success(t('tags.deleted'));
       live.refresh();
     } catch (e) {
       toast.error(errorMessage(e));
     }
   }
 
-  const menu = (t: Tag): MenuItem[] => [
-    { label: 'Düzenle', icon: 'edit', onclick: () => openForm(t) },
-    { label: 'Sil', icon: 'trash', danger: true, onclick: () => remove(t) },
+  const menu = (tag: Tag): MenuItem[] => [
+    { label: t('common.edit'), icon: 'edit', onclick: () => openForm(tag) },
+    { label: t('common.delete'), icon: 'trash', danger: true, onclick: () => remove(tag) },
   ];
 </script>
 
 <section class="card">
   <div class="head">
     <div>
-      <h2 class="card-title">Etiketler</h2>
+      <h2 class="card-title">{t('tags.title')}</h2>
       <p class="text-2 small sub">
-        Monitörleri ortam, müşteri veya ekip gibi başlıklarla gruplayın. Bir etiketi monitöre eklerken isteğe bağlı bir değer de
-        verebilirsiniz (ör. <b>ortam: canlı</b>). Monitör listesinde etikete göre filtreleyebilirsiniz.
+        {#each tParts('tags.intro') as p, i (i)}
+          {#if p.slot === 'example'}<b>{t('tags.example')}</b>{:else}{p.text}{/if}
+        {/each}
       </p>
     </div>
-    <button class="btn primary" onclick={() => openForm(null)}><Icon name="plus" size={16} /> Yeni etiket</button>
+    <button class="btn primary" onclick={() => openForm(null)}><Icon name="plus" size={16} /> {t('tags.newTag')}</button>
   </div>
 
   {#if loading}
     <div class="skeleton" style="height:120px"></div>
   {:else if loadError}
-    <div class="alert error">{loadError} <button class="linkbtn" onclick={load}>Tekrar dene</button></div>
+    <div class="alert error">{loadError} <button class="linkbtn" onclick={load}>{t('common.retry')}</button></div>
   {:else if tags.length === 0}
     <div class="none">
       <Icon name="tag" size={22} />
-      <span>Henüz etiket yok. İlk etiketinizi ekleyin veya monitör formundan oluşturun.</span>
+      <span>{t('tags.empty')}</span>
     </div>
   {:else}
     <ul class="tags">
-      {#each sorted as t (t.id)}
+      {#each sorted as tg (tg.id)}
         <li>
-          <span class="swatch" style="--sw:{t.color}" aria-hidden="true"></span>
+          <span class="swatch" style="--sw:{tg.color}" aria-hidden="true"></span>
           <span class="tinfo">
-            <TagChip name={t.name} color={t.color} />
-            <span class="muted small">{t.monitor_count} monitör</span>
+            <TagChip name={tg.name} color={tg.color} />
+            <span class="muted small">{t('tags.monitorCount', { count: tg.monitor_count })}</span>
           </span>
-          <code class="hex">{t.color}</code>
-          <RowMenu items={menu(t)} label="{t.name} için işlemler" />
+          <code class="hex">{tg.color}</code>
+          <RowMenu items={menu(tg)} label={t('tags.actionsFor', { name: tg.name })} />
         </li>
       {/each}
     </ul>

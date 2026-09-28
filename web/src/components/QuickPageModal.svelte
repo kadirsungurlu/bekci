@@ -6,6 +6,7 @@
   import { toast } from '../lib/ui.svelte';
   import Icon from './Icon.svelte';
   import Modal from './Modal.svelte';
+  import { t } from '../lib/i18n';
 
   let { open = $bindable(false), m }: { open?: boolean; m: MonitorView } = $props();
 
@@ -49,7 +50,7 @@
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     error = '';
-    if (!page) return (error = 'Bir durum sayfası seçin.');
+    if (!page) return (error = t('pages.quick.errPage'));
     busy = true;
     try {
       await api.addPageMonitor(page.id, {
@@ -58,7 +59,7 @@
         section_title: section === 'new' ? sectionTitle.trim() : '',
         name: name.trim(),
       });
-      toast.success(`“${m.name}”, “${page.title}” sayfasına eklendi`);
+      toast.success(t('pages.quick.added', { name: m.name, page: page.title }));
       open = false;
     } catch (err) {
       error = errorMessage(err);
@@ -68,25 +69,25 @@
   }
 </script>
 
-<Modal bind:open title="Durum sayfasına ekle" width={500}>
+<Modal bind:open title={t('pages.quick.title')} width={500}>
   {#if !loaded}
     <div class="skeleton" style="height:140px"></div>
   {:else if loadError}
-    <div class="alert error" role="alert">Durum sayfaları yüklenemedi: {loadError}</div>
-    <button type="button" class="btn sm retry" onclick={load}><Icon name="refresh" size={14} /> Tekrar dene</button>
+    <div class="alert error" role="alert">{t('pages.quick.loadFailed', { error: loadError })}</div>
+    <button type="button" class="btn sm retry" onclick={load}><Icon name="refresh" size={14} /> {t('common.retry')}</button>
   {:else if pages.length === 0}
     <div class="none">
       <Icon name="layout" size={22} />
-      <p>Henüz durum sayfası yok. Müşterilerinize hizmetlerinizin durumunu gösteren herkese açık bir sayfa oluşturun.</p>
-      <a class="btn sm" href="#/status-pages/new" onclick={() => (open = false)}><Icon name="plus" size={14} /> Durum sayfası oluştur</a>
+      <p>{t('pages.quick.empty')}</p>
+      <a class="btn sm" href="#/status-pages/new" onclick={() => (open = false)}><Icon name="plus" size={14} /> {t('pages.quick.create')}</a>
     </div>
   {:else}
     <form id="qpage" class="stack" onsubmit={submit} novalidate>
       {#if available.length === 0}
-        <div class="alert info small">“{m.name}” tüm durum sayfalarında zaten var.</div>
+        <div class="alert info small">{t('pages.quick.already', { name: m.name })}</div>
       {:else}
         <div class="field">
-          <label for="qp-page">Durum sayfası</label>
+          <label for="qp-page">{t('pages.quick.page')}</label>
           <select id="qp-page" class="input" value={pageId} onchange={(e) => choosePage(e.currentTarget.value)}>
             {#each available as p (p.id)}
               <option value={String(p.id)}>{p.title} · /durum/{p.slug}</option>
@@ -95,29 +96,31 @@
         </div>
         {#if page}
           <div class="field">
-            <label for="qp-sec">Grup</label>
+            <label for="qp-sec">{t('pages.quick.group')}</label>
             <select id="qp-sec" class="input" bind:value={section}>
               {#each page.sections as s, i (i)}
-                <option value={String(i)}>{s.title || `Grup ${i + 1}`} ({s.monitors.length} monitör)</option>
+                <option value={String(i)}
+                  >{t('pages.quick.groupOption', { name: s.title || t('pages.quick.groupN', { n: i + 1 }), count: s.monitors.length })}</option
+                >
               {/each}
-              <option value="new">+ Yeni grup</option>
+              <option value="new">{t('pages.quick.newGroup')}</option>
             </select>
           </div>
           {#if section === 'new'}
             <div class="field">
-              <label for="qp-st">Grup adı <span class="muted">(isteğe bağlı)</span></label>
-              <input id="qp-st" class="input" maxlength="100" bind:value={sectionTitle} placeholder="Ör. Web siteleri" />
+              <label for="qp-st">{t('pages.quick.groupName')} <span class="muted">{t('pages.quick.optional')}</span></label>
+              <input id="qp-st" class="input" maxlength="100" bind:value={sectionTitle} placeholder={t('pages.quick.groupPlaceholder')} />
             </div>
           {/if}
           <div class="field">
-            <label for="qp-name">Sayfada görünen ad <span class="muted">(isteğe bağlı)</span></label>
+            <label for="qp-name">{t('pages.quick.displayName')} <span class="muted">{t('pages.quick.optional')}</span></label>
             <input id="qp-name" class="input" maxlength="100" bind:value={name} placeholder={m.name} />
           </div>
         {/if}
       {/if}
       {#if already.length}
         <p class="help nomargin">
-          Zaten ekli: {#each already as p, i (p.id)}{i ? ', ' : ''}<a href="#/status-pages/{p.id}" onclick={() => (open = false)}>{p.title}</a>{/each}
+          {t('pages.quick.alreadyIn')} {#each already as p, i (p.id)}{i ? ', ' : ''}<a href="#/status-pages/{p.id}" onclick={() => (open = false)}>{p.title}</a>{/each}
         </p>
       {/if}
       {#if error}<div class="alert error" role="alert">{error}</div>{/if}
@@ -125,11 +128,11 @@
   {/if}
   {#snippet footer()}
     <div class="spacer"></div>
-    <button type="button" class="btn" onclick={() => (open = false)}>Vazgeç</button>
+    <button type="button" class="btn" onclick={() => (open = false)}>{t('common.cancel')}</button>
     {#if pages.length && available.length}
       <button type="submit" form="qpage" class="btn primary" disabled={busy || !page}>
         {#if busy}<span class="spinner"></span>{/if}
-        Ekle
+        {t('common.add')}
       </button>
     {/if}
   {/snippet}

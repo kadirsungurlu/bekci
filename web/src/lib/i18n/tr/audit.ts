@@ -1,2 +1,111 @@
-// Ayarlar › İşlem kaydı (C grubu). Aşama 2'de doldurulacak.
-export default {};
+// Ayarlar › İşlem kaydı ve lib/audit.ts: eylem kodları "alan.eylem" → actions.alan.eylem.
+export default {
+  title: 'İşlem kaydı',
+  loadFailed: 'İşlem kaydı yüklenemedi',
+  empty: 'Henüz kayıt yok.',
+  loadMore: 'Daha fazla yükle',
+  col: {
+    time: 'Zaman',
+    user: 'Kullanıcı',
+    action: 'İşlem',
+    target: 'Hedef',
+    detail: 'Ayrıntı',
+    ip: 'IP',
+  },
+  actions: {
+    login: {
+      success: 'Giriş yaptı',
+      fail: 'Hatalı giriş denemesi',
+      '2fa_fail': 'Hatalı 2FA kodu',
+    },
+    user: {
+      setup: 'İlk kurulum',
+      create: 'Kullanıcı eklendi',
+      update: 'Kullanıcı güncellendi',
+      delete: 'Kullanıcı silindi',
+      password_change: 'Şifresini değiştirdi',
+      password_reset: 'Şifre sıfırlandı',
+      '2fa_enable': '2FA açıldı',
+      '2fa_disable': '2FA kapatıldı',
+      '2fa_recovery_codes': 'Kurtarma kodları yenilendi',
+      '2fa_reset': '2FA sıfırlandı',
+    },
+    monitor: {
+      create: 'Monitör eklendi',
+      update: 'Monitör güncellendi',
+      delete: 'Monitör silindi',
+      pause: 'Monitör durduruldu',
+      resume: 'Monitör başlatıldı',
+      clone: 'Monitör kopyalandı',
+      reset_stats: 'Monitör istatistikleri sıfırlandı',
+      notifications: 'Monitör bildirim kanalları değiştirildi',
+      tags: 'Monitör etiketleri değiştirildi',
+      locations: 'Monitör konumları değiştirildi',
+    },
+    notification: {
+      create: 'Bildirim kanalı eklendi',
+      update: 'Bildirim kanalı güncellendi',
+      delete: 'Bildirim kanalı silindi',
+      samples: 'Örnek bildirimler gönderildi',
+    },
+    server: {
+      create: 'Sunucu eklendi',
+      alerts: 'Sunucu uyarı kuralları değiştirildi',
+      notifications: 'Sunucu bildirim kanalları değiştirildi',
+    },
+    settings: {
+      update: 'Ayarlar güncellendi',
+    },
+    apikey: {
+      create: 'API anahtarı oluşturuldu',
+      revoke: 'API anahtarı iptal edildi',
+    },
+    status_page: {
+      create: 'Durum sayfası oluşturuldu',
+      update: 'Durum sayfası güncellendi',
+      delete: 'Durum sayfası silindi',
+      logo: 'Logo yüklendi',
+      logo_delete: 'Logo kaldırıldı',
+    },
+    announcement: {
+      create: 'Duyuru eklendi',
+      update: 'Duyuru güncellendi',
+      delete: 'Duyuru silindi',
+    },
+    maintenance: {
+      create: 'Bakım eklendi',
+      update: 'Bakım güncellendi',
+      delete: 'Bakım silindi',
+      pause: 'Bakım durduruldu',
+      resume: 'Bakım başlatıldı',
+    },
+    tag: {
+      create: 'Etiket eklendi',
+      update: 'Etiket güncellendi',
+      delete: 'Etiket silindi',
+    },
+    probe: {
+      create: 'Kontrol noktası eklendi',
+      update: 'Kontrol noktası güncellendi',
+      delete: 'Kontrol noktası silindi',
+      token: 'Kontrol noktası token’ı yenilendi',
+    },
+    backup: {
+      export: 'Yedek indirildi',
+      import: 'İçe aktarma / geri yükleme yapıldı',
+    },
+  },
+  targets: {
+    user: 'Kullanıcı',
+    monitor: 'Monitör',
+    notification: 'Bildirim',
+    settings: 'Ayarlar',
+    apikey: 'API anahtarı',
+    status_page: 'Durum sayfası',
+    announcement: 'Duyuru',
+    maintenance: 'Bakım',
+    tag: 'Etiket',
+    probe: 'Kontrol noktası',
+    backup: 'Yedek',
+  },
+};

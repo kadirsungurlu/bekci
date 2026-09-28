@@ -4,6 +4,7 @@
   import { DEFAULT_TAG_COLOR, TAG_COLORS, isHexColor } from '../lib/tags';
   import Modal from './Modal.svelte';
   import TagChip from './TagChip.svelte';
+  import { t } from '../lib/i18n';
 
   let {
     open = $bindable(false),
@@ -26,10 +27,10 @@
     e.preventDefault();
     error = '';
     const n = name.trim();
-    if (!n) return (error = 'Etiket adı gerekli.');
-    if ([...n].length > 50) return (error = 'Etiket adı en fazla 50 karakter olabilir.');
+    if (!n) return (error = t('tags.dialog.errName'));
+    if ([...n].length > 50) return (error = t('tags.dialog.errLong'));
     const c = color.trim().toLowerCase();
-    if (!isHexColor(c)) return (error = 'Renk #rrggbb biçiminde olmalı (ör. #2563eb).');
+    if (!isHexColor(c)) return (error = t('tags.dialog.errColor'));
     busy = true;
     try {
       const res = tag ? await api.updateTag(tag.id, n, c) : await api.createTag(n, c);
@@ -43,14 +44,14 @@
   }
 </script>
 
-<Modal bind:open title={tag ? 'Etiketi düzenle' : 'Yeni etiket'} width={460}>
+<Modal bind:open title={tag ? t('tags.dialog.edit') : t('tags.newTag')} width={460}>
   <form id="tagf" class="stack" onsubmit={submit} novalidate>
     <div class="field">
-      <label for="tg-name">Etiket adı</label>
-      <input id="tg-name" class="input" maxlength="50" bind:value={name} placeholder="Ör. ortam, müşteri, ekip" />
+      <label for="tg-name">{t('tags.dialog.name')}</label>
+      <input id="tg-name" class="input" maxlength="50" bind:value={name} placeholder={t('tags.dialog.namePlaceholder')} />
     </div>
     <div class="field">
-      <span class="label" id="tg-color-l">Renk</span>
+      <span class="label" id="tg-color-l">{t('tags.dialog.color')}</span>
       <div class="swatches" role="radiogroup" aria-labelledby="tg-color-l">
         {#each TAG_COLORS as c (c)}
           <button
@@ -66,22 +67,26 @@
         {/each}
       </div>
       <div class="custom">
-        <input type="color" class="picker" aria-label="Özel renk seç" value={isHexColor(color) ? color : DEFAULT_TAG_COLOR} oninput={(e) => (color = e.currentTarget.value)} />
-        <input id="tg-color" class="input mono hex" maxlength="7" bind:value={color} aria-label="Renk kodu" spellcheck="false" autocapitalize="none" />
+        <input type="color" class="picker" aria-label={t('tags.dialog.customColor')} value={isHexColor(color) ? color : DEFAULT_TAG_COLOR} oninput={(e) => (color = e.currentTarget.value)} />
+        <input id="tg-color" class="input mono hex" maxlength="7" bind:value={color} aria-label={t('tags.dialog.colorCode')} spellcheck="false" autocapitalize="none" />
       </div>
     </div>
     <div class="preview">
-      <span class="muted small">Önizleme</span>
-      <TagChip name={name.trim() || 'etiket'} color={isHexColor(color) ? color : DEFAULT_TAG_COLOR} value="değer" />
+      <span class="muted small">{t('tags.dialog.preview')}</span>
+      <TagChip
+        name={name.trim() || t('tags.dialog.sampleName')}
+        color={isHexColor(color) ? color : DEFAULT_TAG_COLOR}
+        value={t('tags.dialog.sampleValue')}
+      />
     </div>
     {#if error}<div class="alert error" role="alert">{error}</div>{/if}
   </form>
   {#snippet footer()}
     <div class="spacer"></div>
-    <button type="button" class="btn" onclick={() => (open = false)}>Vazgeç</button>
+    <button type="button" class="btn" onclick={() => (open = false)}>{t('common.cancel')}</button>
     <button type="submit" form="tagf" class="btn primary" disabled={busy}>
       {#if busy}<span class="spinner"></span>{/if}
-      {tag ? 'Kaydet' : 'Etiketi ekle'}
+      {tag ? t('common.save') : t('tags.dialog.add')}
     </button>
   {/snippet}
 </Modal>

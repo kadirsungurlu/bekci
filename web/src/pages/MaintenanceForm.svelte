@@ -9,6 +9,7 @@
   import { DEFAULT_TZ, MAINT_STATUS, STRATEGY_DESCS, STRATEGY_LABELS, WEEKDAYS, nextText } from '../lib/maintenance';
   import MonitorPicker from '../components/MonitorPicker.svelte';
   import Icon from '../components/Icon.svelte';
+  import { t, tParts } from '../lib/i18n';
 
   let { id }: { id?: number } = $props();
   // svelte-ignore state_referenced_locally
@@ -78,13 +79,13 @@
       if (pre > 0) {
         monitorIds = [pre];
         const m = live.byId(pre);
-        if (m) title = `Bakım: ${m.name}`.slice(0, 200);
+        if (m) title = t('maintenance.defaultTitle', { name: m.name }).slice(0, 200);
       }
     } else {
       try {
         fill(await api.maintenanceItem(id!));
       } catch (e) {
-        loadError = e instanceof ApiError && e.status === 404 ? 'Bakım penceresi bulunamadı.' : errorMessage(e);
+        loadError = e instanceof ApiError && e.status === 404 ? t('maintenance.form.notFound') : errorMessage(e);
       } finally {
         loading = false;
       }
@@ -121,21 +122,21 @@
   }
 
   function validate(): { msg: string; field?: string } | null {
-    if (!title.trim()) return { msg: 'Başlık gerekli.', field: 'mt-title' };
+    if (!title.trim()) return { msg: t('maintenance.form.errTitle'), field: 'mt-title' };
     if (strategy === 'once') {
-      if (!start || !end) return { msg: 'Başlangıç ve bitiş zamanını girin.', field: start ? 'mt-end' : 'mt-start' };
-      if (end <= start) return { msg: 'Bitiş zamanı başlangıçtan sonra olmalı.', field: 'mt-end' };
+      if (!start || !end) return { msg: t('maintenance.form.errStartEnd'), field: start ? 'mt-end' : 'mt-start' };
+      if (end <= start) return { msg: t('maintenance.form.errEndAfter'), field: 'mt-end' };
     }
-    if (strategy === 'recurring_weekly' && weekdays.length === 0) return { msg: 'En az bir gün seçin.' };
+    if (strategy === 'recurring_weekly' && weekdays.length === 0) return { msg: t('maintenance.form.errDays') };
     if ((strategy === 'recurring_weekly' || strategy === 'recurring_daily') && startTime === endTime)
-      return { msg: 'Başlangıç ve bitiş saati farklı olmalı.', field: 'mt-et' };
+      return { msg: t('maintenance.form.errSameTime'), field: 'mt-et' };
     if (strategy === 'cron') {
-      if (!cron.trim()) return { msg: 'Cron ifadesini girin.', field: 'mt-cron' };
+      if (!cron.trim()) return { msg: t('maintenance.form.errCron'), field: 'mt-cron' };
       if (duration === null || !Number.isInteger(duration) || duration < 1 || duration > 10080)
-        return { msg: 'Süre 1-10080 dakika arasında olmalı.', field: 'mt-dur' };
+        return { msg: t('maintenance.form.errDuration'), field: 'mt-dur' };
     }
-    if (dateFrom && dateTo && dateTo < dateFrom) return { msg: 'Bitiş tarihi başlangıç tarihinden önce olamaz.', field: 'mt-dt' };
-    if (!allMonitors && monitorIds.length === 0) return { msg: 'En az bir monitör seçin veya tüm monitörleri seçin.' };
+    if (dateFrom && dateTo && dateTo < dateFrom) return { msg: t('maintenance.form.errDateRange'), field: 'mt-dt' };
+    if (!allMonitors && monitorIds.length === 0) return { msg: t('maintenance.form.errMonitors') };
     return null;
   }
 
@@ -175,7 +176,7 @@
     try {
       const res = isEdit ? await api.updateMaintenance(id!, body) : await api.createMaintenance(body);
       saved = true;
-      toast.success(isEdit ? 'Bakım penceresi kaydedildi' : `“${res.title}” eklendi`);
+      toast.success(isEdit ? t('maintenance.form.saved') : t('maintenance.form.added', { name: res.title }));
       navigate('/maintenance');
     } catch (err) {
       showError(errorMessage(err));
@@ -187,16 +188,16 @@
   async function remove() {
     if (!current) return;
     const ok = await confirmDialog({
-      title: 'Bakımı sil',
-      message: `“${current.title}” bakım penceresi silinecek.`,
-      confirmText: 'Sil',
+      title: t('maintenance.list.deleteTitle'),
+      message: t('maintenance.list.deleteMsg', { name: current.title }),
+      confirmText: t('common.delete'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.deleteMaintenance(current.id);
       saved = true;
-      toast.success('Bakım penceresi silindi');
+      toast.success(t('maintenance.form.deleted'));
       navigate('/maintenance');
     } catch (e) {
       toast.error(errorMessage(e));
@@ -208,9 +209,9 @@
   );
 </script>
 
-<a class="back" href="#/maintenance"><Icon name="chevron-left" size={16} /> Bakım pencereleri</a>
+<a class="back" href="#/maintenance"><Icon name="chevron-left" size={16} /> {t('maintenance.form.back')}</a>
 <div class="page-head">
-  <h1>{isEdit ? 'Bakımı düzenle' : 'Bakım ekle'}<span class="dot">.</span></h1>
+  <h1>{isEdit ? t('maintenance.form.editTitle') : t('maintenance.form.addTitle')}<span class="dot">.</span></h1>
   {#if current}
     <span class="badge {MAINT_STATUS[current.status].c} st">{MAINT_STATUS[current.status].l}</span>
   {/if}
@@ -220,9 +221,9 @@
   <div class="skeleton" style="height:420px;max-width:820px"></div>
 {:else if loadError}
   <div class="card empty">
-    <h3>Bakım penceresi yüklenemedi</h3>
+    <h3>{t('maintenance.form.loadFailed')}</h3>
     <p>{loadError}</p>
-    <a class="btn primary" href="#/maintenance">Listeye dön</a>
+    <a class="btn primary" href="#/maintenance">{t('maintenance.form.backToList')}</a>
   </div>
 {:else}
   <form class="form" onsubmit={submit} novalidate>
@@ -231,22 +232,22 @@
     {/if}
     <section class="card stack">
       <div class="field">
-        <label for="mt-title">Başlık</label>
-        <input id="mt-title" class="input" maxlength="200" bind:value={title} placeholder="Ör. Sunucu güncellemesi" />
+        <label for="mt-title">{t('maintenance.form.title')}</label>
+        <input id="mt-title" class="input" maxlength="200" bind:value={title} placeholder={t('maintenance.form.titlePlaceholder')} />
       </div>
       <div class="field">
-        <label for="mt-desc">Açıklama <span class="muted">(isteğe bağlı)</span></label>
-        <textarea id="mt-desc" class="input plain" rows="2" maxlength="2000" bind:value={description} placeholder="Bakımın nedeni, ekip için notlar"></textarea>
+        <label for="mt-desc">{t('maintenance.form.description')} <span class="muted">{t('maintenance.form.optional')}</span></label>
+        <textarea id="mt-desc" class="input plain" rows="2" maxlength="2000" bind:value={description} placeholder={t('maintenance.form.descPlaceholder')}></textarea>
       </div>
       <label class="check">
         <input type="checkbox" bind:checked={active} />
-        <span>Etkin<small>Kapalıyken zamanlama çalışmaz; pencere “Durduruldu” görünür.</small></span>
+        <span>{t('maintenance.form.enabled')}<small>{t('maintenance.form.enabledHelp')}</small></span>
       </label>
     </section>
 
     <section class="card stack">
-      <h2 class="card-title">Zamanlama</h2>
-      <div class="strats" role="radiogroup" aria-label="Strateji">
+      <h2 class="card-title">{t('maintenance.form.schedule')}</h2>
+      <div class="strats" role="radiogroup" aria-label={t('maintenance.form.strategyLabel')}>
         {#each STRATEGIES as s (s)}
           <button type="button" role="radio" aria-checked={strategy === s} class="strat" class:active={strategy === s} onclick={() => (strategy = s)}>
             <span class="sl">{STRATEGY_LABELS[s]}</span>
@@ -257,23 +258,25 @@
 
       {#if strategy === 'manual'}
         <div class="alert info small">
-          “Etkin” açık olduğu sürece etkilenen monitörler bakımda sayılır. Bakım bitince listeden <b>Durdur</b>’a basın.
+          {#each tParts('maintenance.form.manualInfo') as p, i (i)}
+            {#if p.slot === 'stop'}<b>{t('maintenance.list.stop')}</b>{:else}{p.text}{/if}
+          {/each}
         </div>
       {:else if strategy === 'once'}
         <div class="grid-2">
           <div class="field">
-            <label for="mt-start">Başlangıç</label>
+            <label for="mt-start">{t('maintenance.form.start')}</label>
             <input id="mt-start" class="input" type="datetime-local" bind:value={start} />
           </div>
           <div class="field">
-            <label for="mt-end">Bitiş</label>
+            <label for="mt-end">{t('maintenance.form.end')}</label>
             <input id="mt-end" class="input" type="datetime-local" min={start} bind:value={end} />
           </div>
         </div>
       {:else}
         {#if strategy === 'recurring_weekly'}
           <fieldset class="days">
-            <legend class="label">Günler</legend>
+            <legend class="label">{t('maintenance.form.days')}</legend>
             <div class="day-list">
               {#each WEEKDAYS as d (d.v)}
                 <button
@@ -291,37 +294,41 @@
         {#if strategy === 'recurring_weekly' || strategy === 'recurring_daily'}
           <div class="grid-2">
             <div class="field">
-              <label for="mt-st">Başlangıç saati</label>
+              <label for="mt-st">{t('maintenance.form.startTime')}</label>
               <input id="mt-st" class="input" type="time" bind:value={startTime} />
             </div>
             <div class="field">
-              <label for="mt-et">Bitiş saati</label>
+              <label for="mt-et">{t('maintenance.form.endTime')}</label>
               <input id="mt-et" class="input" type="time" bind:value={endTime} />
-              <span class="help">Bitiş başlangıçtan önceyse ertesi gün biter.{overnight ? ' (Bu pencere gece yarısını geçiyor.)' : ''}</span>
+              <span class="help">{t('maintenance.form.endTimeHelp')}{overnight ? t('maintenance.form.overnight') : ''}</span>
             </div>
           </div>
         {:else if strategy === 'cron'}
           <div class="grid-cron">
             <div class="field">
-              <label for="mt-cron">Cron ifadesi</label>
+              <label for="mt-cron">{t('maintenance.form.cron')}</label>
               <input id="mt-cron" class="input mono" bind:value={cron} placeholder="0 3 * * 1" autocapitalize="none" spellcheck="false" />
-              <span class="help">dakika saat gün ay haftanın-günü · ör. <code>0 3 * * 1</code> = her pazartesi 03:00, <code>@daily</code></span>
+              <span class="help">
+                {#each tParts('maintenance.form.cronHelp') as p, i (i)}
+                  {#if p.slot === 'a'}<code>0 3 * * 1</code>{:else if p.slot === 'b'}<code>@daily</code>{:else}{p.text}{/if}
+                {/each}
+              </span>
             </div>
             <div class="field">
-              <label for="mt-dur">Süre (dakika)</label>
+              <label for="mt-dur">{t('maintenance.form.durationMin')}</label>
               <input id="mt-dur" class="input" type="number" min="1" max="10080" bind:value={duration} />
             </div>
           </div>
         {/if}
         <fieldset class="range">
-          <legend class="label">Tarih aralığı <span class="muted">(isteğe bağlı)</span></legend>
+          <legend class="label">{t('maintenance.form.dateRange')} <span class="muted">{t('maintenance.form.optional')}</span></legend>
           <div class="grid-2">
             <div class="field">
-              <label for="mt-df">Başlangıç tarihi</label>
+              <label for="mt-df">{t('maintenance.form.dateFrom')}</label>
               <input id="mt-df" class="input" type="date" bind:value={dateFrom} />
             </div>
             <div class="field">
-              <label for="mt-dt">Bitiş tarihi</label>
+              <label for="mt-dt">{t('maintenance.form.dateTo')}</label>
               <input id="mt-dt" class="input" type="date" min={dateFrom || undefined} bind:value={dateTo} />
             </div>
           </div>
@@ -330,26 +337,26 @@
 
       {#if strategy !== 'manual'}
         <div class="field tz">
-          <label for="mt-tz">Saat dilimi</label>
+          <label for="mt-tz">{t('maintenance.form.timezone')}</label>
           <input id="mt-tz" class="input" list="mt-tzs" bind:value={timezone} placeholder="Europe/Istanbul" autocapitalize="none" spellcheck="false" />
           {#if timezones.length}
             <datalist id="mt-tzs">
               {#each timezones as z (z)}<option value={z}></option>{/each}
             </datalist>
           {/if}
-          <span class="help">Saatler bu dilime göre yorumlanır.</span>
+          <span class="help">{t('maintenance.form.timezoneHelp')}</span>
         </div>
       {/if}
     </section>
 
     <section class="card stack">
-      <h2 class="card-title">Etkilenen monitörler</h2>
+      <h2 class="card-title">{t('maintenance.form.affected')}</h2>
       <label class="check">
         <input type="checkbox" bind:checked={allMonitors} />
-        <span>Tüm monitörler<small>Sonradan eklenen monitörler de dahil.</small></span>
+        <span>{t('maintenance.form.allMonitors')}<small>{t('maintenance.form.allMonitorsHelp')}</small></span>
       </label>
       {#if !allMonitors}
-        <MonitorPicker bind:selected={monitorIds} label="Etkilenen monitörler" id="mt-mp" />
+        <MonitorPicker bind:selected={monitorIds} label={t('maintenance.form.affected')} id="mt-mp" />
       {/if}
     </section>
 
@@ -359,13 +366,13 @@
 
     <div class="actions">
       {#if isEdit}
-        <button type="button" class="btn danger" onclick={remove}><Icon name="trash" size={15} /> Sil</button>
+        <button type="button" class="btn danger" onclick={remove}><Icon name="trash" size={15} /> {t('common.delete')}</button>
         <div class="spacer"></div>
       {/if}
-      <a class="btn" href="#/maintenance">Vazgeç</a>
+      <a class="btn" href="#/maintenance">{t('common.cancel')}</a>
       <button class="btn primary" type="submit" disabled={saving}>
         {#if saving}<span class="spinner"></span>{/if}
-        {isEdit ? 'Kaydet' : 'Bakımı ekle'}
+        {isEdit ? t('common.save') : t('maintenance.form.submitAdd')}
       </button>
     </div>
   </form>

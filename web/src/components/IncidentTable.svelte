@@ -3,12 +3,13 @@
   import { fmtDate, fmtDuration } from '../lib/format';
   import { navigate } from '../lib/router.svelte';
   import Icon from './Icon.svelte';
+  import { t } from '../lib/i18n';
 
   let {
     incidents,
     now,
     showMonitor = false,
-    emptyText = 'Kayıtlı olay yok.',
+    emptyText,
   }: { incidents: Incident[]; now: number; showMonitor?: boolean; emptyText?: string } = $props();
 
   // Satırın tamamı olay sayfasına götürür; içteki bağlantılar (monitör adı) kendi işini yapar.
@@ -20,17 +21,17 @@
 </script>
 
 {#if incidents.length === 0}
-  <div class="none">{emptyText}</div>
+  <div class="none">{emptyText ?? t('incidents.table.empty')}</div>
 {:else}
   <table class="table responsive" class:with-mon={showMonitor}>
     <thead>
       <tr>
-        {#if showMonitor}<th>Monitör</th>{/if}
-        <th>Başlangıç</th>
-        <th>Süre</th>
-        <th>Neden</th>
-        <th>Durum</th>
-        <th class="go-h"><span class="sr">Ayrıntı</span></th>
+        {#if showMonitor}<th>{t('incidents.table.monitor')}</th>{/if}
+        <th>{t('incidents.table.started')}</th>
+        <th>{t('incidents.table.duration')}</th>
+        <th>{t('incidents.table.cause')}</th>
+        <th>{t('incidents.table.status')}</th>
+        <th class="go-h"><span class="sr">{t('incidents.table.details')}</span></th>
       </tr>
     </thead>
     <tbody>
@@ -40,22 +41,22 @@
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
         <tr class="inc-row" onclick={(e) => open(e, inc.id)}>
           {#if showMonitor}
-            <td data-label="Monitör" class="mon"><a href="#/monitors/{inc.monitor_id}">{inc.monitor_name}</a></td>
+            <td data-label={t('incidents.table.monitor')} class="mon"><a href="#/monitors/{inc.monitor_id}">{inc.monitor_name}</a></td>
           {/if}
-          <td data-label="Başlangıç" class="nowrap start">{fmtDate(inc.started_at)}</td>
-          <td data-label="Süre" class="nowrap dur" class:c-down={ongoing}>
+          <td data-label={t('incidents.table.started')} class="nowrap start">{fmtDate(inc.started_at)}</td>
+          <td data-label={t('incidents.table.duration')} class="nowrap dur" class:c-down={ongoing}>
             {fmtDuration((ongoing ? now : inc.resolved_at) - inc.started_at)}
           </td>
-          <td data-label="Neden" class="cause">{inc.cause || '—'}</td>
-          <td data-label="Durum" class="st">
+          <td data-label={t('incidents.table.cause')} class="cause">{inc.cause || '—'}</td>
+          <td data-label={t('incidents.table.status')} class="st">
             {#if ongoing}
-              <span class="badge down">Devam ediyor</span>
+              <span class="badge down">{t('incidents.table.ongoing')}</span>
             {:else}
-              <span class="badge up" title="Çözüldü: {fmtDate(inc.resolved_at)}">Çözüldü</span>
+              <span class="badge up" title={t('incidents.table.resolvedAt', { date: fmtDate(inc.resolved_at) })}>{t('incidents.table.resolved')}</span>
             {/if}
           </td>
           <td class="go">
-            <a href="#/incidents/{inc.id}" aria-label="Olay ayrıntıları" data-tip="Olay ayrıntıları"><Icon name="chevron-right" size={16} /></a>
+            <a href="#/incidents/{inc.id}" aria-label={t('incidents.table.openDetails')} data-tip={t('incidents.table.openDetails')}><Icon name="chevron-right" size={16} /></a>
           </td>
         </tr>
       {/each}

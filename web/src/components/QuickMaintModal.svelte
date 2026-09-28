@@ -9,17 +9,18 @@
   import { clock, toast } from '../lib/ui.svelte';
   import Icon from './Icon.svelte';
   import Modal from './Modal.svelte';
+  import { t, tParts } from '../lib/i18n';
 
   let { open = $bindable(false), m }: { open?: boolean; m: MonitorView } = $props();
 
   type Choice = '30' | '60' | '240' | 'custom';
-  const CHOICES: { v: Choice; l: string }[] = [
-    { v: '30', l: '30 dk' },
-    { v: '60', l: '1 saat' },
-    { v: '240', l: '4 saat' },
-    { v: 'custom', l: 'Özel' },
+  const CHOICES: { v: Choice; k: 'c30' | 'c60' | 'c240' | 'custom' }[] = [
+    { v: '30', k: 'c30' },
+    { v: '60', k: 'c60' },
+    { v: '240', k: 'c240' },
+    { v: 'custom', k: 'custom' },
   ];
-  const UNITS = { m: { l: 'dakika', s: 60 }, h: { l: 'saat', s: 3600 }, d: { l: 'gün', s: 86400 } } as const;
+  const UNITS = { m: { k: 'minutes', s: 60 }, h: { k: 'hours', s: 3600 }, d: { k: 'days', s: 86400 } } as const;
   type Unit = keyof typeof UNITS;
 
   let choice = $state<Choice>('60');
@@ -53,10 +54,10 @@
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     error = '';
-    if (seconds < 60) return (error = 'Süre en az 1 dakika olmalı.');
-    if (seconds > MAX) return (error = 'Süre en fazla 30 gün olabilir.');
+    if (seconds < 60) return (error = t('maintenance.quick.errMin'));
+    if (seconds > MAX) return (error = t('maintenance.quick.errMax'));
     const now = nowSec();
-    const title = `Bakım: ${m.name}`.slice(0, 200);
+    const title = t('maintenance.defaultTitle', { name: m.name }).slice(0, 200);
     busy = true;
     try {
       await api.createMaintenance({
@@ -77,7 +78,7 @@
         all_monitors: false,
         monitor_ids: [m.id],
       });
-      toast.success(`“${m.name}” ${fmtDate(now + seconds)} tarihine kadar bakımda`);
+      toast.success(t('maintenance.quick.done', { name: m.name, date: fmtDate(now + seconds) }));
       live.refresh();
       open = false;
     } catch (err) {
@@ -92,7 +93,7 @@
     try {
       await api.pauseMaintenance(w.id);
       current = current.filter((x) => x.id !== w.id);
-      toast.success(`“${w.title}” durduruldu`);
+      toast.success(t('maintenance.quick.stopped', { name: w.title }));
       live.refresh();
     } catch (err) {
       toast.error(errorMessage(err));
@@ -102,10 +103,12 @@
   }
 </script>
 
-<Modal bind:open title="Bakıma al" width={500}>
+<Modal bind:open title={t('maintenance.quick.title')} width={500}>
   <form id="qmaint" class="stack" onsubmit={submit} novalidate>
     <p class="lead">
-      <b>{m.name}</b> bakım süresince kontrol edilmeye devam eder, ama kesinti sayılmaz ve bildirim gönderilmez.
+      {#each tParts('maintenance.quick.lead') as p, i (i)}
+        {#if p.slot === 'name'}<b>{m.name}</b>{:else}{p.text}{/if}
+      {/each}
     </p>
 
     {#if current.length}
@@ -114,15 +117,15 @@
           <div class="cw">
             <span class="cw-ic"><Icon name="wrench" size={15} /></span>
             <span class="cw-t">
-              <b>{w.all_monitors ? `${w.title} (tüm monitörler)` : w.title}</b>
+              <b>{w.all_monitors ? t('maintenance.quick.allMonitorsSuffix', { name: w.title }) : w.title}</b>
               <small>{nextText(w)}</small>
             </span>
             {#if !w.all_monitors && w.monitor_ids.length === 1}
               <button type="button" class="btn sm" disabled={stopping !== null} onclick={() => stop(w)}>
-                {#if stopping === w.id}<span class="spinner"></span>{/if} Bitir
+                {#if stopping === w.id}<span class="spinner"></span>{/if} {t('maintenance.quick.finish')}
               </button>
             {:else}
-              <a class="btn sm" href="#/maintenance/{w.id}" onclick={() => (open = false)}>Aç</a>
+              <a class="btn sm" href="#/maintenance/{w.id}" onclick={() => (open = false)}>{t('maintenance.quick.open')}</a>
             {/if}
           </div>
         {/each}
@@ -130,43 +133,47 @@
     {/if}
 
     <div class="field">
-      <span class="label" id="qm-dur">Süre</span>
+      <span class="label" id="qm-dur">{t('maintenance.quick.duration')}</span>
       <div class="choices" role="radiogroup" aria-labelledby="qm-dur">
         {#each CHOICES as c (c.v)}
           <button type="button" role="radio" aria-checked={choice === c.v} class:active={choice === c.v} onclick={() => (choice = c.v)}>
-            {c.l}
+            {t(`maintenance.quick.${c.k}`)}
           </button>
         {/each}
       </div>
       {#if choice === 'custom'}
         <div class="custom">
-          <input class="input" type="number" min="1" step="1" bind:value={amount} aria-label="Süre" />
-          <select class="input" bind:value={unit} aria-label="Birim">
-            {#each Object.entries(UNITS) as [k, u] (k)}<option value={k}>{u.l}</option>{/each}
+          <input class="input" type="number" min="1" step="1" bind:value={amount} aria-label={t('maintenance.quick.duration')} />
+          <select class="input" bind:value={unit} aria-label={t('maintenance.quick.unit')}>
+            {#each Object.entries(UNITS) as [k, u] (k)}<option value={k}>{t(`maintenance.quick.${u.k}`)}</option>{/each}
           </select>
         </div>
       {/if}
       <span class="help">
-        {#if endAt}Şimdi başlar, <b>{fmtDate(endAt)}</b>{timeLocative(endAt)} biter.{:else}Geçerli bir süre girin.{/if}
+        {#if endAt}
+          {#each tParts('maintenance.quick.endsAt') as p, i (i)}
+            {#if p.slot === 'date'}<b>{fmtDate(endAt)}</b>{timeLocative(endAt)}{:else}{p.text}{/if}
+          {/each}
+        {:else}{t('maintenance.quick.invalid')}{/if}
       </span>
     </div>
 
     <div class="field">
-      <label for="qm-note">Not <span class="muted">(isteğe bağlı)</span></label>
-      <input id="qm-note" class="input" maxlength="500" bind:value={note} placeholder="Ör. sunucu güncellemesi" />
+      <label for="qm-note">{t('maintenance.quick.note')} <span class="muted">{t('maintenance.form.optional')}</span></label>
+      <input id="qm-note" class="input" maxlength="500" bind:value={note} placeholder={t('maintenance.quick.notePlaceholder')} />
     </div>
 
     {#if error}<div class="alert error" role="alert">{error}</div>{/if}
   </form>
   {#snippet footer()}
     <a class="plan" href="#/maintenance/new?monitor={m.id}" onclick={() => (open = false)}>
-      <Icon name="calendar" size={14} /> Bakım planla
+      <Icon name="calendar" size={14} /> {t('maintenance.quick.plan')}
     </a>
     <div class="spacer"></div>
-    <button type="button" class="btn" onclick={() => (open = false)}>Vazgeç</button>
+    <button type="button" class="btn" onclick={() => (open = false)}>{t('common.cancel')}</button>
     <button type="submit" form="qmaint" class="btn primary" disabled={busy}>
       {#if busy}<span class="spinner"></span>{/if}
-      Bakıma al
+      {t('maintenance.quick.title')}
     </button>
   {/snippet}
 </Modal>

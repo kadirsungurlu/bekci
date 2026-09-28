@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, errorMessage, type AuditEntry } from '../../lib/api';
-  import { TARGET_LABELS, auditHref, auditLabel, auditTone } from '../../lib/audit';
+  import { auditHref, auditLabel, auditTargetLabel, auditTone } from '../../lib/audit';
   import { fmtDate } from '../../lib/format';
   import { STRATEGY_LABELS } from '../../lib/maintenance';
+  import { t } from '../../lib/i18n';
 
   // Bakım kayıtlarında ayrıntı strateji kodudur (ör. recurring_weekly).
   const detailText = (a: AuditEntry) =>
@@ -49,29 +50,29 @@
 
 <div class="card">
   <div class="head">
-    <h2 class="card-title">İşlem kaydı</h2>
-    <button class="btn sm" onclick={loadFirst} disabled={loading}>Yenile</button>
+    <h2 class="card-title">{t('audit.title')}</h2>
+    <button class="btn sm" onclick={loadFirst} disabled={loading}>{t('common.refresh')}</button>
   </div>
   {#if loading && items.length === 0}
     <div class="skeleton" style="height:220px"></div>
   {:else if error && items.length === 0}
     <div class="empty">
-      <h3>İşlem kaydı yüklenemedi</h3>
+      <h3>{t('audit.loadFailed')}</h3>
       <p>{error}</p>
-      <button class="btn primary" onclick={loadFirst}>Tekrar dene</button>
+      <button class="btn primary" onclick={loadFirst}>{t('common.retry')}</button>
     </div>
   {:else if items.length === 0}
-    <div class="none">Henüz kayıt yok.</div>
+    <div class="none">{t('audit.empty')}</div>
   {:else}
     <table class="table responsive log">
       <thead>
         <tr>
-          <th>Zaman</th>
-          <th>Kullanıcı</th>
-          <th>İşlem</th>
-          <th>Hedef</th>
-          <th>Ayrıntı</th>
-          <th>IP</th>
+          <th>{t('audit.col.time')}</th>
+          <th>{t('audit.col.user')}</th>
+          <th>{t('audit.col.action')}</th>
+          <th>{t('audit.col.target')}</th>
+          <th>{t('audit.col.detail')}</th>
+          <th>{t('audit.col.ip')}</th>
         </tr>
       </thead>
       <tbody>
@@ -79,23 +80,23 @@
           {@const tone = auditTone(a.action)}
           {@const href = auditHref(a.target_type, a.target_id)}
           <tr>
-            <td data-label="Zaman" class="nowrap tm">{fmtDate(a.time)}</td>
-            <td data-label="Kullanıcı" class="usr">{a.username || '—'}</td>
-            <td data-label="İşlem" class="act">
+            <td data-label={t('audit.col.time')} class="nowrap tm">{fmtDate(a.time)}</td>
+            <td data-label={t('audit.col.user')} class="usr">{a.username || '—'}</td>
+            <td data-label={t('audit.col.action')} class="act">
               <span class="badge {tone === 'bad' ? 'down' : tone === 'warn' ? 'pending' : tone === 'good' ? 'up' : ''}" title={a.action}
                 >{auditLabel(a.action)}</span
               >
             </td>
-            <td data-label="Hedef" class="tgt">
+            <td data-label={t('audit.col.target')} class="tgt">
               {#if a.target_name}
-                <span class="muted small">{TARGET_LABELS[a.target_type] ?? a.target_type}:</span>
+                <span class="muted small">{auditTargetLabel(a.target_type)}:</span>
                 {#if href}<a {href}>{a.target_name}</a>{:else}{a.target_name}{/if}
               {:else}
                 —
               {/if}
             </td>
-            <td data-label="Ayrıntı" class="det">{detailText(a)}</td>
-            <td data-label="IP" class="ip mono">{a.ip || '—'}</td>
+            <td data-label={t('audit.col.detail')} class="det">{detailText(a)}</td>
+            <td data-label={t('audit.col.ip')} class="ip mono">{a.ip || '—'}</td>
           </tr>
         {/each}
       </tbody>
@@ -105,7 +106,7 @@
       <div class="more">
         <button class="btn" onclick={loadMore} disabled={loadingMore}>
           {#if loadingMore}<span class="spinner"></span>{/if}
-          Daha fazla yükle
+          {t('audit.loadMore')}
         </button>
       </div>
     {/if}

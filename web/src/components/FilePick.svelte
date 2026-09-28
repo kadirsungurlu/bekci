@@ -3,12 +3,13 @@
   // Sürükle-bırak da desteklenir.
   import { fmtSize } from '../lib/format';
   import Icon from './Icon.svelte';
+  import { t } from '../lib/i18n';
 
   let {
     file = $bindable(null),
     accept,
     id,
-    label = 'Dosya seç',
+    label: labelProp,
     disabled = false,
   }: {
     file?: File | null;
@@ -17,6 +18,8 @@
     label?: string;
     disabled?: boolean;
   } = $props();
+
+  const label = $derived(labelProp ?? t('backup.filePick.pick'));
 
   let input: HTMLInputElement | undefined = $state();
   let over = $state(false);
@@ -59,13 +62,13 @@
       <span class="fn">{file.name}</span>
       <span class="muted small">{fmtSize(file.size)}</span>
     {:else}
-      <span class="text-2">Dosyayı buraya bırakın veya seçin</span>
+      <span class="text-2">{t('backup.filePick.drop')}</span>
     {/if}
   </span>
   {#if file}
-    <button type="button" class="btn ghost sm icon" aria-label="Dosyayı kaldır" onclick={clear} {disabled}><Icon name="x" size={15} /></button>
+    <button type="button" class="btn ghost sm icon" aria-label={t('backup.filePick.remove')} onclick={clear} {disabled}><Icon name="x" size={15} /></button>
   {/if}
-  <label for={id} class="btn sm" class:disabled>{file ? 'Değiştir' : label}</label>
+  <label for={id} class="btn sm" class:disabled>{file ? t('backup.filePick.change') : label}</label>
 </div>
 
 <style>

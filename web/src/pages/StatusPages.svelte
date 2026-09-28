@@ -5,6 +5,7 @@
   import { collator } from '../lib/format';
   import RowMenu, { type MenuItem } from '../components/RowMenu.svelte';
   import Icon from '../components/Icon.svelte';
+  import { t } from '../lib/i18n';
 
   let list = $state.raw<StatusPage[]>([]);
   let loading = $state(true);
@@ -32,54 +33,54 @@
 
   async function remove(p: StatusPage) {
     const ok = await confirmDialog({
-      title: 'Durum sayfasını sil',
-      message: `“${p.title}” sayfası, logosu ve duyuruları kalıcı olarak silinecek. Sayfanın adresi artık açılmayacak.`,
-      confirmText: 'Sil',
+      title: t('pages.deleteTitle'),
+      message: t('pages.list.deleteMsg', { name: p.title }),
+      confirmText: t('common.delete'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.deletePage(p.id);
       list = list.filter((x) => x.id !== p.id);
-      toast.success(`“${p.title}” silindi`);
+      toast.success(t('pages.deleted', { name: p.title }));
     } catch (e) {
       toast.error(errorMessage(e));
     }
   }
 
   async function copyUrl(p: StatusPage) {
-    if (await copyText(publicUrl(p))) toast.success('Adres panoya kopyalandı');
+    if (await copyText(publicUrl(p))) toast.success(t('pages.list.urlCopied'));
   }
 
   function menu(p: StatusPage): MenuItem[] {
     return [
-      { label: 'Düzenle', icon: 'edit', href: `#/status-pages/${p.id}` },
-      { label: 'Önizle', icon: 'eye', href: `#/status-pages/${p.id}/preview` },
-      { label: 'Adresi kopyala', icon: 'copy', onclick: () => copyUrl(p) },
-      { label: 'Sil', icon: 'trash', danger: true, onclick: () => remove(p) },
+      { label: t('common.edit'), icon: 'edit', href: `#/status-pages/${p.id}` },
+      { label: t('pages.preview'), icon: 'eye', href: `#/status-pages/${p.id}/preview` },
+      { label: t('pages.list.copyUrl'), icon: 'copy', onclick: () => copyUrl(p) },
+      { label: t('common.delete'), icon: 'trash', danger: true, onclick: () => remove(p) },
     ];
   }
 </script>
 
 <div class="page-head">
-  <h1>Durum sayfaları<span class="dot">.</span></h1>
-  <a class="btn primary" href="#/status-pages/new"><Icon name="plus" size={16} /> Yeni sayfa</a>
+  <h1>{t('pages.list.title')}<span class="dot">.</span></h1>
+  <a class="btn primary" href="#/status-pages/new"><Icon name="plus" size={16} /> {t('pages.list.newPage')}</a>
 </div>
 
 {#if loading}
   <div class="skeleton" style="height:160px"></div>
 {:else if error && list.length === 0}
   <div class="card empty">
-    <h3>Durum sayfaları yüklenemedi</h3>
+    <h3>{t('pages.list.loadFailed')}</h3>
     <p>{error}</p>
-    <button class="btn primary" onclick={load}>Tekrar dene</button>
+    <button class="btn primary" onclick={load}>{t('common.retry')}</button>
   </div>
 {:else if list.length === 0}
   <div class="card empty">
     <div class="big-ic"><Icon name="layout" size={30} /></div>
-    <h3>Henüz durum sayfası yok</h3>
-    <p>Müşterilerinize servislerinizin durumunu, planlı bakımları ve geçmiş olayları gösteren herkese açık bir sayfa oluşturun.</p>
-    <a class="btn primary" href="#/status-pages/new"><Icon name="plus" size={16} /> Sayfa oluştur</a>
+    <h3>{t('pages.list.emptyTitle')}</h3>
+    <p>{t('pages.list.emptyText')}</p>
+    <a class="btn primary" href="#/status-pages/new"><Icon name="plus" size={16} /> {t('pages.list.create')}</a>
   </div>
 {:else}
   <div class="grid">
@@ -97,15 +98,15 @@
             <h2><a href="#/status-pages/{p.id}">{p.title}</a></h2>
             <div class="badges">
               {#if p.published}
-                <span class="badge up">Yayında</span>
+                <span class="badge up">{t('pages.published')}</span>
               {:else}
-                <span class="badge paused">Taslak</span>
+                <span class="badge paused">{t('pages.draft')}</span>
               {/if}
-              {#if p.has_password}<span class="badge"><Icon name="lock" size={11} /> Şifreli</span>{/if}
-              <span class="muted small">{count(p)} monitör</span>
+              {#if p.has_password}<span class="badge"><Icon name="lock" size={11} /> {t('pages.list.passwordProtected')}</span>{/if}
+              <span class="muted small">{t('pages.monitorCount', { count: count(p) })}</span>
             </div>
           </div>
-          <RowMenu items={menu(p)} label="{p.title} için işlemler" />
+          <RowMenu items={menu(p)} label={t('pages.list.actionsFor', { name: p.title })} />
         </div>
         <div class="links">
           <a href={publicUrl(p)} target="_blank" rel="noopener noreferrer" class="url">
@@ -121,8 +122,8 @@
         </div>
         {#if p.description}<p class="desc">{p.description}</p>{/if}
         <div class="foot">
-          <a class="btn sm" href="#/status-pages/{p.id}"><Icon name="edit" size={14} /> Düzenle</a>
-          <a class="btn sm ghost" href="#/status-pages/{p.id}/preview"><Icon name="eye" size={14} /> Önizle</a>
+          <a class="btn sm" href="#/status-pages/{p.id}"><Icon name="edit" size={14} /> {t('common.edit')}</a>
+          <a class="btn sm ghost" href="#/status-pages/{p.id}/preview"><Icon name="eye" size={14} /> {t('pages.preview')}</a>
         </div>
       </article>
     {/each}
