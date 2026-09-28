@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"regexp"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -376,95 +375,96 @@ func (s *Server) probeMetrics(w http.ResponseWriter, r *http.Request) {
 
 // serverSetupCommands ajan kurulum komutları (§12.2): host'u gören Docker
 // konteyneri, doğrudan kurulum (systemd) ve Windows hizmeti (PowerShell).
-// Hepsi programı bu sunucudan token ile indirir; aynı komut tekrar
-// çalıştırılınca ajan güncellenir.
+// Program token'sız indirilir ve komuta gömülü SHA-256 ile doğrulanır; token
+// yalnızca 0600 izinli env dosyasına heredoc ile yazılır (hiçbir sürecin
+// argümanında görünmez, bkz. installcmd.go). Aynı komut tekrar çalıştırılınca
+// ajan güncellenir.
 func (s *Server) serverSetupCommands(server, token string) (dockerAgent, systemd, windows string) {
 	const hostFlags = "--network host --pid host -v /:/host:ro,rslave -v /var/run/docker.sock:/var/run/docker.sock:ro " +
 		"-e HOST_PROC=/host/proc -e HOST_SYS=/host/sys -e HOST_ETC=/host/etc -e HOST_ROOT=/host -e ADDR=- "
-	env := installEnv(server, token)
-	sha := s.agentBinarySHA256(runtime.GOOS, runtime.GOARCH)
-	if s.ProbeImage != "" {
-		dockerAgent = fmt.Sprintf("docker run -d --name uptime-agent --restart unless-stopped %s%s%s%s probe",
-			serverHardenFlags, hostFlags, env, s.ProbeImage)
-	} else {
-		// Program bir kez indirilip kalıcı birime yazılır, SHA-256 ile doğrulanır;
-		// yeniden başlatmada tekrar indirilmez (sürüm sabit).
-		dockerAgent = fmt.Sprintf("docker run -d --name uptime-agent --restart unless-stopped %s%s%s-v uptime-agent-bin:/opt/uptime alpine:3 %s",
-			serverHardenFlags, hostFlags, env, dockerFetchScript("/opt/uptime/uptime", sha))
+	amd, arm := s.linuxSHAs()
+	dockerAgent = dockerInstallCommand(agentEnvPath, installEnvLines(server, token),
+		"docker run -d --name uptime-agent --restart unless-stopped "+serverHardenFlags+hostFlags, s.ProbeImage, "uptime-agent-bin", amd, arm)
+
+	// systemd: sunucunun mimarisine uygun program /usr/local/bin/uptime'a iner
+	// ve SHA-256 ile doğrulanır; yalnızca bu komut tekrar çalıştırıldığında
+	// yenilenir (hizmet yeniden başlarken indirmez). Token yalnızca root'un
+	// okuyabildiği env dosyasında. Sertleştirme: ayrıcalık yükseltme kapalı,
+	// bellek sınırlı, geçici dizin özel.
+	body := []string{
+		linuxArchCase(amd, arm, "exit 1"),
+		`U="` + server + `/api/probe/binary?os=linux&arch=$A"`,
+		"F=/usr/local/bin/uptime",
+		`if command -v curl >/dev/null 2>&1; then curl -fsSL -o "$F.new" "$U"; else wget -qO "$F.new" "$U"; fi`,
+		`if ! echo "$S  $F.new" | sha256sum -c - >/dev/null; then rm -f "$F.new"; echo "Program özeti (SHA-256) uyuşmuyor: kurulum komutunu panelden yenileyin" >&2; exit 1; fi`,
+		`chmod 755 "$F.new"`,
+		`mv -f "$F.new" "$F"`,
 	}
-	// systemd: program /usr/local/bin/uptime'a iner ve SHA-256 ile doğrulanır;
-	// yalnızca bu komut tekrar çalıştırıldığında yenilenir (hizmet yeniden
-	// başlarken indirmez). Token yalnızca root'un okuyabildiği env dosyasında.
-	// Sertleştirme: ayrıcalık yükseltme kapalı, bellek sınırlı, geçici dizin özel.
-	unit := []string{
+	body = append(body, envFileSteps(agentEnvPath, installEnvLines(server, token, "ADDR=-"))...)
+	body = append(body,
+		"cat > /etc/systemd/system/uptime-agent.service <<'UPTIME_UNIT'",
 		"[Unit]", "Description=Uptime agent", "After=network-online.target", "Wants=network-online.target", "",
-		"[Service]", "EnvironmentFile=/etc/uptime-agent.env",
+		"[Service]", "EnvironmentFile="+agentEnvPath,
 		"ExecStart=/usr/local/bin/uptime probe", "Restart=always", "RestartSec=10",
 		"NoNewPrivileges=yes", "PrivateTmp=yes", "MemoryMax=256M", "CapabilityBoundingSet=CAP_NET_RAW", "",
 		"[Install]", "WantedBy=multi-user.target",
-	}
-	verify := ""
-	if sha != "" {
-		verify = `echo "` + sha + `  $F.new" | sha256sum -c -; `
-	}
-	systemd = fmt.Sprintf(`sh -c 'set -e; U="%s/api/probe/binary"; H="Authorization: Bearer %s"; F=/usr/local/bin/uptime; `+
-		`if command -v curl >/dev/null 2>&1; then curl -fsSL -H "$H" -o $F.new "$U"; else wget -qO $F.new --header "$H" "$U"; fi; `+
-		`%s`+
-		`chmod +x $F.new; mv -f $F.new $F; umask 077; printf "%%s\n" "PROBE_SERVER=%s" "PROBE_TOKEN=%s" "ADDR=-"%s > /etc/uptime-agent.env; `+
-		`chmod 600 /etc/uptime-agent.env; umask 022; printf "%%s\n" "%s" > /etc/systemd/system/uptime-agent.service; `+
-		`systemctl daemon-reload && systemctl enable uptime-agent && systemctl restart uptime-agent'`,
-		server, token, verify, server, token, insecureEnvLine(server), strings.Join(unit, `" "`))
+		"UPTIME_UNIT",
+		"systemctl daemon-reload",
+		"systemctl enable uptime-agent",
+		"systemctl restart uptime-agent",
+		`echo "Uptime ajanı kuruldu ve başlatıldı (durum: systemctl status uptime-agent)"`,
+	)
+	systemd = rootScript(body...)
 	// Windows komutu Windows programının kendi özetiyle doğrular (sunucunun
 	// Linux programının özeti değil).
 	return dockerAgent, systemd, windowsAgentCommand(server, token, s.agentBinarySHA256("windows", "amd64"))
 }
 
-// insecureEnvLine http sunucu adresinde env dosyasına PROBE_ALLOW_INSECURE ekler.
-func insecureEnvLine(server string) string {
-	if strings.HasPrefix(server, "http://") {
-		return ` "PROBE_ALLOW_INSECURE=1"`
-	}
-	return ""
-}
-
 // windowsAgentCommand Yönetici PowerShell'de çalıştırılan tek satırlık kurulum
 // (Windows PowerShell 5.1 ve PowerShell 7). Program %ProgramFiles%\Uptime'a
-// geçici adla indirilir; "uptime service install" ayarları yalnızca
-// yöneticilerin okuyabildiği %ProgramData%\Uptime\agent.env'e yazar, çalışan
-// hizmeti durdurup programı değiştirir, hizmeti kurar/günceller (hata olursa
-// yeniden başlat) ve başlatır. Token komut satırı argümanı olarak değil,
-// oturumun ortam değişkeniyle verilir (süreç listesinde görünmez) ve sonunda
-// silinir. PSReadLine 2.2+ "token" geçen satırı geçmiş dosyasına yazmaz;
-// eski sürümler için arayüzde not vardır. İlerleme çubuğu 5.1'de indirmeyi
-// çok yavaşlattığı için kapatılır.
+// geçici adla token'sız indirilir ve SHA-256 ile doğrulanır; "uptime service
+// install" ayarları yalnızca yöneticilerin okuyabildiği
+// %ProgramFiles%\Uptime\agent.env'e yazar, çalışan hizmeti durdurup programı
+// değiştirir, hizmeti kurar/günceller (hata olursa yeniden başlat) ve başlatır.
+// Token komut satırı argümanı olarak değil, oturumun ortam değişkeniyle
+// verilir (süreç listesinde görünmez) ve sonunda silinir. http sunucuda
+// PROBE_ALLOW_INSECURE=1 de aynı yolla verilir. PSReadLine 2.2+ "token" geçen
+// satırı geçmiş dosyasına yazmaz; eski sürümler için arayüzde not vardır.
+// İlerleme çubuğu 5.1'de indirmeyi çok yavaşlattığı için kapatılır. Windows
+// programı sunucuda yoksa (özet boş) doğrulamasız kurulum yapılmaz: komut
+// açıklamalı bir hatayla durur.
 func windowsAgentCommand(server, token, sha string) string {
+	if sha == "" {
+		return `throw "Ana sunucuda Windows (amd64) ajan programı yok; programı AGENT_DIR klasörüne uptime-windows-amd64.exe adıyla koyun (resmi Docker imajı içerir) ve komutu panelden yenileyin"`
+	}
 	// İndirilen program, indirmeden önce hesaplanan SHA-256 ile doğrulanır;
 	// uymuyorsa kurulum durur. İndirme veya kurulum hata verse de (finally)
 	// geçici program ve token oturum ortamından silinir.
-	verify := ""
-	if sha != "" {
-		verify = fmt.Sprintf(`if ((Get-FileHash $f -Algorithm SHA256).Hash -ne '%s') { throw "Program bütünlük doğrulaması başarısız (SHA-256 uyuşmuyor)" }`, strings.ToUpper(sha))
-	}
 	inner := []string{
 		"$d=Join-Path $env:ProgramFiles 'Uptime'",
 		"New-Item -ItemType Directory -Force -Path $d | Out-Null",
 		"$f=Join-Path $d 'uptime-setup.exe'",
-		`Invoke-WebRequest -UseBasicParsing -Headers @{Authorization="Bearer $env:PROBE_TOKEN"} -Uri "$env:PROBE_SERVER/api/probe/binary?os=windows&arch=amd64" -OutFile $f`,
+		`Invoke-WebRequest -UseBasicParsing -Uri "$env:PROBE_SERVER/api/probe/binary?os=windows&arch=amd64" -OutFile $f`,
+		fmt.Sprintf(`if ((Get-FileHash $f -Algorithm SHA256).Hash -ne '%s') { throw "Program bütünlük doğrulaması başarısız (SHA-256 uyuşmuyor)" }`, strings.ToUpper(sha)),
+		"& $f service install", "$c=$LASTEXITCODE",
 	}
-	if verify != "" {
-		inner = append(inner, verify)
-	}
-	inner = append(inner, "& $f service install", "$c=$LASTEXITCODE")
-	return strings.Join([]string{
+	parts := []string{
 		"$ErrorActionPreference='Stop'",
 		"$ProgressPreference='SilentlyContinue'",
 		"[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12",
 		"$env:PROBE_SERVER=" + psQuote(server),
 		"$env:PROBE_TOKEN=" + psQuote(token),
+	}
+	cleanup := "Remove-Item Env:PROBE_TOKEN -ErrorAction SilentlyContinue"
+	if strings.HasPrefix(server, "http://") {
+		parts = append(parts, "$env:PROBE_ALLOW_INSECURE='1'")
+		cleanup += "; Remove-Item Env:PROBE_ALLOW_INSECURE -ErrorAction SilentlyContinue"
+	}
+	return strings.Join(append(parts,
 		"$f=$null; $c=1",
-		"try { " + strings.Join(inner, "; ") + " } finally { if ($f) { Remove-Item $f -Force -ErrorAction SilentlyContinue }; Remove-Item Env:PROBE_TOKEN -ErrorAction SilentlyContinue }",
+		"try { "+strings.Join(inner, "; ")+" } finally { if ($f) { Remove-Item $f -Force -ErrorAction SilentlyContinue }; "+cleanup+" }",
 		`if ($c -ne 0) { throw "Kurulum tamamlanamadı (çıkış kodu $c)" }`,
-	}, "; ")
+	), "; ")
 }
 
 // psQuote PowerShell tek tırnaklı metni (içindeki ' iki kez yazılır; $ ve `
