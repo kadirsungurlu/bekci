@@ -4,7 +4,7 @@ Uptime Kuma'nın özelliklerini UptimeRobot sadeliğinde bir arayüzle sunan, Go
 yazılmış izleme sistemi. Yüzlerce monitörde arayüz yavaşlamamalı.
 
 - Kurulum: Coolify, `https://uptime.kadir.app`
-- Repo: `kadirsungurlu/uptime-kadir-app` (private)
+- Repo: `kadirsungurlu/bekci` (private; Go modül yolu hâlâ github.com/kadirsungurlu/uptime-kadir-app)
 - Onay tarihi: 2026-09-27
 
 ## 1. Teknoloji

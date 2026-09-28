@@ -54,7 +54,7 @@ services:
     # :latest SQLite ile çalışır (önerilen, en hafif). PostgreSQL gömülü sürüm
     # için .env'de UPTIME_TAG=postgres yapın; veriler yine /data altında durur.
     # İki sürümün verisi birbirine taşınmaz: baştan birini seçin.
-    # Docker Hub (amd64 + arm64). Aynı imaj ghcr.io/kadirsungurlu/uptime-kadir-app'te de var.
+    # Docker Hub (amd64 + arm64). Aynı imaj ghcr.io/kadirsungurlu/bekci'te de var.
     image: kadirsungurlu/bekci:${UPTIME_TAG:-latest}
     restart: unless-stopped
     # Kapanışta uygulama (ve PostgreSQL sürümünde veritabanı) düzgünce
