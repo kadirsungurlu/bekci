@@ -8,6 +8,7 @@
   import { MAINT_STATUS, STRATEGY_LABELS, maintRank, nextText, scheduleText } from '../lib/maintenance';
   import RowMenu, { type MenuItem } from '../components/RowMenu.svelte';
   import Icon from '../components/Icon.svelte';
+  import { t, tParts } from '../lib/i18n';
 
   let list = $state.raw<Maintenance[]>([]);
   let loading = $state(true);
@@ -43,18 +44,18 @@
   const activeCount = $derived(list.filter((m) => m.status === 'active').length);
 
   function monitorsText(m: Maintenance): string {
-    if (m.all_monitors) return 'Tüm monitörler';
+    if (m.all_monitors) return t('maintenance.list.allMonitors');
     const names = m.monitor_ids.map((id) => live.byId(id)?.name).filter(Boolean) as string[];
-    if (names.length === 0) return `${m.monitor_ids.length} monitör`;
+    if (names.length === 0) return t('maintenance.list.monitorCount', { count: m.monitor_ids.length });
     if (names.length <= 3) return names.join(', ');
-    return `${names.slice(0, 3).join(', ')} ve ${m.monitor_ids.length - 3} monitör daha`;
+    return t('maintenance.list.moreMonitors', { names: names.slice(0, 3).join(', '), count: m.monitor_ids.length - 3 });
   }
 
   async function toggle(m: Maintenance) {
     try {
       const res = m.active ? await api.pauseMaintenance(m.id) : await api.resumeMaintenance(m.id);
       list = list.map((x) => (x.id === m.id ? res : x));
-      toast.success(res.active ? `“${res.title}” başlatıldı` : `“${res.title}” durduruldu`);
+      toast.success(t(res.active ? 'maintenance.list.started' : 'maintenance.list.stopped', { name: res.title }));
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -62,16 +63,16 @@
 
   async function remove(m: Maintenance) {
     const ok = await confirmDialog({
-      title: 'Bakımı sil',
-      message: `“${m.title}” bakım penceresi silinecek.${m.status === 'active' ? ' Etkilenen monitörler hemen normal izlemeye döner.' : ''}`,
-      confirmText: 'Sil',
+      title: t('maintenance.list.deleteTitle'),
+      message: t('maintenance.list.deleteMsg', { name: m.title }) + (m.status === 'active' ? t('maintenance.list.deleteActive') : ''),
+      confirmText: t('common.delete'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.deleteMaintenance(m.id);
       list = list.filter((x) => x.id !== m.id);
-      toast.success(`“${m.title}” silindi`);
+      toast.success(t('maintenance.list.deleted', { name: m.title }));
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -79,50 +80,52 @@
 
   function menu(m: Maintenance): MenuItem[] {
     return [
-      { label: 'Düzenle', icon: 'edit', href: `#/maintenance/${m.id}` },
-      { label: m.active ? 'Durdur' : 'Başlat', icon: m.active ? 'pause' : 'play', onclick: () => toggle(m) },
-      { label: 'Sil', icon: 'trash', danger: true, onclick: () => remove(m) },
+      { label: t('common.edit'), icon: 'edit', href: `#/maintenance/${m.id}` },
+      { label: m.active ? t('maintenance.list.stop') : t('maintenance.list.start'), icon: m.active ? 'pause' : 'play', onclick: () => toggle(m) },
+      { label: t('common.delete'), icon: 'trash', danger: true, onclick: () => remove(m) },
     ];
   }
 </script>
 
 <div class="page-head">
-  <h1>Bakım pencereleri<span class="dot">.</span></h1>
+  <h1>{t('maintenance.list.title')}<span class="dot">.</span></h1>
   {#if session.canEdit}
-    <a class="btn primary" href="#/maintenance/new"><Icon name="plus" size={16} /> Bakım ekle</a>
+    <a class="btn primary" href="#/maintenance/new"><Icon name="plus" size={16} /> {t('maintenance.list.add')}</a>
   {/if}
 </div>
 
 <p class="intro text-2">
-  Bakım sırasında monitörler <span class="badge maint">Bakımda</span> görünür, bildirim gönderilmez ve bu süre uptime hesabına katılmaz.
+  {#each tParts('maintenance.list.intro') as p, i (i)}
+    {#if p.slot === 'badge'}<span class="badge maint">{t('status.maintenance')}</span>{:else}{p.text}{/if}
+  {/each}
 </p>
 
 {#if loading}
   <div class="skeleton" style="height:160px"></div>
 {:else if error && list.length === 0}
   <div class="card empty">
-    <h3>Bakım pencereleri yüklenemedi</h3>
+    <h3>{t('maintenance.list.loadFailed')}</h3>
     <p>{error}</p>
-    <button class="btn primary" onclick={load}>Tekrar dene</button>
+    <button class="btn primary" onclick={load}>{t('common.retry')}</button>
   </div>
 {:else if list.length === 0}
   <div class="card empty">
     <div class="big-ic"><Icon name="wrench" size={30} /></div>
-    <h3>Planlı bakım yok</h3>
+    <h3>{t('maintenance.list.emptyTitle')}</h3>
     {#if session.canEdit}
-      <p>Sunucu güncellemesi veya planlı bir kesinti öncesinde bakım penceresi ekleyin; o sırada gereksiz alarm almazsınız.</p>
+      <p>{t('maintenance.list.emptyEditor')}</p>
     {:else}
-      <p>Şu an planlanmış bir bakım penceresi yok. Planlanan bakımlar burada görünür; bakım sırasında monitörler alarm üretmez.</p>
+      <p>{t('maintenance.list.emptyViewer')}</p>
     {/if}
     {#if session.canEdit}
-      <a class="btn primary" href="#/maintenance/new"><Icon name="plus" size={16} /> Bakım ekle</a>
+      <a class="btn primary" href="#/maintenance/new"><Icon name="plus" size={16} /> {t('maintenance.list.add')}</a>
     {/if}
   </div>
 {:else}
   {#if activeCount > 0}
     <div class="alert maint now">
       <Icon name="wrench" size={16} />
-      {activeCount === 1 ? 'Şu anda 1 bakım penceresi sürüyor.' : `Şu anda ${activeCount} bakım penceresi sürüyor.`}
+      {t('maintenance.list.activeNow', { count: activeCount })}
     </div>
   {/if}
   <div class="card list">
@@ -158,10 +161,10 @@
             {#if m.status !== 'ended'}
               <button class="btn sm tgl" onclick={() => toggle(m)}>
                 <Icon name={m.active ? 'pause' : 'play'} size={14} />
-                {m.active ? 'Durdur' : 'Başlat'}
+                {m.active ? t('maintenance.list.stop') : t('maintenance.list.start')}
               </button>
             {/if}
-            <RowMenu items={menu(m)} label="{m.title} için işlemler" />
+            <RowMenu items={menu(m)} label={t('maintenance.list.actionsFor', { name: m.title })} />
           </div>
         {/if}
       </div>

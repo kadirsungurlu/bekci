@@ -18,6 +18,7 @@
   import { session } from '../lib/session.svelte';
   import { clock } from '../lib/ui.svelte';
   import IncidentTable from '../components/IncidentTable.svelte';
+  import { t } from '../lib/i18n';
 
   const LIMIT = 50;
 
@@ -102,8 +103,8 @@
 <svelte:window onscroll={() => (cache.scrollY = window.scrollY)} />
 
 <div class="page-head">
-  <h1>Olaylar<span class="dot">.</span></h1>
-  {#if ongoing > 0}<span class="pill down">{ongoing} olay devam ediyor</span>{/if}
+  <h1>{t('incidents.title')}<span class="dot">.</span></h1>
+  {#if ongoing > 0}<span class="pill down">{t('incidents.ongoingCount', { count: ongoing })}</span>{/if}
 </div>
 
 <div class="card">
@@ -111,22 +112,22 @@
     <div class="skeleton" style="height:200px"></div>
   {:else if error && items.length === 0}
     <div class="empty">
-      <h3>Olaylar yüklenemedi</h3>
+      <h3>{t('incidents.loadFailed')}</h3>
       <p>{error}</p>
-      <button class="btn primary" onclick={loadFirst}>Tekrar dene</button>
+      <button class="btn primary" onclick={loadFirst}>{t('common.retry')}</button>
     </div>
   {:else}
     <IncidentTable
       incidents={items}
       now={clock.now}
       showMonitor
-      emptyText="Henüz hiç olay yok. Bir monitör çalışmadığında burada görünecek."
+      emptyText={t('incidents.emptyAll')}
     />
     {#if hasMore}
       <div class="more">
         <button class="btn" onclick={loadMore} disabled={loadingMore}>
           {#if loadingMore}<span class="spinner"></span>{/if}
-          Daha fazla yükle
+          {t('incidents.loadMore')}
         </button>
       </div>
     {/if}

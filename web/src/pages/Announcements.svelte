@@ -6,14 +6,15 @@
   import Modal from '../components/Modal.svelte';
   import RowMenu, { type MenuItem } from '../components/RowMenu.svelte';
   import Icon, { type IconName } from '../components/Icon.svelte';
+  import { t } from '../lib/i18n';
 
   let { pageId }: { pageId: number } = $props();
 
-  const SEVERITIES: { v: Severity; l: string; c: string; icon: IconName }[] = [
-    { v: 'info', l: 'Bilgi', c: 'accent', icon: 'info' },
-    { v: 'warning', l: 'Uyarı', c: 'pending', icon: 'alert' },
-    { v: 'danger', l: 'Sorun', c: 'down', icon: 'alert-circle' },
-    { v: 'success', l: 'Çözüldü', c: 'up', icon: 'check-circle' },
+  const SEVERITIES: { v: Severity; c: string; icon: IconName }[] = [
+    { v: 'info', c: 'accent', icon: 'info' },
+    { v: 'warning', c: 'pending', icon: 'alert' },
+    { v: 'danger', c: 'down', icon: 'alert-circle' },
+    { v: 'success', c: 'up', icon: 'check-circle' },
   ];
   const sev = (v: Severity) => SEVERITIES.find((s) => s.v === v) ?? SEVERITIES[0];
 
@@ -33,10 +34,11 @@
   }
   onMount(load);
 
-  function annState(a: Announcement, now: number): { l: string; c: string } {
-    if (a.starts_at > now) return { l: 'Planlandı', c: 'accent' };
-    if (a.ends_at && a.ends_at <= now) return { l: 'Bitti', c: '' };
-    return { l: 'Yayında', c: 'up' };
+  type AnnState = 'scheduled' | 'ended' | 'live';
+  function annState(a: Announcement, now: number): { k: AnnState; c: string } {
+    if (a.starts_at > now) return { k: 'scheduled', c: 'accent' };
+    if (a.ends_at && a.ends_at <= now) return { k: 'ended', c: '' };
+    return { k: 'live', c: 'up' };
   }
 
   const sorted = $derived(list.slice().sort((a, b) => b.starts_at - a.starts_at));
@@ -66,21 +68,21 @@
   async function save(e: SubmitEvent) {
     e.preventDefault();
     error = '';
-    if (!title.trim()) return (error = 'Başlık gerekli.');
+    if (!title.trim()) return (error = t('pages.ann.errTitle'));
     const s = startsAt ? parseLocal(startsAt) : 0;
     const en = endsAt ? parseLocal(endsAt) : 0;
-    if (en && en <= (s || clock.now)) return (error = 'Bitiş zamanı başlangıçtan sonra olmalı.');
+    if (en && en <= (s || clock.now)) return (error = t('pages.ann.errEnd'));
     const input: AnnouncementInput = { title: title.trim(), body: body.trim(), severity, starts_at: s, ends_at: en };
     busy = true;
     try {
       if (editing) {
         const res = await api.updateAnnouncement(editing.id, input);
         list = list.map((x) => (x.id === res.id ? res : x));
-        toast.success('Duyuru güncellendi');
+        toast.success(t('pages.ann.updated'));
       } else {
         const res = await api.createAnnouncement(pageId, input);
         list = [...list, res];
-        toast.success('Duyuru eklendi');
+        toast.success(t('pages.ann.added'));
       }
       open = false;
     } catch (err) {
@@ -100,28 +102,33 @@
         ends_at: clock.now,
       });
       list = list.map((x) => (x.id === res.id ? res : x));
-      toast.success('Duyuru yayından kaldırıldı');
+      toast.success(t('pages.ann.ended'));
     } catch (e) {
       toast.error(errorMessage(e));
     }
   }
 
   async function remove(a: Announcement) {
-    const ok = await confirmDialog({ title: 'Duyuruyu sil', message: `“${a.title}” silinecek.`, confirmText: 'Sil', danger: true });
+    const ok = await confirmDialog({
+      title: t('pages.ann.deleteTitle'),
+      message: t('pages.ann.deleteMsg', { name: a.title }),
+      confirmText: t('common.delete'),
+      danger: true,
+    });
     if (!ok) return;
     try {
       await api.deleteAnnouncement(a.id);
       list = list.filter((x) => x.id !== a.id);
-      toast.success('Duyuru silindi');
+      toast.success(t('pages.ann.deleted'));
     } catch (e) {
       toast.error(errorMessage(e));
     }
   }
 
   function menu(a: Announcement): MenuItem[] {
-    const out: MenuItem[] = [{ label: 'Düzenle', icon: 'edit', onclick: () => openForm(a) }];
-    if (annState(a, clock.now).l === 'Yayında') out.push({ label: 'Şimdi bitir', icon: 'x', onclick: () => endNow(a) });
-    out.push({ label: 'Sil', icon: 'trash', danger: true, onclick: () => remove(a) });
+    const out: MenuItem[] = [{ label: t('common.edit'), icon: 'edit', onclick: () => openForm(a) }];
+    if (annState(a, clock.now).k === 'live') out.push({ label: t('pages.ann.endNow'), icon: 'x', onclick: () => endNow(a) });
+    out.push({ label: t('common.delete'), icon: 'trash', danger: true, onclick: () => remove(a) });
     return out;
   }
 </script>
@@ -129,68 +136,68 @@
 <section class="card">
   <div class="head">
     <div>
-      <h2 class="card-title">Duyurular</h2>
-      <p class="help nomargin">Planlı bakım, yaşanan bir sorun veya çözüm bilgisi sayfanın üstünde gösterilir.</p>
+      <h2 class="card-title">{t('pages.ann.title')}</h2>
+      <p class="help nomargin">{t('pages.ann.help')}</p>
     </div>
-    <button class="btn" onclick={() => openForm(null)}><Icon name="megaphone" size={15} /> Duyuru ekle</button>
+    <button class="btn" onclick={() => openForm(null)}><Icon name="megaphone" size={15} /> {t('pages.ann.add')}</button>
   </div>
   {#if loading}
     <div class="skeleton" style="height:70px"></div>
   {:else if loadError}
     <div class="alert error">{loadError}</div>
   {:else if list.length === 0}
-    <div class="none muted small">Henüz duyuru yok.</div>
+    <div class="none muted small">{t('pages.ann.empty')}</div>
   {:else}
     <ul class="anns">
       {#each sorted as a (a.id)}
         {@const s = sev(a.severity)}
         {@const st = annState(a, clock.now)}
-        <li class="ann sev-{a.severity}" class:ended={st.l === 'Bitti'}>
+        <li class="ann sev-{a.severity}" class:ended={st.k === 'ended'}>
           <span class="ic"><Icon name={s.icon} size={16} /></span>
           <div class="body">
             <div class="t">
               <b>{a.title}</b>
-              <span class="badge {s.c}">{s.l}</span>
-              <span class="badge {st.c}">{st.l}</span>
+              <span class="badge {s.c}">{t(`pages.ann.sev.${s.v}`)}</span>
+              <span class="badge {st.c}">{t(`pages.ann.state.${st.k}`)}</span>
             </div>
             {#if a.body}<p class="txt">{a.body}</p>{/if}
             <div class="when muted small">
-              {fmtDate(a.starts_at)} – {a.ends_at ? fmtDate(a.ends_at) : 'süresiz'}
+              {fmtDate(a.starts_at)} – {a.ends_at ? fmtDate(a.ends_at) : t('pages.ann.indefinite')}
             </div>
           </div>
-          <RowMenu items={menu(a)} label="{a.title} için işlemler" />
+          <RowMenu items={menu(a)} label={t('pages.ann.actionsFor', { name: a.title })} />
         </li>
       {/each}
     </ul>
   {/if}
 </section>
 
-<Modal bind:open title={editing ? 'Duyuruyu düzenle' : 'Duyuru ekle'} width={560}>
+<Modal bind:open title={editing ? t('pages.ann.edit') : t('pages.ann.add')} width={560}>
   <form id="anf" class="stack" onsubmit={save} novalidate>
     <div class="field">
-      <label for="an-t">Başlık</label>
-      <input id="an-t" class="input" maxlength="200" bind:value={title} placeholder="Ör. Planlı veritabanı bakımı" />
+      <label for="an-t">{t('pages.ann.fTitle')}</label>
+      <input id="an-t" class="input" maxlength="200" bind:value={title} placeholder={t('pages.ann.titlePlaceholder')} />
     </div>
     <div class="field">
-      <span class="label" id="an-sev">Önem derecesi</span>
+      <span class="label" id="an-sev">{t('pages.ann.severity')}</span>
       <div class="seg" role="radiogroup" aria-labelledby="an-sev">
         {#each SEVERITIES as s (s.v)}
-          <button type="button" role="radio" aria-checked={severity === s.v} class:active={severity === s.v} onclick={() => (severity = s.v)}>{s.l}</button>
+          <button type="button" role="radio" aria-checked={severity === s.v} class:active={severity === s.v} onclick={() => (severity = s.v)}>{t(`pages.ann.sev.${s.v}`)}</button>
         {/each}
       </div>
     </div>
     <div class="field">
-      <label for="an-b">Metin <span class="muted">(isteğe bağlı)</span></label>
-      <textarea id="an-b" class="input plain" rows="4" maxlength="5000" bind:value={body} placeholder="Ayrıntılar, beklenen süre, etkilenen servisler…"></textarea>
+      <label for="an-b">{t('pages.ann.body')} <span class="muted">{t('pages.ann.optional')}</span></label>
+      <textarea id="an-b" class="input plain" rows="4" maxlength="5000" bind:value={body} placeholder={t('pages.ann.bodyPlaceholder')}></textarea>
     </div>
     <div class="grid-2">
       <div class="field">
-        <label for="an-s">Başlangıç</label>
+        <label for="an-s">{t('pages.ann.start')}</label>
         <input id="an-s" class="input" type="datetime-local" bind:value={startsAt} />
-        <span class="help">Boşsa hemen yayınlanır.</span>
+        <span class="help">{t('pages.ann.startHelp')}</span>
       </div>
       <div class="field">
-        <label for="an-e">Bitiş (boşsa süresiz)</label>
+        <label for="an-e">{t('pages.ann.end')}</label>
         <input id="an-e" class="input" type="datetime-local" bind:value={endsAt} />
       </div>
     </div>
@@ -198,9 +205,9 @@
   </form>
   {#snippet footer()}
     <div class="spacer"></div>
-    <button type="button" class="btn" onclick={() => (open = false)}>Vazgeç</button>
+    <button type="button" class="btn" onclick={() => (open = false)}>{t('common.cancel')}</button>
     <button type="submit" form="anf" class="btn primary" disabled={busy}>
-      {#if busy}<span class="spinner"></span>{/if} Kaydet
+      {#if busy}<span class="spinner"></span>{/if} {t('common.save')}
     </button>
   {/snippet}
 </Modal>

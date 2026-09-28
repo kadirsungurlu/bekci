@@ -52,7 +52,7 @@
   let password = $state('');
 
   let seq = 0;
-  let sections = $state<EdSection[]>([{ key: ++seq, title: 'Servisler', monitors: [] }]);
+  let sections = $state<EdSection[]>([{ key: ++seq, title: t('pages.editor.defaultSection'), monitors: [] }]);
 
   const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/;
   const TR: Record<string, string> = { ç: 'c', ğ: 'g', ı: 'i', İ: 'i', ö: 'o', ş: 's', ü: 'u' };
@@ -96,7 +96,7 @@
       try {
         fill(await api.page(id!));
       } catch (e) {
-        loadError = e instanceof ApiError && e.status === 404 ? 'Durum sayfası bulunamadı.' : errorMessage(e);
+        loadError = e instanceof ApiError && e.status === 404 ? t('pages.editor.notFound') : errorMessage(e);
       } finally {
         loading = false;
       }
@@ -140,9 +140,9 @@
     const s = sections[si];
     if (s.monitors.length) {
       const ok = await confirmDialog({
-        title: 'Grubu kaldır',
-        message: `“${s.title || 'Adsız grup'}” ve içindeki ${s.monitors.length} monitör sayfadan kaldırılacak (monitörlerin kendisi silinmez).`,
-        confirmText: 'Kaldır',
+        title: t('pages.editor.removeGroupTitle'),
+        message: t('pages.editor.removeGroupMsg', { name: s.title || t('pages.editor.unnamedGroup'), count: s.monitors.length }),
+        confirmText: t('common.remove'),
         danger: true,
       });
       if (!ok) return;
@@ -216,18 +216,18 @@
   const utf8Len = (v: string) => new TextEncoder().encode(v).length;
 
   function validate(): { msg: string; field?: string } | null {
-    if (!title.trim()) return { msg: 'Başlık gerekli.', field: 'sp-title' };
+    if (!title.trim()) return { msg: t('pages.editor.errTitle'), field: 'sp-title' };
     // Kısa ad sunucuda küçük harfe çevrilir; "Acme" de geçerli sayılır.
     if (!SLUG_RE.test(slug.trim().toLowerCase()))
-      return { msg: 'Adres (kısa ad) 1-50 karakter olmalı; küçük harf, rakam ve tire kullanılabilir.', field: 'sp-slug' };
+      return { msg: t('pages.editor.errSlug'), field: 'sp-slug' };
     if (pwMode === 'set' && ([...password].length < 4 || utf8Len(password) > 72))
       return {
-        msg: 'Sayfa şifresi en az 4 karakter, en fazla 72 bayt olmalı (Türkçe harfler 2 bayt sayılır).',
+        msg: t('pages.editor.errPassword'),
         field: 'sp-pw',
       };
     if (customDomain.trim() && /[/:\s]/.test(customDomain.trim()))
-      return { msg: 'Özel alan adını http:// ve / olmadan yazın (ör. durum.ornek.com).', field: 'sp-dom' };
-    if (total > 200) return { msg: 'Bir sayfada en fazla 200 monitör olabilir.' };
+      return { msg: t('pages.editor.errDomain'), field: 'sp-dom' };
+    if (total > 200) return { msg: t('pages.editor.errTooMany') };
     return null;
   }
 
@@ -269,10 +269,10 @@
       if (isEdit) {
         fill(res);
         resetBaseline();
-        toast.success('Durum sayfası kaydedildi');
+        toast.success(t('pages.editor.saved'));
       } else {
         saved = true;
-        toast.success(`“${res.title}” oluşturuldu. Şimdi logo ve duyuru ekleyebilirsiniz.`);
+        toast.success(t('pages.editor.created', { name: res.title }));
         navigate(`/status-pages/${res.id}`, true);
       }
     } catch (err) {
@@ -285,16 +285,16 @@
   async function remove() {
     if (!page) return;
     const ok = await confirmDialog({
-      title: 'Durum sayfasını sil',
-      message: `“${page.title}” sayfası, logosu ve duyuruları kalıcı olarak silinecek.`,
-      confirmText: 'Sil',
+      title: t('pages.deleteTitle'),
+      message: t('pages.editor.deleteMsg', { name: page.title }),
+      confirmText: t('common.delete'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.deletePage(page.id);
       saved = true;
-      toast.success('Durum sayfası silindi');
+      toast.success(t('pages.editor.deleted'));
       navigate('/status-pages');
     } catch (e) {
       toast.error(errorMessage(e));
@@ -312,12 +312,12 @@
     input.value = '';
     if (!f || !page) return;
     logoError = '';
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(f.type)) return (logoError = 'Logo PNG, JPEG veya WebP olmalı.');
-    if (f.size > 512 * 1024) return (logoError = 'Logo en fazla 512 KB olabilir.');
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(f.type)) return (logoError = t('pages.editor.logoType'));
+    if (f.size > 512 * 1024) return (logoError = t('pages.editor.logoSize'));
     logoBusy = true;
     try {
       page = await api.uploadLogo(page.id, f);
-      toast.success('Logo yüklendi');
+      toast.success(t('pages.editor.logoUploaded'));
     } catch (err) {
       logoError = errorMessage(err);
     } finally {
@@ -330,7 +330,7 @@
     logoBusy = true;
     try {
       page = await api.deleteLogo(page.id);
-      toast.success('Logo kaldırıldı');
+      toast.success(t('pages.editor.logoRemoved'));
     } catch (err) {
       logoError = errorMessage(err);
     } finally {
@@ -343,14 +343,14 @@
 
 </script>
 
-<a class="back" href="#/status-pages"><Icon name="chevron-left" size={16} /> Durum sayfaları</a>
+<a class="back" href="#/status-pages"><Icon name="chevron-left" size={16} /> {t('pages.editor.back')}</a>
 <div class="page-head">
-  <h1>{isEdit ? 'Durum sayfasını düzenle' : 'Yeni durum sayfası'}<span class="dot">.</span></h1>
+  <h1>{isEdit ? t('pages.editor.editTitle') : t('pages.editor.newTitle')}<span class="dot">.</span></h1>
   {#if page}
     <div class="row head-acts">
-      <a class="btn" href="#/status-pages/{page.id}/preview"><Icon name="eye" size={15} /> Önizle</a>
+      <a class="btn" href="#/status-pages/{page.id}/preview"><Icon name="eye" size={15} /> {t('pages.preview')}</a>
       {#if page.published}
-        <a class="btn" href={publicUrl} target="_blank" rel="noopener noreferrer"><Icon name="external" size={15} /> Sayfayı aç</a>
+        <a class="btn" href={publicUrl} target="_blank" rel="noopener noreferrer"><Icon name="external" size={15} /> {t('pages.editor.openPage')}</a>
       {/if}
     </div>
   {/if}
@@ -360,28 +360,28 @@
   <div class="skeleton" style="height:480px;max-width:900px"></div>
 {:else if loadError}
   <div class="card empty">
-    <h3>Durum sayfası yüklenemedi</h3>
+    <h3>{t('pages.editor.loadFailed')}</h3>
     <p>{loadError}</p>
-    <a class="btn primary" href="#/status-pages">Listeye dön</a>
+    <a class="btn primary" href="#/status-pages">{t('pages.editor.backToList')}</a>
   </div>
 {:else}
   <form class="form" onsubmit={submit} novalidate>
     {#if page}
       <div class="pub-bar card">
-        <span class="badge {page.published ? 'up' : 'paused'}">{page.published ? 'Yayında' : 'Taslak'}</span>
+        <span class="badge {page.published ? 'up' : 'paused'}">{page.published ? t('pages.published') : t('pages.draft')}</span>
         <code class="pub-url">{publicUrl}</code>
         <CopyButton text={publicUrl} />
       </div>
     {/if}
 
     <section class="card stack">
-      <h2 class="card-title">Genel</h2>
+      <h2 class="card-title">{t('pages.editor.general')}</h2>
       <div class="field">
-        <label for="sp-title">Başlık</label>
-        <input id="sp-title" class="input" maxlength="100" bind:value={title} oninput={onTitle} placeholder="Ör. Acme Servis Durumu" />
+        <label for="sp-title">{t('pages.editor.title')}</label>
+        <input id="sp-title" class="input" maxlength="100" bind:value={title} oninput={onTitle} placeholder={t('pages.editor.titlePlaceholder')} />
       </div>
       <div class="field">
-        <label for="sp-slug">Adres (kısa ad)</label>
+        <label for="sp-slug">{t('pages.editor.slug')}</label>
         <div class="prefixed">
           <span class="prefix">/durum/</span>
           <input
@@ -396,24 +396,24 @@
             placeholder="acme"
           />
         </div>
-        <span class="help">Sayfa {host}/durum/&lt;kısa-ad&gt; adresinde yayınlanır. Küçük harf, rakam ve tire.</span>
+        <span class="help">{t('pages.editor.slugHelp', { url: `${host}/durum/<${t('pages.editor.slugToken')}>` })}</span>
       </div>
       <div class="field">
-        <label for="sp-desc">Açıklama <span class="muted">(isteğe bağlı)</span></label>
-        <textarea id="sp-desc" class="input plain" rows="2" maxlength="1000" bind:value={description} placeholder="Başlığın altında görünür"></textarea>
+        <label for="sp-desc">{t('pages.editor.description')} <span class="muted">{t('pages.editor.optional')}</span></label>
+        <textarea id="sp-desc" class="input plain" rows="2" maxlength="1000" bind:value={description} placeholder={t('pages.editor.descPlaceholder')}></textarea>
       </div>
       <div class="field">
-        <label for="sp-foot">Alt bilgi <span class="muted">(isteğe bağlı)</span></label>
-        <input id="sp-foot" class="input" maxlength="500" bind:value={footer} placeholder="Ör. Sorunlar için destek@ornek.com" />
+        <label for="sp-foot">{t('pages.editor.footer')} <span class="muted">{t('pages.editor.optional')}</span></label>
+        <input id="sp-foot" class="input" maxlength="500" bind:value={footer} placeholder={t('pages.editor.footerPlaceholder')} />
       </div>
     </section>
 
     <section class="card stack">
       <div class="sec-head">
-        <h2 class="card-title">Gruplar ve monitörler</h2>
-        <span class="muted small">{total} monitör</span>
+        <h2 class="card-title">{t('pages.editor.groups')}</h2>
+        <span class="muted small">{t('pages.monitorCount', { count: total })}</span>
       </div>
-      <p class="help nomargin">Monitörler sayfada bu sırayla görünür. Görünen adı boş bırakırsanız monitörün kendi adı kullanılır.</p>
+      <p class="help nomargin">{t('pages.editor.groupsHelp')}</p>
 
       {#each sections as s, si (s.key)}
         <div class="group" data-skey={s.key}>
@@ -423,14 +423,14 @@
               class="input g-title"
               maxlength="100"
               bind:value={s.title}
-              placeholder="Grup adı (ör. Web siteleri)"
-              aria-label="{si + 1}. grubun adı"
+              placeholder={t('pages.editor.groupPlaceholder')}
+              aria-label={t('pages.editor.groupNameAria', { n: si + 1 })}
             />
             <div class="order">
               <button
                 type="button"
                 class="btn ghost icon sm s-up"
-                aria-label="“{s.title.trim() || `${si + 1}. grup`}” grubunu yukarı taşı"
+                aria-label={t('pages.editor.groupUp', { name: s.title.trim() || t('pages.editor.groupN', { n: si + 1 }) })}
                 disabled={si === 0}
                 onclick={() => moveSection(si, -1)}
               >
@@ -439,20 +439,20 @@
               <button
                 type="button"
                 class="btn ghost icon sm s-down"
-                aria-label="“{s.title.trim() || `${si + 1}. grup`}” grubunu aşağı taşı"
+                aria-label={t('pages.editor.groupDown', { name: s.title.trim() || t('pages.editor.groupN', { n: si + 1 }) })}
                 disabled={si === sections.length - 1}
                 onclick={() => moveSection(si, 1)}
               >
                 <Icon name="arrow-down" size={15} />
               </button>
-              <button type="button" class="btn ghost icon sm del" aria-label="“{s.title.trim() || `${si + 1}. grup`}” grubunu kaldır" onclick={() => removeSection(si)}>
+              <button type="button" class="btn ghost icon sm del" aria-label={t('pages.editor.groupRemove', { name: s.title.trim() || t('pages.editor.groupN', { n: si + 1 }) })} onclick={() => removeSection(si)}>
                 <Icon name="trash" size={15} />
               </button>
             </div>
           </div>
 
           {#if s.monitors.length === 0}
-            <div class="g-empty muted small">Bu grupta monitör yok.</div>
+            <div class="g-empty muted small">{t('pages.editor.groupEmpty')}</div>
           {:else}
             <ol class="mons">
               {#each s.monitors as m, mi (m.id)}
@@ -465,15 +465,15 @@
                       class="input m-name"
                       maxlength="100"
                       bind:value={m.name}
-                      placeholder={mon?.name ?? 'Görünen ad'}
-                      aria-label="{mon?.name ?? 'Monitör'} için görünen ad (boşsa monitör adı)"
+                      placeholder={mon?.name ?? t('pages.editor.displayName')}
+                      aria-label={t('pages.editor.displayNameAria', { name: mon?.name ?? t('pages.editor.monitor') })}
                     />
                   </div>
                   <div class="order">
                     <button
                       type="button"
                       class="btn ghost icon sm m-up"
-                      aria-label="{mon?.name ?? `#${m.id}`} monitörünü yukarı taşı"
+                      aria-label={t('pages.editor.monUp', { name: mon?.name ?? `#${m.id}` })}
                       disabled={isFirstMon(si, mi)}
                       onclick={() => moveMonitor(si, mi, -1)}
                     >
@@ -482,13 +482,13 @@
                     <button
                       type="button"
                       class="btn ghost icon sm m-down"
-                      aria-label="{mon?.name ?? `#${m.id}`} monitörünü aşağı taşı"
+                      aria-label={t('pages.editor.monDown', { name: mon?.name ?? `#${m.id}` })}
                       disabled={isLastMon(si, mi)}
                       onclick={() => moveMonitor(si, mi, 1)}
                     >
                       <Icon name="arrow-down" size={15} />
                     </button>
-                    <button type="button" class="btn ghost icon sm del" aria-label="{mon?.name ?? `#${m.id}`} monitörünü sayfadan kaldır" onclick={() => removeMonitor(si, mi)}>
+                    <button type="button" class="btn ghost icon sm del" aria-label={t('pages.editor.monRemove', { name: mon?.name ?? `#${m.id}` })} onclick={() => removeMonitor(si, mi)}>
                       <Icon name="x" size={15} />
                     </button>
                   </div>
@@ -496,55 +496,52 @@
               {/each}
             </ol>
           {/if}
-          <button type="button" class="btn sm add" onclick={() => openAdd(si)}><Icon name="plus" size={14} /> Monitör ekle</button>
+          <button type="button" class="btn sm add" onclick={() => openAdd(si)}><Icon name="plus" size={14} /> {t('pages.editor.addMonitor')}</button>
         </div>
       {/each}
       <button type="button" class="btn add-sec" onclick={addSection} disabled={sections.length >= 20}>
-        <Icon name="layers" size={15} /> Grup ekle
+        <Icon name="layers" size={15} /> {t('pages.editor.addGroup')}
       </button>
     </section>
 
     <section class="card stack">
-      <h2 class="card-title">Görünüm</h2>
+      <h2 class="card-title">{t('pages.editor.appearance')}</h2>
       <div class="logo-row">
         <div class="logo-box">
           {#if page?.has_logo}
-            <img src="/api/status-pages/{page.id}/logo?v={page.updated_at}" alt="Sayfa logosu" />
+            <img src="/api/status-pages/{page.id}/logo?v={page.updated_at}" alt={t('pages.editor.logoAlt')} />
           {:else}
             <Icon name="image" size={24} />
           {/if}
         </div>
         <div class="logo-ctl">
-          <div class="label">Logo</div>
+          <div class="label">{t('pages.editor.logo')}</div>
           {#if page}
             <div class="row">
               <input bind:this={fileInput} type="file" accept="image/png,image/jpeg,image/webp" class="hidden-file" onchange={onLogo} tabindex="-1" aria-hidden="true" />
               <button type="button" class="btn sm" onclick={() => fileInput?.click()} disabled={logoBusy}>
                 {#if logoBusy}<span class="spinner"></span>{:else}<Icon name="upload" size={14} />{/if}
-                {page.has_logo ? 'Değiştir' : 'Logo yükle'}
+                {page.has_logo ? t('pages.editor.change') : t('pages.editor.uploadLogo')}
               </button>
               {#if page.has_logo}
-                <button type="button" class="btn sm danger" onclick={removeLogo} disabled={logoBusy}>Kaldır</button>
+                <button type="button" class="btn sm danger" onclick={removeLogo} disabled={logoBusy}>{t('common.remove')}</button>
               {/if}
             </div>
-            <span class="help">PNG, JPEG veya WebP; en fazla 512 KB. Yatay logolar en iyi sonucu verir.</span>
+            <span class="help">{t('pages.editor.logoHelp')}</span>
           {:else}
-            <span class="help">Logoyu sayfayı oluşturduktan sonra yükleyebilirsiniz.</span>
+            <span class="help">{t('pages.editor.logoAfterCreate')}</span>
           {/if}
           {#if logoError}<div class="alert error small">{logoError}</div>{/if}
         </div>
       </div>
       <div class="field">
-        <label for="bar-range">Durum çubukları</label>
+        <label for="bar-range">{t('pages.editor.bars')}</label>
         <select id="bar-range" class="input" bind:value={barRange}>
-          <option value="recent">Son kontroller (önerilen)</option>
-          <option value="24h">Son 24 saat (saatlik)</option>
-          <option value="90d">Son 90 gün (günlük)</option>
+          <option value="recent">{t('pages.editor.barsRecent')}</option>
+          <option value="24h">{t('pages.editor.bars24h')}</option>
+          <option value="90d">{t('pages.editor.bars90d')}</option>
         </select>
-        <span class="help"
-          >Ziyaretçiler çoğunlukla anlık durumu merak eder. "Son kontroller"de her çubuk bir kontroldür (Uptime Kuma gibi); uzun
-          vadeli güvenilirliği göstermek için 90 gün seçilebilir.</span
-        >
+        <span class="help">{t('pages.editor.barsHelp')}</span>
       </div>
       <div class="field">
         <label for="page-lang">{t('pages.lang.label')}</label>
@@ -558,45 +555,45 @@
       <label class="check">
         <input type="checkbox" bind:checked={showTargets} />
         <span>
-          Hedef adresleri göster
-          <small>Kapalıyken monitörlerin adresleri gizlenir. Açıksa web sitelerinde alan adı (ör. ornek.com), diğerlerinde sunucu adresi gösterilir.</small>
+          {t('pages.editor.showTargets')}
+          <small>{t('pages.editor.showTargetsHelp')}</small>
         </span>
       </label>
       <label class="check">
         <input type="checkbox" bind:checked={showIncidents} />
         <span>
-          Son 14 günün olaylarını göster
-          <small>Kapalıyken sayfada geçmiş kesintiler listelenmez; ziyaretçi yalnızca anlık durumu ve çubukları görür.</small>
+          {t('pages.editor.showIncidents')}
+          <small>{t('pages.editor.showIncidentsHelp')}</small>
         </span>
       </label>
       <label class="check">
         <input type="checkbox" bind:checked={collapsible} />
         <span>
-          Gruplar açılıp kapanabilsin
-          <small>Ziyaretçi grup başlığına tıklayarak grubu daraltabilir; seçimi kendi tarayıcısında hatırlanır. Gruplar başlangıçta açık gelir.</small>
+          {t('pages.editor.collapsible')}
+          <small>{t('pages.editor.collapsibleHelp')}</small>
         </span>
       </label>
     </section>
 
     <section class="card stack">
-      <h2 class="card-title">Yayın ve erişim</h2>
+      <h2 class="card-title">{t('pages.editor.access')}</h2>
       <label class="check">
         <input type="checkbox" bind:checked={published} />
-        <span>Yayında<small>Kapalıyken sayfa herkese kapalıdır; yalnızca buradan önizleyebilirsiniz.</small></span>
+        <span>{t('pages.published')}<small>{t('pages.editor.publishedHelp')}</small></span>
       </label>
 
       <div class="field">
-        <span class="label" id="pw-l">Sayfa şifresi</span>
+        <span class="label" id="pw-l">{t('pages.editor.password')}</span>
         {#if page?.has_password && pwMode === 'keep'}
           <div class="pw-state">
-            <span class="badge"><Icon name="lock" size={11} /> Şifre korumalı</span>
-            <button type="button" class="btn sm" onclick={() => ((pwMode = 'set'), (password = ''))}>Şifreyi değiştir</button>
-            <button type="button" class="btn sm danger" onclick={() => (pwMode = 'remove')}>Şifreyi kaldır</button>
+            <span class="badge"><Icon name="lock" size={11} /> {t('pages.editor.passwordProtected')}</span>
+            <button type="button" class="btn sm" onclick={() => ((pwMode = 'set'), (password = ''))}>{t('pages.editor.changePassword')}</button>
+            <button type="button" class="btn sm danger" onclick={() => (pwMode = 'remove')}>{t('pages.editor.removePassword')}</button>
           </div>
         {:else if pwMode === 'remove'}
           <div class="pw-state">
-            <span class="muted small">Kaydettiğinizde şifre kaldırılacak ve sayfa herkese açık olacak.</span>
-            <button type="button" class="linkbtn small" onclick={() => (pwMode = 'keep')}>Vazgeç</button>
+            <span class="muted small">{t('pages.editor.removePasswordNote')}</span>
+            <button type="button" class="linkbtn small" onclick={() => (pwMode = 'keep')}>{t('common.cancel')}</button>
           </div>
         {:else}
           <input
@@ -607,17 +604,17 @@
             aria-labelledby="pw-l"
             bind:value={password}
             oninput={() => (pwMode = password ? 'set' : page?.has_password ? 'set' : 'keep')}
-            placeholder={page?.has_password ? 'Yeni şifre' : 'Boş bırakırsanız sayfa herkese açıktır'}
+            placeholder={page?.has_password ? t('pages.editor.newPassword') : t('pages.editor.emptyPublic')}
           />
           <span class="help">
-            Boş bırakırsanız sayfa herkese açıktır. En az 4 karakter, en fazla 72 bayt.
-            {#if page?.has_password}<button type="button" class="linkbtn" onclick={() => ((pwMode = 'keep'), (password = ''))}>Mevcut şifreyi koru</button>{/if}
+            {t('pages.editor.passwordHelp')}
+            {#if page?.has_password}<button type="button" class="linkbtn" onclick={() => ((pwMode = 'keep'), (password = ''))}>{t('pages.editor.keepPassword')}</button>{/if}
           </span>
         {/if}
       </div>
 
       <div class="field">
-        <label for="sp-dom">Özel alan adı <span class="muted">(isteğe bağlı)</span></label>
+        <label for="sp-dom">{t('pages.editor.customDomain')} <span class="muted">{t('pages.editor.optional')}</span></label>
         <input
           id="sp-dom"
           class="input dom"
@@ -630,9 +627,9 @@
         />
         <span class="help" id="sp-dom-help">
           {#if session.isAdmin}
-            DNS kaydını sunucuya yönlendirin ve alan adını Coolify’a ekleyin. Bu alan adında sadece durum sayfası açılır, yönetim paneli açılmaz.
+            {t('pages.editor.domainHelpAdmin')}
           {:else}
-            Özel alan adını yalnızca yöneticiler ayarlayabilir.
+            {t('pages.editor.domainHelpOther')}
           {/if}
         </span>
       </div>
@@ -644,13 +641,13 @@
 
     <div class="actions">
       {#if isEdit}
-        <button type="button" class="btn danger" onclick={remove}><Icon name="trash" size={15} /> Sil</button>
+        <button type="button" class="btn danger" onclick={remove}><Icon name="trash" size={15} /> {t('common.delete')}</button>
         <div class="spacer"></div>
       {/if}
-      <a class="btn" href="#/status-pages">Vazgeç</a>
+      <a class="btn" href="#/status-pages">{t('common.cancel')}</a>
       <button class="btn primary" type="submit" disabled={saving}>
         {#if saving}<span class="spinner"></span>{/if}
-        {isEdit ? 'Kaydet' : 'Sayfayı oluştur'}
+        {isEdit ? t('common.save') : t('pages.editor.createPage')}
       </button>
     </div>
   </form>
@@ -662,16 +659,16 @@
   {/if}
 {/if}
 
-<Modal bind:open={addOpen} title="Monitör ekle" width={560}>
+<Modal bind:open={addOpen} title={t('pages.editor.addTitle')} width={560}>
   <p class="help nomargin sp">
-    “{sections[addTo]?.title || 'Adsız grup'}” grubuna eklenecek monitörleri seçin. Sayfada zaten olanlar listede görünmez.
+    {t('pages.editor.addHelp', { name: sections[addTo]?.title || t('pages.editor.unnamedGroup') })}
   </p>
-  <MonitorPicker bind:selected={addSel} exclude={[...onPage]} label="Eklenecek monitörler" id="add-mp" />
+  <MonitorPicker bind:selected={addSel} exclude={[...onPage]} label={t('pages.editor.addPicker')} id="add-mp" />
   {#snippet footer()}
     <div class="spacer"></div>
-    <button type="button" class="btn" onclick={() => (addOpen = false)}>Vazgeç</button>
+    <button type="button" class="btn" onclick={() => (addOpen = false)}>{t('common.cancel')}</button>
     <button type="button" class="btn primary" disabled={addSel.length === 0} onclick={confirmAdd}>
-      {addSel.length ? `${addSel.length} monitörü ekle` : 'Ekle'}
+      {addSel.length ? t('pages.editor.addN', { count: addSel.length }) : t('common.add')}
     </button>
   {/snippet}
 </Modal>

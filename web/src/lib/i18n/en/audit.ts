@@ -1,4 +1,113 @@
 import type { Shape } from '../types';
 import type tr from '../tr/audit';
 
-export default {} satisfies Shape<typeof tr>;
+export default {
+  title: 'Audit log',
+  loadFailed: "Couldn't load the audit log",
+  empty: 'No entries yet.',
+  loadMore: 'Load more',
+  col: {
+    time: 'Time',
+    user: 'User',
+    action: 'Action',
+    target: 'Target',
+    detail: 'Details',
+    ip: 'IP',
+  },
+  actions: {
+    login: {
+      success: 'Signed in',
+      fail: 'Failed sign-in attempt',
+      '2fa_fail': 'Invalid 2FA code',
+    },
+    user: {
+      setup: 'Initial setup',
+      create: 'User added',
+      update: 'User updated',
+      delete: 'User deleted',
+      password_change: 'Changed password',
+      password_reset: 'Password reset',
+      '2fa_enable': '2FA enabled',
+      '2fa_disable': '2FA disabled',
+      '2fa_recovery_codes': 'Recovery codes regenerated',
+      '2fa_reset': '2FA reset',
+    },
+    monitor: {
+      create: 'Monitor added',
+      update: 'Monitor updated',
+      delete: 'Monitor deleted',
+      pause: 'Monitor paused',
+      resume: 'Monitor resumed',
+      clone: 'Monitor cloned',
+      reset_stats: 'Monitor statistics reset',
+      notifications: 'Monitor notification channels changed',
+      tags: 'Monitor tags changed',
+      locations: 'Monitor locations changed',
+    },
+    notification: {
+      create: 'Notification channel added',
+      update: 'Notification channel updated',
+      delete: 'Notification channel deleted',
+      samples: 'Sample notifications sent',
+    },
+    server: {
+      create: 'Server added',
+      alerts: 'Server alert rules changed',
+      notifications: 'Server notification channels changed',
+    },
+    settings: {
+      update: 'Settings updated',
+    },
+    apikey: {
+      create: 'API key created',
+      revoke: 'API key revoked',
+    },
+    status_page: {
+      create: 'Status page created',
+      update: 'Status page updated',
+      delete: 'Status page deleted',
+      logo: 'Logo uploaded',
+      logo_delete: 'Logo removed',
+    },
+    announcement: {
+      create: 'Announcement added',
+      update: 'Announcement updated',
+      delete: 'Announcement deleted',
+    },
+    maintenance: {
+      create: 'Maintenance added',
+      update: 'Maintenance updated',
+      delete: 'Maintenance deleted',
+      pause: 'Maintenance paused',
+      resume: 'Maintenance resumed',
+    },
+    tag: {
+      create: 'Tag added',
+      update: 'Tag updated',
+      delete: 'Tag deleted',
+    },
+    probe: {
+      create: 'Check location added',
+      update: 'Check location updated',
+      delete: 'Check location deleted',
+      token: 'Check location token regenerated',
+    },
+    backup: {
+      export: 'Backup downloaded',
+      import: 'Import / restore performed',
+    },
+  },
+  targets: {
+    user: 'User',
+    monitor: 'Monitor',
+    notification: 'Notification',
+    settings: 'Settings',
+    apikey: 'API key',
+    status_page: 'Status page',
+    announcement: 'Announcement',
+    maintenance: 'Maintenance',
+    tag: 'Tag',
+    probe: 'Check location',
+    backup: 'Backup',
+  },
+} satisfies Shape<typeof tr>;

@@ -4,36 +4,28 @@
   import { NOTIFY_LABELS } from '../lib/notifyTypes';
   import { typeDef } from '../lib/monitorTypes';
   import Icon from './Icon.svelte';
+  import { t } from '../lib/i18n';
 
   let { result }: { result: ImportSummary } = $props();
 
-  const KINDS: { k: keyof ImportCounts; kind: ImportKind; l: string }[] = [
-    { k: 'monitors', kind: 'monitor', l: 'Monitörler' },
-    { k: 'notifications', kind: 'notification', l: 'Bildirim kanalları' },
-    { k: 'tags', kind: 'tag', l: 'Etiketler' },
-    { k: 'status_pages', kind: 'status_page', l: 'Durum sayfaları' },
+  const KINDS: { k: keyof ImportCounts; kind: ImportKind }[] = [
+    { k: 'monitors', kind: 'monitor' },
+    { k: 'notifications', kind: 'notification' },
+    { k: 'tags', kind: 'tag' },
+    { k: 'status_pages', kind: 'status_page' },
   ];
 
-  const KIND_LABELS: Record<ImportKind, string> = {
-    monitor: 'Monitör',
-    notification: 'Bildirim kanalı',
-    tag: 'Etiket',
-    status_page: 'Durum sayfası',
-    settings: 'Ayarlar',
-  };
+  const KIND_KEYS: ImportKind[] = ['monitor', 'notification', 'tag', 'status_page', 'settings'];
+  const kindLabel = (k: ImportKind) => (KIND_KEYS.includes(k) ? t(`backup.result.kind.${k}`) : k);
 
   const dry = $derived(result.dry_run);
   const RES = $derived<Record<ImportResultKind, { l: string; c: string }>>({
-    created: { l: dry ? 'Eklenecek' : 'Eklendi', c: 'up' },
-    existing: { l: 'Zaten vardı', c: 'paused' },
-    skipped: { l: dry ? 'Atlanacak' : 'Atlandı', c: 'pending' },
+    created: { l: dry ? t('backup.result.willCreate') : t('backup.result.created'), c: 'up' },
+    existing: { l: t('backup.result.existing'), c: 'paused' },
+    skipped: { l: dry ? t('backup.result.willSkip') : t('backup.result.skipped'), c: 'pending' },
   });
 
-  const SOURCES: Record<ImportSummary['source'], string> = {
-    'uptime-kadir': 'Yedek dosyası',
-    'uptime-kuma': 'Uptime Kuma',
-    uptimerobot: 'UptimeRobot',
-  };
+  const source = (s: ImportSummary['source']) => t(`backup.result.sources.${s}`);
 
   const items = $derived(result.items ?? []);
   const warnings = $derived(result.warnings ?? []);
@@ -64,11 +56,17 @@
 <div class="ir">
   <div class="ir-head">
     {#if dry}
-      <span class="badge accent"><Icon name="eye" size={12} /> Önizleme</span>
-      <span class="text-2 small">Henüz hiçbir şey değişmedi. {SOURCES[result.source]} · {result.mode === 'replace' ? 'Değiştir' : 'Birleştir'}</span>
+      <span class="badge accent"><Icon name="eye" size={12} /> {t('backup.result.preview')}</span>
+      <span class="text-2 small"
+        >{t('backup.result.nothingChanged')} {source(result.source)} · {result.mode === 'replace'
+          ? t('backup.result.replace')
+          : t('backup.result.merge')}</span
+      >
     {:else}
-      <span class="badge up"><Icon name="check" size={12} /> Tamamlandı</span>
-      <span class="text-2 small">{SOURCES[result.source]} · {result.mode === 'replace' ? 'Değiştir' : 'Birleştir'}</span>
+      <span class="badge up"><Icon name="check" size={12} /> {t('backup.result.completed')}</span>
+      <span class="text-2 small"
+        >{source(result.source)} · {result.mode === 'replace' ? t('backup.result.replace') : t('backup.result.merge')}</span
+      >
     {/if}
   </div>
 
@@ -77,16 +75,16 @@
       <thead>
         <tr>
           <th></th>
-          <th>{dry ? 'Eklenecek' : 'Eklendi'}</th>
-          <th>Zaten vardı</th>
-          <th>{dry ? 'Atlanacak' : 'Atlandı'}</th>
-          {#if result.deleted}<th>{dry ? 'Silinecek' : 'Silindi'}</th>{/if}
+          <th>{RES.created.l}</th>
+          <th>{RES.existing.l}</th>
+          <th>{RES.skipped.l}</th>
+          {#if result.deleted}<th>{dry ? t('backup.result.willDelete') : t('backup.result.deleted')}</th>{/if}
         </tr>
       </thead>
       <tbody>
         {#each rows as r (r.k)}
           <tr>
-            <th scope="row">{r.l}</th>
+            <th scope="row">{t(`backup.result.kinds.${r.k}`)}</th>
             <td class:c-up={result.created[r.k] > 0}>{result.created[r.k]}</td>
             <td>{result.existing[r.k]}</td>
             <td class:c-pending={result.skipped[r.k] > 0}>{result.skipped[r.k]}</td>
@@ -97,12 +95,12 @@
     </table>
   </div>
   {#if result.settings_applied}
-    <p class="help nomargin">Genel ayarlar da {dry ? 'geri yüklenecek' : 'geri yüklendi'}.</p>
+    <p class="help nomargin">{dry ? t('backup.result.settingsWill') : t('backup.result.settingsDone')}</p>
   {/if}
 
   {#if warnings.length}
     <div class="alert warning warns">
-      <b>Uyarılar</b>
+      <b>{t('backup.result.warnings')}</b>
       <ul>
         {#each warnings as w, i (i)}<li>{w}</li>{/each}
       </ul>
@@ -110,8 +108,10 @@
   {/if}
 
   {#if items.length}
-    <div class="seg" role="radiogroup" aria-label="Kayıt filtresi">
-      <button type="button" role="radio" aria-checked={filter === 'all'} class:active={filter === 'all'} onclick={() => (filter = 'all')}>Tümü ({items.length})</button>
+    <div class="seg" role="radiogroup" aria-label={t('backup.result.filter')}>
+      <button type="button" role="radio" aria-checked={filter === 'all'} class:active={filter === 'all'} onclick={() => (filter = 'all')}
+        >{t('backup.result.all', { count: items.length })}</button
+      >
       {#each ['created', 'existing', 'skipped'] as const as r (r)}
         {#if count(r) > 0}
           <button type="button" role="radio" aria-checked={filter === r} class:active={filter === r} onclick={() => (filter = r)}>
@@ -131,7 +131,7 @@
                 {it.name}
               {/if}
             </span>
-            <span class="it-meta muted small">{KIND_LABELS[it.kind] ?? it.kind}{typeText(it) ? ` · ${typeText(it)}` : ''}</span>
+            <span class="it-meta muted small">{kindLabel(it.kind)}{typeText(it) ? ` · ${typeText(it)}` : ''}</span>
           </div>
           <span class="badge {RES[it.result]?.c ?? ''}">{RES[it.result]?.l ?? it.result}</span>
           {#if it.messages?.length}
@@ -143,7 +143,8 @@
       {/each}
     </ul>
     {#if filtered.length > shown.length}
-      <button type="button" class="linkbtn more" onclick={() => (showAll = true)}>{filtered.length - shown.length} kayıt daha göster</button>
+      <button type="button" class="linkbtn more" onclick={() => (showAll = true)}>{t('backup.result.showMore', { count: filtered.length - shown.length })}</button
+      >
     {/if}
   {/if}
 </div>

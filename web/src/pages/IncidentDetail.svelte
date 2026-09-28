@@ -11,7 +11,8 @@
     type NotificationType,
   } from '../lib/api';
   import { live } from '../lib/live.svelte';
-  import { fmtDateSec, fmtDuration, fmtDurationLong, fmtTimeSec, fmtDay, nowSec } from '../lib/format';
+  import { fmtDateSec, fmtDuration, fmtDurationLong, fmtTimeSec, fmtDay, fmtSize, nowSec } from '../lib/format';
+  import { t, tOr } from '../lib/i18n';
   import { displayTarget, isWebTarget, typeName } from '../lib/monitorTypes';
   import { NOTIFY_LABELS, NOTIFY_STYLE } from '../lib/notifyTypes';
   import StatusIcon from '../components/StatusIcon.svelte';
@@ -86,7 +87,7 @@
   /** "HTTP 400 Bad Request" → "400 Bad Request" (UptimeRobot gibi). */
   function causeTitle(c: string): string {
     const m = c.match(/^HTTP (\d{3}\b.*)$/);
-    return m ? m[1] : c || 'Neden kaydedilmemiş';
+    return m ? m[1] : c || t('incidents.detail.noCause');
   }
 
   // İşlem geçmişi --------------------------------------------------------------------
@@ -105,12 +106,28 @@
   const num = (v: unknown) => (typeof v === 'number' ? v : 0);
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
-  const NOTIFY_EVENT: Record<string, string> = {
-    down: 'kesinti bildirimi',
-    up: 'düzelme bildirimi',
-    reminder: 'hatırlatma',
+  const NOTIFY_EVENT: Record<string, 'notifyDown' | 'notifyUp' | 'notifyReminder'> = {
+    down: 'notifyDown',
+    up: 'notifyUp',
+    reminder: 'notifyReminder',
   };
   const LOC_TONE: Record<string, Tone> = { up: 'up', down: 'down', retrying: 'pending', unknown: 'muted' };
+
+  // Sunucu konum adlarını Türkçe saklar: sabit "Ana sunucu" ve "…, X ve 3 diğer" eki
+  // dile göre yazılır (kullanıcının verdiği kontrol noktası adları olduğu gibi kalır).
+  const LOCAL_NAME = 'Ana sunucu';
+  function locName(s: string): string {
+    if (!s) return s;
+    const m = s.match(/^(.*) ve (\d+) diğer$/);
+    const names = (m ? m[1] : s)
+      .split(', ')
+      .map((n) => (n === LOCAL_NAME ? t('incidents.localName') : n))
+      .join(', ');
+    return m ? t('incidents.andOthers', { names, n: Number(m[2]) }) : names;
+  }
+
+  // Eski kayıtlarda (data'sız) düzenleme kaydının olayı kapatıp kapatmadığı saklı metinden anlaşılır.
+  const EDITED_CLOSED_TR = 'Monitörün hedefi değiştirildi; olay kapatıldı';
 
   function row(ev: IncidentEvent): Row {
     const d = ev.data ?? {};
@@ -120,76 +137,97 @@
         const att = num(d.attempt);
         r.icon = 'refresh';
         r.tone = 'pending';
-        r.title = att ? `Kontrol başarısız, tekrar denenecek (${att}/${num(d.max)})` : 'Konumlar tekrar deneniyor';
+        r.title = att ? t('incidents.ev.retry', { attempt: att, max: num(d.max) }) : t('incidents.ev.retryLocations');
         r.sub = ev.message;
-        r.note = ev.location;
+        r.note = locName(ev.location);
         break;
       }
       case 'down':
         r.icon = 'zap';
         r.tone = 'down';
-        r.title = 'Olay başladı';
+        r.title = t('incidents.ev.started');
         r.sub = ev.message;
-        r.note = ev.location ? `${ev.location} doğruladı` : '';
+        r.note = ev.location ? t('incidents.ev.confirmedBy', { where: locName(ev.location) }) : '';
         break;
       case 'change':
         r.icon = 'alert';
         r.tone = 'down';
-        r.title = 'Hata değişti';
+        r.title = t('incidents.ev.changed');
         r.sub = ev.message;
         break;
-      case 'location':
+      case 'location': {
         r.icon = 'map-pin';
-        r.tone = LOC_TONE[str(d.status)] ?? 'muted';
-        r.title = `${ev.location}: ${ev.message}`;
+        const status = str(d.status);
+        r.tone = LOC_TONE[status] ?? 'muted';
+        // data.message (ham kontrol mesajı) yalnızca yeni kayıtlarda var; yoksa
+        // çalışmayan konumun saklı özeti olduğu gibi gösterilir.
+        let what = ev.message;
+        if (status === 'up') what = t('incidents.ev.locUp');
+        else if (status === 'unknown') what = t('incidents.ev.locUnknown');
+        else if (status === 'down' && typeof d.message === 'string')
+          what = d.message ? t('incidents.ev.locDownMsg', { msg: d.message }) : t('incidents.ev.locDown');
+        r.title = `${locName(ev.location)}: ${what}`;
         break;
+      }
       case 'reminder':
         r.icon = 'bell-ring';
         r.tone = 'pending';
-        r.title = 'Hatırlatma bildirimi tetiklendi';
-        r.sub = d.downtime !== undefined ? `Kesinti ${fmtDuration(num(d.downtime))} sürüyordu` : '';
+        r.title = t('incidents.ev.reminder');
+        r.sub = d.downtime !== undefined ? t('incidents.ev.reminderSub', { d: fmtDuration(num(d.downtime)) }) : '';
         break;
       case 'maint_start':
       case 'maint_end':
         r.icon = 'wrench';
         r.tone = 'maint';
+        r.title = t(ev.kind === 'maint_start' ? 'incidents.ev.maintStart' : 'incidents.ev.maintEnd');
         break;
       case 'notify': {
         const type = str(d.type) as NotificationType;
         const st = NOTIFY_STYLE[type];
-        const what = NOTIFY_EVENT[str(d.event)] ?? 'bildirim';
+        const ek = NOTIFY_EVENT[str(d.event)];
+        const what = ek ? t(`incidents.ev.${ek}`) : t('incidents.ev.notifyOther');
         if (d.none) {
           r.icon = 'bell';
           r.tone = 'muted';
-          r.title = `Bildirim gönderilmedi (${what})`;
-          r.sub = 'Monitöre bağlı etkin bildirim kanalı yok';
+          r.title = t('incidents.ev.notSent', { what });
+          r.sub = t('incidents.ev.noChannels');
           break;
         }
         r.icon = st?.icon ?? 'bell';
         r.color = st?.color;
         r.tone = d.ok ? 'accent' : 'down';
         const ch = [str(d.channel), NOTIFY_LABELS[type] ?? str(d.type)].filter(Boolean).join(' · ');
-        r.title = d.ok ? `${ch}: ${what} gönderildi` : `${ch}: ${what} gönderilemedi`;
+        r.title = t(d.ok ? 'incidents.ev.sent' : 'incidents.ev.failed', { ch, what });
         r.sub = d.ok ? '' : str(d.error);
         break;
       }
       case 'edited':
-      case 'paused':
+      case 'paused': {
         r.icon = ev.kind === 'paused' ? 'pause' : 'edit';
         r.tone = 'muted';
         r.note = str(d.user);
+        const closed = typeof d.closed === 'boolean' ? d.closed : ev.message === EDITED_CLOSED_TR;
+        r.title =
+          ev.kind === 'paused'
+            ? t('incidents.ev.paused')
+            : t(closed ? 'incidents.ev.editedClosed' : 'incidents.ev.edited');
         break;
+      }
       case 'up':
         r.icon = 'check';
         r.tone = 'up';
-        r.title = 'Monitör tekrar çalışıyor (çözüldü)';
-        r.sub = [ev.message, d.downtime !== undefined ? `kesinti ${fmtDurationLong(num(d.downtime))}` : '']
+        r.title = t('incidents.ev.resolved');
+        r.sub = [
+          ev.message,
+          d.downtime !== undefined ? t('incidents.ev.downtime', { d: fmtDurationLong(num(d.downtime)) }) : '',
+        ]
           .filter(Boolean)
           .join(' · ');
         break;
       case 'limit':
         r.icon = 'info';
         r.tone = 'muted';
+        r.title = t('incidents.ev.limit');
         break;
     }
     return r;
@@ -220,9 +258,7 @@
   });
 
   function fmtBytes(n: number): string {
-    if (n < 1024) return `${n} bayt`;
-    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1).replace('.', ',')} KB`;
-    return `${(n / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;
+    return n < 1024 ? t('incidents.detail.bytes', { n, count: n }) : fmtSize(n);
   }
 
   const bodyMeta = $derived.by(() => {
@@ -230,7 +266,7 @@
     const parts: string[] = [];
     if (detail.content_type) parts.push(detail.content_type);
     if (detail.body_size) parts.push(fmtBytes(detail.body_size));
-    if (detail.body_truncated) parts.push('ilk 16 KB gösteriliyor');
+    if (detail.body_truncated) parts.push(t('incidents.detail.truncated'));
     return parts.join(' · ');
   });
 
@@ -262,33 +298,28 @@
     const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `olay-${data.incident.id}-yanit.json`;
+    a.download = t('incidents.detail.downloadFile', { id: data.incident.id });
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
-  const LOC_LABEL: Record<string, string> = {
-    up: 'Çalışıyordu',
-    down: 'Çalışmıyordu',
-    retrying: 'Tekrar deniyordu',
-    unknown: 'Sonuç yoktu',
-  };
+  const locLabel = (s: string) => tOr(`incidents.detail.loc.${s}`, s);
 </script>
 
 {#if notFound}
   <div class="card empty">
-    <h3>Olay bulunamadı</h3>
-    <p>Bu olay silinmiş olabilir ya da görüntüleme yetkiniz yok.</p>
-    <a class="btn primary" href="#/incidents">Olaylara dön</a>
+    <h3>{t('incidents.detail.notFound')}</h3>
+    <p>{t('incidents.detail.notFoundText')}</p>
+    <a class="btn primary" href="#/incidents">{t('incidents.detail.backToList')}</a>
   </div>
 {:else if !data || !inc}
   {#if loadError}
     <div class="card empty">
-      <h3>Yüklenemedi</h3>
+      <h3>{t('incidents.detail.loadFailed')}</h3>
       <p>{loadError}</p>
-      <button class="btn primary" onclick={load}>Tekrar dene</button>
+      <button class="btn primary" onclick={load}>{t('common.retry')}</button>
     </div>
   {:else}
     <div class="skeleton" style="height:80px;margin-bottom:20px"></div>
@@ -296,17 +327,17 @@
   {/if}
 {:else}
   <div class="page" class:narrow={!showSide}>
-    <a class="back" href="#/incidents"><Icon name="chevron-left" size={16} /> Olaylar</a>
+    <a class="back" href="#/incidents"><Icon name="chevron-left" size={16} /> {t('incidents.detail.back')}</a>
 
     <div class="head">
       <div class="title">
         <StatusIcon kind={ongoing ? 'down' : 'up'} size={40} pulse={ongoing} />
         <div class="tt">
-          <h1><span class="pre" class:c-down={ongoing} class:c-up={!ongoing}>{ongoing ? 'Süren olay:' : 'Çözülen olay:'}</span> {data.monitor.name}</h1>
+          <h1><span class="pre" class:c-down={ongoing} class:c-up={!ongoing}>{ongoing ? t('incidents.detail.ongoingPre') : t('incidents.detail.resolvedPre')}</span> {data.monitor.name}</h1>
           <div class="target">
             <TypeBadge type={data.monitor.type} />
             {#if !data.monitor.target}
-              <span class="muted">{typeName(data.monitor.type)} monitörü</span>
+              <span class="muted">{t('incidents.detail.typeMonitor', { type: typeName(data.monitor.type) })}</span>
             {:else if isWebTarget(data.monitor.type) && /^https?:\/\//i.test(data.monitor.target)}
               <a href={data.monitor.target} target="_blank" rel="noopener noreferrer">{data.monitor.target}<Icon name="external" size={13} /></a>
             {:else}
@@ -316,9 +347,9 @@
         </div>
       </div>
       <div class="actions">
-        <a class="btn" href="#/monitors/{data.monitor.id}"><Icon name="activity" size={15} /> Monitöre git</a>
+        <a class="btn" href="#/monitors/{data.monitor.id}"><Icon name="activity" size={15} /> {t('incidents.detail.goToMonitor')}</a>
         {#if capture}
-          <button class="btn" onclick={download}><Icon name="download" size={15} /> Yanıtı indir</button>
+          <button class="btn" onclick={download}><Icon name="download" size={15} /> {t('incidents.detail.downloadResponse')}</button>
         {/if}
       </div>
     </div>
@@ -326,33 +357,33 @@
     <div class="layout" class:single={!showSide}>
       <div class="col">
         <div class="card cause" class:resolved={!ongoing}>
-          <div class="label">Kök neden</div>
+          <div class="label">{t('incidents.detail.rootCause')}</div>
           <div class="cause-t">{causeTitle(rootCause)}</div>
           {#if data.location}
-            <div class="cause-w"><Icon name="map-pin" size={14} /> {data.location}</div>
+            <div class="cause-w"><Icon name="map-pin" size={14} /> {locName(data.location)}</div>
           {/if}
         </div>
 
         <div class="pair">
           <div class="card stat">
-            <div class="label">Durum</div>
+            <div class="label">{t('incidents.detail.status')}</div>
             <div class="value">
-              <span class="pill {ongoing ? 'down' : 'up'}">{ongoing ? 'Sürüyor' : 'Çözüldü'}</span>
+              <span class="pill {ongoing ? 'down' : 'up'}">{ongoing ? t('incidents.detail.ongoing') : t('incidents.detail.resolved')}</span>
             </div>
-            <div class="sub">Başladı: {fmtDateSec(inc.started_at)}</div>
+            <div class="sub">{t('incidents.detail.started', { date: fmtDateSec(inc.started_at) })}</div>
           </div>
           <div class="card stat">
-            <div class="label">Süre</div>
+            <div class="label">{t('incidents.detail.duration')}</div>
             <div class="value" class:c-down={ongoing}>{fmtDurationLong(duration)}</div>
-            <div class="sub">{ongoing ? 'Hâlâ sürüyor' : `Çözüldü: ${fmtDateSec(inc.resolved_at)}`}</div>
+            <div class="sub">{ongoing ? t('incidents.detail.stillOngoing') : t('incidents.detail.resolvedAt', { date: fmtDateSec(inc.resolved_at) })}</div>
           </div>
         </div>
 
         {#if data.locations.length}
           <div class="card">
             <div class="card-head">
-              <h2 class="card-title">Konumlar<span class="dot">.</span></h2>
-              <span class="muted small">Olay başladığında</span>
+              <h2 class="card-title">{t('incidents.detail.locations')}<span class="dot">.</span></h2>
+              <span class="muted small">{t('incidents.detail.atStart')}</span>
             </div>
             <ul class="locs">
               {#each data.locations as l (l.probe_id)}
@@ -361,8 +392,8 @@
                     <Icon name={l.status === 'up' ? 'check' : l.status === 'down' ? 'x' : l.status === 'retrying' ? 'refresh' : 'clock'} size={13} />
                   </span>
                   <span class="lt">
-                    <span class="ln">{l.name}</span>
-                    <span class="ls">{LOC_LABEL[l.status] ?? l.status}{l.message && l.status !== 'up' ? ` · ${l.message}` : ''}</span>
+                    <span class="ln">{locName(l.name)}</span>
+                    <span class="ls">{locLabel(l.status)}{l.message && l.status !== 'up' ? ` · ${l.message}` : ''}</span>
                   </span>
                 </li>
               {/each}
@@ -372,8 +403,8 @@
 
         <div class="card log">
           <div class="card-head">
-            <h2 class="card-title">İşlem geçmişi<span class="dot">.</span></h2>
-            <span class="muted small">Yeniden eskiye</span>
+            <h2 class="card-title">{t('incidents.detail.timeline')}<span class="dot">.</span></h2>
+            <span class="muted small">{t('incidents.detail.newestFirst')}</span>
           </div>
           <ol class="timeline">
             {#each rows as r, i (r.ev.id + ':' + i)}
@@ -402,12 +433,12 @@
           {#if detail}
             <div class="card">
               <div class="card-head">
-                <h2 class="card-title">İstek<span class="dot">.</span></h2>
+                <h2 class="card-title">{t('incidents.detail.request')}<span class="dot">.</span></h2>
                 <div class="tools">
-                  <div class="tabs" role="tablist" aria-label="İstek">
+                  <div class="tabs" role="tablist" aria-label={t('incidents.detail.request')}>
                     <button role="tab" aria-selected={reqTab === 'url'} class:active={reqTab === 'url'} onclick={() => (reqTab = 'url')}>URL</button>
                     <button role="tab" aria-selected={reqTab === 'headers'} class:active={reqTab === 'headers'} onclick={() => (reqTab = 'headers')}>
-                      Başlıklar <span class="cnt">{detail.request_headers?.length ?? 0}</span>
+                      {t('incidents.detail.headers')} <span class="cnt">{detail.request_headers?.length ?? 0}</span>
                     </button>
                   </div>
                   <CopyButton
@@ -420,30 +451,30 @@
               {#if reqTab === 'url'}
                 <div class="code url"><span class="method">{detail.method}</span> {detail.url}</div>
                 {#if detail.final_url}
-                  <div class="redirect small text-2"><Icon name="arrow-right" size={13} /> Yönlendirme sonrası: <span class="mono">{detail.final_url}</span></div>
+                  <div class="redirect small text-2"><Icon name="arrow-right" size={13} /> {t('incidents.detail.afterRedirect')} <span class="mono">{detail.final_url}</span></div>
                 {/if}
               {:else}
                 {@render headerList(detail.request_headers)}
               {/if}
               <div class="cap-meta muted small">
-                {capture?.location ? `${capture.location} · ` : ''}{capture ? fmtDateSec(capture.time) : ''}
+                {capture?.location ? `${locName(capture.location)} · ` : ''}{capture ? fmtDateSec(capture.time) : ''}
               </div>
             </div>
 
             <div class="card">
               <div class="card-head">
                 <div class="ttl">
-                  <h2 class="card-title">Yanıt<span class="dot">.</span></h2>
+                  <h2 class="card-title">{t('incidents.detail.response')}<span class="dot">.</span></h2>
                   {#if detail.status}
                     <span class="status" class:ok={detail.status < 400}>{detail.status} {detail.status_text ?? ''}</span>
                   {/if}
                 </div>
                 {#if detail.status}
                   <div class="tools">
-                    <div class="tabs" role="tablist" aria-label="Yanıt">
-                      <button role="tab" aria-selected={resTab === 'body'} class:active={resTab === 'body'} onclick={() => (resTab = 'body')}>Gövde</button>
+                    <div class="tabs" role="tablist" aria-label={t('incidents.detail.response')}>
+                      <button role="tab" aria-selected={resTab === 'body'} class:active={resTab === 'body'} onclick={() => (resTab = 'body')}>{t('incidents.detail.body')}</button>
                       <button role="tab" aria-selected={resTab === 'headers'} class:active={resTab === 'headers'} onclick={() => (resTab = 'headers')}>
-                        Başlıklar <span class="cnt">{detail.response_headers?.length ?? 0}</span>
+                        {t('incidents.detail.headers')} <span class="cnt">{detail.response_headers?.length ?? 0}</span>
                       </button>
                     </div>
                     <CopyButton
@@ -458,7 +489,7 @@
                 <div class="noresp">
                   <Icon name="wifi-off" size={18} />
                   <div>
-                    <div class="nr-t">Yanıt alınamadı</div>
+                    <div class="nr-t">{t('incidents.detail.noResponse')}</div>
                     <div class="nr-s">{detail.error || inc.cause}</div>
                   </div>
                 </div>
@@ -466,7 +497,7 @@
                 {#if detail.body_binary}
                   <div class="empty-body">{detail.body}</div>
                 {:else if !detail.body}
-                  <div class="empty-body">Yanıt gövdesi boş</div>
+                  <div class="empty-body">{t('incidents.detail.emptyBody')}</div>
                 {:else}
                   <pre class="code body">{prettyBody}</pre>
                 {/if}
@@ -479,9 +510,9 @@
             <div class="card nocap">
               <Icon name="inbox" size={22} />
               <div>
-                <div class="nr-t">İstek ve yanıt kaydı yok</div>
+                <div class="nr-t">{t('incidents.detail.noCapture')}</div>
                 <div class="nr-s">
-                  Bu olay kayıt tutulmaya başlanmadan önce açılmış ya da kaydın 90 günlük saklama süresi dolmuş.
+                  {t('incidents.detail.noCaptureText')}
                 </div>
               </div>
             </div>
@@ -494,7 +525,7 @@
 
 {#snippet headerList(hs: HttpHeader[] | undefined)}
   {#if !hs?.length}
-    <div class="empty-body">Başlık yok</div>
+    <div class="empty-body">{t('incidents.detail.noHeaders')}</div>
   {:else}
     <dl class="hdrs">
       {#each hs as h, i (i)}
