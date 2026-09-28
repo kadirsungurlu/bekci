@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/check"
+	"github.com/kadirsungurlu/bekci/internal/notify"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // window fikstürün saatine göre [start, end) tek seferlik bakım penceresi ekler.

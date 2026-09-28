@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // TypeGroup alt monitörlerin durumunu birleştiren monitör tipi. Kendisi ağa

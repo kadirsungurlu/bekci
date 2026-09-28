@@ -3,7 +3,7 @@ package maintenance
 import (
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // Index aktif pencerelerin monitörlere göre dizinidir. Kurulduktan sonra

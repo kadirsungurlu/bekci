@@ -1,4 +1,4 @@
-module github.com/kadirsungurlu/uptime-kadir-app
+module github.com/kadirsungurlu/bekci
 
 go 1.27
 

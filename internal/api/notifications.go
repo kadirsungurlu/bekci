@@ -11,9 +11,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/engine"
+	"github.com/kadirsungurlu/bekci/internal/notify"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // Kullanıcı başına giden bildirim (test ve örnek) hız sınırı: bir editör

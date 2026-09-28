@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
+	"github.com/kadirsungurlu/bekci/internal/check"
 )
 
 // Başarısız HTTP kontrolünün isteği/yanıtı (olay sayfası) sonuçla gider;

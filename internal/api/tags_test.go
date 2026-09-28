@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/notify"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 func TestTags(t *testing.T) {

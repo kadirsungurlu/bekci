@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 var ist = mustLoc("Europe/Istanbul")

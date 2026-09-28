@@ -18,10 +18,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store/storetest"
+	"github.com/kadirsungurlu/bekci/internal/engine"
+	"github.com/kadirsungurlu/bekci/internal/notify"
+	"github.com/kadirsungurlu/bekci/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/store/storetest"
 )
 
 func init() { bcryptCost = 4 } // bcrypt.MinCost

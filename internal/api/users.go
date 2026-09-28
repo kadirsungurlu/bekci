@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // İşlem kaydı ----------------------------------------------------------------------

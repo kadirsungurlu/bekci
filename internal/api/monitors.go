@@ -8,11 +8,11 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/check"
+	"github.com/kadirsungurlu/bekci/internal/engine"
+	"github.com/kadirsungurlu/bekci/internal/i18n"
+	"github.com/kadirsungurlu/bekci/internal/notify"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // monitorSecrets monitör ayarlarında maskelenecek alanlar.

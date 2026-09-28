@@ -16,10 +16,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/backup"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/backup"
+	"github.com/kadirsungurlu/bekci/internal/brand"
+	"github.com/kadirsungurlu/bekci/internal/check"
+	"github.com/kadirsungurlu/bekci/internal/store"
 	"golang.org/x/crypto/bcrypt"
 )
 

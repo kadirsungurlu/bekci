@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // ProbeOfflineAfter bu süre boyunca hiç istek göndermeyen kontrol noktası

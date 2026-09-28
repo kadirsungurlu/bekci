@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store/storetest"
+	"github.com/kadirsungurlu/bekci/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/store/storetest"
 )
 
 // Gönderim sonuçları olayın işlem geçmişine yazılır: başarılı ve başarısız

@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/brand"
+	"github.com/kadirsungurlu/bekci/internal/store"
 	qrcode "github.com/skip2/go-qrcode"
 	"golang.org/x/crypto/bcrypt"
 )

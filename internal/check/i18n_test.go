@@ -16,8 +16,8 @@ import (
 
 	mssql "github.com/microsoft/go-mssqldb"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/i18n"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // Kontrol mesajları Türkçe saklanır ve API'de i18n.Message ile çevrilir.

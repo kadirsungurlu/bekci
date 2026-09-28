@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // setupAdminSrv setupAdmin gibi; ayrıca veritabanına doğrudan erişim için sunucuyu döner.

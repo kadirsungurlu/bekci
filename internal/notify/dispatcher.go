@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/i18n"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // sendTimeout tek bir kanala gönderim için süre sınırı.

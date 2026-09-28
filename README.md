@@ -6,8 +6,9 @@
 
 **Web siteleri, servisler ve sunucular için tek imajlık, hafif ve Türkçe izleme sistemi.**
 
-[![Docker Hub](https://img.shields.io/badge/docker-kadirsungurlu%2Fbekci-0d9488?logo=docker&logoColor=white)](https://hub.docker.com/r/kadirsungurlu/bekci)
+[![Docker Hub](https://img.shields.io/docker/v/kadirsungurlu/bekci?sort=semver&label=docker&color=0d9488&logo=docker&logoColor=white)](https://hub.docker.com/r/kadirsungurlu/bekci)
 [![Go 1.27](https://img.shields.io/badge/Go-1.27-0d9488?logo=go&logoColor=white)](go.mod)
+[![Lisans](https://img.shields.io/badge/lisans-AGPL--3.0-475569)](LICENSE)
 [![Platformlar](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-475569)](https://hub.docker.com/r/kadirsungurlu/bekci/tags)
 [![Veritabanı](https://img.shields.io/badge/veritaban%C4%B1-SQLite%20%7C%20PostgreSQL-475569)](#ortam-değişkenleri)
 [![Arayüz](https://img.shields.io/badge/aray%C3%BCz-T%C3%BCrk%C3%A7e%20%7C%20English-475569)](#neden)
@@ -464,3 +465,7 @@ Yeni sürüm yayınlamak:
 ```bash
 git tag v1.2.3 && git push origin v1.2.3
 ```
+
+## Lisans
+
+[GNU AGPL-3.0](LICENSE). Bekci'yi özgürce kullanabilir, değiştirebilir ve dağıtabilirsiniz; değiştirilmiş bir sürümü ağ üzerinden hizmet olarak sunarsanız kaynak kodunu da aynı lisansla paylaşmanız gerekir.

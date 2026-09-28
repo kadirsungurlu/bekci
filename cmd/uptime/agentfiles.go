@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
+	"github.com/kadirsungurlu/bekci/internal/brand"
 )
 
 // Windows hizmetinin yapılandırma ve günlük dosyaları. Platformdan bağımsız

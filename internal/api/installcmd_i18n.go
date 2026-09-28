@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
+	"github.com/kadirsungurlu/bekci/internal/brand"
 )
 
 // Kurulum komutlarındaki kullanıcıya dönük mesajlar Türkçe üretilir; İngilizce

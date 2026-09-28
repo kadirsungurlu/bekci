@@ -11,7 +11,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 const (

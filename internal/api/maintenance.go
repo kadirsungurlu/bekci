@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/maintenance"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/maintenance"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // Bakım pencereleri: editör ve yönetici yönetir; izleyiciler yalnızca

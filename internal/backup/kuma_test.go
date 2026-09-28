@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
+	"github.com/kadirsungurlu/bekci/internal/check"
+	"github.com/kadirsungurlu/bekci/internal/notify"
 )
 
 // Grup tipi bu dalda henüz yoksa dönüştürme testleri için sahtesi kaydedilir.

@@ -6,8 +6,9 @@
 
 **A lightweight, single-image monitoring system for websites, services and servers.**
 
-[![Docker Hub](https://img.shields.io/badge/docker-kadirsungurlu%2Fbekci-0d9488?logo=docker&logoColor=white)](https://hub.docker.com/r/kadirsungurlu/bekci)
+[![Docker Hub](https://img.shields.io/docker/v/kadirsungurlu/bekci?sort=semver&label=docker&color=0d9488&logo=docker&logoColor=white)](https://hub.docker.com/r/kadirsungurlu/bekci)
 [![Go 1.27](https://img.shields.io/badge/Go-1.27-0d9488?logo=go&logoColor=white)](go.mod)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-475569)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-475569)](https://hub.docker.com/r/kadirsungurlu/bekci/tags)
 [![Database](https://img.shields.io/badge/database-SQLite%20%7C%20PostgreSQL-475569)](#environment-variables)
 [![UI](https://img.shields.io/badge/UI-English%20%7C%20Turkish-475569)](#why)
@@ -491,3 +492,7 @@ To publish a new release:
 ```bash
 git tag v1.2.3 && git push origin v1.2.3
 ```
+
+## License
+
+[GNU AGPL-3.0](LICENSE). You are free to use, modify and distribute Bekci; if you offer a modified version as a network service, you must share its source code under the same license.

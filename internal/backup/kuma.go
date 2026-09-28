@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
+	"github.com/kadirsungurlu/bekci/internal/check"
 
 	_ "modernc.org/sqlite"
 )

@@ -14,7 +14,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
+	"github.com/kadirsungurlu/bekci/internal/brand"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/eventlog"

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
+	"github.com/kadirsungurlu/bekci/internal/brand"
 )
 
 func init() { Register("mattermost", mattermost{}) }

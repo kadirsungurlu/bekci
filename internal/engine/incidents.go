@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/check"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // Olay ayrıntıları (docs/PLAN.md §13) ------------------------------------------------

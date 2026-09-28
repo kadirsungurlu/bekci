@@ -33,8 +33,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/metrics"
+	"github.com/kadirsungurlu/bekci/internal/check"
+	"github.com/kadirsungurlu/bekci/internal/metrics"
 )
 
 // Config istemci ayarları. Sıfır değerli alanlar varsayılanla doldurulur.

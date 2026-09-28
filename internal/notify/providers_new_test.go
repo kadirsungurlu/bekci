@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
+	"github.com/kadirsungurlu/bekci/internal/brand"
 )
 
 // upEvent downEvent'in "up" karşılığı; birçok sağlayıcı trigger/resolve

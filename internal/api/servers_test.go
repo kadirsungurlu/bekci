@@ -20,12 +20,12 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/metrics"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/servers"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store/storetest"
+	"github.com/kadirsungurlu/bekci/internal/engine"
+	"github.com/kadirsungurlu/bekci/internal/metrics"
+	"github.com/kadirsungurlu/bekci/internal/notify"
+	"github.com/kadirsungurlu/bekci/internal/servers"
+	"github.com/kadirsungurlu/bekci/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/store/storetest"
 )
 
 // newServersEnv newFeatureEnv'in PostgreSQL'de de çalışan hali (storetest).

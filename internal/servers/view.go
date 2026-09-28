@@ -6,9 +6,9 @@ import (
 	"math"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/metrics"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/i18n"
+	"github.com/kadirsungurlu/bekci/internal/metrics"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // Sunucu durumları (View.State).

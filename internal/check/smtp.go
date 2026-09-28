@@ -145,7 +145,7 @@ func (smtpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 // ehlo EHLO komutunu gönderir, başarısız olursa HELO'ya düşer (bazı eski
 // sunucular EHLO'yu desteklemez).
 func ehlo(tp *textproto.Conn) (int, string, error) {
-	id, err := tp.Cmd("EHLO uptime-kadir-app")
+	id, err := tp.Cmd("EHLO bekci")
 	if err != nil {
 		return 0, "", err
 	}
@@ -155,7 +155,7 @@ func ehlo(tp *textproto.Conn) (int, string, error) {
 	if err == nil {
 		return code, msg, nil
 	}
-	id, err = tp.Cmd("HELO uptime-kadir-app")
+	id, err = tp.Cmd("HELO bekci")
 	if err != nil {
 		return 0, "", err
 	}

@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
+	"github.com/kadirsungurlu/bekci/internal/brand"
+	"github.com/kadirsungurlu/bekci/internal/i18n"
 )
 
 // Test edilebilirlik için değiştirilebilir; gerçek adresler bölgeye göre seçilir.

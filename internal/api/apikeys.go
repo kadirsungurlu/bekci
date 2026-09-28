@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // API anahtarları -----------------------------------------------------------------

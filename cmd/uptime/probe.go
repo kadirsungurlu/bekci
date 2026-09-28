@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/probe"
+	"github.com/kadirsungurlu/bekci/internal/probe"
 )
 
 // runProbe "uptime probe" komutu: uzak kontrol noktası / sunucu ajanı modu.

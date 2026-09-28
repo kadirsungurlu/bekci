@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 func TestGroupNormalize(t *testing.T) {

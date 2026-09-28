@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/backup"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/backup"
+	"github.com/kadirsungurlu/bekci/internal/brand"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 var errUploadTooLarge = errors.New("dosya çok büyük")

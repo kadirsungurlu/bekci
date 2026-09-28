@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"regexp"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/i18n"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // İzleyicilere giden kontrol mesajlarının temizlenmesi.

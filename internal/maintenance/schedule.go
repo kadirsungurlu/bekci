@@ -17,7 +17,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // DefaultTimezone saat dilimi boş bırakılırsa kullanılır.

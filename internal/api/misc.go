@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/engine"
+	"github.com/kadirsungurlu/bekci/internal/i18n"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // summary liste ekranının sağındaki "Mevcut durum" ve "Son 24 saat" kutuları.

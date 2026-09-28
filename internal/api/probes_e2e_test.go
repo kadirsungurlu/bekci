@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/probe"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/engine"
+	"github.com/kadirsungurlu/bekci/internal/probe"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // Uçtan uca: gerçek bir kontrol noktası istemcisi (internal/probe) test

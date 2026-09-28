@@ -17,9 +17,9 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/engine"
+	"github.com/kadirsungurlu/bekci/internal/notify"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // testClock sunucunun saatini ileri almaya yarar (süre dolumu, TOTP adımları).

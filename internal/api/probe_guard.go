@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // Ajan IP kilidi (adres ailesi başına) --------------------------------------------

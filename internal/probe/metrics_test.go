@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/metrics"
+	"github.com/kadirsungurlu/bekci/internal/metrics"
 )
 
 // fakeCollector sahte metrik toplayıcı: ilk çağrı (ve Reset sonrası) hazırlıktır.

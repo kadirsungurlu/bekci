@@ -49,13 +49,13 @@ import (
 	"time"
 	_ "time/tzdata" // imajda tzdata olmasa da TZ çalışsın
 
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/api"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/stats"
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
-	"github.com/kadirsungurlu/uptime-kadir-app/web"
+	"github.com/kadirsungurlu/bekci/internal/api"
+	"github.com/kadirsungurlu/bekci/internal/brand"
+	"github.com/kadirsungurlu/bekci/internal/engine"
+	"github.com/kadirsungurlu/bekci/internal/notify"
+	"github.com/kadirsungurlu/bekci/internal/stats"
+	"github.com/kadirsungurlu/bekci/internal/store"
+	"github.com/kadirsungurlu/bekci/web"
 	"golang.org/x/crypto/bcrypt"
 )
 
