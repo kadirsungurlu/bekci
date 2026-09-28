@@ -21,12 +21,14 @@ RUN go mod download
 COPY . .
 COPY --from=web /web/dist ./web/dist
 ARG SOURCE_COMMIT=dev
+# Sürüm etiketinden derlemede (v1.2.3) sürüm numarası, aksi hâlde commit kısa özeti.
+ARG VERSION=
 # Derleme her zaman derleyen makinenin mimarisinde çalışır (--platform=$BUILDPLATFORM);
 # hedef mimari (amd64/arm64) Go'nun çapraz derlemesiyle üretilir, emülasyon gerekmez.
 ARG TARGETOS=linux
 ARG TARGETARCH
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH:-$(go env GOARCH)} go build -trimpath \
-      -ldflags "-s -w -X main.version=$(echo ${SOURCE_COMMIT} | cut -c1-7)" \
+      -ldflags "-s -w -X main.version=${VERSION:-$(echo ${SOURCE_COMMIT} | cut -c1-7)}" \
       -o /out/uptime ./cmd/uptime
 # Başka platformların ajan programları (aynı sürüm): sunucular panelden
 # indirir (GET /api/probe/binary?os=…&arch=…). İmajın kendi platformu atlanır
@@ -38,7 +40,7 @@ RUN mkdir -p /out/agents && self=${TARGETOS}/${TARGETARCH:-$(go env GOARCH)} && 
       [ "$p" = "$self" ] && continue; \
       os=${p%/*}; arch=${p#*/}; ext=; [ "$os" = windows ] && ext=.exe; \
       CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \
-        -ldflags "-s -w -X main.version=$(echo ${SOURCE_COMMIT} | cut -c1-7)" \
+        -ldflags "-s -w -X main.version=${VERSION:-$(echo ${SOURCE_COMMIT} | cut -c1-7)}" \
         -o /out/agents/uptime-$os-$arch$ext ./cmd/uptime || exit 1; \
     done
 

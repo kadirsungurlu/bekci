@@ -5,7 +5,7 @@
 #   docker.io/kadirsungurlu/bekci            (herkese açık, Docker Hub)
 #   ghcr.io/<sahip>/bekci
 # Etiketler (SQLite | PostgreSQL gömülü):
-#   main:        :latest | :postgres            ve :<kısa-sha> | :postgres-<kısa-sha>
+#   main:        :latest | :postgres  (+ yalnızca ghcr.io'da :<kısa-sha> | :postgres-<kısa-sha>)
 #   v1.2.3 etiketi: :1.2.3, :1.2 | :1.2.3-postgres, :1.2-postgres (+ kısa sha)
 # Docker Hub girişi için repo sırrı: DOCKERHUB_TOKEN (ya da KADIRSUNGURLU).
 name: İmajlar
@@ -194,9 +194,18 @@ jobs:
           kisa=${GITHUB_SHA::7}
           {
             echo "kisa=$kisa"
+            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+              echo "surum=${GITHUB_REF#refs/tags/v}"
+            else
+              echo "surum="
+            fi
             echo "liste<<SON"
             for imaj in "$DOCKERHUB_IMAGE" "ghcr.io/${REPO,,}"; do
-              echo "$imaj:${ONEK}${kisa}"
+              # Commit etiketleri yalnızca ghcr.io'da; Docker Hub'da latest,
+              # postgres ve sürüm numaraları görünür.
+              if [ "$imaj" != "$DOCKERHUB_IMAGE" ]; then
+                echo "$imaj:${ONEK}${kisa}"
+              fi
               if [ "$GITHUB_REF" = refs/heads/main ]; then
                 echo "$imaj:${ETIKET}"
               fi
@@ -218,7 +227,9 @@ jobs:
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: true
-          build-args: SOURCE_COMMIT=${{ github.sha }}
+          build-args: |
+            SOURCE_COMMIT=${{ github.sha }}
+            VERSION=${{ steps.etiket.outputs.surum }}
           tags: ${{ steps.etiket.outputs.liste }}
           cache-from: |
             type=gha,scope=${{ matrix.etiket }}
@@ -228,10 +239,13 @@ jobs:
         env:
           ONEK: ${{ matrix.onek }}
           KISA: ${{ steps.etiket.outputs.kisa }}
+          SURUM: ${{ steps.etiket.outputs.surum }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          beklenen=${SURUM:-$KISA}
           for plat in linux/amd64 linux/arm64; do
-            s=$(docker run --rm --platform "$plat" --entrypoint uptime "$DOCKERHUB_IMAGE:${ONEK}${KISA}" version)
+            s=$(docker run --rm --platform "$plat" --entrypoint uptime "ghcr.io/${REPO,,}:${ONEK}${KISA}" version)
             echo "$plat: $s"
-            [ "$s" = "$KISA" ] || { echo "::error::$plat sürümü $s (beklenen $KISA)"; exit 1; }
+            [ "$s" = "$beklenen" ] || { echo "::error::$plat sürümü $s (beklenen $beklenen)"; exit 1; }
           done
