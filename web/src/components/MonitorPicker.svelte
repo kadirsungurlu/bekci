@@ -6,13 +6,15 @@
   import { displayTarget, typeLabel } from '../lib/monitorTypes';
   import StatusIcon from './StatusIcon.svelte';
   import Icon from './Icon.svelte';
+  import { t } from '../lib/i18n';
 
   let {
     selected = $bindable([]),
     exclude = [],
-    label = 'Monitörler',
+    label: labelProp,
     id = 'mp',
   }: { selected?: number[]; exclude?: number[]; label?: string; id?: string } = $props();
+  const label = $derived(labelProp ?? t('nav.monitors'));
 
   let search = $state('');
 
@@ -50,15 +52,17 @@
         id="{id}-q"
         class="input"
         type="search"
-        placeholder="Monitör ara"
-        aria-label="{label}: ara"
+        placeholder={t('monitors.picker.searchPh')}
+        aria-label={t('monitors.picker.searchAria', { label })}
         bind:value={search}
       />
     </div>
     <div class="tools">
-      <span class="muted small" aria-live="polite">{count} / {all.length} seçili</span>
-      <button type="button" class="linkbtn small" onclick={selectVisible}>{search ? 'Bulunanları seç' : 'Tümünü seç'}</button>
-      <button type="button" class="linkbtn small" onclick={clearVisible}>Temizle</button>
+      <span class="muted small" aria-live="polite">{t('monitors.picker.count', { count, total: all.length })}</span>
+      <button type="button" class="linkbtn small" onclick={selectVisible}
+        >{search ? t('monitors.picker.selectFound') : t('monitors.picker.selectAll')}</button
+      >
+      <button type="button" class="linkbtn small" onclick={clearVisible}>{t('monitors.picker.clear')}</button>
     </div>
   </div>
   <div class="list" role="group" aria-label={label}>
@@ -72,7 +76,7 @@
         </span>
       </label>
     {:else}
-      <div class="none muted small">{all.length === 0 ? 'Henüz monitör yok.' : 'Eşleşen monitör yok.'}</div>
+      <div class="none muted small">{all.length === 0 ? t('monitors.picker.empty') : t('monitors.noMatch')}</div>
     {/each}
   </div>
 </div>

@@ -30,7 +30,8 @@
     nowSec,
   } from '../lib/format';
   import { session } from '../lib/session.svelte';
-  import { GROUP_MODES, displayTarget, isWebTarget, typeName } from '../lib/monitorTypes';
+  import { GROUP_MODES, displayTarget, groupTarget, isWebTarget, typeName } from '../lib/monitorTypes';
+  import { t, tParts, type TKey } from '../lib/i18n';
   import { deleteMonitor, togglePause } from '../lib/actions';
   import StatusIcon from '../components/StatusIcon.svelte';
   import TypeBadge from '../components/TypeBadge.svelte';
@@ -53,11 +54,11 @@
   let chartTo = $state(nowSec());
   let busy = $state(false);
 
-  const RANGES: { key: SeriesRange; label: string; sec: number }[] = [
-    { key: '24h', label: '24 saat', sec: 86400 },
-    { key: '7d', label: '7 gün', sec: 7 * 86400 },
-    { key: '30d', label: '30 gün', sec: 30 * 86400 },
-    { key: '90d', label: '90 gün', sec: 90 * 86400 },
+  const RANGES: { key: SeriesRange; label: TKey; sec: number }[] = [
+    { key: '24h', label: 'monitors.detail.r24h', sec: 86400 },
+    { key: '7d', label: 'monitors.detail.r7d', sec: 7 * 86400 },
+    { key: '30d', label: 'monitors.detail.r30d', sec: 30 * 86400 },
+    { key: '90d', label: 'monitors.detail.r90d', sec: 90 * 86400 },
   ];
 
   const monitor = $derived(live.byId(id) ?? detail?.monitor ?? null);
@@ -82,11 +83,11 @@
 
   // Konumlar: yalnızca çok konumlu monitörde dolu gelir.
   let locations = $state.raw<MonitorLocations | null>(null);
-  const LOC_STATE: Record<LocationState, { l: string; c: string }> = {
-    up: { l: 'Çalışıyor', c: 'up' },
-    down: { l: 'Çalışmıyor', c: 'down' },
-    retrying: { l: 'Tekrar deneniyor', c: 'pending' },
-    unknown: { l: 'Sonuç yok', c: 'paused' },
+  const LOC_STATE: Record<LocationState, { l: TKey; c: string }> = {
+    up: { l: 'status.up', c: 'up' },
+    down: { l: 'status.down', c: 'down' },
+    retrying: { l: 'status.retrying', c: 'pending' },
+    unknown: { l: 'monitors.detail.noResult', c: 'paused' },
   };
   async function loadLocations() {
     try {
@@ -218,16 +219,16 @@
     if (!monitor) return '';
     switch (kind) {
       case 'paused':
-        return 'Kontroller durduruldu';
+        return t('monitors.detail.pausedSub');
       case 'maintenance':
-        return 'Bakım penceresi sürüyor; bildirim gönderilmez';
+        return t('monitors.detail.maintSub');
       case 'pending':
         // Başlatma/düzenleme sonrası sunucu son mesajı temizler: henüz sonuç yok.
-        return monitor.last_message ? 'Tekrar deneniyor' : 'İlk kontrol bekleniyor';
+        return monitor.last_message ? t('status.retrying') : t('monitors.firstCheck');
       case 'up':
-        return monitor.last_change_at ? `${fmtDuration(now - monitor.last_change_at)} süredir çalışıyor` : '';
+        return monitor.last_change_at ? t('monitors.detail.upFor', { d: fmtDuration(now - monitor.last_change_at) }) : '';
       case 'down':
-        return monitor.last_change_at ? `${fmtDuration(now - monitor.last_change_at)} süredir çalışmıyor` : '';
+        return monitor.last_change_at ? t('monitors.detail.downFor', { d: fmtDuration(now - monitor.last_change_at) }) : '';
     }
   });
 
@@ -240,28 +241,30 @@
 
   const selRange = $derived(RANGES.find((r) => r.key === range)!);
   const curlUp = $derived(pushUrl ? `curl -fsS -m 10 --retry 3 "${pushUrl}"` : '');
-  const curlDown = $derived(pushUrl ? `curl -fsS -m 10 "${pushUrl}?status=down&msg=Yedekleme%20basarisiz"` : '');
+  const curlDown = $derived(pushUrl ? `curl -fsS -m 10 "${pushUrl}?status=down&msg=${t('monitors.detail.pushFailMsg')}"` : '');
+  // Grup hedefi ("3 monitör") geçerli dilde.
+  const groupTargetText = $derived(monitor?.type === 'group' ? groupTarget(monitor.config, monitor.target) : '');
 </script>
 
 {#if notFound}
   <div class="card empty">
-    <h3>Monitör bulunamadı</h3>
-    <p>Bu monitör silinmiş olabilir.</p>
-    <a class="btn primary" href="#/">Monitörlere dön</a>
+    <h3>{t('monitors.detail.notFound')}</h3>
+    <p>{t('monitors.detail.notFoundText')}</p>
+    <a class="btn primary" href="#/">{t('nav.backToMonitors')}</a>
   </div>
 {:else if !monitor}
   {#if loadError}
     <div class="card empty">
-      <h3>Yüklenemedi</h3>
+      <h3>{t('monitors.detail.loadFailed')}</h3>
       <p>{loadError}</p>
-      <button class="btn primary" onclick={loadDetail}>Tekrar dene</button>
+      <button class="btn primary" onclick={loadDetail}>{t('common.retry')}</button>
     </div>
   {:else}
     <div class="skeleton" style="height:90px;margin-bottom:20px"></div>
     <div class="skeleton" style="height:300px"></div>
   {/if}
 {:else}
-  <a class="back" href="#/"><Icon name="chevron-left" size={16} /> Monitörler</a>
+  <a class="back" href="#/"><Icon name="chevron-left" size={16} /> {t('nav.monitors')}</a>
 
   <div class="head">
     <div class="title">
@@ -273,20 +276,20 @@
         </div>
         <div class="target">
           {#if monitor.type === 'push'}
-            <span class="muted">Push monitörü · beklenen aralık {fmtInterval(monitor.interval)}</span>
+            <span class="muted">{t('monitors.detail.pushTarget', { interval: fmtInterval(monitor.interval) })}</span>
           {:else if !monitor.target}
-            <span class="muted">{typeName(monitor.type)} monitörü</span>
+            <span class="muted">{t('monitors.detail.typeMonitor', { type: typeName(monitor.type) })}</span>
           {:else if isWebTarget(monitor.type) && /^https?:\/\//i.test(monitor.target)}
             <a href={monitor.target} target="_blank" rel="noopener noreferrer">{monitor.target}<Icon name="external" size={13} /></a>
           {:else if monitor.type === 'group'}
-            <span class="muted">Grup · {monitor.target}{groupMode ? ` · ${groupMode}` : ''}</span>
+            <span class="muted">{t('monitors.detail.group')} · {groupTargetText}{groupMode ? ` · ${groupMode}` : ''}</span>
           {:else}
             <span class="text-2 mono">{displayTarget(monitor.target)}</span>
           {/if}
         </div>
         {#if monitor.tags?.length}
-          <div class="dtags" aria-label="Etiketler">
-            {#each monitor.tags as t (t.id)}<TagChip name={t.name} color={t.color} value={t.value} />{/each}
+          <div class="dtags" aria-label={t('monitors.tags')}>
+            {#each monitor.tags as tg (tg.id)}<TagChip name={tg.name} color={tg.color} value={tg.value} />{/each}
           </div>
         {/if}
       </div>
@@ -295,10 +298,10 @@
       <div class="actions">
         <button class="btn" onclick={onToggle} disabled={busy}>
           <Icon name={monitor.active ? 'pause' : 'play'} size={15} />
-          {monitor.active ? 'Durdur' : 'Başlat'}
+          {monitor.active ? t('monitors.pause') : t('monitors.resume')}
         </button>
-        <a class="btn" href="#/monitors/{monitor.id}/edit"><Icon name="edit" size={15} /> Düzenle</a>
-        <button class="btn danger" onclick={onDelete}><Icon name="trash" size={15} /> Sil</button>
+        <a class="btn" href="#/monitors/{monitor.id}/edit"><Icon name="edit" size={15} /> {t('common.edit')}</a>
+        <button class="btn danger" onclick={onDelete}><Icon name="trash" size={15} /> {t('common.delete')}</button>
       </div>
     {/if}
   </div>
@@ -306,8 +309,8 @@
   {#if kind === 'maintenance'}
     <div class="alert maint maint-note">
       <Icon name="wrench" size={16} />
-      <span>Bu monitör şu anda bir bakım penceresinde. Kesintiler bildirilmez ve uptime hesabına katılmaz.
-        <a href="#/maintenance">Bakım pencereleri</a></span>
+      <span>{t('monitors.detail.maintNote')}
+        <a href="#/maintenance">{t('nav.titles.maintenanceWindows')}</a></span>
     </div>
   {/if}
 
@@ -317,42 +320,46 @@
 
   <div class="stats">
     <div class="card stat">
-      <div class="label">Mevcut durum</div>
+      <div class="label">{t('monitors.list.currentStatus')}</div>
       <div class="value"><span class="pill {kind}">{STATUS_LABELS[kind]}</span></div>
       <div class="sub">{statusSub}</div>
     </div>
     <div class="card stat">
-      <div class="label">Son kontrol</div>
+      <div class="label">{t('monitors.detail.lastCheck')}</div>
       <div class="value">{monitor.last_check_at ? fmtRelative(monitor.last_check_at, now) : '—'}</div>
       <div class="sub" title={monitor.last_message}>
         {#if monitor.last_message}
           <span class:c-down={kind === 'down'} class:c-pending={kind === 'pending'}>{monitor.last_message}</span> ·
         {/if}
-        her {fmtInterval(monitor.interval)}
+        {t('monitors.detail.every', { interval: fmtInterval(monitor.interval) })}
       </div>
     </div>
     {#if monitor.type === 'group'}
       <div class="card stat">
-        <div class="label">Alt monitörler</div>
-        <div class="value">{monitor.target}</div>
-        <div class="sub">{groupMode || 'Bakımdaki ve durdurulmuş alt monitörler sayılmaz'}</div>
+        <div class="label">{t('monitors.detail.children')}</div>
+        <div class="value">{groupTargetText}</div>
+        <div class="sub">{groupMode || t('monitors.detail.childrenNote')}</div>
       </div>
     {:else}
       <div class="card stat">
-        <div class="label">Ortalama yanıt (24 saat)</div>
+        <div class="label">{t('monitors.detail.avgResponse')}</div>
         <div class="value">{fmtMs(detail?.avg_ping_24h)}</div>
-        <div class="sub">Son ölçüm: {monitor.last_check_at && kind === 'up' ? fmtMs(monitor.last_ping_ms) : '—'}</div>
+        <div class="sub">
+          {t('monitors.detail.lastMeasure', { v: monitor.last_check_at && kind === 'up' ? fmtMs(monitor.last_ping_ms) : '—' })}
+        </div>
       </div>
     {/if}
     {#if showCert}
       <div class="card stat">
-        <div class="label"><Icon name="lock" size={13} /> SSL sertifikası</div>
+        <div class="label"><Icon name="lock" size={13} /> {t('monitors.detail.sslCert')}</div>
         {#if cert}
-          <div class="value {cert.cls}">{cert.days < 0 ? 'Süresi doldu' : `${cert.days} gün kaldı`}</div>
-          <div class="sub">{fmtDay(monitor.cert_expires_at)} bitiyor{monitor.cert_issuer ? ` · ${monitor.cert_issuer}` : ''}</div>
+          <div class="value {cert.cls}">{cert.days < 0 ? t('monitors.detail.expired') : t('monitors.detail.daysLeft', { count: cert.days })}</div>
+          <div class="sub">
+            {t('monitors.detail.expiresOn', { date: fmtDay(monitor.cert_expires_at) })}{monitor.cert_issuer ? ` · ${monitor.cert_issuer}` : ''}
+          </div>
         {:else}
           <div class="value muted">—</div>
-          <div class="sub">Henüz bilgi yok</div>
+          <div class="sub">{t('monitors.detail.noInfo')}</div>
         {/if}
       </div>
     {/if}
@@ -362,7 +369,7 @@
     {#each RANGES as r (r.key)}
       {@const v = detail?.uptime[r.key] ?? null}
       <div>
-        <div class="label">Son {r.label}</div>
+        <div class="label">{t('monitors.detail.lastRange', { range: t(r.label) })}</div>
         <div class="big {v === null ? 'muted' : v >= 99.9 ? 'c-up' : v >= 99 ? 'c-pending' : 'c-down'}">{fmtPct(v)}</div>
       </div>
     {/each}
@@ -370,28 +377,30 @@
 
   {#if monitor.type === 'push' && pushUrl}
     <div class="card block">
-      <h2 class="card-title">Push adresi<span class="dot">.</span></h2>
+      <h2 class="card-title">{t('monitors.detail.pushTitle')}<span class="dot">.</span></h2>
       <p class="text-2 small intro">
-        Zamanlanmış işiniz (cron, yedekleme betiği vb.) her çalıştığında bu adrese istek göndermeli.
-        {fmtInterval(monitor.interval)} içinde istek gelmezse monitör <b>çalışmıyor</b> sayılır.
+        {#each tParts('monitors.detail.pushIntro', { interval: fmtInterval(monitor.interval) }) as p, i (i)}{#if p.slot === 'down'}<b
+              >{t('monitors.detail.pushDown')}</b
+            >{:else}{p.text}{/if}{/each}
       </p>
       <div class="copybox">
         <code>{pushUrl}</code>
         <CopyButton text={pushUrl} />
       </div>
-      <div class="label mt">Örnek (işiniz başarıyla bittiğinde)</div>
+      <div class="label mt">{t('monitors.detail.pushExample')}</div>
       <div class="copybox">
         <code>{curlUp}</code>
         <CopyButton text={curlUp} />
       </div>
-      <div class="label mt">Hata bildirmek için</div>
+      <div class="label mt">{t('monitors.detail.pushFail')}</div>
       <div class="copybox">
         <code>{curlDown}</code>
         <CopyButton text={curlDown} />
       </div>
       <p class="help mt">
-        İsteğe bağlı parametreler: <code>status=up|down</code>, <code>msg=</code> (mesaj), <code>ping=</code> (ms cinsinden süre).
-        GET veya POST kullanılabilir.
+        {#each tParts('monitors.detail.pushParams') as p, i (i)}{#if p.slot === 'status'}<code>status=up|down</code>{:else if p.slot === 'msg'}<code
+              >msg=</code
+            >{:else if p.slot === 'ping'}<code>ping=</code>{:else}{p.text}{/if}{/each}
       </p>
     </div>
   {/if}
@@ -399,24 +408,24 @@
   {#if locations && locations.locations.length > 0}
     <div class="card block">
       <div class="loc-head">
-        <h2 class="card-title">Konumlar<span class="dot">.</span></h2>
+        <h2 class="card-title">{t('monitors.detail.locations')}<span class="dot">.</span></h2>
         <span class="muted small">
           {locations.down_when === 'all'
-            ? 'Tüm konumlar çalışmıyorsa kesinti'
+            ? t('monitors.detail.downAll')
             : locations.down_when === 'majority'
-              ? 'Konumların çoğunluğu çalışmıyorsa kesinti'
-              : 'Herhangi bir konum çalışmıyorsa kesinti'}
+              ? t('monitors.detail.downMajority')
+              : t('monitors.detail.downAny')}
         </span>
       </div>
       <ul class="locs">
         {#each locations.locations as l (l.probe_id)}
           {@const st = LOC_STATE[l.status] ?? LOC_STATE.unknown}
-          <li class="loc {st.c}" title={l.message || st.l}>
+          <li class="loc {st.c}" title={l.message || t(st.l)}>
             <span class="ldot" aria-hidden="true"></span>
             <span class="lt">
               <span class="ln">{l.name}</span>
               <span class="ls">
-                {[st.l, l.status === 'up' && l.ping_ms >= 0 ? fmtMs(l.ping_ms) : '', l.last_check_at ? fmtRelative(l.last_check_at, now) : '']
+                {[t(st.l), l.status === 'up' && l.ping_ms >= 0 ? fmtMs(l.ping_ms) : '', l.last_check_at ? fmtRelative(l.last_check_at, now) : '']
                   .filter(Boolean)
                   .join(' · ')}
               </span>
@@ -430,11 +439,11 @@
 
   <div class="card block">
     <div class="chart-head">
-      <h2 class="card-title">Yanıt süresi<span class="dot">.</span></h2>
+      <h2 class="card-title">{t('monitors.detail.responseTime')}<span class="dot">.</span></h2>
       <div class="tabs" role="tablist">
         {#each RANGES as r (r.key)}
           <button role="tab" aria-selected={range === r.key} class:active={range === r.key} onclick={() => (range = r.key)}>
-            {r.label}
+            {t(r.label)}
           </button>
         {/each}
       </div>
@@ -450,7 +459,7 @@
 
   {#if monitor.type === 'group' && children.length}
     <div class="card block">
-      <h2 class="card-title">Alt monitörler<span class="dot">.</span></h2>
+      <h2 class="card-title">{t('monitors.detail.children')}<span class="dot">.</span></h2>
       <ul class="kids">
         {#each children as c (c.id)}
           <li>
@@ -458,34 +467,36 @@
               <StatusIcon kind={monitorKind(c.m)} size={22} />
               <span class="kid">
                 <a href="#/monitors/{c.id}">{c.m.name}</a>
-                <span class="muted small kid-t">{c.m.target}</span>
+                <span class="muted small kid-t">{c.m.type === 'group' ? groupTarget(c.m.config, c.m.target) : c.m.target}</span>
               </span>
             {:else}
-              <span class="muted small">#{c.id} (silinmiş)</span>
+              <span class="muted small">{t('monitors.detail.childDeleted', { id: c.id })}</span>
             {/if}
           </li>
         {/each}
       </ul>
-      <p class="help kids-help">Durdurulmuş ve bakımdaki alt monitörler hesaba katılmaz.</p>
+      <p class="help kids-help">{t('monitors.childrenHelp')}</p>
     </div>
   {/if}
 
   <div class="card block">
-    <h2 class="card-title">Olaylar<span class="dot">.</span></h2>
+    <h2 class="card-title">{t('nav.incidents')}<span class="dot">.</span></h2>
     {#if detail?.open_incident_since}
       <div class="alert error ongoing">
-        {fmtDuration(now - detail.open_incident_since)} süredir devam eden bir kesinti var ({fmtDate(detail.open_incident_since)} başladı).
+        {t('monitors.detail.ongoing', { d: fmtDuration(now - detail.open_incident_since), date: fmtDate(detail.open_incident_since) })}
         {#if detail.open_incident_id}
-          <a class="inc-link" href="#/incidents/{detail.open_incident_id}">Olay ayrıntıları <Icon name="chevron-right" size={14} /></a>
+          <a class="inc-link" href="#/incidents/{detail.open_incident_id}"
+            >{t('monitors.detail.incidentDetails')} <Icon name="chevron-right" size={14} /></a
+          >
         {/if}
       </div>
     {/if}
-    <IncidentTable {incidents} {now} emptyText="Bu monitörde henüz olay kaydı yok. Harika!" />
+    <IncidentTable {incidents} {now} emptyText={t('monitors.detail.noIncidents')} />
   </div>
 
   <div class="card block badges">
     <button type="button" class="bb-toggle" aria-expanded={badgesOpen} onclick={() => (badgesOpen = !badgesOpen)}>
-      <span class="bb-t"><Icon name="award" size={17} /> Rozetler</span>
+      <span class="bb-t"><Icon name="award" size={17} /> {t('monitors.detail.badges')}</span>
       <span class="chev" class:open={badgesOpen}><Icon name="chevron-down" /></span>
     </button>
     {#if badgesOpen}

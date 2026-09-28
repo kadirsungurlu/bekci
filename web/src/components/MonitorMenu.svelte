@@ -12,6 +12,7 @@
   import type { MonitorView } from '../lib/api';
   import { monitorKind } from '../lib/format';
   import { lockScroll } from '../lib/ui.svelte';
+  import { t } from '../lib/i18n';
   import Icon, { type IconName } from './Icon.svelte';
   import StatusIcon from './StatusIcon.svelte';
 
@@ -42,17 +43,22 @@
 
   const items = $derived.by((): Item[] => {
     const list: Item[] = [];
-    if (selectable) list.push({ key: 'select', label: 'Seç', icon: 'check-square' });
+    if (selectable) list.push({ key: 'select', label: t('monitors.menu.select'), icon: 'check-square' });
     list.push(
-      { key: 'edit', label: 'Düzenle', icon: 'edit', href: `#/monitors/${m.id}/edit`, sep: selectable },
-      { key: 'notify', label: 'Bildirimler…', icon: 'bell' },
-      { key: 'maint', label: 'Bakıma al…', icon: 'wrench' },
-      { key: 'tags', label: 'Etiketler…', icon: 'tag' },
-      { key: 'page', label: 'Durum sayfasına ekle…', icon: 'layout' },
-      { key: 'clone', label: 'Kopyala', icon: 'copy' },
-      { key: 'pause', label: m.active ? 'Durdur' : 'Başlat', icon: m.active ? 'pause' : 'play', sep: true },
-      { key: 'reset', label: 'İstatistikleri sıfırla', icon: 'rotate-ccw' },
-      { key: 'delete', label: 'Sil', icon: 'trash', danger: true, sep: true },
+      { key: 'edit', label: t('common.edit'), icon: 'edit', href: `#/monitors/${m.id}/edit`, sep: selectable },
+      { key: 'notify', label: t('monitors.menu.notify'), icon: 'bell' },
+      { key: 'maint', label: t('monitors.menu.maint'), icon: 'wrench' },
+      { key: 'tags', label: t('monitors.menu.tags'), icon: 'tag' },
+      { key: 'page', label: t('monitors.menu.page'), icon: 'layout' },
+      { key: 'clone', label: t('monitors.menu.clone'), icon: 'copy' },
+      {
+        key: 'pause',
+        label: m.active ? t('monitors.pause') : t('monitors.resume'),
+        icon: m.active ? 'pause' : 'play',
+        sep: true,
+      },
+      { key: 'reset', label: t('monitors.menu.reset'), icon: 'rotate-ccw' },
+      { key: 'delete', label: t('common.delete'), icon: 'trash', danger: true, sep: true },
     );
     return list;
   });
@@ -149,7 +155,7 @@
   style={sheet ? '' : style}
   role="menu"
   tabindex="-1"
-  aria-label="{m.name} için işlemler"
+  aria-label={t('monitors.row.actionsFor', { name: m.name })}
   onkeydown={onKey}
   onclick={(e) => e.stopPropagation()}
 >

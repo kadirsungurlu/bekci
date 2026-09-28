@@ -15,6 +15,8 @@
   import BulkEditModal from '../components/BulkEditModal.svelte';
   import StatusIcon from '../components/StatusIcon.svelte';
   import Icon from '../components/Icon.svelte';
+  import { i18n, t, tParts } from '../lib/i18n';
+  import { tick } from 'svelte';
 
   type Filter = 'all' | 'down' | 'up' | 'maint' | 'paused';
   type Sort = 'status' | 'name' | 'uptime';
@@ -49,15 +51,15 @@
   const tagOptions = $derived.by(() => {
     const seen = new Map<number, { id: number; name: string; count: number }>();
     for (const m of live.monitors)
-      for (const t of m.tags ?? []) {
-        const e = seen.get(t.id);
+      for (const tg of m.tags ?? []) {
+        const e = seen.get(tg.id);
         if (e) e.count++;
-        else seen.set(t.id, { id: t.id, name: t.name, count: 1 });
+        else seen.set(tg.id, { id: tg.id, name: tg.name, count: 1 });
       }
     return [...seen.values()].sort((a, b) => collator.compare(a.name, b.name));
   });
   // Seçili etiket artık hiçbir monitörde yoksa filtre kendiliğinden kalkar.
-  const activeTag = $derived(tagOptions.some((t) => String(t.id) === tagFilter) ? tagFilter : '');
+  const activeTag = $derived(tagOptions.some((tg) => String(tg.id) === tagFilter) ? tagFilter : '');
   let filter = $state<Filter>(load('uptime.filter', ['all', 'down', 'up', 'maint', 'paused'] as const, 'all'));
   let sort = $state<Sort>(load('uptime.sort', ['status', 'name', 'uptime'] as const, 'status'));
 
@@ -93,9 +95,9 @@
       if (filter === 'up' && k !== 'up') return false;
       if (filter === 'maint' && k !== 'maintenance') return false;
       if (filter === 'paused' && k !== 'paused') return false;
-      if (q && !lower(m.name).includes(q) && !lower(m.target).includes(q) && !(m.tags ?? []).some((t) => lower(`${t.name} ${t.value}`).includes(q)))
+      if (q && !lower(m.name).includes(q) && !lower(m.target).includes(q) && !(m.tags ?? []).some((tg) => lower(`${tg.name} ${tg.value}`).includes(q)))
         return false;
-      if (activeTag && !(m.tags ?? []).some((t) => String(t.id) === activeTag)) return false;
+      if (activeTag && !(m.tags ?? []).some((tg) => String(tg.id) === activeTag)) return false;
       return true;
     });
     list = list.slice();
@@ -115,13 +117,45 @@
   // Telefonda özet kartları yerine tek satır durum çipleri (aynı zamanda filtre).
   const chips = $derived(
     [
-      { v: 'all' as Filter, l: 'Tümü', n: counts.total, c: '' },
-      { v: 'down' as Filter, l: 'Çalışmıyor', n: counts.down, c: 'down' },
-      { v: 'up' as Filter, l: 'Çalışıyor', n: counts.up, c: 'up' },
-      { v: 'maint' as Filter, l: 'Bakımda', n: counts.maint, c: 'maint' },
-      { v: 'paused' as Filter, l: 'Durduruldu', n: counts.paused, c: 'paused' },
+      { v: 'all' as Filter, l: t('common.all'), n: counts.total, c: '' },
+      { v: 'down' as Filter, l: t('status.down'), n: counts.down, c: 'down' },
+      { v: 'up' as Filter, l: t('status.up'), n: counts.up, c: 'up' },
+      { v: 'maint' as Filter, l: t('status.maintenance'), n: counts.maint, c: 'maint' },
+      { v: 'paused' as Filter, l: t('status.paused'), n: counts.paused, c: 'paused' },
     ].filter((c) => c.v === 'all' || c.v === 'down' || c.v === 'up' || c.n > 0 || filter === c.v),
   );
+
+  // Çip satırı telefonda yatay kayar: kenarlarda kalan içerik solan kenarla belli edilir.
+  let chipsEl = $state<HTMLElement>();
+  let chipFade = $state({ l: false, r: false });
+  function updateChipFade() {
+    const el = chipsEl;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const l = el.scrollLeft > 2;
+    const r = el.scrollLeft < max - 2;
+    if (l !== chipFade.l || r !== chipFade.r) chipFade = { l, r };
+  }
+  $effect(() => {
+    if (!chipsEl) return;
+    const ro = new ResizeObserver(updateChipFade);
+    ro.observe(chipsEl);
+    return () => ro.disconnect();
+  });
+  $effect(() => {
+    // Çip metinleri (sayılar, dil) değişince taşma yeniden ölçülür.
+    void [chips, live.summary?.uptime_24h, live.summary?.incidents_24h, counts.pending, i18n.locale];
+    tick().then(updateChipFade);
+  });
+
+  // Dar ekranda arama kutusu kısa yer tutucu gösterir (sıralama seçicisiyle aynı satırda).
+  const narrowMq = window.matchMedia('(max-width: 640px)');
+  let isNarrow = $state(narrowMq.matches);
+  $effect(() => {
+    const f = () => (isNarrow = narrowMq.matches);
+    narrowMq.addEventListener('change', f);
+    return () => narrowMq.removeEventListener('change', f);
+  });
 
   // Satır menüsü ---------------------------------------------------------------------
   // Tek menü, listenin dışında çizilir (yüzlerce satırda her satıra menü düşmesin).
@@ -247,9 +281,9 @@
     try {
       const res = await api.bulkMonitors(ids, { action });
       live.upsertMany(res.monitors);
-      const verb = action === 'pause' ? 'durduruldu' : 'başlatıldı';
-      if (res.changed) toast.success(`${res.changed} monitör ${verb}`);
-      else toast.info(`Seçili monitörler zaten ${action === 'pause' ? 'durdurulmuş' : 'çalışıyor'}`);
+      if (res.changed)
+        toast.success(t(action === 'pause' ? 'monitors.list.bulkPaused' : 'monitors.list.bulkResumed', { count: res.changed }));
+      else toast.info(t(action === 'pause' ? 'monitors.list.alreadyPaused' : 'monitors.list.alreadyRunning'));
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -262,11 +296,11 @@
     if (!ids.length) return;
     const one = ids.length === 1 ? live.byId(ids[0]) : undefined;
     const ok = await confirmDialog({
-      title: ids.length === 1 ? 'Monitörü sil' : `${ids.length} monitörü sil`,
+      title: ids.length === 1 ? t('monitors.actions.deleteTitle') : t('monitors.list.bulkDeleteTitle', { count: ids.length }),
       message: one
-        ? `“${one.name}” ve tüm geçmiş kayıtları (kontroller, olaylar) kalıcı olarak silinecek. Bu işlem geri alınamaz.`
-        : `Seçili ${ids.length} monitör ve tüm geçmiş kayıtları (kontroller, olaylar) kalıcı olarak silinecek. Bu işlem geri alınamaz.`,
-      confirmText: ids.length === 1 ? 'Sil' : `${ids.length} monitörü sil`,
+        ? t('monitors.actions.deleteMessage', { name: one.name })
+        : t('monitors.list.bulkDeleteMessage', { count: ids.length }),
+      confirmText: ids.length === 1 ? t('common.delete') : t('monitors.list.bulkDeleteTitle', { count: ids.length }),
       danger: true,
     });
     if (!ok) return;
@@ -275,7 +309,9 @@
       const res = await api.bulkMonitors(ids, { action: 'delete' });
       live.removeMany(res.deleted);
       clearSelection();
-      toast.success(res.deleted.length === 1 ? 'Monitör silindi' : `${res.deleted.length} monitör silindi`);
+      toast.success(
+        res.deleted.length === 1 ? t('monitors.list.deletedOne') : t('monitors.list.deletedMany', { count: res.deleted.length }),
+      );
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -319,18 +355,18 @@
 <svelte:document onclick={() => menu && closeMenu()} onkeydown={onKeydown} />
 
 <div class="page-head">
-  <h1>Monitörler<span class="dot">.</span></h1>
+  <h1>{t('nav.monitors')}<span class="dot">.</span></h1>
   {#if session.canEdit}
-    <a class="btn primary" href="#/monitors/new"><Icon name="plus" size={16} /> Yeni</a>
+    <a class="btn primary" href="#/monitors/new"><Icon name="plus" size={16} /> {t('monitors.list.new')}</a>
   {/if}
 </div>
 
 {#if !live.loaded}
   {#if live.loadError}
     <div class="card empty">
-      <h3>Monitörler yüklenemedi</h3>
+      <h3>{t('monitors.list.loadFailed')}</h3>
       <p>{live.loadError}</p>
-      <button class="btn primary" onclick={() => live.refresh()}>Tekrar dene</button>
+      <button class="btn primary" onclick={() => live.refresh()}>{t('common.retry')}</button>
     </div>
   {:else}
     <div class="layout">
@@ -346,28 +382,36 @@
   <div class="card empty first">
     <div class="pulse-wrap"><StatusIcon kind="up" size={56} pulse /></div>
     {#if session.canEdit}
-      <h3>İlk monitörünüzü ekleyin</h3>
-      <p>Web sitelerinizi, sunucularınızı ve zamanlanmış işlerinizi izlemeye başlayın. Bir sorun olduğunda size hemen haber verelim.</p>
-      <a class="btn primary" href="#/monitors/new"><Icon name="plus" size={16} /> Monitör ekle</a>
+      <h3>{t('monitors.list.firstTitle')}</h3>
+      <p>{t('monitors.list.firstText')}</p>
+      <a class="btn primary" href="#/monitors/new"><Icon name="plus" size={16} /> {t('monitors.list.addMonitor')}</a>
       {#if session.isAdmin}
         <a class="migrate" href="#/settings/backup?tasi=1">
           <span class="mig-ic"><Icon name="log-in" size={18} /></span>
           <span class="mig-t">
-            <b>UptimeRobot veya Uptime Kuma’dan taşıyın</b>
-            <span>Monitörlerinizi, bildirim kanallarınızı ve etiketlerinizi birkaç tıkla aktarın.</span>
+            <b>{t('monitors.list.migrateTitle')}</b>
+            <span>{t('monitors.list.migrateText')}</span>
           </span>
           <Icon name="chevron-right" size={16} />
         </a>
       {/if}
     {:else}
-      <h3>Görüntülenecek monitör yok</h3>
-      <p>Hesabınıza henüz monitör atanmamış. Yöneticiniz monitör eklediğinde veya erişim verdiğinde burada görünecek.</p>
+      <h3>{t('monitors.list.noneTitle')}</h3>
+      <p>{t('monitors.list.noneText')}</p>
     {/if}
   </div>
 {:else}
   <div class="layout">
     <section class="main-col">
-      <div class="chips" role="radiogroup" aria-label="Duruma göre filtrele">
+      <div
+        class="chips"
+        class:fade-l={chipFade.l}
+        class:fade-r={chipFade.r}
+        role="radiogroup"
+        aria-label={t('monitors.list.filterByStatus')}
+        bind:this={chipsEl}
+        onscroll={updateChipFade}
+      >
         {#each chips as c (c.v)}
           <button
             type="button"
@@ -381,49 +425,59 @@
             {c.l}
           </button>
         {/each}
-        <a class="chip info" href="#/incidents" aria-label="Son 24 saat: uptime {fmtPct(summary?.uptime_24h)}, {summary?.incidents_24h ?? 0} olay. Olaylara git">
-          24 sa <b class={summary?.uptime_24h != null && summary.uptime_24h < 99 ? 'c-down' : 'c-up'}>{fmtPct(summary?.uptime_24h)}</b>
-          {#if summary?.incidents_24h}· {summary.incidents_24h} olay{/if}
+        <a
+          class="chip info"
+          href="#/incidents"
+          aria-label={t('monitors.list.chip24Aria', { pct: fmtPct(summary?.uptime_24h), count: summary?.incidents_24h ?? 0 })}
+        >
+          {t('monitors.list.chip24')} <b class={summary?.uptime_24h != null && summary.uptime_24h < 99 ? 'c-down' : 'c-up'}>{fmtPct(summary?.uptime_24h)}</b>
+          {#if summary?.incidents_24h}· {t('monitors.list.incidentCount', { count: summary.incidents_24h })}{/if}
         </a>
-        {#if counts.pending > 0}<span class="chip info c-pending">{counts.pending} kontrol ediliyor</span>{/if}
+        {#if counts.pending > 0}<span class="chip info c-pending">{t('monitors.list.pendingCount', { count: counts.pending })}</span>{/if}
       </div>
       <div class="toolbar" bind:this={toolbarEl}>
         {#if session.canEdit}
-          <label class="selbox check" class:on={selIds.length > 0} title="Görünen monitörlerin tümünü seç">
+          <label class="selbox check" class:on={selIds.length > 0} title={t('monitors.list.selectAllTitle')}>
             <input
               type="checkbox"
               checked={allSelected}
               indeterminate={selIds.length > 0 && !allSelected}
               disabled={visible.length === 0}
               onchange={toggleAll}
-              aria-label="Görünen tüm monitörleri seç"
+              aria-label={t('monitors.list.selectAllAria')}
             />
             <span class="cnt" style="--d:{String(visible.length).length}"><b>{selIds.length}</b> / {visible.length}</span>
           </label>
         {/if}
         <div class="search">
           <span class="s-ic"><Icon name="search" size={16} /></span>
-          <input class="input" type="search" placeholder="Ad veya adrese göre ara" bind:value={search} aria-label="Ara" />
+          <input
+            class="input"
+            type="search"
+            placeholder={isNarrow ? t('monitors.list.searchPhShort') : t('monitors.list.searchPh')}
+            bind:value={search}
+            aria-label={t('monitors.list.searchPh')}
+          />
           {#if search}
-            <button type="button" class="clear" aria-label="Aramayı temizle" onclick={() => (search = '')}><Icon name="x" size={14} /></button>
+            <button type="button" class="clear" aria-label={t('monitors.list.clearSearch')} onclick={() => (search = '')}><Icon name="x" size={14} /></button>
           {/if}
         </div>
-        <select class="input sel fsel" bind:value={filter} aria-label="Filtre">
-          <option value="all">Tümü ({counts.total})</option>
-          <option value="down">Çalışmayanlar ({counts.down})</option>
-          <option value="up">Çalışanlar ({counts.up})</option>
-          {#if counts.maint > 0 || filter === 'maint'}<option value="maint">Bakımda ({counts.maint})</option>{/if}
-          <option value="paused">Durdurulanlar ({counts.paused})</option>
+        <select class="input sel fsel" bind:value={filter} aria-label={t('monitors.list.filter')}>
+          <option value="all">{t('monitors.list.fAll', { n: counts.total })}</option>
+          <option value="down">{t('monitors.list.fDown', { n: counts.down })}</option>
+          <option value="up">{t('monitors.list.fUp', { n: counts.up })}</option>
+          {#if counts.maint > 0 || filter === 'maint'}<option value="maint">{t('monitors.list.fMaint', { n: counts.maint })}</option>{/if}
+          <option value="paused">{t('monitors.list.fPaused', { n: counts.paused })}</option>
         </select>
-        <select class="input sel ssel" bind:value={sort} aria-label="Sıralama">
-          <option value="status">Duruma göre</option>
-          <option value="name">Ada göre</option>
-          <option value="uptime">Uptime'a göre</option>
+        <select class="input sel ssel" bind:value={sort} aria-label={t('monitors.list.sort')}>
+          <option value="status">{t('monitors.list.sStatus')}</option>
+          <option value="name">{t('monitors.list.sName')}</option>
+          <option value="uptime">{t('monitors.list.sUptime')}</option>
         </select>
         {#if tagOptions.length}
-          <select class="input sel tsel" bind:value={tagFilter} aria-label="Etikete göre filtrele" class:on={!!activeTag}>
-            <option value="">Tüm etiketler</option>
-            {#each tagOptions as t (t.id)}<option value={String(t.id)}>{t.name} ({t.count})</option>{/each}
+          <select class="input sel tsel" bind:value={tagFilter} aria-label={t('monitors.list.tagFilter')} class:on={!!activeTag}>
+            <option value="">{t('monitors.list.allTags')}</option>
+            {#each tagOptions as tg (tg.id)}<option value={String(tg.id)}>{tg.name} ({tg.count})</option>{/each}
           </select>
         {/if}
       </div>
@@ -447,7 +501,7 @@
           />
         {:else}
           <div class="noresult">
-            Eşleşen monitör yok.
+            {t('monitors.noMatch')}
             {#if search || filter !== 'all' || activeTag}
               <button
                 class="linkbtn"
@@ -455,33 +509,71 @@
                   search = '';
                   filter = 'all';
                   tagFilter = '';
-                }}>Filtreyi temizle</button
+                }}>{t('monitors.list.clearFilter')}</button
               >
             {/if}
           </div>
         {/each}
         {#if session.canEdit && selecting}
-          <div class="bulkbar" role="toolbar" aria-label="Seçili monitörler için toplu işlemler">
-            <button type="button" class="btn ghost icon sm" aria-label="Seçimi kaldır" title="Seçimi kaldır (Esc)" onclick={clearSelection}>
+          <div class="bulkbar" role="toolbar" aria-label={t('monitors.list.bulkAria')}>
+            <button
+              type="button"
+              class="btn ghost icon sm"
+              aria-label={t('monitors.list.clearSelection')}
+              title={t('monitors.list.clearSelectionTitle')}
+              onclick={clearSelection}
+            >
               <Icon name="x" size={16} />
             </button>
-            <span class="bcount"><b>{selIds.length}</b> seçili</span>
+            <span class="bcount"
+              >{#each tParts('monitors.list.selected') as p, i (i)}{#if p.slot === 'n'}<b>{selIds.length}</b>{:else}{p.text}{/if}{/each}</span
+            >
             <div class="bactions">
-              <button type="button" class="btn sm" disabled={!selIds.length || bulkBusy} onclick={() => bulkToggle('pause')} title="Durdur">
-                <Icon name="pause" size={14} /><span class="bl">Durdur</span>
+              <button
+                type="button"
+                class="btn sm"
+                disabled={!selIds.length || bulkBusy}
+                onclick={() => bulkToggle('pause')}
+                title={t('monitors.pause')}
+              >
+                <Icon name="pause" size={14} /><span class="bl">{t('monitors.pause')}</span>
               </button>
-              <button type="button" class="btn sm" disabled={!selIds.length || bulkBusy} onclick={() => bulkToggle('resume')} title="Başlat">
-                <Icon name="play" size={14} /><span class="bl">Başlat</span>
+              <button
+                type="button"
+                class="btn sm"
+                disabled={!selIds.length || bulkBusy}
+                onclick={() => bulkToggle('resume')}
+                title={t('monitors.resume')}
+              >
+                <Icon name="play" size={14} /><span class="bl">{t('monitors.resume')}</span>
               </button>
-              <button type="button" class="btn sm" disabled={!selIds.length || bulkBusy} onclick={() => openBulk('tag')} title="Etiket ekle / kaldır">
-                <Icon name="tag" size={14} /><span class="bl">Etiket</span>
+              <button
+                type="button"
+                class="btn sm"
+                disabled={!selIds.length || bulkBusy}
+                onclick={() => openBulk('tag')}
+                title={t('monitors.list.bulkTagTitle')}
+              >
+                <Icon name="tag" size={14} /><span class="bl">{t('monitors.list.bulkTag')}</span>
               </button>
-              <button type="button" class="btn sm" disabled={!selIds.length || bulkBusy} onclick={() => openBulk('notify')} title="Bildirim kanalı ekle / çıkar">
-                <Icon name="bell" size={14} /><span class="bl">Bildirim</span>
+              <button
+                type="button"
+                class="btn sm"
+                disabled={!selIds.length || bulkBusy}
+                onclick={() => openBulk('notify')}
+                title={t('monitors.list.bulkNotifyTitle')}
+              >
+                <Icon name="bell" size={14} /><span class="bl">{t('monitors.list.bulkNotify')}</span>
               </button>
               <span class="bsep" aria-hidden="true"></span>
-              <button type="button" class="btn sm danger" disabled={!selIds.length || bulkBusy} onclick={bulkDelete} title="Sil">
-                {#if bulkBusy}<span class="spinner"></span>{:else}<Icon name="trash" size={14} />{/if}<span class="bl">Sil</span>
+              <button
+                type="button"
+                class="btn sm danger"
+                disabled={!selIds.length || bulkBusy}
+                onclick={bulkDelete}
+                title={t('common.delete')}
+              >
+                {#if bulkBusy}<span class="spinner"></span>{:else}<Icon name="trash" size={14} />{/if}<span class="bl">{t('common.delete')}</span>
               </button>
             </div>
           </div>
@@ -491,7 +583,7 @@
 
     <aside class="side">
       <div class="card status-card">
-        <h2 class="card-title">Mevcut durum<span class="dot">.</span></h2>
+        <h2 class="card-title">{t('monitors.list.currentStatus')}<span class="dot">.</span></h2>
         <div class="big">
           <StatusIcon
             kind={counts.down > 0 ? 'down' : counts.up + counts.pending > 0 ? 'up' : counts.maint > 0 ? 'maintenance' : 'paused'}
@@ -501,40 +593,40 @@
           <div>
             <div class="big-label {counts.down > 0 ? 'c-down' : counts.up + counts.pending === 0 && counts.maint > 0 ? 'c-maint' : 'c-up'}">
               {counts.down > 0
-                ? `${counts.down} monitör çalışmıyor`
+                ? t('monitors.list.downCount', { count: counts.down })
                 : counts.up + counts.pending === 0 && counts.maint > 0
-                  ? 'Bakım sürüyor'
-                  : 'Her şey yolunda'}
+                  ? t('monitors.list.maintOngoing')
+                  : t('monitors.list.allGood')}
             </div>
-            <div class="muted small">{counts.total} monitör izleniyor</div>
+            <div class="muted small">{t('monitors.list.monitoring', { count: counts.total })}</div>
           </div>
         </div>
         <div class="counts" class:four={counts.maint > 0}>
-          <div><b class="c-down">{counts.down}</b><span>Çalışmayan</span></div>
-          <div><b class="c-up">{counts.up}</b><span>Çalışan</span></div>
+          <div><b class="c-down">{counts.down}</b><span>{t('monitors.list.cDown')}</span></div>
+          <div><b class="c-up">{counts.up}</b><span>{t('monitors.list.cUp')}</span></div>
           {#if counts.maint > 0}
-            <button type="button" class="cnt-btn" onclick={() => (filter = 'maint')} title="Bakımdakileri göster">
-              <b class="c-maint">{counts.maint}</b><span>Bakımda</span>
+            <button type="button" class="cnt-btn" onclick={() => (filter = 'maint')} title={t('monitors.list.showMaint')}>
+              <b class="c-maint">{counts.maint}</b><span>{t('monitors.list.cMaint')}</span>
             </button>
           {/if}
-          <div><b class="c-paused">{counts.paused}</b><span>Durdurulan</span></div>
+          <div><b class="c-paused">{counts.paused}</b><span>{t('monitors.list.cPaused')}</span></div>
         </div>
         {#if counts.pending > 0}
-          <div class="pending-note c-pending small">{counts.pending} monitör kontrol bekliyor</div>
+          <div class="pending-note c-pending small">{t('monitors.list.pendingNote', { count: counts.pending })}</div>
         {/if}
       </div>
 
       <div class="card">
-        <h2 class="card-title">Son 24 saat<span class="dot">.</span></h2>
+        <h2 class="card-title">{t('monitors.list.last24')}<span class="dot">.</span></h2>
         <div class="counts three">
           <div>
             <b class={summary?.uptime_24h != null && summary.uptime_24h < 99 ? 'c-down' : 'c-up'}>{fmtPct(summary?.uptime_24h)}</b>
-            <span>Genel uptime</span>
+            <span>{t('monitors.list.overallUptime')}</span>
           </div>
-          <div><b>{summary?.incidents_24h ?? '—'}</b><span>Olay</span></div>
-          <div><b class={counts.down > 0 ? 'c-down' : ''}>{counts.down}</b><span>Süren sorun</span></div>
+          <div><b>{summary?.incidents_24h ?? '—'}</b><span>{t('monitors.list.incidents')}</span></div>
+          <div><b class={counts.down > 0 ? 'c-down' : ''}>{counts.down}</b><span>{t('monitors.list.ongoing')}</span></div>
         </div>
-        <a class="more" href="#/incidents">Tüm olaylar <Icon name="chevron-right" size={14} /></a>
+        <a class="more" href="#/incidents">{t('monitors.list.allIncidents')} <Icon name="chevron-right" size={14} /></a>
       </div>
     </aside>
   </div>
@@ -752,6 +844,11 @@
     padding-left: 36px;
     padding-right: 36px;
   }
+  /* Temizle düğmesi yalnızca yazı varken: boşken yer tutucuya yer kalsın. */
+  .search .input:placeholder-shown {
+    padding-right: 10px;
+    text-overflow: ellipsis;
+  }
   .clear {
     position: absolute;
     right: 6px;
@@ -778,8 +875,10 @@
     width: auto;
     flex: 0 1 auto;
   }
+  /* Satır düzeni liste genişliğine göre sıkışır (MonitorRow'daki @container mlist). */
   .list {
     padding: 0;
+    container: mlist / inline-size;
   }
   .list.scroll {
     overflow-y: auto;
@@ -1057,6 +1156,19 @@
     }
     .chips::-webkit-scrollbar {
       display: none;
+    }
+    /* Kaydırılabilir içerik kenarda solarak belli olur (kesik çip yerine). */
+    .chips.fade-r {
+      -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+      mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+    }
+    .chips.fade-l {
+      -webkit-mask-image: linear-gradient(to right, transparent, #000 44px);
+      mask-image: linear-gradient(to right, transparent, #000 44px);
+    }
+    .chips.fade-l.fade-r {
+      -webkit-mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent);
+      mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent);
     }
     .toolbar {
       gap: 8px;
