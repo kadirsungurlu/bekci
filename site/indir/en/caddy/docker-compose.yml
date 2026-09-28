@@ -1,0 +1,70 @@
+# Bekci + Caddy: install with automatic HTTPS (Let's Encrypt).
+# Step-by-step guide: https://bekci.app/en/docs/install/caddy/
+#
+# You don't need to change this file: the domain, email and version are read
+# from the .env file. All three files live in the same folder (e.g. /opt/bekci):
+#   docker-compose.yml   this file
+#   Caddyfile            Caddy configuration
+#   .env                 your domain and email
+#
+# Start:     docker compose up -d
+# Logs:      docker compose logs -f bekci      (for Caddy: caddy)
+# Update:    docker compose pull && docker compose up -d
+# Backups, version pinning, rollback: https://bekci.app/en/docs/updates-backups/
+
+name: bekci
+
+services:
+  bekci:
+    # UPTIME_TAG: latest (SQLite, recommended) | postgres (embedded PostgreSQL)
+    # or a fixed version: 1.0.0 / 1.0.0-postgres. Data can't be moved between
+    # the two kinds: pick one from the start.
+    image: kadirsungurlu/bekci:${UPTIME_TAG:-latest}
+    restart: unless-stopped
+    # Give the app (and embedded PostgreSQL) time to shut down cleanly.
+    stop_grace_period: 30s
+    environment:
+      BASE_URL: https://${UPTIME_DOMAIN:?UPTIME_DOMAIN must be set in the .env file}
+      TZ: ${TZ:-Europe/Istanbul}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      MAX_CONCURRENT_CHECKS: ${MAX_CONCURRENT_CHECKS:-50}
+    volumes:
+      - bekci-data:/data
+    # Not published directly; only reachable through Caddy.
+    expose:
+      - "8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  caddy:
+    # caddy:2-alpine (pinned by digest)
+    image: caddy:2-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
+    restart: unless-stopped
+    depends_on:
+      bekci:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      UPTIME_DOMAIN: ${UPTIME_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set in the .env file}
+      STATUS_DOMAIN: ${STATUS_DOMAIN:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  bekci-data:
+  caddy-data:
+  caddy-config:

@@ -35,7 +35,7 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
+  "@type": ["SoftwareApplication", "SoftwareSourceCode"],
   "name": "Bekci",
   "url": "https://bekci.app/en/",
   "description": "A lightweight, self-hosted monitoring system for websites, services and servers in a single Docker image: uptime checks, server metrics, status pages and alerts.",
@@ -46,6 +46,9 @@
   "image": "https://bekci.app/og-en.png",
   "screenshot": "https://bekci.app/img/monitorler.png",
   "downloadUrl": "https://hub.docker.com/r/kadirsungurlu/bekci",
+  "codeRepository": "https://github.com/kadirsungurlu/bekci",
+  "license": "https://github.com/kadirsungurlu/bekci/blob/main/LICENSE",
+  "sameAs": ["https://github.com/kadirsungurlu/bekci", "https://hub.docker.com/r/kadirsungurlu/bekci"],
   "softwareRequirements": "Docker",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
 }
@@ -68,6 +71,7 @@
         <li><a href="#security">Security</a></li>
         <li><a href="#install">Install</a></li>
         <li><a href="#faq">FAQ</a></li>
+        <li><a href="/en/docs/">Docs</a></li>
       </ul>
     </nav>
     <div class="header-actions">
@@ -76,6 +80,7 @@
         <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
         <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
       </button>
+      <a class="icon-btn header-gh" href="https://github.com/kadirsungurlu/bekci" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg></a>
       <a class="btn btn-primary btn-sm header-hub" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
         Docker Hub
@@ -94,6 +99,8 @@
       <li><a href="#security">Security</a></li>
       <li><a href="#install">Install</a></li>
       <li><a href="#faq">FAQ</a></li>
+      <li><a href="/en/docs/">Docs</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
     </ul>
     <a class="btn btn-primary" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a>
   </nav>
@@ -468,197 +475,36 @@ PROBE_TOKEN=upr_…
     <div class="wrap">
       <div class="section-head">
         <span class="eyebrow">Install</span>
-        <h2 id="install-title">Up and running in a minute</h2>
-        <p>Runs on any Linux server with Docker. 1 vCPU, 512 MB of RAM (1 GB recommended) and 10 GB of disk are plenty.</p>
+        <h2 id="install-title">Installed in 3 minutes</h2>
+        <p>Runs on any Linux server with Docker: 1 vCPU, 512 MB of RAM (1 GB recommended) and 10 GB of disk are plenty. Try it with one command, then follow the guide that fits you step by step.</p>
       </div>
-      <div class="steps">
-        <div class="card step">
-          <div class="step-head"><span class="num" aria-hidden="true">1</span><h3>One Docker command</h3></div>
-          <p>The quickest way to try it, or to run it behind the reverse proxy you already have (Caddy, Traefik, Nginx).</p>
-          <div class="cmd block">
-            <div class="cmd-head"><span>terminal</span>
-              <button class="copy" type="button" data-copy="code-run" aria-label="Copy Docker command">
-                <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      <div class="teaser">
+        <div class="cmd block">
+          <div class="cmd-head"><span>terminal</span>
+            <button class="copy" type="button" data-copy="kod-run" aria-label="Copy the install command">
+              <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                <span class="copy-label">Copy</span>
-              </button>
-            </div>
-            <pre><code id="code-run">docker run -d --name bekci --restart unless-stopped \
+              <span class="copy-label">Copy</span>
+            </button>
+          </div>
+          <pre><code id="kod-run">docker run -d --name bekci --restart unless-stopped \
   -p 8080:8080 -v bekci-data:/data \
-  -e BASE_URL=https://bekci.example.com \
-  kadirsungurlu/bekci</code></pre>
-          </div>
-          <ul>
-            <li><code>BASE_URL</code> is your public URL; notification links and agent install commands use it.</li>
-            <li>Prefer PostgreSQL? Point <code>DATABASE_URL</code> at your own server, or use the <code>:postgres</code> image with embedded PostgreSQL 18.</li>
-          </ul>
+  kadirsungurlu/bekci:latest</code></pre>
         </div>
-        <div class="card step">
-          <div class="step-head"><span class="num" aria-hidden="true">2</span><h3>Coolify</h3></div>
-          <p>On Coolify, add Bekci as a Docker image:</p>
-          <ul>
-            <li>Image <code>kadirsungurlu/bekci</code>, port <code>8080</code>, health check <code>/healthz</code>.</li>
-            <li>Persistent storage: <code>/data</code> (as a <b>Volume</b>). If you bind-mount a host directory instead, it must be owned by uid 1000.</li>
-            <li>On updates, the new container waits for the old one to stop, then takes over within a second or two — no duplicate checks, no double alerts.</li>
-          </ul>
-          <p>On first launch, you'll be asked to create an admin account.</p>
-        </div>
-        <div class="card step wide">
-          <div class="step-head"><span class="num" aria-hidden="true">3</span><h3>Docker Compose</h3></div>
-          <p>If you already run a reverse proxy (Nginx, Traefik, Coolify…) or have HTTPS sorted, the simple setup is all you need. The database is SQLite by default; you can use an external PostgreSQL instead.</p>
-          <div class="two-code">
-            <div class="step">
-              <h4 class="code-title">Simple (SQLite)</h4>
-            <div class="cmd block">
-              <div class="cmd-head"><span>docker-compose.yml</span>
-                <button class="copy" type="button" data-copy="kod-compose-sade" aria-label="Copy the simple docker-compose.yml">
-                  <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                  <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Copy</span>
-                </button>
-              </div>
-              <pre><code id="kod-compose-sade"># Bekci — simple setup
-# (you already have a reverse proxy / HTTPS)
-# https://bekci.app
-name: bekci
-services:
-  bekci:
-    # embedded PostgreSQL: kadirsungurlu/bekci:postgres
-    image: kadirsungurlu/bekci:latest
-    restart: unless-stopped
-    stop_grace_period: 30s
-    ports:
-      - "8080:8080"
-    environment:
-      BASE_URL: https://bekci.example.com   # public URL of the panel
-      TZ: UTC
-    volumes:
-      - bekci-data:/data
-volumes:
-  bekci-data:</code></pre>
-            </div>
-            </div>
-            <div class="step">
-              <h4 class="code-title">With external PostgreSQL</h4>
-            <div class="cmd block">
-              <div class="cmd-head"><span>docker-compose.yml</span>
-                <button class="copy" type="button" data-copy="kod-compose-pg" aria-label="Copy the PostgreSQL docker-compose.yml">
-                  <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                  <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Copy</span>
-                </button>
-              </div>
-              <pre><code id="kod-compose-pg"># Bekci — with an external PostgreSQL
-# https://bekci.app
-name: bekci
-services:
-  bekci:
-    image: kadirsungurlu/bekci:latest
-    restart: unless-stopped
-    stop_grace_period: 30s
-    ports:
-      - "8080:8080"
-    environment:
-      BASE_URL: https://bekci.example.com
-      TZ: UTC
-      DATABASE_URL: postgres://bekci:A-STRONG-PASSWORD@db:5432/bekci?sslmode=disable
-    volumes:
-      - bekci-data:/data   # backups and agent files
-    depends_on:
-      db:
-        condition: service_healthy
-  db:
-    image: postgres:18-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: bekci
-      POSTGRES_PASSWORD: A-STRONG-PASSWORD
-      POSTGRES_DB: bekci
-    volumes:
-      - db-data:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bekci -d bekci"]
-      interval: 5s
-      retries: 10
-volumes:
-  bekci-data:
-  db-data:</code></pre>
-            </div>
-            </div>
-          </div>
-          <p>Start with <code>docker compose up -d</code>; the panel opens at <code>http://server:8080</code>. Set <code>BASE_URL</code> to the public address of the panel (notification links and agent install commands use it). Change the password in both places.</p>
-          <p class="dl">Download: <a href="/indir/docker-compose.yml" download>docker-compose.yml</a> · <a href="/indir/docker-compose.postgres.yml" download>docker-compose.postgres.yml</a> · full setup with Caddy: <a href="/indir/caddy/docker-compose.yml" download>docker-compose.yml</a>, <a href="/indir/caddy/Caddyfile" download>Caddyfile</a>, <a href="/indir/caddy/env.example" download="env.example">.env example</a> (Turkish comments)</p>
-        </div>
-        <div class="card step wide">
-          <div class="step-head"><span class="num" aria-hidden="true">4</span><h3>Docker Compose + Caddy (automatic HTTPS)</h3></div>
-          <p>A permanent setup on a fresh server: Caddy obtains and renews Let's Encrypt certificates on its own. Point your domain's DNS at the server and open ports 80 and 443.</p>
-          <div class="two-code">
-            <div class="cmd block">
-              <div class="cmd-head"><span>docker-compose.yml</span>
-                <button class="copy" type="button" data-copy="code-compose" aria-label="Copy docker-compose.yml">
-                  <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                  <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Copy</span>
-                </button>
-              </div>
-              <pre><code id="code-compose">name: bekci
-services:
-  bekci:
-    image: kadirsungurlu/bekci:latest
-    restart: unless-stopped
-    stop_grace_period: 30s
-    environment:
-      BASE_URL: https://bekci.example.com
-      TZ: UTC
-    volumes:
-      - bekci-data:/data
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    depends_on:
-      bekci:
-        condition: service_healthy
-    ports: ["80:80", "443:443", "443:443/udp"]
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-volumes:
-  bekci-data:
-  caddy-data:
-  caddy-config:</code></pre>
-            </div>
-            <div class="step">
-              <div class="cmd block">
-                <div class="cmd-head"><span>Caddyfile</span>
-                  <button class="copy" type="button" data-copy="code-caddy" aria-label="Copy Caddyfile">
-                    <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                    <span class="copy-label">Copy</span>
-                  </button>
-                </div>
-                <pre><code id="code-caddy">bekci.example.com {
-	encode zstd gzip
-	header &gt;Strict-Transport-Security "max-age=31536000"
-	reverse_proxy bekci:8080 {
-		# Stream live updates (SSE) without buffering
-		flush_interval -1
-	}
-}</code></pre>
-              </div>
-              <div class="cmd block">
-                <div class="cmd-head"><span>terminal</span>
-                  <button class="copy" type="button" data-copy="code-up" aria-label="Copy start command">
-                    <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                    <span class="copy-label">Copy</span>
-                  </button>
-                </div>
-                <pre><code id="code-up">docker compose up -d</code></pre>
-              </div>
-              <p>Replace <code>bekci.example.com</code> with your own domain, then open it over <code>https://</code>.</p>
-            </div>
-          </div>
+        <p class="install-note">Then open <code>http://SERVER-IP:8080</code> and create your admin account.</p>
+        <ul class="guides" aria-label="Install guides">
+          <li><a class="guide" href="/en/docs/install/docker/"><b>Docker (one command)</b><span>The quickest way to try it.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a class="guide" href="/en/docs/install/docker-compose/"><b>Docker Compose</b><span>Settings in one file; SQLite or PostgreSQL.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a class="guide" href="/en/docs/install/caddy/"><b>HTTPS install (Caddy)</b><span>Your domain with an automatic certificate. Recommended.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a class="guide" href="/en/docs/install/coolify/"><b>Coolify</b><span>Add it as a Docker image.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a class="guide" href="/en/docs/install/reverse-proxy/"><b>Behind a reverse proxy</b><span>Nginx, Traefik, Apache or Caddy.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a class="guide" href="/en/docs/first-steps/"><b>First steps</b><span>After installing: first monitor and alerts.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        </ul>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="/en/docs/">Open the docs
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="/en/docs/#which-install">Which install fits me?</a>
         </div>
       </div>
     </div>
@@ -673,7 +519,7 @@ volumes:
       <div class="faq">
         <details open>
           <summary>Is Bekci free?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
-          <div class="answer"><p>Yes. Bekci is self-hosted: no license fees, no subscription, no paid tiers. The only cost is the server you run it on.</p></div>
+          <div class="answer"><p>Yes. Bekci is self-hosted: no license fees, no subscription, no paid tiers. The only cost is the server you run it on.</p><p>Bekci is open source, released under the <a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">AGPL-3.0</a> license; the source code is <a href="https://github.com/kadirsungurlu/bekci" rel="noopener">on GitHub</a>.</p></div>
         </details>
         <details>
           <summary>Is the interface available in English?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
@@ -706,7 +552,7 @@ volumes:
           <div class="answer">
             <p>Take a backup, then pull the new image and recreate the container. With Compose:</p>
             <div class="cmd"><pre><code>docker compose pull &amp;&amp; docker compose up -d</code></pre></div>
-            <p>If a new version changes the database schema (SQLite), Bekci takes an automatic backup first and won't migrate if that backup fails. To pin a version or roll back, use version tags such as <code>kadirsungurlu/bekci:1.2.3</code>.</p>
+            <p>If a new version changes the database schema (SQLite), Bekci takes an automatic backup first and won't migrate if that backup fails. To pin a version or roll back, use version tags such as <code>kadirsungurlu/bekci:1.0.0</code>. Details: <a href="/en/docs/updates-backups/">Updates, backups and rollback</a>.</p>
           </div>
         </details>
         <details>
@@ -723,7 +569,7 @@ volumes:
         <h2 id="cta-title">Give your sites a night watchman</h2>
         <p>Install it with one command and add your first monitor in under a minute.</p>
         <div class="hero-cta">
-          <a class="btn btn-primary" href="#install">Install Bekci</a>
+          <a class="btn btn-primary" href="/en/docs/">Install guides</a>
           <a class="btn btn-ghost" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">View on Docker Hub</a>
         </div>
       </div>
@@ -739,8 +585,10 @@ volumes:
     </a>
     <ul class="foot-links">
       <li><a href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a></li>
-      <li><a href="#install">Install</a></li>
+      <li><a href="/en/docs/">Docs</a></li>
       <li><a href="#faq">FAQ</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">License: AGPL-3.0</a></li>
       <li><a href="/" hreflang="tr" lang="tr">Türkçe</a></li>
       <li><a href="mailto:me@kadir.app">Contact: me@kadir.app</a></li>
     </ul>

@@ -1,17 +1,17 @@
-# Bekci — sade kurulum
-# (kendi ters vekiliniz / HTTPS'iniz varsa)
-# https://bekci.app
+# Bekci — Docker Compose ile kurulum (SQLite)
+# Rehber: https://bekci.app/docs/kurulum/docker-compose/
 name: bekci
 services:
   bekci:
-    # gömülü PostgreSQL için: kadirsungurlu/bekci:postgres
+    # Sürümü sabitlemek için "latest" yerine ör. 1.0.0 yazın.
+    # Gömülü PostgreSQL için: kadirsungurlu/bekci:postgres
     image: kadirsungurlu/bekci:latest
     restart: unless-stopped
     stop_grace_period: 30s
     ports:
       - "8080:8080"
     environment:
-      BASE_URL: https://bekci.ornek.com   # panelin dış adresi
+      BASE_URL: http://203.0.113.10:8080   # panelin dışarıdan açıldığı adres
       TZ: Europe/Istanbul
     volumes:
       - bekci-data:/data

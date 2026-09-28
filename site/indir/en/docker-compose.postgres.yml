@@ -1,6 +1,6 @@
-# Bekci — Docker Compose ile kurulum (harici PostgreSQL)
-# Rehber: https://bekci.app/docs/kurulum/docker-compose/
-# Parolayı İKİ yerde de aynı şekilde değiştirin (DATABASE_URL ve POSTGRES_PASSWORD).
+# Bekci — install with Docker Compose (external PostgreSQL)
+# Guide: https://bekci.app/en/docs/install/docker-compose/
+# Change the password in BOTH places the same way (DATABASE_URL and POSTGRES_PASSWORD).
 name: bekci
 services:
   bekci:
@@ -10,11 +10,11 @@ services:
     ports:
       - "8080:8080"
     environment:
-      BASE_URL: http://203.0.113.10:8080   # panelin dışarıdan açıldığı adres
+      BASE_URL: http://203.0.113.10:8080   # the address you open the panel at
       TZ: Europe/Istanbul
-      DATABASE_URL: postgres://bekci:GUCLU-BIR-PAROLA@db:5432/bekci?sslmode=disable
+      DATABASE_URL: postgres://bekci:A-STRONG-PASSWORD@db:5432/bekci?sslmode=disable
     volumes:
-      - bekci-data:/data   # yedekler ve geçici dosyalar
+      - bekci-data:/data   # backups and temporary files
     depends_on:
       db:
         condition: service_healthy
@@ -23,7 +23,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: bekci
-      POSTGRES_PASSWORD: GUCLU-BIR-PAROLA
+      POSTGRES_PASSWORD: A-STRONG-PASSWORD
       POSTGRES_DB: bekci
     volumes:
       - db-data:/var/lib/postgresql

@@ -6,6 +6,8 @@
   var KEY = 'bekci-tema';
   var root = document.documentElement;
   var media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  // Betik çalışıyor: yalnızca betikle çalışan öğeler (ör. belge sekmeleri) buna göre çizilir.
+  root.classList.add('js');
 
   function stored() {
     try {

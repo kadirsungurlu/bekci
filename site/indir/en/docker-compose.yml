@@ -1,0 +1,19 @@
+# Bekci — install with Docker Compose (SQLite)
+# Guide: https://bekci.app/en/docs/install/docker-compose/
+name: bekci
+services:
+  bekci:
+    # To pin a version, replace "latest" with e.g. 1.0.0.
+    # For embedded PostgreSQL: kadirsungurlu/bekci:postgres
+    image: kadirsungurlu/bekci:latest
+    restart: unless-stopped
+    stop_grace_period: 30s
+    ports:
+      - "8080:8080"
+    environment:
+      BASE_URL: http://203.0.113.10:8080   # the address you open the panel at
+      TZ: Europe/Istanbul
+    volumes:
+      - bekci-data:/data
+volumes:
+  bekci-data:

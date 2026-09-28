@@ -1,5 +1,6 @@
-# Caddy: HTTPS sertifikasını otomatik alır ve uygulamaya yönlendirir.
-# Alan adları .env dosyasından gelir (docker-compose.yml → environment).
+# Caddy: HTTPS sertifikasını otomatik alır ve Bekci'ye yönlendirir.
+# Alan adları .env dosyasından gelir; bu dosyayı değiştirmeniz gerekmez.
+# Rehber: https://bekci.app/docs/kurulum/caddy/
 
 {
 	email {$ACME_EMAIL}

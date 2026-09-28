@@ -1,0 +1,29 @@
+# Caddy: obtains the HTTPS certificate automatically and forwards to Bekci.
+# The domains come from the .env file; you don't need to change this file.
+# Guide: https://bekci.app/en/docs/install/caddy/
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$UPTIME_DOMAIN} {
+	encode zstd gzip
+	# Browsers should only use HTTPS for this domain for one year.
+	# ">" means: if the app sends the same header, keep only this one.
+	header >Strict-Transport-Security "max-age=31536000"
+	reverse_proxy bekci:8080 {
+		# Pass the live stream (Server-Sent Events) through without buffering.
+		flush_interval -1
+	}
+}
+
+# Optional: a separate domain for the status page (e.g. status.example.com).
+# Set STATUS_DOMAIN in .env and remove the # signs at the start of the block
+# below; then enter the same name in the status page's "Custom domain" field
+# in the panel. That address only serves the status page, never the admin panel.
+#
+# {$STATUS_DOMAIN} {
+# 	encode zstd gzip
+# 	header >Strict-Transport-Security "max-age=31536000"
+# 	reverse_proxy bekci:8080
+# }

@@ -35,7 +35,7 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
+  "@type": ["SoftwareApplication", "SoftwareSourceCode"],
   "name": "Bekci",
   "url": "https://bekci.app/",
   "description": "Web siteleri, servisler ve sunucular için tek Docker imajlık, hafif ve Türkçe izleme sistemi: uptime kontrolleri, sunucu metrikleri, durum sayfaları ve bildirimler.",
@@ -46,6 +46,9 @@
   "image": "https://bekci.app/og.png",
   "screenshot": "https://bekci.app/img/monitorler.png",
   "downloadUrl": "https://hub.docker.com/r/kadirsungurlu/bekci",
+  "codeRepository": "https://github.com/kadirsungurlu/bekci",
+  "license": "https://github.com/kadirsungurlu/bekci/blob/main/LICENSE",
+  "sameAs": ["https://github.com/kadirsungurlu/bekci", "https://hub.docker.com/r/kadirsungurlu/bekci"],
   "softwareRequirements": "Docker",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "TRY" }
 }
@@ -68,6 +71,7 @@
         <li><a href="#guvenlik">Güvenlik</a></li>
         <li><a href="#kurulum">Kurulum</a></li>
         <li><a href="#sss">SSS</a></li>
+        <li><a href="/docs/">Belgeler</a></li>
       </ul>
     </nav>
     <div class="header-actions">
@@ -76,6 +80,7 @@
         <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
         <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
       </button>
+      <a class="icon-btn header-gh" href="https://github.com/kadirsungurlu/bekci" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg></a>
       <a class="btn btn-primary btn-sm header-hub" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
         Docker Hub
@@ -94,6 +99,8 @@
       <li><a href="#guvenlik">Güvenlik</a></li>
       <li><a href="#kurulum">Kurulum</a></li>
       <li><a href="#sss">SSS</a></li>
+      <li><a href="/docs/">Belgeler</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
     </ul>
     <a class="btn btn-primary" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a>
   </nav>
@@ -467,197 +474,36 @@ PROBE_TOKEN=upr_…
     <div class="wrap">
       <div class="section-head">
         <span class="eyebrow">Kurulum</span>
-        <h2 id="kurulum-baslik">Bir dakikada çalışır hâlde</h2>
-        <p>Docker olan her Linux sunucuda çalışır. En az 1 vCPU, 512 MB RAM (1 GB önerilir) ve 10 GB disk yeterli.</p>
+        <h2 id="kurulum-baslik">Kurulum 3 dakikada</h2>
+        <p>Docker olan her Linux sunucuda çalışır: 1 vCPU, 512 MB RAM (1 GB önerilir) ve 10 GB disk yeterli. Tek komutla deneyin, sonra size uyan rehberi adım adım izleyin.</p>
       </div>
-      <div class="steps">
-        <div class="card step">
-          <div class="step-head"><span class="num" aria-hidden="true">1</span><h3>Docker ile tek komut</h3></div>
-          <p>Denemek ya da zaten bir ters vekil (Caddy, Traefik, Nginx) kullanıyorsanız en kısa yol.</p>
-          <div class="cmd block">
-            <div class="cmd-head"><span>terminal</span>
-              <button class="copy" type="button" data-copy="kod-run" aria-label="Docker komutunu kopyala">
-                <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      <div class="teaser">
+        <div class="cmd block">
+          <div class="cmd-head"><span>terminal</span>
+            <button class="copy" type="button" data-copy="kod-run" aria-label="Kurulum komutunu kopyala">
+              <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                <span class="copy-label">Kopyala</span>
-              </button>
-            </div>
-            <pre><code id="kod-run">docker run -d --name bekci --restart unless-stopped \
+              <span class="copy-label">Kopyala</span>
+            </button>
+          </div>
+          <pre><code id="kod-run">docker run -d --name bekci --restart unless-stopped \
   -p 8080:8080 -v bekci-data:/data \
-  -e BASE_URL=https://bekci.ornek.com \
-  kadirsungurlu/bekci</code></pre>
-          </div>
-          <ul>
-            <li><code>BASE_URL</code>: dış adresiniz; bildirim bağlantıları ve ajan kurulum komutları bunu kullanır.</li>
-            <li>PostgreSQL isterseniz: <code>DATABASE_URL</code> ile harici veritabanı ya da gömülü PostgreSQL 18 içeren <code>:postgres</code> imajı.</li>
-          </ul>
+  kadirsungurlu/bekci:latest</code></pre>
         </div>
-        <div class="card step">
-          <div class="step-head"><span class="num" aria-hidden="true">2</span><h3>Coolify</h3></div>
-          <p>Coolify kullanıyorsanız Bekci'yi Docker imajı olarak ekleyin:</p>
-          <ul>
-            <li>İmaj <code>kadirsungurlu/bekci</code>, port <code>8080</code>, sağlık kontrolü <code>/healthz</code>.</li>
-            <li>Kalıcı depolama: <code>/data</code> (<b>Volume</b> türünde). Sunucu klasörü bağlayacaksanız sahibi uid 1000 olmalı.</li>
-            <li>Güncellemede yeni konteyner eskisi kapanana kadar bekler, sonra 1–2 saniyede devralır; çift kontrol ya da çift bildirim olmaz.</li>
-          </ul>
-          <p>İlk açılışta arayüz sizden yönetici hesabı oluşturmanızı ister.</p>
-        </div>
-        <div class="card step wide">
-          <div class="step-head"><span class="num" aria-hidden="true">3</span><h3>Docker Compose</h3></div>
-          <p>Kendi ters vekiliniz (Nginx, Traefik, Coolify…) ya da HTTPS çözümünüz varsa sade kurulum yeterli. Veritabanı varsayılan olarak SQLite; isterseniz harici PostgreSQL de kullanabilirsiniz.</p>
-          <div class="two-code">
-            <div class="step">
-              <h4 class="code-title">Sade (SQLite)</h4>
-            <div class="cmd block">
-              <div class="cmd-head"><span>docker-compose.yml</span>
-                <button class="copy" type="button" data-copy="kod-compose-sade" aria-label="Sade docker-compose.yml dosyasını kopyala">
-                  <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                  <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Kopyala</span>
-                </button>
-              </div>
-              <pre><code id="kod-compose-sade"># Bekci — sade kurulum
-# (kendi ters vekiliniz / HTTPS'iniz varsa)
-# https://bekci.app
-name: bekci
-services:
-  bekci:
-    # gömülü PostgreSQL için: kadirsungurlu/bekci:postgres
-    image: kadirsungurlu/bekci:latest
-    restart: unless-stopped
-    stop_grace_period: 30s
-    ports:
-      - "8080:8080"
-    environment:
-      BASE_URL: https://bekci.ornek.com   # panelin dış adresi
-      TZ: Europe/Istanbul
-    volumes:
-      - bekci-data:/data
-volumes:
-  bekci-data:</code></pre>
-            </div>
-            </div>
-            <div class="step">
-              <h4 class="code-title">Harici PostgreSQL ile</h4>
-            <div class="cmd block">
-              <div class="cmd-head"><span>docker-compose.yml</span>
-                <button class="copy" type="button" data-copy="kod-compose-pg" aria-label="PostgreSQL'li docker-compose.yml dosyasını kopyala">
-                  <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                  <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Kopyala</span>
-                </button>
-              </div>
-              <pre><code id="kod-compose-pg"># Bekci — harici PostgreSQL ile
-# https://bekci.app
-name: bekci
-services:
-  bekci:
-    image: kadirsungurlu/bekci:latest
-    restart: unless-stopped
-    stop_grace_period: 30s
-    ports:
-      - "8080:8080"
-    environment:
-      BASE_URL: https://bekci.ornek.com
-      TZ: Europe/Istanbul
-      DATABASE_URL: postgres://bekci:GUCLU-BIR-PAROLA@db:5432/bekci?sslmode=disable
-    volumes:
-      - bekci-data:/data   # yedekler ve ajan dosyaları
-    depends_on:
-      db:
-        condition: service_healthy
-  db:
-    image: postgres:18-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: bekci
-      POSTGRES_PASSWORD: GUCLU-BIR-PAROLA
-      POSTGRES_DB: bekci
-    volumes:
-      - db-data:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bekci -d bekci"]
-      interval: 5s
-      retries: 10
-volumes:
-  bekci-data:
-  db-data:</code></pre>
-            </div>
-            </div>
-          </div>
-          <p><code>docker compose up -d</code> ile başlatın; panel <code>http://sunucu:8080</code> adresinde açılır. <code>BASE_URL</code>'i panelin dışarıdan erişilen adresi yapın (bildirim bağlantıları ve ajan kurulum komutları bunu kullanır). Parolayı iki yerde de değiştirin.</p>
-          <p class="dl">İndir: <a href="/indir/docker-compose.yml" download>docker-compose.yml</a> · <a href="/indir/docker-compose.postgres.yml" download>docker-compose.postgres.yml</a> · Caddy'li tam kurulum: <a href="/indir/caddy/docker-compose.yml" download>docker-compose.yml</a>, <a href="/indir/caddy/Caddyfile" download>Caddyfile</a>, <a href="/indir/caddy/env.example" download="env.example">.env örneği</a></p>
-        </div>
-        <div class="card step wide">
-          <div class="step-head"><span class="num" aria-hidden="true">4</span><h3>Docker Compose + Caddy (otomatik HTTPS)</h3></div>
-          <p>Boş bir sunucuya kalıcı kurulum: Caddy sertifikayı Let's Encrypt'ten kendisi alır ve yeniler. Alan adınızın DNS kaydı sunucuyu göstermeli, 80 ve 443 portları açık olmalı.</p>
-          <div class="two-code">
-            <div class="cmd block">
-              <div class="cmd-head"><span>docker-compose.yml</span>
-                <button class="copy" type="button" data-copy="kod-compose" aria-label="docker-compose.yml dosyasını kopyala">
-                  <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                  <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Kopyala</span>
-                </button>
-              </div>
-              <pre><code id="kod-compose">name: bekci
-services:
-  bekci:
-    image: kadirsungurlu/bekci:latest
-    restart: unless-stopped
-    stop_grace_period: 30s
-    environment:
-      BASE_URL: https://bekci.ornek.com
-      TZ: Europe/Istanbul
-    volumes:
-      - bekci-data:/data
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    depends_on:
-      bekci:
-        condition: service_healthy
-    ports: ["80:80", "443:443", "443:443/udp"]
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-volumes:
-  bekci-data:
-  caddy-data:
-  caddy-config:</code></pre>
-            </div>
-            <div class="step">
-              <div class="cmd block">
-                <div class="cmd-head"><span>Caddyfile</span>
-                  <button class="copy" type="button" data-copy="kod-caddy" aria-label="Caddyfile dosyasını kopyala">
-                    <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                    <span class="copy-label">Kopyala</span>
-                  </button>
-                </div>
-                <pre><code id="kod-caddy">bekci.ornek.com {
-	encode zstd gzip
-	header &gt;Strict-Transport-Security "max-age=31536000"
-	reverse_proxy bekci:8080 {
-		# Canlı akış (SSE) tamponlanmadan iletilsin
-		flush_interval -1
-	}
-}</code></pre>
-              </div>
-              <div class="cmd block">
-                <div class="cmd-head"><span>terminal</span>
-                  <button class="copy" type="button" data-copy="kod-up" aria-label="Başlatma komutunu kopyala">
-                    <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                    <span class="copy-label">Kopyala</span>
-                  </button>
-                </div>
-                <pre><code id="kod-up">docker compose up -d</code></pre>
-              </div>
-              <p><code>bekci.ornek.com</code> yerine kendi alan adınızı yazın, ardından <code>https://</code> ile açın.</p>
-            </div>
-          </div>
+        <p class="install-note">Ardından <code>http://SUNUCU-IP:8080</code> adresini açıp yönetici hesabınızı oluşturun.</p>
+        <ul class="guides" aria-label="Kurulum rehberleri">
+          <li><a class="guide" href="/docs/kurulum/docker/"><b>Docker (tek komut)</b><span>Denemek için en kısa yol.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a class="guide" href="/docs/kurulum/docker-compose/"><b>Docker Compose</b><span>Ayarlar bir dosyada; SQLite ya da PostgreSQL.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a class="guide" href="/docs/kurulum/caddy/"><b>HTTPS’li kurulum (Caddy)</b><span>Alan adınız ve otomatik sertifikayla, önerilen.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a class="guide" href="/docs/kurulum/coolify/"><b>Coolify</b><span>Docker imajı olarak ekleyin.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a class="guide" href="/docs/kurulum/ters-vekil/"><b>Ters vekil arkasında</b><span>Nginx, Traefik, Apache ya da Caddy.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a class="guide" href="/docs/ilk-adimlar/"><b>İlk adımlar</b><span>Kurulumdan sonra: ilk monitör ve bildirimler.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        </ul>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="/docs/">Belgeleri açın
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="/docs/#hangi-kurulum">Hangi kurulum bana uygun?</a>
         </div>
       </div>
     </div>
@@ -672,7 +518,7 @@ volumes:
       <div class="faq">
         <details open>
           <summary>Bekci ücretsiz mi?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
-          <div class="answer"><p>Evet. Bekci kendi sunucunuzda çalışır; lisans ücreti, abonelik ya da ücretli plan yok. Tek maliyetiniz, onu çalıştırdığınız sunucu.</p></div>
+          <div class="answer"><p>Evet. Bekci kendi sunucunuzda çalışır; lisans ücreti, abonelik ya da ücretli plan yok. Tek maliyetiniz, onu çalıştırdığınız sunucu.</p><p>Bekci açık kaynaklıdır ve <a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">AGPL-3.0</a> lisansıyla dağıtılır; kaynak kodu <a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub’da</a>.</p></div>
         </details>
         <details>
           <summary>Hangi veritabanını kullanıyor?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
@@ -701,7 +547,7 @@ volumes:
           <div class="answer">
             <p>Önce yedek alın, sonra yeni imajı çekip konteyneri yeniden oluşturun. Compose ile:</p>
             <div class="cmd"><pre><code>docker compose pull &amp;&amp; docker compose up -d</code></pre></div>
-            <p>Yeni sürüm veritabanı yapısını değiştirecekse (SQLite) Bekci önce otomatik bir yedek alır; yedek alınamazsa güncellemeyi uygulamaz. Belirli bir sürüme sabitlemek ya da geri dönmek için <code>kadirsungurlu/bekci:1.2.3</code> gibi sürüm etiketlerini kullanın.</p>
+            <p>Yeni sürüm veritabanı yapısını değiştirecekse (SQLite) Bekci önce otomatik bir yedek alır; yedek alınamazsa güncellemeyi uygulamaz. Belirli bir sürüme sabitlemek ya da geri dönmek için <code>kadirsungurlu/bekci:1.0.0</code> gibi sürüm etiketlerini kullanın. Ayrıntılar: <a href="/docs/guncelleme-yedek/">Güncelleme, yedek ve geri dönüş</a>.</p>
           </div>
         </details>
         <details>
@@ -718,7 +564,7 @@ volumes:
         <h2 id="son-baslik">Bu gece siteleriniz nöbetsiz kalmasın</h2>
         <p>Tek komutla kurun, ilk monitörünüzü bir dakikada ekleyin.</p>
         <div class="hero-cta">
-          <a class="btn btn-primary" href="#kurulum">Kurulum</a>
+          <a class="btn btn-primary" href="/docs/">Kurulum rehberleri</a>
           <a class="btn btn-ghost" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub'da görüntüle</a>
         </div>
       </div>
@@ -734,8 +580,10 @@ volumes:
     </a>
     <ul class="foot-links">
       <li><a href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a></li>
-      <li><a href="#kurulum">Kurulum</a></li>
+      <li><a href="/docs/">Belgeler</a></li>
       <li><a href="#sss">SSS</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">Lisans: AGPL-3.0</a></li>
       <li><a href="/en/" hreflang="en" lang="en">English</a></li>
       <li><a href="mailto:me@kadir.app">İletişim: me@kadir.app</a></li>
     </ul>

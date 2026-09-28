@@ -389,6 +389,19 @@ p {
 .header-hub {
   display: none;
 }
+.header-gh svg {
+  width: 19px;
+  height: 19px;
+}
+@media (max-width: 420px) {
+  .header-gh {
+    display: none;
+  }
+}
+.nav a.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
 .theme-toggle .i-sun {
   display: none;
 }
@@ -431,6 +444,20 @@ p {
 .mobile-nav .btn {
   width: 100%;
   margin-top: 16px;
+}
+/* 960–1199 px: menü sığsın diye bağlantılar sıkışır, Docker Hub düğmesi
+   gizlenir (GitHub simgesi ve alt bilgideki bağlantı kalır). */
+@media (min-width: 960px) and (max-width: 1199px) {
+  .nav ul {
+    gap: 0;
+  }
+  .nav a {
+    padding: 8px 9px;
+    font-size: 14.5px;
+  }
+  .header-hub {
+    display: none !important;
+  }
 }
 @media (min-width: 960px) {
   .nav {
@@ -1349,69 +1376,75 @@ p {
   font-size: 15px;
 }
 
-/* ---- Kurulum ---- */
-.steps {
+/* ---- Kurulum tanıtımı (ayrıntılar /docs/ altında) ---- */
+.teaser {
+  max-width: 860px;
+  margin: 0 auto;
+}
+.teaser .cmd {
+  box-shadow: var(--shadow);
+}
+.teaser .cmd pre {
+  font-size: 13.5px;
+}
+.guides {
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
   display: grid;
-  gap: 20px;
+  gap: 10px;
+  grid-template-columns: 1fr;
 }
-@media (min-width: 1000px) {
-  .steps {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-  .steps .wide {
-    grid-column: 1 / -1;
+@media (min-width: 640px) {
+  .guides {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-.step {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-width: 0;
+@media (min-width: 900px) {
+  .guides {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
-.step-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.num {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--accent-bg);
-  color: var(--accent-ink);
-  font-weight: 800;
-  font-size: 14px;
-}
-.step h3 {
-  font-size: 19px;
-}
-.step p,
-.step li {
+.guide {
+  position: relative;
+  display: block;
+  height: 100%;
+  padding: 14px 44px 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
   color: var(--text-2);
-  font-size: 15px;
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s, background-color 0.15s;
 }
-.step ul {
-  margin: 0;
-  padding-left: 20px;
+.guide:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--text-2);
 }
-.step ul li + li {
-  margin-top: 4px;
+.guide b {
+  display: block;
+  color: var(--text);
+  font-size: 15.5px;
 }
-.step .cmd pre {
-  font-size: 13px;
+.guide span {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  line-height: 1.45;
 }
-.two-code {
-  display: grid;
-  gap: 14px;
+.guide svg {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin-top: -9px;
+  color: var(--accent);
 }
-@media (min-width: 1000px) {
-  .two-code {
-    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-    align-items: start;
-  }
+.teaser .hero-cta {
+  margin-top: 26px;
 }
 
 /* ---- SSS ---- */
@@ -1572,8 +1605,3 @@ p {
 .bars i.d {
   background: var(--down);
 }
-
-/* Compose örnekleri: kod başlığı ve indirme satırı */
-.code-title { font-size: .95rem; font-weight: 600; margin: 0 0 .5rem; color: var(--text); }
-.dl { font-size: .9rem; margin-top: .75rem; overflow-wrap: anywhere; }
-.dl a { color: var(--accent); }

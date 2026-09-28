@@ -34,13 +34,15 @@
 	encode zstd gzip
 	import guvenlik site
 
-	# Önbellek: /assets ve /img dosyalarının adresleri imaj derlenirken içerik
-	# özetiyle (?v=…) damgalanır → uzun ve değişmez. HTML kısa, diğerleri 1 gün.
+	# Önbellek: /assets ve /img dosyalarının adresleri (belge arama dizinleri
+	# dahil) imaj derlenirken içerik özetiyle (?v=…) damgalanır → uzun ve
+	# değişmez. HTML kısa, diğerleri 1 gün.
 	@uzun path /assets/* /img/*
 	header @uzun Cache-Control "public, max-age=31536000, immutable"
-	@html path / /en/ *.html
+	# Belge sayfaları klasör adresleridir (/docs/…/ → index.html): "*/".
+	@html path */ *.html
 	header @html Cache-Control "public, max-age=300, must-revalidate"
-	@diger not path /assets/* /img/* / /en/ *.html /healthz
+	@diger not path /assets/* /img/* */ *.html /healthz
 	header @diger Cache-Control "public, max-age=86400"
 	header /healthz Cache-Control "no-store"
 
