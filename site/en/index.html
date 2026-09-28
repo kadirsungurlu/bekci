@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bekci — Self-hosted uptime and server monitoring</title>
+<meta name="description" content="A lightweight, self-hosted monitoring system for websites, services and servers in a single Docker image. Uptime checks, server metrics, status pages and 24 notification channels in ~15 MB of RAM.">
+<link rel="canonical" href="https://bekci.app/en/">
+<link rel="alternate" hreflang="tr" href="https://bekci.app/">
+<link rel="alternate" hreflang="en" href="https://bekci.app/en/">
+<link rel="alternate" hreflang="x-default" href="https://bekci.app/">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b111b">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg?v=dev" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=dev">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Bekci">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="tr_TR">
+<meta property="og:url" content="https://bekci.app/en/">
+<meta property="og:title" content="Bekci — Uptime and server monitoring in one tiny container">
+<meta property="og:description" content="Uptime checks, server metrics, status pages and alerts. Self-hosted, in a single Docker image.">
+<meta property="og:image" content="https://bekci.app/og-en.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Bekci logo, the tagline “Uptime and server monitoring in one tiny container” and the monitor list screen">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Bekci — Uptime and server monitoring in one tiny container">
+<meta name="twitter:description" content="Uptime checks, server metrics, status pages and alerts. Self-hosted, in a single Docker image.">
+<meta name="twitter:image" content="https://bekci.app/og-en.png">
+<link rel="preload" href="/assets/fonts/inter-4.1.1-bekci.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=dev">
+<script src="/assets/site.js?v=dev"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Bekci",
+  "url": "https://bekci.app/en/",
+  "description": "A lightweight, self-hosted monitoring system for websites, services and servers in a single Docker image: uptime checks, server metrics, status pages and alerts.",
+  "applicationCategory": "DeveloperApplication",
+  "applicationSubCategory": "Uptime and server monitoring",
+  "operatingSystem": "Linux (Docker; amd64, arm64)",
+  "inLanguage": "en",
+  "image": "https://bekci.app/og-en.png",
+  "screenshot": "https://bekci.app/img/monitorler.png",
+  "downloadUrl": "https://hub.docker.com/r/kadirsungurlu/bekci",
+  "softwareRequirements": "Docker",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/en/" aria-label="Bekci home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#3bd671" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#3bd671" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#3bd671"/></svg>
+      Bekci
+    </a>
+    <nav class="nav" aria-label="Main">
+      <ul>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#screenshots">Screenshots</a></li>
+        <li><a href="#compare">Compare</a></li>
+        <li><a href="#security">Security</a></li>
+        <li><a href="#install">Install</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+    </nav>
+    <div class="header-actions">
+      <a class="lang" href="/" hreflang="tr" lang="tr" aria-label="Türkçe sürüm">TR</a>
+      <button class="icon-btn theme-toggle" type="button" aria-label="Toggle theme">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+      <a class="btn btn-primary btn-sm header-hub" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Docker Hub
+      </a>
+      <button class="icon-btn menu-toggle" type="button" aria-expanded="false" aria-controls="mobil-menu" aria-label="Menu">
+        <svg class="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <svg class="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobil-menu" aria-label="Mobile" hidden>
+    <ul>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#screenshots">Screenshots</a></li>
+      <li><a href="#compare">Compare</a></li>
+      <li><a href="#security">Security</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+    <a class="btn btn-primary" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a>
+  </nav>
+</header>
+
+<main id="content">
+  <section class="hero" aria-labelledby="title">
+    <div class="wrap">
+      <div class="hero-inner">
+        <p class="pill"><span class="pulse" aria-hidden="true"></span><span>Self-hosted<span class="wide-only"> · single Docker image</span> · free</span></p>
+        <h1 id="title">Uptime and server monitoring, <span class="hl">in one tiny container</span></h1>
+        <p class="lead">Bekci watches your websites, APIs and servers from a single dashboard and tells you the moment something breaks. Uptime checks, server metrics, status pages and alerts — all in about 15&nbsp;MB of RAM.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#install">Get started
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="#screenshots">See screenshots</a>
+        </div>
+        <div class="install-line">
+          <div class="cmd">
+            <pre><code id="code-one"><span class="p">$ </span>docker run -d --name bekci -p 8080:8080 -v bekci-data:/data kadirsungurlu/bekci</code></pre>
+            <button class="copy" type="button" data-copy="code-one" aria-label="Copy install command">
+              <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+              <span class="copy-label">Copy</span>
+            </button>
+          </div>
+          <p class="install-note">Then open <code>http://your-server:8080</code> and create the first admin account.</p>
+          <p class="install-note lang-note">The app's interface is in Turkish today — <strong>English UI coming soon</strong>.</p>
+        </div>
+      </div>
+      <div class="hero-shot">
+        <div class="browser">
+          <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="url">bekci.example.com</span></div>
+          <picture>
+            <source type="image/webp" srcset="/img/monitorler-800.webp?v=dev 800w, /img/monitorler-1600.webp?v=dev 1600w, /img/monitorler.webp?v=dev 2880w" sizes="(min-width: 1184px) 1120px, calc(100vw - 40px)">
+            <img src="/img/monitorler.png?v=dev" width="2880" height="1800" fetchpriority="high" alt="Bekci's monitor list (Turkish UI): each monitor's status, check interval, uptime bars for the last 24 hours and an overall status summary">
+          </picture>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats" aria-label="Highlights">
+    <div class="wrap">
+      <ul>
+        <li><b>One image</b><span>UI, API, check engine and agents</span></li>
+        <li><b>~15 MB RAM</b><span>with 10 monitors and 3 servers</span></li>
+        <li><b>amd64&nbsp;+&nbsp;arm64</b><span>Linux hosts, plus a Windows agent</span></li>
+        <li><b>SQLite · PostgreSQL</b><span>SQLite by default, PostgreSQL if you prefer</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section" id="features" aria-labelledby="features-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Features</span>
+        <h2 id="features-title">Uptime Kuma's monitors and Beszel's server metrics, in one dashboard</h2>
+        <p>A UI as simple as UptimeRobot's, built to stay fast with hundreds of monitors.</p>
+      </div>
+      <div class="features">
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+          <h3>18 monitor types</h3>
+          <p>HTTP(S) with custom headers, body, auth, mTLS and proxies, plus keyword and JSON query checks. SSL expiry warnings, retries and maintenance windows.</p>
+          <ul class="chips" aria-label="Example monitor types">
+            <li>HTTP(S)</li><li>TCP</li><li>Ping</li><li>DNS</li><li>gRPC</li><li>WebSocket</li><li>PostgreSQL</li><li>MySQL</li><li>Redis</li><li>Docker</li><li>Push</li><li>+7</li>
+          </ul>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg></div>
+          <h3>Server monitoring</h3>
+          <p>CPU, RAM, per-mount disk usage, swap, load, temperature, network and Docker containers. Agents for Linux and Windows; alerts use window averages and hysteresis, so they don't flap.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></div>
+          <h3>24 notification channels</h3>
+          <p>Reach the right people the moment something goes down. Send a test notification to any channel with one click.</p>
+          <ul class="chips" aria-label="Example notification channels">
+            <li>WhatsApp</li><li>Telegram</li><li>Email</li><li>Slack</li><li>Discord</li><li>Teams</li><li>ntfy</li><li>PagerDuty</li><li>Webhook</li><li>+15</li>
+          </ul>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
+          <h3>Status pages</h3>
+          <p>Public status pages with collapsible groups, 90-day history, recent incidents, password protection, custom domains and badges.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+          <h3>Remote check locations</h3>
+          <p>Check monitors from several locations and pick the outage rule yourself: any, majority or all.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <h3>Teams and client accounts</h3>
+          <p>Admin, editor and viewer roles, plus client accounts that only see the monitors and servers assigned to them. Two-factor auth, API keys and an audit log.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div>
+          <h3>Feels like a native app</h3>
+          <p>Install it as a PWA and get a live-updating dashboard on your home screen. No app store required.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
+          <h3>Painless migration</h3>
+          <p>Import from an Uptime Kuma backup or straight from your UptimeRobot account. Export/import and nightly backups included.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt" id="screenshots" aria-labelledby="screenshots-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Screenshots</span>
+        <h2 id="screenshots-title">See what's going on at a glance</h2>
+        <p>Dark and light themes, desktop and phone. Click any screenshot to enlarge it. The UI is in Turkish today; English is coming soon.</p>
+      </div>
+      <div class="gallery">
+        <figure class="shot">
+          <a href="/img/monitor-detay.png?v=dev" data-lightbox="/img/monitor-detay.webp?v=dev">
+            <div class="browser">
+              <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="frame-crop">
+                <picture>
+                  <source type="image/webp" srcset="/img/monitor-detay-800.webp?v=dev 800w, /img/monitor-detay-1600.webp?v=dev 1600w" sizes="(min-width: 1200px) 556px, (min-width: 760px) calc(50vw - 44px), calc(100vw - 40px)">
+                  <img src="/img/monitor-detay.png?v=dev" width="2400" height="1883" loading="lazy" decoding="async" alt="Monitor details: response time chart, uptime percentages, SSL certificate expiry and recent incidents">
+                </picture>
+              </div>
+            </div>
+          </a>
+          <figcaption><b>Monitor details</b> — response time chart, 24 h / 7 / 30 / 90 day uptime, SSL expiry, incidents</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="/img/olay.png?v=dev" data-lightbox="/img/olay.webp?v=dev">
+            <div class="browser">
+              <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="frame-crop">
+                <picture>
+                  <source type="image/webp" srcset="/img/olay-800.webp?v=dev 800w, /img/olay-1600.webp?v=dev 1600w" sizes="(min-width: 1200px) 556px, (min-width: 760px) calc(50vw - 44px), calc(100vw - 40px)">
+                  <img src="/img/olay.png?v=dev" width="2400" height="1950" loading="lazy" decoding="async" alt="Incident details: root cause, timeline, notifications sent and the request and response captured during the outage">
+                </picture>
+              </div>
+            </div>
+          </a>
+          <figcaption><b>Incident details</b> — root cause, timeline, notifications sent and the request/response captured during the outage</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="/img/sunucu-detay.png?v=dev" data-lightbox="/img/sunucu-detay.webp?v=dev">
+            <div class="browser">
+              <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="frame-crop">
+                <picture>
+                  <source type="image/webp" srcset="/img/sunucu-detay-800.webp?v=dev 800w, /img/sunucu-detay-1600.webp?v=dev 1600w" sizes="(min-width: 1200px) 556px, (min-width: 760px) calc(50vw - 44px), calc(100vw - 40px)">
+                  <img src="/img/sunucu-detay.png?v=dev" width="2400" height="2367" loading="lazy" decoding="async" alt="Server details: CPU, memory, network, disk I/O, load and per-mount usage charts">
+                </picture>
+              </div>
+            </div>
+          </a>
+          <figcaption><b>Server details</b> — CPU, memory, network, disk I/O, load and per-mount usage charts</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="/img/durum-sayfasi.png?v=dev" data-lightbox="/img/durum-sayfasi.webp?v=dev">
+            <div class="browser">
+              <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="url">status.example.com</span></div>
+              <div class="frame-crop">
+                <picture>
+                  <source type="image/webp" srcset="/img/durum-sayfasi-800.webp?v=dev 800w, /img/durum-sayfasi-1600.webp?v=dev 1600w" sizes="(min-width: 1200px) 556px, (min-width: 760px) calc(50vw - 44px), calc(100vw - 40px)">
+                  <img src="/img/durum-sayfasi.png?v=dev" width="2400" height="2342" loading="lazy" decoding="async" alt="Public status page: overall status banner, groups and 90-day uptime bars for each service">
+                </picture>
+              </div>
+            </div>
+          </a>
+          <figcaption><b>Status page</b> — public, collapsible groups, 90-day history; follows the system theme</figcaption>
+        </figure>
+        <figure class="shot wide">
+          <a href="/img/sunucular.png?v=dev" data-lightbox="/img/sunucular.webp?v=dev">
+            <div class="browser">
+              <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span></div>
+              <picture>
+                <source type="image/webp" srcset="/img/sunucular-800.webp?v=dev 800w, /img/sunucular-1600.webp?v=dev 1600w, /img/sunucular.webp?v=dev 2400w" sizes="(min-width: 1200px) 1136px, calc(100vw - 40px)">
+                <img src="/img/sunucular.png?v=dev" width="2400" height="1033" loading="lazy" decoding="async" alt="Server list: CPU, RAM, fullest disk, network, load and alerts for each server">
+              </picture>
+            </div>
+          </a>
+          <figcaption><b>Servers</b> — Linux and Windows; CPU, RAM, fullest disk, network, load and alerts at a glance</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="/img/monitorler.png?v=dev" data-lightbox="/img/monitorler.webp?v=dev">
+            <div class="browser">
+              <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="frame-crop">
+                <picture>
+                  <source type="image/webp" srcset="/img/monitorler-800.webp?v=dev 800w, /img/monitorler-1600.webp?v=dev 1600w" sizes="(min-width: 1200px) 556px, (min-width: 760px) calc(50vw - 44px), calc(100vw - 40px)">
+                  <img src="/img/monitorler.png?v=dev" width="2880" height="1800" loading="lazy" decoding="async" alt="Monitor list: status, check interval, uptime bars for the last 24 hours and an overall summary">
+                </picture>
+              </div>
+            </div>
+          </a>
+          <figcaption><b>Monitors</b> — status, response time, uptime bars for the last 24 hours and an overall summary</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="/img/yeni-monitor.png?v=dev" data-lightbox="/img/yeni-monitor.webp?v=dev">
+            <div class="browser">
+              <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="frame-crop">
+                <picture>
+                  <source type="image/webp" srcset="/img/yeni-monitor-800.webp?v=dev 800w, /img/yeni-monitor-1600.webp?v=dev 1600w" sizes="(min-width: 1200px) 556px, (min-width: 760px) calc(50vw - 44px), calc(100vw - 40px)">
+                  <img src="/img/yeni-monitor.png?v=dev" width="2400" height="1500" loading="lazy" decoding="async" alt="New monitor form: a type picker grouped into web, network, database and system categories">
+                </picture>
+              </div>
+            </div>
+          </a>
+          <figcaption><b>New monitor</b> — HTTP, TCP, Ping, DNS, databases, Docker, Push, groups and more</figcaption>
+        </figure>
+        <figure class="shot wide">
+          <a href="/img/mobil.png?v=dev" data-lightbox="/img/mobil.webp?v=dev">
+            <div class="bare">
+              <picture>
+                <source type="image/webp" srcset="/img/mobil-800.webp?v=dev 800w, /img/mobil-1600.webp?v=dev 1600w, /img/mobil.webp?v=dev 2400w" sizes="(min-width: 1200px) 1136px, calc(100vw - 40px)">
+                <img src="/img/mobil.png?v=dev" width="2400" height="1594" loading="lazy" decoding="async" alt="Three phone screens: the monitor list, server details and CPU, memory and network history charts">
+              </picture>
+            </div>
+          </a>
+          <figcaption><b>On your phone</b> — monitor list and server details; add it to your home screen as a PWA</figcaption>
+        </figure>
+      </div>
+      <p class="note">Screenshots were taken from a demo instance running on fictional data.</p>
+    </div>
+  </section>
+
+  <section class="section" id="compare" aria-labelledby="compare-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Why Bekci?</span>
+        <h2 id="compare-title">Two tools' worth of monitoring in one container</h2>
+        <p>Instead of running one tool for your sites and another for your servers, get both in one dashboard, one image, on your own hardware.</p>
+      </div>
+      <div class="table-wrap" role="region" aria-labelledby="compare-title" tabindex="0">
+        <table class="compare">
+          <caption class="sr-only">Comparison of Bekci, UptimeRobot, Uptime Kuma and Beszel</caption>
+          <thead>
+            <tr>
+              <th scope="col">Feature</th>
+              <th scope="col" class="us">Bekci<small>self-hosted</small></th>
+              <th scope="col">UptimeRobot<small>hosted (SaaS)</small></th>
+              <th scope="col">Uptime Kuma<small>self-hosted</small></th>
+              <th scope="col">Beszel<small>self-hosted</small></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Your data stays on your server</th>
+              <td class="us" data-label="Bekci"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
+              <td data-label="UptimeRobot"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">No</span></span></td>
+              <td data-label="Uptime Kuma"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
+              <td data-label="Beszel"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
+            </tr>
+            <tr>
+              <th scope="row">Website and service checks (HTTP, TCP, DNS…)</th>
+              <td class="us" data-label="Bekci"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
+              <td data-label="UptimeRobot"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
+              <td data-label="Uptime Kuma"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
+              <td data-label="Beszel"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">No</span></span></td>
+            </tr>
+            <tr>
+              <th scope="row">Server resource monitoring (CPU, RAM, disk, network)</th>
+              <td class="us" data-label="Bekci"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
+              <td data-label="UptimeRobot"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">No</span></span></td>
+              <td data-label="Uptime Kuma"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">No</span></span></td>
+              <td data-label="Beszel"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
+            </tr>
+            <tr>
+              <th scope="row">Public status pages</th>
+              <td class="us" data-label="Bekci"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
+              <td data-label="UptimeRobot"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
+              <td data-label="Uptime Kuma"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
+              <td data-label="Beszel"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">No</span></span></td>
+            </tr>
+            <tr>
+              <th scope="row">Checks from multiple locations</th>
+              <td class="us" data-label="Bekci"><span class="part">Via your own check locations</span></td>
+              <td data-label="UptimeRobot"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
+              <td data-label="Uptime Kuma"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">No</span></span></td>
+              <td data-label="Beszel"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">No</span></span></td>
+            </tr>
+            <tr>
+              <th scope="row">Price</th>
+              <td class="us" data-label="Bekci"><span class="part">Free</span></td>
+              <td data-label="UptimeRobot"><span class="part">Free plan, paid plans</span></td>
+              <td data-label="Uptime Kuma"><span class="part">Free, open source</span></td>
+              <td data-label="Beszel"><span class="part">Free, open source</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="compare-foot">
+        <div class="card">
+          <h3>Coming from UptimeRobot?</h3>
+          <p>Your data stays on your own server and there are no plan limits. Import your monitors straight from your account.</p>
+        </div>
+        <div class="card">
+          <h3>Coming from Uptime Kuma?</h3>
+          <p>The monitor types you know, plus server metrics, client accounts and remote check locations. Bring your Kuma backup along.</p>
+        </div>
+        <div class="card">
+          <h3>Using Beszel?</h3>
+          <p>Keep your server metrics and add your websites, APIs and status pages to the same dashboard.</p>
+        </div>
+      </div>
+      <p class="fine">This table is a high-level summary of each product's core features (September 2026). Uptime Kuma and Beszel are mature, well-loved open-source projects; check their own docs for current details.</p>
+    </div>
+  </section>
+
+  <section class="section alt" id="security" aria-labelledby="security-title">
+    <div class="wrap split">
+      <div>
+        <div class="section-head">
+          <span class="eyebrow">Agent security</span>
+          <h2 id="security-title">Built for the servers you care about most</h2>
+          <p>The agent runs on every server you monitor, so it's designed to run with minimal privileges and never change itself behind your back.</p>
+        </div>
+        <ul class="checklist">
+          <li>
+            <span class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></svg></span>
+            <div><b>Tokens are stored as hashes</b><span>A token is shown exactly once; the dashboard never keeps it in plain text.</span></div>
+          </li>
+          <li>
+            <span class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
+            <div><b>IP lock</b><span>The first connecting IP is pinned (full IPv4 address, IPv6 /64). A stolen token is useless from any other machine.</span></div>
+          </li>
+          <li>
+            <span class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span>
+            <div><b>Pinned, SHA-256-verified binary</b><span>The binary is checked against the SHA-256 hash embedded in the install command and rejected on mismatch. The agent never updates itself, so even a compromised dashboard can't push new code to your servers.</span></div>
+          </li>
+          <li>
+            <span class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24M10.73 5.08A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61M2 2l20 20"/></svg></span>
+            <div><b>Token never shows up in the process list</b><span>It never appears on a command line (<code>ps</code>); it lives only in a config file with 0600 permissions.</span></div>
+          </li>
+          <li>
+            <span class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></span>
+            <div><b>Hardened container</b><span>All Linux capabilities dropped (<code>--cap-drop ALL</code>), <code>no-new-privileges</code>, a 256 MB memory cap and a process limit.</span></div>
+          </li>
+          <li>
+            <span class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <div><b>No plain HTTP by default</b><span>The agent refuses to connect to a dashboard that isn't served over HTTPS unless you explicitly allow it.</span></div>
+          </li>
+        </ul>
+      </div>
+      <div class="cmd block">
+        <div class="cmd-head"><span>Structure of the Linux install command</span></div>
+        <pre><code><span class="k">sh</span> &lt;&lt;<span class="s">'UPTIME_KURULUM'</span>
+<span class="k">set</span> -e
+<span class="c"># the token lives in a root-only file</span>
+<span class="k">install</span> -m 600 /dev/null /etc/uptime-agent.env
+<span class="k">cat</span> &gt; /etc/uptime-agent.env &lt;&lt;<span class="s">'UPTIME_ENV'</span>
+PROBE_SERVER=https://bekci.example.com
+PROBE_TOKEN=upr_…
+<span class="s">UPTIME_ENV</span>
+<span class="c"># hardened container; binary verified via SHA-256</span>
+<span class="k">docker run</span> -d --name uptime-agent \
+  --cap-drop ALL --security-opt no-new-privileges \
+  --memory 256m --pids-limit 200 \
+  --env-file /etc/uptime-agent.env …
+<span class="s">UPTIME_KURULUM</span></code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="install" aria-labelledby="install-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Install</span>
+        <h2 id="install-title">Up and running in a minute</h2>
+        <p>Runs on any Linux server with Docker. 1 vCPU, 512 MB of RAM (1 GB recommended) and 10 GB of disk are plenty.</p>
+      </div>
+      <div class="steps">
+        <div class="card step">
+          <div class="step-head"><span class="num" aria-hidden="true">1</span><h3>One Docker command</h3></div>
+          <p>The quickest way to try it, or to run it behind the reverse proxy you already have (Caddy, Traefik, Nginx).</p>
+          <div class="cmd block">
+            <div class="cmd-head"><span>terminal</span>
+              <button class="copy" type="button" data-copy="code-run" aria-label="Copy Docker command">
+                <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                <span class="copy-label">Copy</span>
+              </button>
+            </div>
+            <pre><code id="code-run">docker run -d --name bekci --restart unless-stopped \
+  -p 8080:8080 -v bekci-data:/data \
+  -e BASE_URL=https://bekci.example.com \
+  kadirsungurlu/bekci</code></pre>
+          </div>
+          <ul>
+            <li><code>BASE_URL</code> is your public URL; notification links and agent install commands use it.</li>
+            <li>Prefer PostgreSQL? Point <code>DATABASE_URL</code> at your own server, or use the <code>:postgres</code> image with embedded PostgreSQL 18.</li>
+          </ul>
+        </div>
+        <div class="card step">
+          <div class="step-head"><span class="num" aria-hidden="true">2</span><h3>Coolify</h3></div>
+          <p>On Coolify, add Bekci as a Docker image:</p>
+          <ul>
+            <li>Image <code>kadirsungurlu/bekci</code>, port <code>8080</code>, health check <code>/healthz</code>.</li>
+            <li>Persistent storage: <code>/data</code> (as a <b>Volume</b>). If you bind-mount a host directory instead, it must be owned by uid 1000.</li>
+            <li>On updates, the new container waits for the old one to stop, then takes over within a second or two — no duplicate checks, no double alerts.</li>
+          </ul>
+          <p>On first launch, you'll be asked to create an admin account.</p>
+        </div>
+        <div class="card step wide">
+          <div class="step-head"><span class="num" aria-hidden="true">3</span><h3>Docker Compose + Caddy (automatic HTTPS)</h3></div>
+          <p>A permanent setup on a fresh server: Caddy obtains and renews Let's Encrypt certificates on its own. Point your domain's DNS at the server and open ports 80 and 443.</p>
+          <div class="two-code">
+            <div class="cmd block">
+              <div class="cmd-head"><span>docker-compose.yml</span>
+                <button class="copy" type="button" data-copy="code-compose" aria-label="Copy docker-compose.yml">
+                  <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  <span class="copy-label">Copy</span>
+                </button>
+              </div>
+              <pre><code id="code-compose">name: bekci
+services:
+  bekci:
+    image: kadirsungurlu/bekci:latest
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      BASE_URL: https://bekci.example.com
+      TZ: UTC
+    volumes:
+      - bekci-data:/data
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      bekci:
+        condition: service_healthy
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+volumes:
+  bekci-data:
+  caddy-data:
+  caddy-config:</code></pre>
+            </div>
+            <div class="step">
+              <div class="cmd block">
+                <div class="cmd-head"><span>Caddyfile</span>
+                  <button class="copy" type="button" data-copy="code-caddy" aria-label="Copy Caddyfile">
+                    <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                    <span class="copy-label">Copy</span>
+                  </button>
+                </div>
+                <pre><code id="code-caddy">bekci.example.com {
+	encode zstd gzip
+	header &gt;Strict-Transport-Security "max-age=31536000"
+	reverse_proxy bekci:8080 {
+		# Stream live updates (SSE) without buffering
+		flush_interval -1
+	}
+}</code></pre>
+              </div>
+              <div class="cmd block">
+                <div class="cmd-head"><span>terminal</span>
+                  <button class="copy" type="button" data-copy="code-up" aria-label="Copy start command">
+                    <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                    <span class="copy-label">Copy</span>
+                  </button>
+                </div>
+                <pre><code id="code-up">docker compose up -d</code></pre>
+              </div>
+              <p>Replace <code>bekci.example.com</code> with your own domain, then open it over <code>https://</code>.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt" id="faq" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">FAQ</span>
+        <h2 id="faq-title">Frequently asked questions</h2>
+      </div>
+      <div class="faq">
+        <details open>
+          <summary>Is Bekci free?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <div class="answer"><p>Yes. Bekci is self-hosted: no license fees, no subscription, no paid tiers. The only cost is the server you run it on.</p></div>
+        </details>
+        <details>
+          <summary>Is the interface available in English?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <div class="answer"><p>Not yet. The UI is in Turkish today, including notifications and date formats — English UI is coming soon. Commands, paths and settings are the same in both languages, so everything on this page works as-is.</p></div>
+        </details>
+        <details>
+          <summary>Which database does it use?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <div class="answer">
+            <p>SQLite by default — no extra services, and the lightest option. If you'd rather use PostgreSQL, point <code>DATABASE_URL</code> at your own server or run the <code>kadirsungurlu/bekci:postgres</code> image with embedded PostgreSQL 18 (about 200 MB of extra RAM).</p>
+            <p>Data can't be moved between the two images, so pick one up front.</p>
+          </div>
+        </details>
+        <details>
+          <summary>What are the system requirements?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <div class="answer"><p>At least 1 vCPU, 512 MB of RAM (1 GB recommended) and 10 GB of disk. The image is built for linux/amd64 and linux/arm64. Bekci itself uses around 15 MB of RAM with 10 monitors and 3 servers.</p></div>
+        </details>
+        <details>
+          <summary>Can I monitor Windows servers?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <div class="answer">
+            <p>Yes. The server agent runs on Linux (amd64, arm64) and Windows (amd64). On Windows, paste the command from the dashboard into PowerShell opened with <b>Run as administrator</b>; the agent installs as a Windows service that starts automatically.</p>
+            <p>On Windows, load average is approximated, and temperature and Docker containers aren't collected. Bekci itself (the dashboard) runs on Linux with Docker.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Where is my data stored?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <div class="answer"><p>Entirely on your server: monitors, measurements, incidents and users live in the SQLite database on the <code>/data</code> volume (or in your own PostgreSQL). With SQLite, a backup is written to <code>/data/backups/</code> every night — we recommend copying that folder off the server too.</p></div>
+        </details>
+        <details>
+          <summary>How do I update?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <div class="answer">
+            <p>Take a backup, then pull the new image and recreate the container. With Compose:</p>
+            <div class="cmd"><pre><code>docker compose pull &amp;&amp; docker compose up -d</code></pre></div>
+            <p>If a new version changes the database schema (SQLite), Bekci takes an automatic backup first and won't migrate if that backup fails. To pin a version or roll back, use version tags such as <code>kadirsungurlu/bekci:1.2.3</code>.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Is there a mobile app?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <div class="answer"><p>There's no app-store app, and you won't miss it. Bekci is a PWA: on iPhone, open it in Safari → <b>Share</b> → <b>Add to Home Screen</b>; on Android, use Chrome → <b>Install app</b>. It launches like a native app and updates live.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="cta-title">
+    <div class="wrap">
+      <div class="cta">
+        <h2 id="cta-title">Give your sites a night watchman</h2>
+        <p>Install it with one command and add your first monitor in under a minute.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#install">Install Bekci</a>
+          <a class="btn btn-ghost" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">View on Docker Hub</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <a class="brand" href="/en/" aria-label="Bekci home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#3bd671" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#3bd671" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#3bd671"/></svg>
+      Bekci
+    </a>
+    <ul class="foot-links">
+      <li><a href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#faq">FAQ</a></li>
+      <li><a href="/" hreflang="tr" lang="tr">Türkçe</a></li>
+    </ul>
+    <p>© 2026 Bekci · Made in Türkiye. <span lang="tr">Bekçi</span> is Turkish for “night watchman”.</p>
+  </div>
+</footer>
+
+<dialog class="lightbox" id="isik-kutusu" aria-label="Screenshot">
+  <div class="lb-inner">
+    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="">
+    <p class="lb-cap"></p>
+  </div>
+  <span class="lb-count" aria-live="polite"></span>
+  <button class="lb-btn lb-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  <button class="lb-btn lb-prev" type="button" aria-label="Previous screenshot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+  <button class="lb-btn lb-next" type="button" aria-label="Next screenshot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+</dialog>
+<div id="duyuru" class="sr-only" aria-live="polite"></div>
+</body>
+</html>
