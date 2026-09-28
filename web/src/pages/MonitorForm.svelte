@@ -26,6 +26,7 @@
     CATEGORY_ORDER,
     GROUP_MODES,
     HTTP_EXTRA_FIELDS,
+    JSON_OPS,
     MONITOR_TYPES,
     hasTimeout,
     hasUpsideDown,
@@ -37,6 +38,7 @@
   import TagChip from '../components/TagChip.svelte';
   import TagDialog from '../components/TagDialog.svelte';
   import ConfigFields, { fieldConfig, fieldDefaults, fieldError, fieldValues } from '../components/ConfigFields.svelte';
+  import { t, tParts, type TKey } from '../lib/i18n';
 
   let { id }: { id?: number } = $props();
   // svelte-ignore state_referenced_locally
@@ -51,9 +53,9 @@
   let pickerOpen = $state(!isEdit);
   const typeGroups = $derived.by(() => {
     const q = lower(typeQuery.trim());
-    const match = (t: (typeof MONITOR_TYPES)[number]) =>
-      !q || lower(`${t.label} ${t.badge} ${t.key} ${t.desc} ${t.keywords ?? ''} ${CATEGORY_LABELS[t.category]}`).includes(q);
-    return CATEGORY_ORDER.map((c) => ({ key: c, label: CATEGORY_LABELS[c], types: MONITOR_TYPES.filter((t) => t.category === c && match(t)) })).filter(
+    const match = (d: (typeof MONITOR_TYPES)[number]) =>
+      !q || lower(`${d.label} ${d.badge} ${d.key} ${d.desc} ${d.keywords ?? ''} ${CATEGORY_LABELS[d.category]}`).includes(q);
+    return CATEGORY_ORDER.map((c) => ({ key: c, label: CATEGORY_LABELS[c], types: MONITOR_TYPES.filter((d) => d.category === c && match(d)) })).filter(
       (g) => g.types.length,
     );
   });
@@ -61,16 +63,6 @@
   const PRESETS = [30, 60, 120, 300, 600, 900, 1800, 3600, 86400];
   const METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
   const RECORD_TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'TXT', 'SOA', 'SRV', 'CAA', 'PTR'];
-  const JSON_OPS: { v: string; l: string }[] = [
-    { v: '==', l: 'eşittir (==)' },
-    { v: '!=', l: 'eşit değildir (!=)' },
-    { v: 'contains', l: 'içerir' },
-    { v: '>', l: 'büyüktür (>)' },
-    { v: '>=', l: 'büyük veya eşit (>=)' },
-    { v: '<', l: 'küçüktür (<)' },
-    { v: '<=', l: 'küçük veya eşit (<=)' },
-    { v: 'exists', l: 'mevcut (değer fark etmez)' },
-  ];
 
   let loading = $state(isEdit);
   let loadError = $state('');
@@ -161,10 +153,10 @@
   let locDownWhen = $state<DownWhen>('any');
   let origLoc: LocationSetup = { include_local: true, probe_ids: [], down_when: 'any' };
   const remoteOk = $derived(isRemoteCapable(type));
-  const DOWN_WHEN: { v: DownWhen; l: string }[] = [
-    { v: 'any', l: 'Herhangi bir konum çalışmıyorsa' },
-    { v: 'majority', l: 'Konumların çoğunluğu çalışmıyorsa' },
-    { v: 'all', l: 'Tüm konumlar çalışmıyorsa' },
+  const DOWN_WHEN: { v: DownWhen; l: TKey }[] = [
+    { v: 'any', l: 'monitors.form.dwAny' },
+    { v: 'majority', l: 'monitors.form.dwMajority' },
+    { v: 'all', l: 'monitors.form.dwAll' },
   ];
 
   const interval = $derived(intervalPreset === 'custom' ? (customInterval ?? 0) : Number(intervalPreset));
@@ -249,15 +241,15 @@
     }
   }
 
-  function pickType(t: MonitorType) {
+  function pickType(nt: MonitorType) {
     const pristine = !isEdit && !isDirty();
-    if (t !== type) {
+    if (nt !== type) {
       clearedSecrets = [];
       const prevHost = ['tcp', 'ping', 'dns'].includes(type) ? host.trim() : '';
-      type = t;
-      const f = typeDef(t)?.fields;
+      type = nt;
+      const f = typeDef(nt)?.fields;
       if (f) {
-        if (t === origType) extra = fieldValues(f, origConfig);
+        if (nt === origType) extra = fieldValues(f, origConfig);
         else {
           extra = fieldDefaults(f);
           // Önceki tipte girilen adres/sunucu yeni tipe taşınır.
@@ -322,7 +314,7 @@
         const d = await api.monitor(id!);
         fill(d.monitor);
       } catch (e) {
-        loadError = e instanceof ApiError && e.status === 404 ? 'Monitör bulunamadı.' : errorMessage(e);
+        loadError = e instanceof ApiError && e.status === 404 ? t('monitors.form.notFound') : errorMessage(e);
       } finally {
         loading = false;
       }
@@ -372,65 +364,65 @@
 
   /** Hata metni, hatanın gelişmiş ayarlarda olup olmadığı ve hatalı alanın kimliği. */
   function validate(): { msg: string; advanced?: boolean; field?: string } | null {
-    if (!name.trim()) return { msg: 'Monitör adı gerekli.', field: 'name' };
-    if (name.trim().length > 100) return { msg: 'Ad en fazla 100 karakter olabilir.', field: 'name' };
+    if (!name.trim()) return { msg: t('monitors.form.v.nameRequired'), field: 'name' };
+    if (name.trim().length > 100) return { msg: t('monitors.form.v.nameTooLong'), field: 'name' };
     if (!inRange(interval, 20, 86400))
-      return { msg: 'Kontrol aralığı 20 saniye ile 24 saat (86400 sn) arasında olmalı.', field: intervalPreset === 'custom' ? 'cint' : 'int' };
+      return { msg: t('monitors.form.v.intervalRange'), field: intervalPreset === 'custom' ? 'cint' : 'int' };
     switch (type) {
       case 'http': {
-        if (!/^https?:\/\/[^\s/]+/i.test(url.trim())) return { msg: 'Geçerli bir http:// veya https:// adresi girin.', field: 'url' };
+        if (!/^https?:\/\/[^\s/]+/i.test(url.trim())) return { msg: t('monitors.form.v.urlInvalid'), field: 'url' };
         const codes = parseCodes();
         const bad = codes.find((c) => !validCode(c));
         if (bad)
           return {
-            msg: `Geçersiz durum kodu: “${bad}”. Kodlar 100-599 arasında olmalı; örnek biçimler: 200, 200-299, 2xx`,
+            msg: t('monitors.form.v.badCode', { code: bad }),
             advanced: true,
             field: 'codes',
           };
-        if (!inRange(maxRedirects, 0, 30)) return { msg: 'Yönlendirme sayısı 0-30 arasında olmalı.', advanced: true, field: 'rd' };
-        if (contentMode === 'keyword' && !keyword) return { msg: 'Aranacak kelimeyi girin.', advanced: true, field: 'kw' };
-        if (contentMode === 'json' && !jsonPath.trim()) return { msg: 'JSON yolunu girin (ör. data.status).', advanced: true, field: 'jp' };
+        if (!inRange(maxRedirects, 0, 30)) return { msg: t('monitors.form.v.redirectsRange'), advanced: true, field: 'rd' };
+        if (contentMode === 'keyword' && !keyword) return { msg: t('monitors.form.v.keywordRequired'), advanced: true, field: 'kw' };
+        if (contentMode === 'json' && !jsonPath.trim()) return { msg: t('monitors.form.v.jsonPathRequired'), advanced: true, field: 'jp' };
         if (method === 'HEAD' && contentMode !== 'none')
-          return { msg: 'HEAD isteği gövde döndürmez; kelime/JSON kontrolü için GET kullanın.', advanced: true, field: 'method' };
+          return { msg: t('monitors.form.v.headNoBody'), advanced: true, field: 'method' };
         const xe = fieldError(HTTP_EXTRA_FIELDS, httpExtra);
         if (xe) return { msg: xe.msg, advanced: true, field: `hx-${xe.key}` };
         const x = httpExtra;
         if (x.proxy_url.trim() && x.proxy_pass && !x.proxy_user.trim())
-          return { msg: 'Proxy şifresi için kullanıcı adı da gerekli.', advanced: true, field: 'hx-proxy_user' };
+          return { msg: t('monitors.form.v.proxyUserRequired'), advanced: true, field: 'hx-proxy_user' };
         // Sertifika silindiyse kayıtlı (maskeli) anahtar da kaldırılacak: dolu sayılmaz.
         const keySet = !!x.tls_key.trim() && !(x.tls_key === MASK && !x.tls_cert.trim());
         if (!!x.tls_cert.trim() !== keySet)
           return {
-            msg: 'İstemci sertifikası ve özel anahtarı birlikte girilmeli.',
+            msg: t('monitors.form.v.certKeyPair'),
             advanced: true,
             field: x.tls_cert.trim() ? 'hx-tls_key' : 'hx-tls_cert',
           };
         if (x.oauth_token_url.trim()) {
           if (!x.oauth_client_id.trim() || !x.oauth_client_secret)
             return {
-              msg: 'OAuth2 için istemci kimliği (Client ID) ve istemci sırrı (Client Secret) gerekli.',
+              msg: t('monitors.form.v.oauthRequired'),
               advanced: true,
               field: x.oauth_client_id.trim() ? 'hx-oauth_client_secret' : 'hx-oauth_client_id',
             };
-          if (basicUser || basicPass) return { msg: 'Basic auth ile OAuth2 birlikte kullanılamaz; birini boşaltın.', advanced: true, field: 'bu' };
+          if (basicUser || basicPass) return { msg: t('monitors.form.v.oauthBasic'), advanced: true, field: 'bu' };
         }
         break;
       }
       case 'tcp':
-        if (!host.trim()) return { msg: 'Sunucu adresi gerekli.', field: 'host' };
-        if (!inRange(port, 1, 65535)) return { msg: 'Port 1-65535 arasında olmalı.', field: 'port' };
+        if (!host.trim()) return { msg: t('monitors.form.v.hostRequired'), field: 'host' };
+        if (!inRange(port, 1, 65535)) return { msg: t('monitorTypes.f.portRange'), field: 'port' };
         break;
       case 'ping':
-        if (!host.trim()) return { msg: 'Sunucu adresi gerekli.', field: 'host' };
-        if (!inRange(pingCount, 1, 10)) return { msg: 'Ping sayısı 1-10 arasında olmalı.', field: 'count' };
+        if (!host.trim()) return { msg: t('monitors.form.v.hostRequired'), field: 'host' };
+        if (!inRange(pingCount, 1, 10)) return { msg: t('monitors.form.v.pingCount'), field: 'count' };
         break;
       case 'dns':
-        if (!host.trim()) return { msg: 'Sorgulanacak alan adı gerekli.', field: 'host' };
-        if (!inRange(dnsPort, 1, 65535)) return { msg: 'DNS sunucu portu 1-65535 arasında olmalı.', field: 'dport' };
+        if (!host.trim()) return { msg: t('monitors.form.v.domainRequired'), field: 'host' };
+        if (!inRange(dnsPort, 1, 65535)) return { msg: t('monitors.form.v.dnsPortRange'), field: 'dport' };
         break;
       case 'group':
-        if (groupIds.length === 0) return { msg: 'En az bir alt monitör seçin.' };
-        if (isEdit && groupIds.includes(id!)) return { msg: 'Grup kendisini alt monitör olarak içeremez.' };
+        if (groupIds.length === 0) return { msg: t('monitors.form.v.groupEmpty') };
+        if (isEdit && groupIds.includes(id!)) return { msg: t('monitors.form.v.groupSelf') };
         break;
       default:
         if (genericFields.length) {
@@ -438,13 +430,13 @@
           if (fe) return { ...fe, field: `${fe.advanced ? 'mta' : 'mt'}-${fe.key}` };
         }
     }
-    if (showLocations && !locLocal && locProbeIds.length === 0) return { msg: 'Konumlar: en az bir konum seçin.' };
+    if (showLocations && !locLocal && locProbeIds.length === 0) return { msg: t('monitors.form.v.locEmpty') };
     if (retryInterval !== null && !inRange(retryInterval, 20, 86400))
-      return { msg: 'Tekrar deneme aralığı 20 saniye ile 24 saat arasında olmalı.', advanced: true, field: 'ri' };
-    if (!inRange(maxRetries, 0, 20)) return { msg: 'Tekrar deneme sayısı 0-20 arasında olmalı.', advanced: true, field: 'mr' };
-    if (hasTimeout(type) && !inRange(timeout, 1, 300)) return { msg: 'Zaman aşımı 1-300 saniye arasında olmalı.', advanced: true, field: 'to' };
-    if (!inRange(resendEvery, 0, 10000)) return { msg: 'Hatırlatma sıklığı 0-10000 arasında olmalı.', advanced: true, field: 're' };
-    if (description.trim().length > 500) return { msg: 'Açıklama en fazla 500 karakter olabilir.', advanced: true, field: 'desc' };
+      return { msg: t('monitors.form.v.retryIntervalRange'), advanced: true, field: 'ri' };
+    if (!inRange(maxRetries, 0, 20)) return { msg: t('monitors.form.v.retriesRange'), advanced: true, field: 'mr' };
+    if (hasTimeout(type) && !inRange(timeout, 1, 300)) return { msg: t('monitors.form.v.timeoutRange'), advanced: true, field: 'to' };
+    if (!inRange(resendEvery, 0, 10000)) return { msg: t('monitors.form.v.resendRange'), advanced: true, field: 're' };
+    if (description.trim().length > 500) return { msg: t('monitors.form.v.descTooLong'), advanced: true, field: 'desc' };
     return null;
   }
 
@@ -543,7 +535,7 @@
         );
         res = { ...res, tags };
       } catch (err) {
-        problems.push(`Etiketler kaydedilemedi: ${errorMessage(err)}`);
+        problems.push(t('monitors.form.tagsFailed', { err: errorMessage(err) }));
       }
     }
     const loc = locationTarget();
@@ -552,26 +544,26 @@
         const l = await api.setMonitorLocations(res.id, loc);
         res = { ...res, locations: { include_local: l.include_local, probe_ids: l.probe_ids, down_when: l.down_when } };
       } catch (err) {
-        problems.push(`Konumlar kaydedilemedi: ${errorMessage(err)}`);
+        problems.push(t('monitors.form.locFailed', { err: errorMessage(err) }));
       }
     }
     if (fromClone && !res.active) {
       try {
         res = await api.resumeMonitor(res.id);
       } catch (err) {
-        problems.push(`Monitör başlatılamadı: ${errorMessage(err)}`);
+        problems.push(t('monitors.form.resumeFailed', { err: errorMessage(err) }));
       }
     }
     live.upsert(res);
     saving = false;
     saved = true;
     if (problems.length) {
-      toast.error(`Monitör kaydedildi, ancak: ${problems.join(' ')}`);
+      toast.error(t('monitors.form.savedBut', { problems: problems.join(' ') }));
       // Yeni monitör artık var: tekrar göndermek kopya oluşturmasın diye düzenleme sayfasına geç.
       navigate(`/monitors/${res.id}/edit`, true);
       return;
     }
-    toast.success(isEdit ? 'Değişiklikler kaydedildi' : `“${res.name}” eklendi`);
+    toast.success(isEdit ? t('monitors.form.changesSaved') : t('monitors.form.added', { name: res.name }));
     navigate(`/monitors/${res.id}`);
   }
 
@@ -602,12 +594,12 @@
   // Sunucu, adres/sunucu/port değiştiğinde maskeli (kayıtlı) gizli değeri yeni hedefe
   // taşımaz. Bu durumda maskeli alanlar boşaltılır, gelişmiş ayarlar açılır ve ne
   // yapılması gerektiği yazılır; hedef eski hâline dönerse kayıtlı değerler geri gelir.
-  const HTTP_SECRETS: Record<string, string> = {
-    basic_pass: 'Basic auth şifresi',
-    headers: 'HTTP başlıkları',
-    proxy_pass: 'Proxy şifresi',
-    tls_key: 'Özel anahtar',
-    oauth_client_secret: 'İstemci sırrı',
+  const HTTP_SECRETS: Record<string, TKey> = {
+    basic_pass: 'monitors.form.basicPass',
+    headers: 'monitors.form.secret.headers',
+    proxy_pass: 'monitorTypes.f.http.proxyPass',
+    tls_key: 'monitors.form.secret.tlsKey',
+    oauth_client_secret: 'monitors.form.secret.clientSecret',
   };
   const secretKeys = $derived(
     type === 'http' ? Object.keys(HTTP_SECRETS) : genericFields.filter((f) => f.kind === 'secret' || f.secret).map((f) => f.key),
@@ -623,7 +615,8 @@
       else httpExtra[k] = v;
     } else extra[k] = v;
   }
-  const secretLabel = (k: string) => (type === 'http' ? HTTP_SECRETS[k] : genericFields.find((f) => f.key === k)?.label) ?? k;
+  const secretLabel = (k: string) =>
+    (type === 'http' ? (HTTP_SECRETS[k] ? t(HTTP_SECRETS[k]) : undefined) : genericFields.find((f) => f.key === k)?.label) ?? k;
 
   const destChanged = $derived.by(() => {
     if (!isEdit || loading || origType !== type) return [] as string[];
@@ -649,7 +642,11 @@
   });
   const rebindMsg = $derived(
     clearedSecrets.length && destChanged.length
-      ? `${destinationPhrase(destChanged)} değiştiği için kayıtlı ${clearedSecrets.map(secretLabel).join(', ')} güvenlik gereği yeni hedefe taşınmaz. Kaydetmeden önce ${clearedSecrets.length > 1 ? 'bunları' : 'bunu'} yeniden girin${type === 'http' ? ' (Gelişmiş ayarlar)' : ''}.`
+      ? t(clearedSecrets.length > 1 ? 'monitors.form.rebindMany' : 'monitors.form.rebindOne', {
+          dest: destinationPhrase(destChanged),
+          secrets: clearedSecrets.map(secretLabel).join(', '),
+          adv: type === 'http' ? t('monitors.form.rebindAdv') : '',
+        })
       : '',
   );
 
@@ -669,9 +666,9 @@
     tick().then(() => document.getElementById(`tv-${tid}`)?.focus());
   }
 
-  function tagCreated(t: Tag) {
-    allTags = [...allTags, t];
-    addTag(String(t.id));
+  function tagCreated(tag: Tag) {
+    allTags = [...allTags, tag];
+    addTag(String(tag.id));
   }
 
   // Konumlar ----------------------------------------------------------------------------
@@ -699,33 +696,39 @@
   const cancelHref = $derived(isEdit ? `#/monitors/${id}` : '#/');
 </script>
 
-<a class="back" href={cancelHref}><Icon name="chevron-left" size={16} /> {isEdit ? 'Monitöre dön' : 'Monitörler'}</a>
+<a class="back" href={cancelHref}><Icon name="chevron-left" size={16} /> {isEdit ? t('monitors.form.backToMonitor') : t('nav.monitors')}</a>
 <div class="page-head">
-  <h1>{isEdit ? 'Monitörü düzenle' : 'Yeni monitör'}<span class="dot">.</span></h1>
+  <h1>{isEdit ? t('monitors.form.titleEdit') : t('nav.titles.newMonitor')}<span class="dot">.</span></h1>
 </div>
 
 {#if loading}
   <div class="skeleton" style="height:420px;max-width:820px"></div>
 {:else if loadError}
   <div class="card empty">
-    <h3>Monitör yüklenemedi</h3>
+    <h3>{t('monitors.form.loadFailed')}</h3>
     <p>{loadError}</p>
-    <a class="btn primary" href="#/">Monitörlere dön</a>
+    <a class="btn primary" href="#/">{t('nav.backToMonitors')}</a>
   </div>
 {:else}
   <form class="form" onsubmit={submit} novalidate>
     {#if fromClone && !live.byId(id!)?.active}
       <div class="alert info small">
-        Bu monitör bir kopya ve durdurulmuş olarak oluşturuldu. Gerekirse adını ve hedefini değiştirin; kaydettiğinizde kontroller başlar.
+        {t('monitors.form.cloneNote')}
       </div>
     {/if}
     <section class="card">
       <div class="tp-head">
-        <h2 class="card-title">Monitör tipi</h2>
+        <h2 class="card-title">{t('monitors.form.type')}</h2>
         {#if pickerOpen}
           <div class="tsearch">
             <span class="s-ic"><Icon name="search" size={15} /></span>
-            <input class="input" type="search" placeholder="Tip ara (ör. redis, ssl)" bind:value={typeQuery} aria-label="Monitör tipi ara" />
+            <input
+              class="input"
+              type="search"
+              placeholder={t('monitors.form.typeSearchPh')}
+              bind:value={typeQuery}
+              aria-label={t('monitors.form.typeSearchAria')}
+            />
           </div>
         {/if}
       </div>
@@ -736,48 +739,51 @@
             <span class="tlabel">{def.label}</span>
             <span class="tdesc">{def.desc}</span>
           </span>
-          <button type="button" class="btn sm" onclick={() => (pickerOpen = true)}>Değiştir</button>
+          <button type="button" class="btn sm" onclick={() => (pickerOpen = true)}>{t('monitors.form.change')}</button>
         </div>
       {:else}
         {#if isEdit}
-          <p class="help tp-warn">Tipi değiştirmek monitörün hedefini değiştirir; açık olay kapatılır.</p>
+          <p class="help tp-warn">{t('monitors.form.typeChangeWarn')}</p>
         {/if}
         {#each typeGroups as g (g.key)}
           <h3 class="tgroup">{g.label}</h3>
           <div class="types" role="radiogroup" aria-label={g.label}>
-            {#each g.types as t (t.key)}
+            {#each g.types as tp (tp.key)}
               <button
                 type="button"
                 role="radio"
-                aria-checked={type === t.key}
+                aria-checked={type === tp.key}
                 class="type"
-                class:active={type === t.key}
-                onclick={() => pickType(t.key)}
+                class:active={type === tp.key}
+                onclick={() => pickType(tp.key)}
               >
-                <span class="ticon"><Icon name={t.icon} size={20} /></span>
-                <span class="tlabel">{t.label}</span>
-                <span class="tdesc">{t.desc}</span>
+                <span class="ticon"><Icon name={tp.icon} size={20} /></span>
+                <span class="tlabel">{tp.label}</span>
+                <span class="tdesc">{tp.desc}</span>
               </button>
             {/each}
           </div>
         {:else}
-          <p class="muted small nomargin">“{typeQuery}” ile eşleşen tip yok. <button type="button" class="linkbtn" onclick={() => (typeQuery = '')}>Aramayı temizle</button></p>
+          <p class="muted small nomargin">
+            {t('monitors.form.noTypeMatch', { q: typeQuery })}
+            <button type="button" class="linkbtn" onclick={() => (typeQuery = '')}>{t('monitors.form.clearSearch')}</button>
+          </p>
         {/each}
         {#if isEdit}
-          <button type="button" class="linkbtn tp-close" onclick={() => (pickerOpen = false)}>Listeyi kapat</button>
+          <button type="button" class="linkbtn tp-close" onclick={() => (pickerOpen = false)}>{t('monitors.form.closeList')}</button>
         {/if}
       {/if}
     </section>
 
     <section class="card stack">
       <div class="field">
-        <label for="name">Ad</label>
-        <input id="name" class="input" bind:value={name} maxlength="100" placeholder="Ör. Şirket web sitesi" />
+        <label for="name">{t('common.name')}</label>
+        <input id="name" class="input" bind:value={name} maxlength="100" placeholder={t('monitors.form.namePh')} />
       </div>
 
       {#if type === 'http'}
         <div class="field">
-          <label for="url">Adres (URL)</label>
+          <label for="url">{t('monitors.form.url')}</label>
           <input
             id="url"
             class="input"
@@ -787,69 +793,92 @@
             spellcheck="false"
             bind:value={url}
             onblur={urlBlur}
-            placeholder="https://ornek.com"
+            placeholder={t('monitors.form.urlPh')}
           />
         </div>
       {:else if type === 'tcp'}
         <div class="grid-host">
           <div class="field">
-            <label for="host">Sunucu</label>
-            <input id="host" class="input" autocapitalize="none" spellcheck="false" bind:value={host} onblur={hostBlur} placeholder="ornek.com veya 192.168.1.10" />
+            <label for="host">{t('monitors.form.host')}</label>
+            <input
+              id="host"
+              class="input"
+              autocapitalize="none"
+              spellcheck="false"
+              bind:value={host}
+              onblur={hostBlur}
+              placeholder={t('monitors.form.hostPh')}
+            />
           </div>
           <div class="field">
-            <label for="port">Port</label>
+            <label for="port">{t('monitorTypes.f.port')}</label>
             <input id="port" class="input" type="number" min="1" max="65535" bind:value={port} placeholder="443" />
           </div>
         </div>
       {:else if type === 'ping'}
         <div class="grid-host">
           <div class="field">
-            <label for="host">Sunucu</label>
-            <input id="host" class="input" autocapitalize="none" spellcheck="false" bind:value={host} onblur={hostBlur} placeholder="ornek.com veya 192.168.1.10" />
+            <label for="host">{t('monitors.form.host')}</label>
+            <input
+              id="host"
+              class="input"
+              autocapitalize="none"
+              spellcheck="false"
+              bind:value={host}
+              onblur={hostBlur}
+              placeholder={t('monitors.form.hostPh')}
+            />
           </div>
           <div class="field">
-            <label for="count">Paket sayısı</label>
+            <label for="count">{t('monitors.form.packets')}</label>
             <input id="count" class="input" type="number" min="1" max="10" bind:value={pingCount} />
           </div>
         </div>
       {:else if type === 'dns'}
         <div class="field">
-          <label for="host">Alan adı</label>
-          <input id="host" class="input" autocapitalize="none" spellcheck="false" bind:value={host} onblur={hostBlur} placeholder="ornek.com" />
+          <label for="host">{t('monitors.form.domain')}</label>
+          <input
+            id="host"
+            class="input"
+            autocapitalize="none"
+            spellcheck="false"
+            bind:value={host}
+            onblur={hostBlur}
+            placeholder={t('monitors.form.domainPh')}
+          />
         </div>
         <div class="grid-3">
           <div class="field">
-            <label for="rt">Kayıt tipi</label>
+            <label for="rt">{t('monitors.form.recordType')}</label>
             <select id="rt" class="input" bind:value={recordType}>
               {#each RECORD_TYPES as r (r)}<option value={r}>{r}</option>{/each}
             </select>
           </div>
           <div class="field">
-            <label for="dsrv">DNS sunucusu</label>
+            <label for="dsrv">{t('monitors.form.dnsServer')}</label>
             <input id="dsrv" class="input" autocapitalize="none" spellcheck="false" bind:value={dnsServer} placeholder="1.1.1.1" />
           </div>
           <div class="field">
-            <label for="dport">Port</label>
+            <label for="dport">{t('monitorTypes.f.port')}</label>
             <input id="dport" class="input" type="number" min="1" max="65535" bind:value={dnsPort} />
           </div>
         </div>
         <div class="field">
-          <label for="dexp">Beklenen değer <span class="muted">(isteğe bağlı)</span></label>
-          <input id="dexp" class="input" bind:value={dnsExpected} placeholder="Ör. 93.184.216.34" />
-          <span class="help">Doluysa cevaplardan en az biri bu metni içermeli; aksi halde çalışmıyor sayılır.</span>
+          <label for="dexp">{t('monitorTypes.f.expectedValue')} <span class="muted">{t('monitors.optionalParen')}</span></label>
+          <input id="dexp" class="input" bind:value={dnsExpected} placeholder={t('monitors.form.dnsExpectedPh')} />
+          <span class="help">{t('monitors.form.dnsExpectedHelp')}</span>
         </div>
       {:else if type === 'push'}
         <div class="alert info">
-          Kaydettikten sonra bu monitöre özel bir <b>push adresi</b> oluşturulur. Zamanlanmış işiniz her çalıştığında bu
-          adrese istek gönderir; belirlediğiniz süre içinde istek gelmezse size haber veririz.
+          {#each tParts('monitors.form.pushInfo') as p, i (i)}{#if p.slot === 'push'}<b>{t('monitors.form.pushUrl')}</b>{:else}{p.text}{/if}{/each}
         </div>
       {:else if type === 'group'}
         <div class="field">
-          <span class="label" id="grp-l">Alt monitörler</span>
-          <MonitorPicker bind:selected={groupIds} exclude={isEdit ? [id!] : []} label="Alt monitörler" id="grp" />
+          <span class="label" id="grp-l">{t('monitors.detail.children')}</span>
+          <MonitorPicker bind:selected={groupIds} exclude={isEdit ? [id!] : []} label={t('monitors.detail.children')} id="grp" />
         </div>
         <div class="field">
-          <span class="label" id="grp-mode">Mod</span>
+          <span class="label" id="grp-mode">{t('monitors.form.mode')}</span>
           <div class="seg" role="radiogroup" aria-labelledby="grp-mode">
             {#each GROUP_MODES as gm (gm.v)}
               <button type="button" role="radio" aria-checked={groupMode === gm.v} class:active={groupMode === gm.v} onclick={() => (groupMode = gm.v)}>
@@ -857,7 +886,7 @@
               </button>
             {/each}
           </div>
-          <span class="help">Durdurulmuş ve bakımdaki alt monitörler hesaba katılmaz.</span>
+          <span class="help">{t('monitors.childrenHelp')}</span>
         </div>
       {:else if genericFields.length}
         {#if def?.about}<p class="about text-2 small">{def.about}</p>{/if}
@@ -871,46 +900,46 @@
 
       <div class="grid-int">
         <div class="field">
-          <label for="int">{type === 'push' ? 'Beklenen push aralığı' : 'Kontrol aralığı'}</label>
+          <label for="int">{type === 'push' ? t('monitors.form.intervalPush') : t('monitors.form.interval')}</label>
           <select id="int" class="input" bind:value={intervalPreset}>
             {#each PRESETS as p (p)}<option value={String(p)}>{fmtInterval(p)}</option>{/each}
-            <option value="custom">Özel</option>
+            <option value="custom">{t('monitors.form.custom')}</option>
           </select>
         </div>
         {#if intervalPreset === 'custom'}
           <div class="field">
-            <label for="cint">Saniye</label>
+            <label for="cint">{t('monitors.form.seconds')}</label>
             <input id="cint" class="input" type="number" min="20" max="86400" bind:value={customInterval} />
           </div>
         {/if}
       </div>
       <span class="help int-help">
-        {#if type === 'push'}
-          Bu süre içinde push isteği gelmezse monitör çalışmıyor sayılır.
-        {:else}
-          Hedef bu sıklıkla kontrol edilir. En az 20 saniye, en fazla 24 saat.
-        {/if}
+        {type === 'push' ? t('monitors.form.intervalPushHelp') : t('monitors.form.intervalHelp')}
       </span>
     </section>
 
     <section class="card">
-      <h2 class="card-title">Bildirimler</h2>
+      <h2 class="card-title">{t('nav.notifications')}</h2>
       {#if !channelsLoaded}
         <div class="skeleton" style="height:40px"></div>
       {:else if channels.length === 0}
         <p class="muted small nomargin">
-          Henüz bildirim kanalı yok. <a href="#/notifications">Bildirimler</a> sayfasından WhatsApp, Telegram, e-posta gibi
-          bir kanal ekleyebilirsiniz.
+          {#each tParts('monitors.form.noChannels') as p, i (i)}{#if p.slot === 'link'}<a href="#/notifications">{t('nav.notifications')}</a
+            >{:else}{p.text}{/if}{/each}
         </p>
       {:else}
-        <p class="help nomargin sp">Bu monitör çalışmadığında ve düzeldiğinde seçili kanallara bildirim gönderilir.</p>
+        <p class="help nomargin sp">{t('monitors.form.notifyHelp')}</p>
         <div class="channels">
           {#each channels as ch (ch.id)}
             <label class="check ch">
               <input type="checkbox" value={ch.id} bind:group={notifIds} />
               <span>
                 {ch.name}
-                <small>{NOTIFY_LABELS[ch.type] ?? ch.type}{ch.active ? '' : ' · pasif'}{ch.is_default ? ' · varsayılan' : ''}</small>
+                <small
+                  >{NOTIFY_LABELS[ch.type] ?? ch.type}{ch.active ? '' : ` · ${t('monitors.inactive')}`}{ch.is_default
+                    ? ` · ${t('monitors.form.isDefault')}`
+                    : ''}</small
+                >
               </span>
             </label>
           {/each}
@@ -919,43 +948,43 @@
     </section>
 
     <section class="card">
-      <h2 class="card-title"><Icon name="tag" size={17} /> Etiketler</h2>
+      <h2 class="card-title"><Icon name="tag" size={17} /> {t('monitors.tags')}</h2>
       {#if !tagsLoaded}
         <div class="skeleton" style="height:40px"></div>
       {:else}
         {#if mtags.length}
           <ul class="mtags">
             {#each mtags as mt (mt.id)}
-              {@const t = tagById.get(mt.id)}
+              {@const tg = tagById.get(mt.id)}
               <li>
-                <span class="mt-chip"><TagChip name={t?.name ?? `#${mt.id}`} color={t?.color ?? ''} /></span>
+                <span class="mt-chip"><TagChip name={tg?.name ?? `#${mt.id}`} color={tg?.color ?? ''} /></span>
                 <input
                   id="tv-{mt.id}"
                   class="input mt-val"
                   maxlength="100"
                   bind:value={mt.value}
-                  placeholder="ör. canlı"
-                  aria-label="{t?.name ?? 'Etiket'} değeri (isteğe bağlı)"
+                  placeholder={t('monitors.form.tagValuePh')}
+                  aria-label={t('monitors.form.tagValueAria', { name: tg?.name ?? t('monitors.tagFallback') })}
                 />
                 <button
                   type="button"
                   class="btn ghost icon sm"
-                  aria-label="“{t?.name ?? ''}” etiketini kaldır"
+                  aria-label={t('monitors.removeTag', { name: tg?.name ?? '' })}
                   onclick={() => (mtags = mtags.filter((x) => x.id !== mt.id))}><Icon name="x" size={15} /></button
                 >
               </li>
             {/each}
           </ul>
-          <p class="help sp">Değer isteğe bağlıdır; listede “ad: değer” olarak görünür.</p>
+          <p class="help sp">{t('monitors.form.tagValueHelp')}</p>
         {/if}
         <div class="tag-add">
           {#if addableTags.length}
-            <select class="input" bind:value={tagPick} onchange={() => addTag(tagPick)} aria-label="Etiket ekle">
-              <option value="">Etiket ekle…</option>
-              {#each addableTags as t (t.id)}<option value={String(t.id)}>{t.name}</option>{/each}
+            <select class="input" bind:value={tagPick} onchange={() => addTag(tagPick)} aria-label={t('monitors.addTag')}>
+              <option value="">{t('monitors.addTagOption')}</option>
+              {#each addableTags as tg (tg.id)}<option value={String(tg.id)}>{tg.name}</option>{/each}
             </select>
           {:else if allTags.length === 0}
-            <span class="muted small">Henüz etiket yok.</span>
+            <span class="muted small">{t('monitors.noTags')}</span>
           {/if}
           <button
             type="button"
@@ -963,7 +992,7 @@
             onclick={() => {
               tagDialogKey++;
               tagDialogOpen = true;
-            }}><Icon name="plus" size={14} /> Yeni etiket</button
+            }}><Icon name="plus" size={14} /> {t('monitors.newTag')}</button
           >
         </div>
       {/if}
@@ -971,27 +1000,29 @@
 
     {#if remoteOk}
       <section class="card">
-        <h2 class="card-title"><Icon name="map-pin" size={17} /> Konumlar</h2>
+        <h2 class="card-title"><Icon name="map-pin" size={17} /> {t('monitors.form.locations')}</h2>
         {#if !probesLoaded}
           <div class="skeleton" style="height:40px"></div>
         {:else if probes.length === 0}
           <p class="muted small nomargin">
-            Bu monitör şu an yalnızca bu sunucudan kontrol ediliyor.
+            {t('monitors.form.localOnly')}
             {#if session.isAdmin}
-              Farklı şehir veya ağlardan da kontrol etmek için <a href="#/settings/probes">Ayarlar → Kontrol noktaları</a> bölümünden bir kontrol
-              noktası ekleyin.
+              {#each tParts('monitors.form.addProbeAdmin') as p, i (i)}{#if p.slot === 'link'}<a href="#/settings/probes"
+                    >{t('monitors.form.probesPath')}</a
+                  >{:else}{p.text}{/if}{/each}
             {:else}
-              Farklı konumlardan kontrol için yöneticinizin <b>Ayarlar → Kontrol noktaları</b> bölümünden kontrol noktası eklemesi gerekir.
+              {#each tParts('monitors.form.addProbeUser') as p, i (i)}{#if p.slot === 'path'}<b>{t('monitors.form.probesPath')}</b
+                  >{:else}{p.text}{/if}{/each}
             {/if}
           </p>
         {:else}
-          <p class="help nomargin sp">Monitör seçili her konumdan ayrı ayrı kontrol edilir.</p>
+          <p class="help nomargin sp">{t('monitors.form.locHelp')}</p>
           <div class="locs">
             <label class="check loc">
               <input type="checkbox" bind:checked={locLocal} />
               <span class="loc-t">
                 <span class="odot up" aria-hidden="true"></span>
-                <span>Ana sunucu<small>Bu uygulamanın çalıştığı sunucu</small></span>
+                <span>{t('monitors.form.mainServer')}<small>{t('monitors.form.mainServerDesc')}</small></span>
               </span>
             </label>
             {#each probes as p (p.id)}
@@ -999,20 +1030,21 @@
                 <input type="checkbox" value={p.id} bind:group={locProbeIds} />
                 <span class="loc-t">
                   <span class="odot {!p.active ? 'paused' : p.online ? 'up' : 'down'}" aria-hidden="true"></span>
-                  <span>{p.name}<small>{!p.active ? 'Devre dışı' : p.online ? 'Çevrimiçi' : 'Çevrimdışı'}</small></span>
+                  <span
+                    >{p.name}<small
+                      >{!p.active ? t('monitors.form.probeDisabled') : p.online ? t('monitors.form.online') : t('monitors.form.offline')}</small
+                    ></span
+                  >
                 </span>
               </label>
             {/each}
           </div>
           <div class="field dw">
-            <label for="dw">Kesinti kuralı</label>
+            <label for="dw">{t('monitors.form.downRule')}</label>
             <select id="dw" class="input" bind:value={locDownWhen} disabled={locCount < 2}>
-              {#each DOWN_WHEN as d (d.v)}<option value={d.v}>{d.l}</option>{/each}
+              {#each DOWN_WHEN as d (d.v)}<option value={d.v}>{t(d.l)}</option>{/each}
             </select>
-            <span class="help">
-              Bir konum, tekrar deneme hakkını kullandıktan sonra da başarısızsa çalışmıyor sayılır. 3 kontrol aralığı boyunca sonuç
-              göndermeyen konum hesaba katılmaz.
-            </span>
+            <span class="help">{t('monitors.form.downRuleHelp')}</span>
           </div>
         {/if}
       </section>
@@ -1020,7 +1052,7 @@
 
     <section class="card adv">
       <button type="button" class="adv-toggle" aria-expanded={showAdvanced} onclick={() => (showAdvanced = !showAdvanced)}>
-        <span>Gelişmiş ayarlar</span>
+        <span>{t('monitors.form.advanced')}</span>
         <span class="chev" class:open={showAdvanced}><Icon name="chevron-down" /></span>
       </button>
 
@@ -1028,156 +1060,187 @@
         <div class="adv-body stack">
           <div class="grid-2">
             <div class="field">
-              <label for="mr">Tekrar deneme sayısı</label>
+              <label for="mr">{t('monitors.form.retries')}</label>
               <input id="mr" class="input" type="number" min="0" max="20" bind:value={maxRetries} />
-              <span class="help">Çalışmıyor saymadan önce kaç kez daha denensin. 0 = ilk hatada bildir.</span>
+              <span class="help">{t('monitors.form.retriesHelp')}</span>
             </div>
             <div class="field">
-              <label for="ri">Tekrar deneme aralığı (sn)</label>
-              <input id="ri" class="input" type="number" min="20" max="86400" bind:value={retryInterval} placeholder="Kontrol aralığıyla aynı ({interval || 60})" />
-              <span class="help">Hata sonrası tekrar denemeler arasındaki süre.</span>
+              <label for="ri">{t('monitors.form.retryInterval')}</label>
+              <input
+                id="ri"
+                class="input"
+                type="number"
+                min="20"
+                max="86400"
+                bind:value={retryInterval}
+                placeholder={t('monitors.form.retryIntervalPh', { n: interval || 60 })}
+              />
+              <span class="help">{t('monitors.form.retryIntervalHelp')}</span>
             </div>
             {#if hasTimeout(type)}
               <div class="field">
-                <label for="to">Zaman aşımı (sn)</label>
+                <label for="to">{t('monitors.form.timeout')}</label>
                 <input id="to" class="input" type="number" min="1" max="300" bind:value={timeout} />
-                <span class="help">Bu sürede yanıt gelmezse kontrol başarısız sayılır.</span>
+                <span class="help">{t('monitors.form.timeoutHelp')}</span>
               </div>
             {/if}
             <div class="field">
-              <label for="re">Hatırlatma sıklığı</label>
+              <label for="re">{t('monitors.form.resend')}</label>
               <input id="re" class="input" type="number" min="0" max="10000" bind:value={resendEvery} />
-              <span class="help">Kesinti sürerken her N başarısız kontrolde bir tekrar bildir. 0 = kapalı.</span>
+              <span class="help">{t('monitors.form.resendHelp')}</span>
             </div>
           </div>
 
           {#if hasUpsideDown(type)}
             <label class="check">
               <input type="checkbox" bind:checked={upsideDown} />
-              <span>Ters mod<small>Hedef erişilebilir olduğunda “çalışmıyor”, erişilemediğinde “çalışıyor” sayılır.</small></span>
+              <span>{t('monitors.form.upsideDown')}<small>{t('monitors.form.upsideDownHelp')}</small></span>
             </label>
           {/if}
 
           {#if hasAdvancedFields}
             <div class="divider"></div>
-            <h3>{def?.label} ayarları</h3>
+            <h3>{t('monitors.form.typeSettings', { type: def?.label ?? '' })}</h3>
             <ConfigFields fields={genericFields} bind:values={extra} idPrefix="mta" part="advanced" onsuggest={suggestName} />
           {/if}
 
           {#if type === 'http'}
             <div class="divider"></div>
-            <h3>HTTP isteği</h3>
+            <h3>{t('monitors.form.httpRequest')}</h3>
             <div class="grid-2">
               <div class="field">
-                <label for="method">Metot</label>
+                <label for="method">{t('monitors.form.method')}</label>
                 <select id="method" class="input" bind:value={method}>
                   {#each METHODS as m (m)}<option value={m}>{m}</option>{/each}
                 </select>
               </div>
               <div class="field">
-                <label for="codes">Kabul edilen durum kodları</label>
+                <label for="codes">{t('monitors.form.codes')}</label>
                 <input id="codes" class="input" bind:value={acceptedCodes} placeholder="200-399" />
-                <span class="help">Virgülle ayırın. Ör. 200, 201-204, 3xx</span>
+                <span class="help">{t('monitors.form.codesHelp')}</span>
               </div>
             </div>
             <div class="field">
-              <label for="hdr">Başlıklar (headers)</label>
+              <label for="hdr">{t('monitors.form.headers')}</label>
               {#if headers === MASK}
                 <!-- Başlıklar gizli alan: sunucu maskeli döndürür; değiştirilmezse kayıtlı değer korunur. -->
                 <div class="kept-row">
-                  <span class="help">Kayıtlı başlıklar korunuyor (gizli).</span>
-                  <button type="button" id="hdr" class="btn sm" onclick={() => (headers = '')}>Değiştir</button>
+                  <span class="help">{t('monitors.form.headersKept')}</span>
+                  <button type="button" id="hdr" class="btn sm" onclick={() => (headers = '')}>{t('monitors.form.change')}</button>
                 </div>
               {:else}
-                <textarea id="hdr" class="input" rows="3" bind:value={headers} placeholder={'Authorization: Bearer abc123\nX-Ozel-Baslik: değer'}></textarea>
-                <span class="help">Her satıra bir başlık: <code>Ad: değer</code>. Kayıttan sonra gizli tutulur.</span>
+                <textarea id="hdr" class="input" rows="3" bind:value={headers} placeholder={t('monitors.form.headersPh')}></textarea>
+                <span class="help"
+                  >{#each tParts('monitors.form.headersHelp') as p, i (i)}{#if p.slot === 'code'}<code>{t('monitors.form.headersHelpCode')}</code
+                      >{:else}{p.text}{/if}{/each}</span
+                >
               {/if}
             </div>
             <div class="field">
-              <label for="body">İstek gövdesi (body)</label>
-              <textarea id="body" class="input" rows="3" bind:value={body} placeholder={'{"ornek": true}'}></textarea>
-              <span class="help">Genellikle POST/PUT için. Geçerli JSON ise Content-Type otomatik application/json olur.</span>
+              <label for="body">{t('monitors.form.body')}</label>
+              <textarea id="body" class="input" rows="3" bind:value={body} placeholder={t('monitors.form.bodyPh')}></textarea>
+              <span class="help">{t('monitors.form.bodyHelp')}</span>
             </div>
             <div class="grid-2">
               <div class="field">
-                <label for="bu">Basic auth kullanıcı adı</label>
+                <label for="bu">{t('monitors.form.basicUser')}</label>
                 <input id="bu" class="input" autocomplete="off" bind:value={basicUser} />
               </div>
               <div class="field">
-                <label for="bp">Basic auth şifresi</label>
+                <label for="bp">{t('monitors.form.basicPass')}</label>
                 <input id="bp" class="input" type="password" autocomplete="new-password" bind:value={basicPass} />
-                {#if basicPass === MASK}<span class="help">Kayıtlı şifre korunur; değiştirmek için yenisini yazın.</span>{/if}
+                {#if basicPass === MASK}<span class="help">{t('monitors.form.passKept')}</span>{/if}
               </div>
               <div class="field">
-                <label for="rd">En fazla yönlendirme</label>
+                <label for="rd">{t('monitors.form.maxRedirects')}</label>
                 <input id="rd" class="input" type="number" min="0" max="30" bind:value={maxRedirects} />
-                <span class="help">0 = yönlendirmeleri takip etme.</span>
+                <span class="help">{t('monitors.form.maxRedirectsHelp')}</span>
               </div>
             </div>
             <label class="check">
               <input type="checkbox" bind:checked={ignoreTls} />
-              <span>TLS/SSL hatalarını yok say<small>Kendinden imzalı veya süresi dolmuş sertifikada da bağlan.</small></span>
+              <span>{t('monitors.form.ignoreTls')}<small>{t('monitorTypes.f.ignoreTlsHelp')}</small></span>
             </label>
             <label class="check">
               <input type="checkbox" bind:checked={certExpiry} />
-              <span>SSL bitiş uyarısı<small>Sertifikanın süresi dolmak üzereyken bildirim gönder.</small></span>
+              <span>{t('monitors.form.certExpiry')}<small>{t('monitors.form.certExpiryHelp')}</small></span>
             </label>
 
             <div class="divider"></div>
-            <h3>İçerik kontrolü</h3>
-            <div class="seg" role="radiogroup" aria-label="İçerik kontrolü">
-              <button type="button" role="radio" aria-checked={contentMode === 'none'} class:active={contentMode === 'none'} onclick={() => (contentMode = 'none')}>Yok</button>
-              <button type="button" role="radio" aria-checked={contentMode === 'keyword'} class:active={contentMode === 'keyword'} onclick={() => (contentMode = 'keyword')}>Kelime</button>
+            <h3>{t('monitors.form.content')}</h3>
+            <div class="seg" role="radiogroup" aria-label={t('monitors.form.content')}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={contentMode === 'none'}
+                class:active={contentMode === 'none'}
+                onclick={() => (contentMode = 'none')}>{t('common.none')}</button
+              >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={contentMode === 'keyword'}
+                class:active={contentMode === 'keyword'}
+                onclick={() => (contentMode = 'keyword')}>{t('monitors.form.keyword')}</button
+              >
               <button type="button" role="radio" aria-checked={contentMode === 'json'} class:active={contentMode === 'json'} onclick={() => (contentMode = 'json')}>JSON</button>
             </div>
             {#if contentMode === 'keyword'}
               <div class="field">
-                <label for="kw">Aranacak kelime</label>
-                <input id="kw" class="input" bind:value={keyword} placeholder="Ör. Hoş geldiniz" />
-                <span class="help">Sayfa gövdesinde bu metin yoksa monitör çalışmıyor sayılır.</span>
+                <label for="kw">{t('monitors.form.keywordLabel')}</label>
+                <input id="kw" class="input" bind:value={keyword} placeholder={t('monitors.form.keywordPh')} />
+                <span class="help">{t('monitors.form.keywordHelp')}</span>
               </div>
               <label class="check">
                 <input type="checkbox" bind:checked={keywordInvert} />
-                <span>Tersine çevir<small>Kelime sayfada VARSA çalışmıyor say (ör. “Hata”, “Bakımdayız”).</small></span>
+                <span>{t('monitors.form.invert')}<small>{t('monitors.form.invertHelp')}</small></span>
               </label>
               <label class="check">
                 <input type="checkbox" bind:checked={keywordCase} />
-                <span>Büyük/küçük harfe duyarlı</span>
+                <span>{t('monitors.form.caseSensitive')}</span>
               </label>
             {:else if contentMode === 'json'}
               <div class="grid-3">
                 <div class="field">
-                  <label for="jp">JSON yolu</label>
+                  <label for="jp">{t('monitorTypes.f.mqtt.jsonPath')}</label>
                   <input id="jp" class="input mono" autocapitalize="none" spellcheck="false" bind:value={jsonPath} placeholder="data.status" />
                 </div>
                 <div class="field">
-                  <label for="jo">Koşul</label>
+                  <label for="jo">{t('monitorTypes.f.snmp.condition')}</label>
                   <select id="jo" class="input" bind:value={jsonOp}>
                     {#each JSON_OPS as o (o.v)}<option value={o.v}>{o.l}</option>{/each}
                   </select>
                 </div>
                 {#if jsonOp !== 'exists'}
                   <div class="field">
-                    <label for="je">Beklenen değer</label>
+                    <label for="je">{t('monitorTypes.f.expectedValue')}</label>
                     <input id="je" class="input" bind:value={jsonExpected} placeholder="ok" />
                   </div>
                 {/if}
               </div>
               <span class="help">
-                Yol örnekleri: <code>status</code>, <code>data.status</code>, <code>items.0.name</code>, <code>items.#</code> (dizi uzunluğu).
-                Koşul sağlanmazsa monitör çalışmıyor sayılır.
+                {#each tParts('monitors.form.jsonHelp') as p, i (i)}{#if p.slot === 'a'}<code>status</code>{:else if p.slot === 'b'}<code
+                      >data.status</code
+                    >{:else if p.slot === 'c'}<code>items.0.name</code>{:else if p.slot === 'd'}<code>items.#</code>{:else}{p.text}{/if}{/each}
               </span>
             {/if}
 
             <div class="divider"></div>
-            <h3>Bağlantı ve kimlik doğrulama</h3>
+            <h3>{t('monitors.form.connAuth')}</h3>
             <ConfigFields fields={HTTP_EXTRA_FIELDS} bind:values={httpExtra} idPrefix="hx" />
           {/if}
 
           <div class="divider"></div>
           <div class="field">
-            <label for="desc">Açıklama <span class="muted">(isteğe bağlı)</span></label>
-            <textarea id="desc" class="input plain" rows="2" maxlength="500" bind:value={description} placeholder="Bu monitörle ilgili notlar"></textarea>
+            <label for="desc">{t('monitors.form.description')} <span class="muted">{t('monitors.optionalParen')}</span></label>
+            <textarea
+              id="desc"
+              class="input plain"
+              rows="2"
+              maxlength="500"
+              bind:value={description}
+              placeholder={t('monitors.form.descPh')}
+            ></textarea>
           </div>
         </div>
       {/if}
@@ -1188,10 +1251,10 @@
     {/if}
 
     <div class="actions">
-      <a class="btn" href={cancelHref}>Vazgeç</a>
+      <a class="btn" href={cancelHref}>{t('common.cancel')}</a>
       <button class="btn primary" type="submit" disabled={saving}>
         {#if saving}<span class="spinner"></span>{/if}
-        {isEdit ? 'Kaydet' : 'Monitörü ekle'}
+        {isEdit ? t('common.save') : t('monitors.form.submitNew')}
       </button>
     </div>
   </form>

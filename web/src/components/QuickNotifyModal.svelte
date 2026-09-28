@@ -8,6 +8,7 @@
   import { toast } from '../lib/ui.svelte';
   import Icon from './Icon.svelte';
   import Modal from './Modal.svelte';
+  import { t, tParts } from '../lib/i18n';
 
   let { open = $bindable(false), m }: { open?: boolean; m: MonitorView } = $props();
 
@@ -48,9 +49,9 @@
   }
 </script>
 
-<Modal bind:open title="Bildirim kanalları" width={500}>
+<Modal bind:open title={t('monitors.quickNotify.title')} width={500}>
   <p class="lead">
-    <b>{m.name}</b> çalışmadığında ve düzeldiğinde seçili kanallara bildirim gönderilir. Değişiklikler hemen kaydedilir.
+    {#each tParts('monitors.quickNotify.lead') as p, i (i)}{#if p.slot === 'name'}<b>{m.name}</b>{:else}{p.text}{/if}{/each}
   </p>
   {#if !loaded}
     <div class="skeleton" style="height:120px"></div>
@@ -59,11 +60,11 @@
   {:else if channels.length === 0}
     <div class="none">
       <Icon name="bell" size={22} />
-      <p>Henüz bildirim kanalı yok. WhatsApp, Telegram, e-posta gibi bir kanal ekleyerek başlayın.</p>
-      <a class="btn sm" href="#/notifications" onclick={() => (open = false)}><Icon name="plus" size={14} /> Kanal ekle</a>
+      <p>{t('monitors.quickNotify.none')}</p>
+      <a class="btn sm" href="#/notifications" onclick={() => (open = false)}><Icon name="plus" size={14} /> {t('monitors.quickNotify.addChannel')}</a>
     </div>
   {:else}
-    <div class="list" role="group" aria-label="Bildirim kanalları">
+    <div class="list" role="group" aria-label={t('monitors.quickNotify.title')}>
       {#each channels as ch (ch.id)}
         {@const st = NOTIFY_STYLE[ch.type]}
         {@const on = selected.includes(ch.id)}
@@ -71,7 +72,7 @@
           <span class="ticon" style="--c:{st?.color ?? 'var(--accent)'}"><Icon name={st?.icon ?? 'bell'} size={16} /></span>
           <span class="info">
             <span class="nm">{ch.name}</span>
-            <small>{NOTIFY_LABELS[ch.type] ?? ch.type}{ch.active ? '' : ' · pasif'}</small>
+            <small>{NOTIFY_LABELS[ch.type] ?? ch.type}{ch.active ? '' : ` · ${t('monitors.inactive')}`}</small>
           </span>
           {#if saving === ch.id}<span class="spinner"></span>{/if}
           <span class="check">
@@ -80,7 +81,7 @@
               checked={on}
               disabled={saving !== null}
               onchange={(e) => toggle(ch.id, e.currentTarget.checked)}
-              aria-label="{ch.name} kanalına bildirim gönder"
+              aria-label={t('monitors.quickNotify.sendTo', { name: ch.name })}
             />
           </span>
         </label>
@@ -88,10 +89,10 @@
     </div>
   {/if}
   {#snippet footer()}
-    <a class="manage" href="#/notifications" onclick={() => (open = false)}>Kanalları yönet</a>
+    <a class="manage" href="#/notifications" onclick={() => (open = false)}>{t('monitors.quickNotify.manage')}</a>
     <div class="spacer"></div>
-    {#if savedAt}<span class="saved"><Icon name="check" size={14} /> Kaydedildi</span>{/if}
-    <button type="button" class="btn" onclick={() => (open = false)}>Kapat</button>
+    {#if savedAt}<span class="saved"><Icon name="check" size={14} /> {t('common.saved')}</span>{/if}
+    <button type="button" class="btn" onclick={() => (open = false)}>{t('common.close')}</button>
   {/snippet}
 </Modal>
 

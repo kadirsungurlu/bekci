@@ -9,6 +9,7 @@
   import Modal from './Modal.svelte';
   import TagChip from './TagChip.svelte';
   import TagDialog from './TagDialog.svelte';
+  import { t, tParts } from '../lib/i18n';
 
   let { open = $bindable(false), m }: { open?: boolean; m: MonitorView } = $props();
 
@@ -22,8 +23,8 @@
   let tagDialogOpen = $state(false);
   let tagDialogKey = $state(0);
 
-  const byId = $derived(new Map(allTags.map((t) => [t.id, t])));
-  const addable = $derived(allTags.filter((t) => !list.some((x) => x.id === t.id)).sort((a, b) => collator.compare(a.name, b.name)));
+  const byId = $derived(new Map(allTags.map((tg) => [tg.id, tg])));
+  const addable = $derived(allTags.filter((tg) => !list.some((x) => x.id === tg.id)).sort((a, b) => collator.compare(a.name, b.name)));
 
   onMount(async () => {
     try {
@@ -38,13 +39,13 @@
   function add(idStr: string) {
     const id = Number(idStr);
     pick = '';
-    if (!id || list.some((t) => t.id === id)) return;
+    if (!id || list.some((x) => x.id === id)) return;
     list = [...list, { id, value: '' }];
   }
 
-  function created(t: Tag) {
-    allTags = [...allTags, t];
-    add(String(t.id));
+  function created(tag: Tag) {
+    allTags = [...allTags, tag];
+    add(String(tag.id));
   }
 
   async function save() {
@@ -53,10 +54,10 @@
     try {
       const tags = await api.setMonitorTags(
         m.id,
-        list.map((t) => ({ tag_id: t.id, value: t.value.trim() })),
+        list.map((x) => ({ tag_id: x.id, value: x.value.trim() })),
       );
       live.upsert({ ...(live.byId(m.id) ?? m), tags });
-      toast.success(`“${m.name}” etiketleri kaydedildi`);
+      toast.success(t('monitors.quickTags.saved', { name: m.name }));
       open = false;
     } catch (e) {
       error = errorMessage(e);
@@ -66,9 +67,11 @@
   }
 </script>
 
-<Modal bind:open title="Etiketler" width={520}>
+<Modal bind:open title={t('monitors.tags')} width={520}>
   <div class="stack">
-    <p class="lead"><b>{m.name}</b> için etiketler. Değer isteğe bağlıdır; listede “ad: değer” olarak görünür.</p>
+    <p class="lead">
+      {#each tParts('monitors.quickTags.lead') as p, i (i)}{#if p.slot === 'name'}<b>{m.name}</b>{:else}{p.text}{/if}{/each}
+    </p>
     {#if !loaded}
       <div class="skeleton" style="height:80px"></div>
     {:else}
@@ -76,27 +79,33 @@
         <ul class="tags">
           <!-- Aynı etiket farklı değerlerle birden çok kez bağlı olabilir (içe aktarma): anahtar sıradır. -->
           {#each list as mt, i (i)}
-            {@const t = byId.get(mt.id)}
+            {@const tg = byId.get(mt.id)}
             <li>
-              <span class="chip"><TagChip name={t?.name ?? `#${mt.id}`} color={t?.color ?? ''} /></span>
-              <input class="input val" maxlength="100" bind:value={mt.value} placeholder="Değer (ör. canlı)" aria-label="{t?.name ?? 'Etiket'} değeri" />
+              <span class="chip"><TagChip name={tg?.name ?? `#${mt.id}`} color={tg?.color ?? ''} /></span>
+              <input
+                class="input val"
+                maxlength="100"
+                bind:value={mt.value}
+                placeholder={t('monitors.quickTags.valuePh')}
+                aria-label={t('monitors.quickTags.valueAria', { name: tg?.name ?? t('monitors.tagFallback') })}
+              />
               <button
                 type="button"
                 class="btn ghost icon sm"
-                aria-label="“{t?.name ?? ''}” etiketini kaldır"
+                aria-label={t('monitors.removeTag', { name: tg?.name ?? '' })}
                 onclick={() => (list = list.filter((_, j) => j !== i))}><Icon name="x" size={15} /></button
               >
             </li>
           {/each}
         </ul>
       {:else}
-        <div class="empty-tags">Bu monitörde etiket yok.</div>
+        <div class="empty-tags">{t('monitors.quickTags.empty')}</div>
       {/if}
       <div class="add">
         {#if addable.length}
-          <select class="input" bind:value={pick} onchange={() => add(pick)} aria-label="Etiket ekle">
-            <option value="">Etiket ekle…</option>
-            {#each addable as t (t.id)}<option value={String(t.id)}>{t.name}</option>{/each}
+          <select class="input" bind:value={pick} onchange={() => add(pick)} aria-label={t('monitors.addTag')}>
+            <option value="">{t('monitors.addTagOption')}</option>
+            {#each addable as tg (tg.id)}<option value={String(tg.id)}>{tg.name}</option>{/each}
           </select>
         {/if}
         <button
@@ -105,7 +114,7 @@
           onclick={() => {
             tagDialogKey++;
             tagDialogOpen = true;
-          }}><Icon name="plus" size={14} /> Yeni etiket</button
+          }}><Icon name="plus" size={14} /> {t('monitors.newTag')}</button
         >
       </div>
     {/if}
@@ -113,10 +122,10 @@
   </div>
   {#snippet footer()}
     <div class="spacer"></div>
-    <button type="button" class="btn" onclick={() => (open = false)}>Vazgeç</button>
+    <button type="button" class="btn" onclick={() => (open = false)}>{t('common.cancel')}</button>
     <button type="button" class="btn primary" disabled={busy || !loaded} onclick={save}>
       {#if busy}<span class="spinner"></span>{/if}
-      Kaydet
+      {t('common.save')}
     </button>
   {/snippet}
 </Modal>

@@ -10,6 +10,7 @@
   import Modal from './Modal.svelte';
   import TagChip from './TagChip.svelte';
   import TagDialog from './TagDialog.svelte';
+  import { t, tParts } from '../lib/i18n';
 
   let {
     open = $bindable(false),
@@ -36,7 +37,7 @@
 
   // svelte-ignore state_referenced_locally
   const n = ids.length;
-  const title = $derived(kind === 'tag' ? 'Etiket' : 'Bildirim kanalı');
+  const title = $derived(kind === 'tag' ? t('monitors.bulk.tag') : t('monitors.bulk.channel'));
 
   onMount(async () => {
     try {
@@ -55,7 +56,7 @@
     for (const mid of ids) {
       const m = live.byId(mid);
       if (!m) continue;
-      if (kind === 'tag' ? (m.tags ?? []).some((t) => t.id === id) : m.notification_ids.includes(id)) c++;
+      if (kind === 'tag' ? (m.tags ?? []).some((tg) => tg.id === id) : m.notification_ids.includes(id)) c++;
     }
     return c;
   }
@@ -63,7 +64,7 @@
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     error = '';
-    if (pick === null) return (error = kind === 'tag' ? 'Bir etiket seçin.' : 'Bir kanal seçin.');
+    if (pick === null) return (error = kind === 'tag' ? t('monitors.bulk.pickTag') : t('monitors.bulk.pickChannel'));
     let a: BulkAction;
     if (kind === 'tag') a = mode === 'add' ? { action: 'add_tag', tag_id: pick, value: value.trim() } : { action: 'remove_tag', tag_id: pick };
     else a = { action: mode === 'add' ? 'add_notification' : 'remove_notification', notification_id: pick };
@@ -71,9 +72,16 @@
     try {
       const res = await api.bulkMonitors(ids, a);
       live.upsertMany(res.monitors);
-      const verb = kind === 'tag' ? (mode === 'add' ? 'etiket eklendi' : 'etiket kaldırıldı') : mode === 'add' ? 'kanal eklendi' : 'kanal çıkarıldı';
-      if (res.changed) toast.success(`${res.changed} monitöre ${verb}`);
-      else toast.info('Değişiklik gerekmedi: seçili monitörler zaten bu durumda');
+      const key =
+        kind === 'tag'
+          ? mode === 'add'
+            ? 'monitors.bulk.tagAdded'
+            : 'monitors.bulk.tagRemoved'
+          : mode === 'add'
+            ? 'monitors.bulk.channelAdded'
+            : 'monitors.bulk.channelRemoved';
+      if (res.changed) toast.success(t(key, { count: res.changed }));
+      else toast.info(t('monitors.bulk.noChange'));
       ondone?.();
       open = false;
     } catch (err) {
@@ -83,22 +91,26 @@
     }
   }
 
-  function created(t: Tag) {
-    tags = [...tags, t].sort((a, b) => collator.compare(a.name, b.name));
-    pick = t.id;
+  function created(tag: Tag) {
+    tags = [...tags, tag].sort((a, b) => collator.compare(a.name, b.name));
+    pick = tag.id;
   }
+
+  const usageText = (u: number) => (u === n ? t('monitors.bulk.inAll') : t('monitors.bulk.inSome', { u, n }));
 </script>
 
-<Modal bind:open title={kind === 'tag' ? 'Etiket ekle / kaldır' : 'Bildirim kanalı ekle / çıkar'} width={500}>
+<Modal bind:open title={kind === 'tag' ? t('monitors.bulk.titleTag') : t('monitors.bulk.titleNotify')} width={500}>
   <form id="bulkf" class="stack" onsubmit={submit} novalidate>
     <div class="top">
-      <span class="count"><b>{n}</b> monitör seçili</span>
-      <div class="seg" role="radiogroup" aria-label="İşlem">
+      <span class="count"
+        >{#each tParts('monitors.bulk.selected') as p, i (i)}{#if p.slot === 'n'}<b>{n}</b>{:else}{p.text}{/if}{/each}</span
+      >
+      <div class="seg" role="radiogroup" aria-label={t('monitors.bulk.operation')}>
         <button type="button" role="radio" aria-checked={mode === 'add'} class:active={mode === 'add'} onclick={() => (mode = 'add')}>
-          Ekle
+          {t('common.add')}
         </button>
         <button type="button" role="radio" aria-checked={mode === 'remove'} class:active={mode === 'remove'} onclick={() => (mode = 'remove')}>
-          {kind === 'tag' ? 'Kaldır' : 'Çıkar'}
+          {kind === 'tag' ? t('common.remove') : t('monitors.bulk.detach')}
         </button>
       </div>
     </div>
@@ -106,22 +118,24 @@
     {#if !loaded}
       <div class="skeleton" style="height:120px"></div>
     {:else if kind === 'tag' && tags.length === 0 && mode === 'remove'}
-      <div class="empty-note">Henüz etiket yok.</div>
+      <div class="empty-note">{t('monitors.noTags')}</div>
     {:else if kind === 'notify' && channels.length === 0}
       <div class="empty-note">
-        Henüz bildirim kanalı yok. <a href="#/notifications" onclick={() => (open = false)}>Kanal ekleyin</a>.
+        {#each tParts('monitors.bulk.noChannels') as p, i (i)}{#if p.slot === 'link'}<a href="#/notifications" onclick={() => (open = false)}
+              >{t('monitors.bulk.addChannelLink')}</a
+            >{:else}{p.text}{/if}{/each}
       </div>
     {:else}
       <div class="opts" role="radiogroup" aria-label={title}>
         {#if kind === 'tag' && tags.length === 0}
-          <div class="empty-note">Henüz etiket yok. Aşağıdan yeni bir etiket oluşturun.</div>
+          <div class="empty-note">{t('monitors.bulk.noTagsCreate')}</div>
         {:else if kind === 'tag'}
-          {#each tags as t (t.id)}
-            {@const u = usage(t.id)}
-            <label class="opt" class:on={pick === t.id}>
-              <input type="radio" name="bulk-pick" value={t.id} checked={pick === t.id} onchange={() => (pick = t.id)} />
-              <span class="o-main"><TagChip name={t.name} color={t.color} /></span>
-              {#if u}<small class="u">{u === n ? 'hepsinde var' : `${u}/${n} monitörde var`}</small>{/if}
+          {#each tags as tg (tg.id)}
+            {@const u = usage(tg.id)}
+            <label class="opt" class:on={pick === tg.id}>
+              <input type="radio" name="bulk-pick" value={tg.id} checked={pick === tg.id} onchange={() => (pick = tg.id)} />
+              <span class="o-main"><TagChip name={tg.name} color={tg.color} /></span>
+              {#if u}<small class="u">{usageText(u)}</small>{/if}
             </label>
           {/each}
         {:else}
@@ -133,9 +147,9 @@
               <span class="ticon" style="--c:{st?.color ?? 'var(--accent)'}"><Icon name={st?.icon ?? 'bell'} size={15} /></span>
               <span class="o-main">
                 <span class="nm">{ch.name}</span>
-                <small>{NOTIFY_LABELS[ch.type] ?? ch.type}{ch.active ? '' : ' · pasif'}</small>
+                <small>{NOTIFY_LABELS[ch.type] ?? ch.type}{ch.active ? '' : ` · ${t('monitors.inactive')}`}</small>
               </span>
-              {#if u}<small class="u">{u === n ? 'hepsinde var' : `${u}/${n} monitörde var`}</small>{/if}
+              {#if u}<small class="u">{usageText(u)}</small>{/if}
             </label>
           {/each}
         {/if}
@@ -143,8 +157,8 @@
       {#if kind === 'tag' && mode === 'add'}
         <div class="tag-extra">
           <div class="field">
-            <label for="bk-val">Değer <span class="muted">(isteğe bağlı)</span></label>
-            <input id="bk-val" class="input" maxlength="100" bind:value placeholder="Ör. canlı" />
+            <label for="bk-val">{t('monitors.bulk.value')} <span class="muted">{t('monitors.optionalParen')}</span></label>
+            <input id="bk-val" class="input" maxlength="100" bind:value placeholder={t('monitors.bulk.valuePh')} />
           </div>
           <button
             type="button"
@@ -152,22 +166,24 @@
             onclick={() => {
               tagDialogKey++;
               tagDialogOpen = true;
-            }}><Icon name="plus" size={14} /> Yeni etiket</button
+            }}><Icon name="plus" size={14} /> {t('monitors.newTag')}</button
           >
         </div>
       {/if}
       {#if kind === 'tag' && mode === 'remove'}
-        <p class="help nomargin">Etiket, seçili monitörlerden tüm değerleriyle kaldırılır.</p>
+        <p class="help nomargin">{t('monitors.bulk.removeHelp')}</p>
       {/if}
     {/if}
     {#if error}<div class="alert error" role="alert">{error}</div>{/if}
   </form>
   {#snippet footer()}
     <div class="spacer"></div>
-    <button type="button" class="btn" onclick={() => (open = false)}>Vazgeç</button>
+    <button type="button" class="btn" onclick={() => (open = false)}>{t('common.cancel')}</button>
     <button type="submit" form="bulkf" class="btn primary" disabled={busy || pick === null}>
       {#if busy}<span class="spinner"></span>{/if}
-      {mode === 'add' ? `${n} monitöre ekle` : `${n} monitörden ${kind === 'tag' ? 'kaldır' : 'çıkar'}`}
+      {mode === 'add'
+        ? t('monitors.bulk.submitAdd', { count: n })
+        : t(kind === 'tag' ? 'monitors.bulk.submitRemove' : 'monitors.bulk.submitDetach', { count: n })}
     </button>
   {/snippet}
 </Modal>

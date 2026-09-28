@@ -12,18 +12,32 @@
 // Alan kuralları: zorunlu ve sık kullanılan alanlar ana bölümde, geri kalanı
 // `advanced: true` ile "Gelişmiş ayarlar"da. `showIf` ile koşullu alanlar
 // gizliyken varsayılan değerleriyle gönderilir (sunucu çoğunu zaten temizler).
+//
+// Dil: metinler (ad, açıklama, alan etiketi/yardımı, seçenek adları) getter'dır;
+// her okumada geçerli dilde döner (lib/i18n/{tr,en}/monitorTypes.ts). Bu nesneleri
+// yaymayın ({ ...alan }) — yayma getter'ı o anki dilde dondurur. Teknik adlar
+// (HTTP(S), Ping, PostgreSQL, OID …) düz metin olarak kalır.
 
 import type { MonitorType } from './api';
 import type { Field, FieldKind } from './notifyTypes';
 import type { IconName } from '../components/Icon.svelte';
+import { t, type TKey } from './i18n';
 
 export type TypeCategory = 'web' | 'network' | 'database' | 'system';
 
 export const CATEGORY_LABELS: Record<TypeCategory, string> = {
-  web: 'Web',
-  network: 'Ağ ve protokoller',
-  database: 'Veritabanı',
-  system: 'Sistem ve sinyaller',
+  get web() {
+    return t('monitorTypes.categories.web');
+  },
+  get network() {
+    return t('monitorTypes.categories.network');
+  },
+  get database() {
+    return t('monitorTypes.categories.database');
+  },
+  get system() {
+    return t('monitorTypes.categories.system');
+  },
 };
 
 export const CATEGORY_ORDER: TypeCategory[] = ['web', 'network', 'database', 'system'];
@@ -60,7 +74,7 @@ export interface MonitorTypeDef {
   note?: string;
   icon: IconName;
   category: TypeCategory;
-  /** Arama için ek anahtar kelimeler. */
+  /** Arama için ek anahtar kelimeler (iki dilde; gösterilmez). */
   keywords?: string;
   /** Zaman aşımı ayarı anlamlı mı (push ve grup kendi başına istek atmaz). */
   timeout?: boolean;
@@ -76,47 +90,115 @@ export interface MonitorTypeDef {
 
 const PORT_RE = /^\d{1,5}$/;
 
-const host = (ph = 'db.ornek.com'): CfgField => ({
+/** Çevrilen seçenek: { v, l } — l her okumada geçerli dilde. */
+const opt = (v: string, key: TKey) => ({
+  v,
+  get l() {
+    return t(key);
+  },
+});
+
+const host = (ph: () => string = () => t('monitorTypes.ph.dbHost')): CfgField => ({
   key: 'host',
-  label: 'Sunucu adresi',
+  get label() {
+    return t('monitorTypes.f.host');
+  },
   kind: 'text',
-  placeholder: ph,
+  get placeholder() {
+    return ph();
+  },
   required: true,
   suggestName: true,
 });
 
-const port = (def: number, extra: Partial<CfgField> = {}): CfgField => ({
+/** Port alanı; help sözlük anahtarıdır. */
+const port = (def: number, o: { required?: boolean; help?: TKey } = {}): CfgField => ({
   key: 'port',
-  label: 'Port',
+  get label() {
+    return t('monitorTypes.f.port');
+  },
   kind: 'number',
   def,
   min: 1,
   max: 65535,
   pattern: PORT_RE,
-  patternMsg: 'Port 1-65535 arasında olmalı.',
-  ...extra,
+  get patternMsg() {
+    return t('monitorTypes.f.portRange');
+  },
+  required: o.required,
+  get help() {
+    return o.help ? t(o.help) : undefined;
+  },
 });
 
-const ignoreTls = (extra: Partial<CfgField> = {}): CfgField => ({
+const ignoreTls = (o: { help?: TKey; showIf?: CfgField['showIf'] } = {}): CfgField => ({
   key: 'ignore_tls',
-  label: 'Sertifika doğrulamasını atla',
+  get label() {
+    return t('monitorTypes.f.ignoreTls');
+  },
   kind: 'bool',
-  help: 'Kendinden imzalı veya süresi dolmuş sertifikada da bağlan.',
+  get help() {
+    return t(o.help ?? 'monitorTypes.f.ignoreTlsHelp');
+  },
   advanced: true,
-  ...extra,
+  showIf: o.showIf,
 });
 
-/** MySQL, PostgreSQL ve MSSQL'in ortak alanları. */
+interface CredOpts {
+  optional?: boolean;
+  required?: boolean;
+  showIf?: CfgField['showIf'];
+  placeholder?: TKey;
+  section?: TKey;
+}
+
+const username = (o: CredOpts = {}): CfgField => ({
+  key: 'username',
+  get label() {
+    return t('common.username');
+  },
+  kind: 'text',
+  optional: o.optional,
+  required: o.required,
+  showIf: o.showIf,
+  get placeholder() {
+    return o.placeholder ? t(o.placeholder) : undefined;
+  },
+  get section() {
+    return o.section ? t(o.section) : undefined;
+  },
+});
+
+const password = (o: CredOpts = {}): CfgField => ({
+  key: 'password',
+  get label() {
+    return t('common.password');
+  },
+  kind: 'secret',
+  optional: o.optional,
+});
+
+/** MySQL, PostgreSQL ve MSSQL'in ortak alanları; tls alanı `advanced: true` ile verilir. */
 function sqlFields(def: number, tls: CfgField): CfgField[] {
   return [
     host(),
     port(def),
-    { key: 'username', label: 'Kullanıcı adı', kind: 'text', placeholder: 'izleme' },
-    { key: 'password', label: 'Şifre', kind: 'secret' },
-    { key: 'database', label: 'Veritabanı', kind: 'text', optional: true, wide: true },
+    username({ placeholder: 'monitorTypes.ph.dbUser' }),
+    password(),
+    {
+      key: 'database',
+      get label() {
+        return t('monitorTypes.f.database');
+      },
+      kind: 'text',
+      optional: true,
+      wide: true,
+    },
     {
       key: 'query',
-      label: 'Sorgu',
+      get label() {
+        return t('monitorTypes.f.query');
+      },
       kind: 'text',
       def: 'SELECT 1',
       mono: true,
@@ -125,25 +207,33 @@ function sqlFields(def: number, tls: CfgField): CfgField[] {
     },
     {
       key: 'expected',
-      label: 'Beklenen sonuç',
+      get label() {
+        return t('monitorTypes.f.expectedResult');
+      },
       kind: 'text',
       optional: true,
       advanced: true,
-      help: 'Boşsa sorgunun başarılı çalışması yeterli; doluysa ilk satırın ilk sütunu bununla eşleşmeli.',
+      get help() {
+        return t('monitorTypes.f.expectedResultHelp');
+      },
     },
-    { ...tls, advanced: true },
+    tls,
   ];
 }
 
-const JSON_OPS_MQTT = [
-  { v: '==', l: 'eşittir (==)' },
-  { v: '!=', l: 'eşit değildir (!=)' },
-  { v: 'contains', l: 'içerir' },
-  { v: '>', l: 'büyüktür (>)' },
-  { v: '>=', l: 'büyük veya eşit (>=)' },
-  { v: '<', l: 'küçüktür (<)' },
-  { v: '<=', l: 'küçük veya eşit (<=)' },
+/** Karşılaştırma işleçleri (MQTT JSON, SNMP, HTTP JSON). */
+const cmpOps = () => [
+  opt('==', 'monitorTypes.ops.eq'),
+  opt('!=', 'monitorTypes.ops.ne'),
+  opt('contains', 'monitorTypes.ops.contains'),
+  opt('>', 'monitorTypes.ops.gt'),
+  opt('>=', 'monitorTypes.ops.ge'),
+  opt('<', 'monitorTypes.ops.lt'),
+  opt('<=', 'monitorTypes.ops.le'),
 ];
+
+/** HTTP JSON kontrolünün koşulları (formdaki seçici). */
+export const JSON_OPS: { v: string; l: string }[] = [...cmpOps(), opt('exists', 'monitorTypes.ops.exists')];
 
 const hasTopic = (v: Record<string, string>) => !!v.topic?.trim();
 const isV3 = (v: Record<string, string>) => v.version === 'v3';
@@ -156,72 +246,124 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
     key: 'http',
     label: 'HTTP(S)',
     badge: 'HTTP',
-    desc: 'Web sitesi veya API adresini kontrol eder',
+    get desc() {
+      return t('monitorTypes.types.http.desc');
+    },
     icon: 'globe',
     category: 'web',
     keywords: 'web site api url https keyword json',
   },
 
   // Ağ ve protokoller
-  { key: 'tcp', label: 'TCP Port', badge: 'TCP', desc: 'Sunucudaki bir portun açık olduğunu kontrol eder', icon: 'plug', category: 'network' },
-  { key: 'ping', label: 'Ping', badge: 'PING', desc: 'Sunucunun ağdan yanıt verdiğini kontrol eder', icon: 'radio', category: 'network', keywords: 'icmp' },
-  { key: 'dns', label: 'DNS', badge: 'DNS', desc: 'Alan adının DNS kaydını sorgular', icon: 'server', category: 'network' },
+  {
+    key: 'tcp',
+    label: 'TCP Port',
+    badge: 'TCP',
+    get desc() {
+      return t('monitorTypes.types.tcp.desc');
+    },
+    icon: 'plug',
+    category: 'network',
+  },
+  {
+    key: 'ping',
+    label: 'Ping',
+    badge: 'PING',
+    get desc() {
+      return t('monitorTypes.types.ping.desc');
+    },
+    icon: 'radio',
+    category: 'network',
+    keywords: 'icmp',
+  },
+  {
+    key: 'dns',
+    label: 'DNS',
+    badge: 'DNS',
+    get desc() {
+      return t('monitorTypes.types.dns.desc');
+    },
+    icon: 'server',
+    category: 'network',
+  },
   {
     key: 'tlscert',
-    label: 'TLS sertifikası',
+    get label() {
+      return t('monitorTypes.types.tlscert.label');
+    },
     badge: 'TLS',
-    desc: 'HTTP olmayan servislerin sertifika bitişini izler',
-    about: 'HTTP olmayan bir TLS servisinin sertifikasını ve bitiş tarihini izler.',
+    get desc() {
+      return t('monitorTypes.types.tlscert.desc');
+    },
+    get about() {
+      return t('monitorTypes.types.tlscert.about');
+    },
     icon: 'certificate',
     category: 'network',
-    keywords: 'ssl sertifika imap ldaps',
+    keywords: 'ssl sertifika certificate imap ldaps',
     fields: [
-      host('mail.ornek.com'),
-      port(443, { required: true, help: 'Ör. 443, 993 (IMAPS), 636 (LDAPS), 8443.' }),
+      host(() => t('monitorTypes.ph.mailHost')),
+      port(443, { required: true, help: 'monitorTypes.f.tlscert.portHelp' }),
       {
         key: 'server_name',
-        label: 'SNI adı',
+        get label() {
+          return t('monitorTypes.f.tlscert.sni');
+        },
         kind: 'text',
         optional: true,
         advanced: true,
-        help: 'Boşsa sunucu adresi kullanılır.',
+        get help() {
+          return t('monitorTypes.f.tlscert.sniHelp');
+        },
       },
-      ignoreTls({ help: 'Doğrulanamayan sertifikanın da bitiş tarihini izle.' }),
+      ignoreTls({ help: 'monitorTypes.f.tlscert.ignoreHelp' }),
     ],
   },
   {
     key: 'smtp',
-    label: 'SMTP (posta sunucusu)',
+    get label() {
+      return t('monitorTypes.types.smtp.label');
+    },
     badge: 'SMTP',
-    desc: 'Posta sunucusunun banner ve EHLO akışını doğrular',
-    about: 'Posta sunucusuna bağlanır, banner ve EHLO/STARTTLS akışını doğrular.',
+    get desc() {
+      return t('monitorTypes.types.smtp.desc');
+    },
+    get about() {
+      return t('monitorTypes.types.smtp.about');
+    },
     icon: 'mail',
     category: 'network',
-    keywords: 'e-posta mail eposta starttls',
+    keywords: 'e-posta mail eposta email starttls',
     fields: [
-      host('mail.ornek.com'),
-      port(25, { help: 'Genellikle 25 veya 587 (STARTTLS), 465 (TLS).' }),
+      host(() => t('monitorTypes.ph.mailHost')),
+      port(25, { help: 'monitorTypes.f.smtp.portHelp' }),
       {
         key: 'security',
-        label: 'Güvenlik',
+        get label() {
+          return t('monitorTypes.f.smtp.security');
+        },
         kind: 'select',
         def: 'none',
         wide: true,
         options: [
-          { v: 'none', l: 'Yok (düz bağlantı)' },
+          opt('none', 'monitorTypes.f.smtp.secNone'),
           { v: 'starttls', l: 'STARTTLS' },
-          { v: 'tls', l: 'TLS (doğrudan)' },
+          opt('tls', 'monitorTypes.f.smtp.secTls'),
         ],
       },
       ignoreTls({ showIf: (v) => v.security !== 'none' }),
       {
         key: 'expected_banner',
-        label: 'Beklenen banner metni',
+        get label() {
+          return t('monitorTypes.f.smtp.banner');
+        },
         kind: 'text',
         optional: true,
         advanced: true,
         placeholder: 'ESMTP',
-        help: 'Doluysa sunucunun karşılama mesajı bu metni içermeli.',
+        get help() {
+          return t('monitorTypes.f.smtp.bannerHelp');
+        },
       },
     ],
   },
@@ -229,90 +371,145 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
     key: 'websocket',
     label: 'WebSocket',
     badge: 'WS',
-    desc: 'WebSocket sunucusuna bağlanıp yanıtı kontrol eder',
-    about: 'WebSocket sunucusuna bağlanır, isteğe bağlı mesaj gönderip yanıtı kontrol eder.',
+    get desc() {
+      return t('monitorTypes.types.websocket.desc');
+    },
+    get about() {
+      return t('monitorTypes.types.websocket.about');
+    },
     icon: 'arrows-lr',
     category: 'network',
     keywords: 'ws wss socket',
     fields: [
       {
         key: 'url',
-        label: 'Adres',
+        get label() {
+          return t('monitorTypes.f.ws.url');
+        },
         kind: 'text',
-        placeholder: 'wss://ornek.com/ws',
+        get placeholder() {
+          return t('monitorTypes.ph.wsUrl');
+        },
         required: true,
         wide: true,
         mono: true,
         suggestName: true,
         pattern: /^wss?:\/\/\S+$/i,
-        patternMsg: 'Adres ws:// veya wss:// ile başlamalı.',
+        get patternMsg() {
+          return t('monitorTypes.f.ws.urlMsg');
+        },
       },
       {
         key: 'send',
-        label: 'Gönderilecek mesaj',
+        get label() {
+          return t('monitorTypes.f.ws.send');
+        },
         kind: 'text',
         optional: true,
         wide: true,
         mono: true,
         placeholder: '{"type":"ping"}',
         advanced: true,
-        section: 'Mesaj',
+        get section() {
+          return t('monitorTypes.f.ws.message');
+        },
       },
       {
         key: 'keyword',
-        label: 'Beklenen kelime',
+        get label() {
+          return t('monitorTypes.f.expectedKeyword');
+        },
         kind: 'text',
         optional: true,
         wide: true,
         advanced: true,
-        help: 'Doluysa sunucudan gelen ilk mesaj bu metni içermeli.',
+        get help() {
+          return t('monitorTypes.f.ws.keywordHelp');
+        },
       },
       {
         key: 'headers',
-        label: 'Başlıklar',
+        get label() {
+          return t('monitorTypes.f.headers');
+        },
         kind: 'textarea',
         secret: true,
         optional: true,
         placeholder: 'Authorization: Bearer abc123',
         advanced: true,
-        help: 'Her satıra bir başlık: Ad: değer',
+        get help() {
+          return t('monitorTypes.f.headerPerLine');
+        },
       },
       ignoreTls(),
     ],
   },
   {
     key: 'grpc',
-    label: 'gRPC sağlık kontrolü',
+    get label() {
+      return t('monitorTypes.types.grpc.label');
+    },
     badge: 'GRPC',
-    desc: 'grpc.health.v1 ile gRPC servisinin durumunu sorar',
-    about: 'grpc.health.v1 servisi üzerinden gRPC sunucusunun durumunu kontrol eder.',
+    get desc() {
+      return t('monitorTypes.types.grpc.desc');
+    },
+    get about() {
+      return t('monitorTypes.types.grpc.about');
+    },
     icon: 'cpu',
     category: 'network',
     keywords: 'grpc health protobuf',
     fields: [
       {
         key: 'target',
-        label: 'Sunucu adresi',
+        get label() {
+          return t('monitorTypes.f.host');
+        },
         kind: 'text',
-        placeholder: 'api.ornek.com:50051',
+        get placeholder() {
+          return t('monitorTypes.ph.grpcTarget');
+        },
         required: true,
         mono: true,
         suggestName: true,
         pattern: /^\S+:\d{1,5}$/,
-        patternMsg: 'Sunucu adresi host:port biçiminde olmalı (ör. api.ornek.com:50051).',
+        get patternMsg() {
+          return t('monitorTypes.f.grpc.targetMsg');
+        },
       },
-      { key: 'service', label: 'Servis adı', kind: 'text', optional: true, mono: true, help: 'Boşsa sunucunun genel durumu sorulur.' },
-      { key: 'tls', label: 'TLS kullan', kind: 'bool' },
+      {
+        key: 'service',
+        get label() {
+          return t('monitorTypes.f.grpc.service');
+        },
+        kind: 'text',
+        optional: true,
+        mono: true,
+        get help() {
+          return t('monitorTypes.f.grpc.serviceHelp');
+        },
+      },
+      {
+        key: 'tls',
+        get label() {
+          return t('monitorTypes.f.useTls');
+        },
+        kind: 'bool',
+      },
       ignoreTls({ showIf: (v) => v.tls === 'true' }),
       {
         key: 'metadata',
-        label: 'Metadata başlıkları',
+        get label() {
+          return t('monitorTypes.f.grpc.metadata');
+        },
         kind: 'textarea',
         secret: true,
         optional: true,
         placeholder: 'authorization: Bearer abc123',
         advanced: true,
-        help: 'Her satıra bir başlık: Ad: değer',
+        get help() {
+          return t('monitorTypes.f.headerPerLine');
+        },
       },
     ],
   },
@@ -320,53 +517,79 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
     key: 'mqtt',
     label: 'MQTT',
     badge: 'MQTT',
-    desc: 'Broker’a bağlanır, isteğe bağlı konudan mesaj bekler',
-    about: 'MQTT broker’ına bağlanır; isteğe bağlı bir konuya abone olup mesaj bekler.',
+    get desc() {
+      return t('monitorTypes.types.mqtt.desc');
+    },
+    get about() {
+      return t('monitorTypes.types.mqtt.about');
+    },
     icon: 'rss',
     category: 'network',
     keywords: 'mosquitto iot broker',
     fields: [
       {
         key: 'broker_url',
-        label: 'Broker adresi',
+        get label() {
+          return t('monitorTypes.f.mqtt.broker');
+        },
         kind: 'text',
-        placeholder: 'tcp://broker.ornek.com:1883',
+        get placeholder() {
+          return t('monitorTypes.ph.mqttBroker');
+        },
         required: true,
         wide: true,
         mono: true,
         suggestName: true,
         // Sunucu yalnızca bu şemaları kabul eder (mqtt:// ve mqtts:// değil); adreste sunucu adı olmalı.
         pattern: /^(tcp|ssl|tls|ws|wss):\/\/[^\s/?#]+\S*$/i,
-        patternMsg: 'Broker adresi tcp://, ssl://, tls://, ws:// veya wss:// ile başlamalı (mqtt:// yerine tcp://, mqtts:// yerine ssl:// yazın).',
-        help: 'tcp://, ssl://, tls://, ws:// veya wss://',
+        get patternMsg() {
+          return t('monitorTypes.f.mqtt.brokerMsg');
+        },
+        get help() {
+          return t('monitorTypes.f.mqtt.brokerHelp');
+        },
       },
-      { key: 'username', label: 'Kullanıcı adı', kind: 'text', optional: true },
-      { key: 'password', label: 'Şifre', kind: 'secret', optional: true },
+      username({ optional: true }),
+      password({ optional: true }),
       {
         key: 'topic',
-        label: 'Konu (topic)',
+        get label() {
+          return t('monitorTypes.f.mqtt.topic');
+        },
         kind: 'text',
         optional: true,
         wide: true,
         mono: true,
-        placeholder: 'sensor/durum',
+        get placeholder() {
+          return t('monitorTypes.ph.mqttTopic');
+        },
         advanced: true,
-        section: 'Mesaj kontrolü',
-        sectionHelp: 'Konu boşsa yalnızca bağlantı kurulabildiği kontrol edilir.',
+        get section() {
+          return t('monitorTypes.f.mqtt.section');
+        },
+        get sectionHelp() {
+          return t('monitorTypes.f.mqtt.sectionHelp');
+        },
       },
       {
         key: 'keyword',
-        label: 'Beklenen kelime',
+        get label() {
+          return t('monitorTypes.f.expectedKeyword');
+        },
         kind: 'text',
         optional: true,
         wide: true,
         advanced: true,
         showIf: hasTopic,
-        help: 'Doluysa konudan gelen mesaj bu metni içermeli.',
+        get help() {
+          return t('monitorTypes.f.mqtt.keywordHelp');
+        },
       },
       {
         key: 'json_path',
-        label: 'JSON yolu',
+        get label() {
+          return t('monitorTypes.f.mqtt.jsonPath');
+        },
         kind: 'text',
         optional: true,
         mono: true,
@@ -376,16 +599,20 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
       },
       {
         key: 'json_op',
-        label: 'Karşılaştırma',
+        get label() {
+          return t('monitorTypes.f.mqtt.compare');
+        },
         kind: 'select',
         def: '==',
-        options: JSON_OPS_MQTT,
+        options: cmpOps(),
         advanced: true,
         showIf: (v) => hasTopic(v) && !!v.json_path?.trim(),
       },
       {
         key: 'json_expected',
-        label: 'Beklenen değer',
+        get label() {
+          return t('monitorTypes.f.expectedValue');
+        },
         kind: 'text',
         optional: true,
         advanced: true,
@@ -398,31 +625,35 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
     key: 'snmp',
     label: 'SNMP',
     badge: 'SNMP',
-    desc: 'Ağ cihazından SNMP ile bir OID değeri okur',
-    about: 'Ağ cihazından SNMP ile bir OID değeri okur.',
+    get desc() {
+      return t('monitorTypes.types.snmp.desc');
+    },
+    get about() {
+      return t('monitorTypes.types.snmp.about');
+    },
     icon: 'router',
     category: 'network',
     keywords: 'switch router oid mib',
     fields: [
-      host('10.0.0.1'),
+      host(() => '10.0.0.1'),
       port(161),
       {
         key: 'version',
-        label: 'SNMP sürümü',
+        get label() {
+          return t('monitorTypes.f.snmp.version');
+        },
         kind: 'select',
         def: 'v2c',
-        options: [
-          { v: 'v1', l: 'v1' },
-          { v: 'v2c', l: 'v2c' },
-          { v: 'v3', l: 'v3 (kullanıcı tabanlı)' },
-        ],
+        options: [{ v: 'v1', l: 'v1' }, { v: 'v2c', l: 'v2c' }, opt('v3', 'monitorTypes.f.snmp.v3')],
       },
       {
         key: 'community',
         label: 'Community',
         kind: 'secret',
         placeholder: 'public',
-        help: 'Boşsa “public” kullanılır.',
+        get help() {
+          return t('monitorTypes.f.snmp.communityHelp');
+        },
         showIf: (v) => !isV3(v),
       },
       {
@@ -433,25 +664,27 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
         required: true,
         mono: true,
         pattern: /^\.?\d+(\.\d+)+$/,
-        patternMsg: 'Geçerli bir OID girin (örnek: 1.3.6.1.2.1.1.3.0).',
+        get patternMsg() {
+          return t('monitorTypes.f.snmp.oidMsg');
+        },
         wide: true,
       },
-      {
-        key: 'username',
-        label: 'Kullanıcı adı',
-        kind: 'text',
-        required: true,
-        showIf: isV3,
-        section: 'SNMPv3 kimlik bilgileri',
-      },
+      username({ required: true, showIf: isV3, section: 'monitorTypes.f.snmp.v3Section' }),
       {
         key: 'auth_protocol',
-        label: 'Kimlik doğrulama protokolü',
+        get label() {
+          return t('monitorTypes.f.snmp.authProtocol');
+        },
         kind: 'select',
         def: 'none',
         showIf: isV3,
         options: [
-          { v: 'none', l: 'Yok (noAuthNoPriv)' },
+          {
+            v: 'none',
+            get l() {
+              return `${t('common.none')} (noAuthNoPriv)`;
+            },
+          },
           { v: 'md5', l: 'MD5' },
           { v: 'sha', l: 'SHA' },
           { v: 'sha224', l: 'SHA-224' },
@@ -462,19 +695,28 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
       },
       {
         key: 'auth_password',
-        label: 'Kimlik doğrulama şifresi',
+        get label() {
+          return t('monitorTypes.f.snmp.authPassword');
+        },
         kind: 'secret',
         required: true,
         showIf: (v) => isV3(v) && v.auth_protocol !== 'none',
       },
       {
         key: 'priv_protocol',
-        label: 'Gizlilik protokolü',
+        get label() {
+          return t('monitorTypes.f.snmp.privProtocol');
+        },
         kind: 'select',
         def: 'none',
         showIf: (v) => isV3(v) && v.auth_protocol !== 'none',
         options: [
-          { v: 'none', l: 'Yok (authNoPriv)' },
+          {
+            v: 'none',
+            get l() {
+              return `${t('common.none')} (authNoPriv)`;
+            },
+          },
           { v: 'des', l: 'DES' },
           { v: 'aes', l: 'AES-128' },
           { v: 'aes192', l: 'AES-192' },
@@ -483,33 +725,38 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
       },
       {
         key: 'priv_password',
-        label: 'Gizlilik şifresi',
+        get label() {
+          return t('monitorTypes.f.snmp.privPassword');
+        },
         kind: 'secret',
         required: true,
         showIf: (v) => isV3(v) && v.auth_protocol !== 'none' && v.priv_protocol !== 'none',
       },
       {
         key: 'condition',
-        label: 'Koşul',
+        get label() {
+          return t('monitorTypes.f.snmp.condition');
+        },
         kind: 'select',
         def: '',
         advanced: true,
-        section: 'Değer kontrolü',
-        sectionHelp: 'Koşul seçilmezse değerin okunabilmesi yeterlidir.',
+        get section() {
+          return t('monitorTypes.f.snmp.valueSection');
+        },
+        get sectionHelp() {
+          return t('monitorTypes.f.snmp.valueSectionHelp');
+        },
         options: [
-          { v: '', l: 'Yok (değer okunabiliyorsa çalışıyor)' },
-          { v: '==', l: 'eşittir (==)' },
-          { v: '!=', l: 'eşit değildir (!=)' },
-          { v: '>', l: 'büyüktür (>)' },
-          { v: '>=', l: 'büyük veya eşit (>=)' },
-          { v: '<', l: 'küçüktür (<)' },
-          { v: '<=', l: 'küçük veya eşit (<=)' },
-          { v: 'contains', l: 'içerir' },
+          opt('', 'monitorTypes.f.snmp.condNone'),
+          ...cmpOps().filter((o) => o.v !== 'contains'),
+          opt('contains', 'monitorTypes.ops.contains'),
         ],
       },
       {
         key: 'expected',
-        label: 'Beklenen değer',
+        get label() {
+          return t('monitorTypes.f.expectedValue');
+        },
         kind: 'text',
         required: true,
         advanced: true,
@@ -523,7 +770,9 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
     key: 'mysql',
     label: 'MySQL / MariaDB',
     badge: 'MYSQL',
-    desc: 'Veritabanına bağlanıp sorgu çalıştırır',
+    get desc() {
+      return t('monitorTypes.types.sql.desc');
+    },
     icon: 'database',
     category: 'database',
     keywords: 'mariadb sql',
@@ -532,10 +781,11 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
       label: 'TLS',
       kind: 'select',
       def: 'false',
+      advanced: true,
       options: [
-        { v: 'false', l: 'Kapalı' },
-        { v: 'true', l: 'Açık, sertifika doğrulanır' },
-        { v: 'skip-verify', l: 'Açık, sertifika doğrulanmaz' },
+        opt('false', 'common.off'),
+        opt('true', 'monitorTypes.f.mysql.tlsTrue'),
+        opt('skip-verify', 'monitorTypes.f.mysql.tlsSkip'),
       ],
     }),
   },
@@ -543,16 +793,23 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
     key: 'postgres',
     label: 'PostgreSQL',
     badge: 'POSTGRES',
-    desc: 'Veritabanına bağlanıp sorgu çalıştırır',
+    get desc() {
+      return t('monitorTypes.types.sql.desc');
+    },
     icon: 'elephant',
     category: 'database',
     keywords: 'postgresql psql sql',
     fields: sqlFields(5432, {
       key: 'sslmode',
-      label: 'SSL modu',
+      get label() {
+        return t('monitorTypes.f.postgres.sslmode');
+      },
       kind: 'select',
       def: 'prefer',
-      help: 'prefer: mümkünse TLS; verify-full: sertifika ve sunucu adı tam doğrulanır',
+      advanced: true,
+      get help() {
+        return t('monitorTypes.f.postgres.sslmodeHelp');
+      },
       options: [
         { v: 'prefer', l: 'prefer' },
         { v: 'disable', l: 'disable' },
@@ -565,66 +822,99 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
     key: 'mssql',
     label: 'Microsoft SQL Server',
     badge: 'MSSQL',
-    desc: 'Veritabanına bağlanıp sorgu çalıştırır',
+    get desc() {
+      return t('monitorTypes.types.sql.desc');
+    },
     icon: 'table',
     category: 'database',
     keywords: 'sql server azure',
     fields: sqlFields(1433, {
       key: 'encrypt',
-      label: 'Bağlantıyı şifrele',
+      get label() {
+        return t('monitorTypes.f.mssql.encrypt');
+      },
       kind: 'bool',
-      help: 'Açıksa bağlantı şifrelenir; sunucu sertifikası doğrulanmaz (iç ağdaki kendinden imzalı sertifikalar için)',
+      advanced: true,
+      get help() {
+        return t('monitorTypes.f.mssql.encryptHelp');
+      },
     }),
   },
   {
     key: 'redis',
     label: 'Redis',
     badge: 'REDIS',
-    desc: 'PING gönderir, isteğe bağlı anahtar kontrolü yapar',
+    get desc() {
+      return t('monitorTypes.types.redis.desc');
+    },
     icon: 'memory',
     category: 'database',
     keywords: 'valkey keydb cache',
     fields: [
-      host('redis.ornek.com'),
+      host(() => t('monitorTypes.ph.redisHost')),
       port(6379),
-      { key: 'password', label: 'Şifre', kind: 'secret', optional: true },
-      { key: 'tls', label: 'TLS kullan', kind: 'bool' },
+      password({ optional: true }),
+      {
+        key: 'tls',
+        get label() {
+          return t('monitorTypes.f.useTls');
+        },
+        kind: 'bool',
+      },
       {
         key: 'username',
-        label: 'Kullanıcı adı (ACL, isteğe bağlı)',
+        get label() {
+          return t('monitorTypes.f.redis.username');
+        },
         kind: 'text',
         advanced: true,
-        section: 'Bağlantı',
+        get section() {
+          return t('monitorTypes.f.redis.connection');
+        },
       },
       {
         key: 'db',
-        label: 'Veritabanı indeksi',
+        get label() {
+          return t('monitorTypes.f.redis.db');
+        },
         kind: 'number',
         def: 0,
         min: 0,
         max: 15,
         pattern: /^\d{1,2}$/,
-        patternMsg: 'Veritabanı indeksi 0-15 arasında olmalı.',
+        get patternMsg() {
+          return t('monitorTypes.f.redis.dbMsg');
+        },
         advanced: true,
       },
       {
         key: 'key',
-        label: 'Anahtar',
+        get label() {
+          return t('monitorTypes.f.redis.key');
+        },
         kind: 'text',
         optional: true,
         mono: true,
         advanced: true,
-        section: 'Anahtar kontrolü',
-        sectionHelp: 'Anahtar boşsa sadece PING gönderilir.',
+        get section() {
+          return t('monitorTypes.f.redis.keySection');
+        },
+        get sectionHelp() {
+          return t('monitorTypes.f.redis.keySectionHelp');
+        },
       },
       {
         key: 'expected',
-        label: 'Beklenen değer',
+        get label() {
+          return t('monitorTypes.f.expectedValue');
+        },
         kind: 'text',
         optional: true,
         advanced: true,
         showIf: (v) => !!v.key?.trim(),
-        help: 'Boşsa anahtarın var olması yeterli.',
+        get help() {
+          return t('monitorTypes.f.redis.expectedHelp');
+        },
       },
     ],
   },
@@ -632,39 +922,66 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
     key: 'mongodb',
     label: 'MongoDB',
     badge: 'MONGO',
-    desc: 'Bağlanıp ping komutu çalıştırır',
+    get desc() {
+      return t('monitorTypes.types.mongodb.desc');
+    },
     icon: 'leaf',
     category: 'database',
     keywords: 'mongo nosql atlas',
     fields: [
       {
         key: 'uri',
-        label: 'Bağlantı URI’si',
+        get label() {
+          return t('monitorTypes.f.mongo.uri');
+        },
         kind: 'secret',
-        placeholder: 'mongodb://kullanici:sifre@host:27017',
+        get placeholder() {
+          return t('monitorTypes.ph.mongoUri');
+        },
         required: true,
         wide: true,
         pattern: /^mongodb(\+srv)?:\/\/\S+$/,
-        patternMsg: 'URI mongodb:// veya mongodb+srv:// ile başlamalı.',
-        help: 'Kimlik bilgisi içerir; kaydedildikten sonra gizlenir. mongodb+srv:// da desteklenir',
+        get patternMsg() {
+          return t('monitorTypes.f.mongo.uriMsg');
+        },
+        get help() {
+          return t('monitorTypes.f.mongo.uriHelp');
+        },
       },
-      { key: 'database', label: 'Veritabanı', kind: 'text', placeholder: 'admin', advanced: true, help: 'Boşsa admin.' },
+      {
+        key: 'database',
+        get label() {
+          return t('monitorTypes.f.database');
+        },
+        kind: 'text',
+        placeholder: 'admin',
+        advanced: true,
+        get help() {
+          return t('monitorTypes.f.mongo.dbHelp');
+        },
+      },
     ],
   },
 
   // Sistem ve sinyaller
   {
     key: 'docker',
-    label: 'Docker konteyner',
+    get label() {
+      return t('monitorTypes.types.docker.label');
+    },
     badge: 'DOCKER',
-    desc: 'Konteynerin çalışıp sağlıklı olduğunu kontrol eder',
+    get desc() {
+      return t('monitorTypes.types.docker.desc');
+    },
     icon: 'box',
     category: 'system',
     keywords: 'container konteyner compose',
     fields: [
       {
         key: 'container',
-        label: 'Konteyner adı veya ID',
+        get label() {
+          return t('monitorTypes.f.docker.container');
+        },
         kind: 'text',
         placeholder: 'web-1',
         required: true,
@@ -674,12 +991,16 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
       },
       {
         key: 'endpoint',
-        label: 'Docker API adresi',
+        get label() {
+          return t('monitorTypes.f.docker.endpoint');
+        },
         kind: 'text',
         def: 'unix:///var/run/docker.sock',
         mono: true,
         wide: true,
-        help: 'unix:///var/run/docker.sock, tcp://host:2375 veya http(s)://… (ör. docker-socket-proxy). Güvenlik: docker.sock’u salt okunur (:ro) bağlayın ya da yalnızca CONTAINERS=1 izinli tecnativa/docker-socket-proxy kullanın.',
+        get help() {
+          return t('monitorTypes.f.docker.endpointHelp');
+        },
       },
     ],
   },
@@ -687,7 +1008,9 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
     key: 'push',
     label: 'Push',
     badge: 'PUSH',
-    desc: 'Cron işlerinin düzenli sinyal göndermesini bekler',
+    get desc() {
+      return t('monitorTypes.types.push.desc');
+    },
     icon: 'inbox',
     category: 'system',
     keywords: 'heartbeat cron sinyal',
@@ -696,88 +1019,155 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
   },
   {
     key: 'group',
-    label: 'Grup',
-    badge: 'GRUP',
-    desc: 'Seçtiğiniz monitörlerin durumunu tek monitörde toplar',
+    get label() {
+      return t('monitorTypes.types.group.label');
+    },
+    get badge() {
+      return t('monitorTypes.types.group.badge');
+    },
+    get desc() {
+      return t('monitorTypes.types.group.desc');
+    },
     icon: 'layers',
     category: 'system',
+    keywords: 'group grup',
     timeout: false,
     upsideDown: false,
     remote: false,
   },
 ];
 
+const whenProxy = (v: Record<string, string>) => !!v.proxy_url?.trim();
+const whenOAuth = (v: Record<string, string>) => !!v.oauth_token_url?.trim();
+
 /** HTTP monitörünün gelişmiş bölümündeki ek alanlar (proxy, mTLS, OAuth2). */
 export const HTTP_EXTRA_FIELDS: CfgField[] = [
   {
     key: 'proxy_url',
-    label: 'Proxy adresi',
+    get label() {
+      return t('monitorTypes.f.http.proxyUrl');
+    },
     kind: 'text',
     placeholder: 'socks5://10.0.0.5:1080',
     mono: true,
     wide: true,
     section: 'Proxy',
-    help: 'http://, https://, socks5:// veya socks5h:// — socks5h: alan adı proxy üzerinde çözülür',
+    get help() {
+      return t('monitorTypes.f.http.proxyHelp');
+    },
     pattern: /^(https?|socks5h?):\/\/\S+$/i,
-    patternMsg: 'Proxy adresi http://, https://, socks5:// veya socks5h:// ile başlamalı.',
+    get patternMsg() {
+      return t('monitorTypes.f.http.proxyMsg');
+    },
   },
-  { key: 'proxy_user', label: 'Proxy kullanıcı adı', kind: 'text', showIf: (v) => !!v.proxy_url?.trim() },
-  { key: 'proxy_pass', label: 'Proxy şifresi', kind: 'secret', showIf: (v) => !!v.proxy_url?.trim() },
+  {
+    key: 'proxy_user',
+    get label() {
+      return t('monitorTypes.f.http.proxyUser');
+    },
+    kind: 'text',
+    showIf: whenProxy,
+  },
+  {
+    key: 'proxy_pass',
+    get label() {
+      return t('monitorTypes.f.http.proxyPass');
+    },
+    kind: 'secret',
+    showIf: whenProxy,
+  },
   {
     key: 'tls_cert',
-    label: 'İstemci sertifikası (PEM)',
+    get label() {
+      return t('monitorTypes.f.http.tlsCert');
+    },
     kind: 'pem',
     placeholder: '-----BEGIN CERTIFICATE-----',
-    section: 'İstemci sertifikası (mTLS)',
-    sectionHelp: 'Sunucu istemci sertifikası istiyorsa sertifika ve özel anahtarı birlikte girin.',
+    get section() {
+      return t('monitorTypes.f.http.mtlsSection');
+    },
+    get sectionHelp() {
+      return t('monitorTypes.f.http.mtlsHelp');
+    },
   },
   {
     key: 'tls_key',
-    label: 'Özel anahtar (PEM)',
+    get label() {
+      return t('monitorTypes.f.http.tlsKey');
+    },
     kind: 'pem',
     secret: true,
     placeholder: '-----BEGIN PRIVATE KEY-----',
   },
   {
     key: 'tls_ca',
-    label: 'Özel kök sertifika (CA)',
+    get label() {
+      return t('monitorTypes.f.http.tlsCa');
+    },
     kind: 'pem',
     placeholder: '-----BEGIN CERTIFICATE-----',
-    help: 'Sistem kök sertifikalarına ek olarak güvenilir',
+    get help() {
+      return t('monitorTypes.f.http.tlsCaHelp');
+    },
   },
   {
     key: 'oauth_token_url',
-    label: 'Token adresi',
+    get label() {
+      return t('monitorTypes.f.http.tokenUrl');
+    },
     kind: 'url',
-    placeholder: 'https://auth.ornek.com/oauth/token',
+    get placeholder() {
+      return t('monitorTypes.ph.oauthTokenUrl');
+    },
     wide: true,
-    section: 'OAuth2 (istemci kimlik bilgileri)',
-    sectionHelp: 'Doluysa her istekten önce bu adresten erişim token’ı alınır ve Authorization: Bearer başlığıyla gönderilir. Basic auth ile birlikte kullanılamaz.',
+    get section() {
+      return t('monitorTypes.f.http.oauthSection');
+    },
+    get sectionHelp() {
+      return t('monitorTypes.f.http.oauthHelp');
+    },
   },
-  { key: 'oauth_client_id', label: 'İstemci kimliği (Client ID)', kind: 'text', showIf: (v) => !!v.oauth_token_url?.trim() },
-  { key: 'oauth_client_secret', label: 'İstemci sırrı (Client Secret)', kind: 'secret', showIf: (v) => !!v.oauth_token_url?.trim() },
+  {
+    key: 'oauth_client_id',
+    get label() {
+      return t('monitorTypes.f.http.clientId');
+    },
+    kind: 'text',
+    showIf: whenOAuth,
+  },
+  {
+    key: 'oauth_client_secret',
+    get label() {
+      return t('monitorTypes.f.http.clientSecret');
+    },
+    kind: 'secret',
+    showIf: whenOAuth,
+  },
   {
     key: 'oauth_scopes',
-    label: 'Kapsamlar (scope)',
+    get label() {
+      return t('monitorTypes.f.http.scopes');
+    },
     kind: 'text',
-    placeholder: 'okuma yazma',
+    get placeholder() {
+      return t('monitorTypes.ph.oauthScopes');
+    },
     optional: true,
-    showIf: (v) => !!v.oauth_token_url?.trim(),
+    showIf: whenOAuth,
   },
   {
     key: 'oauth_auth_style',
-    label: 'Kimlik gönderimi',
+    get label() {
+      return t('monitorTypes.f.http.authStyle');
+    },
     kind: 'select',
     def: 'header',
-    showIf: (v) => !!v.oauth_token_url?.trim(),
-    options: [
-      { v: 'header', l: 'Authorization başlığında' },
-      { v: 'body', l: 'Form gövdesinde' },
-    ],
+    showIf: whenOAuth,
+    options: [opt('header', 'monitorTypes.f.http.authHeader'), opt('body', 'monitorTypes.f.http.authBody')],
   },
 ];
 
-const BY_KEY = new Map<string, MonitorTypeDef>(MONITOR_TYPES.map((t) => [t.key, t]));
+const BY_KEY = new Map<string, MonitorTypeDef>(MONITOR_TYPES.map((d) => [d.key, d]));
 
 export function typeDef(key: string): MonitorTypeDef | undefined {
   return BY_KEY.get(key);
@@ -802,19 +1192,40 @@ export const isRemoteCapable = (key: string) => BY_KEY.get(key)?.remote !== fals
 export const isWebTarget = (key: string) => key === 'http';
 
 export const GROUP_MODES: { v: 'any_down' | 'all_down'; l: string }[] = [
-  { v: 'any_down', l: 'Herhangi biri çalışmıyorsa DOWN' },
-  { v: 'all_down', l: 'Hepsi çalışmıyorsa DOWN' },
+  {
+    v: 'any_down',
+    get l() {
+      return t('monitorTypes.groupModes.anyDown');
+    },
+  },
+  {
+    v: 'all_down',
+    get l() {
+      return t('monitorTypes.groupModes.allDown');
+    },
+  },
 ];
 
 /**
  * Hedef metni gösterim için: sunucu bazı tiplerde (ör. MongoDB) hedefi maskeli
  * ayardan ürettiğinde maske URL-kodlu gelir; okunaklı maskeye çevrilir.
  */
-export const displayTarget = (t: string) => t.replace(/(%E2%80%A2)+/gi, '••••••');
+export const displayTarget = (target: string) => target.replace(/(%E2%80%A2)+/gi, '••••••');
+
+/**
+ * Grup monitörünün hedefi: sunucu "3 monitör" diye saklar; geçerli dilde alt
+ * monitör sayısı olarak yazılır (izleyicide ayar gizliyse hedefteki sayıdan).
+ */
+export function groupTarget(config: Record<string, unknown> | undefined, target: string): string {
+  const ids = config?.monitor_ids;
+  const n = Array.isArray(ids) ? ids.length : Number(/^(\d+)\b/.exec(target)?.[1] ?? NaN);
+  return Number.isFinite(n) ? t('monitorTypes.childCount', { count: n }) : target;
+}
 
 /** Listede gösterilecek kısa hedef: web adreslerinde alan adı, diğerlerinde hedefin kendisi. */
-export function shortTarget(type: string, target: string): string {
+export function shortTarget(type: string, target: string, config?: Record<string, unknown>): string {
   if (!target) return '';
+  if (type === 'group') return groupTarget(config, target);
   if (isWebTarget(type)) {
     try {
       return new URL(target).host;

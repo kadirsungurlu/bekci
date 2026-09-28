@@ -9,6 +9,7 @@
   import UptimeBars from './UptimeBars.svelte';
   import Icon from './Icon.svelte';
   import { shortTarget } from '../lib/monitorTypes';
+  import { t } from '../lib/i18n';
 
   let {
     m,
@@ -32,33 +33,36 @@
   } = $props();
 
   const kind = $derived(monitorKind(m));
-  const host = $derived(shortTarget(m.type, m.target));
+  const host = $derived(shortTarget(m.type, m.target, m.config));
   // Satırda en fazla 3 etiket; fazlası "+N" olarak.
   const tags = $derived(m.tags ?? []);
   const shownTags = $derived(tags.slice(0, 3));
   // Süren olay: detay sayfasına kısayol (izleyici de görür; liste zaten kapsamla süzülü).
   const incident = $derived(kind === 'down' && m.open_incident_id ? m.open_incident_id : null);
 
-  const sub = $derived.by(() => {
+  // Alt satır: durum (+ süre) her zaman görünür; yer daralınca önce kontrol mesajı,
+  // sonra adres kısalır (durum metni kırpılmasın).
+  const sub = $derived.by((): { status: string; msg?: string } => {
     switch (kind) {
       case 'paused':
-        return STATUS_LABELS.paused;
+        return { status: STATUS_LABELS.paused };
       case 'maintenance':
-        return 'Bakımda · bildirim gönderilmez';
+        return { status: t('monitors.row.maint') };
       case 'pending':
         // Yeni eklenen, düzenlenen veya yeniden başlatılan monitörde sunucu mesajı
         // temizler; mesaj varsa başarısız kontrol sonrası tekrar deneniyordur.
-        return m.last_message ? `Tekrar deneniyor · ${m.last_message}` : 'İlk kontrol bekleniyor';
+        return m.last_message ? { status: t('status.retrying'), msg: m.last_message } : { status: t('monitors.firstCheck') };
       case 'up':
-        return m.last_change_at ? `Çalışıyor · ${fmtDuration(now - m.last_change_at)}` : 'Çalışıyor';
-      case 'down': {
-        let s = 'Çalışmıyor';
-        if (m.last_change_at) s += ` · ${fmtDuration(now - m.last_change_at)}`;
-        if (m.last_message) s += ` · ${m.last_message}`;
-        return s;
-      }
+        return { status: m.last_change_at ? `${STATUS_LABELS.up} · ${fmtDuration(now - m.last_change_at)}` : STATUS_LABELS.up };
+      case 'down':
+        return {
+          status: m.last_change_at ? `${STATUS_LABELS.down} · ${fmtDuration(now - m.last_change_at)}` : STATUS_LABELS.down,
+          msg: m.last_message || undefined,
+        };
     }
   });
+  const subText = $derived([host, sub.status, sub.msg].filter(Boolean).join(' · '));
+  const subClass = $derived(`c-${kind === 'down' ? 'down' : kind === 'pending' ? 'pending' : kind === 'maintenance' ? 'maint' : 'muted'}`);
 
   const href = $derived(`#/monitors/${m.id}`);
   const narrow = () => window.matchMedia('(max-width: 640px)').matches;
@@ -138,7 +142,7 @@
           e.stopPropagation();
           onselect?.(m, e.shiftKey);
         }}
-        aria-label="{m.name} seç"
+        aria-label={t('monitors.row.select', { name: m.name })}
       />
     </label>
   {/if}
@@ -160,24 +164,32 @@
       <TypeBadge type={m.type} />
       {#if tags.length}
         <span class="tags">
-          {#each shownTags as t (t.id + ':' + t.value)}<TagChip name={t.name} color={t.color} value={t.value} size="sm" />{/each}
+          {#each shownTags as tg (tg.id + ':' + tg.value)}<TagChip name={tg.name} color={tg.color} value={tg.value} size="sm" />{/each}
         </span>
-        {#if tags.length > 3}<span class="more-tags" title={tags.slice(3).map((t) => (t.value ? `${t.name}: ${t.value}` : t.name)).join(', ')}>+{tags.length - 3}</span>{/if}
+        {#if tags.length > 3}<span class="more-tags" title={tags.slice(3).map((tg) => (tg.value ? `${tg.name}: ${tg.value}` : tg.name)).join(', ')}>+{tags.length - 3}</span>{/if}
       {/if}
     </div>
-    <div class="sub" title={host ? `${host} · ${sub}` : sub}>
-      {#if host}<span class="host">{host}</span><span class="sep" aria-hidden="true">·</span>{/if}<span
-        class="c-{kind === 'down' ? 'down' : kind === 'pending' ? 'pending' : kind === 'maintenance' ? 'maint' : 'muted'}">{sub}</span
-      >
+    <div class="sub" title={subText}>
+      {#if host}<span class="host">{host}</span>{/if}<span class="st {subClass}"
+        >{#if host}<span class="sep" aria-hidden="true">·</span>{/if}{sub.status}</span
+      >{#if sub.msg}<span class="msg {subClass}"><span class="sep" aria-hidden="true">·</span>{sub.msg}</span>{/if}
     </div>
   </div>
   {#if incident !== null}
-    <a class="inc" href="#/incidents/{incident}" onclick={(e) => e.stopPropagation()} title="Süren olayın ayrıntıları">
+    <a
+      class="inc"
+      href="#/incidents/{incident}"
+      onclick={(e) => e.stopPropagation()}
+      title={t('monitors.row.incidentTitle')}
+      aria-label={t('monitors.row.viewIncident')}
+    >
       <Icon name="zap" size={13} />
-      <span class="inc-l">Olayı gör</span><span class="inc-s">Olay</span>
+      <span class="inc-l" aria-hidden="true">{t('monitors.row.viewIncident')}</span><span class="inc-s" aria-hidden="true"
+        >{t('monitors.row.incident')}</span
+      >
     </a>
   {/if}
-  <div class="interval" title="Kontrol aralığı">
+  <div class="interval" title={t('monitors.row.interval')}>
     <Icon name="refresh" size={13} />
     {fmtInterval(m.interval)}
   </div>
@@ -191,7 +203,7 @@
         type="button"
         class="btn ghost icon"
         class:open={menuOpen}
-        aria-label="{m.name} için işlemler"
+        aria-label={t('monitors.row.actionsFor', { name: m.name })}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         onclick={toggleMenu}
@@ -303,16 +315,33 @@
     color: var(--muted);
     flex-shrink: 0;
   }
+  /* Adres · durum · mesaj. Durum metni hiç kırpılmaz; yer daralınca önce kontrol
+     mesajı, o bitince adres kısalır (ızgara izleri bu önceliği verir). */
   .sub {
+    display: grid;
+    grid-template-columns: minmax(0, max-content) max-content minmax(0, 1fr);
+    align-items: baseline;
+    min-width: 0;
     font-size: 0.83rem;
     margin-top: 2px;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .sub > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .host {
+    grid-column: 1;
     color: var(--text-2);
     font-weight: 500;
+  }
+  .st {
+    grid-column: 2;
+  }
+  .msg {
+    grid-column: 3;
   }
   .sep {
     color: var(--muted);
@@ -392,14 +421,39 @@
     color: var(--text);
   }
 
-  /* Dar masaüstünde (kenar çubuğu + yan panel varken) ada daha çok yer bırak. */
-  @media (max-width: 1400px) and (min-width: 901px), (max-width: 760px) {
+  /* Liste daraldıkça (kenar çubuğu + yan panel, tablet) ada ve duruma yer bırak:
+     liste kutusu (MonitorList .list) "mlist" adlı kapsayıcıdır. */
+  @container mlist (max-width: 900px) {
     .uptime {
       width: 180px;
     }
     /* Olay düğmesi varken aralık sütunu gizlenir (ad sıkışmasın). */
     .row.has-inc .interval {
       display: none;
+    }
+  }
+  @media (min-width: 641px) {
+    /* Olay düğmesi önce kısa etikete ("Olay"), sonra yalnızca simgeye iner. */
+    @container mlist (max-width: 720px) {
+      .inc-l {
+        display: none;
+      }
+      .inc-s {
+        display: inline;
+      }
+    }
+    @container mlist (max-width: 600px) {
+      .interval {
+        display: none;
+      }
+      .inc {
+        width: 28px;
+        padding: 0;
+        justify-content: center;
+      }
+      .inc-s {
+        display: none;
+      }
     }
   }
   @media (max-width: 640px) {
