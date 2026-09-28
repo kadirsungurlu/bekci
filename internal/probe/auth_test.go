@@ -21,10 +21,10 @@ func TestForbiddenKeepsBuffer(t *testing.T) {
 	fs.set(func(f *fakeServer) { f.jobsCode = 403; f.resCode = 403 })
 	waitFor(t, "iş durdu", func() bool { return len(c.Jobs()) == 0 })
 	time.Sleep(100 * time.Millisecond) // birkaç yoklama/gönderim turu
+	// Gönderim sürerken parti tampondan geçici olarak çıkar; iş durduğu için
+	// yeni sonuç gelmez, yani tampon boşaltıldıysa pending bir daha artmaz.
+	waitFor(t, "403'te tampon korunur", func() bool { return c.pending() > 0 })
 	n := c.pending()
-	if n == 0 {
-		t.Fatal("403'te tampon boşaltılmamalı")
-	}
 	_, before, _ := fs.received()
 	fs.set(func(f *fakeServer) { f.jobsCode = 200; f.resCode = 200 })
 	waitFor(t, "saklanan sonuçlar gönderildi", func() bool { _, got, _ := fs.received(); return got-before >= n })
