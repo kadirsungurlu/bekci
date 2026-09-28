@@ -1065,8 +1065,21 @@
     .toolbar .fsel {
       display: none;
     }
+    /* Tek satır: seçim kutusu (sayı yalnızca seçim varken) + arama + sıralama. */
     .search {
-      flex-basis: 160px;
+      flex: 1 1 0;
+    }
+    .toolbar .ssel {
+      flex: 0 0 136px;
+    }
+    .toolbar .tsel {
+      flex: 1 1 100%;
+    }
+    .selbox:not(.on) .cnt {
+      display: none;
+    }
+    .selbox {
+      padding: 0 12px;
     }
   }
 </style>

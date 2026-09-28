@@ -136,3 +136,9 @@
     </button>
   {/snippet}
 </Modal>
+
+<style>
+  .spacer {
+    flex: 1;
+  }
+</style>

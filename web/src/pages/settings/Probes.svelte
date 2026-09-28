@@ -264,7 +264,8 @@
     </table>
     <p class="help foot">
       Son 90 saniyede sonuç gönderen kontrol noktası çevrimiçi sayılır. Güncellemek için sunucuda:
-      <code>docker rm -f uptime-probe; docker volume rm uptime-probe-bin</code>, sonra kurulum komutunu tekrar çalıştırın.
+      <code>docker rm -f uptime-probe; docker volume rm uptime-probe-bin</code>, sonra kurulum komutunu tekrar çalıştırın
+      (komut, satır menüsündeki “Token’ı yenile” ile yeniden alınır).
     </p>
   {/if}
 </section>
@@ -282,13 +283,19 @@
       </div>
       <div>
         <div class="label"><Icon name="terminal" size={14} /> Kurulum komutu</div>
-        <p class="help cmd-help">Kontrol noktası olacak sunucuda bu komutu çalıştırın.</p>
-        <div class="copybox">
-          <code class="cmd">{setup.docker_command}</code>
-          <CopyButton text={setup.docker_command} />
-        </div>
         <p class="help cmd-help">
-          Güncellemek için: <code>docker rm -f uptime-probe; docker volume rm uptime-probe-bin</code>, sonra komutu tekrar çalıştırın.
+          Kontrol noktası olacak sunucuda komutun tamamını <b>root</b> olarak yapıştırın (ya da ilk satırı
+          <code>sudo sh &lt;&lt;'UPTIME_KURULUM'</code> yapın).
+        </p>
+        <div class="cmdwrap">
+          <!-- Çok satırlı komut: satır sonları korunur, uzun satırlar yatay kayar; klavyeyle kaydırılabilsin diye odaklanabilir. -->
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+          <pre class="cmd" tabindex="0" aria-label="Kurulum komutu">{setup.docker_command}</pre>
+          <div class="cmdcopy"><CopyButton text={setup.docker_command} /></div>
+        </div>
+        <p class="help cmd-help after">
+          Token sunucuda <code>/etc/uptime-probe.env</code> dosyasında (600 izinle) tutulur. Güncellemek için:
+          <code>docker rm -f uptime-probe; docker volume rm uptime-probe-bin</code>, sonra komutu tekrar çalıştırın.
         </p>
       </div>
       <p class="help nomargin">
@@ -434,8 +441,31 @@
   .cmd-help {
     margin: -2px 0 6px;
   }
+  .cmdwrap {
+    background: var(--input);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
   .cmd {
+    margin: 0;
+    padding: 10px 12px;
     font-size: 0.78rem;
+    line-height: 1.55;
+    white-space: pre;
+    overflow: auto;
+    max-height: 240px;
+    color: var(--text);
+  }
+  .cmdcopy {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px 8px;
+    border-top: 1px solid var(--border);
+    background: var(--card-2);
+  }
+  .cmd-help.after {
+    margin: 6px 0 0;
   }
   .nomargin {
     margin: 0;

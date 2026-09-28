@@ -344,7 +344,7 @@
     display: none;
   }
   /* Dokunmatikte küçük "Olay" çipine 44 px'lik görünmez dokunma alanı. */
-  @media (pointer: coarse) {
+  @media (max-width: 900px), (pointer: coarse) {
     .inc {
       position: relative;
     }

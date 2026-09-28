@@ -867,7 +867,7 @@ input[type='search'].input::-webkit-search-decoration {
   cursor: pointer;
 }
 /* Dokunmatikte parçalı seçici ve aralık sekmeleri (1 sa / 24 sa …) 44 px yüksek. */
-@media (pointer: coarse) {
+@media (max-width: 900px), (pointer: coarse) {
   .seg button,
   .tabs > button[role='tab'] {
     min-height: 44px;
@@ -904,8 +904,8 @@ input[type='search'].input::-webkit-search-decoration {
   font-size: 0.88rem;
   margin-bottom: 14px;
 }
-/* Dokunmatikte geri bağlantısı ve metin düğmeleri en az 44 px dokunma alanı. */
-@media (pointer: coarse) {
+/* Dokunmatikte (telefonda) geri bağlantısı ve metin düğmeleri en az 44 px dokunma alanı. */
+@media (max-width: 900px), (pointer: coarse) {
   .back {
     min-height: 44px;
     padding-right: 12px;
