@@ -96,8 +96,8 @@ func netgsmText(ev Event) string {
 	title := strings.TrimSpace(strings.TrimLeft(ev.Title(), "🔴🟢⚠️✅ "))
 	msg := title
 	if ev.Kind == KindDown || ev.Kind == KindReminder {
-		if ev.Message != "" {
-			msg += ": " + ev.Message
+		if ev.LocalMessage() != "" {
+			msg += ": " + ev.LocalMessage()
 		}
 	}
 	if r := []rune(msg); len(r) > 300 {

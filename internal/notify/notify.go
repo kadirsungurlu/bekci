@@ -176,12 +176,12 @@ func (e Event) Text() string {
 	}
 	switch e.Kind {
 	case KindDown:
-		line("reason", e.Message)
+		line("reason", e.LocalMessage())
 	case KindUp:
 		line("downtime", i18n.Duration(l, e.Downtime))
 	case KindReminder:
 		line("downtime", i18n.Duration(l, e.Downtime))
-		line("reason", e.Message)
+		line("reason", e.LocalMessage())
 	case KindCert:
 		line("expires", i18n.DateTimeMin(l, e.CertExpires.Local()))
 		line("issuer", e.CertIssuer)
@@ -205,7 +205,7 @@ func (e Event) info() string {
 	case e.GoneMinutes > 0:
 		return i18n.T(e.Lang, "notify.server.value_gone", e.GoneMinutes)
 	}
-	return e.Message
+	return e.LocalMessage()
 }
 
 // DetailURL bildirimdeki "Detay" bağlantısı: olay sayfası, yoksa monitör sayfası.
@@ -537,3 +537,7 @@ func postJSON(ctx context.Context, u string, payload any, headers map[string]str
 	}
 	return doRequest(ctx, http.MethodPost, u, bytes.NewReader(b), h)
 }
+
+// LocalMessage kontrol mesajı bildirim dilinde: kayıtlı (Türkçe) kontrol
+// mesajları okunurken çevrilir (bkz. i18n.Message); bilinmeyen metin aynen döner.
+func (e Event) LocalMessage() string { return i18n.Message(e.Lang, e.Message) }

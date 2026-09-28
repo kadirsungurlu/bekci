@@ -239,7 +239,7 @@ func (webhook) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	var c webhookConfig
 	json.Unmarshal(raw, &c)
 	p := WebhookPayload{
-		Event: ev.Kind, Title: ev.Title(), Text: ev.Text(), Message: ev.Message,
+		Event: ev.Kind, Title: ev.Title(), Text: ev.Text(), Message: ev.LocalMessage(),
 		Time:            ev.Time.Format(time.RFC3339),
 		DowntimeSeconds: int64(ev.Downtime.Seconds()),
 		Monitor:         WebhookMonitor{ID: ev.MonitorID, Name: ev.MonitorName, Type: ev.MonitorType, Target: ev.Target, URL: ev.URL},

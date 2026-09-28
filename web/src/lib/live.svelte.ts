@@ -5,6 +5,7 @@
 // bloğunda sadece değişen satır yeniden çizilir; yüzlerce monitörde de hızlı kalır.
 
 import { api, errorMessage, STATUS_DOWN, STATUS_MAINTENANCE, STATUS_UP, type BeatEvent, type MonitorView, type ProbeEvent, type ServerView, type Summary } from './api';
+import { i18n } from './i18n/locale.svelte';
 
 type BeatListener = (b: BeatEvent) => void;
 type MaintListener = (id: number) => void;
@@ -164,7 +165,9 @@ class Live {
 
   private connect() {
     if (!this.running) return;
-    const es = new EventSource('/api/events');
+    // Dil: kayıtlı tercih yoksa sunucu kontrol mesajlarını bu dile çevirir
+    // (EventSource başlık gönderemez).
+    const es = new EventSource('/api/events?lang=' + i18n.locale);
     this.es = es;
     es.onopen = () => {
       this.connected = true;
