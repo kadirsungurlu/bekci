@@ -36,12 +36,14 @@ import (
 //	DOCKER_HOST            Docker API adresi (varsayılan unix:///var/run/docker.sock);
 //	                       erişilebilirse konteyner istatistikleri de gönderilir
 //
-// Docker kurulumu (host ağı ve süreçleri, kök dizin salt okunur):
+// Docker kurulumu (host ağı ve süreçleri, kök dizin salt okunur). Token
+// süreç argümanlarında görünmesin diye 0600 izinli bir env dosyasından
+// verilir (panel komutu dosyayı heredoc ile yazar):
 //
 //	docker run -d --name uptime-agent --restart unless-stopped --network host --pid host \
 //	  -v /:/host:ro,rslave -v /var/run/docker.sock:/var/run/docker.sock:ro \
 //	  -e HOST_PROC=/host/proc -e HOST_SYS=/host/sys -e HOST_ETC=/host/etc -e HOST_ROOT=/host \
-//	  -e ADDR=- -e PROBE_SERVER=… -e PROBE_TOKEN=upr_… …
+//	  -e ADDR=- --env-file /etc/uptime-agent.env …   # PROBE_SERVER=…, PROBE_TOKEN=upr_…
 //
 // Windows'ta aynı komut hizmet olarak da çalışır (service_windows.go): kurulum
 // "uptime service install", ayarlar %ProgramFiles%\Uptime\agent.env dosyasından.

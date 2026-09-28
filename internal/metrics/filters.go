@@ -3,6 +3,8 @@ package metrics
 import (
 	"cmp"
 	"math"
+	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
@@ -167,8 +169,10 @@ func isPhysicalDisk(name string) bool { return physicalDiskRe.MatchString(name) 
 
 // Sanal ağ arayüzleri: konteyner/köprü trafiği host arayüzünden zaten geçtiği
 // için sayılmaz. Tünel (tun, wg, tailscale) arayüzleri gerçek kabul edilir.
+// tap: sanal makine NIC'leri (Proxmox/KVM), fw: Proxmox güvenlik duvarı
+// köprüleri (fwbr, fwpr, fwln), vmbr: Proxmox köprüleri (sysfs görünmese de).
 var virtualNetPrefixes = []string{"lo", "veth", "docker", "br-", "virbr", "cni", "flannel", "cali",
-	"vxlan", "cilium", "lxc", "kube-", "weave", "dummy"}
+	"vxlan", "cilium", "lxc", "kube-", "weave", "dummy", "tap", "fw", "vmbr"}
 
 func isVirtualNet(name string) bool {
 	if name == "lo" {
@@ -180,6 +184,42 @@ func isVirtualNet(name string) bool {
 		}
 	}
 	return false
+}
+
+// netKeeper Linux'ta ağ trafiğinin iki kez sayılmaması için arayüzleri host'un
+// sysfs'ine (sysDir: HOST_SYS veya /sys) ve procfs'ine (procDir: HOST_PROC/1
+// gibi bir süreç dizini; VLAN listesi procDir/net/vlan) bakarak süzer:
+//   - köprüler (sysDir/class/net/X/bridge var: br0, vmbr0, docker0): üye
+//     arayüzlerin trafiğini tekrar sayarlar,
+//   - bond üyeleri (sysDir/class/net/X/master bir bond'u gösteriyor): trafik
+//     bond arayüzünde sayılır, üyeler atlanır,
+//   - VLAN alt arayüzleri (procDir/net/vlan/X var veya adda nokta: eth0.100):
+//     trafik ana arayüzde zaten sayılır,
+//   - ada göre sanal arayüzler (isVirtualNet: veth, tap, fw… önekleri).
+//
+// Köprünün üyesi olan fiziksel arayüz (ör. Proxmox'ta vmbr0'ın eno1'i)
+// sayılır; bir köprüye bağlı bond da. Dosyalar okunamazsa yalnızca ad
+// kuralları uygulanır.
+func netKeeper(sysDir, procDir string) func(string) bool {
+	classNet := filepath.Join(sysDir, "class", "net")
+	return func(name string) bool {
+		if name == "" || isVirtualNet(name) || strings.ContainsAny(name, "./") {
+			return false // adda nokta: VLAN (eth0.100); "/" yol kaçışına karşı
+		}
+		dev := filepath.Join(classNet, name)
+		if fileExists(filepath.Join(dev, "bridge")) {
+			return false
+		}
+		if procDir != "" && fileExists(filepath.Join(procDir, "net", "vlan", name)) {
+			return false
+		}
+		if link, err := os.Readlink(filepath.Join(dev, "master")); err == nil {
+			if master := filepath.Base(link); fileExists(filepath.Join(classNet, master, "bonding")) {
+				return false
+			}
+		}
+		return true
+	}
 }
 
 // filterTemps anlamsız okumaları (≤0, ≥150 °C, NaN) atar, adları temizler,

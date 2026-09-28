@@ -115,7 +115,9 @@ type contCounters struct {
 
 // containers çalışan konteynerleri ve istatistiklerini okur; Docker'a
 // ulaşılamıyorsa (nil, false). Yeni başlayan konteynerin ilk örneğinde
-// fark olmadığı için CPU ve ağ 0 gelir.
+// fark olmadığı için CPU ve ağ 0 gelir. İstatistiği süre sınırında
+// okunamayan konteyner bu örnekte hiç gönderilmez (CPU/bellek 0 görünüp
+// grafiklerde yanlış düşüş oluşturmasın).
 func (c *Collector) containers(ctx context.Context, threads int, hostMem uint64) ([]Container, bool) {
 	d := c.docker
 	if d == nil {
@@ -181,8 +183,7 @@ func (c *Collector) containers(ctx context.Context, threads int, hostMem uint64)
 			if hasPrev {
 				cur[it.ID] = prev // okunamadı: sonraki örnek daha uzun aralıkla hesaplar
 			}
-			out = append(out, ct)
-			continue
+			continue // değerler bilinmiyor: sıfır gönderilmez, konteyner bu örnekte atlanır
 		}
 		cc := contCounters{at: now, cpu: s.CPUStats.CPUUsage.TotalUsage}
 		if t, err := time.Parse(time.RFC3339Nano, s.Read); err == nil && t.Year() > 2000 {

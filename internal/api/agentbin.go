@@ -4,10 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
+	"time"
 )
 
 // Ajan program dosyasının yolu ve SHA-256'sı. Kurulum komutu indirmeyi bu
@@ -79,4 +82,61 @@ func (s *Server) agentBinarySHA256(goos, goarch string) string {
 	shaCache[path] = shaEntry{sum: sum, size: st.Size(), modUnix: st.ModTime().Unix()}
 	shaMu.Unlock()
 	return sum
+}
+
+// binaryRatePerMin GET /api/probe/binary için IP başına dakikada en fazla
+// indirme. Uç nokta token istemediği için büyük dosyanın tekrar tekrar
+// indirilmesiyle bant genişliği tüketimine karşı sınırlanır; gerçek kurulumlar
+// dakikada bir iki indirme yapar.
+const binaryRatePerMin = 10
+
+// ipRateLimiter IP başına dakikalık istek sınırı (sabit pencere; probeLimiter
+// ve rozet sınırıyla aynı desen).
+type ipRateLimiter struct {
+	mu    sync.Mutex
+	limit int
+	m     map[string]*probeWindow
+}
+
+func newIPRateLimiter(limit int) *ipRateLimiter {
+	return &ipRateLimiter{limit: limit, m: map[string]*probeWindow{}}
+}
+
+// allow isteğe izin verilip verilmediğini ve verilmediyse kaç saniye
+// beklenmesi gerektiğini döner.
+func (l *ipRateLimiter) allow(ip string, now time.Time) (bool, int) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	minute := now.Unix() / 60
+	w := l.m[ip]
+	if w == nil || w.start != minute {
+		if len(l.m) > 10000 { // bellek şişmesin: eski pencereleri at
+			for k, v := range l.m {
+				if v.start != minute {
+					delete(l.m, k)
+				}
+			}
+		}
+		w = &probeWindow{start: minute}
+		l.m[ip] = w
+	}
+	w.count++
+	if w.count > l.limit {
+		return false, int(60 - now.Unix()%60)
+	}
+	return true, 0
+}
+
+// binaryRateLimit ajan programı indirmesini IP başına sınırlar. Sınırlayıcı
+// rota kaydında (sunucu başına bir kez) oluşur.
+func (s *Server) binaryRateLimit(h http.HandlerFunc) http.Handler {
+	rl := newIPRateLimiter(binaryRatePerMin)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if ok, wait := rl.allow(clientIP(r), s.now()); !ok {
+			w.Header().Set("Retry-After", strconv.Itoa(wait))
+			writeError(w, http.StatusTooManyRequests, "Çok fazla indirme isteği; biraz sonra tekrar deneyin")
+			return
+		}
+		h(w, r)
+	})
 }

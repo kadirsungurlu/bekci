@@ -28,6 +28,7 @@ type fakeServer struct {
 	metCode   int
 	samples   []metrics.Sample
 	metAuth   []string
+	retry     string // sonuç reddinde gönderilen Retry-After
 	srv       *httptest.Server
 }
 
@@ -56,6 +57,9 @@ func newFakeServer(t *testing.T) *fakeServer {
 				Results []Result `json:"results"`
 			}
 			json.NewDecoder(r.Body).Decode(&in)
+			if f.retry != "" && f.resCode != 200 {
+				w.Header().Set("Retry-After", f.retry)
+			}
 			w.WriteHeader(f.resCode)
 			if f.resCode == 200 {
 				f.batches = append(f.batches, in.Results)

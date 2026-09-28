@@ -16,6 +16,7 @@ import (
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
+	"golang.org/x/sys/windows/svc/eventlog"
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
@@ -26,6 +27,10 @@ import (
 //	uptime service install    (Yönetici) programı %ProgramFiles%\Uptime\uptime.exe'ye
 //	                          kopyalar, ayarları yazar, hizmeti kurar/günceller ve başlatır
 //	uptime service uninstall  (Yönetici) hizmeti durdurup siler, ayar dosyasını (token) siler
+//
+// Başlangıç hataları (güvensiz ayar dizini, okunamayan ayar dosyası, eksik
+// ayar) günlük dosyası açılamasa da görünsün diye Windows Olay Günlüğü'ne
+// (Uygulama, kaynak "uptime-agent") de yazılır; kaynak kurulumda kaydedilir.
 //
 // Ayarlar ve günlük %ProgramFiles%\Uptime altındadır: agent.env (KEY=DEĞER,
 // token içerir) ve agent.log (5 MB'ta agent.log.1'e döner). Bu klasör bilerek
@@ -88,20 +93,45 @@ func runProbeService() (bool, error) {
 	// LocalSystem hizmeti saldırganın yönlendirdiği bir hedeften ayar okur veya
 	// oraya günlük yazardı.
 	dirErr := checkSecureDir(dir)
+	// Ayarlar günlükten ÖNCE okunur: agent.env'deki LOG_LEVEL günlüğe uygulansın.
+	var cfgErr error
+	if dirErr == nil {
+		cfgErr = loadAgentEnv(filepath.Join(dir, "agent.env"))
+	}
 	var w io.Writer = io.Discard // hizmetin konsolu yok; günlük dosyası açılamazsa yazılmaz
 	if dirErr == nil {
 		if f, err := openRotatingFile(filepath.Join(dir, "agent.log"), logLimit); err == nil {
 			defer f.Close()
 			w = f
+		} else {
+			eventLogError(fmt.Sprintf("Günlük dosyası açılamadı (%s): %v", filepath.Join(dir, "agent.log"), err))
 		}
 	}
 	log := newLogger(w)
 	if dirErr != nil {
 		log.Error("ayar dizini güvenli değil, ayarlar okunmadı", "dizin", dir, "hata", dirErr)
-	} else if cfgErr := loadAgentEnv(filepath.Join(dir, "agent.env")); cfgErr != nil {
+		eventLogError(fmt.Sprintf("Ayar dizini güvenli değil, ayarlar okunmadı (%s): %v", dir, dirErr))
+	} else if cfgErr != nil {
 		log.Error("ayar dosyası okunamadı", "dosya", filepath.Join(dir, "agent.env"), "hata", cfgErr)
+		eventLogError(fmt.Sprintf("Ayar dosyası okunamadı (%s): %v", filepath.Join(dir, "agent.env"), cfgErr))
 	}
-	return true, svc.Run(serviceName, &agentService{log: log})
+	if err := svc.Run(serviceName, &agentService{log: log}); err != nil {
+		eventLogError("Hizmet çalıştırılamadı: " + err.Error())
+		return true, err
+	}
+	return true, nil
+}
+
+// eventLogError hatayı Windows Olay Günlüğü'ne yazar (en iyi çaba: kaynak
+// kayıtlı değilse veya yazılamazsa sessizce geçer). Günlük dosyası
+// açılamadığında da başlangıç hataları böylece görünür.
+func eventLogError(msg string) {
+	l, err := eventlog.Open(serviceName)
+	if err != nil {
+		return
+	}
+	defer l.Close()
+	l.Error(1, msg)
 }
 
 // loadAgentEnv ayar dosyasındaki değerleri sürecin ortamına yazar.
@@ -135,6 +165,7 @@ func (a *agentService) Execute(_ []string, req <-chan svc.ChangeRequest, st chan
 		case err := <-done:
 			if err != nil {
 				a.log.Error("ajan durdu", "hata", err)
+				eventLogError("Uptime ajanı durdu: " + err.Error())
 				return true, 1
 			}
 			return false, 0
@@ -195,6 +226,10 @@ func installService() error {
 	if err := writeAdminOnlyFile(envPath, []byte(formatEnvFile(kv))); err != nil {
 		return fmt.Errorf("ayar dosyası yazılamadı: %w", err)
 	}
+	removeLegacyEnv()
+	// Olay Günlüğü kaynağı (başlangıç hataları için); zaten kayıtlıysa hata
+	// verir, yok sayılır.
+	eventlog.InstallAsEventCreate(serviceName, eventlog.Error|eventlog.Warning|eventlog.Info)
 
 	m, err := mgr.Connect()
 	if err != nil {
@@ -282,8 +317,83 @@ func uninstallService() error {
 	if err := os.Remove(filepath.Join(dir, "agent.env")); err != nil && !errors.Is(err, os.ErrNotExist) {
 		fmt.Fprintln(os.Stderr, "uyarı: ayar dosyası silinemedi:", err)
 	}
+	removeLegacyEnv()
+	eventlog.Remove(serviceName) // en iyi çaba
 	fmt.Printf("Uptime ajanı kaldırıldı. İsterseniz %s klasörünü silebilirsiniz.\n", dir)
 	return nil
+}
+
+// legacyDir eski sürümlerin ayar dizini %ProgramData%\Uptime.
+func legacyDir() string {
+	base := os.Getenv("ProgramData")
+	if p, err := windows.KnownFolderPath(windows.FOLDERID_ProgramData, 0); err == nil && p != "" {
+		base = p
+	}
+	if base == "" {
+		base = `C:\ProgramData`
+	}
+	return filepath.Join(base, "Uptime")
+}
+
+// removeLegacyEnv eski sürümlerin %ProgramData%\Uptime\agent.env dosyasını
+// (token içerir) güvenle siler; dizin boş kalırsa onu da siler. Ayarlar yeni
+// dosyaya taşınmaz: %ProgramData% kullanıcılara yazılabilir olduğundan
+// oradaki içeriğe güvenilmez (kurulum komutu gerekli ayarları zaten verir).
+// Dizin bir yönlendirmeyse (junction) veya sahibi Administrators/SYSTEM
+// değilse dokunulmaz (yönetici ayrıcalığıyla başka bir dosyayı silme/ezme
+// riski); kullanıcı uyarılır. En iyi çaba: hata kurulumu durdurmaz.
+func removeLegacyEnv() {
+	dir := legacyDir()
+	path := filepath.Join(dir, "agent.env")
+	if _, err := os.Lstat(path); err != nil {
+		return // yok (veya erişilemiyor)
+	}
+	if err := checkSecureDir(dir); err != nil {
+		fmt.Fprintf(os.Stderr, "uyarı: eski ayar dosyası %s silinmedi (%v); token içerir, elle silin\n", path, err)
+		return
+	}
+	if err := secureDelete(path); err != nil {
+		fmt.Fprintf(os.Stderr, "uyarı: eski ayar dosyası %s silinemedi: %v; token içerir, elle silin\n", path, err)
+		return
+	}
+	os.Remove(path + ".tmp")
+	os.Remove(dir) // yalnızca boşsa silinir (agent.log varsa kalır)
+	fmt.Printf("Eski ayar dosyası silindi: %s\n", path)
+}
+
+// secureDelete dosyanın içeriğini sıfırlarla ezip siler. Tanıtıcı
+// FILE_FLAG_OPEN_REPARSE_POINT ile açılır ve normal bir dosya olduğu
+// doğrulanır: yol bir symlink/junction ise hedefi değil, kendisi açılır ve
+// reddedilir. Silme aynı tanıtıcı üzerinden yapılır (yol yeniden çözülmez).
+// SSD/kopyalı dosya sistemlerinde ezme garanti değildir; en iyi çabadır.
+func secureDelete(path string) error {
+	p, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return err
+	}
+	h, err := windows.CreateFile(p, windows.GENERIC_READ|windows.GENERIC_WRITE|windows.DELETE, 0, nil,
+		windows.OPEN_EXISTING, windows.FILE_ATTRIBUTE_NORMAL|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	if err != nil {
+		return err
+	}
+	defer windows.CloseHandle(h)
+	var info windows.ByHandleFileInformation
+	if err := windows.GetFileInformationByHandle(h, &info); err != nil {
+		return err
+	}
+	if info.FileAttributes&(windows.FILE_ATTRIBUTE_REPARSE_POINT|windows.FILE_ATTRIBUTE_DIRECTORY) != 0 {
+		return errors.New("normal bir dosya değil (yönlendirme veya dizin)")
+	}
+	size := int64(info.FileSizeHigh)<<32 | int64(info.FileSizeLow)
+	if size > 0 && size <= 1<<20 { // ayar dosyası küçüktür; beklenmedik büyüklükte ezilmez
+		zeros := make([]byte, size)
+		var n uint32
+		if err := windows.WriteFile(h, zeros, &n, nil); err == nil {
+			windows.FlushFileBuffers(h)
+		}
+	}
+	del := byte(1) // FILE_DISPOSITION_INFO{DeleteFile: TRUE}
+	return windows.SetFileInformationByHandle(h, windows.FileDispositionInfo, &del, 1)
 }
 
 // stopService çalışıyorsa durdurur ve durana kadar bekler.

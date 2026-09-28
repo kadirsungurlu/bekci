@@ -59,8 +59,12 @@ func TestProbeRegistry(t *testing.T) {
 	if !probeTokenFormat.MatchString(cp.Token) || !strings.HasPrefix(cp.Token, cp.Probe.TokenPrefix) || len(cp.Probe.TokenPrefix) != 12 {
 		t.Fatalf("token biçimi hatalı: %q prefix %q", cp.Token, cp.Probe.TokenPrefix)
 	}
-	wantCmd := "docker run -d --name uptime-probe --restart unless-stopped " + probeHardenFlags +
-		"-e PROBE_SERVER=" + admin.srv.URL + " -e PROBE_TOKEN=" + cp.Token + " -e PROBE_ALLOW_INSECURE=1 ghcr.io/kadir/uptime:latest probe"
+	wantCmd := "sh <<'UPTIME_KURULUM'\nset -e\n" +
+		`if [ "$(id -u)" != 0 ]; then echo "Bu komut root olarak çalıştırılmalı (ilk satırı: sudo sh <<'UPTIME_KURULUM')" >&2; exit 1; fi` + "\n" +
+		"install -m 600 /dev/null /etc/uptime-probe.env\ncat > /etc/uptime-probe.env <<'UPTIME_ENV'\n" +
+		"PROBE_SERVER=" + admin.srv.URL + "\nPROBE_TOKEN=" + cp.Token + "\nPROBE_ALLOW_INSECURE=1\nUPTIME_ENV\n" +
+		"docker run -d --name uptime-probe --restart unless-stopped " + probeHardenFlags +
+		"--env-file /etc/uptime-probe.env ghcr.io/kadir/uptime:latest probe\nUPTIME_KURULUM"
 	if cp.DockerCommand != wantCmd || cp.ServerURL != admin.srv.URL {
 		t.Fatalf("kurulum komutu:\n%s\n%s bekleniyordu", cp.DockerCommand, wantCmd)
 	}
@@ -525,34 +529,33 @@ func TestProbeRequestIgnoresCookie(t *testing.T) {
 	}
 }
 
-// Kontrol noktası programı ana sunucudan (token ile) indirilir; kurulum komutu
-// kayıt deposu gerektirmez.
+// Kontrol noktası programı ana sunucudan token'sız indirilir (bütünlüğü
+// komuttaki SHA-256 doğrular); kurulum komutu kayıt deposu gerektirmez ve
+// token'ı hiçbir indirme adımına koymaz (hız sınırı: installcmd_test.go).
 func TestProbeBinaryDownload(t *testing.T) {
 	admin := setupAdmin(t)
 	cp := admin.newProbe("İndirme")
-	for _, want := range []string{"alpine:3", "/api/probe/binary", "PROBE_TOKEN=" + cp.Token,
+	for _, want := range []string{"alpine:3", "/api/probe/binary?os=linux&arch=$A", "--env-file /etc/uptime-probe.env",
+		"install -m 600 /dev/null /etc/uptime-probe.env", "\nPROBE_TOKEN=" + cp.Token + "\n",
 		`exec "$B" probe`, "-v uptime-probe-bin:/opt/uptime", "sha256sum -c -", "--cap-drop ALL", `if [ ! -x "$B" ]`} {
 		if !strings.Contains(cp.DockerCommand, want) {
 			t.Errorf("kurulum komutunda %q yok: %s", want, cp.DockerCommand)
 		}
 	}
-	// Token'sız ve yanlış token'la indirilemez.
-	if code, _, _ := admin.anon().rawReq("GET", "/api/probe/binary", nil, nil); code != 401 {
-		t.Errorf("token'sız: %d", code)
+	for _, bad := range []string{"Authorization", "-e PROBE_TOKEN", "--header"} {
+		if strings.Contains(cp.DockerCommand, bad) {
+			t.Errorf("kurulum komutunda %q olmamalı: %s", bad, cp.DockerCommand)
+		}
 	}
-	if code, _, _ := admin.anon().rawReq("GET", "/api/probe/binary", bearer("upr_yanlis"), nil); code != 401 {
-		t.Errorf("yanlış token: %d", code)
-	}
-	code, hdr, body := admin.anon().rawReq("GET", "/api/probe/binary", bearer(cp.Token), nil)
+	// Token gerekmez; yanlış token da engel değildir (başlık yok sayılır).
 	exe, _ := os.Executable()
 	want, _ := os.ReadFile(exe)
+	code, hdr, body := admin.anon().rawReq("GET", "/api/probe/binary", nil, nil)
 	if code != 200 || !bytes.Equal(body, want) || hdr.Get("Content-Type") != "application/octet-stream" || hdr.Get("X-Uptime-Platform") == "" {
 		t.Errorf("indirme: %d, %d bayt (beklenen %d), %v", code, len(body), len(want), hdr)
 	}
-	// Devre dışı kontrol noktası indiremez.
-	admin.mustDo("PUT", fmt.Sprintf("/api/probes/%d", cp.Probe.ID), map[string]any{"name": "İndirme", "active": false}, nil, 200)
-	if code, _, _ := admin.anon().rawReq("GET", "/api/probe/binary", bearer(cp.Token), nil); code != 403 {
-		t.Errorf("devre dışı: %d", code)
+	if code, _, _ := admin.anon().rawReq("GET", "/api/probe/binary", bearer("upr_yanlis"), nil); code != 200 {
+		t.Errorf("başlıklı indirme: %d", code)
 	}
 }
 
@@ -560,14 +563,10 @@ func TestProbeBinaryDownload(t *testing.T) {
 // yoksa sunucu çökmez, açıklamalı 404 döner.
 func TestProbeBinaryPlatforms(t *testing.T) {
 	f := newFeatureEnv(t)
-	cp := f.newProbe("Windows sunucu")
 	dir := t.TempDir()
 	f.s.AgentDir = dir
 	const winURL = "/api/probe/binary?os=windows&arch=amd64"
-	if code, _, _ := f.anon().rawReq("GET", winURL, nil, nil); code != 401 {
-		t.Errorf("token'sız: %d", code)
-	}
-	code, _, body := f.anon().rawReq("GET", winURL, bearer(cp.Token), nil)
+	code, _, body := f.anon().rawReq("GET", winURL, nil, nil)
 	if code != 404 || !strings.Contains(string(body), "windows/amd64 için ajan programı yok") || !strings.Contains(string(body), "uptime-windows-amd64.exe") {
 		t.Errorf("dosya yokken: %d %s", code, body)
 	}
@@ -575,33 +574,33 @@ func TestProbeBinaryPlatforms(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "uptime-windows-amd64.exe"), exe, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	code, hdr, body := f.anon().rawReq("GET", winURL, bearer(cp.Token), nil)
+	code, hdr, body := f.anon().rawReq("GET", winURL, nil, nil)
 	if code != 200 || !bytes.Equal(body, exe) || hdr.Get("X-Uptime-Platform") != "windows/amd64" ||
 		!strings.Contains(hdr.Get("Content-Disposition"), `filename="uptime.exe"`) {
 		t.Errorf("windows indirme: %d %q %v", code, body, hdr)
 	}
 	// Yalnızca os verilirse mimari sunucununki olur.
 	if runtime.GOARCH == "amd64" {
-		if code, _, body := f.anon().rawReq("GET", "/api/probe/binary?os=windows", bearer(cp.Token), nil); code != 200 || !bytes.Equal(body, exe) {
+		if code, _, body := f.anon().rawReq("GET", "/api/probe/binary?os=windows", nil, nil); code != 200 || !bytes.Equal(body, exe) {
 			t.Errorf("yalnızca os: %d", code)
 		}
 	}
 	// Klasör dışına çıkılamaz; bilinmeyen biçim 400.
 	for _, q := range []string{"?os=../../etc/passwd", "?os=windows&arch=amd64%2F..", "?os=Windows", "?arch=" + strings.Repeat("a", 17)} {
-		if code, _, _ := f.anon().rawReq("GET", "/api/probe/binary"+q, bearer(cp.Token), nil); code != 400 {
+		if code, _, _ := f.anon().rawReq("GET", "/api/probe/binary"+q, nil, nil); code != 400 {
 			t.Errorf("%s: %d", q, code)
 		}
 	}
 	// Sunucunun kendi platformu açıkça istenirse kendi programı verilir.
 	own, _ := os.Executable()
 	want, _ := os.ReadFile(own)
-	code, hdr, body = f.anon().rawReq("GET", "/api/probe/binary?os="+runtime.GOOS+"&arch="+runtime.GOARCH, bearer(cp.Token), nil)
+	code, hdr, body = f.anon().rawReq("GET", "/api/probe/binary?os="+runtime.GOOS+"&arch="+runtime.GOARCH, nil, nil)
 	if code != 200 || !bytes.Equal(body, want) || hdr.Get("X-Uptime-Platform") != runtime.GOOS+"/"+runtime.GOARCH {
 		t.Errorf("kendi platformu: %d, %d bayt", code, len(body))
 	}
 	// AgentDir boşsa (ayarlanmamış) yine 404.
 	f.s.AgentDir = ""
-	if code, _, _ := f.anon().rawReq("GET", winURL, bearer(cp.Token), nil); code != 404 {
+	if code, _, _ := f.anon().rawReq("GET", winURL, nil, nil); code != 404 {
 		t.Errorf("AgentDir boş: %d", code)
 	}
 }
@@ -612,7 +611,7 @@ func TestWindowsAgentCommandQuoting(t *testing.T) {
 	cmd := windowsAgentCommand("https://o'reilly.example", "upr_abc", "abc123def456")
 	for _, want := range []string{
 		"$env:PROBE_SERVER='https://o''reilly.example'", "$env:PROBE_TOKEN='upr_abc'", "$ProgressPreference='SilentlyContinue'",
-		`-Headers @{Authorization="Bearer $env:PROBE_TOKEN"}`, `"$env:PROBE_SERVER/api/probe/binary?os=windows&arch=amd64"`,
+		`-Uri "$env:PROBE_SERVER/api/probe/binary?os=windows&arch=amd64"`,
 		"& $f service install", "Remove-Item Env:PROBE_TOKEN", "Get-FileHash $f -Algorithm SHA256", "ABC123DEF456",
 	} {
 		if !strings.Contains(cmd, want) {

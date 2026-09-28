@@ -301,6 +301,7 @@ func TestDiskAndNetFilters(t *testing.T) {
 		"lo": true, "veth0210710": true, "docker0": true, "br-2f77d6b09956": true, "virbr0": true, "cni0": true,
 		"flannel.1": true, "cali123": true, "eth0": false, "ens3": false, "enp0s31f6": false, "wlan0": false,
 		"tun0": false, "wg0": false, "tailscale0": false, "bond0": false, "lower": false,
+		"tap100i0": true, "fwbr100i0": true, "fwpr100p0": true, "vmbr0": true,
 	} {
 		if isVirtualNet(n) != want {
 			t.Errorf("ağ %s → %v", n, !want)

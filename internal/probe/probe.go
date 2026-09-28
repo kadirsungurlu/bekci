@@ -130,8 +130,26 @@ type task struct {
 	done   chan struct{}
 }
 
-// ErrUnauthorized token geçersiz veya kontrol noktası devre dışı.
-var ErrUnauthorized = errors.New("token geçersiz veya kontrol noktası devre dışı")
+// ErrUnauthorized token geçersiz (401): kontroller durur, bekleyen sonuçlar atılır.
+var ErrUnauthorized = errors.New("token geçersiz")
+
+// ErrForbidden kontrol noktası devre dışı veya başka bir IP'ye kilitli (403):
+// kontroller durur ama bekleyen sonuçlar saklanır; yönetici etkinleştirince
+// ya da IP kilidini sıfırlayınca gönderilir.
+var ErrForbidden = errors.New("kontrol noktası devre dışı veya başka bir IP'ye kilitli")
+
+// newHTTPClient ana sunucuyla konuşan varsayılan istemci. Yönlendirmeler
+// izlenmez (yanıt olduğu gibi döner): Authorization: Bearer token'ı başka bir
+// adrese (ör. https'ten http'ye düşüren bir yönlendirmeyle açık metin) tekrar
+// gönderilmesin. Ana sunucu yönlendirme yapmaz; 3xx beklenmeyen yanıt sayılır.
+func newHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+}
 
 // New ayarları doğrular.
 func New(cfg Config) (*Client, error) {
@@ -166,7 +184,7 @@ func New(cfg Config) (*Client, error) {
 		cfg.MaxBackoff = 60 * cfg.Unit
 	}
 	if cfg.HTTPClient == nil {
-		cfg.HTTPClient = &http.Client{Timeout: 30 * time.Second}
+		cfg.HTTPClient = newHTTPClient()
 	}
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -239,10 +257,16 @@ func (c *Client) jobsLoop(ctx context.Context) {
 		}
 		switch {
 		case errors.Is(err, ErrUnauthorized):
-			// Devre dışı bırakılan kontrol noktası hemen durur; ara ara yeniden denenir
-			// (yönetici tekrar etkinleştirebilir).
+			// Geçersiz token: kontroller hemen durur, bekleyen sonuçlar hiçbir
+			// zaman kabul edilmeyeceği için atılır; ara ara yeniden denenir.
 			c.stopAll()
 			c.clearBuffer()
+			c.setMetricsInterval(0)
+			wait = c.cfg.MaxBackoff
+		case errors.Is(err, ErrForbidden):
+			// Devre dışı veya IP kilidi: kontroller durur ama tampon korunur
+			// (kilit sıfırlanınca/etkinleşince gönderilir); ara ara yeniden denenir.
+			c.stopAll()
 			c.setMetricsInterval(0)
 			wait = c.cfg.MaxBackoff
 		case err != nil:
@@ -267,10 +291,15 @@ func (c *Client) pollJobs(ctx context.Context) (time.Duration, error) {
 		c.unreachable("jobs", err)
 		return 0, err
 	}
-	if status == http.StatusUnauthorized || status == http.StatusForbidden {
-		c.log.Error("ana sunucu isteği reddetti: token geçersiz veya kontrol noktası devre dışı; kontroller durduruldu", "durum", status)
+	switch status {
+	case http.StatusUnauthorized:
+		c.log.Error("ana sunucu token'ı reddetti; kontroller durduruldu, bekleyen sonuçlar atıldı", "durum", status)
 		c.reachable("jobs")
 		return 0, ErrUnauthorized
+	case http.StatusForbidden:
+		c.log.Error("ana sunucu isteği reddetti: ajan devre dışı veya başka bir IP'ye kilitli; kontroller durduruldu, bekleyen sonuçlar saklanıyor", "durum", status)
+		c.reachable("jobs")
+		return 0, ErrForbidden
 	}
 	if status != http.StatusOK {
 		err := fmt.Errorf("beklenmeyen yanıt: %d", status)
@@ -487,8 +516,9 @@ func (c *Client) flushLoop(ctx context.Context) {
 }
 
 // flushOnce tamponun başından bir parti gönderir. Geçici hatada (ağ, 5xx,
-// 429) parti tampona geri konur ve hata döner; kalıcı hatada (400, 413,
-// 401/403) parti atılır.
+// 429) ve 403'te (devre dışı / IP kilidi: yönetici düzeltebilir) parti
+// tampona geri konur ve hata döner; kalıcı hatada (400, 413, 401) parti atılır.
+// Retry-After en fazla MaxBackoff kadar dikkate alınır.
 func (c *Client) flushOnce(ctx context.Context) (retryAfter time.Duration, err error) {
 	c.mu.Lock()
 	n := min(len(c.buf), c.cfg.BatchSize)
@@ -528,8 +558,11 @@ func (c *Client) flushOnce(ctx context.Context) (retryAfter time.Duration, err e
 		requeue()
 		err := fmt.Errorf("sunucu yanıtı: %d", status)
 		c.unreachable("results", err)
-		secs, _ := strconv.Atoi(hdr.Get("Retry-After"))
-		return time.Duration(secs) * time.Second, err
+		return c.retryAfter(hdr), err
+	case status == http.StatusForbidden:
+		requeue()
+		c.reachable("results")
+		return c.cfg.MaxBackoff, fmt.Errorf("sunucu yanıtı: %d", status)
 	default:
 		c.reachable("results")
 		c.log.Error("sonuçlar kabul edilmedi, parti atıldı", "durum", status, "sonuc_sayisi", len(batch))
@@ -704,6 +737,19 @@ func (c *Client) callH(ctx context.Context, method, path string, in, out any) (i
 		}
 	}
 	return resp.StatusCode, resp.Header, nil
+}
+
+// retryAfter Retry-After başlığındaki saniye; bozuk/negatifse 0, en fazla
+// MaxBackoff (sunucu çok uzun bir süre isteyerek ajanı saatlerce susturamaz).
+func (c *Client) retryAfter(hdr http.Header) time.Duration {
+	secs, err := strconv.Atoi(strings.TrimSpace(hdr.Get("Retry-After")))
+	if err != nil || secs <= 0 {
+		return 0
+	}
+	if secs > int(c.cfg.MaxBackoff/time.Second) {
+		return c.cfg.MaxBackoff
+	}
+	return time.Duration(secs) * time.Second
 }
 
 func (c *Client) nextBackoff(cur time.Duration) time.Duration {

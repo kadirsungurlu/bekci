@@ -72,7 +72,7 @@ func init() {
 		mux.Handle("PUT /api/monitors/{id}/locations", s.editor(s.putMonitorLocations))
 
 		mux.Handle("GET /api/probe/jobs", s.probeOnly(s.probeJobs))
-		mux.Handle("GET /api/probe/binary", s.probeOnly(s.probeBinary))
+		mux.Handle("GET /api/probe/binary", s.binaryRateLimit(s.probeBinary))
 		mux.Handle("POST /api/probe/results", s.probeOnly(s.probeResults))
 	})
 }
@@ -352,26 +352,14 @@ func (s *Server) probeSetup(r *http.Request, p store.Probe, token string, monito
 			server = "https://SUNUCU-ADRESINIZ"
 		}
 	}
-	env := installEnv(server, token)
-	var cmd string
-	if s.ProbeImage != "" {
-		// Uygulama imajı bir kayıt deposundan çekilebiliyorsa doğrudan o kullanılır.
-		cmd = fmt.Sprintf("docker run -d --name uptime-probe --restart unless-stopped %s%s%s probe",
-			probeHardenFlags, env, s.ProbeImage)
-	} else {
-		// Program bir kez indirilip kalıcı bir birime yazılır ve SHA-256 ile
-		// doğrulanır; yeniden başlatmada tekrar indirilmez (sürüm sabit). Böylece
-		// sunucu sonradan ele geçirilse bile filoya kendiliğinden yeni program inmez.
-		// Güncelleme: bu komut yeni SHA ile tekrar çalıştırılır (önce birim silinir).
-		cmd = fmt.Sprintf("docker run -d --name uptime-probe --restart unless-stopped %s%s-v uptime-probe-bin:/opt/uptime alpine:3 %s",
-			probeHardenFlags, env, dockerFetchScript("/opt/uptime/uptime", s.agentBinarySHA256(runtime.GOOS, runtime.GOARCH)))
-	}
 	out := map[string]any{"probe": s.probeAdminOf(p, monitors), "token": token, "server_url": server}
 	if p.Kind == store.ProbeKindServer {
 		out["docker_agent"], out["systemd"], out["windows"] = s.serverSetupCommands(server, token)
-	} else {
-		out["docker_command"] = cmd
+		return out
 	}
+	amd, arm := s.linuxSHAs()
+	out["docker_command"] = dockerInstallCommand(probeEnvPath, installEnvLines(server, token),
+		"docker run -d --name uptime-probe --restart unless-stopped "+probeHardenFlags, s.ProbeImage, "uptime-probe-bin", amd, arm)
 	return out
 }
 
@@ -382,7 +370,10 @@ var agentPlatformRe = regexp.MustCompile(`^[a-z0-9]{1,16}$`)
 // (aynı ikili "uptime probe" ile kontrol noktası olarak çalışır). Başka bir
 // platform istenirse (?os=windows&arch=amd64) AgentDir'deki
 // uptime-<os>-<arch>[.exe] dosyası verilir; eksik parametre sunucunun kendi
-// değeridir. Yalnızca geçerli ve etkin bir kontrol noktası token'ıyla indirilebilir.
+// değeridir. Token istemez (herkese açık, IP başına hız sınırlı): programın
+// içinde sır yoktur; kurulumun bütünlüğünü ve kaynağını komuta gömülü SHA-256
+// doğrular. Böylece kurulum ve yeniden başlatmada token hiçbir sürecin
+// argümanlarında (curl/wget -H …) görünmez.
 func (s *Server) probeBinary(w http.ResponseWriter, r *http.Request) {
 	goos, goarch := r.URL.Query().Get("os"), r.URL.Query().Get("arch")
 	if goos == "" {

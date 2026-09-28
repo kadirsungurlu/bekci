@@ -96,7 +96,11 @@ func TestServersAPI(t *testing.T) {
 	f.st.CreateNotification(ctx, &other, false)
 
 	// Sunucu ekleme: host'u gören ajan ve systemd komutları; kontrol noktası
-	// komutu verilmez.
+	// komutu verilmez. Windows komutu için sahte Windows programı.
+	f.s.AgentDir = t.TempDir()
+	if err := os.WriteFile(filepath.Join(f.s.AgentDir, "uptime-windows-amd64.exe"), []byte("MZ"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	var cp serverSetup
 	admin.mustDo("POST", "/api/servers", map[string]any{"name": "CP Server İstanbul"}, &cp, 201)
 	if cp.DockerCommand != "" || cp.Probe.Kind != store.ProbeKindServer {
@@ -131,10 +135,11 @@ func TestServersAPI(t *testing.T) {
 		}
 	}
 	if !strings.Contains(cp.DockerAgent, "--pid host") || !strings.Contains(cp.DockerAgent, "HOST_PROC=/host/proc") || !strings.Contains(cp.DockerAgent, "ADDR=-") ||
-		!strings.Contains(cp.DockerAgent, "--cap-drop ALL") || !strings.Contains(cp.DockerAgent, "-v uptime-agent-bin:/opt/uptime") || !strings.Contains(cp.DockerAgent, "sha256sum -c -") {
+		!strings.Contains(cp.DockerAgent, "--cap-drop ALL") || !strings.Contains(cp.DockerAgent, "-v uptime-agent-bin:/opt/uptime") || !strings.Contains(cp.DockerAgent, "sha256sum -c -") ||
+		!strings.Contains(cp.DockerAgent, "--env-file /etc/uptime-agent.env") || strings.Contains(cp.DockerAgent, "-e PROBE_TOKEN") {
 		t.Fatalf("docker ajan komutu: %s", cp.DockerAgent)
 	}
-	if !strings.Contains(cp.Systemd, "/etc/systemd/system/uptime-agent.service") || !strings.Contains(cp.Systemd, "EnvironmentFile=/etc/uptime-agent.env") || !strings.Contains(cp.Systemd, "chmod 600 /etc/uptime-agent.env") ||
+	if !strings.Contains(cp.Systemd, "/etc/systemd/system/uptime-agent.service") || !strings.Contains(cp.Systemd, "EnvironmentFile=/etc/uptime-agent.env") || !strings.Contains(cp.Systemd, "install -m 600 /dev/null /etc/uptime-agent.env") ||
 		!strings.Contains(cp.Systemd, "sha256sum -c -") || !strings.Contains(cp.Systemd, "NoNewPrivileges=yes") ||
 		!strings.Contains(cp.Systemd, "systemctl enable uptime-agent") || !strings.Contains(cp.Systemd, "curl") || !strings.Contains(cp.Systemd, "wget") {
 		t.Fatalf("systemd komutu: %s", cp.Systemd)
