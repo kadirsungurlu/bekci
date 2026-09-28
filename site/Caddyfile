@@ -49,6 +49,9 @@
 	redir /index.html / 301
 	redir /en/index.html /en/ 301
 
+	@indir path /indir/*
+	header @indir Content-Type "text/plain; charset=utf-8"
+	header @indir Content-Disposition attachment
 	file_server
 
 	# Bilinmeyen adresler: /en altındaysa İngilizce, değilse Türkçe 404 sayfası

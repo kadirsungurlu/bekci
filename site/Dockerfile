@@ -10,6 +10,7 @@ COPY index.html 404.html favicon.svg apple-touch-icon.png og.png og-en.png robot
 COPY en/ /srv/en/
 COPY assets/ /srv/assets/
 COPY img/ /srv/img/
+COPY indir/ /srv/indir/
 
 # /assets ve /img adreslerindeki ?v=dev işaretini dosyanın içerik özetiyle
 # değiştir: dosya değişince adres de değişir, uzun önbellek güvenle kullanılır.

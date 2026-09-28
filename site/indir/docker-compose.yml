@@ -1,0 +1,19 @@
+# Bekci — sade kurulum
+# (kendi ters vekiliniz / HTTPS'iniz varsa)
+# https://bekci.app
+name: bekci
+services:
+  bekci:
+    # gömülü PostgreSQL için: kadirsungurlu/bekci:postgres
+    image: kadirsungurlu/bekci:latest
+    restart: unless-stopped
+    stop_grace_period: 30s
+    ports:
+      - "8080:8080"
+    environment:
+      BASE_URL: https://bekci.ornek.com   # panelin dış adresi
+      TZ: Europe/Istanbul
+    volumes:
+      - bekci-data:/data
+volumes:
+  bekci-data:
