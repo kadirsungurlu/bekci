@@ -2,11 +2,12 @@
   import { onDestroy, onMount } from 'svelte';
   import { api, errorMessage, type Probe, type ProbeSetup } from '../../lib/api';
   import { live } from '../../lib/live.svelte';
-  import { clock, confirmDialog, copyText, toast } from '../../lib/ui.svelte';
+  import { clock, confirmDialog, toast } from '../../lib/ui.svelte';
   import { collator, fmtDate, fmtRelative } from '../../lib/format';
   import Modal from '../../components/Modal.svelte';
   import RowMenu, { type MenuItem } from '../../components/RowMenu.svelte';
   import Icon from '../../components/Icon.svelte';
+  import CopyButton from '../../components/CopyButton.svelte';
 
   let probes = $state.raw<Probe[]>([]);
   let loading = $state(true);
@@ -97,10 +98,6 @@
     }
   }
 
-  async function copy(text: string, what: string) {
-    if (await copyText(text)) toast.success(`${what} panoya kopyalandı`);
-    else toast.error('Kopyalanamadı; metni elle seçip kopyalayın');
-  }
 
   // Düzenle ----------------------------------------------------------------------------
   let editOpen = $state(false);
@@ -256,7 +253,7 @@
             </td>
             <td data-label="Adres" class="mono small">
               {p.last_ip || '—'}
-              {#if p.ip_lock}<span class="iplock" title={p.locked_ip ? `${p.locked_ip} IP'sine kilitli` : 'IP kilidi açık; ilk bağlantıda sabitlenir'}><Icon name="lock" size={12} /></span>{/if}
+              {#if p.ip_lock}<span class="iplock" title={p.locked_ip ? `${p.locked_ip} IP’sine kilitli` : 'IP kilidi açık; ilk bağlantıda sabitlenir'}><Icon name="lock" size={12} /></span>{/if}
             </td>
             <td data-label="Sürüm" class="small">{p.version || '—'}</td>
             <td data-label="Monitör">{p.monitor_count ?? 0}</td>
@@ -265,7 +262,11 @@
         {/each}
       </tbody>
     </table>
-    <p class="help foot">Son 90 saniyede sonuç gönderen kontrol noktası çevrimiçi sayılır.</p>
+    <p class="help foot">
+      Son 90 saniyede sonuç gönderen kontrol noktası çevrimiçi sayılır. Güncellemek için sunucuda:
+      <code>docker rm -f uptime-probe; docker volume rm uptime-probe-bin</code>, sonra kurulum komutunu tekrar çalıştırın
+      (komut, satır menüsündeki “Token’ı yenile” ile yeniden alınır).
+    </p>
   {/if}
 </section>
 
@@ -277,16 +278,25 @@
         <div class="label">Token</div>
         <div class="copybox">
           <code>{setup.token}</code>
-          <button type="button" class="btn sm primary" onclick={() => copy(setup!.token, 'Token')}><Icon name="copy" size={14} /> Kopyala</button>
+          <CopyButton text={setup.token} class="btn sm primary" />
         </div>
       </div>
       <div>
         <div class="label"><Icon name="terminal" size={14} /> Kurulum komutu</div>
-        <p class="help cmd-help">Kontrol noktası olacak sunucuda bu komutu çalıştırın.</p>
-        <div class="copybox">
-          <code class="cmd">{setup.docker_command}</code>
-          <button type="button" class="btn sm" onclick={() => copy(setup!.docker_command, 'Komut')}><Icon name="copy" size={14} /> Kopyala</button>
+        <p class="help cmd-help">
+          Kontrol noktası olacak sunucuda komutun tamamını <b>root</b> olarak yapıştırın (ya da ilk satırı
+          <code>sudo sh &lt;&lt;'UPTIME_KURULUM'</code> yapın).
+        </p>
+        <div class="cmdwrap">
+          <!-- Çok satırlı komut: satır sonları korunur, uzun satırlar yatay kayar; klavyeyle kaydırılabilsin diye odaklanabilir. -->
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+          <pre class="cmd" tabindex="0" aria-label="Kurulum komutu">{setup.docker_command}</pre>
+          <div class="cmdcopy"><CopyButton text={setup.docker_command} /></div>
         </div>
+        <p class="help cmd-help after">
+          Token sunucuda <code>/etc/uptime-probe.env</code> dosyasında (600 izinle) tutulur. Güncellemek için:
+          <code>docker rm -f uptime-probe; docker volume rm uptime-probe-bin</code>, sonra komutu tekrar çalıştırın.
+        </p>
       </div>
       <p class="help nomargin">
         Sunucu adresi: <code>{setup.server_url}</code>. Kontrol noktası bu adrese dışarıdan erişebilmeli; birkaç saniye içinde listede
@@ -325,8 +335,8 @@
     <label class="check">
       <input type="checkbox" bind:checked={editIpLock} />
       <span>
-        IP'ye kilitle
-        <small>Ajan yalnızca ilk bağlandığı IP'den veri gönderebilir; sunucu taşınırsa kilidi sıfırlayın.</small>
+        IP’ye kilitle
+        <small>Kontrol noktası yalnızca ilk bağlandığı IP’den sonuç gönderebilir; sunucu taşınırsa kilidi sıfırlayın.</small>
       </span>
     </label>
     {#if editIpLock && editLockedIp}
@@ -431,8 +441,31 @@
   .cmd-help {
     margin: -2px 0 6px;
   }
+  .cmdwrap {
+    background: var(--input);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
   .cmd {
+    margin: 0;
+    padding: 10px 12px;
     font-size: 0.78rem;
+    line-height: 1.55;
+    white-space: pre;
+    overflow: auto;
+    max-height: 240px;
+    color: var(--text);
+  }
+  .cmdcopy {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px 8px;
+    border-top: 1px solid var(--border);
+    background: var(--card-2);
+  }
+  .cmd-help.after {
+    margin: 6px 0 0;
   }
   .nomargin {
     margin: 0;

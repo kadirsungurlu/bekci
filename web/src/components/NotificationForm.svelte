@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import {
     api,
     errorMessage,
@@ -8,6 +9,7 @@
     type NotificationType,
   } from '../lib/api';
   import { confirmDialog } from '../lib/ui.svelte';
+  import { changedDestinations, destinationPhrase } from '../lib/forms';
   import { EMAIL_PORTS, NOTIFY_GROUPS, NOTIFY_LABELS, NOTIFY_SCHEMAS, WEBHOOK_EXAMPLE, type Field } from '../lib/notifyTypes';
   import Modal from './Modal.svelte';
   import Icon from './Icon.svelte';
@@ -60,6 +62,7 @@
 
   function changeType(t: NotificationType) {
     type = t;
+    cleared = [];
     values = orig && orig.type === t ? fromConfig(orig) : defaults(t);
     testResult = null;
     error = '';
@@ -172,6 +175,32 @@
   }
 
   const isMasked = (f: Field) => values[f.key] === MASK;
+
+  // Hedef (adres, sunucu, port…) değişince sunucu kayıtlı (maskeli) gizli değeri yeni
+  // hedefe taşımaz. Maskeli alanlar boşaltılıp yeniden girilmesi istenir; hedef eski
+  // hâline dönerse kayıtlı değer geri gelir. E-postada güvenlik seçimi portu da
+  // değiştirdiği için STARTTLS↔TLS geçişinde şifre yeniden istenir.
+  const destChanged = $derived(orig && orig.type === type ? changedDestinations(buildConfig(), orig.config ?? {}) : []);
+  let cleared = $state<string[]>([]);
+  $effect(() => {
+    const changed = destChanged.length > 0;
+    untrack(() => {
+      if (changed) {
+        const keys = schema.fields.filter((f) => values[f.key] === MASK).map((f) => f.key);
+        if (!keys.length) return;
+        for (const k of keys) values[k] = '';
+        cleared = [...new Set([...cleared, ...keys])];
+      } else if (cleared.length) {
+        for (const k of cleared) if (values[k] === '') values[k] = MASK;
+        cleared = [];
+      }
+    });
+  });
+  const rebindMsg = $derived.by(() => {
+    if (!cleared.length || !destChanged.length) return '';
+    const labels = cleared.map((k) => schema.fields.find((f) => f.key === k)?.label ?? k);
+    return `${destinationPhrase(destChanged)} değiştiği için kayıtlı ${labels.join(', ')} güvenlik gereği yeni hedefe taşınmaz; kaydetmeden önce yeniden girin.`;
+  });
 </script>
 
 <Modal bind:open title={orig ? 'Bildirim kanalını düzenle' : 'Yeni bildirim kanalı'} width={600}>
@@ -265,6 +294,10 @@
       {/each}
     </div>
 
+    {#if rebindMsg}
+      <div class="alert warning small" role="status">{rebindMsg}</div>
+    {/if}
+
     {#if type === 'webhook'}
       <details class="example">
         <summary><span class="chev"><Icon name="chevron-right" size={15} /></span> Gönderilen JSON örneği</summary>
@@ -280,7 +313,7 @@
 
     <label class="check">
       <input type="checkbox" bind:checked={active} />
-      <span>Aktif<small>Pasif kanallara bildirim gönderilmez.</small></span>
+      <span>Etkin<small>Devre dışı kanallara bildirim gönderilmez.</small></span>
     </label>
     <label class="check">
       <input type="checkbox" bind:checked={isDefault} />

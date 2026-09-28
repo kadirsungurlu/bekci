@@ -109,7 +109,11 @@
   <div class="card empty">
     <div class="big-ic"><Icon name="wrench" size={30} /></div>
     <h3>Planlı bakım yok</h3>
-    <p>Sunucu güncellemesi veya planlı bir kesinti öncesinde bakım penceresi ekleyin; o sırada gereksiz alarm almazsınız.</p>
+    {#if session.canEdit}
+      <p>Sunucu güncellemesi veya planlı bir kesinti öncesinde bakım penceresi ekleyin; o sırada gereksiz alarm almazsınız.</p>
+    {:else}
+      <p>Şu an planlanmış bir bakım penceresi yok. Planlanan bakımlar burada görünür; bakım sırasında monitörler alarm üretmez.</p>
+    {/if}
     {#if session.canEdit}
       <a class="btn primary" href="#/maintenance/new"><Icon name="plus" size={16} /> Bakım ekle</a>
     {/if}

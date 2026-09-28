@@ -213,7 +213,10 @@
     border-bottom: 1px solid var(--border);
     cursor: pointer;
     transition: background 0.12s;
+    /* Uzun basış seçim başlatır: iOS'ta metin seçimi ve büyüteç açılmasın. */
     -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
   .row.selectable {
     grid-template-columns: auto auto minmax(0, 1fr) auto auto auto auto;
@@ -339,6 +342,17 @@
   }
   .inc-s {
     display: none;
+  }
+  /* Dokunmatikte küçük "Olay" çipine 44 px'lik görünmez dokunma alanı. */
+  @media (max-width: 900px), (pointer: coarse) {
+    .inc {
+      position: relative;
+    }
+    .inc::after {
+      content: '';
+      position: absolute;
+      inset: -9px -6px;
+    }
   }
   @media (hover: hover) {
     .inc:hover {

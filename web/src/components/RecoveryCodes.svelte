@@ -1,8 +1,8 @@
 <script lang="ts">
   // Kurtarma kodlarının tek seferlik gösterimi: kopyala, indir, "kaydettim" onayı.
-  import { copyText, toast } from '../lib/ui.svelte';
   import { session } from '../lib/session.svelte';
   import Icon from './Icon.svelte';
+  import CopyButton from './CopyButton.svelte';
 
   let { codes, saved = $bindable(false) }: { codes: string[]; saved?: boolean } = $props();
 
@@ -12,10 +12,6 @@
   );
   const href = $derived('data:text/plain;charset=utf-8,' + encodeURIComponent(text));
 
-  async function copy() {
-    if (await copyText(codes.join('\n'))) toast.success('Kodlar panoya kopyalandı');
-    else toast.error('Kopyalanamadı; kodları elle seçip kopyalayın');
-  }
 </script>
 
 <p class="text-2 small intro">
@@ -27,7 +23,7 @@
 </ol>
 <div class="row btns">
   <a class="btn sm" {href} download="uptime-kurtarma-kodlari.txt"><Icon name="download" size={15} /> İndir</a>
-  <button type="button" class="btn sm" onclick={copy}><Icon name="copy" size={15} /> Kopyala</button>
+  <CopyButton text={codes.join('\n')} size={15} />
 </div>
 <label class="check ack">
   <input type="checkbox" bind:checked={saved} />

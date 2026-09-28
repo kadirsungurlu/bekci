@@ -2,24 +2,30 @@
   import { onMount } from 'svelte';
   import { api, errorMessage, type ApiKey, type ApiKeyStatus, type Role } from '../../lib/api';
   import { ROLE_LABELS, roleRank, session } from '../../lib/session.svelte';
-  import { clock, confirmDialog, copyText, toast } from '../../lib/ui.svelte';
+  import { clock, confirmDialog, toast } from '../../lib/ui.svelte';
   import { fmtDate, fmtDay, fmtRelative, isoDay, nowSec, parseLocal } from '../../lib/format';
   import Modal from '../../components/Modal.svelte';
   import Icon from '../../components/Icon.svelte';
+  import CopyButton from '../../components/CopyButton.svelte';
 
   let keys = $state.raw<ApiKey[]>([]);
   let loading = $state(true);
   let loadError = $state('');
   let showAll = $state(false);
 
+  // "Tümünü göster" hızlıca açılıp kapatılırsa geç dönen eski yanıt listeyi ezmesin.
+  let req = 0;
   async function load() {
+    const my = ++req;
     try {
-      keys = await api.apiKeys(showAll && session.isAdmin);
+      const list = await api.apiKeys(showAll && session.isAdmin);
+      if (my !== req) return;
+      keys = list;
       loadError = '';
     } catch (e) {
-      loadError = errorMessage(e);
+      if (my === req) loadError = errorMessage(e);
     } finally {
-      loading = false;
+      if (my === req) loading = false;
     }
   }
   onMount(load);
@@ -84,7 +90,7 @@
     if (expires) {
       // Seçilen günün sonuna kadar geçerli (İstanbul saati).
       exp = parseLocal(`${expires}T23:59`) + 59;
-      if (exp <= nowSec()) return (error = 'Son kullanma tarihi gelecekte olmalı.');
+      if (exp <= nowSec()) return (error = 'Son kullanım tarihi gelecekte olmalı.');
     }
     busy = true;
     try {
@@ -98,10 +104,6 @@
     }
   }
 
-  async function copySecret() {
-    if (await copyText(secret)) toast.success('Anahtar panoya kopyalandı');
-    else toast.error('Kopyalanamadı; anahtarı elle seçip kopyalayın');
-  }
 
   const origin = location.origin;
   const curl = $derived(`curl -H "Authorization: Bearer ${secret || 'upk_…'}" ${origin}/api/monitors`);
@@ -141,8 +143,8 @@
           {#if showAll}<th>Sahibi</th>{/if}
           <th>Yetki</th>
           <th>Önek</th>
-          <th>Son kullanım</th>
-          <th>Son kullanma</th>
+          <th>Son kullanıldı</th>
+          <th>Son kullanım tarihi</th>
           <th>Durum</th>
           <th><span class="sr">İşlem</span></th>
         </tr>
@@ -154,10 +156,10 @@
             {#if showAll}<td data-label="Sahibi">{k.username}</td>{/if}
             <td data-label="Yetki">{ROLE_LABELS[k.role] ?? k.role}</td>
             <td data-label="Önek"><code>{k.prefix}…</code></td>
-            <td data-label="Son kullanım" class="nowrap" title={k.last_used_at ? fmtDate(k.last_used_at) : ''}>
+            <td data-label="Son kullanıldı" class="nowrap" title={k.last_used_at ? fmtDate(k.last_used_at) : ''}>
               {k.last_used_at ? fmtRelative(k.last_used_at, clock.now) : 'Hiç'}
             </td>
-            <td data-label="Son kullanma" class="nowrap">{k.expires_at ? fmtDay(k.expires_at) : 'Süresiz'}</td>
+            <td data-label="Son kullanım tarihi" class="nowrap">{k.expires_at ? fmtDay(k.expires_at) : 'Süresiz'}</td>
             <td data-label="Durum"><span class="badge {STATUS[k.status].c}">{STATUS[k.status].l}</span></td>
             <td class="act">
               {#if k.status === 'active'}
@@ -179,7 +181,7 @@
         <div class="label">Anahtarınız:</div>
         <div class="copybox">
           <code>{secret}</code>
-          <button type="button" class="btn sm primary" onclick={copySecret}><Icon name="copy" size={14} /> Kopyala</button>
+          <CopyButton text={secret} class="btn sm primary" />
         </div>
       </div>
       <div>
@@ -201,12 +203,12 @@
           </select>
         </div>
         <div class="field">
-          <label for="ak-exp">Son kullanma <span class="muted">(isteğe bağlı)</span></label>
+          <label for="ak-exp">Son kullanım tarihi <span class="muted">(isteğe bağlı)</span></label>
           <input id="ak-exp" class="input" type="date" min={minDay} bind:value={expires} />
         </div>
       </div>
       <span class="help">
-        Anahtar, sizin rolünüzü aşamaz; rolünüz düşerse anahtarın yetkisi de düşer. Son kullanma boş bırakılırsa süresiz.
+        Anahtar, sizin rolünüzü aşamaz; rolünüz düşerse anahtarın yetkisi de düşer. Son kullanım tarihi boş bırakılırsa süresiz.
         Yalnızca izleme ve Prometheus için “İzleyici” yeterlidir.
       </span>
       {#if error}<div class="alert error" role="alert">{error}</div>{/if}

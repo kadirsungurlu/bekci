@@ -335,8 +335,9 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
         wide: true,
         mono: true,
         suggestName: true,
-        pattern: /^(tcp|ssl|tls|ws|wss|mqtt|mqtts):\/\/\S+$/i,
-        patternMsg: 'Broker adresi tcp://, ssl://, tls://, ws:// veya wss:// ile başlamalı.',
+        // Sunucu yalnızca bu şemaları kabul eder (mqtt:// ve mqtts:// değil); adreste sunucu adı olmalı.
+        pattern: /^(tcp|ssl|tls|ws|wss):\/\/[^\s/?#]+\S*$/i,
+        patternMsg: 'Broker adresi tcp://, ssl://, tls://, ws:// veya wss:// ile başlamalı (mqtt:// yerine tcp://, mqtts:// yerine ssl:// yazın).',
         help: 'tcp://, ssl://, tls://, ws:// veya wss://',
       },
       { key: 'username', label: 'Kullanıcı adı', kind: 'text', optional: true },

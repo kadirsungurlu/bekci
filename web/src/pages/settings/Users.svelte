@@ -2,11 +2,12 @@
   import { onMount } from 'svelte';
   import { api, errorMessage, type UserRecord } from '../../lib/api';
   import { ROLE_LABELS, session } from '../../lib/session.svelte';
-  import { clock, confirmDialog, copyText, toast } from '../../lib/ui.svelte';
+  import { clock, confirmDialog, toast } from '../../lib/ui.svelte';
   import { collator, fmtDate, fmtRelative, randomPassword } from '../../lib/format';
   import Modal from '../../components/Modal.svelte';
   import RowMenu, { type MenuItem } from '../../components/RowMenu.svelte';
   import Icon from '../../components/Icon.svelte';
+  import CopyButton from '../../components/CopyButton.svelte';
   import UserForm from './UserForm.svelte';
 
   let users = $state.raw<UserRecord[]>([]);
@@ -140,9 +141,6 @@
     }
   }
 
-  async function copyPw() {
-    if (await copyText(pw)) toast.success('Şifre panoya kopyalandı');
-  }
 
   function menu(u: UserRecord): MenuItem[] {
     const self = u.id === session.user?.id;
@@ -217,7 +215,7 @@
               {:else if u.must_change_password}
                 <span class="badge pending">Şifre değişimi bekliyor</span>
               {:else}
-                <span class="badge up">Aktif</span>
+                <span class="badge up">Etkin</span>
               {/if}
             </td>
             <td data-label="2FA">
@@ -255,7 +253,7 @@
       <div class="pw">
         <input id="pw-new" class="input mono" bind:value={pw} autocomplete="new-password" spellcheck="false" />
         <button type="button" class="btn icon" aria-label="Yeni rastgele şifre" onclick={() => (pw = randomPassword())}><Icon name="refresh" size={15} /></button>
-        <button type="button" class="btn icon" aria-label="Şifreyi kopyala" onclick={copyPw}><Icon name="copy" size={15} /></button>
+        <CopyButton class="btn icon" iconOnly ariaLabel="Şifreyi kopyala" text={pw} size={15} />
       </div>
     </div>
     {#if pwError}<div class="alert error" role="alert">{pwError}</div>{/if}

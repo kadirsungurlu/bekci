@@ -75,6 +75,21 @@ class Clock {
 
 export const clock = new Clock();
 
+// Pencere veya alttan açılan sayfa açıkken arkadaki sayfanın kaymasını engeller.
+// Birden çok pencere üst üste açılabildiği için sayaçla tutulur.
+let scrollLocks = 0;
+
+/** Sayfa kaydırmasını kilitler; kilidi kaldıran fonksiyon döner (bir kez çalışır). */
+export function lockScroll(): () => void {
+  if (scrollLocks++ === 0) document.documentElement.classList.add('scroll-lock');
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    if (--scrollLocks === 0) document.documentElement.classList.remove('scroll-lock');
+  };
+}
+
 /** Metni panoya kopyalar (güvensiz bağlamda eski yönteme düşer). */
 export async function copyText(text: string): Promise<boolean> {
   try {

@@ -17,23 +17,27 @@
   let name = $state('');
   let busy = $state(false);
   let error = $state('');
+  let loadError = $state('');
 
   const has = (p: StatusPage) => p.sections.some((s) => s.monitors.some((x) => x.id === m.id));
   const page = $derived(pages.find((p) => String(p.id) === pageId) ?? null);
   const already = $derived(pages.filter(has));
   const available = $derived(pages.filter((p) => !has(p)));
 
-  onMount(async () => {
+  async function load() {
+    loaded = false;
+    loadError = '';
     try {
       pages = (await api.pages()).slice().sort((a, b) => collator.compare(a.title, b.title));
       const first = pages.find((p) => !has(p));
       if (first) choosePage(String(first.id));
     } catch (e) {
-      error = errorMessage(e);
+      loadError = errorMessage(e);
     } finally {
       loaded = true;
     }
-  });
+  }
+  onMount(load);
 
   function choosePage(id: string) {
     pageId = id;
@@ -67,6 +71,9 @@
 <Modal bind:open title="Durum sayfasına ekle" width={500}>
   {#if !loaded}
     <div class="skeleton" style="height:140px"></div>
+  {:else if loadError}
+    <div class="alert error" role="alert">Durum sayfaları yüklenemedi: {loadError}</div>
+    <button type="button" class="btn sm retry" onclick={load}><Icon name="refresh" size={14} /> Tekrar dene</button>
   {:else if pages.length === 0}
     <div class="none">
       <Icon name="layout" size={22} />
@@ -129,6 +136,9 @@
 </Modal>
 
 <style>
+  .retry {
+    margin-top: 12px;
+  }
   .none {
     display: flex;
     flex-direction: column;

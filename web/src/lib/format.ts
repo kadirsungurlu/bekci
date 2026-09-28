@@ -86,6 +86,17 @@ export function fmtDate(ts: number): string {
 export function fmtDay(ts: number): string {
   return dateOnlyFmt.format(new Date(ts * 1000));
 }
+/**
+ * Saatin okunuşuna göre bulunma eki: "14:30" → "’da", "09:15" → "’te", "12:00" → "’de".
+ * Son okunan sayı dakika (00 ise saat) belirler.
+ */
+export function timeLocative(ts: number): string {
+  const [h, m] = timeFmt.format(new Date(ts * 1000)).split(':').map(Number);
+  const n = m || h;
+  const ONES = ['da', 'de', 'de', 'te', 'te', 'te', 'da', 'de', 'de', 'da']; // sıfır/bir/iki/üç/dört/beş/altı/yedi/sekiz/dokuz
+  const TENS = ['da', 'da', 'de', 'da', 'ta', 'de']; // sıfır/on/yirmi/otuz/kırk/elli
+  return '’' + (n % 10 ? ONES[n % 10] : TENS[Math.floor(n / 10)] ?? 'da');
+}
 /** dd.MM */
 export function fmtShortDate(ts: number): string {
   return shortDateFmt.format(new Date(ts * 1000));
@@ -171,7 +182,7 @@ export const monitorKind = (m: MonitorView): StatusKind => statusKind(m.status, 
 export const STATUS_LABELS: Record<StatusKind, string> = {
   up: 'Çalışıyor',
   down: 'Çalışmıyor',
-  pending: 'Bekleniyor',
+  pending: 'Kontrol ediliyor',
   paused: 'Durduruldu',
   maintenance: 'Bakımda',
 };

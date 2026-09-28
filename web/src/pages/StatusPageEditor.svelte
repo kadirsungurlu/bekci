@@ -3,12 +3,15 @@
   import { api, ApiError, errorMessage, type BarRange, type PageInput, type StatusPage } from '../lib/api';
   import { live } from '../lib/live.svelte';
   import { navigate } from '../lib/router.svelte';
-  import { confirmDialog, copyText, toast } from '../lib/ui.svelte';
+  import { confirmDialog, toast } from '../lib/ui.svelte';
   import { monitorKind } from '../lib/format';
+  import { session } from '../lib/session.svelte';
+  import { guardUnsaved, markInvalid, snapshot } from '../lib/forms';
   import Modal from '../components/Modal.svelte';
   import MonitorPicker from '../components/MonitorPicker.svelte';
   import StatusIcon from '../components/StatusIcon.svelte';
   import Icon from '../components/Icon.svelte';
+  import CopyButton from '../components/CopyButton.svelte';
   import Announcements from './Announcements.svelte';
 
   let { id }: { id?: number } = $props();
@@ -86,15 +89,39 @@
   }
 
   onMount(async () => {
-    if (!isEdit) return;
-    try {
-      fill(await api.page(id!));
-    } catch (e) {
-      loadError = e instanceof ApiError && e.status === 404 ? 'Durum sayfası bulunamadı.' : errorMessage(e);
-    } finally {
-      loading = false;
+    if (isEdit) {
+      try {
+        fill(await api.page(id!));
+      } catch (e) {
+        loadError = e instanceof ApiError && e.status === 404 ? 'Durum sayfası bulunamadı.' : errorMessage(e);
+      } finally {
+        loading = false;
+      }
     }
+    await tick();
+    resetBaseline();
   });
+
+  // Kaydedilmemiş değişiklikler (logo ve duyurular anında kaydedildiği için hariç).
+  let baseline = '';
+  let saved = false;
+  const formState = () => ({
+    title: title.trim(),
+    slug: slug.trim().toLowerCase(),
+    description: description.trim(),
+    footer: footer.trim(),
+    customDomain: customDomain.trim().toLowerCase(),
+    showTargets,
+    showIncidents,
+    collapsible,
+    barRange,
+    published,
+    pwMode,
+    password,
+    sections: sections.map((s) => [s.title.trim(), s.monitors.map((m) => [m.id, m.name.trim()])]),
+  });
+  const resetBaseline = () => (baseline = snapshot(formState()));
+  onMount(() => guardUnsaved(() => !saved && !!baseline && !loading && !loadError && snapshot(formState()) !== baseline));
 
   // Gruplar ve monitörler -----------------------------------------------------------------
   const onPage = $derived(new Set(sections.flatMap((s) => s.monitors.map((m) => m.id))));
@@ -181,27 +208,39 @@
   }
 
   // Kaydet ------------------------------------------------------------------------------
-  function validate(): string {
-    if (!title.trim()) return 'Başlık gerekli.';
-    if (!SLUG_RE.test(slug.trim())) return 'Adres (kısa ad) 1-50 karakter olmalı; küçük harf, rakam ve tire kullanılabilir.';
-    if (pwMode === 'set' && (password.length < 4 || password.length > 72)) return 'Sayfa şifresi 4-72 karakter olmalı.';
+  // Sunucu şifreyi en az 4 karakter, en fazla 72 bayt (bcrypt sınırı) kabul eder.
+  const utf8Len = (v: string) => new TextEncoder().encode(v).length;
+
+  function validate(): { msg: string; field?: string } | null {
+    if (!title.trim()) return { msg: 'Başlık gerekli.', field: 'sp-title' };
+    // Kısa ad sunucuda küçük harfe çevrilir; "Acme" de geçerli sayılır.
+    if (!SLUG_RE.test(slug.trim().toLowerCase()))
+      return { msg: 'Adres (kısa ad) 1-50 karakter olmalı; küçük harf, rakam ve tire kullanılabilir.', field: 'sp-slug' };
+    if (pwMode === 'set' && ([...password].length < 4 || utf8Len(password) > 72))
+      return {
+        msg: 'Sayfa şifresi en az 4 karakter, en fazla 72 bayt olmalı (Türkçe harfler 2 bayt sayılır).',
+        field: 'sp-pw',
+      };
     if (customDomain.trim() && /[/:\s]/.test(customDomain.trim()))
-      return 'Özel alan adını http:// ve / olmadan yazın (ör. durum.ornek.com).';
-    if (total > 200) return 'Bir sayfada en fazla 200 monitör olabilir.';
-    return '';
+      return { msg: 'Özel alan adını http:// ve / olmadan yazın (ör. durum.ornek.com).', field: 'sp-dom' };
+    if (total > 200) return { msg: 'Bir sayfada en fazla 200 monitör olabilir.' };
+    return null;
   }
 
-  async function showError(msg: string) {
+  async function showError(msg: string, field?: string) {
     error = msg;
     await tick();
+    markInvalid(field, 'sp-error');
     errorEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     error = '';
+    markInvalid(null, 'sp-error');
     const v = validate();
-    if (v) return showError(v);
+    if (v) return showError(v.msg, v.field);
+    slug = slug.trim().toLowerCase();
     const body: PageInput = {
       slug: slug.trim(),
       title: title.trim(),
@@ -224,8 +263,10 @@
       const res = isEdit ? await api.updatePage(id!, body) : await api.createPage(body);
       if (isEdit) {
         fill(res);
+        resetBaseline();
         toast.success('Durum sayfası kaydedildi');
       } else {
+        saved = true;
         toast.success(`“${res.title}” oluşturuldu. Şimdi logo ve duyuru ekleyebilirsiniz.`);
         navigate(`/status-pages/${res.id}`, true);
       }
@@ -247,6 +288,7 @@
     if (!ok) return;
     try {
       await api.deletePage(page.id);
+      saved = true;
       toast.success('Durum sayfası silindi');
       navigate('/status-pages');
     } catch (e) {
@@ -294,9 +336,6 @@
   const publicUrl = $derived(page ? `${location.origin}/durum/${page.slug}` : '');
   const host = location.host;
 
-  async function copyUrl() {
-    if (publicUrl && (await copyText(publicUrl))) toast.success('Adres panoya kopyalandı');
-  }
 </script>
 
 <a class="back" href="#/status-pages"><Icon name="chevron-left" size={16} /> Durum sayfaları</a>
@@ -326,7 +365,7 @@
       <div class="pub-bar card">
         <span class="badge {page.published ? 'up' : 'paused'}">{page.published ? 'Yayında' : 'Taslak'}</span>
         <code class="pub-url">{publicUrl}</code>
-        <button type="button" class="btn sm" onclick={copyUrl}><Icon name="copy" size={14} /> Kopyala</button>
+        <CopyButton text={publicUrl} />
       </div>
     {/if}
 
@@ -346,6 +385,7 @@
             maxlength="50"
             bind:value={slug}
             oninput={() => (slugTouched = true)}
+            onblur={() => (slug = slug.trim().toLowerCase())}
             autocapitalize="none"
             spellcheck="false"
             placeholder="acme"
@@ -379,22 +419,28 @@
               maxlength="100"
               bind:value={s.title}
               placeholder="Grup adı (ör. Web siteleri)"
-              aria-label="Grup adı"
+              aria-label="{si + 1}. grubun adı"
             />
             <div class="order">
-              <button type="button" class="btn ghost icon sm s-up" aria-label="Grubu yukarı taşı" disabled={si === 0} onclick={() => moveSection(si, -1)}>
+              <button
+                type="button"
+                class="btn ghost icon sm s-up"
+                aria-label="“{s.title.trim() || `${si + 1}. grup`}” grubunu yukarı taşı"
+                disabled={si === 0}
+                onclick={() => moveSection(si, -1)}
+              >
                 <Icon name="arrow-up" size={15} />
               </button>
               <button
                 type="button"
                 class="btn ghost icon sm s-down"
-                aria-label="Grubu aşağı taşı"
+                aria-label="“{s.title.trim() || `${si + 1}. grup`}” grubunu aşağı taşı"
                 disabled={si === sections.length - 1}
                 onclick={() => moveSection(si, 1)}
               >
                 <Icon name="arrow-down" size={15} />
               </button>
-              <button type="button" class="btn ghost icon sm del" aria-label="Grubu kaldır" onclick={() => removeSection(si)}>
+              <button type="button" class="btn ghost icon sm del" aria-label="“{s.title.trim() || `${si + 1}. grup`}” grubunu kaldır" onclick={() => removeSection(si)}>
                 <Icon name="trash" size={15} />
               </button>
             </div>
@@ -422,7 +468,7 @@
                     <button
                       type="button"
                       class="btn ghost icon sm m-up"
-                      aria-label="Yukarı taşı"
+                      aria-label="{mon?.name ?? `#${m.id}`} monitörünü yukarı taşı"
                       disabled={isFirstMon(si, mi)}
                       onclick={() => moveMonitor(si, mi, -1)}
                     >
@@ -431,13 +477,13 @@
                     <button
                       type="button"
                       class="btn ghost icon sm m-down"
-                      aria-label="Aşağı taşı"
+                      aria-label="{mon?.name ?? `#${m.id}`} monitörünü aşağı taşı"
                       disabled={isLastMon(si, mi)}
                       onclick={() => moveMonitor(si, mi, 1)}
                     >
                       <Icon name="arrow-down" size={15} />
                     </button>
-                    <button type="button" class="btn ghost icon sm del" aria-label="Sayfadan kaldır" onclick={() => removeMonitor(si, mi)}>
+                    <button type="button" class="btn ghost icon sm del" aria-label="{mon?.name ?? `#${m.id}`} monitörünü sayfadan kaldır" onclick={() => removeMonitor(si, mi)}>
                       <Icon name="x" size={15} />
                     </button>
                   </div>
@@ -540,6 +586,7 @@
           </div>
         {:else}
           <input
+            id="sp-pw"
             class="input pw-in"
             type="password"
             autocomplete="new-password"
@@ -549,7 +596,7 @@
             placeholder={page?.has_password ? 'Yeni şifre' : 'Boş bırakırsanız sayfa herkese açıktır'}
           />
           <span class="help">
-            Boş bırakırsanız sayfa herkese açıktır. 4-72 karakter.
+            Boş bırakırsanız sayfa herkese açıktır. En az 4 karakter, en fazla 72 bayt.
             {#if page?.has_password}<button type="button" class="linkbtn" onclick={() => ((pwMode = 'keep'), (password = ''))}>Mevcut şifreyi koru</button>{/if}
           </span>
         {/if}
@@ -557,15 +604,28 @@
 
       <div class="field">
         <label for="sp-dom">Özel alan adı <span class="muted">(isteğe bağlı)</span></label>
-        <input id="sp-dom" class="input dom" bind:value={customDomain} placeholder="durum.ornek.com" autocapitalize="none" spellcheck="false" />
-        <span class="help">
-          DNS kaydını sunucuya yönlendirin ve alan adını Coolify’a ekleyin. Bu alan adında sadece durum sayfası açılır, yönetim paneli açılmaz.
+        <input
+          id="sp-dom"
+          class="input dom"
+          bind:value={customDomain}
+          placeholder={session.isAdmin ? 'durum.ornek.com' : ''}
+          autocapitalize="none"
+          spellcheck="false"
+          disabled={!session.isAdmin}
+          aria-describedby="sp-dom-help"
+        />
+        <span class="help" id="sp-dom-help">
+          {#if session.isAdmin}
+            DNS kaydını sunucuya yönlendirin ve alan adını Coolify’a ekleyin. Bu alan adında sadece durum sayfası açılır, yönetim paneli açılmaz.
+          {:else}
+            Özel alan adını yalnızca yöneticiler ayarlayabilir.
+          {/if}
         </span>
       </div>
     </section>
 
     {#if error}
-      <div class="alert error" role="alert" bind:this={errorEl}>{error}</div>
+      <div class="alert error" role="alert" id="sp-error" bind:this={errorEl}>{error}</div>
     {/if}
 
     <div class="actions">

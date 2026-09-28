@@ -149,6 +149,13 @@ body {
   overflow-x: hidden;
 }
 
+/* Pencere / alttan açılan sayfa açıkken arkadaki sayfa kaymaz (bkz. lockScroll). */
+html.scroll-lock,
+html.scroll-lock body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 a {
   color: var(--accent-text);
   text-decoration: none;
@@ -540,8 +547,19 @@ input[type='search'].input::-webkit-search-decoration {
   -webkit-appearance: none;
   appearance: none;
 }
-.input.invalid {
+.input.invalid,
+.input[aria-invalid='true'] {
   border-color: var(--down);
+}
+
+/* iOS Safari 16 px'ten küçük yazılı alana odaklanınca sayfayı büyütür; dar ekranda
+   tüm form alanları en az 16 px (bileşenlerdeki daha küçük yazı ayarlarını da ezer). */
+@media (max-width: 900px) {
+  .input:not(.code),
+  select.input,
+  textarea.input {
+    font-size: 16px !important;
+  }
 }
 
 .check {
@@ -848,6 +866,13 @@ input[type='search'].input::-webkit-search-decoration {
   border-radius: 6px;
   cursor: pointer;
 }
+/* Dokunmatikte parçalı seçici ve aralık sekmeleri (1 sa / 24 sa …) 44 px yüksek. */
+@media (max-width: 900px), (pointer: coarse) {
+  .seg button,
+  .tabs > button[role='tab'] {
+    min-height: 44px;
+  }
+}
 .seg button.active {
   background: var(--accent);
   color: var(--accent-contrast);
@@ -878,6 +903,27 @@ input[type='search'].input::-webkit-search-decoration {
   color: var(--text-2);
   font-size: 0.88rem;
   margin-bottom: 14px;
+}
+/* Dokunmatikte (telefonda) geri bağlantısı ve metin düğmeleri en az 44 px dokunma alanı. */
+@media (max-width: 900px), (pointer: coarse) {
+  .back {
+    min-height: 44px;
+    padding-right: 12px;
+    margin: -8px 0 6px -4px;
+    padding-left: 4px;
+  }
+  /* Satır içi metin düğmeleri: düzeni bozmadan görünmez bir alanla büyütülür. */
+  .linkbtn {
+    position: relative;
+  }
+  .linkbtn::after {
+    content: '';
+    position: absolute;
+    inset: -12px -8px;
+  }
+  .btn.sm {
+    min-height: 36px;
+  }
 }
 
 .divider {

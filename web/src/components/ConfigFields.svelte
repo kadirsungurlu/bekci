@@ -40,12 +40,12 @@
     return cfg;
   }
 
-  /** İlk hata ve hatalı alanın gelişmiş bölümde olup olmadığı; hata yoksa null. */
-  export function fieldError(fields: CfgField[], values: Record<string, string>): { msg: string; advanced: boolean } | null {
+  /** İlk hata, hatalı alanın anahtarı ve gelişmiş bölümde olup olmadığı; hata yoksa null. */
+  export function fieldError(fields: CfgField[], values: Record<string, string>): { msg: string; advanced: boolean; key: string } | null {
     for (const f of fields) {
       if (!fieldVisible(f, values)) continue;
       const v = (values[f.key] ?? '').trim();
-      const err = (msg: string) => ({ msg, advanced: !!f.advanced });
+      const err = (msg: string) => ({ msg, advanced: !!f.advanced, key: f.key });
       if (f.required && !v) return err(`${f.label} gerekli.`);
       if (!v || v === MASK) continue;
       if (f.kind === 'url' && !/^https?:\/\/\S+$/i.test(v)) return err(`${f.label} geçerli bir http(s) adresi olmalı.`);

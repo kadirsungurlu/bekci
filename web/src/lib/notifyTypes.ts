@@ -120,7 +120,7 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
   telegram: {
     help: '@BotFather ile bot oluşturun, botu gruba/kanala ekleyin ve sohbet kimliğini girin.',
     fields: [
-      { key: 'bot_token', label: 'Bot token', kind: 'secret', placeholder: '123456789:ABC...', required: true, wide: true },
+      { key: 'bot_token', label: 'Bot token’ı', kind: 'secret', placeholder: '123456789:ABC...', required: true, wide: true },
       { key: 'chat_id', label: 'Sohbet kimliği (chat ID)', kind: 'text', placeholder: '-1001234567890', required: true },
       {
         key: 'thread_id',
@@ -215,21 +215,21 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
     fields: [
       { key: 'server', label: 'Sunucu', kind: 'url', def: 'https://ntfy.sh', placeholder: 'https://ntfy.sh' },
       { key: 'topic', label: 'Konu (topic)', kind: 'text', placeholder: 'benim-uptime-konum', required: true },
-      { key: 'token', label: 'Erişim token', kind: 'secret', optional: true, help: 'Korumalı konular için.' },
+      { key: 'token', label: 'Erişim token’ı', kind: 'secret', optional: true, help: 'Korumalı konular için.' },
       { key: 'priority', label: 'Öncelik (1-5)', kind: 'number', numeric: true, def: 4, min: 1, max: 5, help: 'Sorun bildirimlerinde kullanılır.' },
     ],
   },
   gotify: {
     fields: [
       { key: 'server', label: 'Sunucu', kind: 'url', placeholder: 'https://gotify.ornek.com', required: true, wide: true },
-      { key: 'app_token', label: 'Uygulama token', kind: 'secret', required: true },
+      { key: 'app_token', label: 'Uygulama token’ı', kind: 'secret', required: true },
       { key: 'priority', label: 'Öncelik (1-10)', kind: 'number', numeric: true, def: 8, min: 1, max: 10 },
     ],
   },
   pushover: {
     fields: [
       { key: 'user_key', label: 'Kullanıcı anahtarı', kind: 'secret', required: true },
-      { key: 'app_token', label: 'Uygulama token', kind: 'secret', required: true },
+      { key: 'app_token', label: 'Uygulama token’ı', kind: 'secret', required: true },
       { key: 'device', label: 'Cihaz', kind: 'text', optional: true, help: 'Boşsa tüm cihazlara gider.' },
       {
         key: 'priority',
@@ -323,7 +323,7 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
       },
       {
         key: 'room_id',
-        label: 'Oda ID’si',
+        label: 'Oda kimliği',
         kind: 'text',
         placeholder: '!AbCdEf:matrix.org',
         help: 'Oda ayarları › Gelişmiş (takma ad değil).',
@@ -480,8 +480,8 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
     help: 'Pushbullet bildirimi gönderir.',
     fields: [
       { key: 'access_token', label: 'Erişim jetonu', kind: 'secret', help: 'Ayarlar › Erişim Jetonları', required: true, wide: true },
-      { key: 'channel_tag', label: 'Kanal etiketi', kind: 'text', optional: true, help: 'Cihaz ID’si ile birlikte kullanılamaz.' },
-      { key: 'device_iden', label: 'Cihaz ID’si', kind: 'text', optional: true, help: 'Boşsa tüm cihazlarınıza gider.' },
+      { key: 'channel_tag', label: 'Kanal etiketi', kind: 'text', optional: true, help: 'Cihaz kimliği ile birlikte kullanılamaz.' },
+      { key: 'device_iden', label: 'Cihaz kimliği', kind: 'text', optional: true, help: 'Boşsa tüm cihazlarınıza gider.' },
     ],
   },
   bark: {
@@ -499,7 +499,7 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
       { key: 'channel_access_token', label: 'Kanal erişim jetonu', kind: 'secret', required: true, wide: true },
       {
         key: 'to',
-        label: 'Alıcı ID’si',
+        label: 'Alıcı kimliği',
         kind: 'text',
         placeholder: 'U0123456789abcdef0123456789abcdef',
         help: 'Kullanıcı (U…), grup (C…) veya oda (R…) kimliği.',

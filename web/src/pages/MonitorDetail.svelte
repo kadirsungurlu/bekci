@@ -15,7 +15,7 @@
   } from '../lib/api';
   import { live } from '../lib/live.svelte';
   import { navigate } from '../lib/router.svelte';
-  import { clock, copyText, toast } from '../lib/ui.svelte';
+  import { clock, toast } from '../lib/ui.svelte';
   import {
     STATUS_LABELS,
     certDaysLeft,
@@ -39,6 +39,7 @@
   import BadgeBuilder from '../components/BadgeBuilder.svelte';
   import TagChip from '../components/TagChip.svelte';
   import Icon from '../components/Icon.svelte';
+  import CopyButton from '../components/CopyButton.svelte';
 
   let { id }: { id: number } = $props();
 
@@ -140,6 +141,7 @@
 
   let unsubProbe: (() => void) | undefined;
   let unsubReset: (() => void) | undefined;
+  let unsubResume: (() => void) | undefined;
 
   onMount(() => {
     loadDetail();
@@ -155,6 +157,13 @@
     unsubReset = live.onStatsReset((mid) => {
       if (mid !== id) return;
       loadDetail();
+      loadSeries(range);
+    });
+    // Bağlantı yeniden kuruldu / uygulamaya geri dönüldü: arada kaçan kontroller için
+    // grafik ve ayrıntılar baştan yüklenir.
+    unsubResume = live.onResume(() => {
+      loadDetail();
+      loadLocations();
       loadSeries(range);
     });
     unsub = live.onBeat((b) => {
@@ -182,6 +191,7 @@
     unsub?.();
     unsubProbe?.();
     unsubReset?.();
+    unsubResume?.();
     clearTimeout(locTimer);
     clearTimeout(reloadTimer);
     clearInterval(refreshTimer);
@@ -203,10 +213,6 @@
     if (await deleteMonitor(monitor)) navigate('/');
   }
 
-  async function copy(text: string) {
-    if (await copyText(text)) toast.success('Panoya kopyalandı');
-    else toast.error('Kopyalanamadı; metni elle seçip kopyalayın');
-  }
 
   const statusSub = $derived.by(() => {
     if (!monitor) return '';
@@ -371,17 +377,17 @@
       </p>
       <div class="copybox">
         <code>{pushUrl}</code>
-        <button class="btn sm" onclick={() => copy(pushUrl)}><Icon name="copy" size={14} /> Kopyala</button>
+        <CopyButton text={pushUrl} />
       </div>
       <div class="label mt">Örnek (işiniz başarıyla bittiğinde)</div>
       <div class="copybox">
         <code>{curlUp}</code>
-        <button class="btn sm" onclick={() => copy(curlUp)}><Icon name="copy" size={14} /> Kopyala</button>
+        <CopyButton text={curlUp} />
       </div>
       <div class="label mt">Hata bildirmek için</div>
       <div class="copybox">
         <code>{curlDown}</code>
-        <button class="btn sm" onclick={() => copy(curlDown)}><Icon name="copy" size={14} /> Kopyala</button>
+        <CopyButton text={curlDown} />
       </div>
       <p class="help mt">
         İsteğe bağlı parametreler: <code>status=up|down</code>, <code>msg=</code> (mesaj), <code>ping=</code> (ms cinsinden süre).

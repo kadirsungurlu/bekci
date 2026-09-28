@@ -1,12 +1,12 @@
 <script lang="ts">
   import { api, errorMessage, type Role, type UserRecord } from '../../lib/api';
   import { ROLE_DESCS, ROLE_LABELS, session } from '../../lib/session.svelte';
-  import { copyText, toast } from '../../lib/ui.svelte';
   import { randomPassword } from '../../lib/format';
   import Modal from '../../components/Modal.svelte';
   import MonitorPicker from '../../components/MonitorPicker.svelte';
   import ServerPicker from '../../components/ServerPicker.svelte';
   import Icon from '../../components/Icon.svelte';
+  import CopyButton from '../../components/CopyButton.svelte';
 
   let {
     open = $bindable(false),
@@ -39,10 +39,6 @@
     showPw = true;
   }
 
-  async function copyPw() {
-    if (password && (await copyText(password))) toast.success('Şifre panoya kopyalandı');
-  }
-
   async function save() {
     error = '';
     if (!orig && !USERNAME_RE.test(username.trim()))
@@ -50,7 +46,9 @@
     if (displayName.trim().length > 100) return (error = 'Görünen ad en fazla 100 karakter olabilir.');
     if (!orig && password.length < 8) return (error = 'Geçici şifre en az 8 karakter olmalı.');
     const onlySelected = role === 'viewer' && restricted;
-    if (onlySelected && monitorIds.length === 0) return (error = 'Müşteri erişimi için en az bir monitör seçin.');
+    // Yalnızca sunucu görecek müşteri de olabilir: en az bir monitör veya sunucu yeterli.
+    if (onlySelected && monitorIds.length === 0 && serverIds.length === 0)
+      return (error = 'Müşteri erişimi için en az bir monitör veya sunucu seçin.');
     const body = {
       display_name: displayName.trim(),
       role,
@@ -146,7 +144,7 @@
             spellcheck="false"
           />
           <button type="button" class="btn" onclick={generate}><Icon name="refresh" size={15} /> Rastgele oluştur</button>
-          <button type="button" class="btn icon" aria-label="Şifreyi kopyala" onclick={copyPw} disabled={!password}><Icon name="copy" size={15} /></button>
+          <CopyButton class="btn icon" iconOnly ariaLabel="Şifreyi kopyala" text={password} disabled={!password} size={15} />
         </div>
         <span class="help">En az 8 karakter. Kullanıcı ilk girişte bu şifreyi değiştirmek zorunda kalır; şifreyi ona güvenli bir yoldan iletin.</span>
       </div>

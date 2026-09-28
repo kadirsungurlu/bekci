@@ -158,7 +158,7 @@
 
   function sentence(r: { metric: ServerMetric; threshold: number; minutes: number }): string {
     if (r.metric === 'offline') return `${r.minutes} dk veri gelmezse`;
-    return `${r.minutes} dk ortalaması ${fmtMetric(r.metric, r.threshold)} üzerindeyse`;
+    return `${r.minutes} dk ortalaması ${fmtMetric(r.metric, r.threshold)} veya üzerindeyse`;
   }
 </script>
 
@@ -186,11 +186,12 @@
       {@const info = METRICS[r.metric]}
       {@const orig = byKey.get(ruleKey(r))}
       {@const err = showErrors ? rowError(r) : ''}
+      {@const ctx = `${metricLabel(r.metric)}${r.metric === 'disk' && r.mount ? ` (${mountLabel(r.mount)})` : ''} kuralı`}
       <div class="rule" class:firing={orig?.firing} class:off={!r.active}>
         <div class="rl">
           <select
             class="input msel"
-            aria-label="Metrik"
+            aria-label="{ctx}: metrik"
             value={r.metric}
             onchange={(e) => changeMetric(r, (e.currentTarget as HTMLSelectElement).value as ServerMetric)}
           >
@@ -199,7 +200,7 @@
             {/each}
           </select>
           {#if r.metric === 'disk'}
-            <select class="input msel mount" aria-label="Disk bölümü" bind:value={r.mount}>
+            <select class="input msel mount" aria-label="{ctx}: disk bölümü" bind:value={r.mount}>
               {#each mountOptions as mo (mo)}
                 <option value={mo} disabled={mo !== r.mount && used.has(ruleKey({ metric: 'disk', mount: mo }))}>{mountLabel(mo)}</option>
               {/each}
@@ -207,7 +208,7 @@
           {/if}
 
           {#if r.metric !== 'offline'}
-            <span class="w">≥</span>
+            <span class="w" title="Değer eşiğe eşit veya üstündeyse" aria-hidden="true">≥</span>
             <label class="unitbox" class:wide={info.unit === 'load' || info.unit === 'net'}>
               {#if info.unit === 'pct'}<span class="u pre">%</span>{/if}
               <input
@@ -219,7 +220,7 @@
                 max={info.max}
                 step={info.step}
                 bind:value={r.threshold}
-                aria-label="Eşik ({UNIT_LABELS[info.unit]})"
+                aria-label="{ctx}: eşik, en az ({UNIT_LABELS[info.unit]})"
               />
               {#if info.unit !== 'pct'}<span class="u">{UNIT_LABELS[info.unit]}</span>{/if}
             </label>
@@ -235,7 +236,7 @@
                 max="60"
                 step="1"
                 bind:value={r.minutes}
-                aria-label="Süre (dakika)"
+                aria-label="{ctx}: süre (dakika)"
               />
               <span class="u">{r.metric === 'offline' ? 'dk veri gelmezse' : 'dk ortalaması'}</span>
             </label>
@@ -246,7 +247,7 @@
               <Icon name="alert" size={11} /> Tetiklendi{orig.fired_at ? ` · ${fmtRelative(orig.fired_at, clock.now)}` : ''}
             </span>
           {/if}
-          <label class="check act"><input type="checkbox" bind:checked={r.active} /> Etkin</label>
+          <label class="check act"><input type="checkbox" bind:checked={r.active} aria-label="{ctx} etkin" /> Etkin</label>
           <button
             type="button"
             class="btn ghost sm icon"

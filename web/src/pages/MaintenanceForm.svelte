@@ -5,6 +5,7 @@
   import { live } from '../lib/live.svelte';
   import { confirmDialog, toast } from '../lib/ui.svelte';
   import { isoLocal, nowSec } from '../lib/format';
+  import { guardUnsaved, markInvalid, snapshot } from '../lib/forms';
   import { DEFAULT_TZ, MAINT_STATUS, STRATEGY_DESCS, STRATEGY_LABELS, WEEKDAYS, nextText } from '../lib/maintenance';
   import MonitorPicker from '../components/MonitorPicker.svelte';
   import Icon from '../components/Icon.svelte';
@@ -79,51 +80,78 @@
         const m = live.byId(pre);
         if (m) title = `Bakım: ${m.name}`.slice(0, 200);
       }
-      return;
+    } else {
+      try {
+        fill(await api.maintenanceItem(id!));
+      } catch (e) {
+        loadError = e instanceof ApiError && e.status === 404 ? 'Bakım penceresi bulunamadı.' : errorMessage(e);
+      } finally {
+        loading = false;
+      }
     }
-    try {
-      fill(await api.maintenanceItem(id!));
-    } catch (e) {
-      loadError = e instanceof ApiError && e.status === 404 ? 'Bakım penceresi bulunamadı.' : errorMessage(e);
-    } finally {
-      loading = false;
-    }
+    await tick();
+    baseline = snapshot(formState());
   });
+
+  // Kaydedilmemiş değişiklikler.
+  let baseline = '';
+  let saved = false;
+  const formState = () => ({
+    title: title.trim(),
+    description: description.trim(),
+    active,
+    strategy,
+    timezone,
+    start,
+    end,
+    weekdays: [...weekdays].sort(),
+    startTime,
+    endTime,
+    dateFrom,
+    dateTo,
+    cron: cron.trim(),
+    duration,
+    allMonitors,
+    monitorIds: [...monitorIds].sort((a, b) => a - b),
+  });
+  onMount(() => guardUnsaved(() => !saved && !!baseline && !loading && !loadError && snapshot(formState()) !== baseline));
 
   function toggleDay(v: number) {
     weekdays = weekdays.includes(v) ? weekdays.filter((d) => d !== v) : [...weekdays, v];
   }
 
-  function validate(): string {
-    if (!title.trim()) return 'Başlık gerekli.';
+  function validate(): { msg: string; field?: string } | null {
+    if (!title.trim()) return { msg: 'Başlık gerekli.', field: 'mt-title' };
     if (strategy === 'once') {
-      if (!start || !end) return 'Başlangıç ve bitiş zamanını girin.';
-      if (end <= start) return 'Bitiş zamanı başlangıçtan sonra olmalı.';
+      if (!start || !end) return { msg: 'Başlangıç ve bitiş zamanını girin.', field: start ? 'mt-end' : 'mt-start' };
+      if (end <= start) return { msg: 'Bitiş zamanı başlangıçtan sonra olmalı.', field: 'mt-end' };
     }
-    if (strategy === 'recurring_weekly' && weekdays.length === 0) return 'En az bir gün seçin.';
+    if (strategy === 'recurring_weekly' && weekdays.length === 0) return { msg: 'En az bir gün seçin.' };
     if ((strategy === 'recurring_weekly' || strategy === 'recurring_daily') && startTime === endTime)
-      return 'Başlangıç ve bitiş saati farklı olmalı.';
+      return { msg: 'Başlangıç ve bitiş saati farklı olmalı.', field: 'mt-et' };
     if (strategy === 'cron') {
-      if (!cron.trim()) return 'Cron ifadesini girin.';
+      if (!cron.trim()) return { msg: 'Cron ifadesini girin.', field: 'mt-cron' };
       if (duration === null || !Number.isInteger(duration) || duration < 1 || duration > 10080)
-        return 'Süre 1-10080 dakika arasında olmalı.';
+        return { msg: 'Süre 1-10080 dakika arasında olmalı.', field: 'mt-dur' };
     }
-    if (dateFrom && dateTo && dateTo < dateFrom) return 'Bitiş tarihi başlangıç tarihinden önce olamaz.';
-    if (!allMonitors && monitorIds.length === 0) return 'En az bir monitör seçin veya tüm monitörleri seçin.';
-    return '';
+    if (dateFrom && dateTo && dateTo < dateFrom) return { msg: 'Bitiş tarihi başlangıç tarihinden önce olamaz.', field: 'mt-dt' };
+    if (!allMonitors && monitorIds.length === 0) return { msg: 'En az bir monitör seçin veya tüm monitörleri seçin.' };
+    return null;
   }
 
-  async function showError(msg: string) {
+  async function showError(msg: string, field?: string) {
     error = msg;
     await tick();
+    markInvalid(field, 'mt-error');
     errorEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     error = '';
+    markInvalid(null, 'mt-error');
     const v = validate();
-    if (v) return showError(v);
+    if (v) return showError(v.msg, v.field);
     // Stratejiye ait olmayan alanlar sunucuda temizlenir; hepsi gönderilebilir.
     const body: MaintenanceInput = {
       title: title.trim(),
@@ -146,6 +174,7 @@
     saving = true;
     try {
       const res = isEdit ? await api.updateMaintenance(id!, body) : await api.createMaintenance(body);
+      saved = true;
       toast.success(isEdit ? 'Bakım penceresi kaydedildi' : `“${res.title}” eklendi`);
       navigate('/maintenance');
     } catch (err) {
@@ -166,6 +195,7 @@
     if (!ok) return;
     try {
       await api.deleteMaintenance(current.id);
+      saved = true;
       toast.success('Bakım penceresi silindi');
       navigate('/maintenance');
     } catch (e) {
@@ -210,7 +240,7 @@
       </div>
       <label class="check">
         <input type="checkbox" bind:checked={active} />
-        <span>Aktif<small>Kapalıyken zamanlama çalışmaz; pencere “Durduruldu” görünür.</small></span>
+        <span>Etkin<small>Kapalıyken zamanlama çalışmaz; pencere “Durduruldu” görünür.</small></span>
       </label>
     </section>
 
@@ -227,7 +257,7 @@
 
       {#if strategy === 'manual'}
         <div class="alert info small">
-          “Aktif” açık olduğu sürece etkilenen monitörler bakımda sayılır. Bakım bitince listeden <b>Durdur</b>’a basın.
+          “Etkin” açık olduğu sürece etkilenen monitörler bakımda sayılır. Bakım bitince listeden <b>Durdur</b>’a basın.
         </div>
       {:else if strategy === 'once'}
         <div class="grid-2">
@@ -324,7 +354,7 @@
     </section>
 
     {#if error}
-      <div class="alert error" role="alert" bind:this={errorEl}>{error}</div>
+      <div class="alert error" role="alert" id="mt-error" bind:this={errorEl}>{error}</div>
     {/if}
 
     <div class="actions">

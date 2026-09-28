@@ -168,6 +168,9 @@ export function pointFromStats(t: number, s: ServerStats, tempMax: number | null
 
 // Liste deposu --------------------------------------------------------------------------
 
+/** Sunucu kaydının ne kadar güncel olduğu (son örnek veya son görülme anı). */
+const freshness = (s: ServerView) => Math.max(s.metrics_at ?? 0, s.last_seen_at ?? 0);
+
 class Servers {
   list = $state.raw<ServerView[]>([]);
   loaded = $state(false);
@@ -195,7 +198,7 @@ class Servers {
     if (!this.subscribed) {
       this.subscribed = true;
       live.onServer((v) => this.apply(v));
-      live.onReconnect(() => this.loaded && this.load());
+      live.onResume(() => this.loaded && this.load());
     }
     if (!this.loaded || Date.now() - this.lastLoad > 15_000) this.load();
   }
@@ -206,12 +209,25 @@ class Servers {
     try {
       const list = await api.listServers();
       if (req !== this.req) return;
-      this.list = list;
+      this.list = this.merge(list);
       this.loaded = true;
       this.loadError = '';
     } catch (e) {
       if (req === this.req && !this.loaded) this.loadError = errorMessage(e);
     }
+  }
+
+  /**
+   * İstek yoldayken canlı akıştan daha yeni bir örnek gelmiş sunucuyu, geç dönen
+   * listedeki eski hâliyle geri almaz.
+   */
+  private merge(list: ServerView[]): ServerView[] {
+    if (!this.loaded || !this.list.length) return list;
+    const cur = this.index;
+    return list.map((n) => {
+      const c = cur.get(n.id);
+      return c && freshness(c) > freshness(n) ? c : n;
+    });
   }
 
   /** Canlı akıştan veya kayıttan gelen sunucuyu listeye yazar. */

@@ -1,7 +1,6 @@
 <script lang="ts">
   // Monitör rozeti oluşturucu: README veya web sitesine eklenecek SVG rozet adresi.
-  import { copyText, toast } from '../lib/ui.svelte';
-  import Icon from './Icon.svelte';
+  import CopyButton from './CopyButton.svelte';
 
   let { id, https = false }: { id: number; https?: boolean } = $props();
 
@@ -34,7 +33,8 @@
   let downColor = $state('');
 
   const COLOR_RE = /^(#?[0-9a-fA-F]{3}|#?[0-9a-fA-F]{6}|[a-zA-Z]{3,20})$/;
-  const bad = $derived([labelColor, color, upColor, downColor].some((c) => c.trim() && !COLOR_RE.test(c.trim())));
+  const shownColors = $derived(kind === 'status' ? [labelColor, upColor, downColor] : kind === 'ping' ? [labelColor, color] : [labelColor]);
+  const bad = $derived(shownColors.some((c) => c.trim() && !COLOR_RE.test(c.trim())));
 
   const query = $derived.by(() => {
     const q = new URLSearchParams();
@@ -49,7 +49,8 @@
     if (kind === 'status') {
       add('upColor', upColor);
       add('downColor', downColor);
-    } else add('color', color);
+    } else if (kind === 'ping') add('color', color);
+    // Uptime ve sertifika rozetlerinin değer rengi eşiğe göre otomatik seçilir.
     const s = q.toString();
     return s ? `?${s}` : '';
   });
@@ -72,10 +73,6 @@
     return () => clearTimeout(t);
   });
 
-  async function copy(t: string) {
-    if (await copyText(t)) toast.success('Panoya kopyalandı');
-    else toast.error('Kopyalanamadı; metni elle seçip kopyalayın');
-  }
 </script>
 
 <div class="bb">
@@ -125,13 +122,16 @@
           <label for="bb-dc">Çalışmıyor rengi</label>
           <input id="bb-dc" class="input mono" bind:value={downColor} placeholder="#e05d44" autocapitalize="none" spellcheck="false" />
         </div>
-      {:else}
+      {:else if kind === 'ping'}
         <div class="field">
           <label for="bb-c">Değer rengi</label>
           <input id="bb-c" class="input mono" bind:value={color} placeholder="otomatik" autocapitalize="none" spellcheck="false" />
         </div>
       {/if}
     </div>
+    {#if kind === 'uptime' || kind === 'cert-exp'}
+      <div class="help">Değer rengi orana / kalan güne göre otomatik seçilir (yeşil, turuncu, kırmızı).</div>
+    {/if}
     {#if bad}<div class="help c-down">Geçersiz renk yok sayıldı. Örnek: #2dd4bf, 0a0, brightgreen.</div>{/if}
   </fieldset>
 
@@ -150,12 +150,12 @@
     <div class="label">Markdown</div>
     <div class="copybox">
       <code>{md}</code>
-      <button type="button" class="btn sm" onclick={() => copy(md)}><Icon name="copy" size={14} /> Kopyala</button>
+      <CopyButton text={md} />
     </div>
     <div class="label">HTML</div>
     <div class="copybox">
       <code>{html}</code>
-      <button type="button" class="btn sm" onclick={() => copy(html)}><Icon name="copy" size={14} /> Kopyala</button>
+      <CopyButton text={html} />
     </div>
   </div>
 </div>

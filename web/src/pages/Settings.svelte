@@ -26,6 +26,17 @@
   const can = (need: 'viewer' | 'editor' | 'admin') => need === 'viewer' || (need === 'editor' ? session.canEdit : session.isAdmin);
   const visible = $derived(TABS.filter((t) => can(t.need)));
   const allowed = $derived(visible.some((t) => t.key === tab));
+
+  // Dar ekranda sekme şeridi yatay kayar: seçili sekme görünür alanın ortasına gelsin.
+  let navEl: HTMLElement | undefined = $state();
+  let firstScroll = true;
+  $effect(() => {
+    void tab;
+    const a = navEl?.querySelector<HTMLElement>('a.active');
+    if (!a || !navEl || navEl.scrollWidth <= navEl.clientWidth) return;
+    a.scrollIntoView({ inline: 'center', block: 'nearest', behavior: firstScroll ? 'instant' : 'smooth' });
+    firstScroll = false;
+  });
 </script>
 
 <div class="page-head">
@@ -33,7 +44,7 @@
 </div>
 
 {#if visible.length > 1}
-  <nav class="stabs" aria-label="Ayar bölümleri">
+  <nav class="stabs" aria-label="Ayar bölümleri" bind:this={navEl}>
     {#each visible as t (t.key)}
       <a href={t.href} class:active={t.key === tab} aria-current={t.key === tab ? 'page' : undefined}>
         <Icon name={t.icon} size={16} />
@@ -115,6 +126,7 @@
       padding: 0 12px;
     }
     .stabs a {
+      min-height: 44px;
       padding: 10px 10px;
       font-size: 0.88rem;
     }

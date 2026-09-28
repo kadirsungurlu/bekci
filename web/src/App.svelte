@@ -6,6 +6,7 @@
   import { publicSlugFromPath, router } from './lib/router.svelte';
   import { ROLE_LABELS, session } from './lib/session.svelte';
   import { toast } from './lib/ui.svelte';
+  import { pwa, stripAppManifest } from './lib/pwa.svelte';
   import Icon, { type IconName } from './components/Icon.svelte';
   import Toasts from './components/Toasts.svelte';
   import ConfirmDialog from './components/ConfirmDialog.svelte';
@@ -42,6 +43,7 @@
     if (fromPath !== null) {
       publicSlug = fromPath;
       phase = 'public';
+      stripAppManifest();
       return;
     }
     try {
@@ -49,11 +51,14 @@
       if (r.slug) {
         publicSlug = r.slug;
         phase = 'public';
+        stripAppManifest();
         return;
       }
     } catch {
       /* eski sunucu veya ağ hatası: yönetim paneliyle devam */
     }
+    // Yönetim paneli: ana ekran uygulaması için servis çalışanı (yalnızca derlenmiş sürüm).
+    pwa.register();
     try {
       const s = await api.authState();
       session.version = s.version;
@@ -209,6 +214,16 @@
     else document.title = 'Giriş · Uptime';
   });
 
+  // Ana ekran uygulamasında tarayıcının yenile düğmesi yok: üst çubukta elle yenileme.
+  let syncing = $state(false);
+  function resync() {
+    if (syncing) return;
+    syncing = true;
+    live.resync();
+    if (session.canSeeServers) servers.load();
+    setTimeout(() => (syncing = false), 800);
+  }
+
   const editorOnly = $derived(
     ['notifications', 'pages', 'page-new', 'page-edit', 'page-preview', 'new', 'edit', 'maint-new', 'maint-edit'].includes(route.name),
   );
@@ -217,6 +232,15 @@
 <Tooltip />
 <Toasts />
 <ConfirmDialog />
+
+{#if pwa.updateReady && phase !== 'public'}
+  <div class="update" role="status">
+    <Icon name="refresh" size={16} />
+    <span>Yeni sürüm hazır</span>
+    <button type="button" class="btn sm primary" onclick={() => pwa.applyUpdate()}>Yenile</button>
+    <button type="button" class="btn sm ghost icon" aria-label="Sonra" onclick={() => pwa.dismissUpdate()}><Icon name="x" size={15} /></button>
+  </div>
+{/if}
 
 {#snippet forbidden()}
   <div class="card empty">
@@ -291,7 +315,12 @@
         {#if !live.connected && live.loaded}
           <span class="offline" title="Canlı bağlantı yeniden kuruluyor"><Icon name="wifi-off" size={14} /> Bağlantı yok</span>
         {/if}
-        <button class="btn ghost sm" onclick={logout} aria-label="Çıkış"><Icon name="logout" size={16} /> Çıkış</button>
+        {#if pwa.standalone}
+          <button class="btn ghost icon top-btn" class:spin={syncing} onclick={resync} aria-label="Verileri yenile">
+            <Icon name="refresh" size={18} />
+          </button>
+        {/if}
+        <button class="btn ghost top-btn" onclick={logout} aria-label="Çıkış"><Icon name="logout" size={16} /> Çıkış</button>
       </div>
     </header>
 
@@ -539,6 +568,27 @@
     display: none;
   }
 
+  /* "Yeni sürüm hazır" çubuğu (servis çalışanı güncellemesi). */
+  .update {
+    position: fixed;
+    left: calc(var(--sidebar-w) + 20px);
+    bottom: 20px;
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 8px 8px 14px;
+    border-radius: 12px;
+    background: var(--tip-bg);
+    border: 1px solid var(--accent-border);
+    box-shadow: var(--shadow);
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  .update > :global(svg) {
+    color: var(--accent-text);
+  }
+
   .main {
     margin-left: var(--sidebar-w);
     min-height: 100vh;
@@ -557,8 +607,10 @@
       margin-left: 0;
     }
     .content {
-      padding: 18px 16px calc(88px + env(safe-area-inset-bottom));
+      padding: 18px max(16px, env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
     }
+    /* Ana ekran uygulamasında (black-translucent durum çubuğu) içerik çentiğin
+       altından başlar; yatay kenarlarda da güvenli alan bırakılır. */
     .topbar {
       position: sticky;
       top: 0;
@@ -566,10 +618,29 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      height: 54px;
-      padding: 0 8px 0 6px;
+      height: calc(54px + env(safe-area-inset-top));
+      padding: env(safe-area-inset-top) max(8px, env(safe-area-inset-right)) 0 max(6px, env(safe-area-inset-left));
       background: var(--topbar-bg);
       border-bottom: 1px solid var(--sidebar-border);
+    }
+    .top-btn {
+      height: 44px;
+      min-width: 44px;
+      padding: 0 12px;
+    }
+    .top-btn.icon {
+      padding: 0;
+    }
+    .top-btn.spin :global(svg) {
+      animation: spin 0.8s linear infinite;
+    }
+    .update {
+      left: max(12px, env(safe-area-inset-left));
+      right: max(12px, env(safe-area-inset-right));
+      bottom: calc(72px + env(safe-area-inset-bottom));
+    }
+    .update span {
+      flex: 1;
     }
     .topbar .logo {
       padding: 0 10px;
@@ -596,13 +667,14 @@
       background: var(--tabbar-bg);
       backdrop-filter: blur(8px);
       border-top: 1px solid var(--border);
-      padding-bottom: env(safe-area-inset-bottom);
+      padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
     .tabbar a {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 3px;
+      min-height: 52px;
       padding: 9px 2px 8px;
       color: var(--muted);
       font-size: 0.7rem;

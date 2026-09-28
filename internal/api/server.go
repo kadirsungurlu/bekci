@@ -300,7 +300,15 @@ func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {
 	}
 	f, err := s.static.Open(name)
 	if err != nil {
-		// Tek sayfalık uygulama: bilinmeyen yollar arayüze gider.
+		// Dosya uzantılı (ör. /assets/x.js, /manifest.webmanifest) veya assets/
+		// altındaki eksik dosya gerçekten yoktur: HTML değil 404 dönülür. Aksi halde
+		// eski sürümün betiği yerine index.html gelir; tarayıcı veya servis çalışanı
+		// onu betik ya da simge sanıp önbelleğe alırdı.
+		if path.Ext(name) != "" || strings.HasPrefix(name, "assets/") {
+			http.NotFound(w, r)
+			return
+		}
+		// Tek sayfalık uygulama: bilinmeyen (uzantısız) yollar arayüze gider.
 		name = "index.html"
 		if f, err = s.static.Open(name); err != nil {
 			http.Error(w, "Arayüz derlenmemiş", http.StatusNotFound)
@@ -317,7 +325,17 @@ func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {
 		// Vite dosya adlarına içerik özeti ekler; sonsuza kadar önbelleğe alınabilir.
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	} else {
+		// index.html, sw.js (servis çalışanı güncellemesi hemen görülsün),
+		// manifest ve simgeler her istekte doğrulanır.
 		w.Header().Set("Cache-Control", "no-cache")
+	}
+	// Go'nun yerleşik MIME tablosunda .webmanifest yok; kurulabilirlik için doğru
+	// tür gerekir. .js her ortamda (sistemde mime.types olmasa da) JavaScript'tir.
+	switch path.Ext(name) {
+	case ".webmanifest":
+		w.Header().Set("Content-Type", "application/manifest+json")
+	case ".js", ".mjs":
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 	}
 	http.ServeContent(w, r, name, st.ModTime(), f.(io.ReadSeeker))
 }

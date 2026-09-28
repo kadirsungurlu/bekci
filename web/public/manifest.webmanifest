@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Uptime",
+  "short_name": "Uptime",
+  "description": "Web sitesi, sunucu ve servis izleme paneli",
+  "lang": "tr",
+  "dir": "ltr",
+  "start_url": "/#/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#0f1623",
+  "background_color": "#0f1623",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

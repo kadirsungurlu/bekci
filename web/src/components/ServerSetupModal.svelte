@@ -8,9 +8,9 @@
   import { api, errorMessage, type ProbeSetup, type ServerView } from '../lib/api';
   import { navigate } from '../lib/router.svelte';
   import { servers } from '../lib/servers.svelte';
-  import { copyText, toast } from '../lib/ui.svelte';
   import Modal from './Modal.svelte';
   import Icon from './Icon.svelte';
+  import CopyButton from './CopyButton.svelte';
 
   let {
     open = $bindable(false),
@@ -111,11 +111,6 @@
     tab === 'systemd' && systemdCmd ? systemdCmd : tab === 'windows' && windowsCmd ? windowsCmd : dockerCmd,
   );
 
-  async function copy(text: string, what: string) {
-    if (await copyText(text)) toast.success(`${what} panoya kopyalandı`);
-    else toast.error('Kopyalanamadı; metni elle seçip kopyalayın');
-  }
-
   function goto() {
     const id = probeId;
     open = false;
@@ -151,17 +146,24 @@
         <div class="cmdbar">
           <p class="lead">
             {#if tab === 'docker'}
-              İzlemek istediğiniz sunucuda, Docker kurulu bir kullanıcıyla çalıştırın.
+              İzlemek istediğiniz sunucuda çalıştırın.
             {:else if tab === 'windows'}
               Windows Server’da <b>PowerShell’i “Yönetici olarak çalıştır”</b> ile açıp yapıştırın.
             {:else}
-              Docker kullanmayan sunucular için; <b>root</b> olarak çalıştırın.
+              Docker kullanmayan sunucular için.
             {/if}
           </p>
-          <button type="button" class="btn sm primary" onclick={() => copy(cmd, 'Komut')}><Icon name="copy" size={14} /> Kopyala</button>
+          <CopyButton text={cmd} class="btn sm primary" />
         </div>
-        <pre>{cmd}</pre>
+        <!-- Çok satırlı komut: satır sonları korunur, uzun satırlar yatay kayar; klavyeyle kaydırılabilsin diye odaklanabilir. -->
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+        <pre tabindex="0" aria-label="Kurulum komutu">{cmd}</pre>
       </div>
+      {#if tab !== 'windows'}
+        <p class="help nomargin">
+          Komutun tamamını <b>root</b> olarak yapıştırın (ya da ilk satırı <code>sudo sh &lt;&lt;'UPTIME_KURULUM'</code> yapın).
+        </p>
+      {/if}
 
       {#if tab === 'docker'}
         <details class="explain">
@@ -171,8 +173,8 @@
             <li><code>-v /:/host:ro,rslave</code>: sunucunun diskleri ve <code>/proc</code>, <code>/sys</code> bilgileri <b>salt okunur</b> bağlanır; hiçbir şey yazılmaz. Sonradan takılan diskler de görünür.</li>
             <li><code>docker.sock:ro</code>: konteyner listesi ve CPU/RAM kullanımları Docker’dan okunur. Docker yoksa bu kısmı silebilirsiniz.</li>
             <li><code>--cap-drop ALL</code>, <code>--security-opt no-new-privileges</code>, <code>--memory</code>: konteynerin yetkileri ve kaynakları kısıtlanır.</li>
-            <li><code>PROBE_TOKEN</code>: bu sunucuya özel anahtar; kimseyle paylaşmayın (komutu yapıştırdıktan sonra kabuk geçmişini temizlemek iyi olur).</li>
-            <li>Program bir kez indirilip SHA-256 ile doğrulanır ve <code>uptime-agent-bin</code> biriminde saklanır; <b>yeniden başlatmada tekrar indirilmez</b> (sürüm sabit). Güncellemek için: <code>docker rm -f uptime-agent; docker volume rm uptime-agent-bin</code> ardından bu komutu tekrar çalıştırın.</li>
+            <li>Token bu sunucuya özel anahtardır; komut onu <code>/etc/uptime-agent.env</code> dosyasına yalnızca root’un okuyabileceği (600) izinle yazar. Kimseyle paylaşmayın.</li>
+            <li>Program bir kez indirilip SHA-256 ile doğrulanır ve <code>uptime-agent-bin</code> biriminde saklanır; <b>yeniden başlatmada tekrar indirilmez</b> (sürüm sabit). Güncellemek için: <code>docker rm -f uptime-agent; docker volume rm uptime-agent-bin</code>, sonra komutu tekrar çalıştırın.</li>
           </ul>
         </details>
       {:else if tab === 'windows'}
@@ -194,6 +196,7 @@
           <ul>
             <li>Programı bu panelden indirir, SHA-256 ile doğrular ve <code>/usr/local/bin/uptime</code> olarak kaydeder; hizmet yeniden başlarken tekrar indirmez.</li>
             <li><code>uptime-agent</code> adında bir systemd hizmeti oluşturur ve başlatır; sunucu yeniden başlasa da çalışır. Yetki yükseltme kapalı, bellek sınırlı.</li>
+            <li>Token <code>/etc/uptime-agent.env</code> dosyasında yalnızca root’un okuyabileceği (600) izinle tutulur.</li>
             <li>Güncellemek için aynı komutu tekrar çalıştırın. Kaldırmak için: <code>systemctl disable --now uptime-agent</code></li>
           </ul>
         </details>
@@ -301,10 +304,10 @@
     padding: 12px;
     font-size: 0.78rem;
     line-height: 1.55;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    max-height: 230px;
-    overflow-y: auto;
+    white-space: pre;
+    overflow: auto;
+    max-height: 260px;
+    tab-size: 2;
     color: var(--text);
   }
   .explain {

@@ -11,13 +11,13 @@
     type NotificationType,
   } from '../lib/api';
   import { live } from '../lib/live.svelte';
-  import { copyText, toast } from '../lib/ui.svelte';
   import { fmtDateSec, fmtDuration, fmtDurationLong, fmtTimeSec, fmtDay, nowSec } from '../lib/format';
   import { displayTarget, isWebTarget, typeName } from '../lib/monitorTypes';
   import { NOTIFY_LABELS, NOTIFY_STYLE } from '../lib/notifyTypes';
   import StatusIcon from '../components/StatusIcon.svelte';
   import TypeBadge from '../components/TypeBadge.svelte';
   import Icon, { type IconName } from '../components/Icon.svelte';
+  import CopyButton from '../components/CopyButton.svelte';
 
   let { id }: { id: number } = $props();
 
@@ -41,9 +41,12 @@
   let reloadTimer: ReturnType<typeof setTimeout> | undefined;
   let poll: ReturnType<typeof setInterval> | undefined;
   let unsub: (() => void) | undefined;
+  let unsubResume: (() => void) | undefined;
 
   onMount(() => {
     load();
+    // Bağlantı yeniden kuruldu / uygulamaya geri dönüldü: kaçan değişiklikler için yenile.
+    unsubResume = live.onResume(load);
     tick = setInterval(() => (now = nowSec()), 1000);
     // Monitörün yeni sonucu olay geçmişini değiştirebilir (çözülme, hata değişimi).
     unsub = live.onBeat((b) => {
@@ -61,6 +64,7 @@
     clearInterval(poll);
     clearTimeout(reloadTimer);
     unsub?.();
+    unsubResume?.();
   });
 
   const inc = $derived(data?.incident);
@@ -229,11 +233,6 @@
     if (detail.body_truncated) parts.push('ilk 16 KB gösteriliyor');
     return parts.join(' · ');
   });
-
-  async function copy(text: string) {
-    if (await copyText(text)) toast.success('Panoya kopyalandı');
-    else toast.error('Kopyalanamadı');
-  }
 
   function download() {
     if (!data || !capture) return;
@@ -411,14 +410,11 @@
                       Başlıklar <span class="cnt">{detail.request_headers?.length ?? 0}</span>
                     </button>
                   </div>
-                  <button
+                  <CopyButton
                     class="btn sm icon"
-                    aria-label="Kopyala"
-                    data-tip="Kopyala"
-                    onclick={() => copy(reqTab === 'url' ? `${detail.method} ${detail.url}` : headersText(detail.request_headers))}
-                  >
-                    <Icon name="copy" size={14} />
-                  </button>
+                    iconOnly
+                    text={() => (reqTab === 'url' ? `${detail.method} ${detail.url}` : headersText(detail.request_headers))}
+                  />
                 </div>
               </div>
               {#if reqTab === 'url'}
@@ -450,14 +446,11 @@
                         Başlıklar <span class="cnt">{detail.response_headers?.length ?? 0}</span>
                       </button>
                     </div>
-                    <button
+                    <CopyButton
                       class="btn sm icon"
-                      aria-label="Kopyala"
-                      data-tip="Kopyala"
-                      onclick={() => copy(resTab === 'body' ? detail.body ?? '' : headersText(detail.response_headers))}
-                    >
-                      <Icon name="copy" size={14} />
-                    </button>
+                      iconOnly
+                      text={() => (resTab === 'body' ? (detail.body ?? '') : headersText(detail.response_headers))}
+                    />
                   </div>
                 {/if}
               </div>
