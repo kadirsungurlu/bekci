@@ -89,6 +89,11 @@ class Live {
     } else if (Date.now() - this.lastRefresh > 30_000) this.refresh();
   };
 
+  /** Elle yenileme (ana ekran uygulamasındaki yenile düğmesi): her şeyi tazeler. */
+  resync() {
+    if (this.running) this.resume();
+  }
+
   /** Kaçan olayları tamamlamak için liste ve açık ekranlar yeniden yüklenir. */
   private resume() {
     this.refresh();

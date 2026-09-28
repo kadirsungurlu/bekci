@@ -112,6 +112,17 @@
 
   const summary = $derived(live.summary);
 
+  // Telefonda özet kartları yerine tek satır durum çipleri (aynı zamanda filtre).
+  const chips = $derived(
+    [
+      { v: 'all' as Filter, l: 'Tümü', n: counts.total, c: '' },
+      { v: 'down' as Filter, l: 'Çalışmıyor', n: counts.down, c: 'down' },
+      { v: 'up' as Filter, l: 'Çalışıyor', n: counts.up, c: 'up' },
+      { v: 'maint' as Filter, l: 'Bakımda', n: counts.maint, c: 'maint' },
+      { v: 'paused' as Filter, l: 'Durduruldu', n: counts.paused, c: 'paused' },
+    ].filter((c) => c.v === 'all' || c.v === 'down' || c.v === 'up' || c.n > 0 || filter === c.v),
+  );
+
   // Satır menüsü ---------------------------------------------------------------------
   // Tek menü, listenin dışında çizilir (yüzlerce satırda her satıra menü düşmesin).
   let menu = $state<{ id: number; anchor: HTMLElement; top: number; selectable: boolean } | null>(null);
@@ -356,6 +367,26 @@
 {:else}
   <div class="layout">
     <section class="main-col">
+      <div class="chips" role="radiogroup" aria-label="Duruma göre filtrele">
+        {#each chips as c (c.v)}
+          <button
+            type="button"
+            role="radio"
+            aria-checked={filter === c.v}
+            class="chip {c.c}"
+            class:on={filter === c.v}
+            onclick={() => (filter = filter === c.v ? 'all' : c.v)}
+          >
+            {#if c.c}<i class="cdot" aria-hidden="true"></i>{/if}<b>{c.n}</b>
+            {c.l}
+          </button>
+        {/each}
+        <a class="chip info" href="#/incidents" aria-label="Son 24 saat: uptime {fmtPct(summary?.uptime_24h)}, {summary?.incidents_24h ?? 0} olay. Olaylara git">
+          24 sa <b class={summary?.uptime_24h != null && summary.uptime_24h < 99 ? 'c-down' : 'c-up'}>{fmtPct(summary?.uptime_24h)}</b>
+          {#if summary?.incidents_24h}· {summary.incidents_24h} olay{/if}
+        </a>
+        {#if counts.pending > 0}<span class="chip info c-pending">{counts.pending} kontrol ediliyor</span>{/if}
+      </div>
       <div class="toolbar" bind:this={toolbarEl}>
         {#if session.canEdit}
           <label class="selbox check" class:on={selIds.length > 0} title="Görünen monitörlerin tümünü seç">
@@ -377,20 +408,20 @@
             <button type="button" class="clear" aria-label="Aramayı temizle" onclick={() => (search = '')}><Icon name="x" size={14} /></button>
           {/if}
         </div>
-        <select class="input sel" bind:value={filter} aria-label="Filtre">
+        <select class="input sel fsel" bind:value={filter} aria-label="Filtre">
           <option value="all">Tümü ({counts.total})</option>
           <option value="down">Çalışmayanlar ({counts.down})</option>
           <option value="up">Çalışanlar ({counts.up})</option>
           {#if counts.maint > 0 || filter === 'maint'}<option value="maint">Bakımda ({counts.maint})</option>{/if}
           <option value="paused">Durdurulanlar ({counts.paused})</option>
         </select>
-        <select class="input sel" bind:value={sort} aria-label="Sıralama">
+        <select class="input sel ssel" bind:value={sort} aria-label="Sıralama">
           <option value="status">Duruma göre</option>
           <option value="name">Ada göre</option>
           <option value="uptime">Uptime'a göre</option>
         </select>
         {#if tagOptions.length}
-          <select class="input sel" bind:value={tagFilter} aria-label="Etikete göre filtrele" class:on={!!activeTag}>
+          <select class="input sel tsel" bind:value={tagFilter} aria-label="Etikete göre filtrele" class:on={!!activeTag}>
             <option value="">Tüm etiketler</option>
             {#each tagOptions as t (t.id)}<option value={String(t.id)}>{t.name} ({t.count})</option>{/each}
           </select>
@@ -864,6 +895,74 @@
   .first {
     padding: 64px 20px;
   }
+
+  /* Durum çipleri yalnızca telefonda (özet kartlarının yerine). */
+  .chips {
+    display: none;
+  }
+  .chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    height: 38px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--card);
+    color: var(--text-2);
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  /* 44 px dokunma alanı (çipler arası boşluğa taşmadan dikeyde). */
+  .chip::after {
+    content: '';
+    position: absolute;
+    inset: -3px 0;
+  }
+  .chip b {
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .chip.on {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-text-soft);
+  }
+  .chip.info {
+    border-style: dashed;
+    cursor: default;
+    font-weight: 500;
+  }
+  a.chip.info {
+    cursor: pointer;
+  }
+  .chip.info b {
+    font-weight: 700;
+  }
+  .chip.down b {
+    color: var(--down-text-2);
+  }
+  .cdot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--paused);
+  }
+  .chip.down .cdot {
+    background: var(--down);
+  }
+  .chip.up .cdot {
+    background: var(--up);
+  }
+  .chip.maint .cdot {
+    background: var(--maint);
+  }
   .pulse-wrap {
     display: flex;
     justify-content: center;
@@ -941,6 +1040,33 @@
       flex: 1 1 130px;
       padding-right: 30px;
       background-position: right 10px center;
+    }
+
+    /* Telefonda ilk monitör ilk ekranda görünsün: özet kartları yerine tek satır
+       çip, filtre açılır listesi yerine çipler; araç çubuğu iki sıkı satır. */
+    .side {
+      display: none;
+    }
+    .chips {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      margin: -4px -16px 10px;
+      padding: 3px 16px;
+    }
+    .chips::-webkit-scrollbar {
+      display: none;
+    }
+    .toolbar {
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .toolbar .fsel {
+      display: none;
+    }
+    .search {
+      flex-basis: 160px;
     }
   }
 </style>
