@@ -1,14 +1,112 @@
+<div align="center">
+
+<img src="web/public/favicon.svg" width="64" height="64" alt="">
+
 # Uptime
+
+**Web siteleri, servisler ve sunucular için tek imajlık, hafif ve Türkçe izleme sistemi.**
+
+[![Docker Hub](https://img.shields.io/badge/docker-kadirsungurlu%2Fuptime-0d9488?logo=docker&logoColor=white)](https://hub.docker.com/r/kadirsungurlu/uptime)
+[![Go 1.27](https://img.shields.io/badge/Go-1.27-0d9488?logo=go&logoColor=white)](go.mod)
+[![Platformlar](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-475569)](https://hub.docker.com/r/kadirsungurlu/uptime/tags)
+[![Veritabanı](https://img.shields.io/badge/veritaban%C4%B1-SQLite%20%7C%20PostgreSQL-475569)](#ortam-değişkenleri)
+[![Arayüz](https://img.shields.io/badge/aray%C3%BCz-T%C3%BCrk%C3%A7e-475569)](#neden)
+
+**Türkçe** · [English](README.en.md)
+
+<img src="docs/ekran/monitorler.png" alt="Monitör listesi: durum, yanıt süresi, son 24 saatin uptime çubukları ve genel özet" width="100%">
+
+</div>
 
 Go ile yazılmış, UptimeRobot sadeliğinde arayüzü olan izleme sistemi: web
 siteleri ve servisler için uptime kontrolü (Uptime Kuma'nın özellik seti) ve
 sunucular için kaynak takibi (Beszel benzeri). Tek Docker imajı, SQLite veya
 PostgreSQL; yüzlerce monitörde de hızlı kalacak şekilde tasarlanmıştır.
 
-Plan ve teknik ayrıntılar: [docs/PLAN.md](docs/PLAN.md)
+## Neden?
 
+- **Tek imaj, tek konteyner** — arayüz, API, kontrol motoru ve ajan programları
+  (Linux amd64/arm64, Windows amd64) aynı imajda; ek servis gerekmez.
+- **Hafif** — 10 monitör ve 3 sunucuda ~15 MB RAM.
+- **SQLite veya PostgreSQL** — varsayılan SQLite; istenirse `DATABASE_URL` ile
+  harici PostgreSQL ya da gömülü PostgreSQL 18 içeren `:postgres` imajı.
+- **Güvenli ajanlar** — token'lar özet (hash) olarak saklanır, IP kilidi, SHA-256
+  ile doğrulanan ve kendiliğinden güncellenmeyen sabit sürüm.
+- **Telefonda uygulama gibi (PWA)** — ana ekrana eklenir, canlı güncellenir.
+- **Türkçe arayüz** — bildirimler, tarih ve sayı biçimleri dahil.
+- **Kolay geçiş** — Uptime Kuma yedeğinden ve UptimeRobot hesabından içe aktarma.
+
+## Hızlı başlangıç
+
+```bash
+docker run -d --name uptime --restart unless-stopped \
+  -p 8080:8080 -v uptime-data:/data \
+  -e BASE_URL=https://uptime.ornek.com \
+  kadirsungurlu/uptime
+```
+
+`http://sunucu:8080` adresini açıp ilk yönetici hesabını oluşturun. Dışarıya
+HTTPS ile açmak için önüne bir ters vekil (Caddy, Traefik, Nginx) koyun ya da
+aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın. İmaj:
+[Docker Hub `kadirsungurlu/uptime`](https://hub.docker.com/r/kadirsungurlu/uptime)
+(linux/amd64 ve linux/arm64). Coolify ve diğer kurulum yolları:
+[Kurulum](#kurulum).
+
+## Ekran görüntüleri
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/ekran/monitor-detay.png"><img src="docs/ekran/monitor-detay.png" alt="Monitör ayrıntısı"></a>
+      <br><sub><b>Monitör ayrıntısı</b> — yanıt süresi grafiği, 24 saat / 7 / 30 / 90 gün uptime, SSL bitişi, olaylar</sub>
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/ekran/olay.png"><img src="docs/ekran/olay.png" alt="Olay ayrıntısı"></a>
+      <br><sub><b>Olay ayrıntısı</b> — kök neden, işlem geçmişi, gönderilen bildirimler ve kesinti anındaki istek/yanıt</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/ekran/sunucu-detay.png"><img src="docs/ekran/sunucu-detay.png" alt="Sunucu ayrıntısı"></a>
+      <br><sub><b>Sunucu ayrıntısı</b> — CPU, bellek, ağ, disk G/Ç, yük ve bölüm doluluğu grafikleri</sub>
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/ekran/durum-sayfasi.png"><img src="docs/ekran/durum-sayfasi.png" alt="Herkese açık durum sayfası"></a>
+      <br><sub><b>Durum sayfası</b> — herkese açık, katlanabilir gruplar, 90 günlük geçmiş; sistem temasına uyar</sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <a href="docs/ekran/sunucular.png"><img src="docs/ekran/sunucular.png" alt="Sunucu listesi"></a>
+      <br><sub><b>Sunucular</b> — Linux ve Windows; CPU, RAM, en dolu disk, ağ, yük ve uyarılar tek bakışta</sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <a href="docs/ekran/yeni-monitor.png"><img src="docs/ekran/yeni-monitor.png" alt="Yeni monitör: tip seçici"></a>
+      <br><sub><b>Yeni monitör</b> — HTTP, TCP, Ping, DNS, veritabanları, Docker, Push, grup ve diğerleri</sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <a href="docs/ekran/mobil.png"><img src="docs/ekran/mobil.png" alt="Telefonda monitör listesi ve sunucu ayrıntısı"></a>
+      <br><sub><b>Telefonda</b> — monitör listesi ve sunucu ayrıntısı (PWA olarak ana ekrana eklenebilir)</sub>
+    </td>
+  </tr>
+</table>
+
+<sub>Ekran görüntüleri kurgusal verilerle çalışan bir demo örneğinden alınmıştır.</sub>
+
+## İçindekiler
+
+- [Neden?](#neden)
+- [Hızlı başlangıç](#hızlı-başlangıç)
+- [Ekran görüntüleri](#ekran-görüntüleri)
 - [Özellikler](#özellikler)
 - [Kurulum](#kurulum)
+  - [Coolify](#coolify)
+  - [Docker Compose (bağımsız sunucu)](#docker-compose-bağımsız-sunucu)
+  - [Ortam değişkenleri](#ortam-değişkenleri)
 - [Güncelleme, yedek ve geri dönüş](#güncelleme-yedek-ve-geri-dönüş)
 - [Sunucu ajanı ve kontrol noktası](#sunucu-ajanı-ve-kontrol-noktası)
   - [Kurulum komutları](#kurulum-komutları)
@@ -64,20 +162,9 @@ Plan ve teknik ayrıntılar: [docs/PLAN.md](docs/PLAN.md)
 
 ## Kurulum
 
-### Hızlı başlangıç (Docker)
-
-```bash
-docker run -d --name uptime --restart unless-stopped \
-  -p 8080:8080 -v uptime-data:/data \
-  -e BASE_URL=https://uptime.ornek.com \
-  kadirsungurlu/uptime
-```
-
-`http://sunucu:8080` adresini açıp ilk yönetici hesabını oluşturun. Dışarıya
-HTTPS ile açmak için önüne bir ters vekil (Caddy, Traefik, Nginx) koyun ya da
-aşağıdaki Compose kurulumunu kullanın. İmaj: [Docker Hub
-`kadirsungurlu/uptime`](https://hub.docker.com/r/kadirsungurlu/uptime)
-(linux/amd64 ve linux/arm64).
+Tek komutla kurulum için yukarıdaki [Hızlı başlangıç](#hızlı-başlangıç)
+bölümüne bakın; aşağıda Coolify ve Compose ile kurulum, imaj etiketleri ve
+ortam değişkenleri var.
 
 ### Coolify
 
@@ -345,6 +432,8 @@ doğrulamayı da kapatmak için sona `--2fa-kapat` ekleyin.
   canlı akış (SSE) erişimi düzenli olarak yeniden doğrular.
 
 ## Geliştirme
+
+> Mimari, veri modeli ve tasarım kararları: [docs/PLAN.md](docs/PLAN.md).
 
 ```bash
 # Go testleri (sunucuya Go kurmadan, geçici container'da)
