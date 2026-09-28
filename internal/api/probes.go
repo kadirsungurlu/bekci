@@ -353,14 +353,17 @@ func (s *Server) probeSetup(r *http.Request, p store.Probe, token string, monito
 			server = "https://SUNUCU-ADRESINIZ"
 		}
 	}
+	lang := userLang(r)
 	out := map[string]any{"probe": s.probeAdminOf(p, monitors), "token": token, "server_url": server}
 	if p.Kind == store.ProbeKindServer {
-		out["docker_agent"], out["systemd"], out["windows"] = s.serverSetupCommands(server, token)
+		dockerAgent, systemd, windows := s.serverSetupCommands(server, token)
+		out["docker_agent"], out["systemd"], out["windows"] =
+			localizeScript(lang, dockerAgent), localizeScript(lang, systemd), localizeScript(lang, windows)
 		return out
 	}
 	amd, arm := s.linuxSHAs()
-	out["docker_command"] = dockerInstallCommand(probeEnvPath, installEnvLines(server, token),
-		"docker run -d --name uptime-probe --restart unless-stopped "+probeHardenFlags, s.ProbeImage, "uptime-probe-bin", amd, arm)
+	out["docker_command"] = localizeScript(lang, dockerInstallCommand(probeEnvPath, installEnvLines(server, token),
+		"docker run -d --name uptime-probe --restart unless-stopped "+probeHardenFlags, s.ProbeImage, "uptime-probe-bin", amd, arm))
 	return out
 }
 
