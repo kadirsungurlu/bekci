@@ -104,7 +104,7 @@ func TestAlertResolvesWhenValueVanishes(t *testing.T) {
 		t.Fatalf("iki kural da kapanmalı: %+v", evs)
 	}
 	for _, ev := range evs {
-		if ev.Kind != notify.KindServerResolved || !strings.Contains(ev.Message, "gelmiyor") {
+		if ev.Kind != notify.KindServerResolved || ev.GoneMinutes <= 0 || !strings.Contains(ev.Text(), "gelmiyor") {
 			t.Errorf("bitiş: %+v", ev)
 		}
 		if ev.Metric == MetricDisk && (ev.Mount != "/data" || ev.Value != 95) {

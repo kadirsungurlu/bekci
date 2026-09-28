@@ -16,10 +16,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 	qrcode "github.com/skip2/go-qrcode"
 	"golang.org/x/crypto/bcrypt"
-
-	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
 // İki adımlı doğrulama (TOTP, RFC 6238) ------------------------------------------
@@ -41,7 +41,7 @@ const (
 	totpPeriod           = 30
 	totpDigits           = 6
 	totpSkew             = 1
-	totpIssuer           = "Uptime"
+	totpIssuer           = brand.Name
 	recoveryCodeCount    = 10
 	challengeLifetime    = 5 * time.Minute
 	challengeMaxAttempts = 5

@@ -21,6 +21,7 @@ import (
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/backup"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/check"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/engine"
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/notify"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
@@ -134,7 +135,7 @@ func (s *Server) buildExport(ctx context.Context) (*backup.Doc, error) {
 		bp := backup.Page{
 			Slug: p.Slug, Title: p.Title, Description: p.Description, Footer: p.Footer,
 			CustomDomain: p.CustomDomain, PasswordHash: p.PasswordHash, ShowTargets: p.ShowTargets,
-			BarRange: p.BarRange, ShowIncidents: &p.ShowIncidents, Collapsible: p.Collapsible, Published: p.Published, Sections: []backup.PageSection{}, Announcements: []backup.Announcement{},
+			BarRange: p.BarRange, ShowIncidents: &p.ShowIncidents, Collapsible: p.Collapsible, Lang: p.Lang, Published: p.Published, Sections: []backup.PageSection{}, Announcements: []backup.Announcement{},
 		}
 		for _, sec := range p.Sections {
 			bs := backup.PageSection{Title: sec.Title, Monitors: []backup.PageMonitor{}}
@@ -635,6 +636,7 @@ func planPage(bp backup.Page, known map[int64]bool, slugs, domains, selfHosts ma
 		Description: strings.TrimSpace(bp.Description), Footer: strings.TrimSpace(bp.Footer),
 		ShowTargets: bp.ShowTargets, Published: bp.Published, BarRange: bp.BarRange,
 		ShowIncidents: bp.ShowIncidents == nil || *bp.ShowIncidents, Collapsible: bp.Collapsible,
+		Lang: i18n.Or(bp.Lang),
 	}
 	switch {
 	case !importSlugRe.MatchString(p.Slug):

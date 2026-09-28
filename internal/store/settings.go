@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
 )
 
 // AppSettings arayüzden değiştirilebilen uygulama ayarları.
@@ -15,10 +17,12 @@ type AppSettings struct {
 	RetentionHourlyDays int   `json:"retention_hourly_days"` // saatlik özetler (günlükler süresiz)
 	CertDays            []int `json:"cert_days"`             // SSL uyarı eşikleri (gün)
 	BackupKeep          int   `json:"backup_keep"`           // saklanacak gece yedeği sayısı
+	// NotifyLang bildirim metinlerinin dili (tr | en). Boş (eski kayıt) tr sayılır.
+	NotifyLang string `json:"notify_lang"`
 }
 
 func DefaultSettings() AppSettings {
-	return AppSettings{RetentionRawDays: 14, RetentionHourlyDays: 365, CertDays: []int{21, 14, 7, 3, 1}, BackupKeep: 7}
+	return AppSettings{RetentionRawDays: 14, RetentionHourlyDays: 365, CertDays: []int{21, 14, 7, 3, 1}, BackupKeep: 7, NotifyLang: i18n.Default}
 }
 
 // Validate hatalıysa Türkçe açıklama döner; CertDays'i sıralar ve tekilleştirir.
@@ -51,6 +55,12 @@ func (a *AppSettings) Validate() error {
 	a.CertDays = days
 	if a.BackupKeep < 0 || a.BackupKeep > 60 {
 		return fmt.Errorf("Saklanacak yedek sayısı 0-60 olmalı (0: yedek alma)")
+	}
+	if a.NotifyLang == "" {
+		a.NotifyLang = i18n.Default
+	}
+	if !i18n.Valid(a.NotifyLang) {
+		return fmt.Errorf("Bildirim dili tr veya en olmalı")
 	}
 	return nil
 }

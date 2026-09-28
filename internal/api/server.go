@@ -103,6 +103,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/auth/login", s.login)
 	mux.HandleFunc("POST /api/auth/logout", s.logout)
 	mux.Handle("POST /api/auth/password", s.auth(s.changePassword))
+	mux.Handle("PUT /api/auth/preferences", s.auth(s.updatePreferences))
 
 	mux.Handle("GET /api/summary", s.auth(s.summary))
 	mux.Handle("GET /api/monitors", s.auth(s.listMonitors))
@@ -146,7 +147,8 @@ func (s *Server) Handler() http.Handler {
 
 	// customDomainOnly: durum sayfasının özel alan adından gelen isteklerde
 	// yönetim API'si kapalıdır (pages.go).
-	return s.recoverer(s.logRequests(securityHeaders(s.customDomainOnly(csrf(mux)))))
+	// withLang: yanıt dili (hata mesajlarının çevirisi için; lang.go).
+	return withLang(s.recoverer(s.logRequests(securityHeaders(s.customDomainOnly(csrf(mux))))))
 }
 
 // Ara katmanlar ------------------------------------------------------------------
@@ -241,7 +243,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	json.NewEncoder(w).Encode(localizeError(w, v))
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {

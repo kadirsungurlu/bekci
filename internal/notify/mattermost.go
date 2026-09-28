@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
 )
 
 func init() { Register("mattermost", mattermost{}) }
@@ -31,7 +33,7 @@ func (mattermost) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 	c.Channel = strings.TrimSpace(c.Channel)
 	c.Username = strings.TrimSpace(c.Username)
 	if c.Username == "" {
-		c.Username = "Uptime"
+		c.Username = brand.Name
 	}
 	c.IconURL = strings.TrimSpace(c.IconURL)
 	if c.IconURL != "" {

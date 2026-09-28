@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
 )
 
 func init() { Register("rocketchat", rocketchat{}) }
@@ -31,7 +33,7 @@ func (rocketchat) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 	c.Channel = strings.TrimSpace(c.Channel)
 	c.Alias = strings.TrimSpace(c.Alias)
 	if c.Alias == "" {
-		c.Alias = "Uptime"
+		c.Alias = brand.Name
 	}
 	c.Avatar = strings.TrimSpace(c.Avatar)
 	if c.Avatar != "" {

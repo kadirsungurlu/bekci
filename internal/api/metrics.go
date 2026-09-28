@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
 )
 
@@ -53,7 +54,7 @@ func promFloat(v float64) string { return strconv.FormatFloat(v, 'g', -1, 64) }
 func (s *Server) metrics(w http.ResponseWriter, r *http.Request) {
 	u, ok := s.userForAPIKey(r, metricsKey(r))
 	if !ok || store.RoleRank(u.Role) == 0 {
-		w.Header().Set("WWW-Authenticate", `Basic realm="Uptime metrics", charset="UTF-8"`)
+		w.Header().Set("WWW-Authenticate", `Basic realm="`+brand.Name+` metrics", charset="UTF-8"`)
 		http.Error(w, "API anahtarı gerekiyor", http.StatusUnauthorized)
 		return
 	}

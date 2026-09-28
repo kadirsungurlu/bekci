@@ -19,9 +19,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"golang.org/x/crypto/bcrypt"
-
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
 	"github.com/kadirsungurlu/uptime-kadir-app/internal/store"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var slugRe = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$`)
@@ -187,6 +187,8 @@ type pageInput struct {
 	ShowIncidents *bool `json:"show_incidents"`
 	// Collapsible: gruplar açılıp kapanabilsin mi; yok = değişmez.
 	Collapsible *bool `json:"collapsible"`
+	// Lang: herkese açık sayfanın dili (tr | en); yok = değişmez (yeni sayfada tr).
+	Lang *string `json:"lang"`
 	// Password: yok/null = değişmez, "" = kaldır, dolu = yeni şifre.
 	Password *string `json:"password"`
 }
@@ -352,6 +354,12 @@ func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.St
 	}
 	if in.Collapsible != nil {
 		p.Collapsible = *in.Collapsible
+	}
+	if in.Lang != nil {
+		if !i18n.Valid(*in.Lang) {
+			return p, badInput("Sayfa dili tr veya en olmalı")
+		}
+		p.Lang = *in.Lang
 	}
 	if in.Published != nil {
 		p.Published = *in.Published

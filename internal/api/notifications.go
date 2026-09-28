@@ -275,7 +275,7 @@ func (s *Server) sampleNotifications(w http.ResponseWriter, r *http.Request) {
 			n.DiskMount = v.Latest.Disks[0].Mount
 		}
 	}
-	events := notify.SampleEvents(n, s.now())
+	events := notify.SampleEvents(n, s.now(), s.notifier.Lang(r.Context()))
 	name := ch.Name
 	s.notifier.SendSamples(ch.Type, ch.Config, events, 2*time.Second, func(ev notify.Event, err error) {
 		if err != nil {

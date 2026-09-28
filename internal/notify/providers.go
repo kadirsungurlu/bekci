@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
 )
 
 // Testlerde sahte sunucuya yönlendirmek için değiştirilebilir adresler.
@@ -143,7 +145,7 @@ func (discord) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	if r := []rune(text); len(r) > 2000 {
 		text = string(r[:1990]) + "…"
 	}
-	return postJSON(ctx, c.WebhookURL, map[string]any{"username": "Uptime", "content": text}, nil)
+	return postJSON(ctx, c.WebhookURL, map[string]any{"username": brand.Name, "content": text}, nil)
 }
 
 // Slack ---------------------------------------------------------------------------

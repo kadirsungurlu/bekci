@@ -256,7 +256,7 @@ func alertSummary(rules []store.ServerAlert) string {
 			p += a.Mount + " "
 		}
 		if a.Metric != servers.MetricOffline {
-			p += notify.FormatMetric(a.Metric, a.Threshold) + "/"
+			p += notify.FormatMetric("tr", a.Metric, a.Threshold) + "/"
 		}
 		p += strconv.Itoa(a.Minutes) + " dk"
 		if !a.Active {

@@ -1,6 +1,10 @@
 package notify
 
-import "time"
+import (
+	"time"
+
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/i18n"
+)
 
 // SampleNames örnek bildirimlerde kullanılacak adlar (paneldeki gerçek bir
 // monitör ve sunucu varsa onlar, yoksa yer tutucular).
@@ -18,13 +22,14 @@ type SampleNames struct {
 
 // SampleEvents her bildirim türünden birer örnek: monitör çalışmıyor,
 // hatırlatma, tekrar çalışıyor, SSL sertifikası, sunucu CPU/RAM/disk ve
-// çevrimdışı uyarıları ile düzelme bildirimleri. Hepsi Sample işaretlidir.
-func SampleEvents(n SampleNames, now time.Time) []Event {
+// çevrimdışı uyarıları ile düzelme bildirimleri. Hepsi Sample işaretlidir ve
+// lang dilindedir (bildirim dili; yer tutucu adlar da bu dilde).
+func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	if n.Monitor == "" {
-		n.Monitor, n.Target = "Örnek Site", "https://ornek.com"
+		n.Monitor, n.Target = i18n.T(lang, "notify.sample.monitor"), i18n.T(lang, "notify.sample.target")
 	}
 	if n.Server == "" {
-		n.Server, n.Host = "Örnek Sunucu", "sunucu01"
+		n.Server, n.Host = i18n.T(lang, "notify.sample.server"), i18n.T(lang, "notify.sample.host")
 	}
 	if n.CertIssuer == "" {
 		n.CertIssuer = "Let's Encrypt"
@@ -34,11 +39,11 @@ func SampleEvents(n SampleNames, now time.Time) []Event {
 		mount = "/home"
 	}
 	mon := func(kind string) Event {
-		return Event{Kind: kind, Sample: true, MonitorID: n.MonitorID, MonitorName: n.Monitor, MonitorType: "http",
+		return Event{Kind: kind, Sample: true, Lang: lang, MonitorID: n.MonitorID, MonitorName: n.Monitor, MonitorType: "http",
 			Target: n.Target, Time: now, URL: n.MonitorURL, IncidentURL: n.IncidentURL}
 	}
 	srv := func(kind, metric string, value, threshold float64, minutes int) Event {
-		return Event{Kind: kind, Sample: true, ProbeID: max(n.ServerID, 1), MonitorName: n.Server, MonitorType: "server",
+		return Event{Kind: kind, Sample: true, Lang: lang, ProbeID: max(n.ServerID, 1), MonitorName: n.Server, MonitorType: "server",
 			Target: n.Host, Time: now, URL: n.ServerURL, Metric: metric, Value: value, Threshold: threshold, Minutes: minutes}
 	}
 
@@ -57,7 +62,7 @@ func SampleEvents(n SampleNames, now time.Time) []Event {
 	disk := srv(KindServerAlert, "disk", 91, 85, 1)
 	disk.Mount = mount
 	offline := srv(KindServerAlert, "offline", 3, 0, 3)
-	offline.Message = "Son veri: " + now.Add(-3*time.Minute).Local().Format("02.01.2006 15:04:05")
+	offline.LastSeen = now.Add(-3 * time.Minute)
 	cpuOK := srv(KindServerResolved, "cpu", 41, 90, 10)
 	offlineOK := srv(KindServerResolved, "offline", 0, 0, 3)
 

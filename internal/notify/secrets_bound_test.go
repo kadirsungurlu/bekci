@@ -107,7 +107,7 @@ func TestAlertKeySampleAndTest(t *testing.T) {
 	if test.AlertKey() != "uptime-test" {
 		t.Errorf("test anahtarı: %s", test.AlertKey())
 	}
-	for _, ev := range SampleEvents(SampleNames{MonitorID: 5, ServerID: 7}, time.Now()) {
+	for _, ev := range SampleEvents(SampleNames{MonitorID: 5, ServerID: 7}, time.Now(), "tr") {
 		if !strings.HasPrefix(ev.AlertKey(), "uptime-sample-") {
 			t.Errorf("%s örneği gerçek anahtar taşıyor: %s", ev.Kind, ev.AlertKey())
 		}

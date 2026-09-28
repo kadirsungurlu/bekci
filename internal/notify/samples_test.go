@@ -7,7 +7,7 @@ import (
 )
 
 func TestSampleEvents(t *testing.T) {
-	evs := SampleEvents(SampleNames{Monitor: "Ayder Tesisat", Target: "https://aydertesisat.com.tr", Server: "CP Server IST", Host: "cp", DiskMount: "/"}, time.Unix(1_790_000_000, 0))
+	evs := SampleEvents(SampleNames{Monitor: "Ayder Tesisat", Target: "https://aydertesisat.com.tr", Server: "CP Server IST", Host: "cp", DiskMount: "/"}, time.Unix(1_790_000_000, 0), "tr")
 	kinds := map[string]int{}
 	for _, ev := range evs {
 		kinds[ev.Kind]++

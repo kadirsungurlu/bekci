@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
 )
 
 func init() { Register("bark", bark{}) }
@@ -37,7 +39,7 @@ func (bark) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 	c.Sound = strings.TrimSpace(c.Sound)
 	c.Group = strings.TrimSpace(c.Group)
 	if c.Group == "" {
-		c.Group = "Uptime"
+		c.Group = brand.Name
 	}
 	return encode(c), nil
 }

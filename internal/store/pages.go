@@ -34,7 +34,9 @@ type StatusPage struct {
 	// ShowIncidents herkese açık sayfada son 14 günün olayları gösterilsin mi.
 	ShowIncidents bool `json:"show_incidents"`
 	// Collapsible herkese açık sayfada grupların açılıp kapanabilmesi.
-	Collapsible  bool   `json:"collapsible"`
+	Collapsible bool `json:"collapsible"`
+	// Lang herkese açık sayfanın dili (tr | en; migration 16).
+	Lang         string `json:"lang"`
 	Published    bool   `json:"published"`
 	HasLogo      bool   `json:"has_logo"`
 	CreatedAt    int64  `json:"created_at"`
@@ -55,7 +57,7 @@ func (p StatusPage) MonitorIDs() []int64 {
 
 const pageCols = `id, slug, title, description, footer, sections, custom_domain, password_hash,
 	show_targets, published, CASE WHEN logo IS NULL THEN 0 ELSE 1 END, created_at, updated_at, bar_range,
-	show_incidents, collapsible`
+	show_incidents, collapsible, lang`
 
 func scanPage(sc scanner) (StatusPage, error) {
 	var (
@@ -65,7 +67,7 @@ func scanPage(sc scanner) (StatusPage, error) {
 		pw       sql.NullString
 	)
 	err := sc.Scan(&p.ID, &p.Slug, &p.Title, &p.Description, &p.Footer, &sections, &domain, &pw,
-		&p.ShowTargets, &p.Published, &p.HasLogo, &p.CreatedAt, &p.UpdatedAt, &p.BarRange, &p.ShowIncidents, &p.Collapsible)
+		&p.ShowTargets, &p.Published, &p.HasLogo, &p.CreatedAt, &p.UpdatedAt, &p.BarRange, &p.ShowIncidents, &p.Collapsible, &p.Lang)
 	if err != nil {
 		return p, err
 	}
@@ -140,11 +142,11 @@ func (s *Store) CreatePage(ctx context.Context, p *StatusPage) error {
 	sections, _ := json.Marshal(p.Sections)
 	return s.db.QueryRowContext(ctx, `
 		INSERT INTO status_pages (slug, title, description, footer, sections, custom_domain,
-			password_hash, show_targets, published, created_at, updated_at, bar_range, show_incidents, collapsible)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+			password_hash, show_targets, published, created_at, updated_at, bar_range, show_incidents, collapsible, lang)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 		p.Slug, p.Title, p.Description, p.Footer, string(sections), nullStr(p.CustomDomain),
 		nullStr(p.PasswordHash), boolInt(p.ShowTargets), boolInt(p.Published), now, now, barRangeOr(p.BarRange),
-		boolInt(p.ShowIncidents), boolInt(p.Collapsible)).Scan(&p.ID)
+		boolInt(p.ShowIncidents), boolInt(p.Collapsible), pageLangOr(p.Lang)).Scan(&p.ID)
 }
 
 // UpdatePage logo dışındaki alanları günceller (PasswordHash dahil; çağıran
@@ -155,11 +157,11 @@ func (s *Store) UpdatePage(ctx context.Context, p *StatusPage) error {
 	res, err := s.db.ExecContext(ctx, `
 		UPDATE status_pages SET slug = ?, title = ?, description = ?, footer = ?, sections = ?,
 			custom_domain = ?, password_hash = ?, show_targets = ?, published = ?, updated_at = ?,
-			bar_range = ?, show_incidents = ?, collapsible = ?
+			bar_range = ?, show_incidents = ?, collapsible = ?, lang = ?
 		WHERE id = ?`,
 		p.Slug, p.Title, p.Description, p.Footer, string(sections), nullStr(p.CustomDomain),
 		nullStr(p.PasswordHash), boolInt(p.ShowTargets), boolInt(p.Published), p.UpdatedAt,
-		barRangeOr(p.BarRange), boolInt(p.ShowIncidents), boolInt(p.Collapsible), p.ID)
+		barRangeOr(p.BarRange), boolInt(p.ShowIncidents), boolInt(p.Collapsible), pageLangOr(p.Lang), p.ID)
 	if err != nil {
 		return err
 	}

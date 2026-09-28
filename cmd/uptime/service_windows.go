@@ -14,6 +14,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/kadirsungurlu/uptime-kadir-app/internal/brand"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/eventlog"
@@ -48,8 +49,8 @@ import (
 
 const (
 	serviceName    = "uptime-agent"
-	serviceDisplay = "Uptime agent"
-	serviceDesc    = "Uptime sunucu ajanı: sunucu metriklerini ve atanan kontrollerin sonuçlarını ana sunucuya gönderir."
+	serviceDisplay = brand.Name + " agent"
+	serviceDesc    = brand.Name + " sunucu ajanı: sunucu metriklerini ve atanan kontrollerin sonuçlarını ana sunucuya gönderir."
 	logLimit       = 5 << 20
 )
 
