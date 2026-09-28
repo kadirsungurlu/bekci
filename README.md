@@ -64,6 +64,21 @@ Plan ve teknik ayrıntılar: [docs/PLAN.md](docs/PLAN.md)
 
 ## Kurulum
 
+### Hızlı başlangıç (Docker)
+
+```bash
+docker run -d --name uptime --restart unless-stopped \
+  -p 8080:8080 -v uptime-data:/data \
+  -e BASE_URL=https://uptime.ornek.com \
+  kadirsungurlu/uptime
+```
+
+`http://sunucu:8080` adresini açıp ilk yönetici hesabını oluşturun. Dışarıya
+HTTPS ile açmak için önüne bir ters vekil (Caddy, Traefik, Nginx) koyun ya da
+aşağıdaki Compose kurulumunu kullanın. İmaj: [Docker Hub
+`kadirsungurlu/uptime`](https://hub.docker.com/r/kadirsungurlu/uptime)
+(linux/amd64 ve linux/arm64).
+
 ### Coolify
 
 - Build Pack: **Dockerfile**, port **8080**, health check `/healthz`
@@ -88,7 +103,6 @@ cp .env.example .env        # UPTIME_DOMAIN ve ACME_EMAIL'i yazın
 docker compose up -d
 ```
 
-- İmaj GitHub Container Registry'de özelse önce `docker login ghcr.io`.
 - Ayrıntılar (yedek, sürüm sabitleme, şifre sıfırlama) `docker-compose.yml`
   başındaki açıklamada.
 - Taşıma: eski sunucudaki `/data` içeriğini yeni birime kopyalayıp DNS'i yeni
@@ -97,16 +111,18 @@ docker compose up -d
 
 ### İmajlar ve sistem gereksinimi
 
-| Etiket | İçerik |
+| Etiket (`kadirsungurlu/uptime`) | İçerik |
 |---|---|
 | `:latest` | SQLite (önerilen, en hafif) |
 | `:postgres` | Gömülü PostgreSQL 18 (veriler yine `/data` altında) |
-| `:<sha>` / `:postgres-<sha>` | Belirli bir sürüm (sabitleme / geri dönüş için) |
+| `:1.2.3`, `:1.2` / `:1.2.3-postgres`, `:1.2-postgres` | Belirli bir sürüm (sabitleme / geri dönüş için) |
+| `:<kısa-sha>` / `:postgres-<kısa-sha>` | Belirli bir commit |
 
 İki imajın verisi birbirine taşınmaz; baştan birini seçin. En az 1 vCPU,
 512 MB RAM (1 GB önerilir), 10 GB disk. Uygulama 10 monitör ve 3 sunucuda
-~15 MB RAM kullanır; gömülü PostgreSQL ~200 MB ekler. İmaj Linux amd64
-içindir; içinde Windows (amd64) ve Linux arm64 ajan programları da hazır gelir.
+~15 MB RAM kullanır; gömülü PostgreSQL ~200 MB ekler. İmaj linux/amd64 ve
+linux/arm64 içindir; ajanlar için diğer platformların programları (Linux
+amd64/arm64, Windows amd64) da içinde hazır gelir.
 
 ### Ortam değişkenleri
 
@@ -131,8 +147,8 @@ içindir; içinde Windows (amd64) ve Linux arm64 ajan programları da hazır gel
   değiştirecekse önce `/data/backups/pre-migrate-v<eski>-to-v<yeni>-<zaman>.db`
   kopyası alınır. Yedek alınamazsa (ör. disk dolu) güncelleme uygulanmaz ve
   uygulama açılmaz; yer açılınca açılır. Bu dosyalar kendiliğinden silinmez.
-- **Sürüm sabitleme / geri dönüş** (Compose): `.env`'de `UPTIME_TAG=<sha>`
-  (ya da `postgres-<sha>`). Sorun olursa eski etikete dönün; yeni sürüm
+- **Sürüm sabitleme / geri dönüş** (Compose): `.env`'de `UPTIME_TAG=1.2.3`
+  (ya da `1.2.3-postgres`). Sorun olursa eski etikete dönün; yeni sürüm
   veritabanını yükselttiyse önce yedeği geri yükleyin.
 - **PostgreSQL ana sürüm yükseltmesi** (`:postgres` imajı): veri klasörü başka
   bir ana sürümle oluşturulduysa konteyner açılmaz ve adımları günlüğe yazar.
@@ -345,7 +361,15 @@ docker build -t uptime .
 docker build -f Dockerfile.postgres -t uptime:postgres .
 ```
 
-CI (`.github/workflows/imajlar.yml`) her push'ta (`gelistirme`, `main`) ve
-PR'da çalışır: Go testleri (SQLite ve PostgreSQL, `-race`), Windows derleme
-kontrolü, `svelte-check`, iki imajın duman testi. İmajlar yalnızca `main`'de ve
-hepsi geçince yayınlanır.
+CI (`.github/workflows/imajlar.yml`) her push'ta (`gelistirme`, `main`, `v*`
+etiketleri) ve PR'da çalışır: Go testleri (SQLite ve PostgreSQL, `-race`),
+Windows derleme kontrolü, `svelte-check`, iki imajın duman testi. İmajlar
+yalnızca `main`'de ve `v*` etiketlerinde, hepsi geçince Docker Hub'a
+(`kadirsungurlu/uptime`) ve GitHub Container Registry'ye amd64 + arm64 olarak
+yayınlanır.
+
+Yeni sürüm yayınlamak:
+
+```bash
+git tag v1.2.3 && git push origin v1.2.3
+```

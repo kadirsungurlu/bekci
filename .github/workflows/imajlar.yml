@@ -1,15 +1,19 @@
 # Testler, arayüz denetimi ve imaj duman testleri her gönderimde (main,
-# gelistirme) ve her pull request'te çalışır. İmajlar YALNIZCA main dalında ve
-# yalnızca bunların hepsi geçtikten sonra GitHub Container Registry'ye yüklenir:
-#   ghcr.io/<sahip>/uptime-kadir-app:latest     — SQLite gömülü (Dockerfile)
-#   ghcr.io/<sahip>/uptime-kadir-app:postgres   — PostgreSQL gömülü (Dockerfile.postgres)
-# Her ikisi ayrıca commit kısa özetiyle de etiketlenir (ör. :abc1234,
-# :postgres-abc1234); geri dönmek için bu etiketler kullanılabilir.
+# gelistirme, v* etiketleri) ve her pull request'te çalışır. İmajlar YALNIZCA
+# main dalında ve v* etiketlerinde, bunların hepsi geçtikten sonra yüklenir;
+# linux/amd64 + linux/arm64, iki kayıt deposuna:
+#   docker.io/kadirsungurlu/uptime            (herkese açık, Docker Hub)
+#   ghcr.io/<sahip>/uptime-kadir-app
+# Etiketler (SQLite | PostgreSQL gömülü):
+#   main:        :latest | :postgres            ve :<kısa-sha> | :postgres-<kısa-sha>
+#   v1.2.3 etiketi: :1.2.3, :1.2 | :1.2.3-postgres, :1.2-postgres (+ kısa sha)
+# Docker Hub girişi için repo sırları: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN.
 name: İmajlar
 
 on:
   push:
     branches: [main, gelistirme]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -141,39 +145,91 @@ jobs:
 
   yayinla:
     needs: [test, arayuz, duman]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    env:
+      DOCKERHUB_IMAGE: docker.io/kadirsungurlu/uptime
     strategy:
       matrix:
         include:
           - dockerfile: Dockerfile
             etiket: latest
             onek: ""
+            sonek: ""
           - dockerfile: Dockerfile.postgres
             etiket: postgres
             onek: "postgres-"
+            sonek: "-postgres"
     steps:
       - uses: actions/checkout@v5
+      # arm64 imajında yalnızca son aşamanın RUN adımı (apk) emülasyonla
+      # çalışır; Go ve arayüz derlemesi derleyen makinede (çapraz derleme).
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Kısa commit
-        id: sha
-        run: echo "kisa=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-      # Katmanlar duman testindeki derlemenin önbelleğinden gelir (aynı imaj).
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Etiketler
+        id: etiket
+        env:
+          ETIKET: ${{ matrix.etiket }}
+          ONEK: ${{ matrix.onek }}
+          SONEK: ${{ matrix.sonek }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          kisa=${GITHUB_SHA::7}
+          {
+            echo "kisa=$kisa"
+            echo "liste<<SON"
+            for imaj in "$DOCKERHUB_IMAGE" "ghcr.io/${REPO,,}"; do
+              echo "$imaj:${ONEK}${kisa}"
+              if [ "$GITHUB_REF" = refs/heads/main ]; then
+                echo "$imaj:${ETIKET}"
+              fi
+              if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+                v=${GITHUB_REF#refs/tags/v}
+                echo "$imaj:${v}${SONEK}"
+                case "$v" in
+                  *-*) ;; # ön sürüm (1.2.0-rc1): yalnızca tam etiket
+                  *) echo "$imaj:${v%.*}${SONEK}" ;;
+                esac
+              fi
+            done
+            echo "SON"
+          } >> "$GITHUB_OUTPUT"
+      # amd64 katmanları duman testindeki derlemenin önbelleğinden gelir.
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
           push: true
           build-args: SOURCE_COMMIT=${{ github.sha }}
-          tags: |
-            ghcr.io/${{ github.repository }}:${{ matrix.etiket }}
-            ghcr.io/${{ github.repository }}:${{ matrix.onek }}${{ steps.sha.outputs.kisa }}
-          cache-from: type=gha,scope=${{ matrix.etiket }}
+          tags: ${{ steps.etiket.outputs.liste }}
+          cache-from: |
+            type=gha,scope=${{ matrix.etiket }}
+            type=gha,scope=${{ matrix.etiket }}-coklu
+          cache-to: type=gha,mode=max,scope=${{ matrix.etiket }}-coklu
+      - name: Yüklenen imajı iki mimaride çalıştır
+        env:
+          ONEK: ${{ matrix.onek }}
+          KISA: ${{ steps.etiket.outputs.kisa }}
+        run: |
+          set -euo pipefail
+          for plat in linux/amd64 linux/arm64; do
+            s=$(docker run --rm --platform "$plat" --entrypoint uptime "$DOCKERHUB_IMAGE:${ONEK}${KISA}" version)
+            echo "$plat: $s"
+            [ "$s" = "$KISA" ] || { echo "::error::$plat sürümü $s (beklenen $KISA)"; exit 1; }
+          done

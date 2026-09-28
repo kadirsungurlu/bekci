@@ -5,7 +5,7 @@
 
 # 1) Arayüz
 # node:24-alpine
-FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS web
+FROM --platform=$BUILDPLATFORM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS web
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -14,22 +14,28 @@ RUN npm run build
 
 # 2) Uygulama (arayüz ikilinin içine gömülür)
 # golang:1.27-alpine
-FROM golang:1.27-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /web/dist ./web/dist
 ARG SOURCE_COMMIT=dev
-RUN CGO_ENABLED=0 go build -trimpath \
+# Derleme her zaman derleyen makinenin mimarisinde çalışır (--platform=$BUILDPLATFORM);
+# hedef mimari (amd64/arm64) Go'nun çapraz derlemesiyle üretilir, emülasyon gerekmez.
+ARG TARGETOS=linux
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH:-$(go env GOARCH)} go build -trimpath \
       -ldflags "-s -w -X main.version=$(echo ${SOURCE_COMMIT} | cut -c1-7)" \
       -o /out/uptime ./cmd/uptime
-# Başka platformların ajan programları (aynı sürüm): Windows sunucular
-# panelden indirir (GET /api/probe/binary?os=windows&arch=amd64). Her biri
-# imaja ~38 MB ekler. Varsayılan: Windows ve ARM (linux/arm64) sunucular;
-#   yalnızca Windows için: --build-arg AGENT_PLATFORMS="windows/amd64"
-ARG AGENT_PLATFORMS="windows/amd64 linux/arm64"
-RUN mkdir -p /out/agents && for p in ${AGENT_PLATFORMS}; do \
+# Başka platformların ajan programları (aynı sürüm): sunucular panelden
+# indirir (GET /api/probe/binary?os=…&arch=…). İmajın kendi platformu atlanır
+# (çalışan program sunulur). Her biri imaja ~38 MB ekler; yalnızca Windows
+# için: --build-arg AGENT_PLATFORMS="windows/amd64"
+ARG AGENT_PLATFORMS="windows/amd64 linux/amd64 linux/arm64"
+RUN mkdir -p /out/agents && self=${TARGETOS}/${TARGETARCH:-$(go env GOARCH)} && \
+    for p in ${AGENT_PLATFORMS}; do \
+      [ "$p" = "$self" ] && continue; \
       os=${p%/*}; arch=${p#*/}; ext=; [ "$os" = windows ] && ext=.exe; \
       CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \
         -ldflags "-s -w -X main.version=$(echo ${SOURCE_COMMIT} | cut -c1-7)" \

@@ -9,11 +9,8 @@
 #   2. Alan adının DNS A kaydı bu sunucunun IP'sini göstermeli; 80 ve 443
 #      portları açık olmalı (Cloudflare kullanıyorsanız "DNS only" ile başlayın,
 #      sertifika alındıktan sonra proxy açılabilir).
-#   3. İmaj GitHub Container Registry'de özel (private) ise önce giriş yapın
-#      (read:packages yetkili bir GitHub token'ı ile):
-#        echo <token> | docker login ghcr.io -u kadirsungurlu --password-stdin
-#   4. docker compose up -d
-#   5. https://<alan adı> adresini açıp ilk yönetici hesabını oluşturun.
+#   3. docker compose up -d   (imaj Docker Hub'dan indirilir, giriş gerekmez)
+#   4. https://<alan adı> adresini açıp ilk yönetici hesabını oluşturun.
 #
 # Güncelleme:
 #   0. ÖNCE YEDEK ALIN. Uygulama çalışırken değil, durdurup birimin kopyasını
@@ -27,9 +24,10 @@
 #      olduğundan uptime_uptime-data'dır.)
 #   1. docker compose pull && docker compose up -d
 #
-# Sürüm sabitleme ve geri dönüş: her yayın commit kısa özetiyle de etiketlenir
-# (SQLite: :<sha>, PostgreSQL: :postgres-<sha>; ör. :abc1234). .env'de
-#   UPTIME_TAG=abc1234            (ya da UPTIME_TAG=postgres-abc1234)
+# Sürüm sabitleme ve geri dönüş: sürümler numarayla (SQLite: :1.2.3,
+# PostgreSQL: :1.2.3-postgres), her yayın ayrıca commit kısa özetiyle
+# (:abc1234 / :postgres-abc1234) etiketlenir. .env'de
+#   UPTIME_TAG=1.2.3              (ya da UPTIME_TAG=1.2.3-postgres)
 # yazarsanız güncelleme siz değiştirene kadar yapılmaz; yeni sürümde sorun
 # çıkarsa eski etiketi yazıp "docker compose up -d" ile geri dönebilirsiniz.
 # Veritabanı yeni sürümde yükseltildiyse (migration) eski sürüme dönmeden önce
@@ -56,7 +54,8 @@ services:
     # :latest SQLite ile çalışır (önerilen, en hafif). PostgreSQL gömülü sürüm
     # için .env'de UPTIME_TAG=postgres yapın; veriler yine /data altında durur.
     # İki sürümün verisi birbirine taşınmaz: baştan birini seçin.
-    image: ghcr.io/kadirsungurlu/uptime-kadir-app:${UPTIME_TAG:-latest}
+    # Docker Hub (amd64 + arm64). Aynı imaj ghcr.io/kadirsungurlu/uptime-kadir-app'te de var.
+    image: kadirsungurlu/uptime:${UPTIME_TAG:-latest}
     restart: unless-stopped
     # Kapanışta uygulama (ve PostgreSQL sürümünde veritabanı) düzgünce
     # kapansın diye 10 sn yerine 30 sn beklenir.
