@@ -5,6 +5,7 @@
   import { toast } from '../lib/ui.svelte';
   import { collator } from '../lib/format';
   import { NOTIFY_LABELS, NOTIFY_STYLE } from '../lib/notifyTypes';
+  import { t } from '../lib/i18n';
   import NotificationForm from '../components/NotificationForm.svelte';
   import Icon from '../components/Icon.svelte';
 
@@ -36,7 +37,7 @@
 
   function saved(ch: NotificationChannel, created: boolean) {
     list = created ? [...list, ch] : list.map((x) => (x.id === ch.id ? ch : x));
-    toast.success(created ? `“${ch.name}” eklendi` : 'Kanal kaydedildi');
+    toast.success(created ? t('notifications.list.added', { name: ch.name }) : t('notifications.list.saved'));
     // "Mevcut tüm monitörlere ekle" monitörlerin kanal listesini değiştirmiş olabilir.
     live.refresh();
   }
@@ -44,7 +45,7 @@
   function deleted(id: number) {
     const ch = list.find((x) => x.id === id);
     list = list.filter((x) => x.id !== id);
-    toast.success(ch ? `“${ch.name}” silindi` : 'Kanal silindi');
+    toast.success(ch ? t('notifications.list.deletedNamed', { name: ch.name }) : t('notifications.list.deleted'));
     live.refresh();
   }
 
@@ -59,24 +60,24 @@
 </script>
 
 <div class="page-head">
-  <h1>Bildirimler<span class="dot">.</span></h1>
-  <button class="btn primary" onclick={() => openForm(null)}><Icon name="plus" size={16} /> Yeni kanal</button>
+  <h1>{t('notifications.list.title')}<span class="dot">.</span></h1>
+  <button class="btn primary" onclick={() => openForm(null)}><Icon name="plus" size={16} /> {t('notifications.list.newChannel')}</button>
 </div>
 
 {#if loading}
   <div class="skeleton" style="height:160px"></div>
 {:else if error}
   <div class="card empty">
-    <h3>Kanallar yüklenemedi</h3>
+    <h3>{t('notifications.list.loadFailed')}</h3>
     <p>{error}</p>
-    <button class="btn primary" onclick={load}>Tekrar dene</button>
+    <button class="btn primary" onclick={load}>{t('common.retry')}</button>
   </div>
 {:else if list.length === 0}
   <div class="card empty">
     <div class="bell"><Icon name="bell" size={30} /></div>
-    <h3>Henüz bildirim kanalı yok</h3>
-    <p>Bir monitör çalışmadığında haberdar olmak için WhatsApp, Telegram, e-posta veya başka bir kanal ekleyin.</p>
-    <button class="btn primary" onclick={() => openForm(null)}><Icon name="plus" size={16} /> Kanal ekle</button>
+    <h3>{t('notifications.list.emptyTitle')}</h3>
+    <p>{t('notifications.list.emptyText')}</p>
+    <button class="btn primary" onclick={() => openForm(null)}><Icon name="plus" size={16} /> {t('notifications.list.addChannel')}</button>
   </div>
 {:else}
   <div class="card list">
@@ -87,21 +88,18 @@
         <span class="info">
           <span class="name">
             {ch.name}
-            {#if ch.is_default}<span class="badge accent">Varsayılan</span>{/if}
-            {#if !ch.active}<span class="badge paused">Devre dışı</span>{/if}
+            {#if ch.is_default}<span class="badge accent">{t('notifications.list.default')}</span>{/if}
+            {#if !ch.active}<span class="badge paused">{t('notifications.list.disabled')}</span>{/if}
           </span>
           <span class="sub">
-            {NOTIFY_LABELS[ch.type] ?? ch.type} · {usage.get(ch.id) ?? 0} monitör
+            {NOTIFY_LABELS[ch.type] ?? ch.type} · {t('notifications.list.monitorCount', { count: usage.get(ch.id) ?? 0 })}
           </span>
         </span>
-        <span class="edit"><Icon name="edit" size={15} /> <span class="lbl">Düzenle</span></span>
+        <span class="edit"><Icon name="edit" size={15} /> <span class="lbl">{t('common.edit')}</span></span>
       </button>
     {/each}
   </div>
-  <p class="help foot">
-    “Varsayılan” kanallar yeni eklenen monitörlerde otomatik seçili gelir. Her monitörün kanallarını monitör düzenleme
-    sayfasından değiştirebilirsiniz.
-  </p>
+  <p class="help foot">{t('notifications.list.footHelp')}</p>
 {/if}
 
 {#key formKey}

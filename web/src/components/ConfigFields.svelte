@@ -1,6 +1,7 @@
 <script lang="ts" module>
   import { MASK } from '../lib/api';
   import type { CfgField } from '../lib/monitorTypes';
+  import { t } from '../lib/i18n';
 
   const defText = (f: CfgField) => (f.def !== undefined ? String(f.def) : f.kind === 'bool' ? 'false' : '');
 
@@ -46,16 +47,16 @@
       if (!fieldVisible(f, values)) continue;
       const v = (values[f.key] ?? '').trim();
       const err = (msg: string) => ({ msg, advanced: !!f.advanced, key: f.key });
-      if (f.required && !v) return err(`${f.label} gerekli.`);
+      if (f.required && !v) return err(t('notifyTypes.errors.required', { field: f.label }));
       if (!v || v === MASK) continue;
-      if (f.kind === 'url' && !/^https?:\/\/\S+$/i.test(v)) return err(`${f.label} geçerli bir http(s) adresi olmalı.`);
-      if (f.pattern && !f.pattern.test(v)) return err(f.patternMsg ?? `${f.label} geçersiz.`);
+      if (f.kind === 'url' && !/^https?:\/\/\S+$/i.test(v)) return err(t('notifyTypes.errors.url', { field: f.label }));
+      if (f.pattern && !f.pattern.test(v)) return err(f.patternMsg ?? t('notifyTypes.errors.invalid', { field: f.label }));
       if (f.kind === 'number') {
         const n = Number(v);
-        if (!Number.isFinite(n)) return err(`${f.label} bir sayı olmalı.`);
-        if ((f.min !== undefined && n < f.min) || (f.max !== undefined && n > f.max)) return err(`${f.label} ${f.min}-${f.max} arasında olmalı.`);
+        if (!Number.isFinite(n)) return err(t('notifyTypes.errors.number', { field: f.label }));
+        if ((f.min !== undefined && n < f.min) || (f.max !== undefined && n > f.max)) return err(t('notifyTypes.errors.range', { field: f.label, min: f.min ?? '', max: f.max ?? '' }));
       }
-      if (f.kind === 'pem' && !/-----BEGIN [A-Z0-9 ]+-----/.test(v)) return err(`${f.label} PEM biçiminde olmalı (-----BEGIN … ile başlar).`);
+      if (f.kind === 'pem' && !/-----BEGIN [A-Z0-9 ]+-----/.test(v)) return err(t('notifyTypes.errors.pem', { field: f.label }));
     }
     return null;
   }
@@ -117,7 +118,7 @@
       <div class="field" class:wide={f.wide || f.kind === 'textarea' || f.kind === 'pem'}>
         <label for="{idPrefix}-{f.key}">
           {f.label}
-          {#if f.optional}<span class="muted">(isteğe bağlı)</span>{/if}
+          {#if f.optional}<span class="muted">{t('notifyTypes.form.optional')}</span>{/if}
         </label>
         {#if f.kind === 'select'}
           <select id="{idPrefix}-{f.key}" class="input" bind:value={values[f.key]}>
@@ -127,7 +128,7 @@
           <div class="kept">
             <span class="kept-t"
               ><span class="kept-ic"><Icon name="lock" size={14} /></span>
-              {f.kind === 'pem' ? 'Kayıtlı anahtar korunuyor' : 'Kayıtlı değer korunuyor (gizli)'}</span
+              {f.kind === 'pem' ? t('notifyTypes.form.keptKey') : t('notifyTypes.form.keptValue')}</span
             >
             <button
               type="button"
@@ -136,7 +137,7 @@
               onclick={() => {
                 replacing[f.key] = true;
                 values[f.key] = '';
-              }}>Değiştir</button
+              }}>{t('notifyTypes.form.replace')}</button
             >
           </div>
         {:else if f.kind === 'textarea' || f.kind === 'pem'}
@@ -157,7 +158,7 @@
               onclick={() => {
                 replacing[f.key] = false;
                 values[f.key] = MASK;
-              }}>{f.kind === 'pem' ? 'Vazgeç, kayıtlı anahtarı koru' : 'Vazgeç, kayıtlı değeri koru'}</button
+              }}>{f.kind === 'pem' ? t('notifyTypes.form.keepKey') : t('notifyTypes.form.keepValue')}</button
             >
           {/if}
         {:else if f.kind === 'secret'}
@@ -185,7 +186,7 @@
           />
         {/if}
         {#if values[f.key] === MASK && f.kind === 'secret'}
-          <span class="help">Kayıtlı değer korunur; değiştirmek için yenisini yazın.</span>
+          <span class="help">{t('notifyTypes.form.keptHelp')}</span>
         {:else if f.help}
           <span class="help">{f.help}</span>
         {/if}

@@ -29,10 +29,12 @@
     fmtUptime,
     nowSec,
   } from '../lib/format';
+  import { t, tParts } from '../lib/i18n';
   import {
     STATE_LABELS,
     diskPct,
     fmtMetric,
+    fmtPct1,
     inactiveReason,
     memPct,
     metricLabel,
@@ -59,11 +61,11 @@
   let events = $state.raw<ServerEvent[]>([]);
   let channels = $state.raw<NotificationChannel[] | null>(null);
 
-  const RANGES: { key: StatsRange; label: string; sec: number }[] = [
-    { key: '1h', label: '1 sa', sec: 3600 },
-    { key: '24h', label: '24 sa', sec: 86400 },
-    { key: '7d', label: '7 gün', sec: 7 * 86400 },
-    { key: '30d', label: '30 gün', sec: 30 * 86400 },
+  const RANGES: { key: StatsRange; sec: number }[] = [
+    { key: '1h', sec: 3600 },
+    { key: '24h', sec: 86400 },
+    { key: '7d', sec: 7 * 86400 },
+    { key: '30d', sec: 30 * 86400 },
   ];
   let range = $state<StatsRange>('24h');
   let stats = $state.raw<StatsSeries | null>(null);
@@ -204,17 +206,17 @@
   const chartInterval = $derived(stats?.interval || (stats?.res ?? 1) * 60);
   const col = <K extends keyof StatsPoint>(k: K) => pts.map((p) => (p[k] ?? null) as number | null);
 
-  const pctFmt = (v: number) => `%${fmtDec(v, 1)}`;
+  const pctFmt = fmtPct1;
   const cpuBand = $derived(
     pts.some((p) => p.cpu_max != null)
-      ? { label: 'Tepe', color: 'var(--chart-1)', lo: col('cpu'), hi: pts.map((p) => p.cpu_max ?? p.cpu) }
+      ? { label: t('servers.detail.charts.peak'), color: 'var(--chart-1)', lo: col('cpu'), hi: pts.map((p) => p.cpu_max ?? p.cpu) }
       : null,
   );
   const memTop = $derived(Math.max(0, ...pts.map((p) => p.mem_total)) || undefined);
   const hasSwap = $derived(pts.some((p) => p.swap_total > 0));
   const memSeries = $derived<ChartSeries[]>([
-    { label: 'Kullanılan', color: 'var(--chart-1)', values: col('mem_used'), stack: true },
-    { label: 'Önbellek', color: 'var(--chart-3)', values: col('mem_cache'), stack: true },
+    { label: t('servers.detail.charts.used'), color: 'var(--chart-1)', values: col('mem_used'), stack: true },
+    { label: t('servers.detail.charts.cache'), color: 'var(--chart-3)', values: col('mem_cache'), stack: true },
     ...(hasSwap ? [{ label: 'Swap', color: 'var(--chart-2)', values: col('swap_used'), dashed: true }] : []),
   ]);
   const hasTemp = $derived(pts.some((p) => p.temp != null));
@@ -240,7 +242,7 @@
   const diskSeries = $derived.by<ChartSeries[]>(() => {
     const peak = new Map<string, number>();
     for (const p of pts) for (const d of p.disks ?? []) peak.set(d.mount, Math.max(peak.get(d.mount) ?? 0, d.pct));
-    if (peak.size <= 1) return [{ label: 'Doluluk', color: 'var(--chart-3)', values: col('disk_pct'), fill: true }];
+    if (peak.size <= 1) return [{ label: t('servers.detail.charts.usage'), color: 'var(--chart-3)', values: col('disk_pct'), fill: true }];
     const colors = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)'];
     return [...peak.entries()]
       .sort((a, b) => b[1] - a[1])
@@ -292,7 +294,7 @@
     try {
       await api.putServerNotifications(id, selected);
       detail = { ...detail, notification_ids: selected.slice() };
-      toast.success('Bildirim kanalları kaydedildi');
+      toast.success(t('servers.detail.channels.saved'));
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -312,23 +314,23 @@
 
 {#if notFound}
   <div class="card empty">
-    <h3>Sunucu bulunamadı</h3>
-    <p>Sunucu silinmiş ya da hesabınıza açık değil.</p>
-    <a class="btn primary" href="#/servers">Sunuculara dön</a>
+    <h3>{t('servers.detail.notFoundTitle')}</h3>
+    <p>{t('servers.detail.notFoundText')}</p>
+    <a class="btn primary" href="#/servers">{t('servers.detail.backToList')}</a>
   </div>
 {:else if !view}
   {#if loadError}
     <div class="card empty">
-      <h3>Yüklenemedi</h3>
+      <h3>{t('servers.detail.loadFailed')}</h3>
       <p>{loadError}</p>
-      <button class="btn primary" onclick={loadDetail}>Tekrar dene</button>
+      <button class="btn primary" onclick={loadDetail}>{t('common.retry')}</button>
     </div>
   {:else}
     <div class="skeleton" style="height:90px;margin-bottom:20px"></div>
     <div class="skeleton" style="height:300px"></div>
   {/if}
 {:else}
-  <a class="back" href="#/servers"><Icon name="chevron-left" size={16} /> Sunucular</a>
+  <a class="back" href="#/servers"><Icon name="chevron-left" size={16} /> {t('servers.list.title')}</a>
 
   <div class="head">
     <div class="title">
@@ -336,9 +338,9 @@
       <div class="tt">
         <h1>{view.name}</h1>
         <div class="hsub">
-          <span class="pill {PILL[tone]}">{view.state === 'online' && view.firing?.length ? 'Uyarı var' : STATE_LABELS[view.state]}</span>
+          <span class="pill {PILL[tone]}">{view.state === 'online' && view.firing?.length ? t('servers.detail.alerting') : STATE_LABELS[view.state]}</span>
           {#if view.metrics_at}
-            <span class="muted small" title={fmtDate(view.metrics_at)}>Son ölçüm {fmtRelative(view.metrics_at, now)}</span>
+            <span class="muted small" title={fmtDate(view.metrics_at)}>{t('servers.detail.lastMetric', { ago: fmtRelative(view.metrics_at, now) })}</span>
           {/if}
         </div>
         {#if host}
@@ -348,8 +350,8 @@
     </div>
     {#if session.isAdmin}
       <div class="actions">
-        <button class="btn" onclick={() => (renewOpen = true)}><Icon name="terminal" size={15} /> Kurulum komutu</button>
-        <button class="btn" onclick={() => (settingsOpen = true)}><Icon name="settings" size={15} /> Ayarlar</button>
+        <button class="btn" onclick={() => (renewOpen = true)}><Icon name="terminal" size={15} /> {t('servers.detail.installCmd')}</button>
+        <button class="btn" onclick={() => (settingsOpen = true)}><Icon name="settings" size={15} /> {t('servers.detail.settings')}</button>
       </div>
     {/if}
   </div>
@@ -358,14 +360,14 @@
     <div class="alert error note">
       <Icon name="wifi-off" size={16} />
       <span>
-        Sunucudan {view.metrics_at ? `${fmtDuration(now - view.metrics_at)} süredir` : 'uzun süredir'} veri gelmiyor. Sunucu kapalı, ağ
-        bağlantısı kopmuş veya ajan durmuş olabilir. Aşağıdaki değerler son ölçüme aittir.
+        {view.metrics_at ? t('servers.detail.offlineFor', { d: fmtDuration(now - view.metrics_at) }) : t('servers.detail.offlineLong')}
+        {t('servers.detail.offlineHint')}
       </span>
     </div>
   {:else if view.state !== 'online'}
     <div class="alert warning note">
       <Icon name="info" size={16} />
-      <span>{inactiveReason(view)}{#if session.isAdmin && view.state !== 'disabled'} <button class="linkbtn inl" onclick={() => (renewOpen = true)}>Kurulum komutunu göster</button>{/if}</span>
+      <span>{inactiveReason(view)}{#if session.isAdmin && view.state !== 'disabled'} <button class="linkbtn inl" onclick={() => (renewOpen = true)}>{t('servers.list.showCommand')}</button>{/if}</span>
     </div>
   {/if}
 
@@ -375,12 +377,14 @@
       <span>
         {#each firingRules as r, i (r.id)}
           {#if i > 0}<br />{/if}
-          <b>{metricLabel(r.metric)}{r.mount ? ` (${r.mount})` : ''}</b>
-          {#if r.metric === 'offline'}
-            uyarısı sürüyor
-          {:else}
-            eşiği aşıldı (eşik {fmtMetric(r.metric, r.threshold)}{r.minutes ? `, ${r.minutes} dk ortalama` : ''})
-          {/if}
+          {@const parts =
+            r.metric === 'offline'
+              ? tParts('servers.detail.firingOffline')
+              : tParts('servers.detail.firingOver', {
+                  threshold: fmtMetric(r.metric, r.threshold),
+                  avg: r.minutes ? t('servers.detail.firingAvg', { n: r.minutes }) : '',
+                })}
+          {#each parts as p, j (j)}{#if p.slot === 'metric'}<b>{metricLabel(r.metric)}{r.mount ? ` (${r.mount})` : ''}</b>{:else}{p.text}{/if}{/each}
           {#if r.fired_at}<span class="muted"> · {fmtRelative(r.fired_at, now)}</span>{/if}
         {/each}
       </span>
@@ -390,40 +394,40 @@
   {#if st}
     <div class="tiles" class:dimmed={view.state === 'offline'}>
       <div class="card tile" class:fire={view.firing?.includes('cpu')}>
-        <div class="label"><Icon name="cpu" size={13} /> CPU</div>
+        <div class="label"><Icon name="cpu" size={13} /> {metricLabel('cpu')}</div>
         <div class="value {lvl(st.cpu)}">{fmtPctInt(st.cpu)}</div>
         <UsageBar value={st.cpu} bare />
-        <div class="sub">{threads ? `${threads} iş parçacığı` : ' '}</div>
+        <div class="sub">{threads ? t('servers.detail.threads', { count: threads }) : ' '}</div>
       </div>
       <div class="card tile" class:fire={view.firing?.includes('mem')}>
-        <div class="label"><Icon name="memory" size={13} /> RAM</div>
+        <div class="label"><Icon name="memory" size={13} /> {metricLabel('mem')}</div>
         <div class="value {lvl(memPct(st))}">{fmtPctInt(memPct(st))}</div>
         <UsageBar value={memPct(st)} bare />
-        <div class="sub">{fmtBytes(st.mem_used)} / {fmtBytes(st.mem_total)}{st.swap_total ? ` · swap ${fmtPctInt(swapPct(st))}` : ''}</div>
+        <div class="sub">{fmtBytes(st.mem_used)} / {fmtBytes(st.mem_total)}{st.swap_total ? t('servers.detail.swapPart', { pct: fmtPctInt(swapPct(st)) }) : ''}</div>
       </div>
       <div class="card tile" class:fire={view.firing?.includes('disk')}>
-        <div class="label"><Icon name="database" size={13} /> Disk</div>
+        <div class="label"><Icon name="database" size={13} /> {metricLabel('disk')}</div>
         <div class="value {lvl(diskPct(st))}">{fmtPctInt(diskPct(st))}</div>
         <UsageBar value={diskPct(st)} bare />
-        <div class="sub">{worstDisk ? `${worstDisk.mount} · ${fmtBytes(worstDisk.total - worstDisk.used)} boş` : '—'}</div>
+        <div class="sub">{worstDisk ? t('servers.detail.diskFree', { mount: worstDisk.mount, free: fmtBytes(worstDisk.total - worstDisk.used) }) : '—'}</div>
       </div>
       <div class="card tile" class:fire={view.firing?.includes('load')}>
-        <div class="label"><Icon name="activity" size={13} /> Yük</div>
+        <div class="label"><Icon name="activity" size={13} /> {metricLabel('load')}</div>
         <div class="value">{fmtDec(st.load1, 2)}</div>
-        <div class="sub">5 dk {fmtDec(st.load5, 2)} · 15 dk {fmtDec(st.load15, 2)}</div>
-        <div class="sub">{threads ? `Çekirdek başına ${fmtDec(st.load1 / threads, 2)}` : ''}</div>
+        <div class="sub">{t('servers.detail.load515', { a: fmtDec(st.load5, 2), b: fmtDec(st.load15, 2) })}</div>
+        <div class="sub">{threads ? t('servers.detail.perCore', { v: fmtDec(st.load1 / threads, 2) }) : ''}</div>
       </div>
       <div class="card tile">
-        <div class="label"><Icon name="arrows-lr" size={13} /> Ağ</div>
+        <div class="label"><Icon name="arrows-lr" size={13} /> {metricLabel('net')}</div>
         <div class="value net"><span><Icon name="arrow-down" size={14} />{fmtRate(st.net_rx_bps)}</span></div>
-        <div class="sub"><Icon name="arrow-up" size={12} /> {fmtRate(st.net_tx_bps)} giden</div>
+        <div class="sub"><Icon name="arrow-up" size={12} /> {t('servers.detail.netOut', { rate: fmtRate(st.net_tx_bps) })}</div>
       </div>
       {#if tempMax !== null}
         <div class="card tile" class:fire={view.firing?.includes('temp')}>
-          <div class="label"><Icon name="zap" size={13} /> Sıcaklık</div>
+          <div class="label"><Icon name="zap" size={13} /> {metricLabel('temp')}</div>
           <div class="value" class:c-pending={tempMax >= 80} class:c-down={tempMax >= 90}>{fmtTemp(tempMax)}</div>
-          <div class="sub">{temps.length ? `En sıcak: ${temps[0].name}` : 'En sıcak sensör'}</div>
-          {#if temps.length > 1}<div class="sub">{temps.length} sensör</div>{/if}
+          <div class="sub">{temps.length ? t('servers.detail.hottest', { name: temps[0].name }) : t('servers.detail.hottestSensor')}</div>
+          {#if temps.length > 1}<div class="sub">{t('servers.detail.sensors', { count: temps.length })}</div>{/if}
         </div>
       {/if}
     </div>
@@ -432,32 +436,32 @@
   {#if host}
     <section class="card facts-card">
       <dl class="facts">
-        <div><dt>Host adı</dt><dd class="mono">{host.hostname || '—'}</dd></div>
-        <div><dt>İşletim sistemi</dt><dd>{host.platform || host.os || '—'}</dd></div>
-        <div><dt>Çekirdek sürümü</dt><dd class="mono">{host.kernel || '—'}</dd></div>
-        <div><dt>Mimari</dt><dd>{host.arch || '—'}</dd></div>
-        <div class="wide"><dt>İşlemci</dt><dd>{host.cpu_model || '—'}</dd></div>
-        <div><dt>Çekirdek / iş parçacığı</dt><dd>{host.cores || '—'} / {host.threads || '—'}</dd></div>
-        <div><dt>RAM</dt><dd>{fmtBytes(host.mem_total)}</dd></div>
-        <div><dt>Çalışma süresi</dt><dd>{fmtUptime(st?.uptime ?? (host.boot_time ? now - host.boot_time : 0))}</dd></div>
-        <div><dt>Ajan sürümü</dt><dd>{view.version || '—'}</dd></div>
-        <div><dt>Son ölçüm</dt><dd title={view.metrics_at ? fmtDate(view.metrics_at) : ''}>{fmtRelative(view.metrics_at, now)}{view.interval ? ` · her ${view.interval} sn` : ''}</dd></div>
+        <div><dt>{t('servers.detail.facts.hostname')}</dt><dd class="mono">{host.hostname || '—'}</dd></div>
+        <div><dt>{t('servers.detail.facts.os')}</dt><dd>{host.platform || host.os || '—'}</dd></div>
+        <div><dt>{t('servers.detail.facts.kernel')}</dt><dd class="mono">{host.kernel || '—'}</dd></div>
+        <div><dt>{t('servers.detail.facts.arch')}</dt><dd>{host.arch || '—'}</dd></div>
+        <div class="wide"><dt>{t('servers.detail.facts.cpu')}</dt><dd>{host.cpu_model || '—'}</dd></div>
+        <div><dt>{t('servers.detail.facts.coresThreads')}</dt><dd>{host.cores || '—'} / {host.threads || '—'}</dd></div>
+        <div><dt>{metricLabel('mem')}</dt><dd>{fmtBytes(host.mem_total)}</dd></div>
+        <div><dt>{t('servers.detail.facts.uptime')}</dt><dd>{fmtUptime(st?.uptime ?? (host.boot_time ? now - host.boot_time : 0))}</dd></div>
+        <div><dt>{t('servers.detail.facts.agentVersion')}</dt><dd>{view.version || '—'}</dd></div>
+        <div><dt>{t('servers.detail.facts.lastMetric')}</dt><dd title={view.metrics_at ? fmtDate(view.metrics_at) : ''}>{fmtRelative(view.metrics_at, now)}{view.interval ? t('servers.detail.facts.every', { n: view.interval }) : ''}</dd></div>
       </dl>
     </section>
   {/if}
 
   <!-- Grafikler -->
   <div class="chart-head">
-    <h2 class="sect-title">Geçmiş<span class="dot">.</span></h2>
-    <div class="tabs" role="tablist" aria-label="Zaman aralığı">
+    <h2 class="sect-title">{t('servers.detail.history')}<span class="dot">.</span></h2>
+    <div class="tabs" role="tablist" aria-label={t('servers.detail.rangeLabel')}>
       {#each RANGES as r (r.key)}
-        <button role="tab" aria-selected={range === r.key} class:active={range === r.key} onclick={() => (range = r.key)}>{r.label}</button>
+        <button role="tab" aria-selected={range === r.key} class:active={range === r.key} onclick={() => (range = r.key)}>{t(`servers.detail.ranges.${r.key}`)}</button>
       {/each}
     </div>
   </div>
 
   {#if statsError && !stats}
-    <div class="alert error block">{statsError} <button class="linkbtn" onclick={() => loadStats(range)}>Tekrar dene</button></div>
+    <div class="alert error block">{statsError} <button class="linkbtn" onclick={() => loadStats(range)}>{t('common.retry')}</button></div>
   {:else if !stats}
     <div class="charts">
       {#each Array(4) as _, i (i)}<div class="skeleton" style="height:250px"></div>{/each}
@@ -465,19 +469,19 @@
   {:else if pts.length === 0}
     <div class="card nopts" class:loading={statsLoading}>
       <Icon name="activity" size={22} />
-      <span>{view.metrics_at ? 'Bu aralıkta ölçüm yok.' : 'Henüz ölçüm yok. Ajan metrik göndermeye başlayınca grafikler burada görünür.'}</span>
+      <span>{view.metrics_at ? t('servers.detail.noPtsRange') : t('servers.detail.noPtsYet')}</span>
     </div>
   {:else}
     <div class="charts" class:loading={statsLoading}>
       <section class="card ch">
-        <div class="ch-h"><h3>CPU</h3><span class="ch-u">%</span></div>
+        <div class="ch-h"><h3>{metricLabel('cpu')}</h3><span class="ch-u">%</span></div>
         <LineChart
-          label="CPU kullanımı"
+          label={t('servers.detail.charts.cpuUsage')}
           {times}
           from={chartFrom}
           to={chartTo}
           interval={chartInterval}
-          series={[{ label: cpuBand ? 'Ortalama' : 'CPU', color: 'var(--chart-1)', values: col('cpu'), fill: true }]}
+          series={[{ label: cpuBand ? t('status.chart.avg') : metricLabel('cpu'), color: 'var(--chart-1)', values: col('cpu'), fill: true }]}
           band={cpuBand}
           max={100}
           format={pctFmt}
@@ -485,20 +489,20 @@
         />
       </section>
       <section class="card ch">
-        <div class="ch-h"><h3>Bellek</h3><span class="ch-u">{memTop ? `toplam ${fmtBytes(memTop)}` : ''}</span></div>
-        <LineChart label="Bellek kullanımı" {times} from={chartFrom} to={chartTo} interval={chartInterval} series={memSeries} max={memTop} bytes format={fmtBytes} />
+        <div class="ch-h"><h3>{t('servers.detail.charts.mem')}</h3><span class="ch-u">{memTop ? t('servers.detail.charts.memTotal', { v: fmtBytes(memTop) }) : ''}</span></div>
+        <LineChart label={t('servers.detail.charts.memUsage')} {times} from={chartFrom} to={chartTo} interval={chartInterval} series={memSeries} max={memTop} bytes format={fmtBytes} />
       </section>
       <section class="card ch">
-        <div class="ch-h"><h3>Ağ</h3><span class="ch-u">bayt/sn</span></div>
+        <div class="ch-h"><h3>{metricLabel('net')}</h3><span class="ch-u">{t('servers.detail.charts.bytesPerSec')}</span></div>
         <LineChart
-          label="Ağ trafiği"
+          label={t('servers.detail.charts.netTraffic')}
           {times}
           from={chartFrom}
           to={chartTo}
           interval={chartInterval}
           series={[
-            { label: 'Gelen', color: 'var(--chart-1)', values: col('net_rx_bps'), fill: true },
-            { label: 'Giden', color: 'var(--chart-3)', values: col('net_tx_bps') },
+            { label: t('servers.list.netIn'), color: 'var(--chart-1)', values: col('net_rx_bps'), fill: true },
+            { label: t('servers.list.netOut'), color: 'var(--chart-3)', values: col('net_tx_bps') },
           ]}
           bytes
           format={fmtRate}
@@ -506,16 +510,16 @@
         />
       </section>
       <section class="card ch">
-        <div class="ch-h"><h3>Disk G/Ç</h3><span class="ch-u">bayt/sn</span></div>
+        <div class="ch-h"><h3>{t('servers.detail.charts.diskIo')}</h3><span class="ch-u">{t('servers.detail.charts.bytesPerSec')}</span></div>
         <LineChart
-          label="Disk okuma ve yazma"
+          label={t('servers.detail.charts.diskIoLabel')}
           {times}
           from={chartFrom}
           to={chartTo}
           interval={chartInterval}
           series={[
-            { label: 'Okuma', color: 'var(--chart-1)', values: col('disk_read_bps'), fill: true },
-            { label: 'Yazma', color: 'var(--chart-2)', values: col('disk_write_bps') },
+            { label: t('servers.detail.charts.read'), color: 'var(--chart-1)', values: col('disk_read_bps'), fill: true },
+            { label: t('servers.detail.charts.write'), color: 'var(--chart-2)', values: col('disk_write_bps') },
           ]}
           bytes
           format={fmtRate}
@@ -523,17 +527,17 @@
         />
       </section>
       <section class="card ch">
-        <div class="ch-h"><h3>Yük</h3><span class="ch-u">{threads ? `${threads} iş parçacığı` : ''}</span></div>
+        <div class="ch-h"><h3>{metricLabel('load')}</h3><span class="ch-u">{threads ? t('servers.detail.threads', { count: threads }) : ''}</span></div>
         <LineChart
-          label="Sistem yükü"
+          label={t('servers.detail.charts.systemLoad')}
           {times}
           from={chartFrom}
           to={chartTo}
           interval={chartInterval}
           series={[
-            { label: '1 dk', color: 'var(--chart-1)', values: col('load1') },
-            { label: '5 dk', color: 'var(--chart-3)', values: col('load5') },
-            { label: '15 dk', color: 'var(--chart-4)', values: col('load15') },
+            { label: t('servers.detail.charts.load1'), color: 'var(--chart-1)', values: col('load1') },
+            { label: t('servers.detail.charts.load5'), color: 'var(--chart-3)', values: col('load5') },
+            { label: t('servers.detail.charts.load15'), color: 'var(--chart-4)', values: col('load15') },
           ]}
           minTop={1}
           format={(v) => fmtDec(v, 2)}
@@ -541,9 +545,12 @@
         />
       </section>
       <section class="card ch">
-        <div class="ch-h"><h3>Disk doluluğu</h3><span class="ch-u">{diskSeries.length > 1 ? 'bölüm başına' : 'en dolu bölüm'}</span></div>
+        <div class="ch-h">
+          <h3>{t('servers.detail.charts.diskUsage')}</h3>
+          <span class="ch-u">{diskSeries.length > 1 ? t('servers.detail.charts.perMount') : t('servers.detail.charts.fullestMount')}</span>
+        </div>
         <LineChart
-          label="Disk doluluğu"
+          label={t('servers.detail.charts.diskUsage')}
           {times}
           from={chartFrom}
           to={chartTo}
@@ -556,14 +563,14 @@
       </section>
       {#if hasTemp}
         <section class="card ch">
-          <div class="ch-h"><h3>Sıcaklık</h3><span class="ch-u">en sıcak sensör</span></div>
+          <div class="ch-h"><h3>{metricLabel('temp')}</h3><span class="ch-u">{t('servers.detail.charts.hottestSensor')}</span></div>
           <LineChart
-            label="Sıcaklık"
+            label={metricLabel('temp')}
             {times}
             from={chartFrom}
             to={chartTo}
             interval={chartInterval}
-            series={[{ label: 'Sıcaklık', color: 'var(--chart-2)', values: col('temp') }]}
+            series={[{ label: metricLabel('temp'), color: 'var(--chart-2)', values: col('temp') }]}
             minTop={50}
             format={fmtTemp}
             axisFormat={(v) => `${v}°`}
@@ -575,20 +582,25 @@
 
   {#if disks.length}
     <section class="card block">
-      <h2 class="card-title">Diskler<span class="dot">.</span></h2>
+      <h2 class="card-title">{t('servers.detail.disks.title')}<span class="dot">.</span></h2>
       <table class="table responsive disks">
         <thead>
-          <tr><th>Bölüm</th><th>Aygıt</th><th class="w-bar">Doluluk</th><th>Boş</th></tr>
+          <tr>
+            <th>{t('servers.detail.disks.mount')}</th>
+            <th>{t('servers.detail.disks.device')}</th>
+            <th class="w-bar">{t('servers.detail.disks.usage')}</th>
+            <th>{t('servers.detail.disks.free')}</th>
+          </tr>
         </thead>
         <tbody>
           {#each disks as d (d.mount)}
             <tr>
-              <td data-label="Bölüm" class="mono strong">{d.mount}</td>
-              <td data-label="Aygıt" class="muted small">{d.device}{d.fs ? ` · ${d.fs}` : ''}</td>
-              <td data-label="Doluluk" class="w-bar">
+              <td data-label={t('servers.detail.disks.mount')} class="mono strong">{d.mount}</td>
+              <td data-label={t('servers.detail.disks.device')} class="muted small">{d.device}{d.fs ? ` · ${d.fs}` : ''}</td>
+              <td data-label={t('servers.detail.disks.usage')} class="w-bar">
                 <UsageBar value={d.total ? (100 * d.used) / d.total : null} detail="{fmtBytes(d.used)} / {fmtBytes(d.total)}" />
               </td>
-              <td data-label="Boş" class="nowrap">{fmtBytes(d.total - d.used)}</td>
+              <td data-label={t('servers.detail.disks.free')} class="nowrap">{fmtBytes(d.total - d.used)}</td>
             </tr>
           {/each}
         </tbody>
@@ -599,14 +611,14 @@
   {#if containers.length || view.container_count}
     <section class="card block">
       <div class="sec-h">
-        <h2 class="card-title">Konteynerler<span class="dot">.</span></h2>
-        <span class="muted small">{containers.length || view.container_count} çalışıyor</span>
+        <h2 class="card-title">{t('servers.detail.containers.title')}<span class="dot">.</span></h2>
+        <span class="muted small">{t('servers.detail.containers.running', { count: containers.length || view.container_count })}</span>
       </div>
       {#if topContainers.length}
         <div class="top5">
-          <div class="ch-h"><h3>En çok CPU kullanan 5 konteyner</h3><span class="ch-u">%</span></div>
+          <div class="ch-h"><h3>{t('servers.detail.containers.top5')}</h3><span class="ch-u">%</span></div>
           <LineChart
-            label="En çok CPU kullanan konteynerler"
+            label={t('servers.detail.containers.top5Label')}
             {times}
             from={chartFrom}
             to={chartTo}
@@ -624,12 +636,12 @@
       {/if}
     </section>
   {:else if host && !host.docker && view.state === 'online'}
-    <p class="help block">Docker bulunamadı veya ajan Docker soketine erişemiyor; konteyner bilgisi toplanmıyor.</p>
+    <p class="help block">{t('servers.detail.containers.noDocker')}</p>
   {/if}
 
   <div class="two">
     <section class="card block">
-      <h2 class="card-title">Uyarı kuralları<span class="dot">.</span></h2>
+      <h2 class="card-title">{t('servers.detail.alertRules')}<span class="dot">.</span></h2>
       {#if detail}
         <AlertRulesEditor
           serverId={id}
@@ -645,12 +657,14 @@
 
     {#if session.canEdit}
       <section class="card block">
-        <h2 class="card-title">Bildirim kanalları<span class="dot">.</span></h2>
-        <p class="help intro">Bu sunucunun uyarıları seçili kanallara gönderilir.</p>
+        <h2 class="card-title">{t('servers.detail.channels.title')}<span class="dot">.</span></h2>
+        <p class="help intro">{t('servers.detail.channels.intro')}</p>
         {#if channels === null}
           <div class="skeleton" style="height:80px"></div>
         {:else if channels.length === 0}
-          <p class="muted small nomargin">Henüz bildirim kanalı yok. <a href="#/notifications">Kanal ekleyin</a></p>
+          <p class="muted small nomargin">
+            {#each tParts('servers.detail.channels.none') as p, i (i)}{#if p.slot === 'link'}<a href="#/notifications">{t('servers.detail.channels.addLink')}</a>{:else}{p.text}{/if}{/each}
+          </p>
         {:else}
           <div class="chs">
             {#each channels as c (c.id)}
@@ -658,16 +672,16 @@
                 <input type="checkbox" checked={selected.includes(c.id)} onchange={(e) => toggleCh(c.id, (e.currentTarget as HTMLInputElement).checked)} />
                 <span>
                   {c.name}
-                  <small>{NOTIFY_LABELS[c.type] ?? c.type}{c.active ? '' : ' · kapalı'}</small>
+                  <small>{NOTIFY_LABELS[c.type] ?? c.type}{c.active ? '' : t('servers.detail.channels.off')}</small>
                 </span>
               </label>
             {/each}
           </div>
           <div class="bar">
-            <a class="small" href="#/notifications">Kanalları yönet</a>
+            <a class="small" href="#/notifications">{t('servers.detail.channels.manage')}</a>
             <div class="spacer"></div>
             <button type="button" class="btn sm primary" onclick={saveChannels} disabled={!chDirty || chSaving}>
-              {#if chSaving}<span class="spinner"></span>{/if} Kaydet
+              {#if chSaving}<span class="spinner"></span>{/if} {t('common.save')}
             </button>
           </div>
         {/if}
@@ -676,9 +690,9 @@
   </div>
 
   <section class="card block">
-    <h2 class="card-title">Uyarı geçmişi<span class="dot">.</span></h2>
+    <h2 class="card-title">{t('servers.detail.events.title')}<span class="dot">.</span></h2>
     {#if events.length === 0}
-      <p class="muted nomargin">Son 90 günde uyarı yok.</p>
+      <p class="muted nomargin">{t('servers.detail.events.none')}</p>
     {:else}
       <ul class="evs">
         {#each events as ev (ev.id)}
@@ -687,17 +701,17 @@
             <span class="e1">
               <b>{metricLabel(ev.metric)}{ev.mount ? ` (${ev.mount})` : ''}</b>
               {#if ev.metric === 'offline'}
-                <span class="text-2">veri gelmedi</span>
+                <span class="text-2">{t('servers.detail.events.noData')}</span>
               {:else}
-                {fmtMetric(ev.metric, ev.value)} <span class="muted">(eşik {fmtMetric(ev.metric, ev.threshold)})</span>
+                {fmtMetric(ev.metric, ev.value)} <span class="muted">{t('servers.detail.events.threshold', { v: fmtMetric(ev.metric, ev.threshold) })}</span>
               {/if}
             </span>
             <span class="e2">
-              <span title="Başladı">{fmtDate(ev.started_at)}</span>
+              <span title={t('servers.detail.events.started')}>{fmtDate(ev.started_at)}</span>
               {#if ev.ended_at}
-                <span class="muted">· {fmtDuration(ev.ended_at - ev.started_at)} sürdü</span>
+                <span class="muted">{t('servers.detail.events.lasted', { d: fmtDuration(ev.ended_at - ev.started_at) })}</span>
               {:else}
-                <span class="c-pending">· Sürüyor, {fmtDuration(now - ev.started_at)}</span>
+                <span class="c-pending">{t('servers.detail.events.ongoing', { d: fmtDuration(now - ev.started_at) })}</span>
               {/if}
             </span>
           </li>

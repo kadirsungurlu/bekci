@@ -1,2 +1,35 @@
-// Sunucu uyarı kuralları: AlertRulesEditor (B grubu). Aşama 2'de doldurulacak.
-export default {};
+// Sunucu uyarı kuralları: AlertRulesEditor (B grubu).
+export default {
+  fullest: 'En dolu bölüm',
+  none: 'Bu sunucu için uyarı kuralı yok.',
+  empty: 'Kural yok: bu sunucu için hiç uyarı gönderilmez.',
+  add: 'Kural ekle',
+  saved: 'Uyarı kuralları kaydedildi',
+  firing: 'Tetiklendi',
+  firingTitle: 'Kural şu an tetiklenmiş durumda',
+  active: 'Etkin',
+  geTitle: 'Değer eşiğe eşit veya üstündeyse',
+  unitNoData: 'dk veri gelmezse',
+  unitAvg: 'dk ortalaması',
+  mountUsage: '{mount} bölümünün doluluğu',
+  /** Kural özeti (salt okunur görünüm). */
+  sentOffline: '{n} dk veri gelmezse',
+  sentOver: '{n} dk ortalaması {v} veya üzerindeyse',
+  aria: {
+    ctx: '{metric} kuralı',
+    metric: '{ctx}: metrik',
+    mount: '{ctx}: disk bölümü',
+    threshold: '{ctx}: eşik, en az ({unit})',
+    minutes: '{ctx}: süre (dakika)',
+    active: '{ctx} etkin',
+    remove: '{metric} kuralını kaldır',
+  },
+  err: {
+    minutes: 'Süre 1-60 dakika olmalı',
+    dupDisk: '{mount} için zaten bir disk kuralı var',
+    dup: 'Bu metrik için zaten bir kural var',
+    pct: 'Eşik %1-100 arasında olmalı',
+    temp: 'Eşik {min}-{max} °C arasında olmalı',
+    range: 'Eşik {min}-{max} arasında olmalı',
+  },
+};

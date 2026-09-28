@@ -10,7 +10,8 @@
   } from '../lib/api';
   import { confirmDialog } from '../lib/ui.svelte';
   import { changedDestinations, destinationPhrase } from '../lib/forms';
-  import { EMAIL_PORTS, NOTIFY_GROUPS, NOTIFY_LABELS, NOTIFY_SCHEMAS, WEBHOOK_EXAMPLE, type Field } from '../lib/notifyTypes';
+  import { EMAIL_PORTS, NOTIFY_GROUPS, NOTIFY_LABELS, NOTIFY_SCHEMAS, webhookExample, type Field } from '../lib/notifyTypes';
+  import { t, tParts } from '../lib/i18n';
   import Modal from './Modal.svelte';
   import Icon from './Icon.svelte';
 
@@ -29,9 +30,9 @@
   // svelte-ignore state_referenced_locally
   const orig = channel;
 
-  function defaults(t: NotificationType): Record<string, string> {
+  function defaults(nt: NotificationType): Record<string, string> {
     const v: Record<string, string> = {};
-    for (const f of NOTIFY_SCHEMAS[t].fields) v[f.key] = f.def !== undefined ? String(f.def) : f.kind === 'bool' ? 'false' : '';
+    for (const f of NOTIFY_SCHEMAS[nt].fields) v[f.key] = f.def !== undefined ? String(f.def) : f.kind === 'bool' ? 'false' : '';
     return v;
   }
 
@@ -60,10 +61,10 @@
 
   const schema = $derived(NOTIFY_SCHEMAS[type]);
 
-  function changeType(t: NotificationType) {
-    type = t;
+  function changeType(nt: NotificationType) {
+    type = nt;
     cleared = [];
-    values = orig && orig.type === t ? fromConfig(orig) : defaults(t);
+    values = orig && orig.type === nt ? fromConfig(orig) : defaults(nt);
     testResult = null;
     error = '';
   }
@@ -95,17 +96,17 @@
   }
 
   function validate(): string {
-    if (!name.trim()) return 'Kanal adı gerekli.';
+    if (!name.trim()) return t('notifications.form.nameRequired');
     for (const f of schema.fields) {
       const v = (values[f.key] ?? '').trim();
-      if (f.required && !v) return `${f.label} gerekli.`;
-      if (v && f.kind === 'url' && !/^https?:\/\/\S+$/i.test(v)) return `${f.label} geçerli bir http(s) adresi olmalı.`;
-      if (v && f.pattern && v !== MASK && !f.pattern.test(v)) return f.patternMsg ?? `${f.label} geçersiz.`;
+      if (f.required && !v) return t('notifyTypes.errors.required', { field: f.label });
+      if (v && f.kind === 'url' && !/^https?:\/\/\S+$/i.test(v)) return t('notifyTypes.errors.url', { field: f.label });
+      if (v && f.pattern && v !== MASK && !f.pattern.test(v)) return f.patternMsg ?? t('notifyTypes.errors.invalid', { field: f.label });
       if (v && f.numeric && f.kind !== 'select') {
         const n = Number(v);
-        if (!Number.isInteger(n)) return `${f.label} bir tam sayı olmalı.`;
+        if (!Number.isInteger(n)) return t('notifyTypes.errors.integer', { field: f.label });
         if ((f.min !== undefined && n < f.min) || (f.max !== undefined && n > f.max))
-          return `${f.label} ${f.min}-${f.max} arasında olmalı.`;
+          return t('notifyTypes.errors.range', { field: f.label, min: f.min ?? '', max: f.max ?? '' });
       }
     }
     return '';
@@ -125,7 +126,7 @@
         type,
         config: buildConfig(),
       });
-      testResult = { ok: true, msg: 'Test bildirimi gönderildi. Kanalınızı kontrol edin.' };
+      testResult = { ok: true, msg: t('notifications.form.testSent') };
     } catch (e) {
       testResult = { ok: false, msg: errorMessage(e) };
     } finally {
@@ -159,9 +160,9 @@
   async function remove() {
     if (!orig) return;
     const ok = await confirmDialog({
-      title: 'Kanalı sil',
-      message: `“${orig.name}” bildirim kanalı silinecek ve bağlı olduğu monitörlerden kaldırılacak.`,
-      confirmText: 'Sil',
+      title: t('notifications.form.deleteTitle'),
+      message: t('notifications.form.deleteMessage', { name: orig.name }),
+      confirmText: t('common.delete'),
       danger: true,
     });
     if (!ok) return;
@@ -199,11 +200,11 @@
   const rebindMsg = $derived.by(() => {
     if (!cleared.length || !destChanged.length) return '';
     const labels = cleared.map((k) => schema.fields.find((f) => f.key === k)?.label ?? k);
-    return `${destinationPhrase(destChanged)} değiştiği için kayıtlı ${labels.join(', ')} güvenlik gereği yeni hedefe taşınmaz; kaydetmeden önce yeniden girin.`;
+    return t('notifications.form.rebind', { dest: destinationPhrase(destChanged), fields: labels.join(', ') });
   });
 </script>
 
-<Modal bind:open title={orig ? 'Bildirim kanalını düzenle' : 'Yeni bildirim kanalı'} width={600}>
+<Modal bind:open title={orig ? t('notifications.form.titleEdit') : t('notifications.form.titleNew')} width={600}>
   <form
     class="stack"
     id="nf"
@@ -215,18 +216,18 @@
   >
     <div class="grid-2">
       <div class="field">
-        <label for="nt">Tip</label>
+        <label for="nt">{t('notifications.form.type')}</label>
         <select id="nt" class="input" value={type} onchange={(e) => changeType(e.currentTarget.value as NotificationType)}>
-          {#each NOTIFY_GROUPS as g (g.label)}
-            <optgroup label={g.label}>
-              {#each g.types as t (t)}<option value={t}>{NOTIFY_LABELS[t]}</option>{/each}
+          {#each NOTIFY_GROUPS as g (g.id)}
+            <optgroup label={t(`notifyTypes.groups.${g.id}`)}>
+              {#each g.types as nt (nt)}<option value={nt}>{NOTIFY_LABELS[nt]}</option>{/each}
             </optgroup>
           {/each}
         </select>
       </div>
       <div class="field">
-        <label for="nn">Ad</label>
-        <input id="nn" class="input" bind:value={name} maxlength="100" placeholder="Ör. {NOTIFY_LABELS[type]} — Ekip" />
+        <label for="nn">{t('common.name')}</label>
+        <input id="nn" class="input" bind:value={name} maxlength="100" placeholder={t('notifications.form.namePlaceholder', { type: NOTIFY_LABELS[type] })} />
       </div>
     </div>
 
@@ -247,7 +248,7 @@
         <div class="field" class:wide={f.wide || f.kind === 'textarea'}>
           <label for="f-{f.key}">
             {f.label}
-            {#if f.optional}<span class="muted">(isteğe bağlı)</span>{/if}
+            {#if f.optional}<span class="muted">{t('notifyTypes.form.optional')}</span>{/if}
           </label>
           {#if f.kind === 'select'}
             {#if f.key === 'security'}
@@ -285,7 +286,7 @@
             />
           {/if}
           {#if isMasked(f)}
-            <span class="help">Kayıtlı değer korunur; değiştirmek için yenisini yazın.</span>
+            <span class="help">{t('notifyTypes.form.keptHelp')}</span>
           {:else if f.help}
             <span class="help">{f.help}</span>
           {/if}
@@ -300,12 +301,11 @@
 
     {#if type === 'webhook'}
       <details class="example">
-        <summary><span class="chev"><Icon name="chevron-right" size={15} /></span> Gönderilen JSON örneği</summary>
+        <summary><span class="chev"><Icon name="chevron-right" size={15} /></span> {t('notifications.form.exampleSummary')}</summary>
         <p class="help">
-          <code>event</code>: <code>down</code>, <code>up</code>, <code>reminder</code>, <code>cert</code> veya <code>test</code>.
-          <code>downtime_seconds</code> düzelme bildiriminde, <code>cert_days</code> SSL uyarısında gelir.
+          {#each tParts('notifications.form.exampleHelp') as p, i (i)}{#if p.slot}<code>{p.slot}</code>{:else}{p.text}{/if}{/each}
         </p>
-        <pre>{WEBHOOK_EXAMPLE}</pre>
+        <pre>{webhookExample()}</pre>
       </details>
     {/if}
 
@@ -313,15 +313,15 @@
 
     <label class="check">
       <input type="checkbox" bind:checked={active} />
-      <span>Etkin<small>Devre dışı kanallara bildirim gönderilmez.</small></span>
+      <span>{t('notifications.form.active')}<small>{t('notifications.form.activeHelp')}</small></span>
     </label>
     <label class="check">
       <input type="checkbox" bind:checked={isDefault} />
-      <span>Yeni monitörlere varsayılan olarak ekle</span>
+      <span>{t('notifications.form.isDefault')}</span>
     </label>
     <label class="check">
       <input type="checkbox" bind:checked={applyExisting} />
-      <span>Mevcut tüm monitörlere ekle<small>Kaydettiğinizde bu kanal şu anki tüm monitörlere bağlanır.</small></span>
+      <span>{t('notifications.form.applyExisting')}<small>{t('notifications.form.applyExistingHelp')}</small></span>
     </label>
 
     {#if testResult}
@@ -334,16 +334,16 @@
 
   {#snippet footer()}
     {#if orig}
-      <button type="button" class="btn danger" onclick={remove}><Icon name="trash" size={15} /> Sil</button>
+      <button type="button" class="btn danger" onclick={remove}><Icon name="trash" size={15} /> {t('common.delete')}</button>
     {/if}
     <button type="button" class="btn" onclick={test} disabled={testing}>
       {#if testing}<span class="spinner"></span>{:else}<Icon name="send" size={15} />{/if}
-      Test gönder
+      {t('notifications.form.test')}
     </button>
     <div class="spacer"></div>
     <button type="submit" form="nf" class="btn primary" disabled={saving}>
       {#if saving}<span class="spinner"></span>{/if}
-      Kaydet
+      {t('common.save')}
     </button>
   {/snippet}
 </Modal>

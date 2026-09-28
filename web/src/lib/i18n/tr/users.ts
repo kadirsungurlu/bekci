@@ -1,2 +1,90 @@
-// Ayarlar › Kullanıcılar (C grubu). Aşama 2'de doldurulacak.
-export default {};
+// Ayarlar › Kullanıcılar (Users.svelte, UserForm.svelte).
+export default {
+  title: 'Kullanıcılar',
+  /** {admin}/{editor}/{viewer}: kalın rol adları. */
+  intro:
+    '{admin} her şeyi yönetir, {editor} monitörleri ve kanalları yönetir, {viewer} yalnızca görüntüler. Müşterilerinize yalnızca kendi monitörlerini gösteren izleyici hesapları açabilirsiniz.',
+  add: 'Kullanıcı ekle',
+  loadFailed: 'Kullanıcılar yüklenemedi',
+  errTempPassword: 'Geçici şifre en az 8 karakter olmalı.',
+  tempPassword: 'Geçici şifre',
+  copyPassword: 'Şifreyi kopyala',
+  list: {
+    user: 'Kullanıcı',
+    displayName: 'Görünen ad',
+    role: 'Rol',
+    status: 'Durum',
+    lastLogin: 'Son giriş',
+    you: '(siz)',
+    scopeTitle: 'Yalnızca seçili monitörleri ve sunucuları görür',
+    monitorCount: '{count} monitör',
+    serverCount: '{count} sunucu',
+    disabled: 'Devre dışı',
+    mustChange: 'Şifre değişimi bekliyor',
+    active: 'Etkin',
+    twoFactorOn: 'İki adımlı doğrulama açık',
+    never: 'Hiç',
+    actionsFor: '{name} için işlemler',
+  },
+  menu: {
+    resetPassword: 'Şifre sıfırla',
+    reset2fa: '2FA’yı sıfırla',
+    enable: 'Etkinleştir',
+    disable: 'Devre dışı bırak',
+  },
+  toast: {
+    created: '“{name}” eklendi. Geçici şifreyi kendisine iletin.',
+    saved: 'Kullanıcı kaydedildi',
+    disabled: 'Hesap devre dışı bırakıldı',
+    enabled: 'Hesap etkinleştirildi',
+    deleted: '“{name}” silindi',
+    reset2fa: 'İki adımlı doğrulama sıfırlandı',
+    passwordSet: 'Geçici şifre ayarlandı. Kullanıcıya iletin.',
+  },
+  confirm: {
+    disableTitle: 'Hesabı devre dışı bırak',
+    disableMessage:
+      '“{name}” giriş yapamayacak ve API anahtarları çalışmayacak. Daha sonra yeniden etkinleştirebilirsiniz.',
+    disableConfirm: 'Devre dışı bırak',
+    deleteTitle: 'Kullanıcıyı sil',
+    deleteMessage:
+      '“{name}” kalıcı olarak silinecek; oturumları ve API anahtarları da kapanır. İşlem kaydındaki geçmişi korunur.',
+    reset2faTitle: 'İki adımlı doğrulamayı sıfırla',
+    reset2faMessage: 'Kullanıcının iki adımlı doğrulaması kapatılacak; bir sonraki girişte sadece şifre istenecek.',
+    reset2faConfirm: '2FA’yı sıfırla',
+  },
+  resetPassword: {
+    title: 'Şifre sıfırla',
+    /** {user}: kalın kullanıcı adı. */
+    intro:
+      '{user} için geçici bir şifre belirlenecek. Kullanıcının açık oturumları kapanır ve bir sonraki girişte kendi şifresini belirlemesi istenir.',
+    random: 'Yeni rastgele şifre',
+    submit: 'Şifreyi sıfırla',
+  },
+  form: {
+    editTitle: 'Kullanıcıyı düzenle',
+    addTitle: 'Kullanıcı ekle',
+    errUsername: 'Kullanıcı adı 3-32 karakter olmalı; harf, rakam, nokta, tire ve alt çizgi kullanılabilir.',
+    errDisplayName: 'Görünen ad en fazla 100 karakter olabilir.',
+    errScope: 'Müşteri erişimi için en az bir monitör veya sunucu seçin.',
+    usernameFixed: 'Kullanıcı adı değiştirilemez.',
+    usernamePlaceholder: 'ör. ayse.yilmaz',
+    usernameHelp: '3-32 karakter: harf, rakam, nokta, tire, alt çizgi.',
+    displayName: 'Görünen ad',
+    optional: '(isteğe bağlı)',
+    displayNamePlaceholder: 'ör. Ayşe Yılmaz',
+    role: 'Rol',
+    ownRole: 'Kendi rolünüzü değiştiremezsiniz.',
+    restricted: 'Müşteri erişimi: yalnızca seçili monitörleri ve sunucuları görsün',
+    restrictedHelp:
+      'Kapalıysa tüm monitörleri ve sunucuları görebilir. Açıksa listede, olaylarda ve canlı akışta yalnızca seçtikleriniz görünür; sunucu seçilmezse Sunucular sekmesi gizlenir.',
+    monitors: 'Görebileceği monitörler',
+    servers: 'Görebileceği sunucular',
+    generate: 'Rastgele oluştur',
+    passwordHelp:
+      'En az 8 karakter. Kullanıcı ilk girişte bu şifreyi değiştirmek zorunda kalır; şifreyi ona güvenli bir yoldan iletin.',
+    disabled: 'Hesap devre dışı',
+    disabledHelp: 'Devre dışı hesap giriş yapamaz ve API anahtarları çalışmaz.',
+    submitAdd: 'Kullanıcıyı ekle',
+  },
+};

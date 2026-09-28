@@ -1,4 +1,91 @@
 import type { Shape } from '../types';
 import type tr from '../tr/users';
 
-export default {} satisfies Shape<typeof tr>;
+export default {
+  title: 'Users',
+  intro:
+    '{admin} manages everything, {editor} manages monitors and channels, {viewer} can only view. You can create viewer accounts that show your customers only their own monitors.',
+  add: 'Add user',
+  loadFailed: "Couldn't load users",
+  errTempPassword: 'Temporary password must be at least 8 characters.',
+  tempPassword: 'Temporary password',
+  copyPassword: 'Copy password',
+  list: {
+    user: 'User',
+    displayName: 'Display name',
+    role: 'Role',
+    status: 'Status',
+    lastLogin: 'Last login',
+    you: '(you)',
+    scopeTitle: 'Sees only selected monitors and servers',
+    monitorCount: '{count} monitor|{count} monitors',
+    serverCount: '{count} server|{count} servers',
+    disabled: 'Disabled',
+    mustChange: 'Password change pending',
+    active: 'Active',
+    twoFactorOn: 'Two-factor authentication on',
+    never: 'Never',
+    actionsFor: 'Actions for {name}',
+  },
+  menu: {
+    resetPassword: 'Reset password',
+    reset2fa: 'Reset 2FA',
+    enable: 'Enable',
+    disable: 'Disable',
+  },
+  toast: {
+    created: '“{name}” added. Share the temporary password with them.',
+    saved: 'User saved',
+    disabled: 'Account disabled',
+    enabled: 'Account enabled',
+    deleted: '“{name}” deleted',
+    reset2fa: 'Two-factor authentication reset',
+    passwordSet: 'Temporary password set. Share it with the user.',
+  },
+  confirm: {
+    disableTitle: 'Disable account',
+    disableMessage:
+      "“{name}” won't be able to sign in and their API keys will stop working. You can re-enable the account later.",
+    disableConfirm: 'Disable',
+    deleteTitle: 'Delete user',
+    deleteMessage:
+      '“{name}” will be permanently deleted; their sessions and API keys are revoked too. Their history in the audit log is kept.',
+    reset2faTitle: 'Reset two-factor authentication',
+    reset2faMessage:
+      "The user's two-factor authentication will be turned off; only a password will be required at next sign-in.",
+    reset2faConfirm: 'Reset 2FA',
+  },
+  resetPassword: {
+    title: 'Reset password',
+    intro:
+      "A temporary password will be set for {user}. The user's open sessions are signed out and they will be asked to choose their own password at next sign-in.",
+    random: 'New random password',
+    submit: 'Reset password',
+  },
+  form: {
+    editTitle: 'Edit user',
+    addTitle: 'Add user',
+    errUsername: 'Username must be 3-32 characters; letters, digits, dots, hyphens and underscores are allowed.',
+    errDisplayName: 'Display name can be at most 100 characters.',
+    errScope: 'Select at least one monitor or server for customer access.',
+    usernameFixed: "Username can't be changed.",
+    usernamePlaceholder: 'e.g. jane.doe',
+    usernameHelp: '3-32 characters: letters, digits, dots, hyphens, underscores.',
+    displayName: 'Display name',
+    optional: '(optional)',
+    displayNamePlaceholder: 'e.g. Jane Doe',
+    role: 'Role',
+    ownRole: "You can't change your own role.",
+    restricted: 'Customer access: show only selected monitors and servers',
+    restrictedHelp:
+      'When off, the user can see all monitors and servers. When on, only your selections appear in lists, incidents and the live feed; if no server is selected, the Servers tab is hidden.',
+    monitors: 'Visible monitors',
+    servers: 'Visible servers',
+    generate: 'Generate',
+    passwordHelp:
+      'At least 8 characters. The user must change this password at first sign-in; share it with them through a secure channel.',
+    disabled: 'Account disabled',
+    disabledHelp: "A disabled account can't sign in and its API keys don't work.",
+    submitAdd: 'Add user',
+  },
+} satisfies Shape<typeof tr>;

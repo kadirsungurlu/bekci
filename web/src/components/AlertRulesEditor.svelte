@@ -5,6 +5,7 @@
   import { api, errorMessage, type AlertRule, type AlertRuleInput, type ServerMetric } from '../lib/api';
   import { METRICS, METRIC_ORDER, UNIT_LABELS, fmtMetric, metricLabel } from '../lib/servers.svelte';
   import { fmtRelative } from '../lib/format';
+  import { intlLocale, t } from '../lib/i18n';
   import { clock, toast } from '../lib/ui.svelte';
   import Icon from './Icon.svelte';
 
@@ -47,7 +48,7 @@
       .sort((a, b) => METRIC_ORDER.indexOf(a.metric) - METRIC_ORDER.indexOf(b.metric) || (a.mount ?? '').localeCompare(b.mount ?? ''));
   // Kural metrik + bölümle tanınır (disk bölüm başına ayrı kural olabilir).
   const ruleKey = (r: { metric: ServerMetric; mount?: string }) => `${r.metric}\u0000${r.mount ?? ''}`;
-  const mountLabel = (m: string) => m || 'En dolu bölüm';
+  const mountLabel = (m: string) => m || t('alerts.fullest');
 
   let rows = $state<Row[]>([]);
   let saving = $state(false);
@@ -102,26 +103,36 @@
     if (m === 'offline') r.threshold = 0;
   }
 
-  function rowError(r: Row): string {
+  // Hatalı alan (kutuyu kırmızı çizmek için) ve mesajı.
+  type RowError = { field: 'minutes' | 'threshold' | 'dup'; msg: string } | null;
+  function rowError(r: Row): RowError {
     const info = METRICS[r.metric];
     const min = Number(r.minutes);
-    if (!Number.isInteger(min) || min < 1 || min > 60) return 'Süre 1-60 dakika olmalı';
+    if (!Number.isInteger(min) || min < 1 || min > 60) return { field: 'minutes', msg: t('alerts.err.minutes') };
     if (rows.some((o) => o !== r && ruleKey(o) === ruleKey(r))) {
-      return r.metric === 'disk' ? `${mountLabel(r.mount)} için zaten bir disk kuralı var` : 'Bu metrik için zaten bir kural var';
+      return {
+        field: 'dup',
+        msg: r.metric === 'disk' ? t('alerts.err.dupDisk', { mount: mountLabel(r.mount) }) : t('alerts.err.dup'),
+      };
     }
-    if (r.metric === 'offline') return '';
-    const t = Number(r.threshold);
-    if (!Number.isFinite(t) || t < info.min || t > info.max) {
-      return info.unit === 'pct'
-        ? 'Eşik %1-100 arasında olmalı'
-        : info.unit === 'temp'
-          ? `Eşik ${info.min}-${info.max} °C arasında olmalı`
-          : `Eşik ${String(info.min).replace('.', ',')}-${info.max} arasında olmalı`;
+    if (r.metric === 'offline') return null;
+    const v = Number(r.threshold);
+    if (!Number.isFinite(v) || v < info.min || v > info.max) {
+      const num = (n: number) => n.toLocaleString(intlLocale());
+      return {
+        field: 'threshold',
+        msg:
+          info.unit === 'pct'
+            ? t('alerts.err.pct')
+            : info.unit === 'temp'
+              ? t('alerts.err.temp', { min: info.min, max: info.max })
+              : t('alerts.err.range', { min: num(info.min), max: num(info.max) }),
+      };
     }
-    return '';
+    return null;
   }
 
-  const invalid = $derived(rows.some((r) => rowError(r) !== ''));
+  const invalid = $derived(rows.some((r) => rowError(r) !== null));
   let showErrors = $state(false);
 
   async function save() {
@@ -142,7 +153,7 @@
       rows = toRows(saved);
       showErrors = false;
       onsaved(saved);
-      toast.success('Uyarı kuralları kaydedildi');
+      toast.success(t('alerts.saved'));
     } catch (e) {
       error = errorMessage(e);
     } finally {
@@ -157,14 +168,14 @@
   }
 
   function sentence(r: { metric: ServerMetric; threshold: number; minutes: number }): string {
-    if (r.metric === 'offline') return `${r.minutes} dk veri gelmezse`;
-    return `${r.minutes} dk ortalaması ${fmtMetric(r.metric, r.threshold)} veya üzerindeyse`;
+    if (r.metric === 'offline') return t('alerts.sentOffline', { n: r.minutes });
+    return t('alerts.sentOver', { n: r.minutes, v: fmtMetric(r.metric, r.threshold) });
   }
 </script>
 
 {#if !canEdit}
   {#if rules.length === 0}
-    <p class="none">Bu sunucu için uyarı kuralı yok.</p>
+    <p class="none">{t('alerts.none')}</p>
   {:else}
     <ul class="ro">
       {#each sortRules(rules) as r (r.id)}
@@ -172,9 +183,9 @@
           <span class="rm">{metricLabel(r.metric)}{#if r.metric === 'disk'}<span class="mnt" class:path={!!r.mount}>{mountLabel(r.mount ?? '')}</span>{/if}</span>
           <span class="rs">{sentence(r)}</span>
           {#if r.firing}
-            <span class="badge pending">Tetiklendi{r.fired_at ? ` · ${fmtRelative(r.fired_at, clock.now)}` : ''}</span>
+            <span class="badge pending">{t('alerts.firing')}{r.fired_at ? ` · ${fmtRelative(r.fired_at, clock.now)}` : ''}</span>
           {:else if !r.active}
-            <span class="badge paused">Kapalı</span>
+            <span class="badge paused">{t('common.off')}</span>
           {/if}
         </li>
       {/each}
@@ -185,13 +196,14 @@
     {#each rows as r (r.key)}
       {@const info = METRICS[r.metric]}
       {@const orig = byKey.get(ruleKey(r))}
-      {@const err = showErrors ? rowError(r) : ''}
-      {@const ctx = `${metricLabel(r.metric)}${r.metric === 'disk' && r.mount ? ` (${mountLabel(r.mount)})` : ''} kuralı`}
+      {@const err = showErrors ? rowError(r) : null}
+      {@const rname = `${metricLabel(r.metric)}${r.metric === 'disk' && r.mount ? ` (${mountLabel(r.mount)})` : ''}`}
+      {@const ctx = t('alerts.aria.ctx', { metric: rname })}
       <div class="rule" class:firing={orig?.firing} class:off={!r.active}>
         <div class="rl">
           <select
             class="input msel"
-            aria-label="{ctx}: metrik"
+            aria-label={t('alerts.aria.metric', { ctx })}
             value={r.metric}
             onchange={(e) => changeMetric(r, (e.currentTarget as HTMLSelectElement).value as ServerMetric)}
           >
@@ -200,7 +212,7 @@
             {/each}
           </select>
           {#if r.metric === 'disk'}
-            <select class="input msel mount" aria-label="{ctx}: disk bölümü" bind:value={r.mount}>
+            <select class="input msel mount" aria-label={t('alerts.aria.mount', { ctx })} bind:value={r.mount}>
               {#each mountOptions as mo (mo)}
                 <option value={mo} disabled={mo !== r.mount && used.has(ruleKey({ metric: 'disk', mount: mo }))}>{mountLabel(mo)}</option>
               {/each}
@@ -208,19 +220,19 @@
           {/if}
 
           {#if r.metric !== 'offline'}
-            <span class="w" title="Değer eşiğe eşit veya üstündeyse" aria-hidden="true">≥</span>
+            <span class="w" title={t('alerts.geTitle')} aria-hidden="true">≥</span>
             <label class="unitbox" class:wide={info.unit === 'load' || info.unit === 'net'}>
               {#if info.unit === 'pct'}<span class="u pre">%</span>{/if}
               <input
                 class="input num"
-                class:invalid={!!err && err.startsWith('Eşik')}
+                class:invalid={err?.field === 'threshold'}
                 type="number"
                 inputmode="decimal"
                 min={info.min}
                 max={info.max}
                 step={info.step}
                 bind:value={r.threshold}
-                aria-label="{ctx}: eşik, en az ({UNIT_LABELS[info.unit]})"
+                aria-label={t('alerts.aria.threshold', { ctx, unit: UNIT_LABELS[info.unit] })}
               />
               {#if info.unit !== 'pct'}<span class="u">{UNIT_LABELS[info.unit]}</span>{/if}
             </label>
@@ -229,53 +241,53 @@
           <label class="unitbox">
               <input
                 class="input num sm"
-                class:invalid={!!err && err.startsWith('Süre')}
+                class:invalid={err?.field === 'minutes'}
                 type="number"
                 inputmode="numeric"
                 min="1"
                 max="60"
                 step="1"
                 bind:value={r.minutes}
-                aria-label="{ctx}: süre (dakika)"
+                aria-label={t('alerts.aria.minutes', { ctx })}
               />
-              <span class="u">{r.metric === 'offline' ? 'dk veri gelmezse' : 'dk ortalaması'}</span>
+              <span class="u">{r.metric === 'offline' ? t('alerts.unitNoData') : t('alerts.unitAvg')}</span>
             </label>
         </div>
         <div class="rr">
           {#if orig?.firing}
-            <span class="badge pending fire" title="Kural şu an tetiklenmiş durumda">
-              <Icon name="alert" size={11} /> Tetiklendi{orig.fired_at ? ` · ${fmtRelative(orig.fired_at, clock.now)}` : ''}
+            <span class="badge pending fire" title={t('alerts.firingTitle')}>
+              <Icon name="alert" size={11} /> {t('alerts.firing')}{orig.fired_at ? ` · ${fmtRelative(orig.fired_at, clock.now)}` : ''}
             </span>
           {/if}
-          <label class="check act"><input type="checkbox" bind:checked={r.active} aria-label="{ctx} etkin" /> Etkin</label>
+          <label class="check act"><input type="checkbox" bind:checked={r.active} aria-label={t('alerts.aria.active', { ctx })} /> {t('alerts.active')}</label>
           <button
             type="button"
             class="btn ghost sm icon"
-            aria-label="{metricLabel(r.metric)}{r.metric === 'disk' ? ` (${mountLabel(r.mount)})` : ''} kuralını kaldır"
+            aria-label={t('alerts.aria.remove', { metric: `${metricLabel(r.metric)}${r.metric === 'disk' ? ` (${mountLabel(r.mount)})` : ''}` })}
             onclick={() => remove(r.key)}
           >
             <Icon name="trash" size={15} />
           </button>
         </div>
-        {#if err}<div class="rerr">{err}</div>{:else}<div class="rdesc">
-            {r.metric === 'disk' && r.mount ? `${r.mount} bölümünün doluluğu` : info.desc}
+        {#if err}<div class="rerr">{err.msg}</div>{:else}<div class="rdesc">
+            {r.metric === 'disk' && r.mount ? t('alerts.mountUsage', { mount: r.mount }) : info.desc}
           </div>{/if}
       </div>
     {:else}
-      <p class="none">Kural yok: bu sunucu için hiç uyarı gönderilmez.</p>
+      <p class="none">{t('alerts.empty')}</p>
     {/each}
   </div>
 
   {#if error}<div class="alert error saveerr" role="alert">{error}</div>{/if}
 
   <div class="bar">
-    <button type="button" class="btn sm" onclick={add} disabled={free.length === 0}><Icon name="plus" size={14} /> Kural ekle</button>
+    <button type="button" class="btn sm" onclick={add} disabled={free.length === 0}><Icon name="plus" size={14} /> {t('alerts.add')}</button>
     <div class="spacer"></div>
     {#if dirty}
-      <button type="button" class="btn sm ghost" onclick={reset} disabled={saving}>Vazgeç</button>
+      <button type="button" class="btn sm ghost" onclick={reset} disabled={saving}>{t('common.cancel')}</button>
     {/if}
     <button type="button" class="btn sm primary" onclick={save} disabled={!dirty || saving}>
-      {#if saving}<span class="spinner"></span>{/if} Kaydet
+      {#if saving}<span class="spinner"></span>{/if} {t('common.save')}
     </button>
   </div>
 {/if}

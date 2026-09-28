@@ -1,2 +1,42 @@
-// API anahtarları (C grubu). Aşama 2'de doldurulacak.
-export default {};
+// Ayarlar › Hesabım › API anahtarları (ApiKeys.svelte).
+export default {
+  title: 'API anahtarları',
+  intro: 'Betiklerinizden ve Prometheus gibi araçlardan API’ye erişmek için. Örnek:',
+  newKey: 'Yeni anahtar',
+  showAll: 'Tüm kullanıcıların anahtarları',
+  empty: 'Henüz API anahtarı yok.',
+  col: {
+    owner: 'Sahibi',
+    scope: 'Yetki',
+    prefix: 'Önek',
+    lastUsed: 'Son kullanıldı',
+    expires: 'Son kullanım tarihi',
+    status: 'Durum',
+    action: 'İşlem',
+  },
+  status: {
+    active: 'Etkin',
+    expired: 'Süresi doldu',
+    revoked: 'İptal edildi',
+  },
+  never: 'Hiç',
+  noExpiry: 'Süresiz',
+  revoke: 'İptal et',
+  revokeTitle: 'Anahtarı iptal et',
+  revokeMessage: '“{name}” — Bu anahtar iptal edilsin mi? Onu kullanan betikler çalışmayı durdurur.',
+  revoked: 'Anahtar iptal edildi',
+  form: {
+    title: 'Yeni API anahtarı',
+    readyTitle: 'Anahtarınız hazır',
+    errName: 'Anahtara bir ad verin (ör. “Grafana” veya “yedek betiği”).',
+    errExpires: 'Son kullanım tarihi gelecekte olmalı.',
+    namePlaceholder: 'Ör. Grafana, yedek betiği',
+    optional: '(isteğe bağlı)',
+    /** {viewer}: İzleyici rolünün adı. */
+    help: 'Anahtar, sizin rolünüzü aşamaz; rolünüz düşerse anahtarın yetkisi de düşer. Son kullanım tarihi boş bırakılırsa süresiz. Yalnızca izleme ve Prometheus için “{viewer}” yeterlidir.',
+    shownOnce: 'Bu anahtar bir daha gösterilmeyecek; şimdi kopyalayıp güvenli bir yerde saklayın.',
+    yourKey: 'Anahtarınız:',
+    example: 'Kullanım örneği',
+    copiedClose: 'Kopyaladım, kapat',
+  },
+};

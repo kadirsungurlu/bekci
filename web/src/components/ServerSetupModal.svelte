@@ -8,6 +8,7 @@
   import { api, errorMessage, type ProbeSetup, type ServerView } from '../lib/api';
   import { navigate } from '../lib/router.svelte';
   import { servers } from '../lib/servers.svelte';
+  import { t, tParts, type TKey } from '../lib/i18n';
   import Modal from './Modal.svelte';
   import Icon from './Icon.svelte';
   import CopyButton from './CopyButton.svelte';
@@ -45,7 +46,7 @@
     e.preventDefault();
     error = '';
     const n = name.trim();
-    if (!n) return (error = 'Sunucuya bir ad verin (ör. CP Server İstanbul).');
+    if (!n) return (error = t('servers.setup.errName'));
     busy = true;
     try {
       base = { metrics: 0, seen: 0 };
@@ -118,23 +119,28 @@
   }
 
   const title = $derived(
-    setup ? `“${setup.probe.name}” için kurulum` : renew ? 'Kurulum komutu' : 'Sunucu ekle',
+    setup ? t('servers.setup.titleFor', { name: setup.probe.name }) : renew ? t('servers.setup.command') : t('servers.setup.titleAdd'),
   );
 </script>
+
+<!-- Biçimli cümle: {ad} yer tutucuları code'da ise <code>, bold'da ise <b> olarak çizilir. -->
+{#snippet rich(key: TKey, code: Record<string, string>, bold: Record<string, string>)}
+  {#each tParts(key) as p, i (i)}{#if p.slot !== undefined && p.slot in code}<code>{code[p.slot]}</code>{:else if p.slot !== undefined && p.slot in bold}<b>{bold[p.slot]}</b>{:else}{p.text}{/if}{/each}
+{/snippet}
 
 <Modal bind:open {title} width={640}>
   {#if setup}
     <div class="stack">
       <div class="alert warning warn-row">
         <Icon name="key" size={16} />
-        <span>Komuttaki token yalnızca şimdi gösterilir. Kaybederseniz sunucu sayfasından yeni komut alabilirsiniz (eski token geçersiz olur).</span>
+        <span>{t('servers.setup.tokenOnce')}</span>
       </div>
 
       {#if systemdCmd || windowsCmd}
-        <div class="seg" role="tablist" aria-label="Kurulum yöntemi">
+        <div class="seg" role="tablist" aria-label={t('servers.setup.method')}>
           <button type="button" role="tab" aria-selected={tab === 'docker'} class:active={tab === 'docker'} onclick={() => (tab = 'docker')}>Docker</button>
           {#if systemdCmd}
-            <button type="button" role="tab" aria-selected={tab === 'systemd'} class:active={tab === 'systemd'} onclick={() => (tab = 'systemd')}>Doğrudan (systemd)</button>
+            <button type="button" role="tab" aria-selected={tab === 'systemd'} class:active={tab === 'systemd'} onclick={() => (tab = 'systemd')}>{t('servers.setup.systemd')}</button>
           {/if}
           {#if windowsCmd}
             <button type="button" role="tab" aria-selected={tab === 'windows'} class:active={tab === 'windows'} onclick={() => (tab = 'windows')}>Windows</button>
@@ -146,93 +152,99 @@
         <div class="cmdbar">
           <p class="lead">
             {#if tab === 'docker'}
-              İzlemek istediğiniz sunucuda çalıştırın.
+              {t('servers.setup.leadDocker')}
             {:else if tab === 'windows'}
-              Windows Server’da <b>PowerShell’i “Yönetici olarak çalıştır”</b> ile açıp yapıştırın.
+              {@render rich('servers.setup.leadWindows', {}, { b: t('servers.setup.leadWindowsB') })}
             {:else}
-              Docker kullanmayan sunucular için.
+              {t('servers.setup.leadSystemd')}
             {/if}
           </p>
           <CopyButton text={cmd} class="btn sm primary" />
         </div>
         <!-- Çok satırlı komut: satır sonları korunur, uzun satırlar yatay kayar; klavyeyle kaydırılabilsin diye odaklanabilir. -->
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-        <pre tabindex="0" aria-label="Kurulum komutu">{cmd}</pre>
+        <pre tabindex="0" aria-label={t('servers.setup.command')}>{cmd}</pre>
       </div>
       {#if tab !== 'windows'}
         <p class="help nomargin">
-          Komutun tamamını <b>root</b> olarak yapıştırın (ya da ilk satırı <code>sudo sh &lt;&lt;'UPTIME_KURULUM'</code> yapın).
+          {@render rich('servers.setup.rootHint', { sudo: "sudo sh <<'UPTIME_KURULUM'" }, { root: 'root' })}
         </p>
       {/if}
 
       {#if tab === 'docker'}
         <details class="explain">
-          <summary>Bu komut ne yapar?</summary>
+          <summary>{t('servers.setup.explain')}</summary>
           <ul>
-            <li><code>--network host</code>, <code>--pid host</code>: ağ trafiği ve yük konteynerin değil, sunucunun kendisinden ölçülür.</li>
-            <li><code>-v /:/host:ro,rslave</code>: sunucunun diskleri ve <code>/proc</code>, <code>/sys</code> bilgileri <b>salt okunur</b> bağlanır; hiçbir şey yazılmaz. Sonradan takılan diskler de görünür.</li>
-            <li><code>docker.sock:ro</code>: konteyner listesi ve CPU/RAM kullanımları Docker’dan okunur. Docker yoksa bu kısmı silebilirsiniz.</li>
-            <li><code>--cap-drop ALL</code>, <code>--security-opt no-new-privileges</code>, <code>--memory</code>: konteynerin yetkileri ve kaynakları kısıtlanır.</li>
-            <li>Token bu sunucuya özel anahtardır; komut onu <code>/etc/uptime-agent.env</code> dosyasına yalnızca root’un okuyabileceği (600) izinle yazar. Kimseyle paylaşmayın.</li>
-            <li>Program bir kez indirilip SHA-256 ile doğrulanır ve <code>uptime-agent-bin</code> biriminde saklanır; <b>yeniden başlatmada tekrar indirilmez</b> (sürüm sabit). Güncellemek için: <code>docker rm -f uptime-agent; docker volume rm uptime-agent-bin</code>, sonra komutu tekrar çalıştırın.</li>
+            <li>{@render rich('servers.setup.docker.host', { a: '--network host', b: '--pid host' }, {})}</li>
+            <li>
+              {@render rich(
+                'servers.setup.docker.mount',
+                { a: '-v /:/host:ro,rslave', proc: '/proc', sys: '/sys' },
+                { ro: t('servers.setup.docker.readOnly') },
+              )}
+            </li>
+            <li>{@render rich('servers.setup.docker.sock', { a: 'docker.sock:ro' }, {})}</li>
+            <li>{@render rich('servers.setup.docker.caps', { a: '--cap-drop ALL', b: '--security-opt no-new-privileges', c: '--memory' }, {})}</li>
+            <li>{@render rich('servers.setup.docker.token', { file: '/etc/uptime-agent.env' }, {})}</li>
+            <li>
+              {@render rich(
+                'servers.setup.docker.bin',
+                { vol: 'uptime-agent-bin', cmd: 'docker rm -f uptime-agent; docker volume rm uptime-agent-bin' },
+                { b: t('servers.setup.docker.binB') },
+              )}
+            </li>
           </ul>
         </details>
       {:else if tab === 'windows'}
         <details class="explain">
-          <summary>Bu komut ne yapar?</summary>
+          <summary>{t('servers.setup.explain')}</summary>
           <ul>
-            <li>Programı bu panelden indirip <code>C:\Program Files\Uptime\uptime.exe</code> olarak kaydeder.</li>
-            <li><code>uptime-agent</code> adında bir Windows hizmeti kurar ve başlatır; sunucu yeniden başlasa da çalışır, hata olursa kendini yeniden başlatır.</li>
-            <li>İndirilen program, kurulumdan önce SHA-256 ile doğrulanır (uyuşmazsa kurulum durur).</li>
-            <li>Token, yalnızca yöneticilerin okuyabildiği <code>C:\Program Files\Uptime\agent.env</code> dosyasına yazılır; günlük aynı klasörde (<code>agent.log</code>).</li>
-            <li>Güncellemek için aynı komutu tekrar çalıştırın. Kaldırmak için: <code>&amp; 'C:\Program Files\Uptime\uptime.exe' service uninstall</code></li>
-            <li>Komut token içerir: PowerShell geçmişine yazılmaması için PSReadLine 2.2 veya üstü önerilir (eskilerde geçmiş dosyası kullanıcı klasöründe kalır).</li>
-            <li>Windows’ta yük ortalaması yoktur; yük, işlemci kuyruğu uzunluğundan hesaplanan yaklaşık bir değerdir. Sıcaklık ve Docker konteynerleri toplanmaz.</li>
+            <li>{@render rich('servers.setup.windows.download', { path: 'C:\\Program Files\\Uptime\\uptime.exe' }, {})}</li>
+            <li>{@render rich('servers.setup.windows.service', { svc: 'uptime-agent' }, {})}</li>
+            <li>{t('servers.setup.windows.verify')}</li>
+            <li>{@render rich('servers.setup.windows.token', { env: 'C:\\Program Files\\Uptime\\agent.env', log: 'agent.log' }, {})}</li>
+            <li>{@render rich('servers.setup.updateUninstall', { cmd: "& 'C:\\Program Files\\Uptime\\uptime.exe' service uninstall" }, {})}</li>
+            <li>{t('servers.setup.windows.history')}</li>
+            <li>{t('servers.setup.windows.load')}</li>
           </ul>
         </details>
       {:else}
         <details class="explain">
-          <summary>Bu komut ne yapar?</summary>
+          <summary>{t('servers.setup.explain')}</summary>
           <ul>
-            <li>Programı bu panelden indirir, SHA-256 ile doğrular ve <code>/usr/local/bin/uptime</code> olarak kaydeder; hizmet yeniden başlarken tekrar indirmez.</li>
-            <li><code>uptime-agent</code> adında bir systemd hizmeti oluşturur ve başlatır; sunucu yeniden başlasa da çalışır. Yetki yükseltme kapalı, bellek sınırlı.</li>
-            <li>Token <code>/etc/uptime-agent.env</code> dosyasında yalnızca root’un okuyabileceği (600) izinle tutulur.</li>
-            <li>Güncellemek için aynı komutu tekrar çalıştırın. Kaldırmak için: <code>systemctl disable --now uptime-agent</code></li>
+            <li>{@render rich('servers.setup.systemdInfo.download', { path: '/usr/local/bin/uptime' }, {})}</li>
+            <li>{@render rich('servers.setup.systemdInfo.service', { svc: 'uptime-agent' }, {})}</li>
+            <li>{@render rich('servers.setup.systemdInfo.token', { file: '/etc/uptime-agent.env' }, {})}</li>
+            <li>{@render rich('servers.setup.updateUninstall', { cmd: 'systemctl disable --now uptime-agent' }, {})}</li>
           </ul>
         </details>
       {/if}
 
       <div class="conn {conn}" role="status" aria-live="polite">
         {#if conn === 'ok'}
-          <span><b>Bağlandı ✓</b> İlk ölçümler geldi; sunucu listede görünüyor.</span>
+          <span><b>{t('servers.setup.conn.okTitle')}</b> {t('servers.setup.conn.okText')}</span>
         {:else if conn === 'unavailable'}
           <span class="cic"><Icon name="alert" size={16} /></span>
-          <span><b>Ajan bağlandı ama metrik okuyamıyor.</b> {current?.note || 'Komutu eksiksiz (host bağlamalarıyla) çalıştırdığınızdan emin olun.'}</span>
+          <span><b>{t('servers.setup.conn.unavailableTitle')}</b> {current?.note || t('servers.setup.conn.unavailableHint')}</span>
         {:else}
           <span class="spinner"></span>
-          <span><b>Bağlantı bekleniyor…</b> Komutu çalıştırdıktan sonra bir iki dakika içinde ilk ölçümler gelir.</span>
+          <span><b>{t('servers.setup.conn.waitTitle')}</b> {t('servers.setup.conn.waitText')}</span>
         {/if}
       </div>
     </div>
   {:else if renew}
     <div class="stack">
-      <p class="nomargin">
-        Güvenlik nedeniyle token yalnızca oluşturulduğunda gösterilir. Güncel kurulum komutunu almak için <b>{renew.name}</b> ajanının
-        token’ı yenilenir.
-      </p>
-      <div class="alert warning">Eski token hemen geçersiz olur: ajanı sunucuda yeni komutla yeniden başlatmanız gerekir.</div>
+      <p class="nomargin">{@render rich('servers.setup.renewText', {}, { name: renew.name })}</p>
+      <div class="alert warning">{t('servers.setup.renewWarn')}</div>
       {#if error}<div class="alert error" role="alert">{error}</div>{/if}
     </div>
   {:else}
     <form id="srv-add" class="stack" onsubmit={create} novalidate>
-      <p class="help nomargin intro">
-        Linux veya Windows sunucunuza küçük bir ajan kurarsınız; CPU, RAM, disk, ağ ve Docker konteynerlerini dakikada bir buraya gönderir. Eşik aşılınca
-        monitörlerle aynı kanallardan bildirim alırsınız.
-      </p>
+      <p class="help nomargin intro">{t('servers.setup.intro')}</p>
       <div class="field">
-        <label for="srv-name">Sunucu adı</label>
-        <input id="srv-name" class="input" maxlength="100" bind:value={name} placeholder="ör. CP Server İstanbul" />
-        <span class="help">Listede ve bildirimlerde görünür.</span>
+        <label for="srv-name">{t('servers.setup.nameLabel')}</label>
+        <input id="srv-name" class="input" maxlength="100" bind:value={name} placeholder={t('servers.setup.namePlaceholder')} />
+        <span class="help">{t('servers.setup.nameHelp')}</span>
       </div>
       {#if error}<div class="alert error" role="alert">{error}</div>{/if}
     </form>
@@ -241,17 +253,17 @@
   {#snippet footer()}
     <div class="spacer"></div>
     {#if setup}
-      <button type="button" class="btn" onclick={() => (open = false)}>Kapat</button>
-      <button type="button" class="btn primary" onclick={goto}>Sunucuya git <Icon name="arrow-right" size={15} /></button>
+      <button type="button" class="btn" onclick={() => (open = false)}>{t('common.close')}</button>
+      <button type="button" class="btn primary" onclick={goto}>{t('servers.setup.goto')} <Icon name="arrow-right" size={15} /></button>
     {:else if renew}
-      <button type="button" class="btn" onclick={() => (open = false)}>Vazgeç</button>
+      <button type="button" class="btn" onclick={() => (open = false)}>{t('common.cancel')}</button>
       <button type="button" class="btn primary" onclick={doRenew} disabled={busy}>
-        {#if busy}<span class="spinner"></span>{/if} Token’ı yenile ve komutu göster
+        {#if busy}<span class="spinner"></span>{/if} {t('servers.setup.renewBtn')}
       </button>
     {:else}
-      <button type="button" class="btn" onclick={() => (open = false)}>Vazgeç</button>
+      <button type="button" class="btn" onclick={() => (open = false)}>{t('common.cancel')}</button>
       <button type="submit" form="srv-add" class="btn primary" disabled={busy}>
-        {#if busy}<span class="spinner"></span>{/if} Oluştur
+        {#if busy}<span class="spinner"></span>{/if} {t('common.create')}
       </button>
     {/if}
   {/snippet}

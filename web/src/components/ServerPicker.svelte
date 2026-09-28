@@ -1,14 +1,17 @@
 <script lang="ts">
   // Çoklu sunucu seçici (müşteri erişimi: kullanıcının görebileceği sunucular).
   import { onMount } from 'svelte';
-  import { servers, serverTone } from '../lib/servers.svelte';
+  import { hostLine, servers, serverTone } from '../lib/servers.svelte';
   import { collator } from '../lib/format';
+  import { t } from '../lib/i18n';
 
   let {
     selected = $bindable([]),
-    label = 'Sunucular',
+    label,
     id = 'sp',
   }: { selected?: number[]; label?: string; id?: string } = $props();
+
+  const lbl = $derived(label ?? t('servers.list.title'));
 
   onMount(() => servers.ensure());
 
@@ -24,21 +27,22 @@
 
 <div class="picker">
   <div class="top">
-    <span class="lbl" id="{id}-l">{label}</span>
-    <span class="muted small" aria-live="polite">{count} / {all.length} seçili</span>
+    <span class="lbl" id="{id}-l">{lbl}</span>
+    <span class="muted small" aria-live="polite">{t('servers.picker.selected', { n: count, total: all.length })}</span>
   </div>
   <div class="list" role="group" aria-labelledby="{id}-l">
     {#each all as s (s.id)}
+      {@const hl = hostLine(s)}
       <label class="check item">
         <input type="checkbox" checked={set.has(s.id)} onchange={(e) => toggle(s.id, e.currentTarget.checked)} />
         <span class="dot {serverTone(s)}" aria-hidden="true"></span>
         <span class="nm">
           <span class="t">{s.name}</span>
-          <small>{[s.host?.hostname, s.host?.platform].filter(Boolean).join(' · ') || 'Henüz veri yok'}</small>
+          <small title={hl.full !== hl.short ? hl.full : undefined}>{hl.short || t('servers.picker.noData')}</small>
         </span>
       </label>
     {:else}
-      <div class="none muted small">{servers.loaded ? 'Henüz sunucu eklenmemiş.' : 'Yükleniyor…'}</div>
+      <div class="none muted small">{servers.loaded ? t('servers.picker.none') : t('common.loading')}</div>
     {/each}
   </div>
 </div>

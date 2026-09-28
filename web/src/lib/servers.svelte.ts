@@ -3,6 +3,7 @@
 
 import { api, errorMessage, type ServerMetric, type ServerState, type ServerStats, type ServerView, type StatsPoint } from './api';
 import { collator, fmtDec, fmtPctInt, fmtTemp } from './format';
+import { t } from './i18n';
 import { live } from './live.svelte';
 import { session } from './session.svelte';
 
@@ -23,22 +24,53 @@ export interface MetricInfo {
   step: number;
 }
 
+// Etiket ve açıklama getter'dır: dil değişince yeniden çevrilir.
+function metric(m: ServerMetric, unit: MetricUnit, threshold: number, minutes: number, min: number, max: number, step: number): MetricInfo {
+  return {
+    get label() {
+      return t(`servers.metrics.${m}.label`);
+    },
+    get desc() {
+      return t(`servers.metrics.${m}.desc`);
+    },
+    unit,
+    threshold,
+    minutes,
+    min,
+    max,
+    step,
+  };
+}
+
 export const METRICS: Record<ServerMetric, MetricInfo> = {
-  cpu: { label: 'CPU', unit: 'pct', desc: 'Tüm çekirdeklerin ortalama kullanımı', threshold: 90, minutes: 10, min: 1, max: 100, step: 1 },
-  mem: { label: 'RAM', unit: 'pct', desc: 'Önbellek hariç kullanılan bellek', threshold: 90, minutes: 10, min: 1, max: 100, step: 1 },
-  swap: { label: 'Swap', unit: 'pct', desc: 'Takas alanı kullanımı', threshold: 50, minutes: 10, min: 1, max: 100, step: 1 },
-  disk: { label: 'Disk', unit: 'pct', desc: 'Seçilen bölümün ya da en dolu bölümün doluluğu', threshold: 85, minutes: 5, min: 1, max: 100, step: 1 },
-  load: { label: 'Yük', unit: 'load', desc: '1 dakikalık yük ÷ çekirdek sayısı', threshold: 1.5, minutes: 10, min: 0.1, max: 100, step: 0.1 },
-  temp: { label: 'Sıcaklık', unit: 'temp', desc: 'En sıcak sensör', threshold: 80, minutes: 5, min: 1, max: 150, step: 1 },
-  net: { label: 'Ağ', unit: 'net', desc: 'Gelen + giden ağ hızı (ortalama)', threshold: 100, minutes: 10, min: 0.1, max: 1000000, step: 10 },
-  offline: { label: 'Çevrimdışı', unit: 'none', desc: 'Ajandan bu süre boyunca veri gelmezse', threshold: 0, minutes: 3, min: 0, max: 0, step: 1 },
+  cpu: metric('cpu', 'pct', 90, 10, 1, 100, 1),
+  mem: metric('mem', 'pct', 90, 10, 1, 100, 1),
+  swap: metric('swap', 'pct', 50, 10, 1, 100, 1),
+  disk: metric('disk', 'pct', 85, 5, 1, 100, 1),
+  load: metric('load', 'load', 1.5, 10, 0.1, 100, 0.1),
+  temp: metric('temp', 'temp', 80, 5, 1, 150, 1),
+  net: metric('net', 'net', 100, 10, 0.1, 1000000, 10),
+  offline: metric('offline', 'none', 0, 3, 0, 0, 1),
 };
 
 export const METRIC_ORDER: ServerMetric[] = ['offline', 'cpu', 'mem', 'disk', 'swap', 'load', 'temp', 'net'];
 
 export const metricLabel = (m: ServerMetric) => METRICS[m]?.label ?? m;
 
-export const UNIT_LABELS: Record<MetricUnit, string> = { pct: '%', load: 'çekirdek başına', temp: '°C', net: 'Mbit/sn', none: '' };
+export const UNIT_LABELS: Record<MetricUnit, string> = {
+  pct: '%',
+  get load() {
+    return t('servers.units.load');
+  },
+  temp: '°C',
+  get net() {
+    return t('servers.units.net');
+  },
+  none: '',
+};
+
+/** Tek ondalıklı yüzde: tr "%42,5", en "42.5%". */
+export const fmtPct1 = (v: number) => t('servers.pct', { v: fmtDec(v, 1) });
 
 /** Eşik veya ölçülen değeri metriğin birimiyle yazar: "%90", "1,50 / çekirdek", "80 °C". */
 export function fmtMetric(m: ServerMetric, v: number): string {
@@ -46,11 +78,11 @@ export function fmtMetric(m: ServerMetric, v: number): string {
     case 'pct':
       return fmtPctInt(v);
     case 'load':
-      return `${fmtDec(v, 2)} / çekirdek`;
+      return t('servers.fmt.load', { v: fmtDec(v, 2) });
     case 'temp':
       return fmtTemp(v);
     case 'net':
-      return v >= 1000 ? `${fmtDec(v / 1000, 2)} Gbit/sn` : `${Math.round(v)} Mbit/sn`;
+      return v >= 1000 ? t('servers.fmt.gbit', { v: fmtDec(v / 1000, 2) }) : t('servers.fmt.mbit', { v: Math.round(v) });
     default:
       return '';
   }
@@ -61,11 +93,21 @@ export function fmtMetric(m: ServerMetric, v: number): string {
 export type ServerTone = 'up' | 'down' | 'warn' | 'muted';
 
 export const STATE_LABELS: Record<ServerState, string> = {
-  online: 'Çevrimiçi',
-  offline: 'Çevrimdışı',
-  unavailable: 'Metrik yok',
-  waiting: 'Bağlantı bekleniyor',
-  disabled: 'Devre dışı',
+  get online() {
+    return t('servers.states.online');
+  },
+  get offline() {
+    return t('servers.states.offline');
+  },
+  get unavailable() {
+    return t('servers.states.unavailable');
+  },
+  get waiting() {
+    return t('servers.states.waiting');
+  },
+  get disabled() {
+    return t('servers.states.disabled');
+  },
 };
 
 /** Durum noktasının rengi: tetiklenmiş uyarı çevrimiçi sunucuyu turuncuya çevirir. */
@@ -82,13 +124,11 @@ export const isInactive = (s: ServerView) => s.state === 'unavailable' || s.stat
 export function inactiveReason(s: ServerView): string {
   switch (s.state) {
     case 'unavailable':
-      return s.note ? `Ajan metrik toplayamıyor: ${s.note}` : 'Ajan host metriklerini okuyamıyor; kurulum komutunu güncelleyin.';
+      return s.note ? t('servers.inactive.unavailableNote', { note: s.note }) : t('servers.inactive.unavailable');
     case 'waiting':
-      return s.last_seen_at
-        ? 'Ajan bağlı ama metrik göndermiyor (eski kurulum). Kurulum komutunu güncelleyin.'
-        : 'Ajan henüz bağlanmadı. Kurulum komutunu sunucuda çalıştırın.';
+      return s.last_seen_at ? t('servers.inactive.waitingSeen') : t('servers.inactive.waitingNever');
     case 'disabled':
-      return !s.active ? 'Ajan devre dışı bırakıldı.' : 'Bu ajanda metrik toplama kapalı.';
+      return !s.active ? t('servers.inactive.agentDisabled') : t('servers.inactive.metricsOff');
     default:
       return '';
   }
@@ -126,15 +166,43 @@ export function diskPct(s: ServerStats): number | null {
   return Math.max(...s.disks.map((d) => pct(d.used, d.total)));
 }
 
-/** Birden fazla bölüm varsa en dolu bölümün adı (tek bölümde boş). */
+/**
+ * Gösterilen (en dolu) bölümün adı: "/", "C:", "/home". Tek bölümde de döner ki
+ * listede her sunucunun disk çubuğunun altında hangi bölüm olduğu tutarlı görünsün.
+ */
 export function fullestMount(s: ServerStats): string {
-  if (!s.disks || s.disks.length < 2) return '';
+  if (!s.disks?.length) return '';
   return s.disks.reduce((a, b) => (pct(b.used, b.total) > pct(a.used, a.total) ? b : a)).mount;
 }
 
-/** Tüm bölümlerin kısa dökümü: "/ %60 · /home %82". */
+/** Tüm bölümlerin kısa dökümü: "/ %60 · /home %82" (en: "/ 60% · /home 82%"). */
 export function diskSummary(s: ServerStats): string {
-  return (s.disks ?? []).map((d) => `${d.mount} %${Math.round(pct(d.used, d.total))}`).join(' · ');
+  return (s.disks ?? []).map((d) => `${d.mount} ${fmtPctInt(pct(d.used, d.total))}`).join(' · ');
+}
+
+/**
+ * İşletim sistemi adının listeye sığan kısa hâli. Windows'ta ürün adı uzundur
+ * ("Microsoft Windows Server 2022 Datacenter 21H2" → "Windows Server 2022",
+ * "Microsoft Windows 11 Pro 23H2" → "Windows 11"); diğerleri olduğu gibi kalır.
+ * Tam ad title olarak gösterilir.
+ */
+export function shortPlatform(p: string | null | undefined): string {
+  const s = (p ?? '').trim();
+  const m = /^(?:Microsoft\s+)?(Windows(?:\s+Server)?\s+\d+(?:\s+R2)?)\b/i.exec(s);
+  return m ? m[1].replace(/\s+/g, ' ') : s;
+}
+
+/**
+ * Sunucunun alt satırı "host adı · işletim sistemi": listeye sığan kısa ve tam
+ * (title) hâli. Host adı sunucu adıyla aynıysa (ör. "WIN-DC01") kısa hâlde tekrarlanmaz.
+ */
+export function hostLine(s: Pick<ServerView, 'host' | 'name'>): { short: string; full: string } {
+  const h = s.host;
+  const host = h?.hostname && h.hostname.toLowerCase() !== s.name.trim().toLowerCase() ? h.hostname : '';
+  return {
+    short: [host, shortPlatform(h?.platform)].filter(Boolean).join(' · '),
+    full: [h?.hostname, h?.platform].filter(Boolean).join(' · '),
+  };
 }
 
 /** Doluluk seviyesi: ≥90 kritik, ≥80 uyarı. */
