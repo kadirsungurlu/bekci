@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bekci — Kendi sunucunuzda uptime ve sunucu izleme</title>
+<meta name="description" content="Web siteleri, servisler ve sunucular için tek Docker imajlık, hafif ve Türkçe izleme sistemi. Uptime kontrolleri, sunucu metrikleri, durum sayfaları ve 24 bildirim kanalı; ~15 MB RAM.">
+<link rel="canonical" href="https://bekci.app/">
+<link rel="alternate" hreflang="tr" href="https://bekci.app/">
+<link rel="alternate" hreflang="en" href="https://bekci.app/en/">
+<link rel="alternate" hreflang="x-default" href="https://bekci.app/">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b111b">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg?v=dev" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=dev">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Bekci">
+<meta property="og:locale" content="tr_TR">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:url" content="https://bekci.app/">
+<meta property="og:title" content="Bekci — Siteleriniz ve sunucularınız için tek nöbetçi">
+<meta property="og:description" content="Uptime kontrolleri, sunucu metrikleri, durum sayfaları ve bildirimler; kendi sunucunuzda, tek Docker imajıyla.">
+<meta property="og:image" content="https://bekci.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Bekci logosu, “Siteleriniz ve sunucularınız için tek nöbetçi” yazısı ve monitör listesi ekranı">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Bekci — Siteleriniz ve sunucularınız için tek nöbetçi">
+<meta name="twitter:description" content="Uptime kontrolleri, sunucu metrikleri, durum sayfaları ve bildirimler; kendi sunucunuzda, tek Docker imajıyla.">
+<meta name="twitter:image" content="https://bekci.app/og.png">
+<link rel="preload" href="/assets/fonts/inter-4.1.1-bekci.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=dev">
+<script src="/assets/site.js?v=dev"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Bekci",
+  "url": "https://bekci.app/",
+  "description": "Web siteleri, servisler ve sunucular için tek Docker imajlık, hafif ve Türkçe izleme sistemi: uptime kontrolleri, sunucu metrikleri, durum sayfaları ve bildirimler.",
+  "applicationCategory": "DeveloperApplication",
+  "applicationSubCategory": "Uptime ve sunucu izleme",
+  "operatingSystem": "Linux (Docker; amd64, arm64)",
+  "inLanguage": "tr",
+  "image": "https://bekci.app/og.png",
+  "screenshot": "https://bekci.app/img/monitorler.png",
+  "downloadUrl": "https://hub.docker.com/r/kadirsungurlu/bekci",
+  "softwareRequirements": "Docker",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "TRY" }
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#icerik">İçeriğe geç</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="Bekci ana sayfa">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#3bd671" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#3bd671" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#3bd671"/></svg>
+      Bekci
+    </a>
+    <nav class="nav" aria-label="Ana menü">
+      <ul>
+        <li><a href="#ozellikler">Özellikler</a></li>
+        <li><a href="#ekranlar">Ekranlar</a></li>
+        <li><a href="#neden">Karşılaştırma</a></li>
+        <li><a href="#guvenlik">Güvenlik</a></li>
+        <li><a href="#kurulum">Kurulum</a></li>
+        <li><a href="#sss">SSS</a></li>
+      </ul>
+    </nav>
+    <div class="header-actions">
+      <a class="lang" href="/en/" hreflang="en" lang="en" aria-label="English version">EN</a>
+      <button class="icon-btn theme-toggle" type="button" aria-label="Temayı değiştir">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+      <a class="btn btn-primary btn-sm header-hub" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Docker Hub
+      </a>
+      <button class="icon-btn menu-toggle" type="button" aria-expanded="false" aria-controls="mobil-menu" aria-label="Menü">
+        <svg class="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <svg class="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobil-menu" aria-label="Mobil menü" hidden>
+    <ul>
+      <li><a href="#ozellikler">Özellikler</a></li>
+      <li><a href="#ekranlar">Ekranlar</a></li>
+      <li><a href="#neden">Karşılaştırma</a></li>
+      <li><a href="#guvenlik">Güvenlik</a></li>
+      <li><a href="#kurulum">Kurulum</a></li>
+      <li><a href="#sss">SSS</a></li>
+    </ul>
+    <a class="btn btn-primary" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a>
+  </nav>
+</header>
+
+<main id="icerik">
+  <section class="hero" aria-labelledby="baslik">
+    <div class="wrap">
+      <div class="hero-inner">
+        <p class="pill"><span class="pulse" aria-hidden="true"></span><span>Kendi sunucunuzda<span class="wide-only"> · tek Docker imajı</span> · ücretsiz</span></p>
+        <h1 id="baslik">Siteleriniz ve sunucularınız için <span class="hl">tek nöbetçi</span></h1>
+        <p class="lead">Bekci; web sitelerinizi, API'lerinizi ve sunucularınızı tek panelden izler, bir şey ters gittiğinde sizi hemen haberdar eder. Uptime kontrolleri, sunucu metrikleri, durum sayfaları ve bildirimler — hepsi ~15 MB RAM ile.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#kurulum">Hemen kurun
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="#ekranlar">Ekran görüntüleri</a>
+        </div>
+        <div class="install-line">
+          <div class="cmd">
+            <pre><code id="kod-tek"><span class="p">$ </span>docker run -d --name bekci -p 8080:8080 -v bekci-data:/data kadirsungurlu/bekci</code></pre>
+            <button class="copy" type="button" data-copy="kod-tek" aria-label="Kurulum komutunu kopyala">
+              <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+              <span class="copy-label">Kopyala</span>
+            </button>
+          </div>
+          <p class="install-note">Ardından <code>http://sunucu:8080</code> adresini açıp ilk yönetici hesabını oluşturun.</p>
+        </div>
+      </div>
+      <div class="hero-shot">
+        <div class="browser">
+          <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="url">bekci.ornek.com</span></div>
+          <picture>
+            <source type="image/webp" srcset="/img/monitorler-800.webp?v=dev 800w, /img/monitorler-1600.webp?v=dev 1600w, /img/monitorler.webp?v=dev 2880w" sizes="(min-width: 1184px) 1120px, calc(100vw - 40px)">
+            <img src="/img/monitorler.png?v=dev" width="2880" height="1800" fetchpriority="high" alt="Bekci monitör listesi: her monitörün durumu, kontrol aralığı, son 24 saatin uptime çubukları ve sağda genel durum özeti">
+          </picture>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats" aria-label="Öne çıkanlar">
+    <div class="wrap">
+      <ul>
+        <li><b>Tek imaj</b><span>Arayüz, API, kontrol motoru ve ajanlar</span></li>
+        <li><b>~15 MB RAM</b><span>10 monitör ve 3 sunucuda</span></li>
+        <li><b>amd64&nbsp;+&nbsp;arm64</b><span>Linux sunucular, ayrıca Windows ajanı</span></li>
+        <li><b>SQLite · PostgreSQL</b><span>Varsayılan SQLite, istenirse PostgreSQL</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section" id="ozellikler" aria-labelledby="ozellikler-baslik">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Özellikler</span>
+        <h2 id="ozellikler-baslik">Uptime Kuma'nın monitörleri, Beszel'in sunucu takibi — tek panelde</h2>
+        <p>UptimeRobot sadeliğinde bir arayüz; yüzlerce monitörde de hızlı kalacak şekilde tasarlandı.</p>
+      </div>
+      <div class="features">
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+          <h3>18 monitör tipi</h3>
+          <p>HTTP(S) isteklerinde başlık, gövde, kimlik doğrulama, mTLS ve proxy; kelime ve JSON sorgusu kontrolü. SSL bitiş uyarısı, tekrar deneme, bakım pencereleri.</p>
+          <ul class="chips" aria-label="Örnek monitör tipleri">
+            <li>HTTP(S)</li><li>TCP</li><li>Ping</li><li>DNS</li><li>gRPC</li><li>WebSocket</li><li>PostgreSQL</li><li>MySQL</li><li>Redis</li><li>Docker</li><li>Push</li><li>+7</li>
+          </ul>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg></div>
+          <h3>Sunucu takibi</h3>
+          <p>CPU, RAM, bağlama noktası başına disk, swap, yük, sıcaklık, ağ ve Docker konteynerleri. Linux ve Windows ajanı; pencere ortalaması ve histerezisle çalışan uyarılar.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></div>
+          <h3>24 bildirim kanalı</h3>
+          <p>Kesinti anında doğru kişiye ulaşın. Her kanal için tek tıkla örnek bildirim gönderip ayarı hemen deneyin.</p>
+          <ul class="chips" aria-label="Örnek bildirim kanalları">
+            <li>WhatsApp</li><li>Telegram</li><li>E-posta</li><li>Slack</li><li>Discord</li><li>Teams</li><li>ntfy</li><li>PagerDuty</li><li>Webhook</li><li>+15</li>
+          </ul>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
+          <h3>Durum sayfaları</h3>
+          <p>Müşterilerinize herkese açık bir durum sayfası: katlanabilir gruplar, 90 günlük geçmiş, son olaylar, şifre koruması, özel alan adı ve rozetler.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+          <h3>Uzak kontrol noktaları</h3>
+          <p>Monitörleri birden çok konumdan kontrol edin. Kesinti kuralını siz seçin: herhangi biri, çoğunluk ya da hepsi.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <h3>Ekip ve müşteri hesapları</h3>
+          <p>Yönetici, düzenleyici ve izleyici rolleri; yalnızca kendisine atanan monitörleri ve sunucuları gören müşteri hesapları. İki adımlı doğrulama, API anahtarları, işlem kaydı.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div>
+          <h3>Telefonda uygulama gibi</h3>
+          <p>PWA olarak ana ekrana ekleyin; arayüz canlı güncellenir. Uygulama mağazasına gerek yok.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
+          <h3>Kolay geçiş</h3>
+          <p>Uptime Kuma yedeğinden ya da UptimeRobot hesabınızdan içe aktarın. İçe/dışa aktarma ve her gece otomatik yedek dahil.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt" id="ekranlar" aria-labelledby="ekranlar-baslik">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Ekranlar</span>
+        <h2 id="ekranlar-baslik">Bir bakışta ne olup bittiğini görün</h2>
+        <p>Koyu ve açık tema, masaüstü ve telefon. Büyütmek için görüntüye tıklayın.</p>
+      </div>
+      <div class="gallery">
+        <figure class="shot">
+          <a href="/img/monitor-detay.png?v=dev" data-lightbox="/img/monitor-detay.webp?v=dev">
+            <div class="browser">
+              <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="frame-crop">
+                <picture>
+                  <source type="image/webp" srcset="/img/monitor-detay-800.webp?v=dev 800w, /img/monitor-detay-1600.webp?v=dev 1600w" sizes="(min-width: 1200px) 556px, (min-width: 760px) calc(50vw - 44px), calc(100vw - 40px)">
+                  <img src="/img/monitor-detay.png?v=dev" width="2400" height="1883" loading="lazy" decoding="async" alt="Monitör ayrıntısı: yanıt süresi grafiği, uptime yüzdeleri, SSL sertifika bitişi ve son olaylar">
+                </picture>
+              </div>
+            </div>
+          </a>
+          <figcaption><b>Monitör ayrıntısı</b> — yanıt süresi grafiği, 24 saat / 7 / 30 / 90 gün uptime, SSL bitişi, olaylar</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="/img/olay.png?v=dev" data-lightbox="/img/olay.webp?v=dev">
+            <div class="browser">
+              <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="frame-crop">
+                <picture>
+                  <source type="image/webp" srcset="/img/olay-800.webp?v=dev 800w, /img/olay-1600.webp?v=dev 1600w" sizes="(min-width: 1200px) 556px, (min-width: 760px) calc(50vw - 44px), calc(100vw - 40px)">
+                  <img src="/img/olay.png?v=dev" width="2400" height="1950" loading="lazy" decoding="async" alt="Olay ayrıntısı: kök neden, işlem geçmişi, gönderilen bildirimler ve kesinti anındaki istek ile yanıt">
+                </picture>
+              </div>
+            </div>
+          </a>
+          <figcaption><b>Olay ayrıntısı</b> — kök neden, işlem geçmişi, gönderilen bildirimler ve kesinti anındaki istek/yanıt</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="/img/sunucu-detay.png?v=dev" data-lightbox="/img/sunucu-detay.webp?v=dev">
+            <div class="browser">
+              <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="frame-crop">
+                <picture>
+                  <source type="image/webp" srcset="/img/sunucu-detay-800.webp?v=dev 800w, /img/sunucu-detay-1600.webp?v=dev 1600w" sizes="(min-width: 1200px) 556px, (min-width: 760px) calc(50vw - 44px), calc(100vw - 40px)">
+                  <img src="/img/sunucu-detay.png?v=dev" width="2400" height="2367" loading="lazy" decoding="async" alt="Sunucu ayrıntısı: CPU, bellek, ağ, disk giriş/çıkış, yük ve bölüm doluluğu grafikleri">
+                </picture>
+              </div>
+            </div>
+          </a>
+          <figcaption><b>Sunucu ayrıntısı</b> — CPU, bellek, ağ, disk G/Ç, yük ve bölüm doluluğu grafikleri</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="/img/durum-sayfasi.png?v=dev" data-lightbox="/img/durum-sayfasi.webp?v=dev">
+            <div class="browser">
+              <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="url">durum.ornek.com</span></div>
+              <div class="frame-crop">
+                <picture>
+                  <source type="image/webp" srcset="/img/durum-sayfasi-800.webp?v=dev 800w, /img/durum-sayfasi-1600.webp?v=dev 1600w" sizes="(min-width: 1200px) 556px, (min-width: 760px) calc(50vw - 44px), calc(100vw - 40px)">
+                  <img src="/img/durum-sayfasi.png?v=dev" width="2400" height="2342" loading="lazy" decoding="async" alt="Herkese açık durum sayfası: genel durum bandı, gruplar ve her servis için 90 günlük uptime çubukları">
+                </picture>
+              </div>
+            </div>
+          </a>
+          <figcaption><b>Durum sayfası</b> — herkese açık, katlanabilir gruplar, 90 günlük geçmiş; sistem temasına uyar</figcaption>
+        </figure>
+        <figure class="shot wide">
+          <a href="/img/sunucular.png?v=dev" data-lightbox="/img/sunucular.webp?v=dev">
+            <div class="browser">
+              <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span></div>
+              <picture>
+                <source type="image/webp" srcset="/img/sunucular-800.webp?v=dev 800w, /img/sunucular-1600.webp?v=dev 1600w, /img/sunucular.webp?v=dev 2400w" sizes="(min-width: 1200px) 1136px, calc(100vw - 40px)">
+                <img src="/img/sunucular.png?v=dev" width="2400" height="1033" loading="lazy" decoding="async" alt="Sunucu listesi: her sunucu için CPU, RAM, en dolu disk, ağ, yük ve uyarılar">
+              </picture>
+            </div>
+          </a>
+          <figcaption><b>Sunucular</b> — Linux ve Windows; CPU, RAM, en dolu disk, ağ, yük ve uyarılar tek bakışta</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="/img/monitorler.png?v=dev" data-lightbox="/img/monitorler.webp?v=dev">
+            <div class="browser">
+              <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="frame-crop">
+                <picture>
+                  <source type="image/webp" srcset="/img/monitorler-800.webp?v=dev 800w, /img/monitorler-1600.webp?v=dev 1600w" sizes="(min-width: 1200px) 556px, (min-width: 760px) calc(50vw - 44px), calc(100vw - 40px)">
+                  <img src="/img/monitorler.png?v=dev" width="2880" height="1800" loading="lazy" decoding="async" alt="Monitör listesi: durum, kontrol aralığı, son 24 saatin uptime çubukları ve genel özet">
+                </picture>
+              </div>
+            </div>
+          </a>
+          <figcaption><b>Monitörler</b> — durum, yanıt süresi, son 24 saatin uptime çubukları ve genel özet</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="/img/yeni-monitor.png?v=dev" data-lightbox="/img/yeni-monitor.webp?v=dev">
+            <div class="browser">
+              <div class="browser-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="frame-crop">
+                <picture>
+                  <source type="image/webp" srcset="/img/yeni-monitor-800.webp?v=dev 800w, /img/yeni-monitor-1600.webp?v=dev 1600w" sizes="(min-width: 1200px) 556px, (min-width: 760px) calc(50vw - 44px), calc(100vw - 40px)">
+                  <img src="/img/yeni-monitor.png?v=dev" width="2400" height="1500" loading="lazy" decoding="async" alt="Yeni monitör formu: web, ağ, veritabanı ve sistem kategorilerinde monitör tipi seçici">
+                </picture>
+              </div>
+            </div>
+          </a>
+          <figcaption><b>Yeni monitör</b> — HTTP, TCP, Ping, DNS, veritabanları, Docker, Push, grup ve diğerleri</figcaption>
+        </figure>
+        <figure class="shot wide">
+          <a href="/img/mobil.png?v=dev" data-lightbox="/img/mobil.webp?v=dev">
+            <div class="bare">
+              <picture>
+                <source type="image/webp" srcset="/img/mobil-800.webp?v=dev 800w, /img/mobil-1600.webp?v=dev 1600w, /img/mobil.webp?v=dev 2400w" sizes="(min-width: 1200px) 1136px, calc(100vw - 40px)">
+                <img src="/img/mobil.png?v=dev" width="2400" height="1594" loading="lazy" decoding="async" alt="Üç telefon ekranı: monitör listesi, sunucu ayrıntısı ve CPU, bellek, ağ geçmişi grafikleri">
+              </picture>
+            </div>
+          </a>
+          <figcaption><b>Telefonda</b> — monitör listesi ve sunucu ayrıntısı; PWA olarak ana ekrana eklenebilir</figcaption>
+        </figure>
+      </div>
+      <p class="note">Ekran görüntüleri kurgusal verilerle çalışan bir demo örneğinden alınmıştır.</p>
+    </div>
+  </section>
+
+  <section class="section" id="neden" aria-labelledby="neden-baslik">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Neden Bekci?</span>
+        <h2 id="neden-baslik">İki aracın işini tek konteynerde yapar</h2>
+        <p>Siteler için bir araç, sunucular için başka bir araç kurmak yerine hepsi tek panelde, tek imajda ve sizin sunucunuzda.</p>
+      </div>
+      <div class="table-wrap" role="region" aria-labelledby="neden-baslik" tabindex="0">
+        <table class="compare">
+          <caption class="sr-only">Bekci, UptimeRobot, Uptime Kuma ve Beszel karşılaştırması</caption>
+          <thead>
+            <tr>
+              <th scope="col">Özellik</th>
+              <th scope="col" class="us">Bekci<small>kendi sunucunuzda</small></th>
+              <th scope="col">UptimeRobot<small>bulut hizmeti (SaaS)</small></th>
+              <th scope="col">Uptime Kuma<small>kendi sunucunuzda</small></th>
+              <th scope="col">Beszel<small>kendi sunucunuzda</small></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Veriler kendi sunucunuzda</th>
+              <td class="us" data-label="Bekci"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Evet</span></span></td>
+              <td data-label="UptimeRobot"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">Hayır</span></span></td>
+              <td data-label="Uptime Kuma"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Evet</span></span></td>
+              <td data-label="Beszel"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Evet</span></span></td>
+            </tr>
+            <tr>
+              <th scope="row">Site ve servis kontrolleri (HTTP, TCP, DNS…)</th>
+              <td class="us" data-label="Bekci"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Evet</span></span></td>
+              <td data-label="UptimeRobot"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Evet</span></span></td>
+              <td data-label="Uptime Kuma"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Evet</span></span></td>
+              <td data-label="Beszel"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">Hayır</span></span></td>
+            </tr>
+            <tr>
+              <th scope="row">Sunucu kaynak takibi (CPU, RAM, disk, ağ)</th>
+              <td class="us" data-label="Bekci"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Evet</span></span></td>
+              <td data-label="UptimeRobot"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">Hayır</span></span></td>
+              <td data-label="Uptime Kuma"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">Hayır</span></span></td>
+              <td data-label="Beszel"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Evet</span></span></td>
+            </tr>
+            <tr>
+              <th scope="row">Herkese açık durum sayfası</th>
+              <td class="us" data-label="Bekci"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Evet</span></span></td>
+              <td data-label="UptimeRobot"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Evet</span></span></td>
+              <td data-label="Uptime Kuma"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Evet</span></span></td>
+              <td data-label="Beszel"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">Hayır</span></span></td>
+            </tr>
+            <tr>
+              <th scope="row">Birden çok konumdan kontrol</th>
+              <td class="us" data-label="Bekci"><span class="part">Kendi kontrol noktalarınızla</span></td>
+              <td data-label="UptimeRobot"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Evet</span></span></td>
+              <td data-label="Uptime Kuma"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">Hayır</span></span></td>
+              <td data-label="Beszel"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">Hayır</span></span></td>
+            </tr>
+            <tr>
+              <th scope="row">Ücret</th>
+              <td class="us" data-label="Bekci"><span class="part">Ücretsiz</span></td>
+              <td data-label="UptimeRobot"><span class="part">Ücretsiz plan, ücretli planlar</span></td>
+              <td data-label="Uptime Kuma"><span class="part">Ücretsiz, açık kaynak</span></td>
+              <td data-label="Beszel"><span class="part">Ücretsiz, açık kaynak</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="compare-foot">
+        <div class="card">
+          <h3>UptimeRobot'tan geliyorsanız</h3>
+          <p>Veriler sizin sunucunuzda kalır, plan sınırı yoktur. Monitörlerinizi hesabınızdan doğrudan içe aktarın.</p>
+        </div>
+        <div class="card">
+          <h3>Uptime Kuma'dan geliyorsanız</h3>
+          <p>Tanıdık monitör tipleri, üstüne sunucu metrikleri, müşteri hesapları ve uzak kontrol noktaları. Kuma yedeğinizi içe aktarın.</p>
+        </div>
+        <div class="card">
+          <h3>Beszel kullanıyorsanız</h3>
+          <p>Sunucu metriklerinin yanında sitelerinizi, API'lerinizi ve durum sayfalarınızı da aynı panelden yönetin.</p>
+        </div>
+      </div>
+      <p class="fine">Tablo, ürünlerin temel özelliklerine dair genel bir özettir (Eylül 2026). Uptime Kuma ve Beszel kendi alanlarında olgun, sevilen açık kaynak projelerdir; güncel ayrıntılar için her ürünün kendi belgelerine bakın.</p>
+    </div>
+  </section>
+
+  <section class="section alt" id="guvenlik" aria-labelledby="guvenlik-baslik">
+    <div class="wrap split">
+      <div>
+        <div class="section-head">
+          <span class="eyebrow">Ajan güvenliği</span>
+          <h2 id="guvenlik-baslik">Sunucularınıza kurduğunuz ajan, kapınızdaki bekçi kadar güvenilir olmalı</h2>
+          <p>Ajan, izlediğiniz her sunucuda çalışır. Bu yüzden baştan en az yetkiyle ve kendi kendine hiçbir şey değiştirmeyecek şekilde tasarlandı.</p>
+        </div>
+        <ul class="checklist">
+          <li>
+            <span class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></svg></span>
+            <div><b>Token'lar özet (hash) olarak saklanır</b><span>Token yalnızca bir kez gösterilir; sunucuda açık hâli tutulmaz.</span></div>
+          </li>
+          <li>
+            <span class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
+            <div><b>IP kilidi</b><span>İlk bağlantının IP'si sabitlenir (IPv4 tam adres, IPv6 /64). Token çalınsa bile başka bir makineden kullanılamaz.</span></div>
+          </li>
+          <li>
+            <span class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span>
+            <div><b>SHA-256 ile sabitlenmiş sürüm</b><span>Program komuttaki SHA-256 özetiyle doğrulanır, uyuşmazsa kurulmaz. Ajan kendini güncellemez; ana sunucu ele geçirilse bile sunucularınıza kendiliğinden yeni program inmez.</span></div>
+          </li>
+          <li>
+            <span class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24M10.73 5.08A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61M2 2l20 20"/></svg></span>
+            <div><b>Token süreç listesinde görünmez</b><span>Hiçbir komut satırında (<code>ps</code>) yer almaz; yalnızca 0600 izinli ayar dosyasında durur.</span></div>
+          </li>
+          <li>
+            <span class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></span>
+            <div><b>Sertleştirilmiş konteyner</b><span>Tüm Linux yetkileri düşürülür (<code>--cap-drop ALL</code>), <code>no-new-privileges</code>, 256 MB bellek ve süreç sınırı.</span></div>
+          </li>
+          <li>
+            <span class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <div><b>Şifresiz bağlantıya varsayılan hayır</b><span>Ana sunucu HTTPS değilse ajan bağlanmaz; yalnızca açıkça izin verirseniz çalışır.</span></div>
+          </li>
+        </ul>
+      </div>
+      <div class="cmd block">
+        <div class="cmd-head"><span>Linux kurulum komutunun yapısı</span></div>
+        <pre><code><span class="k">sh</span> &lt;&lt;<span class="s">'UPTIME_KURULUM'</span>
+<span class="k">set</span> -e
+<span class="c"># token yalnızca root'un okuyabildiği dosyada</span>
+<span class="k">install</span> -m 600 /dev/null /etc/uptime-agent.env
+<span class="k">cat</span> &gt; /etc/uptime-agent.env &lt;&lt;<span class="s">'UPTIME_ENV'</span>
+PROBE_SERVER=https://bekci.ornek.com
+PROBE_TOKEN=upr_…
+<span class="s">UPTIME_ENV</span>
+<span class="c"># sertleştirilmiş konteyner; program SHA-256 ile doğrulanır</span>
+<span class="k">docker run</span> -d --name uptime-agent \
+  --cap-drop ALL --security-opt no-new-privileges \
+  --memory 256m --pids-limit 200 \
+  --env-file /etc/uptime-agent.env …
+<span class="s">UPTIME_KURULUM</span></code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="kurulum" aria-labelledby="kurulum-baslik">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Kurulum</span>
+        <h2 id="kurulum-baslik">Bir dakikada çalışır hâlde</h2>
+        <p>Docker olan her Linux sunucuda çalışır. En az 1 vCPU, 512 MB RAM (1 GB önerilir) ve 10 GB disk yeterli.</p>
+      </div>
+      <div class="steps">
+        <div class="card step">
+          <div class="step-head"><span class="num" aria-hidden="true">1</span><h3>Docker ile tek komut</h3></div>
+          <p>Denemek ya da zaten bir ters vekil (Caddy, Traefik, Nginx) kullanıyorsanız en kısa yol.</p>
+          <div class="cmd block">
+            <div class="cmd-head"><span>terminal</span>
+              <button class="copy" type="button" data-copy="kod-run" aria-label="Docker komutunu kopyala">
+                <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                <span class="copy-label">Kopyala</span>
+              </button>
+            </div>
+            <pre><code id="kod-run">docker run -d --name bekci --restart unless-stopped \
+  -p 8080:8080 -v bekci-data:/data \
+  -e BASE_URL=https://bekci.ornek.com \
+  kadirsungurlu/bekci</code></pre>
+          </div>
+          <ul>
+            <li><code>BASE_URL</code>: dış adresiniz; bildirim bağlantıları ve ajan kurulum komutları bunu kullanır.</li>
+            <li>PostgreSQL isterseniz: <code>DATABASE_URL</code> ile harici veritabanı ya da gömülü PostgreSQL 18 içeren <code>:postgres</code> imajı.</li>
+          </ul>
+        </div>
+        <div class="card step">
+          <div class="step-head"><span class="num" aria-hidden="true">2</span><h3>Coolify</h3></div>
+          <p>Coolify kullanıyorsanız Bekci'yi Docker imajı olarak ekleyin:</p>
+          <ul>
+            <li>İmaj <code>kadirsungurlu/bekci</code>, port <code>8080</code>, sağlık kontrolü <code>/healthz</code>.</li>
+            <li>Kalıcı depolama: <code>/data</code> (<b>Volume</b> türünde). Sunucu klasörü bağlayacaksanız sahibi uid 1000 olmalı.</li>
+            <li>Güncellemede yeni konteyner eskisi kapanana kadar bekler, sonra 1–2 saniyede devralır; çift kontrol ya da çift bildirim olmaz.</li>
+          </ul>
+          <p>İlk açılışta arayüz sizden yönetici hesabı oluşturmanızı ister.</p>
+        </div>
+        <div class="card step wide">
+          <div class="step-head"><span class="num" aria-hidden="true">3</span><h3>Docker Compose + Caddy (otomatik HTTPS)</h3></div>
+          <p>Boş bir sunucuya kalıcı kurulum: Caddy sertifikayı Let's Encrypt'ten kendisi alır ve yeniler. Alan adınızın DNS kaydı sunucuyu göstermeli, 80 ve 443 portları açık olmalı.</p>
+          <div class="two-code">
+            <div class="cmd block">
+              <div class="cmd-head"><span>docker-compose.yml</span>
+                <button class="copy" type="button" data-copy="kod-compose" aria-label="docker-compose.yml dosyasını kopyala">
+                  <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  <span class="copy-label">Kopyala</span>
+                </button>
+              </div>
+              <pre><code id="kod-compose">name: bekci
+services:
+  bekci:
+    image: kadirsungurlu/bekci:latest
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      BASE_URL: https://bekci.ornek.com
+      TZ: Europe/Istanbul
+    volumes:
+      - bekci-data:/data
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      bekci:
+        condition: service_healthy
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+volumes:
+  bekci-data:
+  caddy-data:
+  caddy-config:</code></pre>
+            </div>
+            <div class="step">
+              <div class="cmd block">
+                <div class="cmd-head"><span>Caddyfile</span>
+                  <button class="copy" type="button" data-copy="kod-caddy" aria-label="Caddyfile dosyasını kopyala">
+                    <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                    <span class="copy-label">Kopyala</span>
+                  </button>
+                </div>
+                <pre><code id="kod-caddy">bekci.ornek.com {
+	encode zstd gzip
+	header &gt;Strict-Transport-Security "max-age=31536000"
+	reverse_proxy bekci:8080 {
+		# Canlı akış (SSE) tamponlanmadan iletilsin
+		flush_interval -1
+	}
+}</code></pre>
+              </div>
+              <div class="cmd block">
+                <div class="cmd-head"><span>terminal</span>
+                  <button class="copy" type="button" data-copy="kod-up" aria-label="Başlatma komutunu kopyala">
+                    <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                    <span class="copy-label">Kopyala</span>
+                  </button>
+                </div>
+                <pre><code id="kod-up">docker compose up -d</code></pre>
+              </div>
+              <p><code>bekci.ornek.com</code> yerine kendi alan adınızı yazın, ardından <code>https://</code> ile açın.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt" id="sss" aria-labelledby="sss-baslik">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">SSS</span>
+        <h2 id="sss-baslik">Sıkça sorulanlar</h2>
+      </div>
+      <div class="faq">
+        <details open>
+          <summary>Bekci ücretsiz mi?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <div class="answer"><p>Evet. Bekci kendi sunucunuzda çalışır; lisans ücreti, abonelik ya da ücretli plan yok. Tek maliyetiniz, onu çalıştırdığınız sunucu.</p></div>
+        </details>
+        <details>
+          <summary>Hangi veritabanını kullanıyor?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <div class="answer">
+            <p>Varsayılan olarak SQLite — ek servis gerekmez ve en hafif seçenek budur. İsterseniz <code>DATABASE_URL</code> ile kendi PostgreSQL sunucunuzu bağlayabilir ya da gömülü PostgreSQL 18 içeren <code>kadirsungurlu/bekci:postgres</code> imajını kullanabilirsiniz (yaklaşık 200 MB ek RAM).</p>
+            <p>İki imajın verisi birbirine taşınmaz; baştan birini seçin.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Sistem gereksinimi nedir?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <div class="answer"><p>En az 1 vCPU, 512 MB RAM (1 GB önerilir) ve 10 GB disk. İmaj linux/amd64 ve linux/arm64 içindir. Uygulamanın kendisi 10 monitör ve 3 sunucuda ~15 MB RAM kullanır.</p></div>
+        </details>
+        <details>
+          <summary>Windows sunucularımı da izleyebilir miyim?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <div class="answer">
+            <p>Evet. Sunucu ajanı Linux (amd64, arm64) ve Windows (amd64) üzerinde çalışır. Windows'ta panelden aldığınız komutu Yönetici PowerShell'e yapıştırmanız yeterli; ajan otomatik başlayan bir Windows hizmeti olarak kurulur.</p>
+            <p>Windows'ta yük ortalaması yaklaşıktır; sıcaklık ve Docker konteynerleri toplanmaz. Bekci'nin kendisi (panel) Linux üzerinde Docker ile çalışır.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Verilerim nerede duruyor?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <div class="answer"><p>Tamamen sizin sunucunuzda: monitörler, ölçümler, olaylar ve kullanıcılar <code>/data</code> birimindeki SQLite veritabanında (ya da kendi PostgreSQL'inizde) tutulur. SQLite kullanırken her gece <code>/data/backups/</code> altına otomatik yedek alınır; bu klasörü sunucu dışına da kopyalamanızı öneririz.</p></div>
+        </details>
+        <details>
+          <summary>Nasıl güncellerim?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <div class="answer">
+            <p>Önce yedek alın, sonra yeni imajı çekip konteyneri yeniden oluşturun. Compose ile:</p>
+            <div class="cmd"><pre><code>docker compose pull &amp;&amp; docker compose up -d</code></pre></div>
+            <p>Yeni sürüm veritabanı yapısını değiştirecekse (SQLite) Bekci önce otomatik bir yedek alır; yedek alınamazsa güncellemeyi uygulamaz. Belirli bir sürüme sabitlemek ya da geri dönmek için <code>kadirsungurlu/bekci:1.2.3</code> gibi sürüm etiketlerini kullanın.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Mobil uygulaması var mı?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+          <div class="answer"><p>Ayrı bir mağaza uygulaması yok; gerek de yok. Bekci bir PWA'dır: iPhone'da Safari → <b>Paylaş</b> → <b>Ana Ekrana Ekle</b>, Android'de Chrome → <b>Uygulamayı yükle</b>. Ana ekrandan uygulama gibi açılır ve canlı güncellenir.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="son-baslik">
+    <div class="wrap">
+      <div class="cta">
+        <h2 id="son-baslik">Bu gece siteleriniz nöbetsiz kalmasın</h2>
+        <p>Tek komutla kurun, ilk monitörünüzü bir dakikada ekleyin.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#kurulum">Kurulum</a>
+          <a class="btn btn-ghost" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub'da görüntüle</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="Bekci ana sayfa">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#3bd671" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#3bd671" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#3bd671"/></svg>
+      Bekci
+    </a>
+    <ul class="foot-links">
+      <li><a href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a></li>
+      <li><a href="#kurulum">Kurulum</a></li>
+      <li><a href="#sss">SSS</a></li>
+      <li><a href="/en/" hreflang="en" lang="en">English</a></li>
+    </ul>
+    <p>© 2026 Bekci · Türkiye'de geliştirildi.</p>
+  </div>
+</footer>
+
+<dialog class="lightbox" id="isik-kutusu" aria-label="Ekran görüntüsü">
+  <div class="lb-inner">
+    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="">
+    <p class="lb-cap"></p>
+  </div>
+  <span class="lb-count" aria-live="polite"></span>
+  <button class="lb-btn lb-close" type="button" aria-label="Kapat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  <button class="lb-btn lb-prev" type="button" aria-label="Önceki görüntü"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+  <button class="lb-btn lb-next" type="button" aria-label="Sonraki görüntü"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+</dialog>
+<div id="duyuru" class="sr-only" aria-live="polite"></div>
+</body>
+</html>

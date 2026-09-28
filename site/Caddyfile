@@ -1,0 +1,70 @@
+# bekci.app tanıtım sitesi: statik dosya sunucusu.
+# Konteyner içinde 80 numaralı portu dinler; HTTPS ve www.bekci.app →
+# bekci.app yönlendirmesi önündeki vekil sunucuda (Coolify) yapılır.
+# Hangi alan adıyla gelinirse gelinsin aynı site sunulur.
+
+{
+	admin off
+	auto_https off
+	persist_config off
+	servers {
+		# Vekil sunucunun X-Forwarded-Proto başlığına güven (HSTS kararı için).
+		trusted_proxies static private_ranges
+	}
+}
+
+(guvenlik) {
+	header {
+		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		-Server
+	}
+	# HSTS yalnızca istek vekile HTTPS ile geldiyse. Eşleştirici adı parametreli:
+	# bu parça hem site bloğunda hem handle_errors içinde kullanılıyor.
+	@https_{args[0]} header X-Forwarded-Proto https
+	header @https_{args[0]} Strict-Transport-Security "max-age=31536000"
+}
+
+:80 {
+	root * /srv
+	encode zstd gzip
+	import guvenlik site
+
+	# Önbellek: /assets ve /img dosyalarının adresleri imaj derlenirken içerik
+	# özetiyle (?v=…) damgalanır → uzun ve değişmez. HTML kısa, diğerleri 1 gün.
+	@uzun path /assets/* /img/*
+	header @uzun Cache-Control "public, max-age=31536000, immutable"
+	@html path / /en/ *.html
+	header @html Cache-Control "public, max-age=300, must-revalidate"
+	@diger not path /assets/* /img/* / /en/ *.html /healthz
+	header @diger Cache-Control "public, max-age=86400"
+	header /healthz Cache-Control "no-store"
+
+	respond /healthz "ok" 200
+	redir /en /en/ 301
+	redir /index.html / 301
+	redir /en/index.html /en/ 301
+
+	file_server
+
+	# Bilinmeyen adresler: /en altındaysa İngilizce, değilse Türkçe 404 sayfası
+	# (durum kodu 404 olarak kalır).
+	handle_errors 404 {
+		encode zstd gzip
+		import guvenlik hata
+		header Cache-Control "public, max-age=300"
+		@en path /en /en/*
+		handle @en {
+			rewrite * /en/404.html
+			file_server
+		}
+		handle {
+			rewrite * /404.html
+			file_server
+		}
+	}
+}
