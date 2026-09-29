@@ -94,53 +94,53 @@
 /* Gizleme kuralları bileşenlerin kendi display değerini (ör. .resp { display: flex })
    ezsin diye sınıf iki kez yazılır (.mrow.mrow). */
 
-/* Liste daraldıkça sütunlar önem sırasının tersine gizlenir: son kontrol →
-   7/30 gün → konum → SSL → (çubuklar kısalır) → grafik → yanıt süresi. */
-@container mlist (max-width: 1399px) {
+/* Liste daraldıkça sütunlar önem sırasının tersine gizlenir; eşikler, ad
+   sütununa (ad, tür, etiketler, adres, durum) her zaman en az ~320 px kalacak
+   şekilde sütun genişliklerinin toplamından hesaplanmıştır:
+   son kontrol → aralık → 30 gün → 7 gün → konum → SSL → grafik → yanıt süresi. */
+@container mlist (max-width: 1439px) {
   .mrow.mrow > .mc-last {
     display: none;
   }
 }
-@container mlist (max-width: 1189px) {
-  .mrow.mrow > .mc-u7,
+@container mlist (max-width: 1339px) {
+  .mrow.mrow > .mc-int {
+    display: none;
+  }
+}
+@container mlist (max-width: 1259px) {
   .mrow.mrow > .mc-u30 {
     display: none;
   }
 }
-@container mlist (max-width: 1049px) {
+@container mlist (max-width: 1189px) {
+  .mrow.mrow > .mc-u7 {
+    display: none;
+  }
+}
+@container mlist (max-width: 1119px) {
   .mrow.mrow > .mc-locs {
     display: none;
   }
 }
-@container mlist (max-width: 969px) {
+@container mlist (max-width: 1039px) {
   .mrow.mrow > .mc-ssl {
     display: none;
+  }
+}
+@container mlist (max-width: 963px) {
+  .mrow > .mc-resp {
+    width: 64px;
   }
 }
 @container mlist (max-width: 900px) {
   .mrow > .mc-bars {
     width: 180px;
   }
-  /* Olay düğmesi varken aralık sütunu gizlenir (ad sıkışmasın). */
-  .mrow.has-inc > .mc-int {
-    visibility: hidden;
-  }
 }
-@container mlist (max-width: 799px) {
-  .mrow > .mc-resp {
-    width: 64px;
-  }
-}
-@container mlist (max-width: 699px) {
+@container mlist (max-width: 829px) {
   .mrow.mrow > .mc-resp {
     display: none;
-  }
-}
-@media (min-width: 641px) {
-  @container mlist (max-width: 600px) {
-    .mrow.mrow > .mc-int {
-      display: none;
-    }
   }
 }
 

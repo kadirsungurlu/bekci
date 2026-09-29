@@ -49,7 +49,7 @@
   const host = $derived(shortTarget(m.type, m.target, m.config));
   // Satırda en fazla 3 etiket; fazlası "+N" olarak.
   const tags = $derived(m.tags ?? []);
-  const shownTags = $derived(tags.slice(0, 3));
+  const shownTags = $derived(tags.slice(0, 2));
   // Süren olay: detay sayfasına kısayol (izleyici de görür; liste zaten kapsamla süzülü).
   const incident = $derived(kind === 'down' && m.open_incident_id ? m.open_incident_id : null);
 
@@ -222,7 +222,7 @@
         <span class="tags">
           {#each shownTags as tg (tg.id + ':' + tg.value)}<TagChip name={tg.name} color={tg.color} value={tg.value} size="sm" />{/each}
         </span>
-        {#if tags.length > 3}<span class="more-tags" title={tags.slice(3).map((tg) => (tg.value ? `${tg.name}: ${tg.value}` : tg.name)).join(', ')}>+{tags.length - 3}</span>{/if}
+        {#if tags.length > 2}<span class="more-tags" title={tags.slice(2).map((tg) => (tg.value ? `${tg.name}: ${tg.value}` : tg.name)).join(', ')}>+{tags.length - 2}</span>{/if}
       {/if}
     </div>
     <div class="sub" title={subText}>
@@ -572,29 +572,30 @@
 
   /* Dar listede yalnızca son değer (grafik gizlenir): liste kutusu (MonitorList
      .list) "mlist" adlı kapsayıcıdır; sütunların kendisi monitor-grid.css'te. */
-  @container mlist (max-width: 799px) {
+  @container mlist (max-width: 963px) {
     .resp :global(.spark) {
       display: none;
     }
   }
   @media (min-width: 641px) {
-    /* Olay düğmesi önce kısa etikete ("Olay"), sonra yalnızca simgeye iner. */
-    @container mlist (max-width: 720px) {
-      .inc-l {
-        display: none;
+    /* Masaüstünde olay düğmesi ad sütununa yer bırakmak için yalnızca simge;
+       çok geniş listede kısa etiketle ("Olay"). Tam metin title'da. */
+    .inc {
+      width: 28px;
+      padding: 0;
+      justify-content: center;
+    }
+    .inc-l,
+    .inc-s {
+      display: none;
+    }
+    @container mlist (min-width: 1440px) {
+      .inc {
+        width: auto;
+        padding: 0 12px 0 10px;
       }
       .inc-s {
         display: inline;
-      }
-    }
-    @container mlist (max-width: 600px) {
-      .inc {
-        width: 28px;
-        padding: 0;
-        justify-content: center;
-      }
-      .inc-s {
-        display: none;
       }
     }
   }
