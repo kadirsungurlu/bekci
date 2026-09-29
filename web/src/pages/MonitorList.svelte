@@ -1,6 +1,6 @@
 <script lang="ts">
   import { SvelteSet } from 'svelte/reactivity';
-  import { api, errorMessage, type Incident, type Maintenance, type MonitorView } from '../lib/api';
+  import { api, errorMessage, isServerIncident, type Incident, type Maintenance, type MonitorView } from '../lib/api';
   import { live } from '../lib/live.svelte';
   import { session } from '../lib/session.svelte';
   import { clock, confirmDialog, toast } from '../lib/ui.svelte';
@@ -722,13 +722,16 @@
           {#if incidents.length}
             <ul class="mini">
               {#each incidents as inc (inc.id)}
+                {@const partial = inc.kind === 'partial'}
+                {@const srv = isServerIncident(inc.kind)}
                 <li>
-                  <span class="mdot" class:down={!inc.resolved_at} aria-hidden="true"></span>
-                  <a class="mname" href="#/incidents/{inc.id}">{inc.monitor_name}</a>
-                  <span class="mval" class:c-down={!inc.resolved_at}>
+                  <span class="mdot" class:down={!inc.resolved_at && !partial} class:pend={!inc.resolved_at && partial} aria-hidden="true"></span>
+                  <a class="mname" href="#/incidents/{inc.id}">{srv ? inc.server_name : inc.monitor_name}</a>
+                  <span class="mval" class:c-down={!inc.resolved_at && !partial} class:c-pending={!inc.resolved_at && partial}>
                     {inc.resolved_at ? t('overview.side.lasted', { d: fmtDuration(inc.resolved_at - inc.started_at) }) : t('overview.side.ongoingFor', { d: fmtDuration(clock.now - inc.started_at) })}
                   </span>
                   <span class="msub" title={fmtDate(inc.started_at)}>
+                    {#if partial}<span class="badge pending mk">{t('incidents.kind.partial')}</span>{:else if srv}<span class="badge accent mk">{t('incidents.kind.server')}</span>{/if}
                     {fmtRelative(inc.started_at, clock.now)}{#if inc.cause}{' · '}{inc.cause}{/if}
                   </span>
                 </li>
@@ -908,6 +911,16 @@
   .mdot.down {
     background: var(--down);
     box-shadow: 0 0 0 3px var(--down-soft);
+  }
+  .mdot.pend {
+    background: var(--pending);
+    box-shadow: 0 0 0 3px var(--pending-soft);
+  }
+  .mk {
+    height: 16px;
+    padding: 0 5px;
+    font-size: 0.62rem;
+    margin-right: 4px;
   }
   .sbar {
     grid-column: 1 / -1;

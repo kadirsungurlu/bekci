@@ -52,6 +52,8 @@
   import ServerSetupModal from '../components/ServerSetupModal.svelte';
   import ServerSettingsModal from '../components/ServerSettingsModal.svelte';
   import Icon from '../components/Icon.svelte';
+  import IncidentTable from '../components/IncidentTable.svelte';
+  import type { Incident } from '../lib/api';
 
   let { id }: { id: number } = $props();
 
@@ -59,6 +61,11 @@
   let notFound = $state(false);
   let loadError = $state('');
   let events = $state.raw<ServerEvent[]>([]);
+  let incidents = $state.raw<Incident[] | null>(null);
+  // Olay kaydı tutulmadan (migration 18) önceki uyarılar: karşılığı olan olay yok.
+  const legacyEvents = $derived(
+    incidents ? events.filter((ev) => !incidents!.some((i) => i.started_at === ev.started_at)) : [],
+  );
   let channels = $state.raw<NotificationChannel[] | null>(null);
 
   const RANGES: { key: StatsRange; sec: number }[] = [
@@ -99,11 +106,10 @@
   }
 
   async function loadEvents() {
-    try {
-      events = await api.getServerEvents(id);
-    } catch {
-      /* geçmiş zorunlu değil */
-    }
+    const [ev, inc] = await Promise.allSettled([api.getServerEvents(id), api.serverIncidents(id)]);
+    // Geçmiş zorunlu değil: hata sessizce geçilir.
+    if (ev.status === 'fulfilled') events = ev.value;
+    if (inc.status === 'fulfilled') incidents = inc.value;
   }
 
   async function loadChannels() {
@@ -689,13 +695,22 @@
     {/if}
   </div>
 
+  {#if incidents}
+    <section class="card block">
+      <h2 class="card-title">{t('incidents.serverCard.title')}<span class="dot">.</span></h2>
+      <IncidentTable {incidents} {now} serverBadge={false} emptyText={t('incidents.serverCard.empty')} />
+    </section>
+  {/if}
+
+  {#if !incidents || legacyEvents.length > 0}
   <section class="card block">
-    <h2 class="card-title">{t('servers.detail.events.title')}<span class="dot">.</span></h2>
-    {#if events.length === 0}
+    <h2 class="card-title">{incidents ? t('incidents.serverCard.legacy') : t('servers.detail.events.title')}<span class="dot">.</span></h2>
+    {#if incidents}<p class="muted small legacy">{t('incidents.serverCard.legacyHint')}</p>{/if}
+    {#if (incidents ? legacyEvents : events).length === 0}
       <p class="muted nomargin">{t('servers.detail.events.none')}</p>
     {:else}
       <ul class="evs">
-        {#each events as ev (ev.id)}
+        {#each incidents ? legacyEvents : events as ev (ev.id)}
           <li class:open={!ev.ended_at}>
             <span class="edot" aria-hidden="true"></span>
             <span class="e1">
@@ -719,6 +734,7 @@
       </ul>
     {/if}
   </section>
+  {/if}
 
 
   {#if session.isAdmin}
@@ -728,6 +744,9 @@
 {/if}
 
 <style>
+  .legacy {
+    margin: -6px 0 10px;
+  }
   .head {
     display: flex;
     align-items: flex-start;

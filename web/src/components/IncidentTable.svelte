@@ -10,7 +10,15 @@
     now,
     showMonitor = false,
     emptyText,
-  }: { incidents: Incident[]; now: number; showMonitor?: boolean; emptyText?: string } = $props();
+    serverBadge = true,
+  }: {
+    incidents: Incident[];
+    now: number;
+    showMonitor?: boolean;
+    emptyText?: string;
+    /** Sunucu rozeti (sunucu ayrıntısında hepsi sunucu olayı olduğundan gizlenir). */
+    serverBadge?: boolean;
+  } = $props();
 
   // Monitör ve sunucu olayları birlikte listeleniyorsa sütun başlığı ikisini de söyler.
   const mixed = $derived(incidents.some((i) => isServerIncident(i.kind)));
@@ -61,7 +69,7 @@
           <td data-label={t('incidents.table.cause')} class="cause">
             {#if partial}
               <span class="badge pending kind" title={t('incidents.kind.partialHint')}>{t('incidents.kind.partial')}</span>
-            {:else if server}
+            {:else if server && serverBadge}
               <span class="badge accent kind">{t('incidents.kind.server')}</span>
             {/if}
             {inc.cause || '—'}
@@ -100,9 +108,6 @@
   }
   .kind {
     margin-right: 6px;
-  }
-  .c-pending {
-    color: var(--pending);
   }
   .cause {
     max-width: 420px;

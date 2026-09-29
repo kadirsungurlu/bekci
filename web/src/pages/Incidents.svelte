@@ -89,11 +89,11 @@
     loadFirst();
   }
 
-  const FILTERS: { k: IncidentFilterKind; label: string }[] = [
-    { k: '', label: 'incidents.filter.all' },
-    { k: 'monitor', label: 'incidents.filter.monitor' },
-    { k: 'server', label: 'incidents.filter.server' },
-    { k: 'partial', label: 'incidents.filter.partial' },
+  const FILTERS: { k: IncidentFilterKind; label: () => string }[] = [
+    { k: '', label: () => t('incidents.filter.all') },
+    { k: 'monitor', label: () => t('incidents.filter.monitor') },
+    { k: 'server', label: () => t('incidents.filter.server') },
+    { k: 'partial', label: () => t('incidents.filter.partial') },
   ];
 
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -149,7 +149,7 @@
 <div class="filters">
   <div class="seg" role="radiogroup" aria-label={t('incidents.filter.label')}>
     {#each FILTERS as f (f.k)}
-      <button role="radio" aria-checked={kind === f.k} class:active={kind === f.k} onclick={() => setKind(f.k)}>{t(f.label)}</button>
+      <button role="radio" aria-checked={kind === f.k} class:active={kind === f.k} onclick={() => setKind(f.k)}>{f.label()}</button>
     {/each}
   </div>
 </div>

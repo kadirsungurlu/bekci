@@ -23,25 +23,26 @@ func TestIncidentKindsMigration(t *testing.T) {
 	}
 	m := newMonitor(t, old, "eski-site")
 	other := newMonitor(t, old, "diger")
-	for _, q := range []string{
-		"INSERT INTO incidents (id, monitor_id, started_at, resolved_at, cause) VALUES (7, ?, 100, 200, 'HTTP 503')",
-		"INSERT INTO incidents (id, monitor_id, started_at, cause) VALUES (8, ?, 300, 'Zaman aşımı')",
-	} {
-		if _, err := old.db.ExecContext(ctx, q, m.ID); err != nil {
+	// Kimlikler RETURNING ile alınır (PostgreSQL'de kimlik sütunu dizisi ilerlesin).
+	ins := func(q string, args ...any) int64 {
+		t.Helper()
+		id, err := insertID(ctx, old.db, q, args...)
+		if err != nil {
 			t.Fatal(err)
 		}
+		return id
 	}
-	if _, err := old.db.ExecContext(ctx, "INSERT INTO incidents (id, monitor_id, started_at, cause) VALUES (9, ?, 400, 'x')", other.ID); err != nil {
-		t.Fatal(err)
-	}
-	if err := old.AddIncidentEvents(ctx, 7, IncidentEvent{Time: 100, Kind: EventDown, Message: "HTTP 503"},
+	i7 := ins("INSERT INTO incidents (monitor_id, started_at, resolved_at, cause) VALUES (?, 100, 200, 'HTTP 503')", m.ID)
+	i8 := ins("INSERT INTO incidents (monitor_id, started_at, cause) VALUES (?, 300, 'Zaman aşımı')", m.ID)
+	i9 := ins("INSERT INTO incidents (monitor_id, started_at, cause) VALUES (?, 400, 'x')", other.ID)
+	if err := old.AddIncidentEvents(ctx, i7, IncidentEvent{Time: 100, Kind: EventDown, Message: "HTTP 503"},
 		IncidentEvent{Time: 200, Kind: EventUp, Data: EventData(map[string]int{"downtime": 100})}); err != nil {
 		t.Fatal(err)
 	}
-	if err := old.AddIncidentEvents(ctx, 9, IncidentEvent{Time: 400, Kind: EventDown}); err != nil {
+	if err := old.AddIncidentEvents(ctx, i9, IncidentEvent{Time: 400, Kind: EventDown}); err != nil {
 		t.Fatal(err)
 	}
-	if err := old.SaveIncidentCapture(ctx, 7, 100, "Ana sunucu", []byte(`{"kind":"http","status":503}`)); err != nil {
+	if err := old.SaveIncidentCapture(ctx, i7, 100, "Ana sunucu", []byte(`{"kind":"http","status":503}`)); err != nil {
 		t.Fatal(err)
 	}
 	old.Close()
@@ -55,22 +56,22 @@ func TestIncidentKindsMigration(t *testing.T) {
 	if v, _ := s.schemaVersion(ctx); v != latestMigration() {
 		t.Fatalf("sürüm %d, %d bekleniyordu", v, latestMigration())
 	}
-	inc, err := s.GetIncident(ctx, 7)
+	inc, err := s.GetIncident(ctx, i7)
 	if err != nil || inc.Kind != IncidentMonitor || inc.MonitorID != m.ID || inc.MonitorName != "eski-site" ||
 		inc.StartedAt != 100 || inc.ResolvedAt != 200 || inc.Cause != "HTTP 503" || inc.ServerID != 0 {
 		t.Fatalf("taşınan olay: %+v %v", inc, err)
 	}
-	if evs, _ := s.IncidentEvents(ctx, 7); len(evs) != 2 || evs[0].Kind != EventUp || string(evs[0].Data) != `{"downtime":100}` {
+	if evs, _ := s.IncidentEvents(ctx, i7); len(evs) != 2 || evs[0].Kind != EventUp || string(evs[0].Data) != `{"downtime":100}` {
 		t.Fatalf("taşınan geçmiş: %+v", evs)
 	}
-	if c, ok, _ := s.GetIncidentCapture(ctx, 7); !ok || c.Location != "Ana sunucu" {
+	if c, ok, _ := s.GetIncidentCapture(ctx, i7); !ok || c.Location != "Ana sunucu" {
 		t.Fatalf("taşınan yakalama: %+v %v", c, ok)
 	}
 	// Açık olay yeni kodla bulunur; yeni olay açılmaz, id dizisi sürer.
-	if id, _ := s.OpenIncidentID(ctx, m.ID); id != 8 {
+	if id, _ := s.OpenIncidentID(ctx, m.ID); id != i8 {
 		t.Fatalf("açık olay: %d", id)
 	}
-	if id, _ := s.StartPartialIncident(ctx, m.ID, 500, "A: x", nil); id <= 9 {
+	if id, _ := s.StartPartialIncident(ctx, m.ID, 500, "A: x", nil); id <= i9 {
 		t.Fatalf("yeni olay kimliği: %d", id)
 	}
 	// Monitörsüz (sunucu) olay yazılabilir.
@@ -86,8 +87,8 @@ func TestIncidentKindsMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	var n int
-	s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM incident_events WHERE incident_id = 9").Scan(&n)
-	if _, err := s.GetIncident(ctx, 9); err != ErrNotFound || n != 0 {
+	s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM incident_events WHERE incident_id = ?", i9).Scan(&n)
+	if _, err := s.GetIncident(ctx, i9); err != ErrNotFound || n != 0 {
 		t.Fatalf("silinen monitörün olayı/geçmişi kaldı: %v %d", err, n)
 	}
 	// Sunucu silinince olayı gider.

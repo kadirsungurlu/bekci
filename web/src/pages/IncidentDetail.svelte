@@ -10,7 +10,11 @@
     type IncidentDetail,
     type IncidentEvent,
     type NotificationType,
+    type ServerIncidentData,
+    type ServerMetric,
+    isServerIncident,
   } from '../lib/api';
+  import { fmtMetric, metricLabel } from '../lib/servers.svelte';
   import { live } from '../lib/live.svelte';
   import { fmtDateSec, fmtDuration, fmtDurationLong, fmtTimeSec, fmtDay, fmtSize, nowSec } from '../lib/format';
   import { t, tOr } from '../lib/i18n';
@@ -44,6 +48,8 @@
   let reloadTimer: ReturnType<typeof setTimeout> | undefined;
   let poll: ReturnType<typeof setInterval> | undefined;
   let unsub: (() => void) | undefined;
+  let unsubLoc: (() => void) | undefined;
+  let unsubSrv: (() => void) | undefined;
   let unsubResume: (() => void) | undefined;
 
   onMount(() => {
@@ -53,7 +59,18 @@
     tick = setInterval(() => (now = nowSec()), 1000);
     // Monitörün yeni sonucu olay geçmişini değiştirebilir (çözülme, hata değişimi).
     unsub = live.onBeat((b) => {
-      if (!data || b.monitor_id !== data.incident.monitor_id || data.incident.resolved_at) return;
+      if (!data || !data.incident.monitor_id || b.monitor_id !== data.incident.monitor_id || data.incident.resolved_at) return;
+      clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(load, 1000);
+    });
+    // Kısmi kesinti konum değişimiyle, sunucu olayı sunucunun durumuyla değişir.
+    unsubLoc = live.onLocations((mid) => {
+      if (!data || mid !== data.incident.monitor_id || data.incident.resolved_at) return;
+      clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(load, 1500);
+    });
+    unsubSrv = live.onServer((v) => {
+      if (!data?.server || v.id !== data.server.id || data.incident.resolved_at) return;
       clearTimeout(reloadTimer);
       reloadTimer = setTimeout(load, 1000);
     });
@@ -67,11 +84,24 @@
     clearInterval(poll);
     clearTimeout(reloadTimer);
     unsub?.();
+    unsubLoc?.();
+    unsubSrv?.();
     unsubResume?.();
   });
 
   const inc = $derived(data?.incident);
   const ongoing = $derived(!!inc && inc.resolved_at === 0);
+  // Olay türü: kısmi kesinti (sarı) ve sunucu olayları ayrı gösterilir.
+  const partial = $derived(inc?.kind === 'partial');
+  const server = $derived(isServerIncident(inc?.kind));
+  const offline = $derived(inc?.kind === 'server_offline');
+  const sdata = $derived<ServerIncidentData | null>(server ? ((inc?.data ?? null) as ServerIncidentData | null) : null);
+  const smetric = $derived((sdata?.metric ?? '') as ServerMetric);
+  const affected = $derived.by<string[]>(() => {
+    const l = partial ? inc?.data?.locations : null;
+    return Array.isArray(l) ? l.filter((x): x is string => typeof x === 'string') : [];
+  });
+  const tone = $derived(ongoing ? (partial ? 'pending' : 'down') : 'up');
   const duration = $derived(inc ? (ongoing ? Math.max(now, inc.started_at) : inc.resolved_at) - inc.started_at : 0);
   const isHttp = $derived(data?.monitor.type === 'http');
   // Yakalanan konumlar: çok konumlu olayda çalışmayan her konumun kaydı (ilki
@@ -109,7 +139,12 @@
     title: string;
     sub: string;
     note: string;
+    /** Bağlı olay (kısmi ↔ tam kesinti). */
+    href?: string;
   }
+
+  // Kısmi olayın kapanış mesajı başlıkla aynıysa tekrar yazılmaz.
+  const PARTIAL_RESOLVED_MSG = ['Tüm konumlar çalışıyor', 'All locations are up'];
 
   const num = (v: unknown) => (typeof v === 'number' ? v : 0);
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
@@ -151,12 +186,25 @@
         break;
       }
       case 'down':
-        r.icon = 'zap';
-        r.tone = 'down';
-        r.title = t('incidents.ev.started');
-        r.sub = ev.message;
+        r.icon = server ? (offline ? 'wifi-off' : 'alert') : 'zap';
+        r.tone = partial ? 'pending' : 'down';
+        r.title = partial
+          ? t('incidents.ev.partialStarted')
+          : server
+            ? t(offline ? 'incidents.ev.serverOffline' : 'incidents.ev.serverAlert')
+            : t('incidents.ev.started');
+        r.sub = offline ? '' : ev.message;
         r.note = ev.location ? t('incidents.ev.confirmedBy', { where: locName(ev.location) }) : '';
         break;
+      case 'escalated':
+      case 'from_partial': {
+        r.icon = ev.kind === 'escalated' ? 'zap' : 'map-pin';
+        r.tone = ev.kind === 'escalated' ? 'down' : 'pending';
+        r.title = t(ev.kind === 'escalated' ? 'incidents.ev.escalated' : 'incidents.ev.fromPartial');
+        const other = num(d.incident_id);
+        if (other) r.href = `#/incidents/${other}`;
+        break;
+      }
       case 'change':
         r.icon = 'alert';
         r.tone = 'down';
@@ -224,9 +272,13 @@
       case 'up':
         r.icon = 'check';
         r.tone = 'up';
-        r.title = t('incidents.ev.resolved');
+        r.title = partial
+          ? t('incidents.ev.partialResolved')
+          : server
+            ? t(offline ? 'incidents.ev.serverOnline' : 'incidents.ev.serverResolved')
+            : t('incidents.ev.resolved');
         r.sub = [
-          ev.message,
+          partial && PARTIAL_RESOLVED_MSG.includes(ev.message) ? '' : ev.message,
           d.downtime !== undefined ? t('incidents.ev.downtime', { d: fmtDurationLong(num(d.downtime)) }) : '',
         ]
           .filter(Boolean)
@@ -355,10 +407,20 @@
 
     <div class="head">
       <div class="title">
-        <StatusIcon kind={ongoing ? 'down' : 'up'} size={40} pulse={ongoing} />
+        <StatusIcon kind={tone} size={40} pulse={ongoing} />
         <div class="tt">
-          <h1><span class="pre" class:c-down={ongoing} class:c-up={!ongoing}>{ongoing ? t('incidents.detail.ongoingPre') : t('incidents.detail.resolvedPre')}</span> {data.monitor.name}</h1>
+          <h1>
+            <span class="pre" class:c-down={ongoing && !partial} class:c-pending={ongoing && partial} class:c-up={!ongoing}
+              >{partial ? t('incidents.detail.partialPre') : ongoing ? t('incidents.detail.ongoingPre') : t('incidents.detail.resolvedPre')}</span
+            >
+            {data.server ? data.server.name : data.monitor.name}
+          </h1>
           <div class="target">
+            {#if data.server}
+              <span class="badge accent">{t(offline ? 'incidents.kind.serverOffline' : 'incidents.kind.serverAlert')}</span>
+              {#if data.server.hostname}<span class="text-2 mono">{t('incidents.detail.hostname', { name: data.server.hostname })}</span>{/if}
+            {:else}
+            {#if partial}<span class="badge pending" title={t('incidents.kind.partialHint')}>{t('incidents.kind.partialLong')}</span>{/if}
             <TypeBadge type={data.monitor.type} />
             {#if !data.monitor.target}
               <span class="muted">{t('incidents.detail.typeMonitor', { type: typeName(data.monitor.type) })}</span>
@@ -367,11 +429,16 @@
             {:else}
               <span class="text-2 mono">{displayTarget(data.monitor.target)}</span>
             {/if}
+            {/if}
           </div>
         </div>
       </div>
       <div class="actions">
-        <a class="btn" href="#/monitors/{data.monitor.id}"><Icon name="activity" size={15} /> {t('incidents.detail.goToMonitor')}</a>
+        {#if data.server}
+          <a class="btn" href="#/servers/{data.server.id}"><Icon name="server" size={15} /> {t('incidents.detail.goToServer')}</a>
+        {:else}
+          <a class="btn" href="#/monitors/{data.monitor.id}"><Icon name="activity" size={15} /> {t('incidents.detail.goToMonitor')}</a>
+        {/if}
         {#if capture}
           <button class="btn" onclick={download}>
             <Icon name="download" size={15} />
@@ -383,7 +450,7 @@
 
     <div class="layout" class:single={!showSide}>
       <div class="col">
-        <div class="card cause" class:resolved={!ongoing}>
+        <div class="card cause" class:resolved={!ongoing} class:partial={ongoing && partial}>
           <div class="label">{t('incidents.detail.rootCause')}</div>
           <div class="cause-t">{causeTitle(rootCause)}</div>
           {#if data.location}
@@ -395,16 +462,64 @@
           <div class="card stat">
             <div class="label">{t('incidents.detail.status')}</div>
             <div class="value">
-              <span class="pill {ongoing ? 'down' : 'up'}">{ongoing ? t('incidents.detail.ongoing') : t('incidents.detail.resolved')}</span>
+              <span class="pill {tone}">{ongoing ? t('incidents.detail.ongoing') : t('incidents.detail.resolved')}</span>
             </div>
             <div class="sub">{t('incidents.detail.started', { date: fmtDateSec(inc.started_at) })}</div>
           </div>
           <div class="card stat">
             <div class="label">{t('incidents.detail.duration')}</div>
-            <div class="value" class:c-down={ongoing}>{fmtDurationLong(duration)}</div>
+            <div class="value" class:c-down={ongoing && !partial} class:c-pending={ongoing && partial}>{fmtDurationLong(duration)}</div>
             <div class="sub">{ongoing ? t('incidents.detail.stillOngoing') : t('incidents.detail.resolvedAt', { date: fmtDateSec(inc.resolved_at) })}</div>
           </div>
         </div>
+
+        {#if partial}
+          <div class="card">
+            <div class="card-head">
+              <h2 class="card-title">{t('incidents.detail.affected')}<span class="dot">.</span></h2>
+              <span class="muted small">{t('incidents.detail.affectedHint')}</span>
+            </div>
+            {#if affected.length}
+              <div class="aff">
+                {#each affected as name (name)}
+                  <span class="aff-i"><Icon name="map-pin" size={13} /> {locName(name)}</span>
+                {/each}
+              </div>
+            {/if}
+            <p class="note"><Icon name="info" size={14} /> {t('incidents.detail.partialNote')}</p>
+          </div>
+        {/if}
+
+        {#if sdata}
+          <div class="card">
+            <div class="card-head">
+              <h2 class="card-title">{offline ? t('incidents.detail.offlineTitle') : t('incidents.detail.alertTitle')}<span class="dot">.</span></h2>
+            </div>
+            <dl class="facts">
+              {#if offline}
+                {#if sdata.last_seen}
+                  <dt>{t('incidents.detail.lastSeen')}</dt>
+                  <dd>{fmtDateSec(sdata.last_seen)}</dd>
+                {/if}
+                <dt>{t('incidents.detail.offlineAfter')}</dt>
+                <dd>{t('incidents.detail.minutes', { n: sdata.minutes })}</dd>
+              {:else}
+                <dt>{t('incidents.detail.metric')}</dt>
+                <dd>{metricLabel(smetric)}{sdata.mount ? ` · ${sdata.mount}` : ''}</dd>
+                <dt>{t('incidents.detail.threshold')}</dt>
+                <dd>≥ {fmtMetric(smetric, sdata.threshold ?? 0)}</dd>
+                <dt>{t('incidents.detail.window')}</dt>
+                <dd>{t('incidents.detail.minutes', { n: sdata.minutes })}</dd>
+                <dt>{t('incidents.detail.valueAtStart')}</dt>
+                <dd class="num">{fmtMetric(smetric, sdata.value)}</dd>
+                <dt>{t('incidents.detail.peak')}</dt>
+                <dd class="num c-down">{fmtMetric(smetric, sdata.peak)}</dd>
+                <dt>{ongoing ? t('incidents.detail.last') : t('incidents.detail.lastAtEnd')}</dt>
+                <dd class="num">{fmtMetric(smetric, sdata.last)}</dd>
+              {/if}
+            </dl>
+          </div>
+        {/if}
 
         {#if data.locations.length}
           <div class="card">
@@ -447,6 +562,7 @@
                       {fmtDay(r.ev.time) === fmtDay(inc.started_at) ? fmtTimeSec(r.ev.time) : fmtDateSec(r.ev.time)}
                     </time>
                     {#if r.note}<span class="en">· {r.note}</span>{/if}
+                    {#if r.href}<a class="en" href={r.href}>· {t('incidents.ev.openLinked')}</a>{/if}
                   </div>
                 </div>
               </li>
@@ -668,6 +784,59 @@
   }
   .cause.resolved {
     border-left-color: var(--border-strong);
+  }
+  .cause.partial {
+    border-left-color: var(--pending);
+  }
+  .cause.partial .cause-t {
+    color: var(--pending);
+  }
+  .aff {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .aff-i {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    background: var(--pending-soft);
+    color: var(--pending);
+  }
+  .note {
+    display: flex;
+    gap: 7px;
+    align-items: flex-start;
+    margin: 12px 0 0;
+    font-size: 0.85rem;
+    color: var(--text-2);
+    line-height: 1.45;
+  }
+  .note :global(svg) {
+    flex: none;
+    margin-top: 2px;
+  }
+  .facts {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 9px 18px;
+    margin: 0;
+    font-size: 0.92rem;
+  }
+  .facts dt {
+    color: var(--muted);
+  }
+  .facts dd {
+    margin: 0;
+    font-weight: 600;
+    word-break: break-word;
+  }
+  .facts .num {
+    font-variant-numeric: tabular-nums;
   }
   .cause-t {
     margin-top: 8px;

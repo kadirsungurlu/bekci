@@ -23,6 +23,13 @@ export default {
     serverAlert: 'Sunucu uyarısı',
     partialHint: 'Bazı konumlar çalışmıyor ama monitör çalışıyor; bildirim gönderilmez, uptime etkilenmez.',
   },
+  /** Sunucu ayrıntısındaki olaylar kartı. */
+  serverCard: {
+    title: 'Olaylar',
+    empty: 'Bu sunucuda henüz olay yok.',
+    legacy: 'Önceki uyarılar',
+    legacyHint: 'Olay kaydı tutulmaya başlanmadan önceki uyarılar',
+  },
   table: {
     empty: 'Kayıtlı olay yok.',
     monitor: 'Monitör',

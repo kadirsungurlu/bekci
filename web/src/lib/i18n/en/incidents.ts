@@ -23,6 +23,12 @@ export default {
     serverAlert: 'Server alert',
     partialHint: 'Some locations are down but the monitor is up; no notifications are sent and uptime is not affected.',
   },
+  serverCard: {
+    title: 'Incidents',
+    empty: 'No incidents on this server yet.',
+    legacy: 'Earlier alerts',
+    legacyHint: 'Alerts from before incidents were recorded',
+  },
   table: {
     empty: 'No incidents recorded.',
     monitor: 'Monitor',
