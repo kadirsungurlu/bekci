@@ -44,15 +44,21 @@ func (pingChecker) Target(raw json.RawMessage) string {
 	return c.Host
 }
 
-func (pingChecker) Check(ctx context.Context, raw json.RawMessage) Result {
+func (pingChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) {
 	var c PingConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return down("Ayar okunamadı: " + err.Error())
 	}
+	// Tanı: ping istatistikleri zaten elde; ek ağ işi yapılmaz.
+	dg := newDiag("ping", raw, c.Host)
+	defer dg.attach(ctx, &res)
 	p, err := probing.NewPinger(c.Host)
 	if err != nil {
+		dg.fail(ctx, PhaseDNS, err)
 		return down(describeErr(ctx, err))
 	}
+	dp := &DiagPing{Target: p.IPAddr().String()}
+	dg.ping = dp
 	// Yetkisiz (UDP tabanlı) ICMP: root gerektirmez. Docker'ın varsayılan
 	// net.ipv4.ping_group_range ayarı buna izin verir. Windows'ta yetkisiz
 	// ICMP yoktur; ajan hizmeti LocalSystem olarak çalıştığı için ham soket açılır.
@@ -63,10 +69,17 @@ func (pingChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 		p.Timeout = time.Until(dl)
 	}
 	if err := p.RunWithContext(ctx); err != nil && ctx.Err() == nil {
+		dg.fail(ctx, PhasePing, err)
+		dp.RawError, dp.Error = err.Error(), "failed"
+		if pingUnavailable(err) {
+			dp.Error = "unavailable"
+		}
 		return down("Ping gönderilemedi: " + err.Error())
 	}
 	st := p.Statistics()
+	fillPing(dp, st)
 	if st.PacketsRecv == 0 {
+		dg.failClass(PhasePing, ClassTimeout)
 		return down(fmt.Sprintf("Yanıt yok (%d paketin hiçbiri dönmedi)", st.PacketsSent))
 	}
 	ms := st.AvgRtt.Milliseconds()

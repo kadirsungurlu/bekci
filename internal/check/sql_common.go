@@ -38,15 +38,17 @@ func sqlTarget(user, host string, port int, database string) string {
 // runSQLQuery sorguyu çalıştırır, satırları sayar ve istenirse ilk satırın
 // ilk sütununu beklenen değerle karşılaştırır. MySQL/PostgreSQL/MSSQL
 // kontrolleri tarafından ortak kullanılır.
-func runSQLQuery(ctx context.Context, db *sql.DB, start time.Time, query, expected string) Result {
+func runSQLQuery(ctx context.Context, dg *diagRun, db *sql.DB, start time.Time, query, expected string) Result {
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
+		dg.fail(ctx, PhaseQuery, err)
 		return down("Sorgu çalıştırılamadı: " + describeErr(ctx, err))
 	}
 	defer rows.Close()
 
 	cols, err := rows.Columns()
 	if err != nil {
+		dg.fail(ctx, PhaseQuery, err)
 		return down("Sorgu sonucu okunamadı: " + err.Error())
 	}
 
@@ -61,6 +63,7 @@ func runSQLQuery(ctx context.Context, db *sql.DB, start time.Time, query, expect
 				ptrs[i] = &vals[i]
 			}
 			if err := rows.Scan(ptrs...); err != nil {
+				dg.fail(ctx, PhaseQuery, err)
 				return down("Sorgu sonucu okunamadı: " + err.Error())
 			}
 			if len(vals) > 0 {
@@ -71,14 +74,17 @@ func runSQLQuery(ctx context.Context, db *sql.DB, start time.Time, query, expect
 		count++
 	}
 	if err := rows.Err(); err != nil {
+		dg.fail(ctx, PhaseQuery, err)
 		return down("Sorgu sonucu okunamadı: " + describeErr(ctx, err))
 	}
 
 	if expected != "" {
 		if !haveFirst {
+			dg.failClass(PhaseResponse, ClassMismatch)
 			return down(fmt.Sprintf("Sorgu sonuç döndürmedi (beklenen: %q)", expected))
 		}
 		if first != expected {
+			dg.failClass(PhaseResponse, ClassMismatch)
 			return down(fmt.Sprintf("Beklenmeyen sonuç: %q (beklenen: %q)", truncate(first, 80), expected))
 		}
 	}

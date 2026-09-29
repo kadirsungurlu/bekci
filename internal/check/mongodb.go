@@ -63,16 +63,42 @@ func redactMongoURI(uri string) string {
 	return u.String()
 }
 
-func (mongodbChecker) Check(ctx context.Context, raw json.RawMessage) Result {
+// mongoFirstHost URI'deki ilk sunucu (ağ tanısı için). mongodb+srv:// adresinde
+// sunucular SRV kaydından gelir: boş döner.
+func mongoFirstHost(uri string) (string, int) {
+	rest, ok := strings.CutPrefix(uri, "mongodb://")
+	if !ok {
+		return "", 0
+	}
+	if i := strings.IndexAny(rest, "/?"); i >= 0 {
+		rest = rest[:i]
+	}
+	if i := strings.LastIndexByte(rest, '@'); i >= 0 {
+		rest = rest[i+1:]
+	}
+	first, _, _ := strings.Cut(rest, ",")
+	if first == "" {
+		return "", 0
+	}
+	return hostPortOf(first, 27017)
+}
+
+func (mongodbChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) {
 	var c MongoDBConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return down("Ayar okunamadı: " + err.Error())
 	}
+	dg := newDiag("mongodb", raw, redactMongoURI(c.URI)+targetDBSuffix(c.Database))
+	if host, port := mongoFirstHost(c.URI); host != "" {
+		dg.network(host, port, true)
+	}
+	defer dg.attach(ctx, &res)
 
 	timeout := remainingTimeout(ctx)
 	opts := options.Client().ApplyURI(c.URI).SetConnectTimeout(timeout).SetServerSelectionTimeout(timeout).SetTimeout(timeout)
 	client, err := mongo.Connect(opts)
 	if err != nil {
+		dg.fail(ctx, PhaseConfig, err)
 		return down("Bağlantı ayarı geçersiz: " + describeErr(ctx, err))
 	}
 	defer func() {
@@ -83,6 +109,7 @@ func (mongodbChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 
 	start := time.Now()
 	if err := client.Ping(ctx, readpref.Primary()); err != nil {
+		dg.failConn(ctx, err)
 		return down(describeErr(ctx, err))
 	}
 
@@ -91,6 +118,7 @@ func (mongodbChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 		dbName = "admin"
 	}
 	if err := client.Database(dbName).RunCommand(ctx, bson.D{{Key: "ping", Value: 1}}).Err(); err != nil {
+		dg.fail(ctx, PhaseQuery, err)
 		return down(describeErr(ctx, err))
 	}
 	return Result{Up: true, PingMs: msSince(start), Message: "Ping başarılı"}

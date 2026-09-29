@@ -61,16 +61,19 @@ func (smtpChecker) Target(raw json.RawMessage) string {
 
 func (smtpChecker) CertExpiryEnabled(json.RawMessage) bool { return true }
 
-func (smtpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
+func (smtpChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) {
 	var c SMTPConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return down("Ayar okunamadı: " + err.Error())
 	}
 	addr := net.JoinHostPort(c.Host, strconv.Itoa(c.Port))
+	dg := newDiag("smtp", raw, addr).network(c.Host, c.Port, true)
+	defer dg.attach(ctx, &res)
 
 	start := time.Now()
 	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
 	if err != nil {
+		dg.failDial(ctx, err)
 		return down(describeErr(ctx, err))
 	}
 	defer conn.Close()
@@ -84,6 +87,7 @@ func (smtpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	if c.Security == "tls" {
 		tlsConn := tls.Client(conn, tlsCfg)
 		if err := tlsConn.HandshakeContext(ctx); err != nil {
+			dg.fail(ctx, PhaseTLS, err)
 			return down(describeErr(ctx, err))
 		}
 		cert = certInfoFromState(tlsConn.ConnectionState())
@@ -92,30 +96,37 @@ func (smtpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 
 	tp := textproto.NewConn(conn)
 	_, banner, err := tp.ReadResponse(220)
+	dg.banner = banner
 	if err != nil {
+		dg.fail(ctx, PhaseGreeting, err)
 		return down("Banner okunamadı: " + describeErr(ctx, err))
 	}
 	if c.ExpectedBanner != "" && !strings.Contains(strings.ToLower(banner), strings.ToLower(c.ExpectedBanner)) {
+		dg.failClass(PhaseGreeting, ClassMismatch)
 		return down("Banner beklenen metni içermiyor: " + truncate(banner, 120))
 	}
 
 	if _, _, err := ehlo(tp); err != nil {
+		dg.fail(ctx, PhaseEHLO, err)
 		return down("EHLO başarısız: " + describeErr(ctx, err))
 	}
 
 	if c.Security == "starttls" {
 		id, err := tp.Cmd("STARTTLS")
 		if err != nil {
+			dg.fail(ctx, PhaseSTARTTLS, err)
 			return down("STARTTLS gönderilemedi: " + err.Error())
 		}
 		tp.StartResponse(id)
 		_, _, err = tp.ReadResponse(220)
 		tp.EndResponse(id)
 		if err != nil {
+			dg.fail(ctx, PhaseSTARTTLS, err)
 			return down("STARTTLS reddedildi: " + describeErr(ctx, err))
 		}
 		tlsConn := tls.Client(conn, tlsCfg)
 		if err := tlsConn.HandshakeContext(ctx); err != nil {
+			dg.fail(ctx, PhaseTLS, err)
 			return down("SSL handshake hatası: " + describeErr(ctx, err))
 		}
 		cert = certInfoFromState(tlsConn.ConnectionState())
@@ -123,6 +134,7 @@ func (smtpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 		tp = textproto.NewConn(conn)
 		// RFC 3207: STARTTLS sonrası oturum sıfırlanır, tekrar EHLO gerekir.
 		if _, _, err := ehlo(tp); err != nil {
+			dg.fail(ctx, PhaseEHLO, err)
 			return down("STARTTLS sonrası EHLO başarısız: " + describeErr(ctx, err))
 		}
 	}

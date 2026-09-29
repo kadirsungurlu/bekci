@@ -61,14 +61,17 @@ func (mssqlChecker) Target(raw json.RawMessage) string {
 	return sqlTarget(c.Username, c.Host, c.Port, c.Database)
 }
 
-func (mssqlChecker) Check(ctx context.Context, raw json.RawMessage) Result {
+func (mssqlChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) {
 	var c MSSQLConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return down("Ayar okunamadı: " + err.Error())
 	}
+	dg := newDiag("mssql", raw, sqlTarget(c.Username, c.Host, c.Port, c.Database)).network(c.Host, c.Port, true)
+	defer dg.attach(ctx, &res)
 
 	db, err := sql.Open("sqlserver", mssqlDSN(ctx, c))
 	if err != nil {
+		dg.fail(ctx, PhaseConfig, err)
 		return down("Bağlantı ayarı geçersiz: " + err.Error())
 	}
 	defer db.Close()
@@ -78,9 +81,10 @@ func (mssqlChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 
 	start := time.Now()
 	if err := db.PingContext(ctx); err != nil {
+		dg.failConn(ctx, err)
 		return down(mssqlConnErr(ctx, err))
 	}
-	return runSQLQuery(ctx, db, start, c.Query, c.Expected)
+	return runSQLQuery(ctx, dg, db, start, c.Query, c.Expected)
 }
 
 // mssqlConnErr sık görülen bağlantı hatalarını Türkçe açıklar; SQL Server'ın

@@ -30,6 +30,9 @@ type MQTTConfig struct {
 
 var mqttSchemes = map[string]bool{"tcp": true, "ssl": true, "tls": true, "ws": true, "wss": true}
 
+// mqttDefaultPorts şemaya göre varsayılan broker portu (ağ tanısı için).
+var mqttDefaultPorts = map[string]int{"tcp": 1883, "ssl": 8883, "tls": 8883, "ws": 80, "wss": 443}
+
 type mqttChecker struct{}
 
 func init() { Register("mqtt", mqttChecker{}) }
@@ -71,16 +74,22 @@ func (mqttChecker) Target(raw json.RawMessage) string {
 	return c.BrokerURL
 }
 
-func (mqttChecker) Check(ctx context.Context, raw json.RawMessage) Result {
+func (mqttChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) {
 	var c MQTTConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return down("Ayar okunamadı: " + err.Error())
 	}
+	dg := newDiag("mqtt", raw, redactedURL(c.BrokerURL))
+	if host, port := urlHostPort(c.BrokerURL, mqttDefaultPorts); host != "" {
+		dg.network(host, port, true)
+	}
+	defer dg.attach(ctx, &res)
 	timeout := 30 * time.Second
 	if dl, ok := ctx.Deadline(); ok {
 		timeout = time.Until(dl)
 	}
 	if timeout <= 0 {
+		dg.failClass(PhaseConnect, ClassTimeout)
 		return down("Zaman aşımı")
 	}
 
@@ -103,8 +112,10 @@ func (mqttChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	start := time.Now()
 	client := mqtt.NewClient(opts)
 	if timedOut, err := mqttConnect(ctx, client); timedOut {
+		dg.failClass(PhaseConnect, ClassTimeout)
 		return down("Zaman aşımı")
 	} else if err != nil {
+		dg.failConn(ctx, err)
 		return down("Bağlanılamadı: " + err.Error())
 	}
 	defer client.Disconnect(250)
@@ -129,9 +140,11 @@ func (mqttChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	select {
 	case err := <-subDone:
 		if err != nil {
+			dg.fail(ctx, PhaseSubscribe, err)
 			return down("Abonelik hatası: " + err.Error())
 		}
 	case <-ctx.Done():
+		dg.failClass(PhaseSubscribe, ClassTimeout)
 		return down("Abonelik zaman aşımına uğradı")
 	}
 
@@ -140,16 +153,19 @@ func (mqttChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 		payload := msg.Payload()
 		ping = msSince(start)
 		if c.Keyword != "" && !containsKeyword(payload, c.Keyword, false) {
+			dg.failClass(PhaseResponse, ClassMismatch)
 			return Result{PingMs: ping, Message: fmt.Sprintf("Kelime bulunamadı: %q", c.Keyword)}
 		}
 		if c.JSONPath != "" {
 			ok, msg2 := evalJSON(payload, c.JSONPath, c.JSONOp, c.JSONExpected)
 			if !ok {
+				dg.failClass(PhaseResponse, ClassMismatch)
 				return Result{PingMs: ping, Message: msg2}
 			}
 		}
 		return Result{Up: true, PingMs: ping, Message: "Mesaj alındı: " + truncate(string(payload), 120)}
 	case <-ctx.Done():
+		dg.failClass(PhaseResponse, ClassNoMessage)
 		return down(fmt.Sprintf("%q konusunda mesaj gelmedi (zaman aşımı)", c.Topic))
 	}
 }

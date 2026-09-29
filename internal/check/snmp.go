@@ -130,17 +130,21 @@ func (snmpChecker) Target(raw json.RawMessage) string {
 	return net.JoinHostPort(c.Host, strconv.Itoa(c.Port)) + " " + c.OID
 }
 
-func (snmpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
+func (snmpChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) {
 	var c SNMPConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return down("Ayar okunamadı: " + err.Error())
 	}
+	// SNMP UDP üzerindedir: ağ tanısı yalnızca çözümleme ve ping.
+	dg := newDiag("snmp", raw, net.JoinHostPort(c.Host, strconv.Itoa(c.Port))).network(c.Host, c.Port, false)
+	defer dg.attach(ctx, &res)
 
 	timeout := 10 * time.Second
 	if dl, ok := ctx.Deadline(); ok {
 		timeout = time.Until(dl)
 	}
 	if timeout <= 0 {
+		dg.failClass(PhaseConnect, ClassTimeout)
 		return down("Zaman aşımı")
 	}
 
@@ -182,20 +186,24 @@ func (snmpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 
 	start := time.Now()
 	if err := g.Connect(); err != nil {
+		dg.fail(ctx, PhaseConnect, err)
 		return down("Bağlanılamadı: " + describeErr(ctx, err))
 	}
 	defer g.Conn.Close()
 
 	result, err := g.Get([]string{c.OID})
 	if err != nil {
+		dg.fail(ctx, PhaseQuery, err)
 		return down(describeErr(ctx, err))
 	}
 	ping := msSince(start)
 	if len(result.Variables) == 0 {
+		dg.failClass(PhaseResponse, ClassProtocol)
 		return down("Yanıtta değer yok")
 	}
 	v := result.Variables[0]
 	if v.Type == gosnmp.NoSuchObject || v.Type == gosnmp.NoSuchInstance {
+		dg.failClass(PhaseResponse, ClassNotFound)
 		return down("OID bulunamadı: " + c.OID)
 	}
 	val := snmpValueString(v)
@@ -205,6 +213,7 @@ func (snmpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	}
 	ok, msg := compareSNMP(val, c.Condition, c.Expected)
 	if !ok {
+		dg.failClass(PhaseResponse, ClassMismatch)
 		return Result{PingMs: ping, Message: msg}
 	}
 	return Result{Up: true, PingMs: ping, Message: msg}

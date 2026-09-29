@@ -66,7 +66,7 @@ func (dnsChecker) Target(raw json.RawMessage) string {
 	return fmt.Sprintf("%s (%s @ %s)", c.Host, c.RecordType, c.Server)
 }
 
-func (dnsChecker) Check(ctx context.Context, raw json.RawMessage) Result {
+func (dnsChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) {
 	var c DNSConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return down("Ayar okunamadı: " + err.Error())
@@ -76,20 +76,39 @@ func (dnsChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	msg.SetQuestion(dns.Fqdn(c.Host), qtype)
 	msg.RecursionDesired = true
 	addr := net.JoinHostPort(c.Server, strconv.Itoa(c.Port))
+	// Tanı: sorgu ve yanıt; sunucu yanıt vermezse sunucuya tek paketlik ping.
+	dg := newDiag("dns", raw, addr).network(c.Server, c.Port, false)
+	dd := &DiagDNS{Server: addr, Type: c.RecordType, Query: c.Host, Transport: "udp"}
+	dg.dns = dd
+	defer dg.attach(ctx, &res)
 
 	// Kütüphanenin varsayılan 2 saniyelik süresi yerine monitörün zaman aşımı.
 	timeout := 30 * time.Second
 	if dl, ok := ctx.Deadline(); ok {
 		timeout = time.Until(dl)
 	}
+	start := time.Now()
 	in, rtt, err := (&dns.Client{Net: "udp", Timeout: timeout}).ExchangeContext(ctx, msg, addr)
 	if err == nil && in.Truncated {
+		dd.Transport = "tcp"
 		in, rtt, err = (&dns.Client{Net: "tcp", Timeout: timeout}).ExchangeContext(ctx, msg, addr)
 	}
+	dd.ElapsedMs = time.Since(start).Milliseconds()
 	if err != nil {
+		dg.fail(ctx, PhaseQuery, err)
+		if dg.class == ClassTimeout {
+			dd.Rcode = "timeout"
+		}
 		return down(describeErr(ctx, err))
 	}
+	dd.Rcode = dns.RcodeToString[in.Rcode]
+	for _, rr := range in.Answer {
+		if len(dd.Answers) < diagMaxAnswers {
+			dd.Answers = append(dd.Answers, dns.TypeToString[rr.Header().Rrtype]+" "+rrValue(rr))
+		}
+	}
 	if in.Rcode != dns.RcodeSuccess {
+		dg.failClass(PhaseResponse, ClassRcode)
 		return down("DNS yanıtı: " + dns.RcodeToString[in.Rcode])
 	}
 
@@ -101,6 +120,7 @@ func (dnsChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 		values = append(values, rrValue(rr))
 	}
 	if len(values) == 0 {
+		dg.failClass(PhaseResponse, ClassNoRecord)
 		return down(fmt.Sprintf("%s kaydı bulunamadı", c.RecordType))
 	}
 	joined := truncate(strings.Join(values, ", "), 200)
@@ -113,6 +133,7 @@ func (dnsChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 			}
 		}
 		if !found {
+			dg.failClass(PhaseResponse, ClassMismatch)
 			return down(fmt.Sprintf("Beklenen değer yok (%s); gelen: %s", c.Expected, joined))
 		}
 	}

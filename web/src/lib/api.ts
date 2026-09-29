@@ -380,10 +380,59 @@ export interface HttpHeader {
   value: string;
 }
 
-/** Başarısız HTTP kontrolünün isteği ve yanıtı (maskeli). */
+/** HTTP dışı tipin bağlantı denemesi (tek IP). */
+export interface ConnAttempt {
+  ip: string;
+  /** ok | refused | timeout | reset | unreachable | dns_error | tls_error | other */
+  result: string;
+  elapsed_ms: number;
+  error?: string;
+}
+
+/** HTTP dışı tipin başarısızlık tanısı (sunucu: check.Diag). Kodlar arayüzde çevrilir. */
+export interface ConnDiag {
+  target?: string;
+  port?: number;
+  resolved?: string[];
+  resolve_ms?: number;
+  resolve_error?: string;
+  attempts?: ConnAttempt[];
+  timeout_ms?: number;
+  elapsed_ms?: number;
+  phase?: string;
+  error_class?: string;
+  raw_error?: string;
+  banner?: string;
+  ping?: {
+    target: string;
+    sent: number;
+    received: number;
+    loss_pct: number;
+    min_ms?: number;
+    avg_ms?: number;
+    max_ms?: number;
+    /** unavailable (ICMP izni yok) | failed */
+    error?: string;
+    raw_error?: string;
+  };
+  dns?: {
+    server: string;
+    type: string;
+    query: string;
+    transport?: string;
+    rcode?: string;
+    answers?: string[];
+    elapsed_ms?: number;
+  };
+}
+
+/** Başarısız kontrolün ayrıntısı: HTTP isteği ve yanıtı ya da (diğer tiplerde) bağlantı tanısı (maskeli). */
 export interface CheckDetail {
-  method: string;
-  url: string;
+  /** Monitör tipi; eski HTTP kayıtlarında yok. */
+  kind?: string;
+  diag?: ConnDiag;
+  method?: string;
+  url?: string;
   request_headers?: HttpHeader[];
   status?: number;
   status_text?: string;
@@ -396,6 +445,12 @@ export interface CheckDetail {
   body_truncated?: boolean;
   body_binary?: boolean;
   error?: string;
+}
+
+export interface IncidentCapture {
+  time: number;
+  location: string;
+  detail: CheckDetail;
 }
 
 export interface IncidentLocation {
@@ -411,7 +466,9 @@ export interface IncidentDetail {
   location: string;
   locations: IncidentLocation[];
   events: IncidentEvent[];
-  capture: { time: number; location: string; detail: CheckDetail } | null;
+  capture: IncidentCapture | null;
+  /** Çok konumlu olayda çalışmayan her konumun kaydı (ilki = capture); eski sunucuda yok. */
+  captures?: IncidentCapture[];
   details: boolean;
 }
 
