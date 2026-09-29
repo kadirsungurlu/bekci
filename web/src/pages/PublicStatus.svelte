@@ -234,6 +234,13 @@
   }
 
   const uptimeLabel = $derived(page?.uptime_window === '24h' ? t('pub.uptime24h') : t('pub.uptime90d'));
+  /** Yüzdenin altındaki kısa pencere adı ("son 24 saat"). */
+  const upWin = $derived(page?.uptime_window === '24h' ? t('pub.upWin.24h') : t('pub.upWin.90d'));
+  /** Düşük uptime uyarı/kesinti tonuyla gösterilir. */
+  function upTone(v: number | null | undefined): string {
+    if (v === null || v === undefined) return 'none';
+    return v >= 99 ? '' : v >= 95 ? 'warn' : 'bad';
+  }
   const upOf = (m: PublicMonitor) => (m.uptime !== undefined ? m.uptime : m.uptime_90d);
 
   // Dokunmatik ekranda çubuğa dokununca bilgisi çubukların altında gösterilir.
@@ -247,6 +254,7 @@
 
   const incidents = $derived(page?.incidents ?? []);
   const issues = (ms: PublicPage['sections'][number]['monitors']) => ms.filter((m) => m.status === 'down').length;
+  const inMaint = (ms: PublicPage['sections'][number]['monitors']) => ms.some((m) => m.status === 'maintenance');
 
   function annWhen(a: { starts_at: number; ends_at: number }): string {
     if (a.ends_at) return `${fmtDate(a.starts_at)} – ${fmtDate(a.ends_at)}`;
@@ -361,21 +369,28 @@
             {#if sec.title}
               {#snippet gStatus()}
                 {#if issues(sec.monitors) > 0}
-                  <span class="g-st down">{t('pub.groupDown', { count: issues(sec.monitors) })}</span>
+                  <span class="sb down g-st"><span class="sb-dot" aria-hidden="true"></span>{t('pub.groupDown', { count: issues(sec.monitors) })}</span>
+                {:else if inMaint(sec.monitors)}
+                  <span class="sb maint g-st"><span class="sb-dot" aria-hidden="true"></span>{t('pub.mon.maintenance')}</span>
                 {:else}
-                  <span class="g-st up">{t('pub.groupUp')}</span>
+                  <span class="sb up g-st"><span class="sb-dot" aria-hidden="true"></span>{t('pub.groupUp')}</span>
                 {/if}
               {/snippet}
               {#if canFold}
                 <button type="button" class="g-head g-fold" aria-expanded={!isFolded} onclick={() => toggleFold(si)}>
                   <span class="g-chev" aria-hidden="true"><Icon name="chevron-down" size={18} /></span>
-                  <h2>{sec.title}</h2>
-                  <span class="g-count">{sec.monitors.length}</span>
+                  <span class="g-tt">
+                    <h2>{sec.title}</h2>
+                    <span class="g-count">{t('pub.serviceCount', { count: sec.monitors.length })}</span>
+                  </span>
                   {@render gStatus()}
                 </button>
               {:else}
                 <div class="g-head">
-                  <h2>{sec.title}</h2>
+                  <span class="g-tt">
+                    <h2>{sec.title}</h2>
+                    <span class="g-count">{t('pub.serviceCount', { count: sec.monitors.length })}</span>
+                  </span>
                   {@render gStatus()}
                 </div>
               {/if}
@@ -388,15 +403,15 @@
               <div class="mon">
                 <div class="m-top">
                   <div class="m-name">
-                    <span class="m-line">
-                      <span class="m-dot {st.c}" aria-hidden="true"></span>
-                      <span class="m-t">{m.name}</span>
-                    </span>
+                    <span class="m-t">{m.name}</span>
                     {#if m.target}<span class="m-target" title={m.target}>{targetLabel(m.target)}</span>{/if}
                   </div>
                   <div class="m-right">
-                    <span class="m-up">{fmtPct(upOf(m))}</span>
-                    <span class="m-st {st.c}">{st.l}</span>
+                    <span class="m-up {upTone(upOf(m))}" title={uptimeLabel}>
+                      <b>{fmtPct(upOf(m))}</b>
+                      <span>{upWin}</span>
+                    </span>
+                    <span class="sb {st.c}"><span class="sb-dot" aria-hidden="true"></span>{st.l}</span>
                   </div>
                 </div>
                 <!-- Dokunmatik ekranlar için ek kolaylık; aynı bilgi ipucunda ve yüzdede de var. -->
@@ -408,7 +423,7 @@
                 </div>
                 <div class="axis" aria-hidden="true">
                   <span>{axisStart(bars)}</span>
-                  <span class="axis-mid">{uptimeLabel}: {fmtPct(upOf(m))}</span>
+                  <span class="axis-line"></span>
                   <span>{range === '90d' ? t('pub.today') : t('pub.now')}</span>
                 </div>
                 {#if picked?.key === key && bars[picked.i]}
@@ -423,7 +438,10 @@
 
       {#if page.show_incidents !== false}
       <section class="panel inc">
-        <h2>{t('pub.incidentsTitle')}</h2>
+        <div class="inc-h">
+          <h2>{t('pub.incidentsTitle')}</h2>
+          {#if incidents.length}<span class="g-count">{incidents.length}</span>{/if}
+        </div>
         {#if incidents.length === 0}
           <div class="no-inc"><Icon name="check-circle" size={18} /> {t('pub.noIncidents')}</div>
         {:else}
@@ -431,23 +449,24 @@
             {#each incidents as inc, i (i)}
               {@const ongoing = inc.resolved_at === 0}
               <li class:ongoing>
-                <span class="i-dot" aria-hidden="true"></span>
+                <span class="i-ic" aria-hidden="true"><Icon name={ongoing ? 'alert-circle' : 'check-circle'} size={18} /></span>
                 <div class="i-b">
-                  <div class="i-t">
-                    <b>{inc.monitor}</b>
+                  <div class="i-t">{inc.monitor}</div>
+                  <div class="i-w">
+                    <span>{t('pub.startedAt', { time: fmtDate(inc.started_at) })}</span>
                     {#if ongoing}
-                      <span class="i-badge">{t('pub.ongoing')}</span>
+                      <span class="i-d">{t('pub.lasting', { d: fmtDuration(clock.now - inc.started_at) })}</span>
                     {:else}
-                      <span class="i-badge ok">{t('pub.resolved')}</span>
+                      <span class="i-d">{t('pub.duration', { d: fmtDuration(inc.resolved_at - inc.started_at) })}</span>
+                      <span class="i-res">{t('pub.resolvedAt', { time: fmtDate(inc.resolved_at) })}</span>
                     {/if}
                   </div>
-                  <div class="i-w">
-                    {fmtDate(inc.started_at)} ·
-                    {ongoing
-                      ? t('pub.lasting', { d: fmtDuration(clock.now - inc.started_at) })
-                      : t('pub.lasted', { d: fmtDuration(inc.resolved_at - inc.started_at) })}
-                  </div>
                 </div>
+                {#if ongoing}
+                  <span class="sb down i-badge"><span class="sb-dot" aria-hidden="true"></span>{t('pub.ongoing')}</span>
+                {:else}
+                  <span class="sb up i-badge"><span class="sb-dot" aria-hidden="true"></span>{t('pub.resolved')}</span>
+                {/if}
               </li>
             {/each}
           </ul>
@@ -737,9 +756,83 @@
     color: var(--muted);
   }
 
+  /* Durum rozeti: nokta + metin; iki temada da AA kontrastlı. */
+  .sb {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 28px;
+    padding: 0 11px 0 10px;
+    border-radius: 999px;
+    border: 1px solid var(--paused-soft);
+    background: var(--paused-soft);
+    color: var(--paused-text);
+    font-size: 0.84rem;
+    font-weight: 650;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .sb-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--paused);
+    flex-shrink: 0;
+  }
+  .sb.up {
+    background: var(--up-soft);
+    border-color: var(--up-border);
+    color: var(--up);
+  }
+  .sb.up .sb-dot {
+    background: var(--up);
+    box-shadow: 0 0 0 3px var(--up-soft);
+  }
+  .sb.down {
+    background: var(--down-soft);
+    border-color: var(--down-border);
+    color: var(--down-text-2);
+  }
+  .sb.down .sb-dot {
+    background: var(--down);
+    box-shadow: 0 0 0 3px var(--down-soft);
+  }
+  .sb.pending {
+    background: var(--pending-soft);
+    border-color: var(--pending-border);
+    color: var(--pending);
+  }
+  .sb.pending .sb-dot {
+    background: var(--pending);
+  }
+  .sb.maint {
+    background: var(--maint-soft);
+    border-color: var(--maint-border);
+    color: var(--maint);
+  }
+  .sb.maint .sb-dot {
+    background: var(--maint);
+  }
+  /* Açık temada doygun renkler açık zeminde AA'yı tutmaz; koyu metin tonları kullanılır. */
+  @media (prefers-color-scheme: light) {
+    .sb.up {
+      color: var(--up-text);
+    }
+    .sb.down {
+      color: var(--down-text);
+    }
+    .sb.pending {
+      color: var(--pending-text);
+    }
+    .sb.maint {
+      color: var(--maint-text);
+    }
+  }
+
   /* Gruplar ve monitörler */
   .group {
-    padding: 4px 0;
+    padding: 0;
     overflow: hidden;
   }
   .g-head {
@@ -749,9 +842,19 @@
     gap: 12px;
     padding: 14px 20px;
     border-bottom: 1px solid var(--border);
+    background: var(--card-2);
+  }
+  .g-tt {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    min-width: 0;
   }
   .g-head h2 {
-    font-size: 1rem;
+    font-size: 1.06rem;
+    font-weight: 700;
+    letter-spacing: -0.005em;
     overflow-wrap: anywhere;
   }
   /* Açılıp kapanan grup başlığı (sayfa ayarı) */
@@ -760,14 +863,11 @@
     justify-content: flex-start;
     border: none;
     border-bottom: 1px solid var(--border);
-    background: none;
+    background: var(--card-2);
     color: inherit;
     font: inherit;
     text-align: left;
     cursor: pointer;
-  }
-  .g-fold h2 {
-    flex: 0 1 auto;
   }
   .g-fold .g-st {
     margin-left: auto;
@@ -778,12 +878,13 @@
   }
   @media (hover: hover) {
     .g-fold:hover {
-      background: var(--card-2);
+      background: var(--card-hover);
     }
   }
   .g-chev {
     display: inline-flex;
-    color: var(--muted);
+    align-self: center;
+    color: var(--text-2);
     transition: transform 0.15s;
   }
   .group.folded .g-chev {
@@ -793,24 +894,10 @@
     border-bottom: none;
   }
   .g-count {
-    min-width: 22px;
-    padding: 1px 7px;
-    border-radius: 999px;
-    background: var(--card-2);
-    color: var(--muted);
-    font-size: 0.75rem;
-    text-align: center;
-  }
-  .g-st {
-    font-size: 0.8rem;
-    font-weight: 700;
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: var(--text-2);
     white-space: nowrap;
-  }
-  .g-st.up {
-    color: var(--up);
-  }
-  .g-st.down {
-    color: var(--down);
   }
   .mon {
     padding: 16px 20px 14px;
@@ -823,80 +910,68 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 10px;
+    gap: 14px;
+    margin-bottom: 12px;
   }
   .m-name {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
     min-width: 0;
-  }
-  /* Nokta ve ad her zaman aynı satırda; uzun ad kendi içinde kırılır, hedef alt satırda. */
-  .m-line {
-    display: flex;
-    align-items: flex-start;
-    gap: 9px;
-    min-width: 0;
-  }
-  .m-dot {
-    width: 10px;
-    height: 10px;
-    margin-top: 0.4em;
-    border-radius: 50%;
-    background: var(--paused);
-    flex-shrink: 0;
-  }
-  .m-dot.up {
-    background: var(--up);
-  }
-  .m-dot.down {
-    background: var(--down);
-  }
-  .m-dot.pending {
-    background: var(--pending);
-  }
-  .m-dot.maint {
-    background: var(--maint);
   }
   .m-t {
     font-weight: 700;
+    font-size: 1rem;
     overflow-wrap: anywhere;
   }
   .m-target {
-    padding-left: 19px;
-    font-size: 0.82rem;
+    font-size: 0.84rem;
     color: var(--muted);
     overflow-wrap: anywhere;
   }
   .m-right {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
     flex-shrink: 0;
   }
+  /* Rozetler aynı genişlikte: yüzdeler satırlar arasında hizalı kalır. */
+  .m-right .sb {
+    min-width: 7.4em;
+  }
   .m-up {
-    display: none;
-    font-size: 0.86rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.15;
+  }
+  .m-up b {
+    font-size: 1.05rem;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  .m-up span {
+    font-size: 0.76rem;
     color: var(--text-2);
-    font-weight: 600;
+    white-space: nowrap;
   }
-  .m-st {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--paused-text);
-  }
-  .m-st.up {
-    color: var(--up);
-  }
-  .m-st.down {
-    color: var(--down);
-  }
-  .m-st.pending {
+  .m-up.warn b {
     color: var(--pending);
   }
-  .m-st.maint {
-    color: var(--maint);
+  .m-up.bad b {
+    color: var(--down-text-2);
+  }
+  .m-up.none b {
+    color: var(--muted);
+  }
+  @media (prefers-color-scheme: light) {
+    .m-up.warn b {
+      color: var(--pending-text);
+    }
+    .m-up.bad b {
+      color: var(--down-text-2);
+    }
   }
   .bars {
     display: flex;
@@ -934,30 +1009,50 @@
   }
   .axis {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    margin-top: 6px;
-    font-size: 0.74rem;
-    color: var(--muted);
+    gap: 10px;
+    margin-top: 8px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-2);
   }
-  .axis-mid {
+  .axis-line {
     flex: 1;
-    text-align: center;
-    position: relative;
+    height: 1px;
+    background: var(--border);
   }
   .picked {
     margin-top: 6px;
-    font-size: 0.82rem;
-    color: var(--text-2);
+    font-size: 0.86rem;
+    color: var(--text);
   }
 
   /* Olaylar */
   .inc {
-    padding: 18px 20px;
+    padding: 0;
+    overflow: hidden;
   }
-  .inc h2 {
-    font-size: 1rem;
-    margin-bottom: 10px;
+  .inc-h {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    background: var(--card-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .inc-h h2 {
+    font-size: 1.06rem;
+    font-weight: 700;
+  }
+  .inc-h .g-count {
+    min-width: 24px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    text-align: center;
+    font-weight: 650;
   }
   .no-inc {
     display: flex;
@@ -965,7 +1060,12 @@
     gap: 8px;
     color: var(--up);
     font-weight: 600;
-    padding: 4px 0;
+    padding: 16px 20px;
+  }
+  @media (prefers-color-scheme: light) {
+    .no-inc {
+      color: var(--up-text);
+    }
   }
   .inc ul {
     list-style: none;
@@ -974,52 +1074,45 @@
   }
   .inc li {
     display: flex;
+    align-items: flex-start;
     gap: 12px;
-    padding: 10px 0;
+    padding: 14px 20px;
     border-top: 1px solid var(--border);
   }
   .inc li:first-child {
     border-top: none;
   }
-  .i-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: var(--up);
-    margin-top: 7px;
+  .i-ic {
+    display: inline-flex;
+    margin-top: 1px;
+    color: var(--up);
     flex-shrink: 0;
   }
-  .ongoing .i-dot {
-    background: var(--down);
+  .ongoing .i-ic {
+    color: var(--down);
   }
   .i-b {
+    flex: 1;
     min-width: 0;
   }
   .i-t {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .i-t b {
+    font-weight: 700;
     overflow-wrap: anywhere;
   }
-  .i-badge {
-    font-size: 0.72rem;
-    font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: var(--down-soft);
-    color: var(--down-text);
-  }
-  .i-badge.ok {
-    background: var(--up-soft);
-    color: var(--up-text);
-  }
   .i-w {
-    font-size: 0.84rem;
-    color: var(--muted);
-    margin-top: 2px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 14px;
+    margin-top: 4px;
+    font-size: 0.86rem;
+    color: var(--text-2);
+  }
+  .i-d {
+    font-weight: 650;
+    color: var(--text);
+  }
+  .ongoing .i-d {
+    color: var(--down-text-2);
   }
 
   .foot {
@@ -1072,26 +1165,46 @@
     }
     .g-head,
     .mon,
-    .inc {
+    .inc-h,
+    .inc li,
+    .no-inc {
       padding-left: 14px;
       padding-right: 14px;
     }
     .m-top {
       align-items: flex-start;
-    }
-    .m-up {
-      display: inline;
+      gap: 10px;
     }
     .m-right {
-      flex-direction: column;
+      flex-direction: column-reverse;
       align-items: flex-end;
-      gap: 0;
+      gap: 6px;
+    }
+    .m-up {
+      flex-direction: row;
+      align-items: baseline;
+      gap: 5px;
+    }
+    .m-up b {
+      font-size: 0.98rem;
+    }
+    .sb {
+      height: 26px;
+      font-size: 0.8rem;
+      padding: 0 9px 0 8px;
+      gap: 6px;
     }
     .bars {
       height: 28px;
     }
-    .axis-mid {
+    .i-w {
+      flex-direction: column;
+    }
+    .i-res {
       display: none;
+    }
+    .m-right .sb {
+      min-width: 0;
     }
     .msg,
     .lock {

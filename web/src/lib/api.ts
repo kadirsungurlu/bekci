@@ -515,6 +515,24 @@ export interface StatusPage {
   updated_at: number;
 }
 
+/** Liste ekranındaki sayfa özeti (GET /api/status-pages; eski sunucuda gelmez). */
+export interface PageSummary {
+  status: OverallStatus;
+  monitors: number;
+  down: number;
+  /** Sayfadaki monitörlerin yüzdelerinin ortalaması; veri yoksa null. */
+  uptime_24h: number | null;
+  uptime_30d: number | null;
+  sections: { title: string; statuses: PublicMonitorStatus[] }[];
+  /** Son 90 günün en yeni olayı (sayfadaki görünen adla). */
+  last_incident: { monitor: string; started_at: number; resolved_at: number } | null;
+  ongoing: number;
+}
+
+export interface StatusPageListItem extends StatusPage {
+  summary?: PageSummary;
+}
+
 export interface PageInput {
   slug: string;
   title: string;
@@ -995,7 +1013,7 @@ export const api = {
   revokeApiKey: (id: number) => del<{ ok: boolean }>(`/api/api-keys/${id}`),
 
   // Durum sayfaları
-  pages: () => get<StatusPage[]>('/api/status-pages'),
+  pages: () => get<StatusPageListItem[]>('/api/status-pages'),
   page: (id: number) => get<StatusPage>(`/api/status-pages/${id}`),
   createPage: (p: PageInput) => post<StatusPage>('/api/status-pages', p),
   updatePage: (id: number, p: PageInput) => put<StatusPage>(`/api/status-pages/${id}`, p),

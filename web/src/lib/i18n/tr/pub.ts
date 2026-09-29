@@ -57,4 +57,12 @@ export default {
   lasting: '{d} sürüyor',
   lasted: '{d} sürdü',
   since: '{time} itibarıyla',
+  serviceCount: '{count} servis',
+  upWin: {
+    '24h': 'son 24 saat',
+    '90d': 'son 90 gün',
+  },
+  startedAt: 'Başlangıç: {time}',
+  duration: 'Süre: {d}',
+  resolvedAt: 'Çözüldü: {time}',
 };
