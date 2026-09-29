@@ -137,6 +137,11 @@ func (s *Server) buildExport(ctx context.Context) (*backup.Doc, error) {
 			CustomDomain: p.CustomDomain, PasswordHash: p.PasswordHash, ShowTargets: p.ShowTargets,
 			BarRange: p.BarRange, ShowIncidents: &p.ShowIncidents, Collapsible: p.Collapsible, Lang: p.Lang, Published: p.Published, Sections: []backup.PageSection{}, Announcements: []backup.Announcement{},
 		}
+		bl := backup.PageLayout{Style: p.Layout.Style, Width: p.Layout.Width, Blocks: []backup.PageBlock{}}
+		for _, b := range p.Layout.Blocks {
+			bl.Blocks = append(bl.Blocks, backup.PageBlock{ID: b.ID, Visible: b.Visible})
+		}
+		bp.Layout = &bl
 		for _, sec := range p.Sections {
 			bs := backup.PageSection{Title: sec.Title, Monitors: []backup.PageMonitor{}}
 			for _, pm := range sec.Monitors {
@@ -638,6 +643,18 @@ func planPage(bp backup.Page, known map[int64]bool, slugs, domains, selfHosts ma
 		ShowIncidents: bp.ShowIncidents == nil || *bp.ShowIncidents, Collapsible: bp.Collapsible,
 		Lang: i18n.Or(bp.Lang),
 	}
+	if bp.Layout != nil {
+		l := store.PageLayout{Style: bp.Layout.Style, Width: bp.Layout.Width}
+		for _, b := range bp.Layout.Blocks {
+			l.Blocks = append(l.Blocks, store.PageBlock{ID: b.ID, Visible: b.Visible})
+			// show_incidents olmayan (elle yazılmış) yedekte olaylar dizilimden alınır.
+			if b.ID == store.BlockIncidents && bp.ShowIncidents == nil {
+				p.ShowIncidents = b.Visible
+			}
+		}
+		p.Layout = l
+	}
+	p.Layout = store.NormalizeLayout(p.Layout, p.ShowIncidents)
 	switch {
 	case !importSlugRe.MatchString(p.Slug):
 		return skip("Geçersiz sayfa adresi: " + bp.Slug)

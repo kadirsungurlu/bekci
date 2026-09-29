@@ -1,0 +1,1183 @@
+<script lang="ts" module>
+  import type { PageBlockId, PageLayout } from '../lib/api';
+
+  /** Önceki sabit görünümün sırası (sunucudaki store.DefaultBlockOrder ile aynı). */
+  export const BLOCK_ORDER: PageBlockId[] = ['overall', 'announcements', 'groups', 'incidents'];
+
+  /**
+   * Dizilimi sunucudaki NormalizeLayout kuralıyla tamamlar: bilinmeyen değerler
+   * varsayılana çekilir, eksik bölümler görünür olarak sona eklenir. Olaylar
+   * bölümünün görünürlüğü showIncidents'tır (tek kaynak).
+   */
+  export function normalizeLayout(l: Partial<PageLayout> | null | undefined, showIncidents = true): PageLayout {
+    const style = l?.style === 'grid' || l?.style === 'compact' ? l.style : 'list';
+    const width = l?.width === 'wide' ? 'wide' : 'narrow';
+    const blocks: PageLayout['blocks'] = [];
+    const seen = new Set<string>();
+    const add = (id: PageBlockId, visible: boolean) => {
+      if (!BLOCK_ORDER.includes(id) || seen.has(id)) return;
+      seen.add(id);
+      blocks.push({ id, visible: id === 'incidents' ? showIncidents : visible });
+    };
+    for (const b of l?.blocks ?? []) add(b.id, b.visible !== false);
+    for (const id of BLOCK_ORDER) add(id, true);
+    return { style, width, blocks };
+  }
+</script>
+
+<script lang="ts">
+  // Herkese açık durum sayfasının gövdesi (üst başlık, bölümler, alt bilgi).
+  // PublicStatus (gerçek sayfa ve tam ekran önizleme) ile düzenleyicideki canlı
+  // önizleme aynı çizimi kullanır. Genişliğe göre değişen kurallar ekran değil
+  // kendi genişliğine bakar (container query): dar önizleme panelinde de mobil
+  // görünüm doğru çizilir.
+  import type {
+    BarRange,
+    OverallStatus,
+    PublicBar,
+    PublicMonitor,
+    PublicMonitorStatus,
+    PublicPage,
+    Severity,
+  } from '../lib/api';
+  import { clock } from '../lib/ui.svelte';
+  import { fmtDate, fmtDay, fmtDuration, fmtPct, fmtTime, fmtTimeSec, hourRange, nowSec } from '../lib/format';
+  import Icon, { type IconName } from './Icon.svelte';
+  import { tIn, type Locale, type TKey, type TParams } from '../lib/i18n';
+
+  let {
+    page,
+    logo = '',
+    lang,
+    light = false,
+    foldKey = null,
+    embedded = false,
+  }: {
+    page: PublicPage;
+    logo?: string;
+    /** Metinlerin dili (sayfanın dili). */
+    lang: Locale;
+    /** Açık tema (.pub-light). */
+    light?: boolean;
+    /** Kapatılan grupların tarayıcıda saklandığı anahtar; null: yalnızca bellekte. */
+    foldKey?: string | null;
+    /** Düzenleyicideki önizleme: tam ekran yüksekliği istenmez. */
+    embedded?: boolean;
+  } = $props();
+
+  const t = (key: TKey, params?: TParams) => tIn(lang, key, params);
+
+  /** Web adreslerinde yalnızca alan adı (aydertesisat.com.tr); diğer hedefler olduğu gibi. */
+  function targetLabel(v: string): string {
+    if (!/^https?:\/\//i.test(v)) return v;
+    try {
+      return new URL(v).host;
+    } catch {
+      return v;
+    }
+  }
+
+  const layout = $derived(normalizeLayout(page.layout, page.show_incidents !== false));
+
+  // Açılıp kapanan gruplar (sayfa ayarı): ziyaretçinin kapattığı gruplar kendi
+  // tarayıcısında hatırlanır. Tarayıcı depolaması kapalıysa yalnızca oturum içinde.
+  let folded = $state<Set<number>>(new Set());
+  $effect(() => {
+    if (!foldKey) return;
+    try {
+      const raw = localStorage.getItem(foldKey);
+      folded = new Set(raw ? (JSON.parse(raw) as number[]) : []);
+    } catch {
+      folded = new Set();
+    }
+  });
+  function toggleFold(si: number) {
+    const next = new Set(folded);
+    if (next.has(si)) next.delete(si);
+    else next.add(si);
+    folded = next;
+    if (!foldKey) return;
+    try {
+      localStorage.setItem(foldKey, JSON.stringify([...next]));
+    } catch {
+      /* depolama yoksa yalnızca bu oturumda */
+    }
+  }
+
+  // Görünüm yardımcıları -------------------------------------------------------------------
+  const OVERALL: Record<OverallStatus, { l: string; icon: IconName }> = $derived({
+    up: { l: t('pub.overall.up'), icon: 'check' },
+    partial: { l: t('pub.overall.partial'), icon: 'alert' },
+    down: { l: t('pub.overall.down'), icon: 'x' },
+    unknown: { l: t('pub.overall.unknown'), icon: 'info' },
+  });
+  const MON: Record<PublicMonitorStatus, { l: string; c: string }> = $derived({
+    up: { l: t('pub.mon.up'), c: 'up' },
+    down: { l: t('pub.mon.down'), c: 'down' },
+    pending: { l: t('pub.mon.pending'), c: 'pending' },
+    paused: { l: t('pub.mon.paused'), c: 'paused' },
+    maintenance: { l: t('pub.mon.maintenance'), c: 'maint' },
+  });
+  const SEV: Record<Severity, { icon: IconName; l: string }> = $derived({
+    info: { icon: 'info', l: t('pub.sev.info') },
+    warning: { icon: 'alert', l: t('pub.sev.warning') },
+    danger: { icon: 'alert-circle', l: t('pub.sev.danger') },
+    success: { icon: 'check-circle', l: t('pub.sev.success') },
+  });
+
+  // Izgarada gruplar bu genişlikten itibaren iki sütun olur (CSS'teki @container ile aynı).
+  const GRID_MIN = 720;
+  const GRID_GAP = 18;
+  let mainW = $state(800);
+  /** Bir grubun (sütunun) genişliği: çubuk sayısı buna göre seçilir. */
+  const colW = $derived(layout.style === 'grid' && mainW >= GRID_MIN ? (mainW - GRID_GAP) / 2 : mainW);
+  // Sayfanın çubuk görünümü (eski sunucu: 90 gün). Dar alanda çubuklar okunur
+  // kalsın diye daha az çubuk gösterilir.
+  const range = $derived<BarRange>(page.range ?? '90d');
+  const count = $derived(
+    range === '24h' ? 24 : range === 'recent' ? (colW >= 560 ? 60 : colW >= 420 ? 45 : 30) : colW >= 560 ? 90 : colW >= 420 ? 60 : 30,
+  );
+
+  /** Gösterilecek çubuklar; son kontroller görünümünde az kontrol varsa soldan boşlukla doldurulur. */
+  function shown(bars: PublicBar[]): (PublicBar | null)[] {
+    const last = bars.slice(-count);
+    return range === 'recent' && last.length < count ? [...Array(count - last.length).fill(null), ...last] : last;
+  }
+
+  function barKind(b: PublicBar | null): string {
+    if (!b) return 'nodata';
+    const total = b.up + b.down;
+    if (total === 0) return 'nodata';
+    if (b.down === 0) return 'up';
+    return (100 * b.up) / total >= 95 ? 'mixed' : 'down';
+  }
+
+  function barTip(b: PublicBar | null): string {
+    if (!b) return t('pub.noChecksYet');
+    const total = b.up + b.down;
+    if (range === 'recent') {
+      const when = `${fmtDate(b.t)} ${fmtTimeSec(b.t)}`;
+      return `${when}\n${b.up ? t('pub.barRecentUp') : b.down ? t('pub.barRecentDown') : t('pub.barRecentOther')}`;
+    }
+    const head = range === '24h' ? hourRange(b.t) : fmtDay(b.t);
+    if (total === 0) return `${head}\n${t('common.noData')}`;
+    let s = `${head}\n${t('pub.barUptime', { pct: fmtPct((100 * b.up) / total) })}`;
+    if (b.down > 0) s += ` · ${t('pub.barFailed', { count: b.down })}`;
+    return s;
+  }
+
+  /** Alt eksenin sol ucu: görünümün başladığı an. */
+  function axisStart(bars: (PublicBar | null)[]): string {
+    if (range === '90d') return t('pub.daysAgo', { count: bars.length });
+    if (range === '24h') return t('pub.hours24Ago');
+    const first = bars.find((b) => b) ?? null;
+    if (!first) return t('pub.noChecksYet');
+    const min = Math.max(1, Math.round((nowSec() - first.t) / 60));
+    return min < 120 ? t('pub.minAgo', { count: min }) : t('pub.hoursAgo', { count: Math.round(min / 60) });
+  }
+
+  const uptimeLabel = $derived(page.uptime_window === '24h' ? t('pub.uptime24h') : t('pub.uptime90d'));
+  /** Yüzdenin altındaki kısa pencere adı ("son 24 saat"). */
+  const upWin = $derived(page.uptime_window === '24h' ? t('pub.upWin.24h') : t('pub.upWin.90d'));
+  /** Düşük uptime uyarı/kesinti tonuyla gösterilir. */
+  function upTone(v: number | null | undefined): string {
+    if (v === null || v === undefined) return 'none';
+    return v >= 99 ? '' : v >= 95 ? 'warn' : 'bad';
+  }
+  const upOf = (m: PublicMonitor) => (m.uptime !== undefined ? m.uptime : m.uptime_90d);
+
+  // Dokunmatik ekranda çubuğa dokununca bilgisi çubukların altında gösterilir.
+  let picked = $state<{ key: string; i: number } | null>(null);
+  function pick(e: MouseEvent, key: string) {
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-i]');
+    if (!el) return;
+    const i = Number(el.dataset.i);
+    picked = picked && picked.key === key && picked.i === i ? null : { key, i };
+  }
+
+  const incidents = $derived(page.incidents ?? []);
+  const issues = (ms: PublicMonitor[]) => ms.filter((m) => m.status === 'down').length;
+  const inMaint = (ms: PublicMonitor[]) => ms.some((m) => m.status === 'maintenance');
+  const hasGroups = $derived(page.sections.some((s) => s.monitors.length > 0));
+
+  function annWhen(a: { starts_at: number; ends_at: number }): string {
+    if (a.ends_at) return `${fmtDate(a.starts_at)} – ${fmtDate(a.ends_at)}`;
+    return t('pub.since', { time: fmtDate(a.starts_at) });
+  }
+</script>
+
+<div class="sv w-{layout.width} st-{layout.style}" class:pub-light={light} class:embedded {lang}>
+  <header class="top">
+    <div class="wrap top-in">
+      <div class="brand">
+        {#if logo}
+          <img class="logo" src={logo} alt="" />
+        {:else}
+          <span class="mark" aria-hidden="true"><Icon name="activity" size={22} stroke={2.4} /></span>
+        {/if}
+        <div class="brand-t">
+          <h1>{page.title}</h1>
+          {#if page.description}<p class="desc">{page.description}</p>{/if}
+        </div>
+      </div>
+      <div class="refresh">
+        <span class="live" aria-hidden="true"></span>{t('pub.refreshInfo', { time: fmtTime(page.updated_at) })}
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap" bind:clientWidth={mainW}>
+    {#each layout.blocks as b (b.id)}
+      {#if b.visible}
+        {#if b.id === 'overall'}
+          {@render overall()}
+        {:else if b.id === 'announcements'}
+          {@render announcements()}
+        {:else if b.id === 'groups'}
+          {@render groups()}
+        {:else if b.id === 'incidents'}
+          {@render incidentList()}
+        {/if}
+      {/if}
+    {/each}
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot-in">
+      {#if page.footer}<p class="foot-t">{page.footer}</p>{/if}
+      <p class="foot-s">{t('pub.footer', { time: fmtDate(page.updated_at) })}</p>
+    </div>
+  </footer>
+</div>
+
+{#snippet overall()}
+  {@const ov = OVERALL[page.status] ?? OVERALL.unknown}
+  <section class="hero st-{page.status}" aria-live="polite">
+    <span class="hero-ic"><Icon name={ov.icon} size={26} stroke={2.6} /></span>
+    <div>
+      <div class="hero-l">{ov.l}</div>
+      <div class="hero-s">{t('pub.lastUpdate', { time: fmtTime(page.updated_at) })}</div>
+    </div>
+  </section>
+{/snippet}
+
+{#snippet announcements()}
+  {#each page.announcements as a (a.id)}
+    <article class="panel ann sev-{a.severity}">
+      <span class="ann-ic"><Icon name={SEV[a.severity]?.icon ?? 'info'} size={18} /></span>
+      <div class="ann-b">
+        <h2>{a.title}</h2>
+        {#if a.body}<p>{a.body}</p>{/if}
+        <div class="ann-w">{annWhen(a)}</div>
+      </div>
+    </article>
+  {/each}
+{/snippet}
+
+{#snippet groupStatus(ms: PublicMonitor[])}
+  {#if issues(ms) > 0}
+    <span class="sb down g-st"><span class="sb-dot" aria-hidden="true"></span>{t('pub.groupDown', { count: issues(ms) })}</span>
+  {:else if inMaint(ms)}
+    <span class="sb maint g-st"><span class="sb-dot" aria-hidden="true"></span>{t('pub.mon.maintenance')}</span>
+  {:else}
+    <span class="sb up g-st"><span class="sb-dot" aria-hidden="true"></span>{t('pub.groupUp')}</span>
+  {/if}
+{/snippet}
+
+{#snippet barMonitor(m: PublicMonitor, key: string)}
+  {@const st = MON[m.status] ?? MON.pending}
+  {@const bars = shown(m.bars)}
+  <div class="mon">
+    <div class="m-top">
+      <div class="m-name">
+        <span class="m-t">{m.name}</span>
+        {#if m.target}<span class="m-target" title={m.target}>{targetLabel(m.target)}</span>{/if}
+      </div>
+      <div class="m-right">
+        <span class="m-up {upTone(upOf(m))}" title={uptimeLabel}>
+          <b>{fmtPct(upOf(m))}</b>
+          <span>{upWin}</span>
+        </span>
+        <span class="sb {st.c}"><span class="sb-dot" aria-hidden="true"></span>{st.l}</span>
+      </div>
+    </div>
+    <!-- Dokunmatik ekranlar için ek kolaylık; aynı bilgi ipucunda ve yüzdede de var. -->
+    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+    <div class="bars" onclick={(e) => pick(e, key)} role="img" aria-label="{m.name}: {uptimeLabel.toLowerCase()} {fmtPct(upOf(m))}">
+      {#each bars as b, i (i)}
+        <span class="bar {barKind(b)}" class:sel={picked?.key === key && picked.i === i} data-i={i} data-tip={barTip(b)}></span>
+      {/each}
+    </div>
+    <div class="axis" aria-hidden="true">
+      <span>{axisStart(bars)}</span>
+      <span class="axis-line"></span>
+      <span>{range === '90d' ? t('pub.today') : t('pub.now')}</span>
+    </div>
+    {#if picked?.key === key && bars[picked.i]}
+      <div class="picked">{barTip(bars[picked.i]).replace('\n', ' · ')}</div>
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet compactMonitor(m: PublicMonitor)}
+  {@const st = MON[m.status] ?? MON.pending}
+  <li class="crow">
+    <span class="c-dot {st.c}" aria-hidden="true"></span>
+    <span class="c-name">
+      <span class="m-t">{m.name}</span>
+      {#if m.target}<span class="m-target" title={m.target}>{targetLabel(m.target)}</span>{/if}
+    </span>
+    <span class="c-up {upTone(upOf(m))}" title="{uptimeLabel}: {fmtPct(upOf(m))}">{fmtPct(upOf(m))}</span>
+    <span class="sb {st.c}"><span class="sb-dot" aria-hidden="true"></span>{st.l}</span>
+  </li>
+{/snippet}
+
+{#snippet groups()}
+  {#if hasGroups}
+    <div class="groups">
+      {#each page.sections as sec, si (si)}
+        {#if sec.monitors.length}
+          {@const canFold = !!page.collapsible && !!sec.title}
+          {@const isFolded = canFold && folded.has(si)}
+          <section class="panel group" class:folded={isFolded}>
+            {#if sec.title}
+              {#if canFold}
+                <button type="button" class="g-head g-fold" aria-expanded={!isFolded} onclick={() => toggleFold(si)}>
+                  <span class="g-chev" aria-hidden="true"><Icon name="chevron-down" size={18} /></span>
+                  <span class="g-tt">
+                    <h2>{sec.title}</h2>
+                    <span class="g-count">{t('pub.serviceCount', { count: sec.monitors.length })}</span>
+                  </span>
+                  {@render groupStatus(sec.monitors)}
+                </button>
+              {:else}
+                <div class="g-head">
+                  <span class="g-tt">
+                    <h2>{sec.title}</h2>
+                    <span class="g-count">{t('pub.serviceCount', { count: sec.monitors.length })}</span>
+                  </span>
+                  {@render groupStatus(sec.monitors)}
+                </div>
+              {/if}
+            {/if}
+            {#if !isFolded}
+              {#if layout.style === 'compact'}
+                <ul class="cmons">
+                  {#each sec.monitors as m, mi (mi)}
+                    {@render compactMonitor(m)}
+                  {/each}
+                </ul>
+              {:else}
+                {#each sec.monitors as m, mi (mi)}
+                  {@render barMonitor(m, `${si}-${mi}`)}
+                {/each}
+              {/if}
+            {/if}
+          </section>
+        {/if}
+      {/each}
+    </div>
+  {/if}
+{/snippet}
+
+{#snippet incidentList()}
+  <section class="panel inc">
+    <div class="inc-h">
+      <h2>{t('pub.incidentsTitle')}</h2>
+      {#if incidents.length}<span class="g-count">{incidents.length}</span>{/if}
+    </div>
+    {#if incidents.length === 0}
+      <div class="no-inc"><Icon name="check-circle" size={18} /> {t('pub.noIncidents')}</div>
+    {:else}
+      <ul>
+        {#each incidents as inc, i (i)}
+          {@const ongoing = inc.resolved_at === 0}
+          <li class:ongoing>
+            <span class="i-ic" aria-hidden="true"><Icon name={ongoing ? 'alert-circle' : 'check-circle'} size={18} /></span>
+            <div class="i-b">
+              <div class="i-t">{inc.monitor}</div>
+              <div class="i-w">
+                <span>{t('pub.startedAt', { time: fmtDate(inc.started_at) })}</span>
+                {#if ongoing}
+                  <span class="i-d">{t('pub.lasting', { d: fmtDuration(clock.now - inc.started_at) })}</span>
+                {:else}
+                  <span class="i-d">{t('pub.duration', { d: fmtDuration(inc.resolved_at - inc.started_at) })}</span>
+                  <span class="i-res">{t('pub.resolvedAt', { time: fmtDate(inc.resolved_at) })}</span>
+                {/if}
+              </div>
+            </div>
+            {#if ongoing}
+              <span class="sb down i-badge"><span class="sb-dot" aria-hidden="true"></span>{t('pub.ongoing')}</span>
+            {:else}
+              <span class="sb up i-badge"><span class="sb-dot" aria-hidden="true"></span>{t('pub.resolved')}</span>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+{/snippet}
+
+<style>
+  .sv {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    color: var(--text);
+    container: pubv / inline-size;
+  }
+  /* Düzenleyicideki önizleme: çerçeveyi doldurur. */
+  .sv.embedded {
+    min-height: 100%;
+  }
+  .wrap {
+    width: 100%;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+  .w-wide .wrap {
+    max-width: 1260px;
+  }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--pub-shadow);
+  }
+
+  /* Üst çubuk */
+  .top {
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-elev);
+  }
+  .top-in {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-top: 22px;
+    padding-bottom: 22px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+  .logo {
+    max-height: 40px;
+    max-width: min(160px, 40vw);
+    object-fit: contain;
+    flex: none;
+  }
+  .mark {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    background: #0f766e;
+    color: #fff;
+  }
+  .brand-t {
+    min-width: 0;
+  }
+  .brand-t h1 {
+    margin: 0;
+    font-size: 1.2rem;
+    line-height: 1.2;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    overflow-wrap: anywhere;
+  }
+  .brand-t .desc {
+    margin: 2px 0 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .refresh {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+  .live {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--up);
+    box-shadow: 0 0 0 3px var(--up-soft);
+    flex: none;
+  }
+
+  main.wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding-top: 32px;
+    padding-bottom: 40px;
+  }
+  .desc {
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+
+  /* Genel durum */
+  .hero {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 22px 24px;
+    border-radius: 16px;
+    background: var(--pub-hero-unknown);
+    color: var(--pub-hero-text);
+    box-shadow: var(--pub-shadow);
+  }
+  .hero.st-up {
+    background: var(--pub-hero-up);
+  }
+  .hero.st-partial {
+    background: var(--pub-hero-partial);
+  }
+  .hero.st-down {
+    background: var(--pub-hero-down);
+  }
+  .hero-ic {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--pub-hero-ic);
+    flex-shrink: 0;
+  }
+  .hero-l {
+    font-size: 1.3rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+  }
+  .hero-s {
+    font-size: 0.86rem;
+    color: var(--pub-hero-sub);
+    margin-top: 2px;
+  }
+
+  /* Duyurular */
+  .ann {
+    display: flex;
+    gap: 14px;
+    padding: 16px 18px;
+    border-left: 4px solid var(--accent);
+  }
+  .ann.sev-warning {
+    border-left-color: var(--pending);
+  }
+  .ann.sev-danger {
+    border-left-color: var(--down);
+  }
+  .ann.sev-success {
+    border-left-color: var(--up);
+  }
+  .ann-ic {
+    display: inline-flex;
+    margin-top: 2px;
+    color: var(--accent-text);
+  }
+  .sev-warning .ann-ic {
+    color: var(--pending);
+  }
+  .sev-danger .ann-ic {
+    color: var(--down);
+  }
+  .sev-success .ann-ic {
+    color: var(--up);
+  }
+  .ann-b {
+    min-width: 0;
+  }
+  .ann h2 {
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+  }
+  .ann p {
+    margin: 6px 0 0;
+    color: var(--text-2);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    font-size: 0.93rem;
+  }
+  .ann-w {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  /* Durum rozeti: nokta + metin; iki temada da AA kontrastlı. */
+  .sb {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 28px;
+    padding: 0 11px 0 10px;
+    border-radius: 999px;
+    border: 1px solid var(--paused-soft);
+    background: var(--paused-soft);
+    color: var(--paused-text);
+    font-size: 0.84rem;
+    font-weight: 650;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .sb-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--paused);
+    flex-shrink: 0;
+  }
+  .sb.up {
+    background: var(--up-soft);
+    border-color: var(--up-border);
+    color: var(--up);
+  }
+  .sb.up .sb-dot {
+    background: var(--up);
+    box-shadow: 0 0 0 3px var(--up-soft);
+  }
+  .sb.down {
+    background: var(--down-soft);
+    border-color: var(--down-border);
+    color: var(--down-text-2);
+  }
+  .sb.down .sb-dot {
+    background: var(--down);
+    box-shadow: 0 0 0 3px var(--down-soft);
+  }
+  .sb.pending {
+    background: var(--pending-soft);
+    border-color: var(--pending-border);
+    color: var(--pending);
+  }
+  .sb.pending .sb-dot {
+    background: var(--pending);
+  }
+  .sb.maint {
+    background: var(--maint-soft);
+    border-color: var(--maint-border);
+    color: var(--maint);
+  }
+  .sb.maint .sb-dot {
+    background: var(--maint);
+  }
+  /* Açık temada doygun renkler açık zeminde AA'yı tutmaz; koyu metin tonları kullanılır. */
+  .pub-light .sb.up {
+    color: var(--up-text);
+  }
+  .pub-light .sb.down {
+    color: var(--down-text);
+  }
+  .pub-light .sb.pending {
+    color: var(--pending-text);
+  }
+  .pub-light .sb.maint {
+    color: var(--maint-text);
+  }
+
+  /* Gruplar ve monitörler */
+  .groups {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .group {
+    padding: 0;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .g-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--card-2);
+  }
+  .g-tt {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .g-head h2 {
+    font-size: 1.06rem;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    overflow-wrap: anywhere;
+  }
+  /* Açılıp kapanan grup başlığı (sayfa ayarı) */
+  .g-fold {
+    width: 100%;
+    justify-content: flex-start;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: var(--card-2);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .g-fold .g-st {
+    margin-left: auto;
+  }
+  .g-fold:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  @media (hover: hover) {
+    .g-fold:hover {
+      background: var(--card-hover);
+    }
+  }
+  .g-chev {
+    display: inline-flex;
+    align-self: center;
+    color: var(--text-2);
+    transition: transform 0.15s;
+  }
+  .group.folded .g-chev {
+    transform: rotate(-90deg);
+  }
+  .group.folded .g-fold {
+    border-bottom: none;
+  }
+  .g-count {
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: var(--text-2);
+    white-space: nowrap;
+  }
+  .mon {
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mon:last-child {
+    border-bottom: none;
+  }
+  .m-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+  .m-name {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .m-t {
+    font-weight: 700;
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+  }
+  .m-target {
+    font-size: 0.84rem;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+  .m-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  /* Rozetler aynı genişlikte: yüzdeler satırlar arasında hizalı kalır. */
+  .m-right .sb,
+  .crow .sb {
+    min-width: 7.4em;
+  }
+  .m-up {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.15;
+  }
+  .m-up b {
+    font-size: 1.05rem;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  .m-up span {
+    font-size: 0.76rem;
+    color: var(--text-2);
+    white-space: nowrap;
+  }
+  .m-up.warn b,
+  .c-up.warn {
+    color: var(--pending);
+  }
+  .m-up.bad b,
+  .c-up.bad {
+    color: var(--down-text-2);
+  }
+  .m-up.none b,
+  .c-up.none {
+    color: var(--muted);
+  }
+  .pub-light .m-up.warn b,
+  .pub-light .c-up.warn {
+    color: var(--pending-text);
+  }
+  .bars {
+    display: flex;
+    gap: 3px;
+    height: 32px;
+    cursor: pointer;
+  }
+  .bar {
+    flex: 1 1 0;
+    min-width: 0;
+    border-radius: 999px;
+    background: var(--empty-bar);
+    transition: opacity 0.1s;
+  }
+  .bar.up {
+    background: var(--up);
+  }
+  .bar.mixed {
+    background: var(--pending);
+  }
+  .bar.down {
+    background: var(--down);
+  }
+  .bar.sel {
+    outline: 2px solid var(--text);
+    outline-offset: 1px;
+  }
+  @media (hover: hover) {
+    .bars:hover .bar {
+      opacity: 0.6;
+    }
+    .bars .bar:hover {
+      opacity: 1;
+    }
+  }
+  .axis {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 8px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-2);
+  }
+  .axis-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .picked {
+    margin-top: 6px;
+    font-size: 0.86rem;
+    color: var(--text);
+  }
+
+  /* Izgara: geniş alanda gruplar iki sütunda kart; çubuklar biraz daha sık. */
+  @container pubv (min-width: 760px) {
+    .st-grid .groups {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
+    }
+  }
+  .st-grid .mon {
+    padding: 14px 18px 12px;
+  }
+  .st-grid .bars {
+    gap: 2px;
+    height: 28px;
+  }
+  .st-grid .m-right {
+    gap: 12px;
+  }
+  .st-grid .m-right .sb {
+    min-width: 0;
+  }
+
+  /* Sık liste: çubuksuz, monitör başına tek satır. */
+  .cmons {
+    list-style: none;
+    margin: 0 0 -1px;
+    padding: 0;
+  }
+  .crow {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 20px;
+    min-height: 48px;
+    border-bottom: 1px solid var(--border);
+  }
+  .c-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--paused);
+  }
+  .c-dot.up {
+    background: var(--up);
+    box-shadow: 0 0 0 3px var(--up-soft);
+  }
+  .c-dot.down {
+    background: var(--down);
+    box-shadow: 0 0 0 3px var(--down-soft);
+  }
+  .c-dot.pending {
+    background: var(--pending);
+  }
+  .c-dot.maint {
+    background: var(--maint);
+  }
+  .c-name {
+    display: flex;
+    align-items: baseline;
+    gap: 4px 10px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .c-name .m-t {
+    font-size: 0.97rem;
+    font-weight: 650;
+  }
+  .c-name .m-target {
+    font-size: 0.8rem;
+  }
+  .c-up {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    font-size: 0.95rem;
+  }
+  .crow .sb {
+    height: 26px;
+    font-size: 0.8rem;
+  }
+  /* Geniş sayfada sık liste iki sütun. */
+  @container pubv (min-width: 1000px) {
+    .cmons {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 0;
+    }
+    .crow:nth-child(odd) {
+      border-right: 1px solid var(--border);
+    }
+  }
+
+  /* Olaylar */
+  .inc {
+    padding: 0;
+    overflow: hidden;
+  }
+  .inc-h {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    background: var(--card-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .inc-h h2 {
+    font-size: 1.06rem;
+    font-weight: 700;
+  }
+  .inc-h .g-count {
+    min-width: 24px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    text-align: center;
+    font-weight: 650;
+  }
+  .no-inc {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--up);
+    font-weight: 600;
+    padding: 16px 20px;
+  }
+  .pub-light .no-inc {
+    color: var(--up-text);
+  }
+  .inc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .inc li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .inc li:first-child {
+    border-top: none;
+  }
+  .i-ic {
+    display: inline-flex;
+    margin-top: 1px;
+    color: var(--up);
+    flex-shrink: 0;
+  }
+  .ongoing .i-ic {
+    color: var(--down);
+  }
+  .i-b {
+    flex: 1;
+    min-width: 0;
+  }
+  .i-t {
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+  .i-w {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 14px;
+    margin-top: 4px;
+    font-size: 0.86rem;
+    color: var(--text-2);
+  }
+  .i-d {
+    font-weight: 650;
+    color: var(--text);
+  }
+  .ongoing .i-d {
+    color: var(--down-text-2);
+  }
+
+  .foot {
+    border-top: 1px solid var(--border);
+    padding: 20px 0 28px;
+  }
+  .foot-in {
+    text-align: center;
+  }
+  .foot-t {
+    margin: 0 0 6px;
+    color: var(--text-2);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+  .foot-s {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  /* Dar alan (telefon veya dar önizleme): ekran değil sayfanın kendi genişliği. */
+  @container pubv (max-width: 640px) {
+    .wrap {
+      padding: 0 16px;
+    }
+    main.wrap {
+      padding-top: 20px;
+      gap: 14px;
+    }
+    .groups {
+      gap: 14px;
+    }
+    .top-in {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      padding-top: 16px;
+      padding-bottom: 16px;
+    }
+    .refresh {
+      white-space: normal;
+    }
+    .hero {
+      padding: 16px 18px;
+      gap: 12px;
+    }
+    .hero-ic {
+      width: 40px;
+      height: 40px;
+    }
+    .hero-l {
+      font-size: 1.08rem;
+    }
+    .g-head,
+    .mon,
+    .st-grid .mon,
+    .crow,
+    .inc-h,
+    .inc li,
+    .no-inc {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    .m-top {
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .m-right {
+      flex-direction: column-reverse;
+      align-items: flex-end;
+      gap: 6px;
+    }
+    .m-up {
+      flex-direction: row;
+      align-items: baseline;
+      gap: 5px;
+    }
+    .m-up b {
+      font-size: 0.98rem;
+    }
+    .sb {
+      height: 26px;
+      font-size: 0.8rem;
+      padding: 0 9px 0 8px;
+      gap: 6px;
+    }
+    .bars {
+      height: 28px;
+    }
+    .i-w {
+      flex-direction: column;
+    }
+    .i-res {
+      display: none;
+    }
+    .m-right .sb,
+    .crow .sb {
+      min-width: 0;
+    }
+    .crow {
+      gap: 10px;
+    }
+    .c-name {
+      flex-direction: column;
+      gap: 1px;
+    }
+  }
+</style>

@@ -1,6 +1,17 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { api, ApiError, errorMessage, type BarRange, type PageInput, type StatusPage } from '../lib/api';
+  import {
+    api,
+    ApiError,
+    errorMessage,
+    type BarRange,
+    type PageBlockId,
+    type PageInput,
+    type PageLayout,
+    type PageStyle,
+    type PageWidth,
+    type StatusPage,
+  } from '../lib/api';
   import { live } from '../lib/live.svelte';
   import { navigate } from '../lib/router.svelte';
   import { confirmDialog, toast } from '../lib/ui.svelte';
@@ -13,6 +24,8 @@
   import Icon from '../components/Icon.svelte';
   import CopyButton from '../components/CopyButton.svelte';
   import Announcements from './Announcements.svelte';
+  import PagePreviewPanel, { type PreviewDraft } from '../components/PagePreviewPanel.svelte';
+  import { normalizeLayout } from '../components/StatusView.svelte';
   import { LOCALES, t, type Locale } from '../lib/i18n';
 
   let { id }: { id?: number } = $props();
@@ -43,11 +56,14 @@
   let footer = $state('');
   let customDomain = $state('');
   let showTargets = $state(false);
-  let showIncidents = $state(true);
   let collapsible = $state(false);
   let barRange = $state<BarRange>('recent');
   let pageLang = $state<Locale>('tr');
   let published = $state(true);
+  // Dizilim: yerleşim, genişlik, bölüm sırası/görünürlüğü. Olaylar bölümünün
+  // görünürlüğü sunucuda show_incidents ile aynı alandır.
+  let layout = $state<PageLayout>(normalizeLayout(null));
+  const showIncidents = $derived(layout.blocks.find((b) => b.id === 'incidents')?.visible !== false);
   let pwMode = $state<'keep' | 'set' | 'remove'>('keep');
   let password = $state('');
 
@@ -80,7 +96,7 @@
     footer = p.footer;
     customDomain = p.custom_domain;
     showTargets = p.show_targets;
-    showIncidents = p.show_incidents ?? true;
+    layout = normalizeLayout(p.layout, p.show_incidents ?? true);
     collapsible = p.collapsible ?? false;
     barRange = p.bar_range ?? 'recent';
     pageLang = p.lang ?? 'tr';
@@ -115,7 +131,7 @@
     footer: footer.trim(),
     customDomain: customDomain.trim().toLowerCase(),
     showTargets,
-    showIncidents,
+    layout: [layout.style, layout.width, layout.blocks.map((b) => (b.visible ? b.id : `-${b.id}`))],
     collapsible,
     barRange,
     pageLang,
@@ -187,6 +203,115 @@
     else document.querySelector<HTMLButtonElement>(fallback)?.focus();
   }
 
+  // Dizilim bölümleri ---------------------------------------------------------------------
+  const STYLES: PageStyle[] = ['list', 'grid', 'compact'];
+  const WIDTHS: PageWidth[] = ['narrow', 'wide'];
+  const blockName = (id: PageBlockId) => t(`pages.layout.blockNames.${id}`);
+
+  async function moveBlock(bi: number, dir: -1 | 1) {
+    const to = bi + dir;
+    if (to < 0 || to >= layout.blocks.length) return;
+    const list = layout.blocks.slice();
+    [list[bi], list[to]] = [list[to], list[bi]];
+    layout.blocks = list;
+    const key = list[to].id;
+    await tick();
+    focusBtn(`[data-bkey="${key}"] .b-${dir < 0 ? 'up' : 'down'}`, `[data-bkey="${key}"] .b-${dir < 0 ? 'down' : 'up'}`);
+  }
+
+  // Sürükle-bırak: gruplar, monitörler (gruplar arası dahil) ve dizilim bölümleri.
+  // Klavyede aynı işler ok düğmeleriyle yapılır; dokunmatikte tarayıcı sürüklemeyi
+  // desteklemiyorsa oklar kullanılır.
+  type Drag = { kind: 'group'; si: number } | { kind: 'mon'; si: number; mi: number } | { kind: 'block'; bi: number };
+  type Drop =
+    | { kind: 'group'; si: number; after: boolean }
+    | { kind: 'mon'; si: number; mi: number; after: boolean }
+    | { kind: 'empty'; si: number }
+    | { kind: 'block'; bi: number; after: boolean };
+  let drag: Drag | null = null; // mantık için; görsel durum aşağıda
+  let dragging = $state<Drag | null>(null);
+  let drop = $state<Drop | null>(null);
+
+  function dragStart(e: DragEvent, d: Drag) {
+    if (!e.dataTransfer) return;
+    drag = d;
+    // Soluklaştırma sürükleme görüntüsü alındıktan sonra uygulanır.
+    setTimeout(() => {
+      if (drag === d) dragging = d;
+    });
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ''); // Firefox veri olmadan sürüklemez
+    const row = (e.currentTarget as HTMLElement).closest<HTMLElement>('[data-drag-row]');
+    if (row) {
+      const r = row.getBoundingClientRect();
+      e.dataTransfer.setDragImage(row, Math.min(24, r.width / 2), Math.min(20, r.height / 2));
+    }
+  }
+  function dragEnd() {
+    drag = null;
+    dragging = null;
+    drop = null;
+  }
+  /** İmleç öğenin alt yarısında mı? */
+  function lowerHalf(e: DragEvent): boolean {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    return e.clientY > r.top + r.height / 2;
+  }
+  function overGroup(e: DragEvent, si: number) {
+    if (!drag) return;
+    if (drag.kind === 'group') {
+      e.preventDefault();
+      drop = { kind: 'group', si, after: lowerHalf(e) };
+    } else if (drag.kind === 'mon') {
+      // Monitör satırının dışında (başlık, boş alan): grubun sonuna.
+      e.preventDefault();
+      const n = sections[si].monitors.length;
+      drop = n === 0 ? { kind: 'empty', si } : { kind: 'mon', si, mi: n - 1, after: true };
+    }
+  }
+  function overMonitor(e: DragEvent, si: number, mi: number) {
+    if (drag?.kind !== 'mon') return;
+    e.preventDefault();
+    e.stopPropagation();
+    drop = { kind: 'mon', si, mi, after: lowerHalf(e) };
+  }
+  function overBlock(e: DragEvent, bi: number) {
+    if (drag?.kind !== 'block') return;
+    e.preventDefault();
+    drop = { kind: 'block', bi, after: lowerHalf(e) };
+  }
+  /** from sırasındaki öğeyi, "to önüne/arkasına" bırakılınca oluşan yeni sıra. */
+  function reorder<T>(list: T[], from: number, to: number, after: boolean): T[] {
+    const out = list.slice();
+    const [item] = out.splice(from, 1);
+    let at = to + (after ? 1 : 0);
+    if (from < at) at--;
+    out.splice(at, 0, item);
+    return out;
+  }
+  function onDrop(e: DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const d = drag,
+      p = drop;
+    dragEnd();
+    if (!d || !p) return;
+    if (d.kind === 'group' && p.kind === 'group') {
+      sections = reorder(sections, d.si, p.si, p.after);
+    } else if (d.kind === 'block' && p.kind === 'block') {
+      layout.blocks = reorder(layout.blocks, d.bi, p.bi, p.after);
+    } else if (d.kind === 'mon' && (p.kind === 'mon' || p.kind === 'empty')) {
+      const list = sections.map((s) => ({ ...s, monitors: s.monitors.slice() }));
+      const [m] = list[d.si].monitors.splice(d.mi, 1);
+      let at = p.kind === 'empty' ? 0 : p.mi + (p.after ? 1 : 0);
+      if (p.kind === 'mon' && p.si === d.si && d.mi < at) at--;
+      list[p.si].monitors.splice(at, 0, m);
+      sections = list;
+    }
+  }
+  const dropCls = (kind: Drop['kind'], match: (p: Drop) => boolean) =>
+    drop && drop.kind === kind && match(drop) ? ('after' in drop && drop.after ? 'drop-after' : 'drop-before') : '';
+
   function removeMonitor(si: number, mi: number) {
     sections = sections.map((s, i) => (i === si ? { ...s, monitors: s.monitors.filter((_, j) => j !== mi) } : s));
   }
@@ -256,6 +381,7 @@
       custom_domain: customDomain.trim().toLowerCase(),
       show_targets: showTargets,
       show_incidents: showIncidents,
+      layout: { style: layout.style, width: layout.width, blocks: layout.blocks.map((b) => ({ id: b.id, visible: b.visible })) },
       collapsible,
       bar_range: barRange,
       lang: pageLang,
@@ -338,6 +464,30 @@
     }
   }
 
+  // Canlı önizleme ------------------------------------------------------------------------
+  // Geniş ekranda formun yanında sürekli; dar ekranda düğmeyle tam ekran açılır.
+  const wideMq = matchMedia('(min-width: 1280px)');
+  let wide = $state(wideMq.matches);
+  let previewOpen = $state(false);
+  onMount(() => {
+    const on = () => (wide = wideMq.matches);
+    wideMq.addEventListener('change', on);
+    return () => wideMq.removeEventListener('change', on);
+  });
+  const draft = $derived<PreviewDraft>({
+    pageId: page?.id,
+    title,
+    description,
+    footer,
+    sections: sections.map((s) => ({ title: s.title, monitors: s.monitors.map((m) => ({ id: m.id, name: m.name })) })),
+    layout: { style: layout.style, width: layout.width, blocks: layout.blocks.map((b) => ({ id: b.id, visible: b.visible })) },
+    barRange,
+    showTargets,
+    collapsible,
+    lang: pageLang,
+    logo: page?.has_logo ? `/api/status-pages/${page.id}/logo?v=${page.updated_at}` : '',
+  });
+
   const publicUrl = $derived(page ? `${location.origin}/durum/${page.slug}` : '');
   const host = location.host;
 
@@ -365,6 +515,8 @@
     <a class="btn primary" href="#/status-pages">{t('pages.editor.backToList')}</a>
   </div>
 {:else}
+  <div class="ed" class:with-side={wide}>
+  <div class="ed-main">
   <form class="form" onsubmit={submit} novalidate>
     {#if page}
       <div class="pub-bar card">
@@ -416,8 +568,27 @@
       <p class="help nomargin">{t('pages.editor.groupsHelp')}</p>
 
       {#each sections as s, si (s.key)}
-        <div class="group" data-skey={s.key}>
+        {@const gName = s.title.trim() || t('pages.editor.groupN', { n: si + 1 })}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="group {dropCls('group', (p) => p.kind === 'group' && p.si === si)}"
+          class:dragging={dragging?.kind === 'group' && dragging.si === si}
+          data-skey={s.key}
+          data-drag-row
+          ondragover={(e) => overGroup(e, si)}
+          ondrop={onDrop}
+        >
           <div class="g-head">
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <span
+              class="grip"
+              draggable="true"
+              title={t('pages.layout.dragGroup', { name: gName })}
+              ondragstart={(e) => dragStart(e, { kind: 'group', si })}
+              ondragend={dragEnd}
+            >
+              {@render grip()}
+            </span>
             <input
               id="sec-{s.key}"
               class="input g-title"
@@ -430,7 +601,7 @@
               <button
                 type="button"
                 class="btn ghost icon sm s-up"
-                aria-label={t('pages.editor.groupUp', { name: s.title.trim() || t('pages.editor.groupN', { n: si + 1 }) })}
+                aria-label={t('pages.editor.groupUp', { name: gName })}
                 disabled={si === 0}
                 onclick={() => moveSection(si, -1)}
               >
@@ -439,25 +610,44 @@
               <button
                 type="button"
                 class="btn ghost icon sm s-down"
-                aria-label={t('pages.editor.groupDown', { name: s.title.trim() || t('pages.editor.groupN', { n: si + 1 }) })}
+                aria-label={t('pages.editor.groupDown', { name: gName })}
                 disabled={si === sections.length - 1}
                 onclick={() => moveSection(si, 1)}
               >
                 <Icon name="arrow-down" size={15} />
               </button>
-              <button type="button" class="btn ghost icon sm del" aria-label={t('pages.editor.groupRemove', { name: s.title.trim() || t('pages.editor.groupN', { n: si + 1 }) })} onclick={() => removeSection(si)}>
+              <button type="button" class="btn ghost icon sm del" aria-label={t('pages.editor.groupRemove', { name: gName })} onclick={() => removeSection(si)}>
                 <Icon name="trash" size={15} />
               </button>
             </div>
           </div>
 
           {#if s.monitors.length === 0}
-            <div class="g-empty muted small">{t('pages.editor.groupEmpty')}</div>
+            <div class="g-empty muted small" class:drop-empty={drop?.kind === 'empty' && drop.si === si}>
+              {dragging?.kind === 'mon' ? t('pages.layout.dropEmpty') : t('pages.editor.groupEmpty')}
+            </div>
           {:else}
             <ol class="mons">
               {#each s.monitors as m, mi (m.id)}
                 {@const mon = live.byId(m.id)}
-                <li class="mon" data-mkey={m.id}>
+                <li
+                  class="mon {dropCls('mon', (p) => p.kind === 'mon' && p.si === si && p.mi === mi)}"
+                  class:dragging={dragging?.kind === 'mon' && dragging.si === si && dragging.mi === mi}
+                  data-mkey={m.id}
+                  data-drag-row
+                  ondragover={(e) => overMonitor(e, si, mi)}
+                  ondrop={onDrop}
+                >
+                  <!-- svelte-ignore a11y_no_static_element_interactions -->
+                  <span
+                    class="grip"
+                    draggable="true"
+                    title={t('pages.layout.dragMonitor', { name: mon?.name ?? `#${m.id}` })}
+                    ondragstart={(e) => dragStart(e, { kind: 'mon', si, mi })}
+                    ondragend={dragEnd}
+                  >
+                    {@render grip()}
+                  </span>
                   {#if mon}<StatusIcon kind={monitorKind(mon)} size={20} />{:else}<span class="ph"></span>{/if}
                   <div class="m-names">
                     <span class="m-orig" title={mon?.target}>{mon?.name ?? `#${m.id}`}</span>
@@ -502,6 +692,98 @@
       <button type="button" class="btn add-sec" onclick={addSection} disabled={sections.length >= 20}>
         <Icon name="layers" size={15} /> {t('pages.editor.addGroup')}
       </button>
+    </section>
+
+    <section class="card stack">
+      <div>
+        <h2 class="card-title">{t('pages.layout.title')}</h2>
+        <p class="help nomargin">{t('pages.layout.help')}</p>
+      </div>
+      <fieldset class="opts">
+        <legend class="label">{t('pages.layout.style')}</legend>
+        <div class="opt-row three">
+          {#each STYLES as st (st)}
+            <label class="opt" class:on={layout.style === st}>
+              <input type="radio" name="lay-style" value={st} bind:group={layout.style} />
+              {@render styleArt(st)}
+              <span class="opt-t">{t(`pages.layout.styles.${st}`)}</span>
+              <small>{t(`pages.layout.styleHelp.${st}`)}</small>
+            </label>
+          {/each}
+        </div>
+      </fieldset>
+      <fieldset class="opts">
+        <legend class="label">{t('pages.layout.width')}</legend>
+        <div class="opt-row two">
+          {#each WIDTHS as w (w)}
+            <label class="opt" class:on={layout.width === w}>
+              <input type="radio" name="lay-width" value={w} bind:group={layout.width} />
+              {@render widthArt(w)}
+              <span class="opt-t">{t(`pages.layout.widths.${w}`)}</span>
+              <small>{t(`pages.layout.widthHelp.${w}`)}</small>
+            </label>
+          {/each}
+        </div>
+      </fieldset>
+      <div class="field">
+        <span class="label" id="blocks-l">{t('pages.layout.blocks')}</span>
+        <ol class="blocks" aria-labelledby="blocks-l">
+          {#each layout.blocks as b, bi (b.id)}
+            <li
+              class="blk {dropCls('block', (p) => p.kind === 'block' && p.bi === bi)}"
+              class:off={!b.visible}
+              class:dragging={dragging?.kind === 'block' && dragging.bi === bi}
+              data-bkey={b.id}
+              data-drag-row
+              ondragover={(e) => overBlock(e, bi)}
+              ondrop={onDrop}
+            >
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <span
+                class="grip"
+                draggable="true"
+                title={t('pages.layout.dragBlock', { name: blockName(b.id) })}
+                ondragstart={(e) => dragStart(e, { kind: 'block', bi })}
+                ondragend={dragEnd}
+              >
+                {@render grip()}
+              </span>
+              <label class="check blk-l">
+                <input type="checkbox" bind:checked={b.visible} aria-label={t('pages.layout.blockShow', { name: blockName(b.id) })} />
+                <span>
+                  {blockName(b.id)}
+                  <small>{t(`pages.layout.blockDesc.${b.id}`)}</small>
+                </span>
+              </label>
+              {#if !b.visible}<span class="badge">{t('pages.layout.hidden')}</span>{/if}
+              <div class="order">
+                <button
+                  type="button"
+                  class="btn ghost icon sm b-up"
+                  aria-label={t('pages.layout.blockUp', { name: blockName(b.id) })}
+                  disabled={bi === 0}
+                  onclick={() => moveBlock(bi, -1)}
+                >
+                  <Icon name="arrow-up" size={15} />
+                </button>
+                <button
+                  type="button"
+                  class="btn ghost icon sm b-down"
+                  aria-label={t('pages.layout.blockDown', { name: blockName(b.id) })}
+                  disabled={bi === layout.blocks.length - 1}
+                  onclick={() => moveBlock(bi, 1)}
+                >
+                  <Icon name="arrow-down" size={15} />
+                </button>
+              </div>
+            </li>
+          {/each}
+        </ol>
+        <span class="help">{t('pages.layout.blocksHelp')}</span>
+        {#if layout.blocks.some((b) => b.id === 'groups' && !b.visible)}
+          <div class="alert warning small">{t('pages.layout.groupsHiddenWarn')}</div>
+        {/if}
+      </div>
     </section>
 
     <section class="card stack">
@@ -557,13 +839,6 @@
         <span>
           {t('pages.editor.showTargets')}
           <small>{t('pages.editor.showTargetsHelp')}</small>
-        </span>
-      </label>
-      <label class="check">
-        <input type="checkbox" bind:checked={showIncidents} />
-        <span>
-          {t('pages.editor.showIncidents')}
-          <small>{t('pages.editor.showIncidentsHelp')}</small>
         </span>
       </label>
       <label class="check">
@@ -657,7 +932,64 @@
       <Announcements pageId={page.id} />
     </div>
   {/if}
+  </div>
+  {#if wide || previewOpen}
+    <aside class="ed-side" class:overlay={!wide}>
+      <PagePreviewPanel {draft} onclose={wide ? undefined : () => (previewOpen = false)} />
+    </aside>
+  {/if}
+  </div>
+  {#if !wide && !previewOpen}
+    <button type="button" class="btn primary pv-fab" aria-label={t('pages.livePreview.showAria')} onclick={() => (previewOpen = true)}>
+      <Icon name="eye" size={16} />
+      {t('pages.livePreview.show')}
+    </button>
+  {/if}
 {/if}
+
+{#snippet grip()}
+  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+    <circle cx="9" cy="5.5" r="1.7" /><circle cx="15" cy="5.5" r="1.7" />
+    <circle cx="9" cy="12" r="1.7" /><circle cx="15" cy="12" r="1.7" />
+    <circle cx="9" cy="18.5" r="1.7" /><circle cx="15" cy="18.5" r="1.7" />
+  </svg>
+{/snippet}
+
+{#snippet styleArt(st: PageStyle)}
+  <svg class="art" viewBox="0 0 64 40" aria-hidden="true">
+    <rect x="0.5" y="0.5" width="63" height="39" rx="5" class="a-frame" />
+    {#if st === 'list'}
+      {#each [0, 1, 2] as i (i)}
+        <rect x="8" y={7 + i * 11} width="18" height="2.5" rx="1.2" class="a-text" />
+        <rect x="8" y={11 + i * 11} width="48" height="3.5" rx="1.7" class="a-bar" />
+      {/each}
+    {:else if st === 'grid'}
+      {#each [0, 1] as c (c)}
+        <rect x={6 + c * 27} y="6" width="25" height="28" rx="3" class="a-card" />
+        {#each [0, 1] as i (i)}
+          <rect x={9 + c * 27} y={10 + i * 11} width="11" height="2.5" rx="1.2" class="a-text" />
+          <rect x={9 + c * 27} y={14 + i * 11} width="19" height="3" rx="1.5" class="a-bar" />
+        {/each}
+      {/each}
+    {:else}
+      {#each [0, 1, 2, 3, 4] as i (i)}
+        <circle cx="10" cy={8 + i * 6} r="1.8" class="a-dot" />
+        <rect x="15" y={7 + i * 6} width="24" height="2.5" rx="1.2" class="a-text" />
+        <rect x="46" y={7 + i * 6} width="10" height="2.5" rx="1.2" class="a-pill" />
+      {/each}
+    {/if}
+  </svg>
+{/snippet}
+
+{#snippet widthArt(w: PageWidth)}
+  <svg class="art" viewBox="0 0 64 40" aria-hidden="true">
+    <rect x="0.5" y="0.5" width="63" height="39" rx="5" class="a-frame" />
+    <rect x={w === 'wide' ? 5 : 17} y="7" width={w === 'wide' ? 54 : 30} height="26" rx="3" class="a-card" />
+    <rect x={w === 'wide' ? 9 : 21} y="12" width={w === 'wide' ? 46 : 22} height="3" rx="1.5" class="a-bar" />
+    <rect x={w === 'wide' ? 9 : 21} y="19" width={w === 'wide' ? 46 : 22} height="3" rx="1.5" class="a-bar" />
+    <rect x={w === 'wide' ? 9 : 21} y="26" width={w === 'wide' ? 30 : 14} height="2.5" rx="1.2" class="a-text" />
+  </svg>
+{/snippet}
 
 <Modal bind:open={addOpen} title={t('pages.editor.addTitle')} width={560}>
   <p class="help nomargin sp">
@@ -674,6 +1006,205 @@
 </Modal>
 
 <style>
+  /* Geniş ekranda form ve canlı önizleme yan yana. */
+  .ed.with-side {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    gap: 24px;
+    align-items: start;
+  }
+  .ed-main {
+    min-width: 0;
+  }
+  /* Dar ekranda yüzen önizleme düğmesi son düğmelerin üstünü kapatmasın. */
+  .ed:not(.with-side) .ed-main {
+    padding-bottom: 64px;
+  }
+  .ed-side {
+    position: sticky;
+    top: 16px;
+    height: calc(100vh - 32px);
+    height: calc(100dvh - 32px);
+    min-width: 0;
+  }
+  .ed-side.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    height: auto;
+    background: var(--bg);
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom))
+      max(12px, env(safe-area-inset-left));
+  }
+  .pv-fab {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 30;
+    box-shadow: var(--shadow);
+  }
+  @media (max-width: 900px) {
+    .pv-fab {
+      right: max(16px, env(safe-area-inset-right));
+      bottom: calc(84px + env(safe-area-inset-bottom));
+    }
+  }
+
+  /* Sürükleme tutamağı ve bırakma göstergesi */
+  .grip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 30px;
+    margin-left: -4px;
+    flex-shrink: 0;
+    color: var(--muted);
+    cursor: grab;
+    border-radius: 6px;
+    touch-action: none;
+  }
+  .grip:hover {
+    color: var(--accent-text);
+    background: var(--accent-soft);
+  }
+  .grip:active {
+    cursor: grabbing;
+  }
+  .dragging {
+    opacity: 0.45;
+  }
+  .drop-before {
+    box-shadow: 0 -3px 0 0 var(--accent);
+  }
+  .drop-after {
+    box-shadow: 0 3px 0 0 var(--accent);
+  }
+  .g-empty.drop-empty {
+    border: 1.5px dashed var(--accent);
+    border-radius: 8px;
+    color: var(--accent-text);
+  }
+
+  /* Dizilim seçenekleri */
+  .opts {
+    border: none;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+  .opts legend {
+    padding: 0;
+    margin-bottom: 8px;
+  }
+  .opt-row {
+    display: grid;
+    gap: 10px;
+  }
+  .opt-row.three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .opt-row.two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .opt {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    background: var(--bg-elev);
+    cursor: pointer;
+    min-width: 0;
+  }
+  .opt:hover {
+    border-color: var(--border-hover);
+  }
+  .opt.on {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .opt input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .opt:has(input:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .opt-t {
+    font-weight: 650;
+    font-size: 0.9rem;
+  }
+  .opt small {
+    color: var(--text-2);
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+  .art {
+    width: 100%;
+    max-width: 120px;
+    height: auto;
+    margin-bottom: 4px;
+  }
+  .art .a-frame {
+    fill: var(--input);
+    stroke: var(--border-strong);
+  }
+  .art .a-card {
+    fill: var(--card);
+    stroke: var(--border-strong);
+  }
+  .art .a-text {
+    fill: var(--text-2);
+    opacity: 0.55;
+  }
+  .art .a-bar,
+  .art .a-dot {
+    fill: var(--up);
+  }
+  .art .a-pill {
+    fill: var(--up);
+    opacity: 0.35;
+  }
+  .opt.on .a-frame {
+    stroke: var(--accent);
+  }
+  .blocks {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .blk {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 6px 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-elev);
+  }
+  .blk.off .blk-l > span {
+    color: var(--muted);
+  }
+  .blk-l {
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+  }
+  .blk-l small {
+    display: block;
+    color: var(--muted);
+    font-size: 0.78rem;
+  }
+
   .form {
     max-width: 900px;
     display: flex;
@@ -879,6 +1410,19 @@
     margin-top: 24px;
   }
   @media (max-width: 640px) {
+    .opt-row.three {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .opt-row.three .opt {
+      display: grid;
+      grid-template-columns: 76px minmax(0, 1fr);
+      column-gap: 12px;
+      align-items: center;
+    }
+    .opt-row.three .art {
+      grid-row: span 2;
+      margin: 0;
+    }
     .m-names {
       grid-template-columns: minmax(0, 1fr);
       gap: 4px;
@@ -895,7 +1439,7 @@
       row-gap: 2px;
     }
     .m-names {
-      flex: 1 1 calc(100% - 40px);
+      flex: 1 1 calc(100% - 70px);
     }
     .mon .order {
       width: 100%;

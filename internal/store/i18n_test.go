@@ -13,15 +13,7 @@ func TestLangMigration(t *testing.T) {
 	target := testTarget(t)
 
 	// Migration 16 olmadan (eski sürüm) veritabanı kur.
-	ddl := migrations[16]
-	delete(migrations, 16)
-	restored := false
-	restore := func() {
-		if !restored {
-			migrations[16], restored = ddl, true
-		}
-	}
-	t.Cleanup(restore)
+	restore := withoutMigrationsFrom(t, 16)
 	old, err := Open(target, time.UTC)
 	if err != nil {
 		t.Fatal(err)
