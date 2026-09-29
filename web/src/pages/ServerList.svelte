@@ -537,7 +537,7 @@
   }
   /* Bölüm listesi: "/data ▬▬▬ %82" satırları */
   .dlist {
-    grid-template-columns: minmax(0, max-content) minmax(40px, 1fr) 32px;
+    grid-template-columns: minmax(0, 0.9fr) minmax(40px, 1fr) 32px;
     column-gap: 6px;
     row-gap: 2px;
     align-items: center;
