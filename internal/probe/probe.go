@@ -7,9 +7,15 @@
 //
 // Protokol (HTTPS + JSON, Authorization: Bearer upr_…):
 //
-//	GET  /api/probe/jobs     → {"probe": {...}, "poll_after": 30, "metrics_interval": 60, "jobs": [...]}
+//	GET  /api/probe/jobs?since=N → {"probe": {...}, "poll_after": 1, "version": N, "metrics_interval": 60, "jobs": [...]}
 //	POST /api/probe/results  ← {"sent_at": ms, "results": [{monitor_id, time, up, ping_ms, message, cert_not_after, cert_issuer, detail}]}
 //	POST /api/probe/metrics  ← metrics.Sample: {"time": ms, "host": {...}, "stats": {...}} veya {"time": ms, "unavailable": "neden"}
+//
+// İş listesi uzun yoklamayla alınır: ajan son aldığı listenin sürümünü
+// (?since=) gönderir; liste değişmediyse sunucu isteği en fazla ~20 sn bekletir
+// ve bir değişiklik olunca hemen yanıtlar. Böylece yeni monitör ajana ~1 sn
+// içinde ulaşır. Sürüm döndürmeyen (eski) sunucuda poll_after aralığıyla
+// yoklanır.
 //
 // Ana sunucuya ulaşılamazsa istekler artan beklemeyle tekrarlanır; bu sırada
 // kontroller sürer ve sonuçlar sınırlı bir tamponda bekletilir (dolunca en
@@ -101,10 +107,20 @@ type jobsResponse struct {
 		ID   int64  `json:"id"`
 		Name string `json:"name"`
 	} `json:"probe"`
-	PollAfter       int   `json:"poll_after"`
-	MetricsInterval int   `json:"metrics_interval"` // sn; 0 veya alan yok (eski sunucu) = metrik gönderilmez
-	Jobs            []Job `json:"jobs"`
+	PollAfter       int    `json:"poll_after"`
+	Version         *int64 `json:"version"`          // iş listesi sürümü; yok (eski sunucu) = uzun yoklama yok
+	MetricsInterval int    `json:"metrics_interval"` // sn; 0 veya alan yok (eski sunucu) = metrik gönderilmez
+	Jobs            []Job  `json:"jobs"`
 }
+
+// jobsTimeout iş listesi isteğinin en kısa HTTP zaman aşımı: sunucu isteği
+// ~20 sn bekletebilir (uzun yoklama), genel 30 sn'lik sınırın rahat üstünde.
+const jobsTimeout = 60 * time.Second
+
+// quickStartMax bir iş listesi güncellemesinde en fazla bu kadar yeni iş
+// ilk kontrolünü hemen (~1 birim içinde) yapar; daha fazlası (ve ajanın ilk
+// listesi) aynı ana yığılmasın diye min(aralık, 10) içine yayılır.
+const quickStartMax = 20
 
 // Client bir kontrol noktası.
 type Client struct {
@@ -120,8 +136,14 @@ type Client struct {
 	unknown map[string]bool // uyarısı yazılmış bilinmeyen tipler
 	reach   map[string]bool // uç nokta başına erişilebilirlik (log tekrarını önler)
 
-	metricsIv  chan int // iş listesindeki son metrics_interval (yalnızca en yenisi bekler)
-	metricsBad int      // son reddedilen metrik gönderiminin durumu (log tekrarını önler; yalnızca metricsLoop)
+	jobsHTTP *http.Client // iş listesi için: zaman aşımı uzun yoklamaya göre (jobsTimeout)
+	// Yalnızca jobsLoop goroutine'inde:
+	jobsVersion int64 // son alınan iş listesi sürümü (?since=)
+	haveJobs    bool  // ilk iş listesi uygulandı mı (sonraki yeni işler hemen başlar)
+
+	flushNow   chan struct{} // yeni işin ilk sonucu: FlushEvery beklenmeden gönder
+	metricsIv  chan int      // iş listesindeki son metrics_interval (yalnızca en yenisi bekler)
+	metricsBad int           // son reddedilen metrik gönderiminin durumu (log tekrarını önler; yalnızca metricsLoop)
 }
 
 type task struct {
@@ -195,10 +217,16 @@ func New(cfg Config) (*Client, error) {
 	if cfg.Metrics == nil && !cfg.NoMetrics {
 		cfg.Metrics = metrics.NewCollector(metrics.Options{Log: cfg.Log})
 	}
+	jobsHTTP := cfg.HTTPClient
+	if jobsHTTP.Timeout > 0 && jobsHTTP.Timeout < jobsTimeout {
+		jc := *jobsHTTP // aynı Transport; yalnızca zaman aşımı farklı
+		jc.Timeout = jobsTimeout
+		jobsHTTP = &jc
+	}
 	return &Client{
 		cfg: cfg, base: u, log: cfg.Log, sem: make(chan struct{}, cfg.MaxConcurrent),
 		tasks: map[int64]*task{}, unknown: map[string]bool{}, reach: map[string]bool{},
-		metricsIv: make(chan int, 1),
+		metricsIv: make(chan int, 1), jobsHTTP: jobsHTTP, flushNow: make(chan struct{}, 1),
 	}, nil
 }
 
@@ -262,12 +290,14 @@ func (c *Client) jobsLoop(ctx context.Context) {
 			c.stopAll()
 			c.clearBuffer()
 			c.setMetricsInterval(0)
+			c.jobsVersion, c.haveJobs = 0, false // liste artık uygulanmıyor: sonraki yanıt hemen gelsin
 			wait = c.cfg.MaxBackoff
 		case errors.Is(err, ErrForbidden):
 			// Devre dışı veya IP kilidi: kontroller durur ama tampon korunur
 			// (kilit sıfırlanınca/etkinleşince gönderilir); ara ara yeniden denenir.
 			c.stopAll()
 			c.setMetricsInterval(0)
+			c.jobsVersion, c.haveJobs = 0, false
 			wait = c.cfg.MaxBackoff
 		case err != nil:
 			backoff = c.nextBackoff(backoff)
@@ -286,7 +316,10 @@ func (c *Client) jobsLoop(ctx context.Context) {
 // pollJobs iş listesini alır ve uygular; bir sonraki yoklamaya kadar beklenecek süreyi döner.
 func (c *Client) pollJobs(ctx context.Context) (time.Duration, error) {
 	var resp jobsResponse
-	status, err := c.call(ctx, http.MethodGet, "/api/probe/jobs", nil, &resp)
+	// since her zaman gönderilir (ilk istekte 0): sunucu elimizdeki listenin
+	// güncel olup olmadığını tahmin etmek zorunda kalmaz. Eski sunucu yok sayar.
+	path := "/api/probe/jobs?since=" + strconv.FormatInt(c.jobsVersion, 10)
+	status, _, err := c.do(ctx, c.jobsHTTP, http.MethodGet, path, nil, &resp)
 	if err != nil {
 		c.unreachable("jobs", err)
 		return 0, err
@@ -309,6 +342,11 @@ func (c *Client) pollJobs(ctx context.Context) (time.Duration, error) {
 	c.reachable("jobs")
 	c.apply(ctx, resp.Jobs)
 	c.setMetricsInterval(resp.MetricsInterval)
+	if resp.Version != nil {
+		c.jobsVersion = *resp.Version
+	} else {
+		c.jobsVersion = 0
+	}
 	poll := resp.PollAfter
 	if poll <= 0 {
 		poll = 30
@@ -365,6 +403,11 @@ func (c *Client) apply(ctx context.Context, jobs []Job) {
 		t.cancel()
 		<-t.done
 	}
+	// Sonradan eklenen/değişen az sayıda iş hemen kontrol edilir (yeni monitörün
+	// konum sonucu beklemeden görünsün); ilk listede ve toplu değişiklikte ilk
+	// kontroller yayılır.
+	quick := c.haveJobs && len(start) <= quickStartMax
+	c.haveJobs = true
 	for _, j := range start {
 		def, _ := json.Marshal(j)
 		tctx, cancel := context.WithCancel(ctx)
@@ -372,7 +415,7 @@ func (c *Client) apply(ctx context.Context, jobs []Job) {
 		c.mu.Lock()
 		c.tasks[j.ID] = t
 		c.mu.Unlock()
-		go c.runJob(tctx, j, t.done)
+		go c.runJob(tctx, j, t.done, c.firstDelay(j, quick), quick)
 	}
 	if len(stop) > 0 || len(start) > 0 {
 		c.log.Info("iş listesi güncellendi", "monitor_sayisi", len(jobs), "baslayan", len(start), "duran", len(stop))
@@ -392,14 +435,24 @@ func (c *Client) stopAll() {
 	}
 }
 
+// firstDelay işin ilk kontrolüne kadar bekleme: aynı ana yığılmasın diye
+// rastgele kaydırılır; quick ise en fazla 1 birim, değilse min(aralık, 10).
+func (c *Client) firstDelay(j Job, quick bool) time.Duration {
+	spread := min(time.Duration(max(j.Interval, 1))*c.cfg.Unit, 10*c.cfg.Unit)
+	if quick {
+		spread = min(spread, c.cfg.Unit)
+	}
+	return time.Duration(rand.Int64N(int64(spread) + 1))
+}
+
 // runJob bir monitörü kendi aralığında kontrol eder. Başarısız kontrolden
 // sonra tekrar deneme aralığı kullanılır (hata sayımı ana sunucuda yapılır).
-func (c *Client) runJob(ctx context.Context, j Job, done chan struct{}) {
+// quick: sonradan eklenen iş; ilk sonucu beklemeden gönderilir (yeni konumun
+// "ilk sonuç bekleniyor" durumu kısa sürsün).
+func (c *Client) runJob(ctx context.Context, j Job, done chan struct{}, first time.Duration, quick bool) {
 	defer close(done)
 	interval := time.Duration(max(j.Interval, 1)) * c.cfg.Unit
 	retry := time.Duration(max(j.RetryInterval, 1)) * c.cfg.Unit
-	// İlk kontrol kaydırılır: tüm kontroller aynı ana yığılmasın.
-	first := time.Duration(rand.Int64N(int64(min(interval, 10*c.cfg.Unit)) + 1))
 	timer := time.NewTimer(first)
 	defer timer.Stop()
 	for {
@@ -413,6 +466,13 @@ func (c *Client) runJob(ctx context.Context, j Job, done chan struct{}) {
 			return // durduruldu: yarım kalan kontrol gönderilmez
 		}
 		c.add(res)
+		if quick {
+			quick = false
+			select {
+			case c.flushNow <- struct{}{}:
+			default:
+			}
+		}
 		if res.Up {
 			timer.Reset(interval)
 		} else {
@@ -490,10 +550,15 @@ func (c *Client) flushLoop(ctx context.Context) {
 	backoff := time.Duration(0)
 	wait := c.cfg.FlushEvery
 	for {
+		now := c.flushNow
+		if backoff > 0 {
+			now = nil // hata sonrası bekleme erken gönderimle kısalmaz
+		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(wait):
+		case <-now:
 		}
 		wait = c.cfg.FlushEvery
 		for c.pending() > 0 && ctx.Err() == nil {
@@ -704,6 +769,10 @@ func (c *Client) call(ctx context.Context, method, path string, in, out any) (in
 }
 
 func (c *Client) callH(ctx context.Context, method, path string, in, out any) (int, http.Header, error) {
+	return c.do(ctx, c.cfg.HTTPClient, method, path, in, out)
+}
+
+func (c *Client) do(ctx context.Context, hc *http.Client, method, path string, in, out any) (int, http.Header, error) {
 	var body io.Reader
 	if in != nil {
 		b, err := json.Marshal(in)
@@ -722,7 +791,7 @@ func (c *Client) callH(ctx context.Context, method, path string, in, out any) (i
 	if in != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	resp, err := c.cfg.HTTPClient.Do(req)
+	resp, err := hc.Do(req)
 	if err != nil {
 		return 0, nil, err
 	}

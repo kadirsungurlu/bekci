@@ -32,6 +32,10 @@ type Server struct {
 	now      func() time.Time
 	pages    *pagesState   // durum sayfası önbellekleri (pages.go)
 	probeRL  *probeLimiter // kontrol noktası istek sınırı (probes.go)
+	// probePolls ajan başına son verilen iş listesi sürümü (uzun yoklama; probes.go)
+	probePolls *probePolls
+	// probeHold iş listesi isteğinin en uzun bekletilmesi (0: probeHold; testler kısaltır)
+	probeHold time.Duration
 	// probeAuthRL başarısız ajan kimlik doğrulaması için IP başına ön sınır (probe_guard.go)
 	probeAuthRL *probeAuthLimiter
 	badges      *badgeState    // rozet önbelleği ve IP hız sınırı (badges.go)
@@ -63,6 +67,7 @@ func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatche
 		badges:      newBadgeState(),
 		notifyRL:    newNotifyLimiter(),
 		probeAuthRL: newProbeAuthLimiter(),
+		probePolls:  newProbePolls(),
 		sseRecheck:  25 * time.Second,
 		AgentDir:    DefaultAgentDir,
 	}

@@ -87,6 +87,7 @@
     up: { l: 'status.up', c: 'up' },
     down: { l: 'status.down', c: 'down' },
     retrying: { l: 'status.retrying', c: 'pending' },
+    waiting: { l: 'monitors.detail.waitingFirst', c: 'waiting' },
     unknown: { l: 'monitors.detail.noResult', c: 'paused' },
   };
   async function loadLocations() {
@@ -141,6 +142,7 @@
   let lastStatus: number | null = null;
 
   let unsubProbe: (() => void) | undefined;
+  let unsubLocations: (() => void) | undefined;
   let unsubReset: (() => void) | undefined;
   let unsubResume: (() => void) | undefined;
 
@@ -153,6 +155,10 @@
     }, 60_000);
     unsubProbe = live.onProbe(() => {
       if (locations?.locations.length) loadLocationsSoon();
+    });
+    // Konum durumu değişti (ör. yeni konumun ilk sonucu geldi): kayıt yazılmasa da yenile.
+    unsubLocations = live.onLocations((mid) => {
+      if (mid === id) loadLocationsSoon();
     });
     // İstatistikler sıfırlandı (listeden veya başka sekmeden): uptime, grafik ve olaylar yeniden yüklenir.
     unsubReset = live.onStatsReset((mid) => {
@@ -191,6 +197,7 @@
   onDestroy(() => {
     unsub?.();
     unsubProbe?.();
+    unsubLocations?.();
     unsubReset?.();
     unsubResume?.();
     clearTimeout(locTimer);
@@ -619,6 +626,15 @@
   }
   .loc.pending .ldot {
     background: var(--pending);
+  }
+  /* İlk sonuç bekleniyor: nötr (gri) nokta, hafif nabız. */
+  .loc.waiting .ldot {
+    animation: loc-wait 1.6s ease-in-out infinite;
+  }
+  @keyframes loc-wait {
+    50% {
+      opacity: 0.35;
+    }
   }
   .lt {
     display: flex;

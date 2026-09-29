@@ -245,7 +245,7 @@ func TestProbeScopingAndResults(t *testing.T) {
 			Jobs      []probeJob `json:"jobs"`
 		}
 		json.Unmarshal(body, &resp)
-		if resp.PollAfter != 30 {
+		if resp.PollAfter != probeLongPollAfter {
 			t.Errorf("poll_after %d", resp.PollAfter)
 		}
 		for _, j := range resp.Jobs {

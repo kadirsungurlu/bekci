@@ -173,6 +173,7 @@ export default {
     r30d: '30 days',
     r90d: '90 days',
     noResult: 'No result',
+    waitingFirst: 'Waiting for first result',
     pausedSub: 'Checks are paused',
     maintSub: 'Maintenance window in progress; notifications muted',
     upFor: 'Up for {d}',

@@ -8,12 +8,15 @@ import (
 )
 
 // ProbeOfflineAfter bu süre boyunca hiç istek göndermeyen kontrol noktası
-// çevrimdışı sayılır. Kontrol noktası iş listesini ProbePollAfter'da bir,
-// sonuçları birkaç saniyede bir gönderir.
+// çevrimdışı sayılır. Kontrol noktası iş listesini uzun yoklamayla (en fazla
+// ~20 sn bekletilen istekler; api.probeHold) ister, sonuçları birkaç saniyede
+// bir gönderir; bekletme bu süreden epey kısa kalmalıdır.
 const ProbeOfflineAfter = 90 * time.Second
 
-// ProbePollAfter kontrol noktasının iş listesini yenileme aralığı (aralık
-// birimi cinsinden; üretimde saniye).
+// ProbePollAfter uzun yoklama öncesi iş listesi yenileme aralığı (aralık
+// birimi cinsinden; üretimde saniye). Sunucu artık poll_after=1 ile uzun
+// yoklama yaptırır; bu değer ilk sonuç süresinde (locRulesFor) ajanın işi en
+// geç ne zaman öğreneceğinin temkinli üst sınırı olarak kullanılır.
 const ProbePollAfter = 30
 
 // ProbeOnline kontrol noktası etkin ve yakın zamanda görülmüş mü?

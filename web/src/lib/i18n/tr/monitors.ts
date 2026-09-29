@@ -173,6 +173,7 @@ export default {
     r30d: '30 gün',
     r90d: '90 gün',
     noResult: 'Sonuç yok',
+    waitingFirst: 'İlk sonuç bekleniyor',
     pausedSub: 'Kontroller durduruldu',
     maintSub: 'Bakım penceresi sürüyor; bildirim gönderilmez',
     upFor: '{d} süredir çalışıyor',

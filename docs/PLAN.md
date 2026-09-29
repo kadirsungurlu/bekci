@@ -622,3 +622,40 @@ Herkese açık durum sayfaları değişmez (olay nedeni zaten gösterilmiyor).
 - Bağlantılar: Olaylar listesi ve monitör detayındaki olay tablosu (satır
   tıklanabilir), monitör detayındaki "devam eden kesinti" uyarısı.
 - Teal vurgu, mevcut kart/rozet stilleri; mor yok.
+
+## 14. Yeni konumun ilk sonucu (uzun yoklama)
+
+Karar: 2026-09-29. Sorun: uzak konumlu yeni monitörde konum ~30–45 sn "Sonuç
+yok" görünüyor, mesaj "200 OK (sonuç gelmeyen: …)" oluyordu. Nedenleri: ajan
+iş listesini 30 sn'de bir yokluyordu (yeni iş 30 sn'ye kadar gecikiyordu) ve
+başlangıç payı yalnızca hiçbir konumdan sonuç yokken geçerliydi (ana sunucu
+hemen sonuç verdiği için uzak konum anında "bilinmiyor" sayılıyordu).
+
+- **Konum başına "ilk sonuç bekleniyor" (`waiting`):** hiç sonuç vermemiş konum,
+  runner'a eklendiği andan itibaren `grace` süresince `waiting`. Süre
+  `max(staleAfter, ProbePollAfter + min(aralık, 10) + zaman aşımı + 15)` birim:
+  ajanın işi en geç öğrenmesi + ilk kontrol kaydırması + kontrol + gönderim payı;
+  işi zaten çalıştıran ajan (sunucu güncellemesi, iş değişmedi) için sıradaki
+  planlı kontrole kadar 3 aralık. `waiting` "sonuç gelmeyen" listesine girmez;
+  kurala oy vermez ama DOWN kararında paydada kalır (yalnızca oy vermemiş konum
+  yüzünden DOWN denmez: "all"da ana sunucu çalışmıyor, uzak konum bekleniyorsa
+  PENDING). Süre dolunca `unknown` (eski davranış). Olay geçmişine yazılmaz
+  (ara durum). Konum durumu değişince canlı akışa `locations` olayı gider.
+- **Yeniden yüklemede sonuçlar korunur:** düzenleme / konum ayarı / ajan
+  değişikliğinde (≤ 10 sn içinde yeniden başlayan runner, kontrol ayarı aynı)
+  mevcut konumlar son sonuçlarını korur, yalnızca yeni konum bekler.
+- **Uzun yoklama:** `GET /api/probe/jobs?since=N` → `{"version": N, "poll_after": 1, …}`.
+  Motor iş listesini etkileyen her değişiklikte sürümü artırır
+  (`Engine.JobsChanged`; Reload/Remove ve API'de durdurma, silme, toplu işlem,
+  içe aktarma, ajan ayarı/token/silme). Ajanın listesi güncelse istek en fazla
+  20 sn bekletilir, değişiklikte (250 ms birleştirme ile) hemen yanıtlanır.
+  Eski ajanlar `since` göndermez: sunucu ajan başına son verdiği sürümü ve
+  zamanı bellekte tutar; sürüm aynıysa ve önceki istek 60 sn içindeyse bekletir.
+  Bekletilen istek kimlik doğrulaması/IP kilidi/istek sınırından geçmiştir
+  (sınıra bir kez sayılır), uyanınca ajan yeniden okunur (devre dışı → 403,
+  token yenilendi/silindi → 401). Kapanışta context iptal olur, güncel liste
+  verilir. Boşta ajan dakikada ~3 istek atar; çevrimdışı sayılma (90 sn) etkilenmez.
+- **Yeni ajan:** `since` gönderir, iş listesi isteğinin zaman aşımı 60 sn;
+  sonradan eklenen (≤ 20) iş ilk kontrolünü ~1 sn içinde yapar ve ilk sonucu
+  5 sn'lik gönderim aralığını beklemeden gönderilir (ilk liste ve toplu
+  değişiklik eskisi gibi min(aralık, 10) içine yayılır).

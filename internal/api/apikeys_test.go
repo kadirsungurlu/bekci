@@ -55,6 +55,9 @@ func newFeatureEnv(t *testing.T) *fenv {
 	s := New(st, eng, hub, disp, log, static, "test")
 	clk := &testClock{}
 	s.now = clk.now
+	// Uzun yoklama: art arda iş listesi isteyen testler (istek sınırı vb.)
+	// beklemesin. Uzun yoklama testleri kendi süresini kurar (probes_longpoll_test.go).
+	s.probeHold = 10 * time.Millisecond
 	srv := httptest.NewServer(s.Handler())
 	jar, _ := cookiejar.New(nil)
 	t.Cleanup(func() {

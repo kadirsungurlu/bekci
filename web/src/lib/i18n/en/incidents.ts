@@ -49,6 +49,7 @@ export default {
       up: 'Was up',
       down: 'Was down',
       retrying: 'Was retrying',
+      waiting: 'Waiting for first result',
       unknown: 'No result',
     },
     timeline: 'Timeline',

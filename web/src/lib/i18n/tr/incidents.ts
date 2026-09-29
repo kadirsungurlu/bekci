@@ -48,6 +48,7 @@ export default {
       up: 'Çalışıyordu',
       down: 'Çalışmıyordu',
       retrying: 'Tekrar deniyordu',
+      waiting: 'İlk sonucu bekleniyordu',
       unknown: 'Sonuç yoktu',
     },
     timeline: 'İşlem geçmişi',
