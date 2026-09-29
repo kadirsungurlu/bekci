@@ -320,10 +320,7 @@ func (r *runner) applyLocation(l *location, at time.Time, res check.Result) {
 		return
 	}
 	if r.m.UpsideDown && !res.Pending {
-		res.Up = !res.Up
-		if !res.Up {
-			res.Message = "Ters mod: hedef erişilebilir (" + res.Message + ")"
-		}
+		res = invertUpsideDown(res)
 	}
 	if l.have && at.Sub(l.at) > r.staleAfter() {
 		l.fails = 0 // uzun süre sessiz kalan konumun eski hataları sayılmaz
@@ -386,6 +383,11 @@ func (r *runner) locationWake() bool {
 		status = store.StatusPending
 	}
 	if status == r.m.Status {
+		// Genel durum değişmedi (kayıt yazılmaz) ama bir konum çalışmaz/çalışır
+		// olmuş olabilir: kısmi kesinti olayı zamanlayıcıyı beklemez.
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		r.partialStep(ctx, now, status, false)
 		return false
 	}
 	r.process(res)

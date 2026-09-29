@@ -7,6 +7,7 @@ import (
 
 	"github.com/kadirsungurlu/bekci/internal/engine"
 	"github.com/kadirsungurlu/bekci/internal/i18n"
+	"github.com/kadirsungurlu/bekci/internal/metrics"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
@@ -24,7 +25,97 @@ import (
 func init() {
 	RegisterRoutes(func(s *Server, mux *http.ServeMux) {
 		mux.Handle("GET /api/incidents/{id}", s.auth(s.getIncident))
+		mux.Handle("GET /api/servers/{id}/incidents", s.auth(s.serversOnly(s.serverIncidents)))
 	})
+}
+
+// incidentServer sunucu olayının sunucusu.
+type incidentServer struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Hostname string `json:"hostname"`
+	Active   bool   `json:"active"`
+}
+
+// canSeeIncident: sunucu olayı atanmış sunucular, monitör olayı (normal ve
+// kısmi) izinli monitörler için görünür.
+func canSeeIncident(u store.User, inc store.Incident) bool {
+	vis := visibleTo(u)
+	if store.IsServerIncident(inc.Kind) {
+		return inc.ServerID > 0 && vis.canServer(inc.ServerID)
+	}
+	return vis.can(inc.MonitorID)
+}
+
+// localizeIncidents liste satırlarının nedenini yanıt diline çevirir; sunucu
+// olaylarında neden olay verisinden o dilde yeniden üretilir.
+func localizeIncidents(lang string, list []store.Incident) {
+	for k := range list {
+		list[k].Cause = incidentCause(lang, list[k])
+	}
+}
+
+func incidentCause(lang string, inc store.Incident) string {
+	if store.IsServerIncident(inc.Kind) && len(inc.Data) > 0 {
+		return store.ServerIncidentCause(lang, inc.Kind, store.ParseServerIncidentData(inc.Data))
+	}
+	return i18n.Message(lang, inc.Cause)
+}
+
+// serverIncidents sunucu ayrıntısındaki olay listesi (son 50).
+func (s *Server) serverIncidents(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	if _, err := s.serverProbe(r, id); err != nil {
+		s.dbError(w, err)
+		return
+	}
+	list, err := s.store.ListIncidents(r.Context(), store.IncidentFilter{ServerID: id, Limit: 50})
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	localizeIncidents(responseLang(w), list)
+	writeJSON(w, http.StatusOK, list)
+}
+
+// serverIncident sunucu olayının ayrıntısı: sunucu, metrik verisi (olay
+// satırının data'sı) ve işlem geçmişi. İstek/yanıt yakalaması yoktur.
+func (s *Server) serverIncident(w http.ResponseWriter, r *http.Request, u store.User, inc store.Incident) {
+	p, err := s.store.GetProbe(r.Context(), inc.ServerID)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	events, err := s.store.IncidentEvents(r.Context(), inc.ID)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	events = completeEvents(inc, events)
+	lang := responseLang(w)
+	srv := &incidentServer{ID: p.ID, Name: p.Name, Active: p.Active}
+	var h metrics.Host
+	if p.HostInfo != "" && json.Unmarshal([]byte(p.HostInfo), &h) == nil {
+		srv.Hostname = h.Hostname
+	}
+	out := incidentDetailView{Incident: inc, Server: srv, Locations: []incidentLocationView{},
+		Events: make([]store.IncidentEvent, 0, len(events))}
+	out.Incident.Cause = incidentCause(lang, inc)
+	for _, ev := range events {
+		if ev.Kind == store.EventNotify && !canSeeConfig(u) {
+			continue
+		}
+		if ev.Kind == store.EventDown {
+			ev.Message = out.Incident.Cause // neden o dilde yeniden üretilir
+		} else {
+			ev.Message = i18n.Message(lang, ev.Message)
+		}
+		out.Events = append(out.Events, ev)
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 type incidentMonitor struct {
@@ -45,7 +136,8 @@ type incidentLocationView struct {
 
 type incidentDetailView struct {
 	Incident  store.Incident          `json:"incident"`
-	Monitor   incidentMonitor         `json:"monitor"`
+	Monitor   incidentMonitor         `json:"monitor"`            // sunucu olayında boş
+	Server    *incidentServer         `json:"server,omitempty"`   // yalnızca sunucu olayında
 	Location  string                  `json:"location"`           // kök nedenin gözlendiği yer
 	Locations []incidentLocationView  `json:"locations"`          // olay başında
 	Events    []store.IncidentEvent   `json:"events"`             // yeniden eskiye
@@ -61,11 +153,15 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 	}
 	u := userFrom(r)
 	inc, err := s.store.GetIncident(r.Context(), id)
-	if err == nil && !visibleTo(u).can(inc.MonitorID) {
+	if err == nil && !canSeeIncident(u, inc) {
 		err = store.ErrNotFound
 	}
 	if err != nil {
 		s.dbError(w, err)
+		return
+	}
+	if store.IsServerIncident(inc.Kind) {
+		s.serverIncident(w, r, u, inc)
 		return
 	}
 	m, err := s.store.GetMonitor(r.Context(), inc.MonitorID)
@@ -137,7 +233,8 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 			continue
 		case store.EventRetry, store.EventLocation:
 			// data yalnızca sayaç/durum içerir
-		case store.EventUp, store.EventReminder:
+		case store.EventUp, store.EventReminder, store.EventEscalated, store.EventFromPartial:
+			// data yalnızca süre / bağlı olayın kimliği
 			// data yalnızca süre içerir
 		default:
 			ev.Data = nil
@@ -286,7 +383,7 @@ func completeEvents(inc store.Incident, events []store.IncidentEvent) []store.In
 		switch ev.Kind {
 		case store.EventDown:
 			hasStart = true
-		case store.EventUp, store.EventPaused:
+		case store.EventUp, store.EventPaused, store.EventEscalated:
 			hasEnd = true
 		case store.EventEdited:
 			var d struct {

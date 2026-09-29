@@ -193,7 +193,7 @@ func (s *Server) bulkMonitors(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			s.incidentNote(r, m.ID, store.EventPaused, true)
-			if _, err := s.store.ResolveIncident(ctx, m.ID, s.now().Unix()); err != nil {
+			if err := s.closeMonitorIncidents(r, m.ID); err != nil {
 				s.dbError(w, err)
 				return
 			}

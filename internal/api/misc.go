@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/kadirsungurlu/bekci/internal/engine"
-	"github.com/kadirsungurlu/bekci/internal/i18n"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
@@ -86,9 +85,15 @@ func (s *Server) listIncidents(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	before, _ := strconv.ParseInt(q.Get("before"), 10, 64)
 	limit, _ := strconv.Atoi(q.Get("limit"))
-	f := store.IncidentFilter{Before: before, Limit: limit}
+	kind := q.Get("kind")
+	if !store.ValidKindGroup(kind) {
+		writeError(w, http.StatusBadRequest, "Geçersiz olay türü")
+		return
+	}
+	f := store.IncidentFilter{Before: before, Limit: limit, Kind: kind}
 	if vis := visibleTo(userFrom(r)); !vis.all {
-		f.MonitorIDs = vis.list()
+		// Müşteri kısıtlı izleyici: izinli monitörlerin ve atanmış sunucuların olayları.
+		f.MonitorIDs, f.ServerIDs = vis.list(), vis.serverList()
 	}
 	list, err := s.store.ListIncidents(r.Context(), f)
 	if err != nil {
@@ -102,6 +107,9 @@ func (s *Server) listIncidents(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for k := range list {
+			if store.IsServerIncident(list[k].Kind) {
+				continue // neden sunucu metriğinden üretilir, temizlenecek bir şey yok
+			}
 			typ := ""
 			if groups[list[k].MonitorID] {
 				typ = "group"
@@ -109,10 +117,7 @@ func (s *Server) listIncidents(w http.ResponseWriter, r *http.Request) {
 			list[k].Cause = viewerMessage(u, typ, store.StatusDown, list[k].Cause)
 		}
 	}
-	lang := responseLang(w)
-	for k := range list {
-		list[k].Cause = i18n.Message(lang, list[k].Cause)
-	}
+	localizeIncidents(responseLang(w), list)
 	writeJSON(w, http.StatusOK, list)
 }
 

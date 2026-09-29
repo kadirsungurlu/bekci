@@ -65,3 +65,20 @@ func Percent(lang string, v float64) string {
 	}
 	return fmt.Sprintf("%%%.0f", v)
 }
+
+// MetricValue sunucu metriğinin değerini birimiyle biçimler: yük ondalıklı,
+// sıcaklık °C, ağ Mbit/s (1000 ve üstü Gbit/s), diğerleri yüzde.
+func MetricValue(lang, metric string, v float64) string {
+	switch metric {
+	case "load":
+		return Decimal(lang, v, 2)
+	case "temp":
+		return fmt.Sprintf("%.0f °C", v)
+	case "net":
+		if v >= 1000 {
+			return Decimal(lang, v/1000, 2) + " Gbit/s"
+		}
+		return fmt.Sprintf("%.0f Mbit/s", v)
+	}
+	return Percent(lang, v)
+}

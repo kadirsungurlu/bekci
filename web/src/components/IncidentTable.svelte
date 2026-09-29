@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Incident } from '../lib/api';
+  import { isServerIncident, type Incident } from '../lib/api';
   import { fmtDate, fmtDuration } from '../lib/format';
   import { navigate } from '../lib/router.svelte';
   import Icon from './Icon.svelte';
@@ -11,6 +11,9 @@
     showMonitor = false,
     emptyText,
   }: { incidents: Incident[]; now: number; showMonitor?: boolean; emptyText?: string } = $props();
+
+  // Monitör ve sunucu olayları birlikte listeleniyorsa sütun başlığı ikisini de söyler.
+  const mixed = $derived(incidents.some((i) => isServerIncident(i.kind)));
 
   // Satırın tamamı olay sayfasına götürür; içteki bağlantılar (monitör adı) kendi işini yapar.
   function open(e: MouseEvent, id: number) {
@@ -26,7 +29,7 @@
   <table class="table responsive" class:with-mon={showMonitor}>
     <thead>
       <tr>
-        {#if showMonitor}<th>{t('incidents.table.monitor')}</th>{/if}
+        {#if showMonitor}<th>{mixed ? t('incidents.table.source') : t('incidents.table.monitor')}</th>{/if}
         <th>{t('incidents.table.started')}</th>
         <th>{t('incidents.table.duration')}</th>
         <th>{t('incidents.table.cause')}</th>
@@ -37,20 +40,35 @@
     <tbody>
       {#each incidents as inc (inc.id)}
         {@const ongoing = inc.resolved_at === 0}
+        {@const partial = inc.kind === 'partial'}
+        {@const server = isServerIncident(inc.kind)}
         <!-- Klavyeyle erişim satır sonundaki bağlantıyla; satır tıklaması fare/dokunma kolaylığı. -->
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-        <tr class="inc-row" onclick={(e) => open(e, inc.id)}>
+        <tr class="inc-row" class:partial onclick={(e) => open(e, inc.id)}>
           {#if showMonitor}
-            <td data-label={t('incidents.table.monitor')} class="mon"><a href="#/monitors/{inc.monitor_id}">{inc.monitor_name}</a></td>
+            <td data-label={t('incidents.table.monitor')} class="mon">
+              {#if server}
+                <a href="#/servers/{inc.server_id}"><Icon name="server" size={13} /> {inc.server_name}</a>
+              {:else}
+                <a href="#/monitors/{inc.monitor_id}">{inc.monitor_name}</a>
+              {/if}
+            </td>
           {/if}
           <td data-label={t('incidents.table.started')} class="nowrap start">{fmtDate(inc.started_at)}</td>
-          <td data-label={t('incidents.table.duration')} class="nowrap dur" class:c-down={ongoing}>
+          <td data-label={t('incidents.table.duration')} class="nowrap dur" class:c-down={ongoing && !partial} class:c-pending={ongoing && partial}>
             {fmtDuration((ongoing ? now : inc.resolved_at) - inc.started_at)}
           </td>
-          <td data-label={t('incidents.table.cause')} class="cause">{inc.cause || '—'}</td>
+          <td data-label={t('incidents.table.cause')} class="cause">
+            {#if partial}
+              <span class="badge pending kind" title={t('incidents.kind.partialHint')}>{t('incidents.kind.partial')}</span>
+            {:else if server}
+              <span class="badge accent kind">{t('incidents.kind.server')}</span>
+            {/if}
+            {inc.cause || '—'}
+          </td>
           <td data-label={t('incidents.table.status')} class="st">
             {#if ongoing}
-              <span class="badge down">{t('incidents.table.ongoing')}</span>
+              <span class="badge {partial ? 'pending' : 'down'}">{t('incidents.table.ongoing')}</span>
             {:else}
               <span class="badge up" title={t('incidents.table.resolvedAt', { date: fmtDate(inc.resolved_at) })}>{t('incidents.table.resolved')}</span>
             {/if}
@@ -74,6 +92,17 @@
   .mon a {
     color: var(--text);
     font-weight: 600;
+  }
+  .mon a :global(svg) {
+    display: inline-block;
+    vertical-align: -2px;
+    color: var(--muted);
+  }
+  .kind {
+    margin-right: 6px;
+  }
+  .c-pending {
+    color: var(--pending);
   }
   .cause {
     max-width: 420px;

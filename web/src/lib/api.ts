@@ -364,14 +364,43 @@ export type Series =
   | { range: SeriesRange; kind: 'raw'; points: RawPoint[] }
   | { range: SeriesRange; kind: 'hourly' | 'daily'; points: Bucket[] };
 
+/**
+ * Olay türü: monitor (kesinti), partial (kısmi kesinti: bazı konumlar çalışmıyor,
+ * monitör çalışıyor; bildirim yok), server_offline / server_alert (sunucu takibi).
+ * Eski sunucular türü göndermez (monitor sayılır).
+ */
+export type IncidentKind = 'monitor' | 'partial' | 'server_offline' | 'server_alert';
+/** Olay listesi süzgeci (sunucu: iki sunucu türü birlikte). */
+export type IncidentFilterKind = '' | 'monitor' | 'server' | 'partial';
+
 export interface Incident {
   id: number;
+  kind?: IncidentKind;
   monitor_id: number;
   monitor_name: string;
+  /** Yalnızca sunucu olaylarında. */
+  server_id?: number;
+  server_name?: string;
   started_at: number;
   resolved_at: number;
   cause: string;
+  /** Türe özgü veri: kısmi → { locations: string[] }; sunucu → ServerIncidentData. */
+  data?: Record<string, unknown> | null;
 }
+
+/** Sunucu olayının verisi (store.ServerIncidentData). */
+export interface ServerIncidentData {
+  metric: string;
+  mount?: string;
+  threshold?: number;
+  minutes: number;
+  value: number;
+  peak: number;
+  last: number;
+  last_seen?: number;
+}
+
+export const isServerIncident = (k: IncidentKind | undefined) => k === 'server_offline' || k === 'server_alert';
 
 /** Olay ayrıntıları (docs/PLAN.md §13). */
 export type IncidentEventKind =
@@ -386,7 +415,9 @@ export type IncidentEventKind =
   | 'edited'
   | 'paused'
   | 'up'
-  | 'limit';
+  | 'limit'
+  | 'escalated'
+  | 'from_partial';
 
 export interface IncidentEvent {
   id: number;
@@ -484,7 +515,10 @@ export interface IncidentLocation {
 
 export interface IncidentDetail {
   incident: Incident;
+  /** Sunucu olayında boş (id 0). */
   monitor: { id: number; name: string; type: string; target: string; active: boolean; status: number };
+  /** Yalnızca sunucu olayında. */
+  server?: { id: number; name: string; hostname: string; active: boolean };
   location: string;
   locations: IncidentLocation[];
   events: IncidentEvent[];
@@ -1058,8 +1092,9 @@ export const api = {
     post<StatusPage>(`/api/status-pages/${pageId}/monitors`, body),
   series: (id: number, range: SeriesRange) => get<Series>(`/api/monitors/${id}/series?range=${range}`),
   monitorIncidents: (id: number) => get<Incident[]>(`/api/monitors/${id}/incidents`),
-  incidents: (before: number, limit: number) =>
-    get<Incident[]>(`/api/incidents?limit=${limit}${before > 0 ? `&before=${before}` : ''}`),
+  incidents: (before: number, limit: number, kind: IncidentFilterKind = '') =>
+    get<Incident[]>(`/api/incidents?limit=${limit}${before > 0 ? `&before=${before}` : ''}${kind ? `&kind=${kind}` : ''}`),
+  serverIncidents: (id: number) => get<Incident[]>(`/api/servers/${id}/incidents`),
   incident: (id: number) => get<IncidentDetail>(`/api/incidents/${id}`),
 
   notifications: () => get<NotificationChannel[]>('/api/notifications'),

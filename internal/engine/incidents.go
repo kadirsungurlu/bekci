@@ -91,55 +91,83 @@ func (r *runner) openIncident(ctx context.Context, now time.Time, res check.Resu
 	}
 
 	var locs []incidentLocation
-	var others []store.IncidentCapture
 	where := LocalName
-	detail, detailAt, detailLoc := res.Detail, now, LocalName
+	c := locCapture{detail: res.Detail, at: now, loc: LocalName}
 	if r.locs == nil {
 		locs = []incidentLocation{{ProbeID: LocalProbeID, Name: LocalName, Status: locDown, Message: res.Message}}
 	} else {
-		st := r.locs.statuses(now, r.rules())
 		var failing []string
-		r.locPrev = make(map[int64]locMark, len(st))
-		for _, s := range st {
-			locs = append(locs, incidentLocation{ProbeID: s.ProbeID, Name: s.Name, Status: s.Status, Message: s.Message})
-			r.locPrev[s.ProbeID] = locMark{s.Status, s.Message}
-			if s.Status == locDown {
-				failing = append(failing, s.Name)
-			}
-		}
+		locs, failing = r.locationSnapshot(now, &r.locPrev)
 		where = nameList(failing)
-		detail, detailLoc = nil, ""
-		// Öncelik: ana sunucu, sonra sıradaki ilk çalışmayan konum. Diğer
-		// çalışmayan konumların ayrıntıları da (en fazla maxOtherCaptures)
-		// aynı kayda eklenir: aynı hata farklı yerlerden karşılaştırılabilsin.
-		for _, l := range r.locs.locs {
-			if l.detail == nil || classify(l, now, r.rules()) != locDown {
-				continue
-			}
-			if detail == nil {
-				detail, detailAt, detailLoc = l.detail, l.at, l.name
-				continue
-			}
-			if len(others) < maxOtherCaptures {
-				if b, err := json.Marshal(l.detail); err == nil {
-					others = append(others, store.IncidentCapture{Time: l.at.Unix(), Location: l.name, Detail: b})
-				}
-			}
-		}
+		c = r.failingCapture(now)
 	}
 	evs := append(pre, store.IncidentEvent{
 		Time: now.Unix(), Kind: store.EventDown, Location: where, Message: res.Message,
 		Data: store.EventData(map[string]any{"locations": locs}),
 	})
 	r.addEvents(ctx, id, evs...)
-	if detail != nil {
-		b, err := json.Marshal(captureData{Detail: detail, Others: others})
-		if err == nil {
-			err = r.e.store.SaveIncidentCapture(ctx, id, detailAt.Unix(), detailLoc, b)
+	r.saveCapture(ctx, id, c)
+}
+
+// locCapture olay kaydına yazılacak istek/yanıt ayrıntısı.
+type locCapture struct {
+	detail *check.Detail
+	at     time.Time
+	loc    string
+	others []store.IncidentCapture
+}
+
+// locationSnapshot konumların şu anki durumu (olayın başlangıç kaydı için)
+// ve çalışmayanların adları; prev işlem geçmişine yazılan son durumlar olarak kurulur.
+func (r *runner) locationSnapshot(now time.Time, prev *map[int64]locMark) ([]incidentLocation, []string) {
+	st := r.locs.statuses(now, r.rules())
+	var locs []incidentLocation
+	var failing []string
+	*prev = make(map[int64]locMark, len(st))
+	for _, s := range st {
+		locs = append(locs, incidentLocation{ProbeID: s.ProbeID, Name: s.Name, Status: s.Status, Message: s.Message})
+		(*prev)[s.ProbeID] = locMark{s.Status, s.Message}
+		if s.Status == locDown {
+			failing = append(failing, s.Name)
 		}
-		if err != nil {
-			r.e.log.Error("olayın istek/yanıt kaydı yazılamadı", "monitor", r.m.Name, "hata", err)
+	}
+	return locs, failing
+}
+
+// failingCapture çalışmayan konumların istek/yanıt ayrıntıları. Öncelik: ana
+// sunucu, sonra sıradaki ilk çalışmayan konum. Diğer çalışmayan konumların
+// ayrıntıları da (en fazla maxOtherCaptures) aynı kayda eklenir: aynı hata
+// farklı yerlerden karşılaştırılabilsin.
+func (r *runner) failingCapture(now time.Time) locCapture {
+	var c locCapture
+	for _, l := range r.locs.locs {
+		if l.detail == nil || classify(l, now, r.rules()) != locDown {
+			continue
 		}
+		if c.detail == nil {
+			c.detail, c.at, c.loc = l.detail, l.at, l.name
+			continue
+		}
+		if len(c.others) < maxOtherCaptures {
+			if b, err := json.Marshal(l.detail); err == nil {
+				c.others = append(c.others, store.IncidentCapture{Time: l.at.Unix(), Location: l.name, Detail: b})
+			}
+		}
+	}
+	return c
+}
+
+// saveCapture olayın istek/yanıt kaydını yazar (yoksa bir şey yapmaz).
+func (r *runner) saveCapture(ctx context.Context, id int64, c locCapture) {
+	if c.detail == nil || id == 0 {
+		return
+	}
+	b, err := json.Marshal(captureData{Detail: c.detail, Others: c.others})
+	if err == nil {
+		err = r.e.store.SaveIncidentCapture(ctx, id, c.at.Unix(), c.loc, b)
+	}
+	if err != nil {
+		r.e.log.Error("olayın istek/yanıt kaydı yazılamadı", "monitor", r.m.Name, "hata", err)
 	}
 }
 
@@ -149,24 +177,25 @@ func (r *runner) incidentProgress(ctx context.Context, now time.Time, status int
 	if r.incidentID == 0 {
 		return
 	}
-	var evs []store.IncidentEvent
+	// Bakım kaydı idempotenttir (MarkIncidentMaint): bakım dizini
+	// yenilenirken (ReloadMaintenance) veya yeniden başlatmadan önce zaten
+	// yazıldıysa ikinci kez yazılmaz.
 	switch {
 	case inMaint && !r.maintLogged:
 		r.maintLogged = true
-		evs = append(evs, store.IncidentEvent{Time: now.Unix(), Kind: store.EventMaintStart,
-			Message: "Bakım penceresi başladı; kontroller sürüyor, bildirim gönderilmiyor"})
+		r.markMaint(ctx, now, true)
 	case !inMaint && r.maintLogged:
 		r.maintLogged = false
-		evs = append(evs, store.IncidentEvent{Time: now.Unix(), Kind: store.EventMaintEnd, Message: "Bakım penceresi bitti"})
+		r.markMaint(ctx, now, false)
 	}
 	if inMaint {
-		r.addEvents(ctx, r.incidentID, evs...)
 		return
 	}
+	var evs []store.IncidentEvent
 	// Çok konumluda birleşik mesaj konum listesini de içerir; değişimler konum
 	// başına yazılır (locationChanges).
 	if r.locs != nil {
-		evs = append(evs, r.locationChanges(now)...)
+		evs = append(evs, r.locationChanges(now, &r.locPrev, false)...)
 	} else if status == store.StatusDown && res.Message != r.lastCause {
 		r.lastCause = res.Message
 		evs = append(evs, store.IncidentEvent{Time: now.Unix(), Kind: store.EventChange, Message: res.Message})
@@ -177,22 +206,32 @@ func (r *runner) incidentProgress(ctx context.Context, now time.Time, status int
 // locMark bir konumun işlem geçmişine en son yazılan durumu ve hatası.
 type locMark struct{ status, msg string }
 
-// locationChanges olay sürerken durumu (veya çalışmazken hatası) değişen
-// konumlar. "Tekrar deneniyor" ve "ilk sonuç bekleniyor" ara durumdur,
-// kaydedilmez; yeniden başlatma sonrası ilk çağrı yalnızca mevcut durumu öğrenir.
-func (r *runner) locationChanges(now time.Time) []store.IncidentEvent {
-	st := r.locs.statuses(now, r.rules())
-	first := r.locPrev == nil
-	if first {
-		r.locPrev = make(map[int64]locMark, len(st))
+// markMaint açık olayın işlem geçmişine bakım başlangıcını/bitişini yazar (hata yalnızca loglanır).
+func (r *runner) markMaint(ctx context.Context, now time.Time, start bool) {
+	if _, err := r.e.store.MarkIncidentMaint(ctx, r.incidentID, now.Unix(), start); err != nil {
+		r.e.log.Error("olay kaydı yazılamadı", "monitor", r.m.Name, "hata", err)
 	}
+}
+
+// locationChanges olay sürerken durumu (veya çalışmazken hatası) değişen
+// konumlar; prev işlem geçmişine yazılan son durumlardır. "Tekrar deneniyor"
+// ve "ilk sonuç bekleniyor" ara durumdur, kaydedilmez; yeniden başlatma
+// sonrası ilk çağrı yalnızca mevcut durumu öğrenir. learn: bu çağrıda da
+// yalnızca öğrenilir (kısmi olayda konumların ilk sonuçları beklenirken).
+func (r *runner) locationChanges(now time.Time, prevp *map[int64]locMark, learn bool) []store.IncidentEvent {
+	st := r.locs.statuses(now, r.rules())
+	first := *prevp == nil || learn
+	if *prevp == nil {
+		*prevp = make(map[int64]locMark, len(st))
+	}
+	prevs := *prevp
 	var out []store.IncidentEvent
 	for _, s := range st {
-		prev := r.locPrev[s.ProbeID]
+		prev := prevs[s.ProbeID]
 		if s.Status == locRetrying || s.Status == locWaiting || (prev.status == s.Status && (s.Status != locDown || prev.msg == s.Message)) {
 			continue
 		}
-		r.locPrev[s.ProbeID] = locMark{s.Status, s.Message}
+		prevs[s.ProbeID] = locMark{s.Status, s.Message}
 		if first {
 			continue
 		}

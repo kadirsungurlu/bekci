@@ -15,7 +15,10 @@ import (
 // PRAGMA user_version'da tutulur. Var olan bir migration asla değiştirilmez,
 // yenisi eklenir. Özellik dosyaları kendi migration'larını init() içinde
 // RegisterMigration ile ekleyebilir (paralel geliştirmede çakışma olmasın diye);
-// numaralar çakışamaz ve arada boşluk bırakılamaz.
+// numaralar çakışamaz. Paralel dallarda bir numara geçici olarak eksik
+// kalabilir (ör. 17 başka dalda, 18 bu dalda): eksik numara atlanır ve
+// migrate_skipped tablosuna yazılır; o migration sonradan (dallar
+// birleşince) eklendiğinde sürüm geride kalsa da bir kez uygulanır.
 var migrations = map[int]string{
 	// 1: ilk şema
 	1: `
@@ -203,6 +206,19 @@ func RegisterMigration(version int, sql string) {
 	migrations[version] = sql
 }
 
+// pgMigrations PostgreSQL'de SQLite metninin yerine uygulanacak migration'lar
+// (RegisterMigrationDialect). Yalnızca iki veritabanında farklı yol gereken
+// değişiklikler için (ör. SQLite'ta tabloyu yeniden kurmak, PostgreSQL'de
+// ALTER COLUMN).
+var pgMigrations = map[int]string{}
+
+// RegisterMigrationDialect SQLite ve PostgreSQL için ayrı metni olan bir
+// migration kaydeder. PostgreSQL metni de pgDDL'den geçer.
+func RegisterMigrationDialect(version int, sqlite, postgres string) {
+	RegisterMigration(version, sqlite)
+	pgMigrations[version] = postgres
+}
+
 func latestMigration() int {
 	n := 0
 	for v := range migrations {
@@ -238,45 +254,115 @@ func (s *Store) migrate(ctx context.Context) error {
 	if version > latest {
 		return fmt.Errorf("veritabanı sürümü (%d) bu uygulamadan (%d) yeni; eski sürüme geri dönülemez", version, latest)
 	}
-	if version > 0 && version < latest {
+	// Daha önce eksik olduğu için atlanıp şimdi bulunan migration'lar.
+	skipped, err := s.skippedMigrations(ctx)
+	if err != nil {
+		return err
+	}
+	var late []int
+	for _, v := range skipped {
+		if _, ok := migrations[v]; ok && v <= version {
+			late = append(late, v)
+		}
+	}
+	if version > 0 && (version < latest || len(late) > 0) {
 		// Var olan veritabanı güncellenecek: önce yedek. Yedek alınamazsa
 		// migration UYGULANMAZ (yedeksiz şema değişikliği geri alınamaz).
 		if err := s.preMigrateBackup(ctx, version, latest); err != nil {
 			return err
 		}
 	}
-	for v := version + 1; v <= latest; v++ {
-		ddl, ok := migrations[v]
-		if !ok {
-			return fmt.Errorf("migration %d eksik", v)
-		}
-		err := s.tx(ctx, func(tx *Tx) error {
-			if s.postgres {
-				// PostgreSQL'in hazırlanmış sorgu kipi çoklu ifade kabul etmez.
-				for _, stmt := range splitStatements(pgDDL(ddl)) {
-					if _, err := tx.ExecContext(ctx, stmt); err != nil {
-						return fmt.Errorf("%w\n%s", err, stmt)
-					}
-				}
-				if _, err := tx.ExecContext(ctx, "DELETE FROM schema_version"); err != nil {
-					return err
-				}
-				_, err := tx.ExecContext(ctx, "INSERT INTO schema_version (version) VALUES (?)", v)
-				return err
-			}
-			if _, err := tx.ExecContext(ctx, ddl); err != nil {
-				return err
-			}
-			// PRAGMA parametre kabul etmez; v bizim kontrolümüzde bir tamsayı.
-			_, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", v))
+	for _, v := range late {
+		if err := s.applyMigration(ctx, v, false); err != nil {
 			return err
-		})
-		if err != nil {
-			return fmt.Errorf("migration %d: %w", v, err)
 		}
-		s.opts.Log.Info("migration uygulandı", "version", v)
+	}
+	for v := version + 1; v <= latest; v++ {
+		if _, ok := migrations[v]; !ok {
+			// Paralel dalın migration'ı henüz bu sürümde yok: atlanır ve
+			// eklendiğinde uygulanmak üzere not edilir.
+			if _, err := s.db.ExecContext(ctx,
+				"INSERT INTO migrate_skipped (version) VALUES (?) ON CONFLICT DO NOTHING", v); err != nil {
+				return err
+			}
+			log := s.opts.Log.Warn
+			if version == 0 {
+				log = s.opts.Log.Info // yeni veritabanı: eksik numara yalnızca not edilir
+			}
+			log("migration bu sürümde yok, atlandı; eklendiğinde uygulanacak", "version", v)
+			continue
+		}
+		if err := s.applyMigration(ctx, v, true); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+// applyMigration v numaralı migration'ı tek işlemde uygular. setVersion:
+// şema sürümü v'ye ilerletilir (atlanıp sonradan uygulanan migration'da
+// sürüm zaten ileridedir; yalnızca migrate_skipped kaydı silinir).
+func (s *Store) applyMigration(ctx context.Context, v int, setVersion bool) error {
+	ddl := migrations[v]
+	if pg, ok := pgMigrations[v]; ok && s.postgres {
+		ddl = pg
+	}
+	err := s.tx(ctx, func(tx *Tx) error {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM migrate_skipped WHERE version = ?", v); err != nil {
+			return err
+		}
+		if s.postgres {
+			// PostgreSQL'in hazırlanmış sorgu kipi çoklu ifade kabul etmez.
+			for _, stmt := range splitStatements(pgDDL(ddl)) {
+				if _, err := tx.ExecContext(ctx, stmt); err != nil {
+					return fmt.Errorf("%w\n%s", err, stmt)
+				}
+			}
+			if !setVersion {
+				return nil
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM schema_version"); err != nil {
+				return err
+			}
+			_, err := tx.ExecContext(ctx, "INSERT INTO schema_version (version) VALUES (?)", v)
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, ddl); err != nil {
+			return err
+		}
+		if !setVersion {
+			return nil
+		}
+		// PRAGMA parametre kabul etmez; v bizim kontrolümüzde bir tamsayı.
+		_, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", v))
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("migration %d: %w", v, err)
+	}
+	s.opts.Log.Info("migration uygulandı", "version", v)
+	return nil
+}
+
+// skippedMigrations eksik olduğu için atlanmış migration numaraları.
+func (s *Store) skippedMigrations(ctx context.Context) ([]int, error) {
+	if _, err := s.db.ExecContext(ctx, "CREATE TABLE IF NOT EXISTS migrate_skipped (version BIGINT NOT NULL PRIMARY KEY)"); err != nil {
+		return nil, err
+	}
+	rows, err := s.db.QueryContext(ctx, "SELECT version FROM migrate_skipped ORDER BY version")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []int
+	for rows.Next() {
+		var v int
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
 }
 
 // preMigrateBackup var olan bir veritabanında migration'lardan önce yedek

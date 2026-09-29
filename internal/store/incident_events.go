@@ -98,25 +98,17 @@ func (s *Store) StartIncident(ctx context.Context, monitorID, t int64, cause str
 	return s.OpenIncidentID(ctx, monitorID)
 }
 
-// OpenIncidentID monitörün açık olayının kimliği (yoksa 0).
+// OpenIncidentID monitörün açık olayının kimliği (yoksa 0; kısmi kesinti hariç).
 func (s *Store) OpenIncidentID(ctx context.Context, monitorID int64) (int64, error) {
-	var id sql.NullInt64
-	err := s.db.QueryRowContext(ctx,
-		"SELECT MAX(id) FROM incidents WHERE monitor_id = ? AND resolved_at IS NULL", monitorID).Scan(&id)
-	return id.Int64, err
+	return s.openKindIncidentID(ctx, IncidentMonitor, monitorID)
 }
 
-// GetIncident tek olayı monitör adıyla döner.
+// GetIncident tek olayı monitör (veya sunucu) adıyla döner.
 func (s *Store) GetIncident(ctx context.Context, id int64) (Incident, error) {
-	var in Incident
-	var resolved sql.NullInt64
-	err := s.db.QueryRowContext(ctx, `SELECT i.id, i.monitor_id, m.name, i.started_at, i.resolved_at, i.cause
-		FROM incidents i JOIN monitors m ON m.id = i.monitor_id WHERE i.id = ?`, id).
-		Scan(&in.ID, &in.MonitorID, &in.MonitorName, &in.StartedAt, &resolved, &in.Cause)
+	in, err := scanIncident(s.db.QueryRowContext(ctx, `SELECT `+incidentCols+incidentFrom+` WHERE i.id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return in, ErrNotFound
 	}
-	in.ResolvedAt = resolved.Int64
 	return in, err
 }
 
@@ -156,13 +148,22 @@ func (s *Store) AddIncidentEvents(ctx context.Context, incidentID int64, evs ...
 	})
 }
 
-// AddOpenIncidentEvent monitörün açık olayı varsa ona kayıt ekler.
+// AddOpenIncidentEvent monitörün açık olaylarına (normal ve kısmi kesinti)
+// kayıt ekler.
 func (s *Store) AddOpenIncidentEvent(ctx context.Context, monitorID int64, ev IncidentEvent) error {
-	id, err := s.OpenIncidentID(ctx, monitorID)
-	if err != nil || id == 0 {
-		return err
+	for _, kind := range []string{IncidentMonitor, IncidentPartial} {
+		id, err := s.openKindIncidentID(ctx, kind, monitorID)
+		if err != nil {
+			return err
+		}
+		if id == 0 {
+			continue
+		}
+		if err := s.AddIncidentEvents(ctx, id, ev); err != nil {
+			return err
+		}
 	}
-	return s.AddIncidentEvents(ctx, id, ev)
+	return nil
 }
 
 // IncidentEvents olayın işlem geçmişi, yeniden eskiye.

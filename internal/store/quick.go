@@ -19,7 +19,7 @@ func (s *Store) OpenIncidentIDs(ctx context.Context, monitorIDs []int64) (map[in
 	}
 	q, args := inClause(monitorIDs)
 	rows, err := s.db.QueryContext(ctx,
-		"SELECT monitor_id, MAX(id) FROM incidents WHERE monitor_id IN ("+q+") AND resolved_at IS NULL GROUP BY monitor_id", args...)
+		"SELECT monitor_id, MAX(id) FROM incidents WHERE monitor_id IN ("+q+") AND kind = 'monitor' AND resolved_at IS NULL GROUP BY monitor_id", args...)
 	if err != nil {
 		return nil, err
 	}

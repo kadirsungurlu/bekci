@@ -64,6 +64,15 @@ func (v visibility) list() []int64 {
 	return out
 }
 
+// serverList görebileceği sunucuların kimlikleri (kısıtlıysa).
+func (v visibility) serverList() []int64 {
+	out := make([]int64, 0, len(v.servers))
+	for id := range v.servers {
+		out = append(out, id)
+	}
+	return out
+}
+
 func visibleTo(u store.User) visibility {
 	if !u.Restricted() {
 		return visibility{all: true}

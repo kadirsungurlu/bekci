@@ -237,6 +237,11 @@ func (s *Service) evaluate(ctx context.Context, p store.Probe, host *metrics.Hos
 			s.fire(ctx, p, host, a, v, now, nil, alertMount(h, a))
 		case a.Firing && v < resolveBelow(a.Metric, a.Threshold):
 			s.resolve(ctx, p, host, a, v, now, nil)
+		case a.Firing:
+			// Uyarı sürüyor: olayın son ve en yüksek değeri güncellenir.
+			if err := s.store.UpdateServerIncidentValue(ctx, a.ID, v); err != nil {
+				s.log.Error("sunucu olayının değeri yazılamadı", "sunucu", p.Name, "hata", err)
+			}
 		}
 	}
 	return rules, nil
@@ -274,7 +279,7 @@ func (s *Service) CheckOffline(ctx context.Context) {
 				if !rules[i].Firing {
 					continue
 				}
-				if ok, err := s.store.ResolveServerAlert(ctx, rules[i].ID, now.Unix()); err != nil {
+				if ok, err := s.store.ResolveServerAlertNote(ctx, rules[i].ID, now.Unix(), store.ServerIncidentResolveDisabled); err != nil {
 					s.log.Error("sunucu uyarısı kapatılamadı", "hata", err)
 				} else if ok {
 					rules[i].Firing, rules[i].FiredAt, changed = false, 0, true
@@ -341,7 +346,11 @@ func (s *Service) event(kind string, p store.Probe, host *metrics.Host, a *store
 // detail verilirse olaya ayrıntı alanlarını (LastSeen, GoneMinutes) yazar;
 // metin bildirim dilinde notify tarafında üretilir.
 func (s *Service) fire(ctx context.Context, p store.Probe, host *metrics.Host, a *store.ServerAlert, v float64, now time.Time, detail func(*notify.Event), mount string) {
-	ok, err := s.store.FireServerAlert(ctx, *a, v, mount, now.Unix())
+	var lastSeen int64
+	if a.Metric == MetricOffline {
+		lastSeen = p.MetricsAt
+	}
+	ok, err := s.store.FireServerAlertAt(ctx, *a, v, mount, now.Unix(), lastSeen)
 	if err != nil {
 		s.log.Error("sunucu uyarısı yazılamadı", "sunucu", p.Name, "metrik", a.Metric, "hata", err)
 		return
@@ -369,6 +378,12 @@ func (s *Service) resolve(ctx context.Context, p store.Probe, host *metrics.Host
 		var err error
 		if mount, err = s.store.OpenServerAlertMount(ctx, a.ID); err != nil {
 			s.log.Error("sunucu uyarısının bölümü okunamadı", "sunucu", p.Name, "hata", err)
+		}
+	}
+	if a.Metric != MetricOffline {
+		// Olayın kapanış değeri (son ortalama) kapatmadan önce yazılır.
+		if err := s.store.UpdateServerIncidentValue(ctx, a.ID, v); err != nil {
+			s.log.Error("sunucu olayının değeri yazılamadı", "sunucu", p.Name, "hata", err)
 		}
 	}
 	ok, err := s.store.ResolveServerAlert(ctx, a.ID, now.Unix())

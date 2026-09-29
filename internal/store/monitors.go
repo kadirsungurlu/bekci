@@ -157,9 +157,11 @@ func (s *Store) UpdateMonitor(ctx context.Context, m *Monitor, notificationIDs [
 
 func (s *Store) SetMonitorActive(ctx context.Context, id int64, active bool) error {
 	// Durdurulan monitör tekrar başlatıldığında temiz bir "bekliyor" durumundan
-	// başlar; eski "şu andan beri" zamanı yeni duruma taşınmaz.
+	// başlar; eski "şu andan beri" zamanı yeni duruma taşınmaz. Sertifika
+	// bilgisi de silinir: son kontrol zamanı olmayan monitörde (ör. durdurulan)
+	// eski kontrolün sertifikası kalmasın; ilk kontrol yeniden yazar.
 	res, err := s.db.ExecContext(ctx,
-		"UPDATE monitors SET active = ?, status = ?, last_change_at = NULL, last_check_at = NULL, last_message = '', last_ping_ms = NULL, updated_at = ? WHERE id = ?",
+		"UPDATE monitors SET active = ?, status = ?, last_change_at = NULL, last_check_at = NULL, last_message = '', last_ping_ms = NULL, cert_expires_at = NULL, cert_issuer = '', updated_at = ? WHERE id = ?",
 		boolInt(active), StatusPending, time.Now().Unix(), id)
 	if err != nil {
 		return err

@@ -34,6 +34,12 @@ type runner struct {
 	maintLogged bool                  // olay sürerken "bakım başladı" yazıldı
 	locPrev     map[int64]locMark     // çok konumlu: olay sürerken konumların son yazılan durumu
 
+	// Kısmi kesinti (partial.go; yalnızca çok konumlu).
+	partialID     int64             // açık kısmi kesinti olayı (0: yok)
+	partialPrev   map[int64]locMark // kısmi olayda konumların son yazılan durumu
+	partialFailed []string          // kısmi olay boyunca çalışmayan konumlar (olay verisi)
+	partialLearn  bool              // yeniden başlatıldı: konumların ilk sonuçları yalnızca öğrenilir
+
 	// Monitör UP'a döndüğü halde veritabanında kapatılamamış olay: sonraki
 	// her sonuçta (yeni olay açılmadan önce) yeniden kapatılmaya çalışılır.
 	unresolved *pendingResolve
@@ -54,11 +60,15 @@ type pendingResolve struct {
 // DOWN kaydedilmiş ama olayı açılamamışsa (ör. yazım yarıda kaldıysa) olay
 // burada tamamlanır; böylece kesinti süresi düzelince doğru hesaplanır.
 func (r *runner) initialConfirmed(ctx context.Context) int {
+	r.restorePartial(ctx)
 	started, err := r.e.store.OpenIncidentStart(ctx, r.m.ID)
 	hasIncident := err == nil && started > 0
 	if hasIncident {
 		r.incidentID, _ = r.e.store.OpenIncidentID(ctx, r.m.ID)
 		r.lastCause = r.m.LastMessage
+		// Bakım kaydı yeniden başlatmadan önce yazıldıysa (bitişi yazılmamış
+		// başlangıç) ikinci kez yazılmaz; bakım bitince bitişi yazılır.
+		r.maintLogged, _ = r.e.store.InMaintLogged(ctx, r.incidentID)
 	}
 	switch {
 	case r.m.Status == store.StatusDown:
@@ -196,10 +206,7 @@ func (r *runner) process(res check.Result) {
 	now := r.e.now()
 	// Çok konumlu monitörde ters mod ve tekrar deneme konum başına uygulanmıştır.
 	if r.m.UpsideDown && !res.Pending && r.locs == nil {
-		res.Up = !res.Up
-		if !res.Up {
-			res.Message = "Ters mod: hedef erişilebilir (" + res.Message + ")"
-		}
+		res = invertUpsideDown(res)
 	}
 
 	// Bakım penceresinde kontrol yine yapılır ama sonuç MAINTENANCE olarak
@@ -313,6 +320,9 @@ func (r *runner) process(res check.Result) {
 		}
 	}
 
+	// Kısmi kesinti (çok konumlu): normal olay açılıp kapandıktan sonra.
+	r.partialStep(ctx, now, status, inMaint)
+
 	// Sertifika döndüren her tip (http, grpc, smtp, websocket, tlscert…) için;
 	// bakımda SSL uyarısı gönderilmez.
 	if res.Cert != nil && !inMaint {
@@ -336,6 +346,23 @@ func (r *runner) notify(kind string, now time.Time, msg string, downtime time.Du
 		ev.IncidentID, ev.IncidentURL = r.incidentID, r.e.IncidentURL(r.incidentID)
 	}
 	r.e.notifier.Notify(ev)
+}
+
+// invertUpsideDown ters modu uygular: sonuç tersine çevrilir, mesaj neden
+// çalışıyor/çalışmıyor sayıldığını söyler. Hedefe ulaşılamadığı için
+// "çalışıyor" sayılan sonuçta ham hata ("Bağlantı reddedildi") tek başına
+// yanıltıcı olurdu.
+func invertUpsideDown(res check.Result) check.Result {
+	res.Up = !res.Up
+	switch {
+	case !res.Up:
+		res.Message = "Ters mod: hedef erişilebilir (" + res.Message + ")"
+	case res.Message != "":
+		res.Message = "Ters mod: hedef erişilemiyor (" + res.Message + ")"
+	default:
+		res.Message = "Ters mod: hedef erişilemiyor"
+	}
+	return res
 }
 
 // handleCert sertifika bilgisini günceller ve eşiğe girildiyse bir kez uyarır.

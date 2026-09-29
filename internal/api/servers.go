@@ -217,7 +217,7 @@ func validateAlerts(in []alertInput) ([]store.ServerAlert, error) {
 	for _, a := range in {
 		a.Metric = strings.TrimSpace(a.Metric)
 		if !servers.ValidMetric(a.Metric) {
-			return nil, errors.New("Metrik cpu, mem, swap, disk, load, temp veya offline olmalı")
+			return nil, errors.New("Metrik cpu, mem, swap, disk, load, temp, net veya offline olmalı")
 		}
 		a.Mount = strings.TrimSpace(a.Mount)
 		switch {

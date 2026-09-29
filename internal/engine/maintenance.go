@@ -21,7 +21,29 @@ func (e *Engine) ReloadMaintenance(ctx context.Context) error {
 		e.log.Error("bakım penceresi derlenemedi", "pencere", w.Title, "hata", err)
 	})
 	e.maint.Store(ix)
+	e.syncMaintEvents(ctx)
 	return nil
+}
+
+// syncMaintEvents açık olayı olan monitörlerin işlem geçmişine bakımın
+// başladığını/bittiğini hemen yazar: pencere açık bir olayın üstüne
+// eklendiğinde (veya silindiğinde) kayıt sonraki kontrolü beklemez. Yazma
+// idempotenttir (store.MarkIncidentMaint); runner aynı geçişi ayrıca
+// gördüğünde ikinci kayıt oluşmaz, açılışta da bitişi yazılmamış bir
+// başlangıç tekrarlanmaz.
+func (e *Engine) syncMaintEvents(ctx context.Context) {
+	open, err := e.store.OpenMonitorIncidents(ctx)
+	if err != nil {
+		e.log.Error("açık olaylar okunamadı", "hata", err)
+		return
+	}
+	now := e.now()
+	ix := e.maint.Load()
+	for mid, id := range open {
+		if _, err := e.store.MarkIncidentMaint(ctx, id, now.Unix(), ix.InMaintenance(mid, now)); err != nil {
+			e.log.Error("olay kaydı yazılamadı", "olay", id, "hata", err)
+		}
+	}
 }
 
 // InMaintenance monitör t anında bir bakım penceresinde mi?

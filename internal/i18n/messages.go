@@ -41,6 +41,11 @@ var messages = map[string]Msg{
 		"No value for %d minutes (the partition or sensor is no longer reported)"},
 	"notify.opsgenie.close_note": {"%s: sorun giderildi", "%s: resolved"},
 
+	// Sunucu olaylarının nedeni (%s: metrik adı, değer, %d: dakika, %s: eşik)
+	"incident.server.offline":        {"Sunucudan veri gelmiyor", "No data from the server"},
+	"incident.server.alert":          {"%s %s (%d dk ortalama, eşik %s)", "%s %s (%d min average, threshold %s)"},
+	"incident.server.alert_per_core": {"%s %s (%d dk ortalama, çekirdek başına, eşik %s)", "%s %s (%d min average, per core, threshold %s)"},
+
 	// Örnek bildirimlerdeki yer tutucu adlar
 	"notify.sample.monitor": {"Örnek Site", "Example Site"},
 	"notify.sample.target":  {"https://ornek.com", "https://example.com"},

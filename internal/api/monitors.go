@@ -305,6 +305,17 @@ func (s *Server) getMonitor(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// closeMonitorIncidents monitörün açık olaylarını (normal ve kısmi kesinti)
+// kapatır: durdurma ve hedef değişikliği. İşlem geçmişi kaydını incidentNote yazar.
+func (s *Server) closeMonitorIncidents(r *http.Request, id int64) error {
+	now := s.now().Unix()
+	if _, err := s.store.ResolveIncident(r.Context(), id, now); err != nil {
+		return err
+	}
+	_, _, err := s.store.ResolvePartialIncident(r.Context(), id, now)
+	return err
+}
+
 // incidentNote monitörün açık olayı varsa işlem geçmişine kullanıcı işlemini
 // yazar (düzenleme, durdurma). closed: bu işlem olayı kapatıyor.
 func (s *Server) incidentNote(r *http.Request, monitorID int64, kind string, closed bool) {
@@ -510,7 +521,7 @@ func (s *Server) updateMonitor(w http.ResponseWriter, r *http.Request) {
 	s.engine.Remove(id)
 	s.incidentNote(r, id, store.EventEdited, targetChanged)
 	if targetChanged {
-		if _, err := s.store.ResolveIncident(r.Context(), id, s.now().Unix()); err != nil {
+		if err := s.closeMonitorIncidents(r, id); err != nil {
 			s.dbError(w, err)
 			return
 		}
@@ -562,7 +573,7 @@ func (s *Server) pauseMonitor(w http.ResponseWriter, r *http.Request) {
 	// Durdurulan monitörün açık kesintisi kapanır; tekrar başlatıldığında
 	// geçen süre kesinti sayılmaz.
 	s.incidentNote(r, id, store.EventPaused, true)
-	if _, err := s.store.ResolveIncident(r.Context(), id, s.now().Unix()); err != nil {
+	if err := s.closeMonitorIncidents(r, id); err != nil {
 		s.dbError(w, err)
 		return
 	}
@@ -666,9 +677,6 @@ func (s *Server) monitorIncidents(w http.ResponseWriter, r *http.Request) {
 			list[k].Cause = viewerMessage(u, m.Type, store.StatusDown, list[k].Cause)
 		}
 	}
-	lang := responseLang(w)
-	for k := range list {
-		list[k].Cause = i18n.Message(lang, list[k].Cause)
-	}
+	localizeIncidents(responseLang(w), list)
 	writeJSON(w, http.StatusOK, list)
 }

@@ -328,6 +328,13 @@ func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if name == "index.html" {
+		// Olmayan / yayında olmayan durum sayfası: arayüz yine yüklenir ama 404 ile (spa_status.go).
+		if code := s.spaStatus(r, path.Clean("/"+r.URL.Path)); code != http.StatusOK {
+			serveIndexStatus(w, r, f, code)
+			return
+		}
+	}
 	if strings.HasPrefix(name, "assets/") {
 		// Vite dosya adlarına içerik özeti ekler; sonsuza kadar önbelleğe alınabilir.
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")

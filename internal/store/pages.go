@@ -354,7 +354,9 @@ func (s *Store) DailyFor(ctx context.Context, ids []int64, since int64) (map[int
 	return out, rows.Err()
 }
 
-// IncidentsFor verilen monitörlerin since'den sonra başlamış veya hâlâ süren olayları.
+// IncidentsFor verilen monitörlerin since'den sonra başlamış veya hâlâ süren
+// kesinti olayları (kısmi kesintiler ve sunucu olayları hariç: herkese açık
+// sayfalarda ve özetlerde görünmezler).
 func (s *Store) IncidentsFor(ctx context.Context, ids []int64, since int64, limit int) ([]Incident, error) {
 	if len(ids) == 0 {
 		return []Incident{}, nil
@@ -363,7 +365,7 @@ func (s *Store) IncidentsFor(ctx context.Context, ids []int64, since int64, limi
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT i.id, i.monitor_id, m.name, i.started_at, i.resolved_at, i.cause
 		FROM incidents i JOIN monitors m ON m.id = i.monitor_id
-		WHERE i.monitor_id IN (`+q+`) AND (i.started_at >= ? OR i.resolved_at IS NULL)
+		WHERE i.monitor_id IN (`+q+`) AND i.kind = 'monitor' AND (i.started_at >= ? OR i.resolved_at IS NULL)
 		ORDER BY i.started_at DESC LIMIT ?`, append(args, since, limit)...)
 	if err != nil {
 		return nil, err

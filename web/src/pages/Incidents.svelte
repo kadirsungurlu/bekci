@@ -1,10 +1,11 @@
 <script lang="ts" module>
-  import type { Incident } from '../lib/api';
+  import type { Incident, IncidentFilterKind } from '../lib/api';
 
-  // Olay ayrıntısından geri dönüldüğünde liste (yüklenen sayfalar dahil) ve kaydırma
-  // konumu korunsun diye son durum modül düzeyinde saklanır.
-  const cache: { user: number; items: Incident[]; hasMore: boolean; scrollY: number } = {
+  // Olay ayrıntısından geri dönüldüğünde liste (yüklenen sayfalar dahil), süzgeç ve
+  // kaydırma konumu korunsun diye son durum modül düzeyinde saklanır.
+  const cache: { user: number; kind: IncidentFilterKind; items: Incident[]; hasMore: boolean; scrollY: number } = {
     user: -1,
+    kind: '',
     items: [],
     hasMore: false,
     scrollY: 0,
@@ -25,6 +26,7 @@
   const uid = session.user?.id ?? 0;
   const cached = cache.user === uid && cache.items.length > 0;
 
+  let kind = $state<IncidentFilterKind>(cache.user === uid ? cache.kind : '');
   let items = $state.raw<Incident[]>(cached ? cache.items : []);
   let loading = $state(!cached);
   let loadingMore = $state(false);
@@ -34,13 +36,20 @@
   // Önbelleği güncel tut (sayfadan çıkarken kaydırma konumu zaten sıfırlanmış olur).
   $effect(() => {
     cache.user = uid;
+    cache.kind = kind;
     cache.items = items;
     cache.hasMore = hasMore;
   });
 
+  // Süzgeç değişince eski türün yanıtı yenisinin üstüne yazılmasın.
+  let seq = 0;
+
   async function loadFirst() {
+    const my = ++seq;
+    const k = kind;
     try {
-      const list = await api.incidents(0, LIMIT);
+      const list = await api.incidents(0, LIMIT, k);
+      if (my !== seq) return;
       // Daha önce "daha fazla" ile yüklenenleri koru, üst kısmı yenile.
       const seen = new Set(list.map((i) => i.id));
       const oldest = list.length ? list[list.length - 1].id : Infinity;
@@ -49,17 +58,19 @@
       if (rest.length === 0) hasMore = list.length === LIMIT;
       error = '';
     } catch (e) {
-      error = errorMessage(e);
+      if (my === seq) error = errorMessage(e);
     } finally {
-      loading = false;
+      if (my === seq) loading = false;
     }
   }
 
   async function loadMore() {
     if (!items.length) return;
     loadingMore = true;
+    const my = seq;
     try {
-      const list = await api.incidents(items[items.length - 1].id, LIMIT);
+      const list = await api.incidents(items[items.length - 1].id, LIMIT, kind);
+      if (my !== seq) return;
       items = [...items, ...list];
       hasMore = list.length === LIMIT;
     } catch (e) {
@@ -69,10 +80,31 @@
     }
   }
 
+  function setKind(k: IncidentFilterKind) {
+    if (k === kind) return;
+    kind = k;
+    items = [];
+    hasMore = false;
+    loading = true;
+    loadFirst();
+  }
+
+  const FILTERS: { k: IncidentFilterKind; label: string }[] = [
+    { k: '', label: 'incidents.filter.all' },
+    { k: 'monitor', label: 'incidents.filter.monitor' },
+    { k: 'server', label: 'incidents.filter.server' },
+    { k: 'partial', label: 'incidents.filter.partial' },
+  ];
+
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let unsub: (() => void) | undefined;
-  let unsubResume: (() => void) | undefined;
+  let unsubs: (() => void)[] = [];
   const lastStatus = new Map<number, number>();
+  const serverAlerts = new Map<number, string>();
+
+  function reloadSoon(ms = 800) {
+    clearTimeout(timer);
+    timer = setTimeout(loadFirst, ms);
+  }
 
   onMount(() => {
     if (cached) {
@@ -80,20 +112,27 @@
       tick().then(() => requestAnimationFrame(() => window.scrollTo(0, y)));
     } else cache.scrollY = 0;
     loadFirst();
-    unsubResume = live.onResume(loadFirst);
-    // Bir monitörün durumu değişince yeni olay açılmış/kapanmış olabilir.
-    unsub = live.onBeat((b) => {
-      const prev = lastStatus.get(b.monitor_id) ?? live.byId(b.monitor_id)?.status;
-      lastStatus.set(b.monitor_id, b.status);
-      if (prev !== undefined && prev !== b.status) {
-        clearTimeout(timer);
-        timer = setTimeout(loadFirst, 800);
-      }
-    });
+    unsubs = [
+      live.onResume(loadFirst),
+      // Bir monitörün durumu değişince yeni olay açılmış/kapanmış olabilir.
+      live.onBeat((b) => {
+        const prev = lastStatus.get(b.monitor_id) ?? live.byId(b.monitor_id)?.status;
+        lastStatus.set(b.monitor_id, b.status);
+        if (prev !== undefined && prev !== b.status) reloadSoon();
+      }),
+      // Bir konumun durumu değişti: kısmi kesinti açılmış/kapanmış olabilir.
+      live.onLocations(() => reloadSoon(1500)),
+      // Sunucunun uyarı durumu değişince sunucu olayı açılır/kapanır.
+      live.onServer((v) => {
+        const sig = `${v.state}|${(v.firing ?? []).join(',')}`;
+        const prev = serverAlerts.get(v.id);
+        serverAlerts.set(v.id, sig);
+        if (prev !== undefined && prev !== sig) reloadSoon();
+      }),
+    ];
   });
   onDestroy(() => {
-    unsub?.();
-    unsubResume?.();
+    for (const u of unsubs) u();
     clearTimeout(timer);
   });
 
@@ -105,6 +144,14 @@
 <div class="page-head">
   <h1>{t('incidents.title')}<span class="dot">.</span></h1>
   {#if ongoing > 0}<span class="pill down">{t('incidents.ongoingCount', { count: ongoing })}</span>{/if}
+</div>
+
+<div class="filters">
+  <div class="seg" role="radiogroup" aria-label={t('incidents.filter.label')}>
+    {#each FILTERS as f (f.k)}
+      <button role="radio" aria-checked={kind === f.k} class:active={kind === f.k} onclick={() => setKind(f.k)}>{t(f.label)}</button>
+    {/each}
+  </div>
 </div>
 
 <div class="card">
@@ -121,7 +168,7 @@
       incidents={items}
       now={clock.now}
       showMonitor
-      emptyText={t('incidents.emptyAll')}
+      emptyText={kind ? t('incidents.emptyKind') : t('incidents.emptyAll')}
     />
     {#if hasMore}
       <div class="more">
@@ -135,6 +182,10 @@
 </div>
 
 <style>
+  .filters {
+    display: flex;
+    margin: -4px 0 14px;
+  }
   .more {
     display: flex;
     justify-content: center;

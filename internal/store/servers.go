@@ -279,7 +279,7 @@ func (s *Store) ReplaceServerAlerts(ctx context.Context, probeID int64, rules []
 			if a, ok := byKey[key(r)]; ok {
 				keep[a.ID] = true
 				if a.Firing && !r.Active {
-					if err := resolveAlertTx(ctx, tx, a.ID, now); err != nil {
+					if err := resolveAlertTx(ctx, tx, a.ID, now, ServerIncidentResolveRule); err != nil {
 						return err
 					}
 				}
@@ -301,7 +301,7 @@ func (s *Store) ReplaceServerAlerts(ctx context.Context, probeID int64, rules []
 				continue
 			}
 			if a.Firing {
-				if err := resolveAlertTx(ctx, tx, a.ID, now); err != nil {
+				if err := resolveAlertTx(ctx, tx, a.ID, now, ServerIncidentResolveRule); err != nil {
 					return err
 				}
 			}
@@ -315,9 +315,16 @@ func (s *Store) ReplaceServerAlerts(ctx context.Context, probeID int64, rules []
 	return out, err
 }
 
-// FireServerAlert kuralı tetiklenmiş olarak işaretler ve geçmişe yeni kayıt
-// açar. Kural zaten tetiklenmişse (veya yoksa) hiçbir şey yapmaz, false döner.
+// FireServerAlert kuralı tetiklenmiş olarak işaretler, geçmişe yeni kayıt ve
+// bir sunucu olayı (server_offline / server_alert) açar. Kural zaten
+// tetiklenmişse (veya yoksa) hiçbir şey yapmaz, false döner.
 func (s *Store) FireServerAlert(ctx context.Context, a ServerAlert, value float64, mount string, now int64) (bool, error) {
+	return s.FireServerAlertAt(ctx, a, value, mount, now, 0)
+}
+
+// FireServerAlertAt FireServerAlert; lastSeen çevrimdışı uyarısında son
+// verinin zamanıdır (olay verisine yazılır).
+func (s *Store) FireServerAlertAt(ctx context.Context, a ServerAlert, value float64, mount string, now, lastSeen int64) (bool, error) {
 	fired := false
 	err := s.tx(ctx, func(tx *Tx) error {
 		res, err := tx.ExecContext(ctx,
@@ -332,14 +339,23 @@ func (s *Store) FireServerAlert(ctx context.Context, a ServerAlert, value float6
 		_, err = insertID(ctx, tx, `
 			INSERT INTO server_alert_events (probe_id, alert_id, metric, mount, value, threshold, started_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)`, a.ProbeID, a.ID, a.Metric, mount, value, a.Threshold, now)
-		return err
+		if err != nil {
+			return err
+		}
+		return openServerIncidentTx(ctx, tx, a, value, mount, now, lastSeen)
 	})
 	return fired, err
 }
 
-// ResolveServerAlert tetiklenmiş kuralı bitirir ve açık geçmiş kaydını
-// kapatır. Kural tetiklenmiş değilse false döner.
+// ResolveServerAlert tetiklenmiş kuralı bitirir, açık geçmiş kaydını ve
+// sunucu olayını kapatır. Kural tetiklenmiş değilse false döner.
 func (s *Store) ResolveServerAlert(ctx context.Context, alertID, now int64) (bool, error) {
+	return s.ResolveServerAlertNote(ctx, alertID, now, "")
+}
+
+// ResolveServerAlertNote ResolveServerAlert; note olayın çözülme kaydının
+// mesajıdır ("" = normale döndü).
+func (s *Store) ResolveServerAlertNote(ctx context.Context, alertID, now int64, note string) (bool, error) {
 	resolved := false
 	err := s.tx(ctx, func(tx *Tx) error {
 		res, err := tx.ExecContext(ctx,
@@ -351,7 +367,7 @@ func (s *Store) ResolveServerAlert(ctx context.Context, alertID, now int64) (boo
 			return nil
 		}
 		resolved = true
-		return resolveAlertTx(ctx, tx, alertID, now)
+		return resolveAlertTx(ctx, tx, alertID, now, note)
 	})
 	return resolved, err
 }
@@ -369,14 +385,16 @@ func (s *Store) OpenServerAlertMount(ctx context.Context, alertID int64) (string
 	return mount, err
 }
 
-func resolveAlertTx(ctx context.Context, tx *Tx, alertID, now int64) error {
+func resolveAlertTx(ctx context.Context, tx *Tx, alertID, now int64, note string) error {
 	if _, err := tx.ExecContext(ctx,
 		"UPDATE server_alerts SET firing = 0, fired_at = NULL WHERE id = ?", alertID); err != nil {
 		return err
 	}
-	_, err := tx.ExecContext(ctx,
-		"UPDATE server_alert_events SET ended_at = ? WHERE alert_id = ? AND ended_at IS NULL", now, alertID)
-	return err
+	if _, err := tx.ExecContext(ctx,
+		"UPDATE server_alert_events SET ended_at = ? WHERE alert_id = ? AND ended_at IS NULL", now, alertID); err != nil {
+		return err
+	}
+	return closeServerIncidentTx(ctx, tx, alertID, now, note)
 }
 
 // ServerAlertEvent uyarı geçmişindeki bir kayıt. EndedAt 0: sürüyor.

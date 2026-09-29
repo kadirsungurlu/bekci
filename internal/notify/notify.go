@@ -56,7 +56,7 @@ type Event struct {
 
 	// Sunucu uyarıları: ProbeID doluysa olay bir sunucuya (ajana) aittir;
 	// MonitorName sunucunun adı, Target host adıdır. Metric: cpu, mem, swap,
-	// disk, load, temp, offline. Value ortalama değer (offline: veri gelmeyen
+	// disk, load, temp, net, offline. Value ortalama değer (offline: veri gelmeyen
 	// dakika), Threshold eşik, Minutes ortalama penceresi.
 	ProbeID   int64
 	Metric    string
@@ -89,20 +89,7 @@ func MetricName(lang, metric string) string {
 
 // FormatMetric sunucu metriğinin değerini birimiyle yazar: tr "%94", "1,25",
 // "72 °C"; en "94%", "1.25", "72 °C".
-func FormatMetric(lang, metric string, v float64) string {
-	switch metric {
-	case "load":
-		return i18n.Decimal(lang, v, 2)
-	case "temp":
-		return fmt.Sprintf("%.0f °C", v)
-	case "net":
-		if v >= 1000 {
-			return i18n.Decimal(lang, v/1000, 2) + " Gbit/s"
-		}
-		return fmt.Sprintf("%.0f Mbit/s", v)
-	}
-	return i18n.Percent(lang, v)
-}
+func FormatMetric(lang, metric string, v float64) string { return i18n.MetricValue(lang, metric, v) }
 
 // serverTitle sunucu uyarısının başlığı.
 func (e Event) serverTitle() string {
