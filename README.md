@@ -21,7 +21,7 @@
 
 </div>
 
-**Bekci** (bekçi), Go ile yazılmış, UptimeRobot sadeliğinde arayüzü olan izleme sistemi: web
+**Bekci** (bekçi), Go ile yazılmış, Sade arayüzü olan izleme sistemi: web
 siteleri ve servisler için uptime kontrolü (Uptime Kuma'nın özellik seti) ve
 sunucular için kaynak takibi (Beszel benzeri). Tek Docker imajı, SQLite veya
 PostgreSQL; yüzlerce monitörde de hızlı kalacak şekilde tasarlanmıştır.
