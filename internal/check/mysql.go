@@ -67,11 +67,13 @@ func (mysqlChecker) Target(raw json.RawMessage) string {
 	return sqlTarget(c.Username, c.Host, c.Port, c.Database)
 }
 
-func (mysqlChecker) Check(ctx context.Context, raw json.RawMessage) Result {
+func (mysqlChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) {
 	var c MySQLConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return down("Ayar okunamadı: " + err.Error())
 	}
+	dg := newDiag("mysql", raw, sqlTarget(c.Username, c.Host, c.Port, c.Database)).network(c.Host, c.Port, true)
+	defer dg.attach(ctx, &res)
 
 	cfg := mysql.NewConfig()
 	cfg.Net = "tcp"
@@ -84,6 +86,7 @@ func (mysqlChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 
 	db, err := sql.Open("mysql", cfg.FormatDSN())
 	if err != nil {
+		dg.fail(ctx, PhaseConfig, err)
 		return down("Bağlantı ayarı geçersiz: " + err.Error())
 	}
 	defer db.Close()
@@ -93,7 +96,8 @@ func (mysqlChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 
 	start := time.Now()
 	if err := db.PingContext(ctx); err != nil {
+		dg.failConn(ctx, err)
 		return down(describeErr(ctx, err))
 	}
-	return runSQLQuery(ctx, db, start, c.Query, c.Expected)
+	return runSQLQuery(ctx, dg, db, start, c.Query, c.Expected)
 }

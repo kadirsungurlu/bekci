@@ -39,14 +39,18 @@ func (tcpChecker) Target(raw json.RawMessage) string {
 	return net.JoinHostPort(c.Host, strconv.Itoa(c.Port))
 }
 
-func (tcpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
+func (tcpChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) {
 	var c TCPConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return down("Ayar okunamadı: " + err.Error())
 	}
+	addr := net.JoinHostPort(c.Host, strconv.Itoa(c.Port))
+	dg := newDiag("tcp", raw, addr).network(c.Host, c.Port, true)
+	defer dg.attach(ctx, &res)
 	start := time.Now()
-	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", net.JoinHostPort(c.Host, strconv.Itoa(c.Port)))
+	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
 	if err != nil {
+		dg.failDial(ctx, err)
 		return down(describeErr(ctx, err))
 	}
 	ping := msSince(start)

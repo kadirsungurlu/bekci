@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"mime"
 	"net"
 	"net/http"
@@ -415,13 +416,19 @@ func conflictError(err error) error {
 // pageViews yönetim ekranı için sayfalar: silinmiş monitörler gruplardan
 // çıkarılır (aksi halde sayfa kaydedilirken "bulunamadı" hatası alınırdı).
 func (s *Server) pageViews(ctx context.Context, pages []store.StatusPage) ([]store.StatusPage, error) {
+	pages, _, err := s.pageViewsWith(ctx, pages)
+	return pages, err
+}
+
+// pageViewsWith pageViews'ın sayfalardaki (var olan) monitörleri de dönen biçimi.
+func (s *Server) pageViewsWith(ctx context.Context, pages []store.StatusPage) ([]store.StatusPage, map[int64]store.Monitor, error) {
 	var ids []int64
 	for _, p := range pages {
 		ids = append(ids, p.MonitorIDs()...)
 	}
 	existing, err := s.store.MonitorsByIDs(ctx, ids)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for i, p := range pages {
 		sections := make([]store.PageSection, len(p.Sections))
@@ -436,19 +443,152 @@ func (s *Server) pageViews(ctx context.Context, pages []store.StatusPage) ([]sto
 		}
 		pages[i].Sections = sections
 	}
-	return pages, nil
+	return pages, existing, nil
+}
+
+// pageSummary liste ekranındaki sayfa kartının özeti: anlık durum, uptime
+// ortalamaları, son olay ve önizleme küçük resmi için grup başına monitör durumları.
+type pageSummary struct {
+	Status   string `json:"status"` // up | partial | down | unknown (herkese açık sayfayla aynı kural)
+	Monitors int    `json:"monitors"`
+	Down     int    `json:"down"`
+	// Uptime24h/Uptime30d sayfadaki monitörlerin yüzdelerinin ortalaması; veri yoksa null.
+	Uptime24h    *float64             `json:"uptime_24h"`
+	Uptime30d    *float64             `json:"uptime_30d"`
+	Sections     []pageSummarySection `json:"sections"`
+	LastIncident *publicIncident      `json:"last_incident"` // son 90 günün en yeni olayı; yoksa null
+	Ongoing      int                  `json:"ongoing"`       // süren olay sayısı
+}
+
+type pageSummarySection struct {
+	Title    string   `json:"title"`
+	Statuses []string `json:"statuses"` // monitör sırasıyla up | down | pending | paused | maintenance
+}
+
+type pageListItem struct {
+	store.StatusPage
+	Summary pageSummary `json:"summary"`
+}
+
+const (
+	summaryIncidentWindow = 90 * 86400
+	summaryIncidentLimit  = 1000
+)
+
+// pageSummaries tüm sayfaların özetini sayfa sayısından bağımsız, sabit sayıda
+// sorguyla hesaplar (saatlik ve günlük özet, olaylar: birer sorgu).
+func (s *Server) pageSummaries(ctx context.Context, pages []store.StatusPage, mons map[int64]store.Monitor) ([]pageListItem, error) {
+	out := make([]pageListItem, len(pages))
+	var ids []int64
+	seen := map[int64]bool{}
+	for _, p := range pages {
+		for _, id := range p.MonitorIDs() {
+			if !seen[id] {
+				seen[id] = true
+				ids = append(ids, id)
+			}
+		}
+	}
+	now := s.now().Unix()
+	hourly, err := s.store.HourlyFor(ctx, ids, now-now%3600-(publicHours-1)*3600)
+	if err != nil {
+		return nil, err
+	}
+	daily, err := s.store.DailyFor(ctx, ids, s.store.DayStarts(now, 30)[0])
+	if err != nil {
+		return nil, err
+	}
+	incs, err := s.store.IncidentsFor(ctx, ids, now-summaryIncidentWindow, summaryIncidentLimit)
+	if err != nil {
+		return nil, err
+	}
+	pct := func(bs []store.Bucket) (float64, bool) {
+		var up, down int64
+		for _, b := range bs {
+			up += b.Up
+			down += b.Down
+		}
+		if up+down == 0 {
+			return 0, false
+		}
+		return 100 * float64(up) / float64(up+down), true
+	}
+	avg := func(sum float64, n int) *float64 {
+		if n == 0 {
+			return nil
+		}
+		v := math.Round(1000*sum/float64(n)) / 1000
+		return &v
+	}
+	for i, p := range pages {
+		sum := pageSummary{Sections: []pageSummarySection{}}
+		names := map[int64]string{}
+		var statuses []string
+		var s24, s30 float64
+		var n24, n30 int
+		for _, sec := range p.Sections {
+			ss := pageSummarySection{Title: sec.Title, Statuses: []string{}}
+			for _, pm := range sec.Monitors {
+				m, ok := mons[pm.ID]
+				if !ok {
+					continue
+				}
+				names[m.ID] = pm.Name
+				if pm.Name == "" {
+					names[m.ID] = m.Name
+				}
+				st := monitorStatus(m)
+				ss.Statuses = append(ss.Statuses, st)
+				statuses = append(statuses, st)
+				if st == "down" {
+					sum.Down++
+				}
+				if v, ok := pct(hourly[m.ID]); ok {
+					s24 += v
+					n24++
+				}
+				if v, ok := pct(daily[m.ID]); ok {
+					s30 += v
+					n30++
+				}
+			}
+			sum.Sections = append(sum.Sections, ss)
+		}
+		sum.Monitors = len(statuses)
+		sum.Status = overallStatus(statuses)
+		sum.Uptime24h, sum.Uptime30d = avg(s24, n24), avg(s30, n30)
+		for _, in := range incs { // en yeniden eskiye
+			name, ok := names[in.MonitorID]
+			if !ok {
+				continue
+			}
+			if sum.LastIncident == nil {
+				sum.LastIncident = &publicIncident{Monitor: name, StartedAt: in.StartedAt, ResolvedAt: in.ResolvedAt}
+			}
+			if in.ResolvedAt == 0 {
+				sum.Ongoing++
+			}
+		}
+		out[i] = pageListItem{StatusPage: p, Summary: sum}
+	}
+	return out, nil
 }
 
 func (s *Server) listPages(w http.ResponseWriter, r *http.Request) {
 	list, err := s.store.ListPages(r.Context())
+	var mons map[int64]store.Monitor
 	if err == nil {
-		list, err = s.pageViews(r.Context(), list)
+		list, mons, err = s.pageViewsWith(r.Context(), list)
+	}
+	var items []pageListItem
+	if err == nil {
+		items, err = s.pageSummaries(r.Context(), list, mons)
 	}
 	if err != nil {
 		s.dbError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, list)
+	writeJSON(w, http.StatusOK, items)
 }
 
 func (s *Server) respondPage(w http.ResponseWriter, r *http.Request, id int64, status int) {

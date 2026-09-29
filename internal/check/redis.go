@@ -75,11 +75,13 @@ func (redisChecker) Target(raw json.RawMessage) string {
 	return target
 }
 
-func (redisChecker) Check(ctx context.Context, raw json.RawMessage) Result {
+func (redisChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) {
 	var c RedisConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return down("Ayar okunamadı: " + err.Error())
 	}
+	dg := newDiag("redis", raw, redisChecker{}.Target(raw)).network(c.Host, c.Port, true)
+	defer dg.attach(ctx, &res)
 
 	opts := &redis.Options{
 		Addr:         net.JoinHostPort(c.Host, strconv.Itoa(c.Port)),
@@ -98,6 +100,7 @@ func (redisChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 
 	start := time.Now()
 	if _, err := client.Ping(ctx).Result(); err != nil {
+		dg.failConn(ctx, err)
 		return down(describeErr(ctx, err))
 	}
 	ping := msSince(start)
@@ -108,12 +111,15 @@ func (redisChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 
 	val, err := client.Get(ctx, c.Key).Result()
 	if err == redis.Nil {
+		dg.failClass(PhaseQuery, ClassNotFound)
 		return down(fmt.Sprintf("Anahtar bulunamadı: %s", c.Key))
 	}
 	if err != nil {
+		dg.fail(ctx, PhaseQuery, err)
 		return down(describeErr(ctx, err))
 	}
 	if c.Expected != "" && val != c.Expected {
+		dg.failClass(PhaseResponse, ClassMismatch)
 		return down(fmt.Sprintf("Beklenmeyen değer: %q (beklenen: %q)", truncate(val, 80), c.Expected))
 	}
 	return Result{Up: true, PingMs: ping, Message: fmt.Sprintf("Anahtar bulundu: %s", c.Key)}

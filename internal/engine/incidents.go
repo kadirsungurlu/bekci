@@ -30,6 +30,18 @@ func (e *Engine) IncidentURL(id int64) string {
 	return e.cfg.BaseURL + "/#/incidents/" + strconv.FormatInt(id, 10)
 }
 
+// maxOtherCaptures olay kaydına eklenen diğer konumların en fazla ayrıntı sayısı.
+const maxOtherCaptures = 3
+
+// captureData incident_captures.data: olayı açan (öncelikli konumun) ayrıntısı;
+// çok konumluda diğer çalışmayan konumların ayrıntıları "others" altında
+// (eski kayıtlarda yok). check.Detail alanları üst düzeyde kalır: eski
+// okuyucular kaydı değişmeden çözer.
+type captureData struct {
+	*check.Detail
+	Others []store.IncidentCapture `json:"others,omitempty"`
+}
+
 // incidentLocation olay başındaki bir konumun durumu (down kaydının data'sı).
 type incidentLocation struct {
 	ProbeID int64  `json:"probe_id"`
@@ -79,12 +91,13 @@ func (r *runner) openIncident(ctx context.Context, now time.Time, res check.Resu
 	}
 
 	var locs []incidentLocation
+	var others []store.IncidentCapture
 	where := LocalName
 	detail, detailAt, detailLoc := res.Detail, now, LocalName
 	if r.locs == nil {
 		locs = []incidentLocation{{ProbeID: LocalProbeID, Name: LocalName, Status: locDown, Message: res.Message}}
 	} else {
-		st := r.locs.statuses(now, r.staleAfter(), r.m.MaxRetries)
+		st := r.locs.statuses(now, r.rules())
 		var failing []string
 		r.locPrev = make(map[int64]locMark, len(st))
 		for _, s := range st {
@@ -96,11 +109,21 @@ func (r *runner) openIncident(ctx context.Context, now time.Time, res check.Resu
 		}
 		where = nameList(failing)
 		detail, detailLoc = nil, ""
-		// Öncelik: ana sunucu, sonra sıradaki ilk çalışmayan konum.
+		// Öncelik: ana sunucu, sonra sıradaki ilk çalışmayan konum. Diğer
+		// çalışmayan konumların ayrıntıları da (en fazla maxOtherCaptures)
+		// aynı kayda eklenir: aynı hata farklı yerlerden karşılaştırılabilsin.
 		for _, l := range r.locs.locs {
-			if l.detail != nil && classify(l, now, r.staleAfter(), r.m.MaxRetries) == locDown {
+			if l.detail == nil || classify(l, now, r.rules()) != locDown {
+				continue
+			}
+			if detail == nil {
 				detail, detailAt, detailLoc = l.detail, l.at, l.name
-				break
+				continue
+			}
+			if len(others) < maxOtherCaptures {
+				if b, err := json.Marshal(l.detail); err == nil {
+					others = append(others, store.IncidentCapture{Time: l.at.Unix(), Location: l.name, Detail: b})
+				}
 			}
 		}
 	}
@@ -110,7 +133,7 @@ func (r *runner) openIncident(ctx context.Context, now time.Time, res check.Resu
 	})
 	r.addEvents(ctx, id, evs...)
 	if detail != nil {
-		b, err := json.Marshal(detail)
+		b, err := json.Marshal(captureData{Detail: detail, Others: others})
 		if err == nil {
 			err = r.e.store.SaveIncidentCapture(ctx, id, detailAt.Unix(), detailLoc, b)
 		}
@@ -155,10 +178,10 @@ func (r *runner) incidentProgress(ctx context.Context, now time.Time, status int
 type locMark struct{ status, msg string }
 
 // locationChanges olay sürerken durumu (veya çalışmazken hatası) değişen
-// konumlar. "Tekrar deneniyor" ara durumdur, kaydedilmez; yeniden başlatma
-// sonrası ilk çağrı yalnızca mevcut durumu öğrenir.
+// konumlar. "Tekrar deneniyor" ve "ilk sonuç bekleniyor" ara durumdur,
+// kaydedilmez; yeniden başlatma sonrası ilk çağrı yalnızca mevcut durumu öğrenir.
 func (r *runner) locationChanges(now time.Time) []store.IncidentEvent {
-	st := r.locs.statuses(now, r.staleAfter(), r.m.MaxRetries)
+	st := r.locs.statuses(now, r.rules())
 	first := r.locPrev == nil
 	if first {
 		r.locPrev = make(map[int64]locMark, len(st))
@@ -166,7 +189,7 @@ func (r *runner) locationChanges(now time.Time) []store.IncidentEvent {
 	var out []store.IncidentEvent
 	for _, s := range st {
 		prev := r.locPrev[s.ProbeID]
-		if s.Status == locRetrying || (prev.status == s.Status && (s.Status != locDown || prev.msg == s.Message)) {
+		if s.Status == locRetrying || s.Status == locWaiting || (prev.status == s.Status && (s.Status != locDown || prev.msg == s.Message)) {
 			continue
 		}
 		r.locPrev[s.ProbeID] = locMark{s.Status, s.Message}

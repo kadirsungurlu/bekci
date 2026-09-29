@@ -236,7 +236,10 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-r.Context().Done():
 			return
-		case msg := <-ch:
+		case msg, open := <-ch:
+			if !open {
+				return // aynı kullanıcının daha yeni bir akışı için kapatıldı
+			}
 			if !vis.all && !eventVisible(msg, vis) {
 				continue
 			}

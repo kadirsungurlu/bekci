@@ -44,13 +44,14 @@ type incidentLocationView struct {
 }
 
 type incidentDetailView struct {
-	Incident  store.Incident         `json:"incident"`
-	Monitor   incidentMonitor        `json:"monitor"`
-	Location  string                 `json:"location"`  // kök nedenin gözlendiği yer
-	Locations []incidentLocationView `json:"locations"` // olay başında
-	Events    []store.IncidentEvent  `json:"events"`    // yeniden eskiye
-	Capture   *store.IncidentCapture `json:"capture"`   // yalnızca editör ve yönetici
-	Details   bool                   `json:"details"`   // kullanıcı istek/yanıtı görebilir mi
+	Incident  store.Incident          `json:"incident"`
+	Monitor   incidentMonitor         `json:"monitor"`
+	Location  string                  `json:"location"`           // kök nedenin gözlendiği yer
+	Locations []incidentLocationView  `json:"locations"`          // olay başında
+	Events    []store.IncidentEvent   `json:"events"`             // yeniden eskiye
+	Capture   *store.IncidentCapture  `json:"capture"`            // yalnızca yönetici
+	Captures  []store.IncidentCapture `json:"captures,omitempty"` // yalnızca yönetici: Capture + diğer çalışmayan konumlarınki
+	Details   bool                    `json:"details"`            // kullanıcı istek/yanıtı görebilir mi
 }
 
 func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
@@ -113,7 +114,7 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if ok {
-				out.Capture = &c
+				out.Capture, out.Captures = splitCapture(c)
 			}
 		}
 		out.Events = events
@@ -191,25 +192,63 @@ func localizeIncident(u store.User, lang, monitorType string, out *incidentDetai
 			})
 		}
 	}
-	if out.Capture != nil && lang != i18n.TR {
-		c := *out.Capture
-		var d map[string]any
-		if json.Unmarshal(c.Detail, &d) == nil && d != nil {
-			if e, ok := d["error"].(string); ok {
-				d["error"] = i18n.Message(lang, e)
-			}
-			if bin, _ := d["body_binary"].(bool); bin {
-				if b, ok := d["body"].(string); ok {
-					d["body"] = i18n.Message(lang, b) // "(ikili içerik, 2048 bayt)"
-				}
-			}
+	if out.Capture != nil {
+		c := localizeCapture(lang, *out.Capture)
+		out.Capture = &c
+	}
+	for i := range out.Captures {
+		out.Captures[i] = localizeCapture(lang, out.Captures[i])
+	}
+}
+
+// localizeCapture yakalamanın Türkçe saklanan metinlerini (bağlantı hatası,
+// ikili gövde açıklaması, tanının ham hata/mesajı, konum adı) çevirir. Ham
+// sürücü hataları zaten İngilizcedir; çeviri kataloğunda yoksa değişmez.
+func localizeCapture(lang string, c store.IncidentCapture) store.IncidentCapture {
+	c.Location = locationName(lang, c.Location)
+	if lang == i18n.TR {
+		return c
+	}
+	var d map[string]any
+	if json.Unmarshal(c.Detail, &d) != nil || d == nil {
+		return c
+	}
+	if e, ok := d["error"].(string); ok {
+		d["error"] = i18n.Message(lang, e)
+	}
+	if bin, _ := d["body_binary"].(bool); bin {
+		if b, ok := d["body"].(string); ok {
+			d["body"] = i18n.Message(lang, b) // "(ikili içerik, 2048 bayt)"
+		}
+	}
+	if g, ok := d["diag"].(map[string]any); ok {
+		if e, ok := g["raw_error"].(string); ok {
+			g["raw_error"] = i18n.Message(lang, e)
+		}
+	}
+	if b, err := json.Marshal(d); err == nil {
+		c.Detail = b
+	}
+	return c
+}
+
+// splitCapture saklanan kaydı öncelikli yakalama ve konum listesi olarak
+// döner: çok konumlu olayda diğer konumların ayrıntıları kaydın "others"
+// alanındadır (bkz. engine.captureData); öncelikli ayrıntıdan çıkarılır.
+func splitCapture(c store.IncidentCapture) (*store.IncidentCapture, []store.IncidentCapture) {
+	var d map[string]json.RawMessage
+	if json.Unmarshal(c.Detail, &d) == nil && d != nil {
+		if raw, ok := d["others"]; ok {
+			var others []store.IncidentCapture
+			json.Unmarshal(raw, &others)
+			delete(d, "others")
 			if b, err := json.Marshal(d); err == nil {
 				c.Detail = b
 			}
+			return &c, append([]store.IncidentCapture{c}, others...)
 		}
-		c.Location = locationName(lang, c.Location)
-		out.Capture = &c
 	}
+	return &c, []store.IncidentCapture{c}
 }
 
 // mapEventData işlem geçmişi kaydının data nesnesini değiştirir; çözülemezse

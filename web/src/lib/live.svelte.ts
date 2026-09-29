@@ -46,6 +46,7 @@ class Live {
   private reconnectListeners = new Set<() => void>();
   private resumeListeners = new Set<() => void>();
   private statsResetListeners = new Set<(id: number) => void>();
+  private locationListeners = new Set<(id: number) => void>();
   private softRefreshTimer: ReturnType<typeof setTimeout> | undefined;
   private maintTimer: ReturnType<typeof setTimeout> | undefined;
   private lastRefresh = 0;
@@ -215,7 +216,10 @@ class Live {
       else if (msg.type === 'maintenance') this.handleMaintenance((msg.data as { maintenance_id?: number })?.maintenance_id ?? 0);
       else if (msg.type === 'probe' && msg.data) this.handleProbe(msg.data as ProbeEvent);
       else if (msg.type === 'server' && msg.data) this.emit(this.serverListeners, msg.data as ServerView);
-      else if (msg.type === 'stats_reset') {
+      else if (msg.type === 'locations') {
+        // Bir konumun durumu değişti (ör. ilk sonucu geldi); genel durum aynı kalmış olabilir.
+        this.emit(this.locationListeners, (msg.data as { monitor_id?: number })?.monitor_id ?? 0);
+      } else if (msg.type === 'stats_reset') {
         const id = (msg.data as { monitor_id?: number })?.monitor_id ?? 0;
         this.emit(this.statsResetListeners, id);
         this.refreshSoon();
@@ -227,6 +231,12 @@ class Live {
   private refreshSoon(ms = 600) {
     clearTimeout(this.softRefreshTimer);
     this.softRefreshTimer = setTimeout(() => this.refresh(), ms);
+  }
+
+  /** Çok konumlu monitörde bir konumun durumu değiştiğinde çağrılır (monitör kimliğiyle). */
+  onLocations(fn: (id: number) => void): () => void {
+    this.locationListeners.add(fn);
+    return () => this.locationListeners.delete(fn);
   }
 
   /** Bir monitörün istatistikleri sıfırlandığında çağrılır (monitör kimliğiyle). */

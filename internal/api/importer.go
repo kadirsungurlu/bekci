@@ -244,6 +244,9 @@ func (s *Server) runImport(w http.ResponseWriter, r *http.Request, source string
 		return
 	}
 
+	// Değiştir modunda silinen monitörler kontrol noktalarının listesinden de
+	// hemen çıksın (uzun yoklama; probes.go).
+	defer s.engine.JobsChanged()
 	// Değiştir modunda eski monitörlerin kontrolleri durdurulur; yazma başarısız
 	// olursa (işlem geri alınır) yeniden başlatılır.
 	for _, m := range old {

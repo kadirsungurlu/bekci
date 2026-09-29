@@ -72,14 +72,17 @@ func (postgresChecker) Target(raw json.RawMessage) string {
 	return sqlTarget(c.Username, c.Host, c.Port, c.Database)
 }
 
-func (postgresChecker) Check(ctx context.Context, raw json.RawMessage) Result {
+func (postgresChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) {
 	var c PostgresConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return down("Ayar okunamadı: " + err.Error())
 	}
+	dg := newDiag("postgres", raw, sqlTarget(c.Username, c.Host, c.Port, c.Database)).network(c.Host, c.Port, true)
+	defer dg.attach(ctx, &res)
 
 	db, err := sql.Open("pgx", postgresDSN(ctx, c))
 	if err != nil {
+		dg.fail(ctx, PhaseConfig, err)
 		return down("Bağlantı ayarı geçersiz: " + err.Error())
 	}
 	defer db.Close()
@@ -89,9 +92,10 @@ func (postgresChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 
 	start := time.Now()
 	if err := db.PingContext(ctx); err != nil {
+		dg.failConn(ctx, err)
 		return down(describeErr(ctx, err))
 	}
-	return runSQLQuery(ctx, db, start, c.Query, c.Expected)
+	return runSQLQuery(ctx, dg, db, start, c.Query, c.Expected)
 }
 
 // postgresDSN şifreyi güvenli biçimde kodlayan bir bağlantı URL'si üretir.

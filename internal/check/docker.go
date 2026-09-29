@@ -82,6 +82,15 @@ func dockerHTTPClient(endpoint string) (*http.Client, string, error) {
 	}
 }
 
+// dockerHostPort ağ üzerinden erişilen endpoint'in sunucusu ve portu (ağ
+// tanısı için); unix soketinde boş döner.
+func dockerHostPort(endpoint string) (string, int) {
+	if rest, ok := strings.CutPrefix(endpoint, "tcp://"); ok {
+		return hostPortOf(strings.TrimRight(rest, "/"), 2375)
+	}
+	return urlHostPort(endpoint, map[string]int{"http": 80, "https": 443})
+}
+
 type dockerInspect struct {
 	State struct {
 		Status string `json:"Status"` // created, running, paused, restarting, removing, exited, dead
@@ -101,13 +110,19 @@ var dockerStatusTR = map[string]string{
 	"dead":       "öldü",
 }
 
-func (dockerChecker) Check(ctx context.Context, raw json.RawMessage) Result {
+func (dockerChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) {
 	var c DockerConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return down("Ayar okunamadı: " + err.Error())
 	}
+	dg := newDiag("docker", raw, dockerChecker{}.Target(raw))
+	if host, port := dockerHostPort(c.Endpoint); host != "" {
+		dg.network(host, port, true)
+	}
+	defer dg.attach(ctx, &res)
 	client, base, err := dockerHTTPClient(c.Endpoint)
 	if err != nil {
+		dg.fail(ctx, PhaseConfig, err)
 		return down("Endpoint geçersiz: " + err.Error())
 	}
 	if t, ok := client.Transport.(*http.Transport); ok {
@@ -118,12 +133,14 @@ func (dockerChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	reqURL := base + "/containers/" + url.PathEscape(c.Container) + "/json"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
+		dg.fail(ctx, PhaseConfig, err)
 		return down("İstek oluşturulamadı: " + err.Error())
 	}
 
 	start := time.Now()
 	resp, err := client.Do(req)
 	if err != nil {
+		dg.failConn(ctx, err)
 		return down(describeErr(ctx, err))
 	}
 	defer resp.Body.Close()
@@ -131,17 +148,20 @@ func (dockerChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	ping := msSince(start)
 
 	if resp.StatusCode == http.StatusNotFound {
+		dg.failClass(PhaseResponse, ClassNotFound)
 		return down("Konteyner bulunamadı: " + c.Container)
 	}
 	if resp.StatusCode != http.StatusOK {
 		// Uzak yanıt gövdesi mesaja EKLENMEZ: iç bir Docker soketine/servise
 		// yönlendirilen istekte gövde, hedef verisini sızdırabilir. Yalnızca
 		// durum kodu bırakılır.
+		dg.failClass(PhaseResponse, ClassProtocol)
 		return down(fmt.Sprintf("Docker API hatası: HTTP %d", resp.StatusCode))
 	}
 
 	var info dockerInspect
 	if err := json.Unmarshal(body, &info); err != nil {
+		dg.fail(ctx, PhaseResponse, err)
 		return down("Docker API yanıtı okunamadı: " + err.Error())
 	}
 
@@ -150,9 +170,11 @@ func (dockerChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 		if label == "" {
 			label = info.State.Status
 		}
+		dg.failClass(PhaseResponse, ClassState)
 		return down("Konteyner çalışmıyor (durum: " + label + ")")
 	}
 	if info.State.Health != nil && info.State.Health.Status != "healthy" {
+		dg.failClass(PhaseResponse, ClassUnhealthy)
 		return down("Konteyner çalışıyor ama sağlık durumu: " + info.State.Health.Status)
 	}
 	if info.State.Health != nil {

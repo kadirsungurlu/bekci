@@ -6,6 +6,7 @@
     errorMessage,
     type CheckDetail,
     type HttpHeader,
+    type IncidentCapture,
     type IncidentDetail,
     type IncidentEvent,
     type NotificationType,
@@ -19,6 +20,7 @@
   import TypeBadge from '../components/TypeBadge.svelte';
   import Icon, { type IconName } from '../components/Icon.svelte';
   import CopyButton from '../components/CopyButton.svelte';
+  import ConnectionDetails from '../components/ConnectionDetails.svelte';
 
   let { id }: { id: number } = $props();
 
@@ -72,9 +74,15 @@
   const ongoing = $derived(!!inc && inc.resolved_at === 0);
   const duration = $derived(inc ? (ongoing ? Math.max(now, inc.started_at) : inc.resolved_at) - inc.started_at : 0);
   const isHttp = $derived(data?.monitor.type === 'http');
-  const capture = $derived(data?.capture ?? null);
+  // Yakalanan konumlar: çok konumlu olayda çalışmayan her konumun kaydı (ilki
+  // öncelikli olan); eski sunucu yalnızca capture döner.
+  const captures = $derived<IncidentCapture[]>(data?.captures ?? (data?.capture ? [data.capture] : []));
+  let capIdx = $state(0);
+  const capture = $derived<IncidentCapture | null>(captures[capIdx] ?? captures[0] ?? null);
   const detail = $derived<CheckDetail | null>(capture?.detail ?? null);
-  const showSide = $derived(!!data && data.details && isHttp);
+  // HTTP isteği/yanıtı mı, bağlantı tanısı mı? Eski HTTP kayıtlarında kind yok.
+  const isDiag = $derived(!!detail && (!!detail.diag || (!detail.method && !isHttp)));
+  const showSide = $derived(!!data && data.details && (isHttp || captures.length > 0));
 
   // Kök neden: çok konumluda birleşik mesaj ("A: …; B: …") yerine ilk çalışmayan
   // konumun kendi hatası; konum adı altta ayrıca yazılır.
@@ -273,6 +281,18 @@
   function download() {
     if (!data || !capture) return;
     const d = capture.detail;
+    if (isDiag) {
+      const all = captures.map((c) => ({ location: c.location, captured_at: fmtDateSec(c.time), kind: c.detail.kind ?? data!.monitor.type, diag: c.detail.diag ?? null }));
+      save(
+        {
+          incident: { id: data.incident.id, started_at: fmtDateSec(data.incident.started_at), cause: data.incident.cause },
+          monitor: { id: data.monitor.id, name: data.monitor.name, type: data.monitor.type },
+          captures: all,
+        },
+        t('incidents.conn.downloadFile', { id: data.incident.id }),
+      );
+      return;
+    }
     const out = {
       incident: { id: data.incident.id, started_at: fmtDateSec(data.incident.started_at), cause: data.incident.cause },
       monitor: { id: data.monitor.id, name: data.monitor.name, type: data.monitor.type },
@@ -295,10 +315,14 @@
         : null,
       error: d.error ?? '',
     };
+    save(out, t('incidents.detail.downloadFile', { id: data.incident.id }));
+  }
+
+  function save(out: unknown, name: string) {
     const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = t('incidents.detail.downloadFile', { id: data.incident.id });
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -349,7 +373,10 @@
       <div class="actions">
         <a class="btn" href="#/monitors/{data.monitor.id}"><Icon name="activity" size={15} /> {t('incidents.detail.goToMonitor')}</a>
         {#if capture}
-          <button class="btn" onclick={download}><Icon name="download" size={15} /> {t('incidents.detail.downloadResponse')}</button>
+          <button class="btn" onclick={download}>
+            <Icon name="download" size={15} />
+            {isDiag ? t('incidents.conn.download') : t('incidents.detail.downloadResponse')}
+          </button>
         {/if}
       </div>
     </div>
@@ -430,7 +457,27 @@
 
       {#if showSide}
         <div class="col side">
-          {#if detail}
+          {#if captures.length > 1}
+            <div class="cap-locs">
+              <span class="label">{t('incidents.detail.captureLocations')}</span>
+              <div class="tabs" role="tablist" aria-label={t('incidents.detail.captureLocations')}>
+                {#each captures as c, i (i)}
+                  <button role="tab" aria-selected={capIdx === i} class:active={capIdx === i} onclick={() => (capIdx = i)}>
+                    <Icon name="map-pin" size={13} />
+                    {locName(c.location)}
+                  </button>
+                {/each}
+              </div>
+            </div>
+          {/if}
+          {#if detail && isDiag}
+            <ConnectionDetails
+              {detail}
+              type={data.monitor.type}
+              fallbackError={detail.error || ''}
+              meta={`${capture?.location ? `${locName(capture.location)} · ` : ''}${capture ? fmtDateSec(capture.time) : ''}`}
+            />
+          {:else if detail}
             <div class="card">
               <div class="card-head">
                 <h2 class="card-title">{t('incidents.detail.request')}<span class="dot">.</span></h2>
@@ -510,9 +557,9 @@
             <div class="card nocap">
               <Icon name="inbox" size={22} />
               <div>
-                <div class="nr-t">{t('incidents.detail.noCapture')}</div>
+                <div class="nr-t">{isHttp ? t('incidents.detail.noCapture') : t('incidents.conn.noCapture')}</div>
                 <div class="nr-s">
-                  {t('incidents.detail.noCaptureText')}
+                  {isHttp ? t('incidents.detail.noCaptureText') : t('incidents.conn.noCaptureText')}
                 </div>
               </div>
             </div>
@@ -883,6 +930,23 @@
   .tabs button:focus-visible {
     outline-offset: -2px;
   }
+  /* Yakalanan konumlar (çok konumlu olay) */
+  .cap-locs {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+    flex-wrap: wrap;
+  }
+  .cap-locs .tabs {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  .cap-locs .tabs button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
   .cnt {
     color: var(--muted);
     font-weight: 500;
@@ -1034,6 +1098,14 @@
     }
   }
   @media (max-width: 520px) {
+    .cap-locs {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .cap-locs .tabs button {
+      flex: 1;
+      justify-content: center;
+    }
     .pair {
       gap: 10px;
     }

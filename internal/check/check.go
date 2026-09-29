@@ -31,7 +31,8 @@ type Result struct {
 	PingMs  int64
 	Message string
 	Cert    *CertInfo
-	// Detail başarısız kontrolün isteği ve yanıtı (yalnızca HTTP; bkz. detail.go).
+	// Detail başarısız kontrolün ayrıntısı: HTTP isteği/yanıtı ya da diğer
+	// tiplerde bağlantı tanısı (bkz. detail.go, diag.go).
 	Detail *Detail
 }
 

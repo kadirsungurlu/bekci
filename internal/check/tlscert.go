@@ -50,12 +50,14 @@ func (tlsCertChecker) Target(raw json.RawMessage) string {
 // zaman açık kabul edilir (arayüzü uygulamak zorunlu değil ama açıkça belirtir).
 func (tlsCertChecker) CertExpiryEnabled(json.RawMessage) bool { return true }
 
-func (tlsCertChecker) Check(ctx context.Context, raw json.RawMessage) Result {
+func (tlsCertChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) {
 	var c TLSCertConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return down("Ayar okunamadı: " + err.Error())
 	}
 	addr := net.JoinHostPort(c.Host, strconv.Itoa(c.Port))
+	dg := newDiag("tlscert", raw, addr).network(c.Host, c.Port, true)
+	defer dg.attach(ctx, &res)
 	serverName := c.ServerName
 	if serverName == "" {
 		serverName = c.Host
@@ -65,10 +67,12 @@ func (tlsCertChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	start := time.Now()
 	cert, err := dialTLSCert(ctx, "tcp", addr, tlsCfg)
 	if err != nil {
+		dg.failTLSDial(ctx, err)
 		return down(describeErr(ctx, err))
 	}
 	ping := msSince(start)
 	if cert == nil {
+		dg.failClass(PhaseTLS, ClassTLS)
 		return down("Sunucu sertifika sunmadı")
 	}
 	return Result{Up: true, PingMs: ping, Message: "Sertifika geçerli, bitiş: " + cert.NotAfter.Format("2006-01-02"), Cert: cert}

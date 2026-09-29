@@ -47,6 +47,9 @@ type Engine struct {
 	ctx      context.Context
 	runners  map[int64]*runner
 	monLocks map[int64]*sync.Mutex // monitör başına: Reload/Remove/start sıraya girer (bkz. lockMonitor)
+	retired  map[int64]retiredLocs // durdurulan çok konumlu runner'ların konum sonuçları (bkz. adoptLocations)
+
+	jobs *jobsSignal // kontrol noktası iş listesi sürümü (jobs.go)
 
 	bg              sync.WaitGroup // arka plan işleri (watchProbes)
 	probeWatchEvery time.Duration  // kontrol noktası durum taraması; testlerde kısaltılır
@@ -65,6 +68,8 @@ func New(st *store.Store, n Notifier, hub *Hub, log *slog.Logger, cfg Config) *E
 		now:      time.Now,
 		runners:  map[int64]*runner{},
 		monLocks: map[int64]*sync.Mutex{},
+		retired:  map[int64]retiredLocs{},
+		jobs:     newJobsSignal(),
 
 		probeWatchEvery: 10 * time.Second,
 	}
@@ -115,7 +120,11 @@ func (e *Engine) SetSettings(s store.AppSettings) { e.settings.Store(&s) }
 // Aynı monitör için eşzamanlı Reload/Remove çağrıları sıraya girer: aksi
 // halde eski ayarı okuyan çağrı, yeni ayarı okuyanın ardından runner'ı
 // eski ayarla başlatabilir (ikincisi "zaten çalışıyor" hatası alırdı).
+//
+// Bitince kontrol noktalarının iş listesi sürümü artar (JobsChanged): uzun
+// yoklamada bekleyen ajanlar yeni/değişen işi hemen alır.
 func (e *Engine) Reload(ctx context.Context, id int64) error {
+	defer e.JobsChanged() // kilit bırakıldıktan sonra (defer sırası)
 	defer e.lockMonitor(id)()
 	e.stop(id)
 	m, err := e.store.GetMonitor(ctx, id)
@@ -128,8 +137,11 @@ func (e *Engine) Reload(ctx context.Context, id int64) error {
 	return e.start(m)
 }
 
-// Remove monitörün runner'ını durdurur ve bitmesini bekler.
+// Remove monitörün runner'ını durdurur ve bitmesini bekler. Veritabanı
+// değişikliği (durdurma, silme) Remove'dan sonra yapılıyorsa çağıran ayrıca
+// JobsChanged çağırmalıdır.
 func (e *Engine) Remove(id int64) {
+	defer e.JobsChanged()
 	defer e.lockMonitor(id)()
 	e.stop(id)
 }
@@ -158,6 +170,7 @@ func (e *Engine) stop(id int64) {
 	if r != nil {
 		r.cancel()
 		<-r.done
+		e.retire(r)
 	}
 }
 
@@ -250,6 +263,9 @@ func (e *Engine) start(m store.Monitor) error {
 	}
 	if old := e.runners[m.ID]; old != nil {
 		return fmt.Errorf("monitör %d zaten çalışıyor", m.ID) // monitör kilidi tutulduğu sürece olmaz
+	}
+	if locs != nil {
+		e.adoptLocations(m, locs)
 	}
 	ctx, cancel := context.WithCancel(e.ctx)
 	ctx = check.WithStatusSource(ctx, e.monitorStatuses) // grup monitörleri alt monitörleri okur

@@ -60,11 +60,16 @@ func (grpcChecker) Target(raw json.RawMessage) string {
 
 func (grpcChecker) CertExpiryEnabled(json.RawMessage) bool { return true }
 
-func (grpcChecker) Check(ctx context.Context, raw json.RawMessage) Result {
+func (grpcChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) {
 	var c GRPCConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return down("Ayar okunamadı: " + err.Error())
 	}
+	dg := newDiag("grpc", raw, c.Target)
+	if host, port := hostPortOf(strings.TrimPrefix(c.Target, "dns:///"), 0); host != "" && port > 0 {
+		dg.network(host, port, true)
+	}
+	defer dg.attach(ctx, &res)
 
 	var creds credentials.TransportCredentials
 	var tlsCfg *tls.Config
@@ -77,6 +82,7 @@ func (grpcChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 
 	conn, err := grpc.NewClient(c.Target, grpc.WithTransportCredentials(creds))
 	if err != nil {
+		dg.fail(ctx, PhaseConfig, err)
 		return down("Bağlantı oluşturulamadı: " + err.Error())
 	}
 	defer conn.Close()
@@ -95,6 +101,7 @@ func (grpcChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	resp, err := client.Check(rctx, &grpc_health_v1.HealthCheckRequest{Service: c.Service})
 	ping := msSince(start)
 	if err != nil {
+		dg.failGRPC(ctx, err)
 		return down(describeGRPCErr(ctx, err))
 	}
 
@@ -106,6 +113,7 @@ func (grpcChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	}
 
 	if resp.GetStatus() != grpc_health_v1.HealthCheckResponse_SERVING {
+		dg.failClass(PhaseResponse, ClassUnhealthy)
 		return Result{PingMs: ping, Message: "Servis durumu: " + resp.GetStatus().String(), Cert: cert}
 	}
 	return Result{Up: true, PingMs: ping, Message: "SERVING" + serviceSuffix(c.Service), Cert: cert}
@@ -116,6 +124,28 @@ func serviceSuffix(service string) string {
 		return ""
 	}
 	return " (" + service + ")"
+}
+
+// failGRPC sağlık çağrısının hatasını tanıya yazar. gRPC bağlantıyı çağrıyla
+// birlikte kurar: Unavailable bağlanma, diğerleri çağrı aşamasıdır.
+func (d *diagRun) failGRPC(ctx context.Context, err error) {
+	st, ok := status.FromError(err)
+	if !ok {
+		d.failConn(ctx, err)
+		return
+	}
+	switch st.Code() {
+	case codes.Unavailable:
+		d.failConn(ctx, err)
+	case codes.DeadlineExceeded:
+		d.phase, d.class, d.err = PhaseRPC, ClassTimeout, err
+	case codes.NotFound, codes.Unimplemented:
+		d.phase, d.class, d.err = PhaseRPC, ClassNotFound, err
+	case codes.PermissionDenied, codes.Unauthenticated:
+		d.phase, d.class, d.err = PhaseAuth, ClassAuth, err
+	default:
+		d.phase, d.class, d.err = PhaseRPC, ClassProtocol, err
+	}
 }
 
 // describeGRPCErr gRPC durum kodlarını Türkçe mesajlara çevirir.

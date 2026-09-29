@@ -40,10 +40,15 @@ type Header struct {
 	Value string `json:"value"`
 }
 
-// Detail başarısız kontrolün isteği ve (alındıysa) yanıtı.
+// Detail başarısız kontrolün isteği ve (alındıysa) yanıtı. HTTP dışı tiplerde
+// istek/yanıt alanları boştur; Kind monitör tipini, Diag bağlantı tanısını
+// taşır (bkz. diag.go). Eski kayıtlarda Kind yoktur: Method doluysa HTTP'dir.
 type Detail struct {
-	Method         string   `json:"method"`
-	URL            string   `json:"url"`
+	Kind string `json:"kind,omitempty"` // monitör tipi (HTTP'de boş olabilir)
+	Diag *Diag  `json:"diag,omitempty"` // HTTP dışı tiplerin bağlantı tanısı
+
+	Method         string   `json:"method,omitempty"`
+	URL            string   `json:"url,omitempty"`
 	RequestHeaders []Header `json:"request_headers,omitempty"`
 
 	Status          int      `json:"status,omitempty"` // 0: yanıt alınamadı (bkz. Error)
@@ -62,6 +67,10 @@ type Detail struct {
 // Sanitize uzak kontrol noktasından gelen (güvenilmeyen) ayrıntıyı sınırlar:
 // geçersiz UTF-8 ve kontrol karakterleri temizlenir, metinler kırpılır.
 func (d *Detail) Sanitize() {
+	d.Kind = cleanKind(d.Kind)
+	if d.Diag != nil {
+		d.Diag.sanitize()
+	}
 	d.Method = cleanLine(d.Method, 16)
 	d.URL = cleanLine(d.URL, detailMaxURL)
 	d.FinalURL = cleanLine(d.FinalURL, detailMaxURL)
@@ -127,6 +136,9 @@ func MaskDetail(typ string, cfg json.RawMessage, d *Detail) {
 	}
 	if typ == "http" {
 		maskHTTPDetail(d, HTTPConfigOf(cfg))
+	}
+	if d.Diag != nil {
+		maskDiag(d.Diag, diagSecrets(cfg))
 	}
 }
 

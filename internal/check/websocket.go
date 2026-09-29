@@ -51,11 +51,16 @@ func (webSocketChecker) Target(raw json.RawMessage) string {
 
 func (webSocketChecker) CertExpiryEnabled(json.RawMessage) bool { return true }
 
-func (webSocketChecker) Check(ctx context.Context, raw json.RawMessage) Result {
+func (webSocketChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) {
 	var c WebSocketConfig
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return down("Ayar okunamadı: " + err.Error())
 	}
+	dg := newDiag("websocket", raw, redactedURL(c.URL))
+	if host, port := urlHostPort(c.URL, map[string]int{"ws": 80, "wss": 443}); host != "" {
+		dg.network(host, port, true)
+	}
+	defer dg.attach(ctx, &res)
 
 	hdrs, _ := parseHeaders(c.Headers)
 	header := http.Header{}
@@ -75,6 +80,7 @@ func (webSocketChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	start := time.Now()
 	conn, resp, err := websocket.Dial(ctx, c.URL, &websocket.DialOptions{HTTPClient: httpClient, HTTPHeader: header})
 	if err != nil {
+		dg.failWebSocket(ctx, err, resp)
 		return down(describeErr(ctx, err))
 	}
 	defer conn.CloseNow()
@@ -87,6 +93,7 @@ func (webSocketChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 
 	if c.Send != "" {
 		if err := conn.Write(ctx, websocket.MessageText, []byte(c.Send)); err != nil {
+			dg.fail(ctx, PhaseSend, err)
 			return Result{PingMs: ping, Message: "Mesaj gönderilemedi: " + describeErr(ctx, err), Cert: cert}
 		}
 	}
@@ -94,10 +101,12 @@ func (webSocketChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 	if c.Keyword != "" {
 		_, data, err := conn.Read(ctx)
 		if err != nil {
+			dg.fail(ctx, PhaseResponse, err)
 			return Result{PingMs: ping, Message: "Yanıt okunamadı: " + describeErr(ctx, err), Cert: cert}
 		}
 		ping = msSince(start)
 		if !strings.Contains(string(data), c.Keyword) {
+			dg.failClass(PhaseResponse, ClassMismatch)
 			return Result{PingMs: ping, Message: fmt.Sprintf("Kelime bulunamadı: %q", c.Keyword), Cert: cert}
 		}
 	}

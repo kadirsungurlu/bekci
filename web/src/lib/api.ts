@@ -257,7 +257,8 @@ export interface LocationSetup {
   down_when: DownWhen;
 }
 
-export type LocationState = 'up' | 'down' | 'retrying' | 'unknown';
+/** waiting: konum yeni eklendi, ilk sonucu henüz gelmedi (süresi dolunca unknown). */
+export type LocationState = 'up' | 'down' | 'retrying' | 'waiting' | 'unknown';
 
 export interface LocationStatus {
   probe_id: number;
@@ -401,10 +402,59 @@ export interface HttpHeader {
   value: string;
 }
 
-/** Başarısız HTTP kontrolünün isteği ve yanıtı (maskeli). */
+/** HTTP dışı tipin bağlantı denemesi (tek IP). */
+export interface ConnAttempt {
+  ip: string;
+  /** ok | refused | timeout | reset | unreachable | dns_error | tls_error | other */
+  result: string;
+  elapsed_ms: number;
+  error?: string;
+}
+
+/** HTTP dışı tipin başarısızlık tanısı (sunucu: check.Diag). Kodlar arayüzde çevrilir. */
+export interface ConnDiag {
+  target?: string;
+  port?: number;
+  resolved?: string[];
+  resolve_ms?: number;
+  resolve_error?: string;
+  attempts?: ConnAttempt[];
+  timeout_ms?: number;
+  elapsed_ms?: number;
+  phase?: string;
+  error_class?: string;
+  raw_error?: string;
+  banner?: string;
+  ping?: {
+    target: string;
+    sent: number;
+    received: number;
+    loss_pct: number;
+    min_ms?: number;
+    avg_ms?: number;
+    max_ms?: number;
+    /** unavailable (ICMP izni yok) | failed */
+    error?: string;
+    raw_error?: string;
+  };
+  dns?: {
+    server: string;
+    type: string;
+    query: string;
+    transport?: string;
+    rcode?: string;
+    answers?: string[];
+    elapsed_ms?: number;
+  };
+}
+
+/** Başarısız kontrolün ayrıntısı: HTTP isteği ve yanıtı ya da (diğer tiplerde) bağlantı tanısı (maskeli). */
 export interface CheckDetail {
-  method: string;
-  url: string;
+  /** Monitör tipi; eski HTTP kayıtlarında yok. */
+  kind?: string;
+  diag?: ConnDiag;
+  method?: string;
+  url?: string;
   request_headers?: HttpHeader[];
   status?: number;
   status_text?: string;
@@ -417,6 +467,12 @@ export interface CheckDetail {
   body_truncated?: boolean;
   body_binary?: boolean;
   error?: string;
+}
+
+export interface IncidentCapture {
+  time: number;
+  location: string;
+  detail: CheckDetail;
 }
 
 export interface IncidentLocation {
@@ -432,7 +488,9 @@ export interface IncidentDetail {
   location: string;
   locations: IncidentLocation[];
   events: IncidentEvent[];
-  capture: { time: number; location: string; detail: CheckDetail } | null;
+  capture: IncidentCapture | null;
+  /** Çok konumlu olayda çalışmayan her konumun kaydı (ilki = capture); eski sunucuda yok. */
+  captures?: IncidentCapture[];
   details: boolean;
 }
 
@@ -534,6 +592,24 @@ export interface StatusPage {
   has_logo: boolean;
   created_at: number;
   updated_at: number;
+}
+
+/** Liste ekranındaki sayfa özeti (GET /api/status-pages; eski sunucuda gelmez). */
+export interface PageSummary {
+  status: OverallStatus;
+  monitors: number;
+  down: number;
+  /** Sayfadaki monitörlerin yüzdelerinin ortalaması; veri yoksa null. */
+  uptime_24h: number | null;
+  uptime_30d: number | null;
+  sections: { title: string; statuses: PublicMonitorStatus[] }[];
+  /** Son 90 günün en yeni olayı (sayfadaki görünen adla). */
+  last_incident: { monitor: string; started_at: number; resolved_at: number } | null;
+  ongoing: number;
+}
+
+export interface StatusPageListItem extends StatusPage {
+  summary?: PageSummary;
 }
 
 export interface PageInput {
@@ -1020,7 +1096,7 @@ export const api = {
   revokeApiKey: (id: number) => del<{ ok: boolean }>(`/api/api-keys/${id}`),
 
   // Durum sayfaları
-  pages: () => get<StatusPage[]>('/api/status-pages'),
+  pages: () => get<StatusPageListItem[]>('/api/status-pages'),
   page: (id: number) => get<StatusPage>(`/api/status-pages/${id}`),
   createPage: (p: PageInput) => post<StatusPage>('/api/status-pages', p),
   updatePage: (id: number, p: PageInput) => put<StatusPage>(`/api/status-pages/${id}`, p),

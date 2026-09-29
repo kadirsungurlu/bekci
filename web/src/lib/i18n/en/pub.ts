@@ -59,4 +59,12 @@ export default {
   lasting: 'ongoing for {d}',
   lasted: 'lasted {d}',
   since: 'since {time}',
+  serviceCount: '{count} service|{count} services',
+  upWin: {
+    '24h': 'last 24 hours',
+    '90d': 'last 90 days',
+  },
+  startedAt: 'Started: {time}',
+  duration: 'Duration: {d}',
+  resolvedAt: 'Resolved: {time}',
 } satisfies Shape<typeof tr>;
