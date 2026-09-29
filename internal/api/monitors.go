@@ -491,6 +491,7 @@ func (s *Server) deleteMonitor(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
+	defer s.engine.JobsChanged() // silme yazıldıktan sonra: kontrol noktaları işi hemen bıraksın
 	s.engine.Remove(id)
 	if err := s.store.DeleteMonitor(r.Context(), id); err != nil {
 		s.dbError(w, err)
@@ -506,6 +507,7 @@ func (s *Server) pauseMonitor(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	defer s.engine.JobsChanged() // durdurma yazıldıktan sonra: kontrol noktaları işi hemen bıraksın
 	s.engine.Remove(id)
 	if err := s.store.SetMonitorActive(r.Context(), id, false); err != nil {
 		s.dbError(w, err)

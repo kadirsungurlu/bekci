@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -29,6 +30,15 @@ import (
 // Son sonucu 3 kontrol aralığından eski olan konum "bilinmiyor" sayılır ve
 // kurala katılmaz (DOWN sayılmaz). Hiçbir konumdan güncel sonuç yoksa monitör
 // PENDING olur.
+//
+// Yeni eklenen (veya runner yeniden başlatıldığında sonucu henüz gelmemiş)
+// konum, ilk sonucu için tanınan süre (locRules.grace) boyunca "ilk sonuç
+// bekleniyor" (waiting) sayılır: "sonuç gelmeyen" listesine girmez, kurala oy
+// vermez ama DOWN kararında hâlâ "çalışıyor" oyu verebilecek bir konum olarak
+// paydada kalır — yalnızca henüz oy vermemiş bir konum yüzünden DOWN denmez
+// (ör. "all" kuralında ana sunucu çalışmıyor, uzak konum bekleniyorsa monitör
+// DOWN değil "tekrar deneniyor" olur). Süre dolar da sonuç gelmezse konum
+// "bilinmiyor"a döner (eski davranış).
 //
 // Kayıt sıklığı: monitörün kendi zamanlayıcısında (aralık / tekrar deneme
 // aralığı) bir kayıt yazılır. Uzak bir sonuç genel durumu değiştiriyorsa
@@ -64,7 +74,7 @@ type ProbeResult struct {
 type LocationStatus struct {
 	ProbeID     int64  `json:"probe_id"` // 0: ana sunucu
 	Name        string `json:"name"`
-	Status      string `json:"status"` // up | down | retrying | unknown
+	Status      string `json:"status"` // up | down | retrying | waiting | unknown
 	LastCheckAt int64  `json:"last_check_at"`
 	PingMs      int64  `json:"ping_ms"`
 	Message     string `json:"message"`
@@ -73,6 +83,7 @@ type LocationStatus struct {
 type location struct {
 	probeID int64
 	name    string
+	added   time.Time // konumun bu runner'a eklendiği an (ilk sonuç süresi buradan sayılır)
 	have    bool
 	at      time.Time
 	res     check.Result  // ters mod uygulanmış
@@ -121,12 +132,13 @@ func (e *Engine) loadLocations(m store.Monitor) *locationSet {
 	if !setup.Configured() {
 		return nil
 	}
+	now := e.now()
 	ls := &locationSet{
 		downWhen: setup.DownWhen, byProbe: map[int64]*location{},
-		started: e.now(), wake: make(chan struct{}, 1),
+		started: now, wake: make(chan struct{}, 1),
 	}
 	if setup.IncludeLocal {
-		ls.local = &location{probeID: LocalProbeID, name: LocalName}
+		ls.local = &location{probeID: LocalProbeID, name: LocalName, added: now}
 		ls.locs = append(ls.locs, ls.local)
 	}
 	for _, id := range setup.ProbeIDs { // kimliğe göre sıralı
@@ -134,13 +146,77 @@ func (e *Engine) loadLocations(m store.Monitor) *locationSet {
 		if !ok || !p.Active {
 			continue
 		}
-		l := &location{probeID: id, name: p.Name}
+		l := &location{probeID: id, name: p.Name, added: now}
 		ls.locs = append(ls.locs, l)
 		ls.byProbe[id] = l
 	}
-	initial := ls.statuses(ls.started, 0, 0) // henüz sonuç yok: hepsi "bilinmiyor"
-	ls.snap.Store(&initial)
+	ls.publish(now, e.locRulesFor(m)) // henüz sonuç yok: hepsi "ilk sonuç bekleniyor"
 	return ls
+}
+
+// retiredLocs durdurulan runner'ın konum sonuçları (Engine.retired).
+type retiredLocs struct {
+	m    store.Monitor
+	locs *locationSet
+	at   time.Time
+}
+
+// retireKeep durdurulan runner'ın konum sonuçlarının yeni runner'a
+// aktarılabileceği en uzun ara. Düzenleme (Remove → kayıt → Reload), konum
+// ayarı ve kontrol noktası değişikliği bu sürede biter; durdurulup çok sonra
+// yeniden başlatılan monitöre sonuçlar aktarılmaz (baştan başlar).
+const retireKeep = 10 * time.Second
+
+// retire durdurulan (goroutine'i bitmiş) runner'ın konumlarını kısa süre saklar.
+func (e *Engine) retire(r *runner) {
+	if r.locs == nil {
+		return
+	}
+	now := e.now()
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for id, old := range e.retired {
+		if now.Sub(old.at) > retireKeep {
+			delete(e.retired, id)
+		}
+	}
+	e.retired[r.m.ID] = retiredLocs{m: r.m, locs: r.locs, at: now}
+}
+
+// adoptLocations yeniden başlatılan runner'a (düzenleme, konum ayarı veya
+// kontrol noktası değişikliği) eski runner'ın konum sonuçlarını aktarır: hâlâ
+// atanmış konumlar son sonuçlarını korur, yalnızca yeni eklenen konumlar "ilk
+// sonuç bekleniyor" olur. Kontrolün kendisi (tip, ayar, ters mod) değiştiyse
+// eski sonuçlar yeni hedefe ait değildir, aktarılmaz. Çağıran e.mu'yu tutar.
+func (e *Engine) adoptLocations(m store.Monitor, ls *locationSet) {
+	old, ok := e.retired[m.ID]
+	delete(e.retired, m.ID)
+	now := e.now()
+	if !ok || now.Sub(old.at) > retireKeep || old.m.Type != m.Type ||
+		old.m.UpsideDown != m.UpsideDown || !bytes.Equal(old.m.Config, m.Config) {
+		return
+	}
+	prev := make(map[int64]*location, len(old.locs.locs))
+	for _, l := range old.locs.locs {
+		prev[l.probeID] = l
+	}
+	for _, l := range ls.locs {
+		if p := prev[l.probeID]; p != nil {
+			l.added, l.have, l.at, l.res, l.fails, l.detail = p.added, p.have, p.at, p.res, p.fails, p.detail
+		}
+	}
+	// Eski runner'ın işlemediği uzak sonuçlar kaybolmasın.
+	old.locs.mu.Lock()
+	for _, it := range old.locs.inbox {
+		if ls.byProbe[it.probeID] != nil {
+			ls.inbox = append(ls.inbox, it)
+		}
+	}
+	old.locs.mu.Unlock()
+	if len(ls.inbox) > 0 {
+		ls.wake <- struct{}{} // kanal boş ve 1 kapasiteli: bloklamaz
+	}
+	ls.publish(now, e.locRulesFor(m))
 }
 
 // ProbeResults kontrol noktasının sonuçlarını ilgili runner'lara iletir ve
@@ -182,14 +258,46 @@ func (e *Engine) LocationStatuses(monitorID int64) ([]LocationStatus, bool) {
 		return nil, false
 	}
 	// Konum durumu runner goroutine'ine aittir; buradan yalnızca yayınlanmış
-	// kopyası okunur (loadLocations ilk kopyayı "bilinmiyor" olarak kurar).
+	// kopyası okunur (loadLocations ilk kopyayı "ilk sonuç bekleniyor" olarak kurar).
 	return *r.locs.snap.Load(), true
 }
 
-// staleAfter bu süreden eski konum sonucu "bilinmiyor" sayılır.
-func (r *runner) staleAfter() time.Duration {
-	return 3 * r.unit(max(r.m.Interval, r.m.RetryInterval))
+// locRules konum durumunu belirleyen süreler (monitör ayarından).
+type locRules struct {
+	staleAfter time.Duration // bu süreden eski sonuç "bilinmiyor"
+	grace      time.Duration // hiç sonuç vermemiş konum bu süre "ilk sonuç bekleniyor"
+	maxRetries int
 }
+
+// firstResultSlack ilk sonuç süresine eklenen pay (aralık birimi): ajanın
+// sonuç gönderme aralığı (5 sn) ve ağ gecikmesi.
+const firstResultSlack = 15
+
+// locRulesFor monitörün konum süreleri.
+//
+// İlk sonuç süresi (grace) en kötü durum için hesaplanır; iki sınırın büyüğüdür:
+//   - kontrol noktası işi yeni öğreniyorsa: iş listesini eski usulle en geç
+//     ProbePollAfter'da bir yoklar (uzun yoklamada ~1 sn), yeni işi en geç
+//     min(aralık, 10) sonra başlatır (eski ajanlar; yeniler ~1 sn), kontrol
+//     en fazla zaman aşımı kadar sürer, sonuç birkaç saniye içinde gönderilir:
+//     ProbePollAfter + min(aralık, 10) + zaman aşımı + 15;
+//   - işi zaten çalıştırıyorsa (runner yeniden başladı ama iş değişmedi, ör.
+//     sunucu güncellemesi): sıradaki planlı kontrol en geç bir aralık sonradır;
+//     staleAfter (3 aralık) kadar beklenir — eski başlangıç payıyla aynı.
+//
+// Uzun yoklama sayesinde yeni işte "bekleniyor" durumu pratikte birkaç saniye
+// sürer; bu süre yalnızca ajan çevrimdışıyken veya yavaşken dolar.
+func (e *Engine) locRulesFor(m store.Monitor) locRules {
+	u := func(n int) time.Duration { return time.Duration(n) * e.cfg.Unit }
+	stale := 3 * u(max(m.Interval, m.RetryInterval))
+	grace := max(stale, u(ProbePollAfter+min(m.Interval, 10)+m.Timeout+firstResultSlack))
+	return locRules{staleAfter: stale, grace: grace, maxRetries: m.MaxRetries}
+}
+
+func (r *runner) rules() locRules { return r.e.locRulesFor(r.m) }
+
+// staleAfter bu süreden eski konum sonucu "bilinmiyor" sayılır.
+func (r *runner) staleAfter() time.Duration { return r.rules().staleAfter }
 
 // drainInbox kuyruktaki uzak sonuçları konumlara uygular.
 func (r *runner) drainInbox() {
@@ -250,7 +358,7 @@ func (r *runner) locationTick(ctx context.Context) bool {
 	// Konum durumu kayıttan ÖNCE yayınlanır: veritabanında yeni genel durumu
 	// gören okuyucu (API) konumların eski ("bilinmiyor") halini görmesin.
 	r.publishSnapshot(now)
-	if !ls.anyData() && now.Sub(ls.started) < r.staleAfter() {
+	if !ls.anyData() && now.Sub(ls.started) < r.rules().grace {
 		// Başlangıçta kontrol noktalarına ilk sonuçları göndermeleri için süre
 		// tanınır; hemen "sonuç gelmiyor" yazılmaz.
 		return true
@@ -298,25 +406,28 @@ const (
 	locUp       = "up"
 	locDown     = "down"
 	locRetrying = "retrying"
+	locWaiting  = "waiting" // hiç sonuç vermedi, ilk sonuç süresi dolmadı
 	locUnknown  = "unknown"
 )
 
-func classify(l *location, now time.Time, staleAfter time.Duration, maxRetries int) string {
+func classify(l *location, now time.Time, rules locRules) string {
 	switch {
-	case !l.have || now.Sub(l.at) > staleAfter:
+	case !l.have && now.Sub(l.added) < rules.grace:
+		return locWaiting
+	case !l.have || now.Sub(l.at) > rules.staleAfter:
 		return locUnknown
 	case l.res.Up:
 		return locUp
-	case l.res.Pending || l.fails <= maxRetries:
+	case l.res.Pending || l.fails <= rules.maxRetries:
 		return locRetrying
 	}
 	return locDown
 }
 
-func (ls *locationSet) statuses(now time.Time, staleAfter time.Duration, maxRetries int) []LocationStatus {
+func (ls *locationSet) statuses(now time.Time, rules locRules) []LocationStatus {
 	out := make([]LocationStatus, len(ls.locs))
 	for i, l := range ls.locs {
-		st := LocationStatus{ProbeID: l.probeID, Name: l.name, Status: classify(l, now, staleAfter, maxRetries), PingMs: -1}
+		st := LocationStatus{ProbeID: l.probeID, Name: l.name, Status: classify(l, now, rules), PingMs: -1}
 		if l.have {
 			st.LastCheckAt, st.PingMs, st.Message = l.at.Unix(), l.res.PingMs, l.res.Message
 		}
@@ -325,33 +436,61 @@ func (ls *locationSet) statuses(now time.Time, staleAfter time.Duration, maxRetr
 	return out
 }
 
+// publish konum durumlarının kopyasını okuyucular için yayınlar; önceki
+// kopyaya göre bir konumun durumu değiştiyse true döner.
+func (ls *locationSet) publish(now time.Time, rules locRules) bool {
+	st := ls.statuses(now, rules)
+	prev := ls.snap.Swap(&st)
+	if prev == nil || len(*prev) != len(st) {
+		return true
+	}
+	for i := range st {
+		if (*prev)[i].Status != st[i].Status {
+			return true
+		}
+	}
+	return false
+}
+
+// publishSnapshot konum durumlarını yayınlar. Bir konumun durumu değiştiyse
+// (ör. ilk sonucu geldi) canlı akışa "locations" olayı gider: genel durum
+// değişmese de (kayıt yazılmasa da) arayüz konum listesini hemen yeniler.
 func (r *runner) publishSnapshot(now time.Time) {
-	st := r.locs.statuses(now, r.staleAfter(), r.m.MaxRetries)
-	r.locs.snap.Store(&st)
+	if r.locs.publish(now, r.rules()) {
+		r.e.hub.Publish("locations", map[string]any{"monitor_id": r.m.ID})
+	}
 }
 
 // aggregate konum sonuçlarını kesinti kuralına göre tek sonuca indirir.
 func (r *runner) aggregate(now time.Time) check.Result {
-	return aggregateLocations(r.locs.locs, r.locs.downWhen, now, r.staleAfter(), r.m.MaxRetries)
+	return aggregateLocations(r.locs.locs, r.locs.downWhen, now, r.rules())
 }
 
 // aggregateLocations genel sonucu hesaplar:
 //   - güncel sonucu olmayan konumlar sayılmaz; hiç yoksa PENDING,
 //   - kural sağlanıyorsa (any: en az biri, majority: yarıdan fazlası, all:
-//     hepsi çalışmıyor) DOWN,
-//   - tekrar denenen konumlar da çalışmıyor sayılınca kural sağlanıyorsa
-//     PENDING (tekrar deneniyor),
+//     hepsi çalışmıyor) DOWN; ilk sonucu beklenen konumlar bu kararda
+//     paydaya girer (henüz "çalışıyor" oyu verebilirler),
+//   - kural yalnızca oy vermiş konumlarla sağlanıyorsa ya da tekrar denenen
+//     konumlar da çalışmıyor sayılınca sağlanıyorsa PENDING (tekrar deneniyor),
 //   - aksi halde UP.
+//
+// "Sonuç gelmeyen" listesinde yalnızca süresi dolmuş (bilinmiyor) konumlar
+// vardır; ilk sonucu beklenenler mesajda yer almaz.
 //
 // Ping, çalışan konumların ortalamasıdır; SSL bilgisi ilk (ana sunucu önce)
 // güncel konumdan alınır.
-func aggregateLocations(locs []*location, downWhen string, now time.Time, staleAfter time.Duration, maxRetries int) check.Result {
+func aggregateLocations(locs []*location, downWhen string, now time.Time, rules locRules) check.Result {
 	var failing, stale []string
 	var up []*location
-	var n, down, retrying int
+	var n, down, retrying, waiting int
 	var cert *check.CertInfo
 	for _, l := range locs {
-		st := classify(l, now, staleAfter, maxRetries)
+		st := classify(l, now, rules)
+		if st == locWaiting {
+			waiting++
+			continue
+		}
 		if st == locUnknown {
 			stale = append(stale, l.name)
 			continue
@@ -378,19 +517,19 @@ func aggregateLocations(locs []*location, downWhen string, now time.Time, staleA
 	if len(stale) > 0 {
 		suffix = " (sonuç gelmeyen: " + nameList(stale) + ")"
 	}
-	quorum := func(d int) bool {
+	quorum := func(d, of int) bool {
 		switch downWhen {
 		case store.DownWhenMajority:
-			return d > n/2
+			return d > of/2
 		case store.DownWhenAll:
-			return d == n
+			return d == of
 		}
 		return d >= 1
 	}
 	switch {
-	case quorum(down):
+	case quorum(down, n+waiting):
 		return check.Result{PingMs: -1, Message: strings.Join(failing, "; ") + suffix, Cert: cert}
-	case quorum(down + retrying):
+	case quorum(down+retrying, n):
 		return check.Result{Pending: true, PingMs: -1, Message: strings.Join(failing, "; ") + suffix, Cert: cert}
 	}
 	var sum, cnt int64

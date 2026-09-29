@@ -501,6 +501,9 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
+	// Etkinlik ve metrik ayarı ajanın iş listesi yanıtını etkiler: bekleyen
+	// uzun yoklama değişiklikten sonra hemen yanıtlanır.
+	defer s.engine.JobsChanged()
 	var in struct {
 		Name    string `json:"name"`
 		Active  *bool  `json:"active"`
@@ -617,6 +620,8 @@ func (s *Server) deleteProbe(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
+	s.probePolls.forget(id)
+	s.engine.JobsChanged() // bekleyen isteği yanıtlanır (401): ajan hemen durur
 	s.reloadProbeMonitors(r.Context(), id, affected)
 	s.servers.Forget(id)
 	s.log.Info("kontrol noktası silindi", "kontrol_noktasi", p.Name)
@@ -638,6 +643,7 @@ func (s *Server) regenerateProbeToken(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
+	s.engine.JobsChanged() // eski token'la bekleyen istek hemen 401 alır
 	p, err := s.store.GetProbe(r.Context(), id)
 	if err != nil {
 		s.dbError(w, err)
@@ -817,13 +823,157 @@ func (s *Server) assignedJobs(ctx context.Context, probeID int64) ([]store.Monit
 	return slices.DeleteFunc(list, func(m store.Monitor) bool { return !engine.RemoteCapable(m.Type) }), nil
 }
 
+// Uzun yoklama (long-poll) ------------------------------------------------------------
+//
+// Ajan iş listesini GET /api/probe/jobs ile alır. Elindeki liste güncelse istek
+// en fazla probeHold bekletilir; bu sırada iş listesini etkileyen bir
+// değişiklik olursa (engine.JobsChanged: monitör ekleme/düzenleme/durdurma,
+// konum ayarı, ajan ayarı) hemen yanıtlanır. Yanıttaki poll_after 1'dir: ajan
+// yanıtı alınca 1 sn sonra yeniden sorar ve yine bekletilir. Böylece yeni monitör
+// ajana ~1 sn içinde ulaşır, boşta ajan dakikada ~3 istek atar.
+//
+// "Liste güncel mi?" sorusu:
+//   - yeni ajanlar ?since=<son aldığı sürüm> gönderir: sürüm güncelse beklet,
+//     değilse (veya sunucu yeniden başladıysa) hemen yanıtla;
+//   - eski ajanlar (sürüm göndermez, kurulu sürümleri sabit) için sunucu, ajana
+//     en son hangi sürümü verdiğini bellekte tutar (probePolls). Son teslimden
+//     sonra değişiklik yoksa ve önceki istek probeFreshFor içindeyse bekletilir;
+//     aksi halde (ilk istek, uzun ara — ör. ajan yeniden başladı) hemen yanıtlanır.
+//     Hızlı yeniden başlayan eski ajanın ilk isteği en fazla probeHold bekler
+//     (eskiden 30 sn'lik yoklama aralığından kısa).
+//
+// Bekletilen istek kimlik doğrulaması, IP kilidi ve istek sınırından (probeOnly)
+// geçmiştir ve sınıra bir kez sayılır. Uyanınca kontrol noktası yeniden okunur:
+// bu sırada devre dışı bırakılan/silinen/token'ı yenilenen ajana liste
+// verilmez. Kapanışta istek context'i iptal olur (BaseContext): bekleme hemen
+// biter, güncel liste verilir.
+
+const (
+	// probeHold bekletme süresi: ajanın HTTP zaman aşımından (30 sn), sunucunun
+	// okuma (30 sn) / yazma (60 sn) sınırından, Cloudflare'in 100 sn'sinden ve
+	// çevrimdışı sayılma süresinden (engine.ProbeOfflineAfter, 90 sn) epey kısa.
+	probeHold = 20 * time.Second
+	// probeFreshFor eski ajanın önceki iş listesi isteği bundan eskiyse elindeki
+	// liste bilinmiyor sayılır (yeniden başlamış olabilir), hemen yanıtlanır.
+	probeFreshFor = 60 * time.Second
+	// probeCoalesce uyandıran değişiklikten sonra kısa bekleme: art arda gelen
+	// değişiklikler (toplu işlem, içe aktarma) tek yanıtta birleşir.
+	probeCoalesce = 250 * time.Millisecond
+	// probeLongPollAfter uzun yoklamada ajanın bir sonraki isteğe kadar beklemesi
+	// (sn). Eski ajanlar 0 veya eksik değeri 30 sayar; 1 güvenlidir.
+	probeLongPollAfter = 1
+)
+
+// probePolls ajan başına son teslim edilen iş listesi sürümü ve zamanı (yalnızca
+// bellekte; sunucu yeniden başlayınca boşalır, ilk istekler hemen yanıtlanır).
+type probePolls struct {
+	mu sync.Mutex
+	m  map[int64]probePollMark
+}
+
+type probePollMark struct {
+	version int64
+	at      time.Time
+}
+
+func newProbePolls() *probePolls { return &probePolls{m: map[int64]probePollMark{}} }
+
+func (pp *probePolls) get(id int64) (probePollMark, bool) {
+	pp.mu.Lock()
+	defer pp.mu.Unlock()
+	m, ok := pp.m[id]
+	return m, ok
+}
+
+func (pp *probePolls) set(id, version int64, at time.Time) {
+	pp.mu.Lock()
+	pp.m[id] = probePollMark{version, at}
+	pp.mu.Unlock()
+}
+
+func (pp *probePolls) forget(id int64) {
+	pp.mu.Lock()
+	delete(pp.m, id)
+	pp.mu.Unlock()
+}
+
+// shouldHold ajanın elindeki iş listesi güncel mi (istek bekletilebilir mi)?
+func (s *Server) shouldHold(r *http.Request, probeID, version int64, now time.Time) bool {
+	if v := r.URL.Query().Get("since"); v != "" {
+		since, err := strconv.ParseInt(v, 10, 64)
+		return err == nil && since == version
+	}
+	mark, ok := s.probePolls.get(probeID)
+	return ok && mark.version == version && now.Sub(mark.at) <= probeFreshFor
+}
+
+// holdJobs değişiklik, süre dolması veya iptal olana kadar bekler. Beklemeden
+// sonra ajan hâlâ geçerliyse güncel kaydını döner; değilse yanıtı yazar ve
+// ok=false döner.
+func (s *Server) holdJobs(w http.ResponseWriter, r *http.Request, p store.Probe, changed <-chan struct{}) (store.Probe, bool) {
+	hold := s.probeHold
+	if hold <= 0 {
+		hold = probeHold
+	}
+	// Bekleme sunucunun genel okuma/yazma sınırlarına takılmasın (okuma sınırı
+	// dolunca net/http isteğin context'ini iptal eder). Desteklenmezse (testte
+	// ResponseRecorder) yok sayılır; probeHold bu sınırlardan zaten kısa.
+	rc := http.NewResponseController(w)
+	rc.SetReadDeadline(time.Now().Add(hold + 30*time.Second))
+	rc.SetWriteDeadline(time.Now().Add(hold + 30*time.Second))
+	t := time.NewTimer(hold)
+	defer t.Stop()
+	select {
+	case <-changed:
+		// Art arda gelen değişiklikler tek yanıtta birleşsin.
+		select {
+		case <-time.After(probeCoalesce):
+		case <-r.Context().Done():
+		}
+	case <-t.C:
+	case <-r.Context().Done():
+	}
+	// İptal (ajan bağlantıyı kapattı veya sunucu kapanıyor): kısa süreli ayrı
+	// bir context ile yanıtlanır; bağlantı kapandıysa yazma sessizce başarısız olur.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
+	defer cancel()
+	cur, err := s.store.GetProbe(ctx, p.ID)
+	switch {
+	case errors.Is(err, store.ErrNotFound) || (err == nil && cur.Hash != p.Hash):
+		writeError(w, http.StatusUnauthorized, "Geçersiz kontrol noktası token'ı")
+		return p, false
+	case err != nil:
+		s.dbError(w, err)
+		return p, false
+	case !cur.Active:
+		writeError(w, http.StatusForbidden, "Kontrol noktası devre dışı")
+		return p, false
+	}
+	return cur, true
+}
+
 func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 	p := probeFrom(r)
+	// Sürüm listeden ÖNCE okunur: okuma sırasında gelen değişiklik kaçmaz.
+	version, changed := s.engine.JobsVersion()
+	if s.shouldHold(r, p.ID, version, s.now()) {
+		var ok bool
+		if p, ok = s.holdJobs(w, r, p, changed); !ok {
+			return
+		}
+		version, _ = s.engine.JobsVersion()
+	}
+	ctx := r.Context()
+	if ctx.Err() != nil {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+	}
 	// Sunucu ajanı monitör kontrolü yapmaz (konum olarak atanamaz).
 	var list []store.Monitor
 	if p.Kind == store.ProbeKindLocation {
 		var err error
-		if list, err = s.assignedJobs(r.Context(), p.ID); err != nil {
+		if list, err = s.assignedJobs(ctx, p.ID); err != nil {
 			s.dbError(w, err)
 			return
 		}
@@ -833,10 +983,13 @@ func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 		jobs[i] = probeJob{ID: m.ID, Name: m.Name, Type: m.Type, Interval: m.Interval,
 			RetryInterval: m.RetryInterval, Timeout: m.Timeout, Config: m.Config}
 	}
+	s.probePolls.set(p.ID, version, s.now())
 	writeJSON(w, http.StatusOK, map[string]any{
 		"probe":      map[string]any{"id": p.ID, "name": p.Name},
-		"poll_after": engine.ProbePollAfter,
-		"jobs":       jobs,
+		"poll_after": probeLongPollAfter,
+		// Listenin sürümü: yeni ajanlar sonraki istekte ?since= ile geri gönderir.
+		"version": version,
+		"jobs":    jobs,
 		// Sunucu metriklerinin örnek aralığı (sn); 0: metrik gönderme.
 		"metrics_interval": servers.IntervalFor(p),
 	})

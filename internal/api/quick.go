@@ -177,6 +177,9 @@ func (s *Server) bulkMonitors(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res := bulkResult{Monitors: []monitorView{}, Deleted: []int64{}}
+	// Durdurma/silme veritabanına Remove'dan sonra yazılır: kontrol noktaları
+	// değişikliği hemen alsın (uzun yoklama; probes.go).
+	defer s.engine.JobsChanged()
 	const detail = "toplu işlem"
 	switch in.Action {
 	case "pause":

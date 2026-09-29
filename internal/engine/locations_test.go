@@ -72,7 +72,7 @@ func TestAggregateLocations(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := aggregateLocations(c.locs, c.downWhen, now, stale, retries)
+			got := aggregateLocations(c.locs, c.downWhen, now, locRules{staleAfter: stale, grace: stale, maxRetries: retries})
 			if got.Up != c.want.up || got.Pending != c.want.pending || got.Message != c.want.msg {
 				t.Fatalf("sonuç %+v; up=%v pending=%v %q bekleniyordu", got, c.want.up, c.want.pending, c.want.msg)
 			}

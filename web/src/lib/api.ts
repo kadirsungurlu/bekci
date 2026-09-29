@@ -236,7 +236,8 @@ export interface LocationSetup {
   down_when: DownWhen;
 }
 
-export type LocationState = 'up' | 'down' | 'retrying' | 'unknown';
+/** waiting: konum yeni eklendi, ilk sonucu henüz gelmedi (süresi dolunca unknown). */
+export type LocationState = 'up' | 'down' | 'retrying' | 'waiting' | 'unknown';
 
 export interface LocationStatus {
   probe_id: number;

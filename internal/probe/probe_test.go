@@ -29,6 +29,8 @@ type fakeServer struct {
 	samples   []metrics.Sample
 	metAuth   []string
 	retry     string // sonuç reddinde gönderilen Retry-After
+	version   int64  // iş listesi sürümü; 0: alan gönderilmez (eski sunucu)
+	sinces    []string
 	srv       *httptest.Server
 }
 
@@ -45,8 +47,12 @@ func newFakeServer(t *testing.T) *fakeServer {
 		f.versions = append(f.versions, r.Header.Get("X-Probe-Version"))
 		switch r.URL.Path {
 		case "/api/probe/jobs":
+			f.sinces = append(f.sinces, r.URL.Query().Get("since"))
 			w.WriteHeader(f.jobsCode)
 			resp := map[string]any{"poll_after": 5, "jobs": f.jobs}
+			if f.version != 0 {
+				resp["version"] = f.version
+			}
 			if f.metricsIv >= 0 {
 				resp["metrics_interval"] = f.metricsIv
 			}
