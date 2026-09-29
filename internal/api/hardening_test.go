@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -124,9 +125,17 @@ func TestEventStreamCap(t *testing.T) {
 			t.Fatalf("%d. canlı bağlantı: %d, 200 bekleniyordu", i+1, code)
 		}
 	}
-	// Sınırın üstündeki bağlantı reddedilir.
-	if code := open(); code != 429 {
-		t.Fatalf("sınır üstü canlı bağlantı: %d, 429 bekleniyordu", code)
+	// Sınırın üstündeki bağlantı kabul edilir; kullanıcının en eski akışı
+	// sunucu tarafından kapatılır (kapanan sekmeler yeni sekmeyi engellemesin).
+	if code := open(); code != 200 {
+		t.Fatalf("sınır üstü canlı bağlantı: %d, 200 bekleniyordu", code)
+	}
+	done := make(chan error, 1)
+	go func() { _, err := io.Copy(io.Discard, bodies[0].Body); done <- err }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("en eski canlı bağlantı kapatılmadı")
 	}
 }
 
