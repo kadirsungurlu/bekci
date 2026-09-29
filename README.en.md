@@ -21,7 +21,7 @@
 
 </div>
 
-**Bekci** (Turkish for "night watchman") is a monitoring system written in Go with an interface as simple as UptimeRobot's:
+**Bekci** (Turkish for "night watchman") is a monitoring system written in Go with a simple interface:
 uptime checks for websites and services (the Uptime Kuma feature set) and
 resource tracking for servers (similar to Beszel). One Docker image, SQLite or
 PostgreSQL; designed to stay fast with hundreds of monitors.
