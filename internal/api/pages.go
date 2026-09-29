@@ -5,6 +5,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -47,6 +48,7 @@ func init() {
 		mux.Handle("PUT /api/status-pages/{id}", s.editor(s.updatePage))
 		mux.Handle("DELETE /api/status-pages/{id}", s.editor(s.deletePage))
 		mux.Handle("GET /api/status-pages/{id}/preview", s.editor(s.previewPage))
+		mux.Handle("POST /api/status-pages/preview-data", s.editor(s.previewData))
 		mux.Handle("GET /api/status-pages/{id}/logo", s.editor(s.getPageLogo))
 		mux.Handle("PUT /api/status-pages/{id}/logo", s.editor(s.putPageLogo))
 		mux.Handle("DELETE /api/status-pages/{id}/logo", s.editor(s.deletePageLogo))
@@ -190,8 +192,44 @@ type pageInput struct {
 	Collapsible *bool `json:"collapsible"`
 	// Lang: herkese açık sayfanın dili (tr | en); yok = değişmez (yeni sayfada tr).
 	Lang *string `json:"lang"`
+	// Layout: yerleşim, genişlik, bölüm sırası/görünürlüğü; yok/null = değişmez.
+	// Bilinmeyen değerler varsayılana çekilir (hata değildir). Olaylar
+	// bölümünün görünürlüğü show_incidents ile aynı alandır: ikisi birden
+	// gönderilirse show_incidents geçerlidir.
+	Layout json.RawMessage `json:"layout"`
 	// Password: yok/null = değişmez, "" = kaldır, dolu = yeni şifre.
 	Password *string `json:"password"`
+}
+
+// layoutInput dizilim girdisinin gevşek biçimi: bilinmeyen alanlar yok sayılır.
+type layoutInput struct {
+	Style  string `json:"style"`
+	Width  string `json:"width"`
+	Blocks []struct {
+		ID      string `json:"id"`
+		Visible *bool  `json:"visible"`
+	} `json:"blocks"`
+}
+
+// parseLayout dizilim girdisini çözer. null veya boş ise ok=false (değişmez).
+// incidents: girdide olaylar bölümü varsa görünürlüğü.
+func parseLayout(raw json.RawMessage) (l store.PageLayout, incidents *bool, ok bool, err error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return l, nil, false, nil
+	}
+	var in layoutInput
+	if err := json.Unmarshal(raw, &in); err != nil {
+		return l, nil, false, badInput("Sayfa dizilimi geçersiz")
+	}
+	l.Style, l.Width = in.Style, in.Width
+	for _, b := range in.Blocks {
+		vis := b.Visible == nil || *b.Visible
+		if b.ID == store.BlockIncidents && incidents == nil {
+			incidents = &vis
+		}
+		l.Blocks = append(l.Blocks, store.PageBlock{ID: b.ID, Visible: vis})
+	}
+	return l, incidents, true, nil
 }
 
 // inputError kullanıcıya gösterilecek doğrulama hatası (400 veya 409).
@@ -350,9 +388,20 @@ func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.St
 		}
 		p.BarRange = *in.BarRange
 	}
-	if in.ShowIncidents != nil {
-		p.ShowIncidents = *in.ShowIncidents
+	layout, layoutIncidents, hasLayout, err := parseLayout(in.Layout)
+	if err != nil {
+		return p, err
 	}
+	switch {
+	case in.ShowIncidents != nil:
+		p.ShowIncidents = *in.ShowIncidents
+	case layoutIncidents != nil:
+		p.ShowIncidents = *layoutIncidents
+	}
+	if hasLayout {
+		p.Layout = layout
+	}
+	p.Layout = store.NormalizeLayout(p.Layout, p.ShowIncidents)
 	if in.Collapsible != nil {
 		p.Collapsible = *in.Collapsible
 	}
@@ -721,6 +770,88 @@ func (s *Server) previewPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Write(data)
+}
+
+// previewDataInput düzenleyicideki canlı önizlemenin veri isteği: kaydedilmemiş
+// monitör listesi ve çubuk ayarı.
+type previewDataInput struct {
+	PageID      int64   `json:"page_id"` // 0: yeni sayfa (duyuru yok)
+	MonitorIDs  []int64 `json:"monitor_ids"`
+	BarRange    string  `json:"bar_range"` // bilinmeyen: recent
+	ShowTargets bool    `json:"show_targets"`
+}
+
+type previewIncident struct {
+	MonitorID  int64 `json:"monitor_id"`
+	StartedAt  int64 `json:"started_at"`
+	ResolvedAt int64 `json:"resolved_at"`
+}
+
+// previewDataView monitör kimliğine göre herkese açık veriler (yalnızca
+// editörlere; kimlikler düzenleyicinin gruplarıyla eşlemek için).
+type previewDataView struct {
+	Range         string                  `json:"range"`
+	UptimeWindow  string                  `json:"uptime_window"`
+	UpdatedAt     int64                   `json:"updated_at"`
+	Monitors      map[int64]publicMonitor `json:"monitors"`
+	Incidents     []previewIncident       `json:"incidents"`
+	Announcements []publicAnnouncement    `json:"announcements"`
+}
+
+// previewData düzenleyicideki canlı önizleme için monitör verileri: sayfa
+// kaydedilmeden, istemcideki ayarlarla herkese açık sayfa çizilir. Genel
+// durum, grup düzeni ve dizilim istemcide hesaplanır.
+func (s *Server) previewData(w http.ResponseWriter, r *http.Request) {
+	var in previewDataInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	ctx := r.Context()
+	seen := map[int64]bool{}
+	ids := make([]int64, 0, len(in.MonitorIDs))
+	for _, id := range in.MonitorIDs {
+		if id > 0 && !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) > maxPageMonitors {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("Bir sayfada en fazla %d monitör olabilir", maxPageMonitors))
+		return
+	}
+	if !store.ValidBarRange(in.BarRange) {
+		in.BarRange = store.BarRangeRecent
+	}
+	now := s.now().Unix()
+	view := previewDataView{Incidents: []previewIncident{}, Announcements: []publicAnnouncement{}}
+	if in.PageID > 0 {
+		if _, err := s.store.GetPage(ctx, in.PageID); err != nil {
+			s.dbError(w, err)
+			return
+		}
+		anns, err := s.store.ActiveAnnouncements(ctx, in.PageID, now)
+		if err != nil {
+			s.dbError(w, err)
+			return
+		}
+		view.Announcements = toPublicAnnouncements(anns)
+	}
+	data, err := s.publicMonitorData(ctx, ids, in.BarRange, in.ShowTargets, now)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	view.Range, view.UptimeWindow, view.UpdatedAt, view.Monitors = data.barRange, data.window, now, data.pub
+	incs, err := s.store.IncidentsFor(ctx, ids, now-publicIncidentWindow, publicIncidentLimit)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	for _, in := range incs {
+		view.Incidents = append(view.Incidents, previewIncident{MonitorID: in.MonitorID, StartedAt: in.StartedAt, ResolvedAt: in.ResolvedAt})
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, view)
 }
 
 // Logo ------------------------------------------------------------------------------

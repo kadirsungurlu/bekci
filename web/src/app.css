@@ -1020,10 +1020,11 @@ input[type='search'].input::-webkit-search-decoration {
   }
 }
 
-/* Herkese açık durum sayfası: müşteriye dönük olduğu için sistem temasını izler.
-   Koyu tercihte yönetim panelinin lacivert tonları kullanılır; açık tercihte
-   (veya tercih yoksa) aşağıdaki açık tonlar. */
-:root.public {
+/* Herkese açık durum sayfası: müşteriye dönük olduğu için sistem temasını izler
+   (PublicStatus sayfanın köküne .pub-light koyar; düzenleyicideki canlı önizleme
+   temayı kendisi seçer). Koyu temada yönetim panelinin lacivert tonları ve
+   aşağıdaki --pub-* değerleri kullanılır; açık temada .pub-light tonları. */
+:root {
   --pub-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.18);
   --pub-hero-up: linear-gradient(135deg, #0f3a2a, #0f2a3a);
   --pub-hero-partial: linear-gradient(135deg, #3d2e0c, #2a2413);
@@ -1033,72 +1034,77 @@ input[type='search'].input::-webkit-search-decoration {
   --pub-hero-sub: rgba(243, 246, 251, 0.78);
   --pub-hero-ic: rgba(255, 255, 255, 0.16);
 }
+.pub-light {
+  color-scheme: light;
+  --bg: #f4f6fa;
+  --bg-elev: #ffffff;
+  --card: #ffffff;
+  --card-2: #f1f4f9;
+  --card-hover: #f7f9fc;
+  --input: #ffffff;
+  --border: #e3e8ef;
+  --border-strong: #cfd7e3;
+  --border-hover: #aab6c8;
+  --text: #0f1b2d;
+  --text-2: #3f4d63;
+  --muted: #5f6b7e;
+  --placeholder: #8a95a8;
+
+  --up: #16a34a;
+  --up-soft: rgba(22, 163, 74, 0.1);
+  --up-text: #166534;
+  --up-border: rgba(22, 163, 74, 0.35);
+  --down: #dc2626;
+  --down-soft: rgba(220, 38, 38, 0.09);
+  --down-text: #991b1b;
+  --down-text-2: #b91c1c;
+  --down-border: rgba(220, 38, 38, 0.35);
+  --pending: #d97706;
+  --pending-soft: rgba(217, 119, 6, 0.1);
+  --pending-text: #92400e;
+  --pending-border: rgba(217, 119, 6, 0.35);
+  --paused: #6b7280;
+  --paused-soft: rgba(107, 114, 128, 0.12);
+  --paused-text: #4b5563;
+  --maint: #1d7fd6;
+  --maint-soft: rgba(29, 127, 214, 0.1);
+  --maint-text: #135a9a;
+  --maint-border: rgba(29, 127, 214, 0.35);
+  --empty-bar: #dfe4ec;
+
+  --accent: #0d9488;
+  --accent-hover: #0f766e;
+  --accent-soft: rgba(13, 148, 136, 0.1);
+  --accent-border: rgba(13, 148, 136, 0.35);
+  --accent-text: #0f766e;
+  --accent-text-soft: #115e59;
+  --accent-contrast: #ffffff;
+
+  --chart-1: #0d9488;
+  --chart-2: #e0661f;
+  --chart-3: #2a78d6;
+  --chart-4: #c98500;
+  --chart-5: #d6457f;
+  --meter-track: #e6ebf2;
+
+  --tip-bg: #0f1b2d;
+  --tip-text: #f3f6fb; /* ipucu zemini açık temada da koyu */
+  --tip-text-2: #b9c3d3;
+  --shadow: 0 8px 30px rgba(15, 27, 45, 0.12);
+  --pub-shadow: 0 1px 2px rgba(15, 27, 45, 0.05), 0 6px 20px rgba(15, 27, 45, 0.06);
+  --pub-hero-up: linear-gradient(135deg, #16a34a, #0d9488);
+  --pub-hero-partial: linear-gradient(135deg, #d97706, #b45309);
+  --pub-hero-down: linear-gradient(135deg, #dc2626, #b91c1c);
+  --pub-hero-unknown: linear-gradient(135deg, #64748b, #475569);
+  --pub-hero-text: #ffffff;
+  --pub-hero-sub: rgba(255, 255, 255, 0.85);
+  --pub-hero-ic: rgba(255, 255, 255, 0.22);
+}
 @media (prefers-color-scheme: light) {
+  /* Sayfa kökü (kaydırma taşmasında görünen zemin, kaydırma çubukları). */
   :root.public {
     color-scheme: light;
     --bg: #f4f6fa;
-    --bg-elev: #ffffff;
-    --card: #ffffff;
-    --card-2: #f1f4f9;
-    --card-hover: #f7f9fc;
-    --input: #ffffff;
-    --border: #e3e8ef;
-    --border-strong: #cfd7e3;
-    --border-hover: #aab6c8;
-    --text: #0f1b2d;
-    --text-2: #3f4d63;
-    --muted: #5f6b7e;
-    --placeholder: #8a95a8;
-
-    --up: #16a34a;
-    --up-soft: rgba(22, 163, 74, 0.1);
-    --up-text: #166534;
-    --up-border: rgba(22, 163, 74, 0.35);
-    --down: #dc2626;
-    --down-soft: rgba(220, 38, 38, 0.09);
-    --down-text: #991b1b;
-    --down-text-2: #b91c1c;
-    --down-border: rgba(220, 38, 38, 0.35);
-    --pending: #d97706;
-    --pending-soft: rgba(217, 119, 6, 0.1);
-    --pending-text: #92400e;
-    --pending-border: rgba(217, 119, 6, 0.35);
-    --paused: #6b7280;
-    --paused-soft: rgba(107, 114, 128, 0.12);
-    --paused-text: #4b5563;
-    --maint: #1d7fd6;
-    --maint-soft: rgba(29, 127, 214, 0.1);
-    --maint-text: #135a9a;
-    --maint-border: rgba(29, 127, 214, 0.35);
-    --empty-bar: #dfe4ec;
-
-    --accent: #0d9488;
-    --accent-hover: #0f766e;
-    --accent-soft: rgba(13, 148, 136, 0.1);
-    --accent-border: rgba(13, 148, 136, 0.35);
-    --accent-text: #0f766e;
-    --accent-text-soft: #115e59;
-    --accent-contrast: #ffffff;
-
-    --chart-1: #0d9488;
-    --chart-2: #e0661f;
-    --chart-3: #2a78d6;
-    --chart-4: #c98500;
-    --chart-5: #d6457f;
-    --meter-track: #e6ebf2;
-
-    --tip-bg: #0f1b2d;
-    --tip-text: #f3f6fb; /* ipucu zemini açık temada da koyu */
-    --tip-text-2: #b9c3d3;
-    --shadow: 0 8px 30px rgba(15, 27, 45, 0.12);
-    --pub-shadow: 0 1px 2px rgba(15, 27, 45, 0.05), 0 6px 20px rgba(15, 27, 45, 0.06);
-    --pub-hero-up: linear-gradient(135deg, #16a34a, #0d9488);
-    --pub-hero-partial: linear-gradient(135deg, #d97706, #b45309);
-    --pub-hero-down: linear-gradient(135deg, #dc2626, #b91c1c);
-    --pub-hero-unknown: linear-gradient(135deg, #64748b, #475569);
-    --pub-hero-text: #ffffff;
-    --pub-hero-sub: rgba(255, 255, 255, 0.85);
-    --pub-hero-ic: rgba(255, 255, 255, 0.22);
   }
   /* İpucu kutusu açık temada da koyu kalır; metni açık olmalı. */
   :root.public .tip {

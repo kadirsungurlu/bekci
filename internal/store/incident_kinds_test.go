@@ -7,47 +7,13 @@ import (
 	"time"
 )
 
-// hideMigrationsFrom v ve sonraki migration'ları geçici olarak kaldırır (eski
-// sürümün veritabanını kurmak için); dönen fonksiyon (ve test sonu) geri koyar.
-func hideMigrationsFrom(t *testing.T, v int) func() {
-	t.Helper()
-	saved, savedPG := map[int]string{}, map[int]string{}
-	for k, ddl := range migrations {
-		if k >= v {
-			saved[k] = ddl
-			delete(migrations, k)
-		}
-	}
-	for k, ddl := range pgMigrations {
-		if k >= v {
-			savedPG[k] = ddl
-			delete(pgMigrations, k)
-		}
-	}
-	restored := false
-	restore := func() {
-		if restored {
-			return
-		}
-		restored = true
-		for k, ddl := range saved {
-			migrations[k] = ddl
-		}
-		for k, ddl := range savedPG {
-			pgMigrations[k] = ddl
-		}
-	}
-	t.Cleanup(restore)
-	return restore
-}
-
 // Migration 18: eski (türsüz) olaylar işlem geçmişi ve yakalamalarıyla birlikte
 // "monitor" türüne taşınır; monitor_id boş olabilir (sunucu olayları); yabancı
 // anahtarlar (monitör silinince olay, olay silinince geçmiş) çalışmaya devam eder.
 func TestIncidentKindsMigration(t *testing.T) {
 	ctx := context.Background()
 	target := testTarget(t)
-	restore := hideMigrationsFrom(t, 17)
+	restore := withoutMigrationsFrom(t, 17)
 	old, err := Open(target, time.UTC)
 	if err != nil {
 		t.Fatal(err)

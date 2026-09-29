@@ -622,6 +622,8 @@ export interface StatusPage {
   collapsible?: boolean;
   /** Herkese açık sayfanın dili (eski sunucuda gelmez: tr). */
   lang?: Locale;
+  /** Yerleşim, genişlik ve bölüm sırası (eski sunucuda gelmez: varsayılan). */
+  layout?: PageLayout;
   published: boolean;
   has_logo: boolean;
   created_at: number;
@@ -659,6 +661,8 @@ export interface PageInput {
   collapsible: boolean;
   /** Gönderilmezse değişmez (yeni sayfada tr). */
   lang?: Locale;
+  /** Gönderilmezse değişmez. Olaylar bölümünün görünürlüğü show_incidents ile aynıdır. */
+  layout?: PageLayout;
   published: boolean;
   /** Gönderilmezse değişmez, "" kaldırır, dolu değer yeni şifredir. */
   password?: string;
@@ -684,6 +688,30 @@ export interface AnnouncementInput {
   severity: Severity;
   starts_at: number;
   ends_at: number;
+}
+
+/** Durum sayfası yerleşimi: liste (çubuklu), ızgara (geniş ekranda iki sütun), sık liste (çubuksuz). */
+export type PageStyle = 'list' | 'grid' | 'compact';
+export type PageWidth = 'narrow' | 'wide';
+/** Herkese açık sayfanın sıralanabilir bölümleri. */
+export type PageBlockId = 'overall' | 'announcements' | 'groups' | 'incidents';
+
+export interface PageLayout {
+  style: PageStyle;
+  width: PageWidth;
+  /** Dört bölüm de sırasıyla. */
+  blocks: { id: PageBlockId; visible: boolean }[];
+}
+
+/** Düzenleyicideki canlı önizleme verisi (POST /api/status-pages/preview-data). */
+export interface PagePreviewData {
+  range: BarRange;
+  uptime_window: '24h' | '90d';
+  updated_at: number;
+  /** Monitör kimliği → herkese açık veri (ad: monitörün kendi adı). */
+  monitors: Record<string, PublicMonitor>;
+  incidents: { monitor_id: number; started_at: number; resolved_at: number }[];
+  announcements: PublicAnnouncement[];
 }
 
 /** Durum sayfası çubukları: son kontroller (her çubuk bir kontrol), son 24 saat (saatlik), son 90 gün (günlük). */
@@ -738,6 +766,8 @@ export interface PublicPage {
   collapsible?: boolean;
   /** Sayfanın dili; sayfa bu dilde gösterilir (eski sunucuda gelmez: tr). */
   lang?: Locale;
+  /** Yerleşim, genişlik ve bölüm sırası (eski sunucuda gelmez: varsayılan). */
+  layout?: PageLayout;
 }
 
 /** Şifreli sayfanın 401 yanıtı. */
@@ -1137,6 +1167,8 @@ export const api = {
   updatePage: (id: number, p: PageInput) => put<StatusPage>(`/api/status-pages/${id}`, p),
   deletePage: (id: number) => del<{ ok: boolean }>(`/api/status-pages/${id}`),
   previewPage: (id: number) => get<PublicPage>(`/api/status-pages/${id}/preview`),
+  pagePreviewData: (body: { page_id?: number; monitor_ids: number[]; bar_range: BarRange; show_targets: boolean }) =>
+    post<PagePreviewData>('/api/status-pages/preview-data', body),
   uploadLogo: (id: number, file: File) =>
     request<StatusPage>('PUT', `/api/status-pages/${id}/logo`, undefined, { type: file.type, data: file }),
   deleteLogo: (id: number) => del<StatusPage>(`/api/status-pages/${id}/logo`),

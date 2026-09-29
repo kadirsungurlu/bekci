@@ -147,6 +147,7 @@
             sections={sm?.sections ?? p.sections.map((s) => ({ title: s.title, statuses: s.monitors.map(() => 'pending' as const) }))}
             emptyText={t('pages.list.noMonitors')}
             moreText={(n) => t('pages.list.moreGroups', { count: n })}
+            layout={p.layout}
           />
         </a>
 

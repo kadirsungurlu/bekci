@@ -96,6 +96,20 @@ type Announcement struct {
 	EndsAt   int64  `json:"ends_at,omitempty"`
 }
 
+// PageLayout durum sayfası dizilimi: yerleşim (list | grid | compact), genişlik
+// (narrow | wide) ve bölüm sırası/görünürlüğü. Olaylar bölümünün görünürlüğü
+// ShowIncidents'tır.
+type PageLayout struct {
+	Style  string      `json:"style"`
+	Width  string      `json:"width"`
+	Blocks []PageBlock `json:"blocks"`
+}
+
+type PageBlock struct {
+	ID      string `json:"id"`
+	Visible bool   `json:"visible"`
+}
+
 type Page struct {
 	Slug          string         `json:"slug"`
 	Title         string         `json:"title"`
@@ -107,7 +121,8 @@ type Page struct {
 	BarRange      string         `json:"bar_range,omitempty"`      // recent | 24h | 90d (eski yedeklerde yok → recent)
 	ShowIncidents *bool          `json:"show_incidents,omitempty"` // eski yedeklerde yok → gösterilir
 	Collapsible   bool           `json:"collapsible,omitempty"`
-	Lang          string         `json:"lang,omitempty"` // tr | en (eski yedeklerde yok → tr)
+	Lang          string         `json:"lang,omitempty"`   // tr | en (eski yedeklerde yok → tr)
+	Layout        *PageLayout    `json:"layout,omitempty"` // eski yedeklerde yok → varsayılan dizilim
 	Published     bool           `json:"published"`
 	Sections      []PageSection  `json:"sections"`
 	Logo          []byte         `json:"logo,omitempty"` // base64

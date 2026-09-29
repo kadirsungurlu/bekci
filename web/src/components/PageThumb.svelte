@@ -1,7 +1,7 @@
 <script lang="ts">
   // Durum sayfası listesindeki küçük önizleme: sayfanın özetinden (genel durum,
   // grup adları, monitör durumları) çizilen hafif bir minyatür. iframe/ekran görüntüsü değil.
-  import type { OverallStatus, PublicMonitorStatus } from '../lib/api';
+  import type { OverallStatus, PageLayout, PublicMonitorStatus } from '../lib/api';
   import Icon, { type IconName } from './Icon.svelte';
 
   let {
@@ -12,6 +12,7 @@
     emptyText = '',
     moreText,
     blank = false,
+    layout,
   }: {
     title: string;
     logo?: string;
@@ -21,7 +22,18 @@
     moreText?: (n: number) => string;
     /** Boş durum çizimi: metinler gri çizgi olarak gösterilir. */
     blank?: boolean;
+    /** Sayfanın dizilimi: yerleşim ve genel durum kutusunun yeri/görünürlüğü kabaca yansıtılır. */
+    layout?: PageLayout;
   } = $props();
+
+  const style = $derived(layout?.style ?? 'list');
+  const blockOn = (id: string) => layout?.blocks.find((b) => b.id === id)?.visible !== false;
+  const heroOn = $derived(blockOn('overall'));
+  const groupsOn = $derived(blockOn('groups'));
+  const heroAfter = $derived.by(() => {
+    const ids = layout?.blocks.map((b) => b.id) ?? [];
+    return ids.indexOf('overall') > ids.indexOf('groups');
+  });
 
   const MAX_SECTIONS = 3;
   const MAX_ROWS = 3; // grup başına monitör satırı
@@ -46,12 +58,17 @@
       <span class="th-title">{title}</span>
     {/if}
   </div>
-  <div class="th-in">
+  {#snippet hero()}
     <div class="th-hero st-{status}">
       <span class="th-hic"><Icon name={ICON[status]} size={8} stroke={3.4} /></span>
       <span class="th-line light w50"></span>
     </div>
-    {#if shown.length === 0}
+  {/snippet}
+  <div class="th-in st-{style}">
+    {#if heroOn && !heroAfter}{@render hero()}{/if}
+    {#if !groupsOn}
+      <!-- gruplar gizli: yalnızca genel durum -->
+    {:else if shown.length === 0}
       <div class="th-empty">{emptyText}</div>
     {:else}
       <div class="th-secs">
@@ -63,11 +80,18 @@
             <span class="th-line w40"></span>
           {/if}
           {#each sec.statuses.slice(0, MAX_ROWS) as st, j (j)}
-            <div class="th-pills">
-              {#each { length: PILLS } as _, k (k)}
-                <span class="th-pill {pillClass(st)}"></span>
-              {/each}
-            </div>
+            {#if style === 'compact'}
+              <div class="th-crow">
+                <span class="th-cdot {pillClass(st)}"></span>
+                <span class="th-line w60"></span>
+              </div>
+            {:else}
+              <div class="th-pills">
+                {#each { length: PILLS } as _, k (k)}
+                  <span class="th-pill {pillClass(st)}"></span>
+                {/each}
+              </div>
+            {/if}
           {/each}
           {#if sec.statuses.length > MAX_ROWS}<span class="th-plus">+{sec.statuses.length - MAX_ROWS}</span>{/if}
         </div>
@@ -75,6 +99,7 @@
       </div>
       {#if more > 0 && moreText}<div class="th-more">{moreText(more)}</div>{/if}
     {/if}
+    {#if heroOn && heroAfter}{@render hero()}{/if}
   </div>
 </div>
 
@@ -192,6 +217,44 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
     }
+  }
+  /* Izgara yerleşimi: gruplar her genişlikte iki sütun kart. */
+  .st-grid .th-secs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* Sık liste: çubuk yerine nokta + satır. */
+  .th-crow {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 6px;
+  }
+  .th-crow .th-line {
+    height: 4px;
+    flex: 1;
+  }
+  .th-cdot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--empty-bar);
+    flex-shrink: 0;
+  }
+  .th-cdot.up {
+    background: var(--up);
+  }
+  .th-cdot.down {
+    background: var(--down);
+  }
+  .th-cdot.pending {
+    background: var(--pending);
+  }
+  .th-cdot.maint {
+    background: var(--maint);
+  }
+  .th-cdot.paused {
+    background: var(--paused);
   }
   .th-sec {
     display: flex;

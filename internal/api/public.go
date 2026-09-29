@@ -99,6 +99,9 @@ type publicPageView struct {
 	Collapsible bool `json:"collapsible"`
 	// Lang sayfanın dili (tr | en): arayüz sayfayı bu dilde gösterir.
 	Lang string `json:"lang"`
+	// Layout yerleşim, genişlik ve bölüm sırası/görünürlüğü. Gizli duyuru ve
+	// grup bölümlerinin verisi gönderilmez (boş liste).
+	Layout store.PageLayout `json:"layout"`
 }
 
 func logoURL(p store.StatusPage) *string {
@@ -159,13 +162,20 @@ func publicTarget(t string) string {
 	return t
 }
 
-// buildPublicPage sayfanın herkese açık JSON'unu hesaplar.
-func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byte, error) {
-	now := s.now().Unix()
-	ids := p.MonitorIDs()
+// monitorData sayfadaki monitörlerin herkese açık verisi: durum, çubuklar,
+// uptime yüzdesi ve istenirse hedef (Name: monitörün kendi adı). Kullanılan
+// çubuk kapsamını ve uptime penceresini de taşır.
+type monitorData struct {
+	pub      map[int64]publicMonitor
+	barRange string
+	window   string
+}
+
+func (s *Server) publicMonitorData(ctx context.Context, ids []int64, barRange string, showTargets bool, now int64) (monitorData, error) {
+	d := monitorData{pub: map[int64]publicMonitor{}}
 	mons, err := s.store.MonitorsByIDs(ctx, ids)
 	if err != nil {
-		return nil, err
+		return d, err
 	}
 	// Çubuk zaman dilimleri (recent dışındakiler için) ve özet verisi.
 	var (
@@ -173,7 +183,6 @@ func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byt
 		buckets map[int64][]store.Bucket
 		recent  map[int64][]store.Beat
 	)
-	barRange := p.BarRange
 	switch barRange {
 	case store.BarRange90d:
 		slots = s.store.DayStarts(now, publicDays)
@@ -193,83 +202,105 @@ func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byt
 		}
 	}
 	if err != nil {
+		return d, err
+	}
+	d.barRange, d.window = barRange, "24h"
+	if barRange == store.BarRange90d {
+		d.window = "90d"
+	}
+	for _, id := range ids {
+		m, ok := mons[id]
+		if !ok {
+			continue // sayfaya eklendikten sonra silinmiş
+		}
+		pub := publicMonitor{Name: m.Name, Status: monitorStatus(m), Bars: []publicBar{}}
+		var up, down int64
+		for _, b := range buckets[m.ID] {
+			up += b.Up
+			down += b.Down
+		}
+		if barRange == store.BarRangeRecent {
+			for _, b := range recent[m.ID] {
+				bar := publicBar{T: b.Time}
+				switch b.Status {
+				case store.StatusUp:
+					bar.Up = 1
+				case store.StatusDown:
+					bar.Down = 1
+				}
+				pub.Bars = append(pub.Bars, bar)
+			}
+		} else {
+			bySlot := make(map[int64]store.Bucket, len(buckets[m.ID]))
+			for _, b := range buckets[m.ID] {
+				bySlot[b.Time] = b
+			}
+			for _, t := range slots {
+				b := bySlot[t]
+				pub.Bars = append(pub.Bars, publicBar{T: t, Up: b.Up, Down: b.Down})
+			}
+		}
+		if up+down > 0 {
+			pct := math.Round(100000*float64(up)/float64(up+down)) / 1000
+			pub.Uptime = &pct
+			if barRange == store.BarRange90d {
+				pub.Uptime90d = &pct
+			}
+		}
+		if showTargets {
+			pub.Target = publicTarget(engine.Target(m))
+		}
+		d.pub[m.ID] = pub
+	}
+	return d, nil
+}
+
+// buildPublicPage sayfanın herkese açık JSON'unu hesaplar.
+func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byte, error) {
+	now := s.now().Unix()
+	ids := p.MonitorIDs()
+	data, err := s.publicMonitorData(ctx, ids, p.BarRange, p.ShowTargets, now)
+	if err != nil {
 		return nil, err
 	}
-	window := "24h"
-	if barRange == store.BarRange90d {
-		window = "90d"
-	}
+	layout := store.NormalizeLayout(p.Layout, p.ShowIncidents)
 	view := publicPageView{
 		Slug: p.Slug, Title: p.Title, Description: p.Description, Footer: p.Footer,
-		HasLogo: p.HasLogo, LogoURL: logoURL(p), UpdatedAt: now, Range: barRange, UptimeWindow: window,
+		HasLogo: p.HasLogo, LogoURL: logoURL(p), UpdatedAt: now, Range: data.barRange, UptimeWindow: data.window,
 		Sections: []publicSection{}, Announcements: []publicAnnouncement{}, Incidents: []publicIncident{},
+		Layout: layout,
 	}
 	names := map[int64]string{}
 	var statuses []string
 	for _, sec := range p.Sections {
 		ps := publicSection{Title: sec.Title, Monitors: []publicMonitor{}}
 		for _, pm := range sec.Monitors {
-			m, ok := mons[pm.ID]
+			pub, ok := data.pub[pm.ID]
 			if !ok {
 				continue // sayfaya eklendikten sonra silinmiş
 			}
-			name := pm.Name
-			if name == "" {
-				name = m.Name
+			if pm.Name != "" {
+				pub.Name = pm.Name
 			}
-			names[m.ID] = name
-			pub := publicMonitor{Name: name, Status: monitorStatus(m), Bars: []publicBar{}}
-			var up, down int64
-			for _, b := range buckets[m.ID] {
-				up += b.Up
-				down += b.Down
-			}
-			if barRange == store.BarRangeRecent {
-				for _, b := range recent[m.ID] {
-					bar := publicBar{T: b.Time}
-					switch b.Status {
-					case store.StatusUp:
-						bar.Up = 1
-					case store.StatusDown:
-						bar.Down = 1
-					}
-					pub.Bars = append(pub.Bars, bar)
-				}
-			} else {
-				bySlot := make(map[int64]store.Bucket, len(buckets[m.ID]))
-				for _, b := range buckets[m.ID] {
-					bySlot[b.Time] = b
-				}
-				for _, t := range slots {
-					b := bySlot[t]
-					pub.Bars = append(pub.Bars, publicBar{T: t, Up: b.Up, Down: b.Down})
-				}
-			}
-			if up+down > 0 {
-				pct := math.Round(100000*float64(up)/float64(up+down)) / 1000
-				pub.Uptime = &pct
-				if barRange == store.BarRange90d {
-					pub.Uptime90d = &pct
-				}
-			}
-			if p.ShowTargets {
-				pub.Target = publicTarget(engine.Target(m))
-			}
+			names[pm.ID] = pub.Name
 			statuses = append(statuses, pub.Status)
 			ps.Monitors = append(ps.Monitors, pub)
 		}
 		view.Sections = append(view.Sections, ps)
 	}
 	view.Status = overallStatus(statuses)
-
-	anns, err := s.store.ActiveAnnouncements(ctx, p.ID, now)
-	if err != nil {
-		return nil, err
+	// Gruplar bölümü gizliyse genel durum yine tüm monitörlerden hesaplanır,
+	// monitör ayrıntıları gönderilmez.
+	if !layout.Visible(store.BlockGroups) {
+		view.Sections = []publicSection{}
 	}
-	for _, a := range anns {
-		view.Announcements = append(view.Announcements, publicAnnouncement{
-			ID: a.ID, Title: a.Title, Body: a.Body, Severity: a.Severity, StartsAt: a.StartsAt, EndsAt: a.EndsAt,
-		})
+
+	if layout.Visible(store.BlockAnnouncements) {
+		anns, err := s.store.ActiveAnnouncements(ctx, p.ID, now)
+		if err != nil {
+			return nil, err
+		}
+		view.Announcements = toPublicAnnouncements(anns)
 	}
 	view.ShowIncidents, view.Collapsible, view.Lang = p.ShowIncidents, p.Collapsible, i18n.Or(p.Lang)
 	if !p.ShowIncidents {
@@ -286,6 +317,16 @@ func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byt
 		}
 	}
 	return json.Marshal(view)
+}
+
+func toPublicAnnouncements(anns []store.Announcement) []publicAnnouncement {
+	out := make([]publicAnnouncement, 0, len(anns))
+	for _, a := range anns {
+		out = append(out, publicAnnouncement{
+			ID: a.ID, Title: a.Title, Body: a.Body, Severity: a.Severity, StartsAt: a.StartsAt, EndsAt: a.EndsAt,
+		})
+	}
+	return out
 }
 
 // publicEntry yayındaki sayfanın önbellekteki hazır halini döner; sayfa yoksa

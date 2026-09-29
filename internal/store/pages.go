@@ -36,12 +36,15 @@ type StatusPage struct {
 	// Collapsible herkese açık sayfada grupların açılıp kapanabilmesi.
 	Collapsible bool `json:"collapsible"`
 	// Lang herkese açık sayfanın dili (tr | en; migration 16).
-	Lang         string `json:"lang"`
-	Published    bool   `json:"published"`
-	HasLogo      bool   `json:"has_logo"`
-	CreatedAt    int64  `json:"created_at"`
-	UpdatedAt    int64  `json:"updated_at"`
-	PasswordHash string `json:"-"`
+	Lang string `json:"lang"`
+	// Layout yerleşim, genişlik ve bölüm sırası (migration 17). Olaylar
+	// bölümünün görünürlüğü ShowIncidents'ın aynısıdır.
+	Layout       PageLayout `json:"layout"`
+	Published    bool       `json:"published"`
+	HasLogo      bool       `json:"has_logo"`
+	CreatedAt    int64      `json:"created_at"`
+	UpdatedAt    int64      `json:"updated_at"`
+	PasswordHash string     `json:"-"`
 }
 
 // MonitorIDs sayfadaki tüm monitörlerin kimlikleri.
@@ -57,20 +60,22 @@ func (p StatusPage) MonitorIDs() []int64 {
 
 const pageCols = `id, slug, title, description, footer, sections, custom_domain, password_hash,
 	show_targets, published, CASE WHEN logo IS NULL THEN 0 ELSE 1 END, created_at, updated_at, bar_range,
-	show_incidents, collapsible, lang`
+	show_incidents, collapsible, lang, layout`
 
 func scanPage(sc scanner) (StatusPage, error) {
 	var (
 		p        StatusPage
 		sections string
+		layout   string
 		domain   sql.NullString
 		pw       sql.NullString
 	)
 	err := sc.Scan(&p.ID, &p.Slug, &p.Title, &p.Description, &p.Footer, &sections, &domain, &pw,
-		&p.ShowTargets, &p.Published, &p.HasLogo, &p.CreatedAt, &p.UpdatedAt, &p.BarRange, &p.ShowIncidents, &p.Collapsible, &p.Lang)
+		&p.ShowTargets, &p.Published, &p.HasLogo, &p.CreatedAt, &p.UpdatedAt, &p.BarRange, &p.ShowIncidents, &p.Collapsible, &p.Lang, &layout)
 	if err != nil {
 		return p, err
 	}
+	p.Layout = decodeLayout(layout, p.ShowIncidents)
 	p.CustomDomain = domain.String
 	p.PasswordHash = pw.String
 	p.HasPassword = pw.String != ""
@@ -139,29 +144,31 @@ func (s *Store) CustomDomains(ctx context.Context) (map[string]int64, error) {
 func (s *Store) CreatePage(ctx context.Context, p *StatusPage) error {
 	now := time.Now().Unix()
 	p.CreatedAt, p.UpdatedAt = now, now
+	p.Layout = NormalizeLayout(p.Layout, p.ShowIncidents)
 	sections, _ := json.Marshal(p.Sections)
 	return s.db.QueryRowContext(ctx, `
 		INSERT INTO status_pages (slug, title, description, footer, sections, custom_domain,
-			password_hash, show_targets, published, created_at, updated_at, bar_range, show_incidents, collapsible, lang)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+			password_hash, show_targets, published, created_at, updated_at, bar_range, show_incidents, collapsible, lang, layout)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 		p.Slug, p.Title, p.Description, p.Footer, string(sections), nullStr(p.CustomDomain),
 		nullStr(p.PasswordHash), boolInt(p.ShowTargets), boolInt(p.Published), now, now, barRangeOr(p.BarRange),
-		boolInt(p.ShowIncidents), boolInt(p.Collapsible), pageLangOr(p.Lang)).Scan(&p.ID)
+		boolInt(p.ShowIncidents), boolInt(p.Collapsible), pageLangOr(p.Lang), encodeLayout(p.Layout)).Scan(&p.ID)
 }
 
 // UpdatePage logo dışındaki alanları günceller (PasswordHash dahil; çağıran
 // eskisini korumak istiyorsa aynı değeri verir).
 func (s *Store) UpdatePage(ctx context.Context, p *StatusPage) error {
 	p.UpdatedAt = time.Now().Unix()
+	p.Layout = NormalizeLayout(p.Layout, p.ShowIncidents)
 	sections, _ := json.Marshal(p.Sections)
 	res, err := s.db.ExecContext(ctx, `
 		UPDATE status_pages SET slug = ?, title = ?, description = ?, footer = ?, sections = ?,
 			custom_domain = ?, password_hash = ?, show_targets = ?, published = ?, updated_at = ?,
-			bar_range = ?, show_incidents = ?, collapsible = ?, lang = ?
+			bar_range = ?, show_incidents = ?, collapsible = ?, lang = ?, layout = ?
 		WHERE id = ?`,
 		p.Slug, p.Title, p.Description, p.Footer, string(sections), nullStr(p.CustomDomain),
 		nullStr(p.PasswordHash), boolInt(p.ShowTargets), boolInt(p.Published), p.UpdatedAt,
-		barRangeOr(p.BarRange), boolInt(p.ShowIncidents), boolInt(p.Collapsible), pageLangOr(p.Lang), p.ID)
+		barRangeOr(p.BarRange), boolInt(p.ShowIncidents), boolInt(p.Collapsible), pageLangOr(p.Lang), encodeLayout(p.Layout), p.ID)
 	if err != nil {
 		return err
 	}
