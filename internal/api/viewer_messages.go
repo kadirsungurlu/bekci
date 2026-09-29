@@ -130,6 +130,7 @@ func viewerEvent(u store.User, msg []byte, groups map[int64]bool) []byte {
 		if _, ok := ev.Data["ip_lock"]; ok {
 			ev.Data["ip_lock"] = false
 		}
+		delete(ev.Data, "ip") // ajanın son IP adresi de yalnızca yöneticiye
 		out, err := json.Marshal(ev)
 		if err != nil {
 			return nil // güvenli taraf: IP'li hali gönderilmez

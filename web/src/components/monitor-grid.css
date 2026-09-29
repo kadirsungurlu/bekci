@@ -1,0 +1,191 @@
+/*
+ * Monitör listesi satır ızgarası: satırlar (MonitorRow) ve sütun başlığı
+ * (MonitorList) aynı sütunları paylaşır. Görünüm (renk, yazı) bileşenlerde;
+ * burada yalnızca yerleşim: alan adları, sabit sütun genişlikleri ve liste
+ * genişliğine göre (kapsayıcı "mlist") hangi sütunların gösterileceği.
+ *
+ * Sütun boşluğu (column-gap) yok: her hücre kendi sol boşluğunu taşır; gizlenen
+ * hücrenin izi sıfır genişliğe iner ve arada boşluk kalmaz. Sağdaki sütunlar
+ * sabit genişliklidir, böylece satırlar ve başlık alt alta hizalanır.
+ */
+
+.mrow {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) repeat(10, auto);
+  grid-template-areas: 'sel ic info inc locs resp ssl u7 u30 last int bars menu';
+  align-items: center;
+  column-gap: 0;
+  padding: 14px 10px 14px 16px;
+}
+.mrow > .mc-sel {
+  grid-area: sel;
+  width: 18px;
+  margin-right: 12px;
+}
+.mrow > .mc-ic {
+  grid-area: ic;
+  width: 32px;
+  margin-right: 14px;
+}
+.mrow > .mc-info {
+  grid-area: info;
+  min-width: 0;
+}
+.mrow > .mc-inc {
+  grid-area: inc;
+  margin-left: 12px;
+}
+.mrow > .mc-locs {
+  grid-area: locs;
+  width: 58px;
+  margin-left: 18px;
+}
+.mrow > .mc-resp {
+  grid-area: resp;
+  width: 134px;
+  margin-left: 18px;
+}
+.mrow > .mc-ssl {
+  grid-area: ssl;
+  width: 60px;
+  margin-left: 18px;
+}
+.mrow > .mc-u7 {
+  grid-area: u7;
+  width: 58px;
+  margin-left: 14px;
+}
+.mrow > .mc-u30 {
+  grid-area: u30;
+  width: 58px;
+  margin-left: 12px;
+}
+.mrow > .mc-last {
+  grid-area: last;
+  width: 84px;
+  margin-left: 18px;
+}
+.mrow > .mc-int {
+  grid-area: int;
+  width: 62px;
+  margin-left: 18px;
+}
+.mrow > .mc-bars {
+  grid-area: bars;
+  width: 246px;
+  margin-left: 18px;
+}
+.mrow > .mc-menu {
+  grid-area: menu;
+  width: 38px;
+  margin-left: 8px;
+}
+
+/* Sütun başlığı yalnızca yanıt süresi sütunu sığacak genişlikte. */
+.mrow.mhead {
+  display: none;
+}
+@container mlist (min-width: 700px) {
+  .mrow.mhead {
+    display: grid;
+  }
+}
+
+/* Gizleme kuralları bileşenlerin kendi display değerini (ör. .resp { display: flex })
+   ezsin diye sınıf iki kez yazılır (.mrow.mrow). */
+
+/* Liste daraldıkça sütunlar önem sırasının tersine gizlenir: son kontrol →
+   7/30 gün → konum → SSL → (çubuklar kısalır) → grafik → yanıt süresi. */
+@container mlist (max-width: 1399px) {
+  .mrow.mrow > .mc-last {
+    display: none;
+  }
+}
+@container mlist (max-width: 1189px) {
+  .mrow.mrow > .mc-u7,
+  .mrow.mrow > .mc-u30 {
+    display: none;
+  }
+}
+@container mlist (max-width: 1049px) {
+  .mrow.mrow > .mc-locs {
+    display: none;
+  }
+}
+@container mlist (max-width: 969px) {
+  .mrow.mrow > .mc-ssl {
+    display: none;
+  }
+}
+@container mlist (max-width: 900px) {
+  .mrow > .mc-bars {
+    width: 180px;
+  }
+  /* Olay düğmesi varken aralık sütunu gizlenir (ad sıkışmasın). */
+  .mrow.has-inc > .mc-int {
+    visibility: hidden;
+  }
+}
+@container mlist (max-width: 799px) {
+  .mrow > .mc-resp {
+    width: 64px;
+  }
+}
+@container mlist (max-width: 699px) {
+  .mrow.mrow > .mc-resp {
+    display: none;
+  }
+}
+@media (min-width: 641px) {
+  @container mlist (max-width: 600px) {
+    .mrow.mrow > .mc-int {
+      display: none;
+    }
+  }
+}
+
+/* Telefon: iki satırlık kart (ad + durum, altında 24 saatlik çubuklar). */
+@media (max-width: 640px) {
+  .mrow {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'ic info inc menu'
+      '. bars bars bars';
+    column-gap: 10px;
+    row-gap: 8px;
+    padding: 12px 6px 12px 14px;
+  }
+  .mrow > * {
+    margin: 0 !important;
+  }
+  .mrow.mrow > .mc-locs,
+  .mrow.mrow > .mc-resp,
+  .mrow.mrow > .mc-ssl,
+  .mrow.mrow > .mc-u7,
+  .mrow.mrow > .mc-u30,
+  .mrow.mrow > .mc-last,
+  .mrow.mrow > .mc-int {
+    display: none;
+  }
+  .mrow > .mc-bars {
+    width: auto;
+  }
+  .mrow > .mc-menu {
+    width: auto;
+  }
+  /* Seçim kutusu yalnızca seçim modunda, durum ikonunun yerinde. */
+  .mrow.mrow > .mc-sel {
+    display: none;
+    grid-area: ic;
+    justify-self: center;
+    width: auto;
+  }
+  .mrow.mrow.selecting > .mc-sel {
+    display: flex;
+    opacity: 1;
+    padding: 7px;
+  }
+  .mrow.mrow.selecting > .mc-ic {
+    display: none;
+  }
+}

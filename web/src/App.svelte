@@ -377,7 +377,7 @@
     </header>
 
     <main class="main">
-      <div class="content">
+      <div class="content" class:wide={route.name === 'list' || route.name === 'servers'}>
         {#if editorOnly && !session.canEdit}
           {@render forbidden()}
         {:else if (route.name === 'servers' || route.name === 'server') && !session.canSeeServers}
@@ -649,6 +649,17 @@
     max-width: 1320px;
     margin: 0 auto;
     padding: 32px 36px 48px;
+  }
+  /* Liste ekranları (monitörler, sunucular) geniş ekranı kullanır: ek sütunlar
+     liste genişliğine göre açılır. */
+  .content.wide {
+    max-width: 1920px;
+  }
+  @media (min-width: 901px) {
+    .content.wide {
+      padding-left: clamp(24px, 2.2vw, 48px);
+      padding-right: clamp(24px, 2.2vw, 48px);
+    }
   }
 
   @media (max-width: 900px) {

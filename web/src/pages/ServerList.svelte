@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { ServerView } from '../lib/api';
+  import type { DiskInfo, ServerView } from '../lib/api';
   import { session } from '../lib/session.svelte';
   import { clock } from '../lib/ui.svelte';
-  import { fmtDec, fmtRate, fmtRelative, fmtUptime } from '../lib/format';
+  import { fmtDec, fmtPctInt, fmtRate, fmtRelative, fmtTemp, fmtUptime } from '../lib/format';
   import { t } from '../lib/i18n';
   import {
     STATE_LABELS,
@@ -17,8 +17,11 @@
     metricLabel,
     serverTone,
     servers,
+    swapPct,
+    usageLevel,
   } from '../lib/servers.svelte';
   import UsageBar from '../components/UsageBar.svelte';
+  import Sparkline from '../components/Sparkline.svelte';
   import ServerSetupModal from '../components/ServerSetupModal.svelte';
   import Icon from '../components/Icon.svelte';
 
@@ -55,6 +58,18 @@
 
   // Disk bölüm başına ayrı kural olabildiği için aynı metrik birden fazla gelebilir ("disk", "disk"): rozet bir kez.
   const firingLabels = (s: ServerView) => [...new Set((s.firing ?? []).filter((m) => m !== 'offline'))].map(metricLabel);
+
+  // Geniş ekran sütunları ---------------------------------------------------------------
+  const dpct = (d: DiskInfo) => (d.total > 0 ? (100 * d.used) / d.total : 0);
+  /** Birden çok bölümlü sunucuda bölümler (en dolu önce), en çok 3'ü gösterilir. */
+  const MAX_DISKS = 3;
+  const sortedDisks = (s: ServerView) => (s.latest?.disks ?? []).slice().sort((a, b) => dpct(b) - dpct(a));
+  /** CPU grafiğinin ölçeği: 0'dan en yüksek değerin biraz üstüne (en az %25, en çok %100). */
+  function cpuScale(h: number[]): { max: number; peak: number } {
+    const peak = h.length ? Math.max(...h) : 0;
+    return { peak, max: Math.min(100, Math.max(25, Math.ceil((peak * 1.15) / 5) * 5)) };
+  }
+  const tempLevel = (c: number | null) => (c === null ? 'ok' : c >= 90 ? 'danger' : c >= 80 ? 'warn' : 'ok');
 </script>
 
 <div class="page-head">
@@ -103,13 +118,18 @@
   {#if active.length}
     <div class="card list">
       <div class="lhead" aria-hidden="true">
-        <span>{t('servers.list.cols.server')}</span>
-        <span>{metricLabel('cpu')}</span>
-        <span>{metricLabel('mem')}</span>
-        <span>{metricLabel('disk')}</span>
-        <span>{metricLabel('net')}</span>
-        <span>{metricLabel('load')}</span>
-        <span>{t('servers.list.cols.uptime')}</span>
+        <span class="a-nm">{t('servers.list.cols.server')}</span>
+        <span class="a-cpu">{metricLabel('cpu')}</span>
+        <span class="a-trend">{t('overview.servers.cols.trend')}</span>
+        <span class="a-mem">{metricLabel('mem')}</span>
+        <span class="a-swap r">{metricLabel('swap')}</span>
+        <span class="a-disk">{metricLabel('disk')}</span>
+        <span class="a-temp r">{metricLabel('temp')}</span>
+        <span class="a-dock r">{t('overview.servers.cols.docker')}</span>
+        <span class="a-net">{metricLabel('net')}</span>
+        <span class="a-load">{metricLabel('load')}</span>
+        <span class="a-up">{t('servers.list.cols.uptime')}</span>
+        <span class="a-agent">{t('overview.servers.cols.agent')}</span>
       </div>
       {#each active as s (s.id)}
         {@const tone = serverTone(s)}
@@ -117,7 +137,7 @@
         {@const fl = firingLabels(s)}
         {@const hl = hostLine(s)}
         <a class="srow {tone}" href="#/servers/{s.id}">
-          <div class="nm">
+          <div class="nm a-nm">
             <span class="sdot {tone}" title={STATE_LABELS[s.state]} aria-hidden="true"></span>
             <div class="nmt">
               <div class="n1">
@@ -127,27 +147,71 @@
               {#if s.state === 'offline'}
                 <div class="sub c-down">{t('servers.list.offlineSince', { ago: fmtRelative(s.metrics_at, clock.now) })}</div>
               {:else}
-                <div class="sub" title={hl.full !== hl.short ? hl.full : undefined}>{hl.short || '—'}</div>
+                <div class="sub" title={hl.full !== hl.short ? hl.full : undefined}>
+                  {hl.short || '—'}{#if s.ip}<span class="ip" title={t('overview.servers.ipTitle')}><span class="sep" aria-hidden="true">·</span>{s.ip}</span>{/if}
+                </div>
               {/if}
             </div>
           </div>
           {#if st}
-            <div class="m cpu"><span class="ml" aria-hidden="true">{metricLabel('cpu')}</span><UsageBar value={st.cpu} label="{s.name}: {metricLabel('cpu')}" inline /></div>
-            <div class="m mem"><span class="ml" aria-hidden="true">{metricLabel('mem')}</span><UsageBar value={memPct(st)} label="{s.name}: {metricLabel('mem')}" inline /></div>
-            {@const fm = fullestMount(st)}
-            <div class="m disk" title={diskSummary(st) || undefined}>
-              <span class="ml" aria-hidden="true">{metricLabel('disk')}</span>
-              <UsageBar value={diskPct(st)} label="{s.name}: {metricLabel('disk')}{fm ? ` ${fm}` : ''}" inline />
-              {#if fm}<span class="dm" aria-hidden="true">{fm}</span>{/if}
+            {@const hist = s.cpu_hist ?? []}
+            {@const sc = cpuScale(hist)}
+            {@const disks = sortedDisks(s)}
+            {@const sw = st.swap_total > 0 ? swapPct(st) : null}
+            <div class="m cpu a-cpu"><span class="ml" aria-hidden="true">{metricLabel('cpu')}</span><UsageBar value={st.cpu} label="{s.name}: {metricLabel('cpu')}" inline /></div>
+            <div class="trend a-trend" title={hist.length > 1 ? t('overview.servers.trendTitle', { max: fmtPctInt(sc.peak) }) : t('overview.servers.trendNone')}>
+              <Sparkline values={hist} min={0} max={sc.max} w={104} h={26} tone={s.state === 'offline' ? 'muted' : st.cpu >= 90 ? 'down' : st.cpu >= 80 ? 'warn' : 'accent'} />
             </div>
-            <div class="net">
+            <div class="m mem a-mem"><span class="ml" aria-hidden="true">{metricLabel('mem')}</span><UsageBar value={memPct(st)} label="{s.name}: {metricLabel('mem')}" inline /></div>
+            <div class="val a-swap {usageLevel(sw)}" title={sw === null ? t('overview.servers.swapNone') : metricLabel('swap')}>{sw === null ? '—' : fmtPctInt(sw)}</div>
+            {@const fm = fullestMount(st)}
+            <div class="m disk a-disk" class:multi={disks.length > 1} title={diskSummary(st) || undefined}>
+              <span class="ml" aria-hidden="true">{metricLabel('disk')}</span>
+              <div class="d1">
+                <UsageBar value={diskPct(st)} label="{s.name}: {metricLabel('disk')}{fm ? ` ${fm}` : ''}" inline />
+                {#if fm}<span class="dm" aria-hidden="true">{fm}</span>{/if}
+              </div>
+              {#if disks.length > 1}
+                <div class="dlist">
+                  {#each disks.slice(0, disks.length > MAX_DISKS ? MAX_DISKS - 1 : MAX_DISKS) as d (d.mount)}
+                    {@const v = dpct(d)}
+                    <span class="dmnt">{d.mount}</span><span class="dtrack {usageLevel(v)}"><i style="width:{Math.min(100, v)}%"></i></span><span class="dpct {usageLevel(v)}">{fmtPctInt(v)}</span>
+                  {/each}
+                  {#if disks.length > MAX_DISKS}
+                    <span
+                      class="dmore"
+                      title={t('overview.servers.disksMoreTitle', {
+                        list: disks
+                          .slice(MAX_DISKS - 1)
+                          .map((d) => `${d.mount} ${fmtPctInt(dpct(d))}`)
+                          .join(' · '),
+                      })}>{t('overview.servers.disksMore', { n: disks.length - MAX_DISKS + 1 })}</span
+                    >
+                  {/if}
+                </div>
+              {/if}
+            </div>
+            <div class="val a-temp {tempLevel(s.temp_max)}" title={s.temp_max === null ? t('overview.servers.noTemp') : t('overview.servers.tempTitle')}>
+              {s.temp_max === null ? '—' : fmtTemp(s.temp_max)}
+            </div>
+            <div
+              class="val a-dock"
+              title={s.host?.docker || s.container_count ? t('overview.servers.containersTitle', { n: s.container_count, count: s.container_count }) : t('overview.servers.noDocker')}
+            >
+              {#if s.host?.docker || s.container_count}<Icon name="box" size={13} />{s.container_count}{:else}—{/if}
+            </div>
+            <div class="net a-net">
               <span title={t('servers.list.netIn')}><Icon name="arrow-down" size={12} />{fmtRate(st.net_rx_bps)}</span>
               <span title={t('servers.list.netOut')}><Icon name="arrow-up" size={12} />{fmtRate(st.net_tx_bps)}</span>
             </div>
-            <div class="load" title={t('servers.list.loadTitle', { a: fmtDec(st.load1, 2), b: fmtDec(st.load5, 2), c: fmtDec(st.load15, 2) })}>
+            <div class="load a-load" title={t('servers.list.loadTitle', { a: fmtDec(st.load1, 2), b: fmtDec(st.load5, 2), c: fmtDec(st.load15, 2) })}>
               {fmtDec(st.load1, 2)}
             </div>
-            <div class="up-t">{fmtUptime(st.uptime)}</div>
+            <div class="up-t a-up">{fmtUptime(st.uptime)}</div>
+            <div class="agent a-agent">
+              {#if s.version}<span class="ver">{s.version}</span>{/if}
+              <span class="ago" class:c-down={s.state === 'offline'}>{fmtRelative(s.metrics_at, clock.now)}</span>
+            </div>
             <!-- Mobil kartın alt satırı: ağ, yük ve çalışma süresi tek satırda. -->
             <div class="foot">
               <span><Icon name="arrow-down" size={12} />{fmtRate(st.net_rx_bps)}</span>
@@ -233,6 +297,8 @@
   .list {
     padding: 0;
     overflow: hidden;
+    /* Sütunlar listenin genişliğine göre açılır (aşağıdaki @container slist). */
+    container: slist / inline-size;
   }
   .sk-row {
     display: flex;
@@ -242,15 +308,131 @@
     border-bottom: 1px solid var(--border);
   }
 
-  /* Masaüstü: sütunlu satırlar */
+  /* Masaüstü: sütunlu satırlar. Temel düzen dar liste içindir; liste
+     genişledikçe CPU grafiği, sıcaklık, Docker, bölümler, swap, çalışma süresi
+     ve ajan sütunları eklenir. Izgaraya girmeyen hücre gizlidir. */
   .lhead,
   .srow {
     display: grid;
-    grid-template-columns: minmax(200px, 1.7fr) repeat(3, minmax(92px, 1fr)) minmax(118px, 0.9fr) 56px 96px;
-    grid-template-areas: 'nm cpu mem disk net load up';
+    grid-template-columns: minmax(180px, 1.6fr) repeat(3, minmax(80px, 1fr)) minmax(112px, 0.9fr) 50px;
+    grid-template-areas: 'nm cpu mem disk net load';
     align-items: center;
-    column-gap: 20px;
+    column-gap: 16px;
     padding: 12px 20px;
+  }
+  .a-nm {
+    grid-area: nm;
+  }
+  .a-cpu {
+    grid-area: cpu;
+  }
+  .a-trend {
+    grid-area: trend;
+  }
+  .a-mem {
+    grid-area: mem;
+  }
+  .a-swap {
+    grid-area: swap;
+  }
+  .a-disk {
+    grid-area: disk;
+  }
+  .a-temp {
+    grid-area: temp;
+  }
+  .a-dock {
+    grid-area: dock;
+  }
+  .a-net {
+    grid-area: net;
+  }
+  .a-load {
+    grid-area: load;
+  }
+  .a-up {
+    grid-area: up;
+  }
+  .a-agent {
+    grid-area: agent;
+  }
+  .a-trend,
+  .a-swap,
+  .a-temp,
+  .a-dock,
+  .a-up,
+  .a-agent,
+  .ip,
+  .dlist {
+    display: none;
+  }
+  @container slist (min-width: 1000px) {
+    .lhead,
+    .srow {
+      grid-template-columns: minmax(190px, 1.5fr) minmax(84px, 1fr) 104px minmax(84px, 1fr) minmax(100px, 1fr) 118px 52px;
+      grid-template-areas: 'nm cpu trend mem disk net load';
+      column-gap: 18px;
+    }
+    .a-trend {
+      display: block;
+    }
+  }
+  @container slist (min-width: 1100px) {
+    .lhead,
+    .srow {
+      grid-template-columns: minmax(200px, 1.5fr) minmax(80px, 0.9fr) 104px minmax(80px, 0.9fr) minmax(150px, 1.5fr) 58px 52px 118px 52px;
+      grid-template-areas: 'nm cpu trend mem disk temp dock net load';
+    }
+    .a-temp,
+    .a-dock {
+      display: flex;
+    }
+    /* Birden çok bölüm: her biri ayrı küçük çubuk (en çok 3). */
+    .disk.multi .d1 {
+      display: none;
+    }
+    .disk.multi .dlist {
+      display: grid;
+    }
+  }
+  @container slist (min-width: 1300px) {
+    .lhead,
+    .srow {
+      grid-template-columns:
+        minmax(210px, 1.5fr) minmax(84px, 1fr) 104px minmax(84px, 1fr) 50px minmax(160px, 1.4fr) 58px 52px 118px 52px
+        96px;
+      grid-template-areas: 'nm cpu trend mem swap disk temp dock net load up';
+    }
+    .a-swap {
+      display: block;
+    }
+    .a-up {
+      display: block;
+    }
+  }
+  @container slist (min-width: 1500px) {
+    .lhead,
+    .srow {
+      grid-template-columns:
+        minmax(230px, 1.6fr) minmax(84px, 1fr) 110px minmax(84px, 1fr) 50px minmax(170px, 1.4fr) 58px 52px 118px 52px
+        96px 100px;
+      grid-template-areas: 'nm cpu trend mem swap disk temp dock net load up agent';
+      column-gap: 20px;
+    }
+    .a-agent {
+      display: flex;
+    }
+    .ip {
+      display: inline;
+    }
+  }
+  .lhead .r {
+    text-align: right;
+  }
+  .lhead > span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .lhead {
     padding-top: 10px;
@@ -285,7 +467,6 @@
     }
   }
   .nm {
-    grid-area: nm;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -347,16 +528,109 @@
   .m {
     min-width: 0;
   }
-  .cpu {
-    grid-area: cpu;
-  }
-  .mem {
-    grid-area: mem;
-  }
   .disk {
-    grid-area: disk;
     min-width: 0;
     position: relative;
+  }
+  .d1 {
+    position: relative;
+  }
+  /* Bölüm listesi: "/data ▬▬▬ %82" satırları */
+  .dlist {
+    grid-template-columns: minmax(0, max-content) minmax(40px, 1fr) 32px;
+    column-gap: 6px;
+    row-gap: 2px;
+    align-items: center;
+    font-size: 0.72rem;
+    line-height: 1.3;
+  }
+  .dmnt {
+    font-family: var(--mono);
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 110px;
+  }
+  .dtrack {
+    height: 5px;
+    border-radius: 3px;
+    background: var(--meter-track);
+    overflow: hidden;
+  }
+  .dtrack i {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: var(--accent);
+  }
+  .dtrack.warn i {
+    background: var(--pending);
+  }
+  .dtrack.danger i {
+    background: var(--down);
+  }
+  .dpct {
+    text-align: right;
+    font-weight: 700;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .dpct.warn {
+    color: var(--pending);
+  }
+  .dpct.danger {
+    color: var(--down-text-2);
+  }
+  .dmore {
+    grid-column: 1 / -1;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .trend {
+    min-width: 0;
+  }
+  /* Tek değerli sütunlar (swap, sıcaklık, Docker) */
+  .val {
+    justify-content: flex-end;
+    align-items: center;
+    gap: 4px;
+    text-align: right;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .val :global(svg) {
+    color: var(--muted);
+  }
+  .val.warn {
+    color: var(--pending);
+  }
+  .val.danger {
+    color: var(--down-text-2);
+  }
+  .agent {
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.35;
+  }
+  .ver {
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    color: var(--text-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ago {
+    font-size: 0.76rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .sep {
+    margin: 0 6px;
   }
   /* Gösterilen bölüm ("/", "C:", "/var/lib/pgsql") her satırda çubuğun altında:
      masaüstünde çubuklar aynı hizada kalsın diye akış dışında. */
@@ -378,7 +652,6 @@
     display: none;
   }
   .net {
-    grid-area: net;
     display: flex;
     flex-direction: column;
     font-size: 0.8rem;
@@ -396,13 +669,11 @@
     color: var(--muted);
   }
   .load {
-    grid-area: load;
     font-size: 0.88rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
   .up-t {
-    grid-area: up;
     font-size: 0.84rem;
     color: var(--text-2);
     white-space: nowrap;
@@ -419,7 +690,9 @@
   .srow.down .m,
   .srow.down .net,
   .srow.down .load,
-  .srow.down .up-t {
+  .srow.down .up-t,
+  .srow.down .trend,
+  .srow.down .val {
     opacity: 0.45;
   }
 
@@ -471,20 +744,6 @@
   }
   .hint {
     margin: 14px auto 0 !important;
-  }
-
-  /* Dar masaüstü: ağ ve çalışma süresi sütunları sığmıyorsa gizlenir. */
-  @media (max-width: 1240px) and (min-width: 721px) {
-    .lhead,
-    .srow {
-      grid-template-columns: minmax(180px, 1.6fr) repeat(3, minmax(80px, 1fr)) minmax(112px, 0.9fr) 50px;
-      grid-template-areas: 'nm cpu mem disk net load';
-      column-gap: 16px;
-    }
-    .lhead span:last-child,
-    .up-t {
-      display: none;
-    }
   }
 
   /* Mobil: kart görünümü */

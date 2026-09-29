@@ -1,15 +1,28 @@
 <script lang="ts">
-  import type { MonitorView } from '../lib/api';
+  import './monitor-grid.css';
+  import { PING_DOWN, type MonitorView } from '../lib/api';
   import { navigate } from '../lib/router.svelte';
-  import { STATUS_LABELS, fmtDuration, fmtInterval, fmtPct, monitorKind } from '../lib/format';
+  import {
+    STATUS_LABELS,
+    certDaysLeft,
+    fmtDateSec,
+    fmtDay,
+    fmtDuration,
+    fmtInterval,
+    fmtMs,
+    fmtPct,
+    fmtRelative,
+    monitorKind,
+  } from '../lib/format';
   import { session } from '../lib/session.svelte';
   import StatusIcon from './StatusIcon.svelte';
   import TypeBadge from './TypeBadge.svelte';
   import TagChip from './TagChip.svelte';
   import UptimeBars from './UptimeBars.svelte';
+  import Sparkline from './Sparkline.svelte';
   import Icon from './Icon.svelte';
   import { shortTarget } from '../lib/monitorTypes';
-  import { t } from '../lib/i18n';
+  import { t, tOr } from '../lib/i18n';
 
   let {
     m,
@@ -64,6 +77,49 @@
   const subText = $derived([host, sub.status, sub.msg].filter(Boolean).join(' · '));
   const subClass = $derived(`c-${kind === 'down' ? 'down' : kind === 'pending' ? 'pending' : kind === 'maintenance' ? 'maint' : 'muted'}`);
 
+  // Geniş ekran sütunları ---------------------------------------------------------------
+  // Yanıt süresi: son kontrollerin küçük grafiği + son ölçüm (çalışmıyorsa "—").
+  const pings = $derived(m.pings ?? []);
+  const lastMs = $derived.by(() => {
+    if (kind === 'down' || kind === 'paused') return -1;
+    if (pings.length) return pings[pings.length - 1];
+    return m.last_ping_ms > 0 ? m.last_ping_ms : -1;
+  });
+  const sparkTone = $derived(kind === 'down' ? 'down' : kind === 'paused' ? 'muted' : 'accent');
+  const respTitle = $derived(
+    lastMs >= 0 ? t('overview.row.respTitle', { ms: fmtMs(lastMs), n: pings.length }) : t('overview.row.respNone'),
+  );
+
+  // SSL: yalnızca sertifika bilgisi olan HTTP(S) monitörlerinde.
+  const certDays = $derived(m.type === 'http' && m.cert_expires_at ? certDaysLeft(m.cert_expires_at, now) : null);
+  const certTone = $derived(certDays === null ? '' : certDays < 7 ? 'bad' : certDays < 14 ? 'warn' : '');
+  const certTitle = $derived(
+    certDays === null
+      ? t('overview.row.sslNone')
+      : m.cert_issuer
+        ? t('overview.row.sslTitleIssuer', { date: fmtDay(m.cert_expires_at), issuer: m.cert_issuer })
+        : t('overview.row.sslTitle', { date: fmtDay(m.cert_expires_at) }),
+  );
+
+  // Konumlar: çok konumlu monitörde her konumun canlı durumu; tek konumluda ana
+  // sunucu (monitörün durumuyla). Push/grup monitörünün konumu yoktur.
+  type Dot = { key: number; name: string; status: string; ping: number };
+  const MAX_DOTS = 5;
+  const dots = $derived.by((): Dot[] => {
+    if (m.loc_states?.length) return m.loc_states.map((l) => ({ key: l.probe_id, name: l.name, status: l.status, ping: l.ping_ms }));
+    if (m.type === 'push' || m.type === 'group' || kind === 'paused') return [];
+    const status = kind === 'up' ? 'up' : kind === 'down' ? 'down' : kind === 'pending' ? 'retrying' : 'unknown';
+    return [{ key: 0, name: t('overview.row.locMain'), status, ping: lastMs }];
+  });
+  const shownDots = $derived(dots.length > MAX_DOTS ? dots.slice(0, MAX_DOTS - 1) : dots);
+  const dotClass = (s: string) => (s === 'up' ? 'up' : s === 'down' ? 'down' : s === 'retrying' ? 'warn' : 'muted');
+  const dotTitle = (d: Dot) => {
+    const status = tOr(`overview.row.locStatus.${d.status}`, d.status);
+    return d.ping >= 0 && d.status === 'up'
+      ? t('overview.row.locTitlePing', { name: d.name, status, ms: fmtMs(d.ping) })
+      : t('overview.row.locTitle', { name: d.name, status });
+  };
+
   const href = $derived(`#/monitors/${m.id}`);
   const narrow = () => window.matchMedia('(max-width: 640px)').matches;
 
@@ -115,7 +171,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div
-  class="row"
+  class="row mrow"
   class:dim={kind === 'paused'}
   class:selectable={!!onselect}
   class:selecting
@@ -134,7 +190,7 @@
 >
   {#if onselect}
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-    <label class="sel check" onclick={(e) => e.stopPropagation()}>
+    <label class="sel check mc-sel" onclick={(e) => e.stopPropagation()}>
       <input
         type="checkbox"
         checked={selected}
@@ -146,8 +202,8 @@
       />
     </label>
   {/if}
-  <div class="ic"><StatusIcon {kind} size={32} /></div>
-  <div class="info">
+  <div class="ic mc-ic"><StatusIcon {kind} size={32} /></div>
+  <div class="info mc-info">
     <div class="name">
       <a
         {href}
@@ -177,7 +233,7 @@
   </div>
   {#if incident !== null}
     <a
-      class="inc"
+      class="inc mc-inc"
       href="#/incidents/{incident}"
       onclick={(e) => e.stopPropagation()}
       title={t('monitors.row.incidentTitle')}
@@ -189,16 +245,39 @@
       >
     </a>
   {/if}
-  <div class="interval" title={t('monitors.row.interval')}>
+  <div class="locs mc-locs" role="list" aria-label={t('overview.row.locAria')}>
+    {#each shownDots as d (d.key)}<span class="ldot {dotClass(d.status)}" role="listitem" title={dotTitle(d)} aria-label={dotTitle(d)}></span>{/each}
+    {#if dots.length > shownDots.length}
+      <span class="lmore" title={dots.slice(shownDots.length).map(dotTitle).join(', ')}>+{dots.length - shownDots.length}</span>
+    {/if}
+    {#if dots.length === 0}<span class="none">—</span>{/if}
+  </div>
+  <div class="resp mc-resp" title={respTitle}>
+    <Sparkline values={pings} fail={PING_DOWN} tone={sparkTone} w={64} h={22} />
+    <span class="ms" class:slow={lastMs >= 1000}>{lastMs >= 0 ? fmtMs(lastMs) : '—'}</span>
+  </div>
+  <div class="ssl mc-ssl {certTone}" title={certTitle}>
+    {#if certDays === null}
+      <span class="none">—</span>
+    {:else}
+      <Icon name="lock" size={12} />{certDays < 0 ? t('overview.row.sslExpired') : t('overview.row.sslDays', { n: certDays })}
+    {/if}
+  </div>
+  <div class="u mc-u7" class:c-down={m.uptime_7d != null && m.uptime_7d < 99} title={t('overview.row.u7Title')}>{fmtPct(m.uptime_7d)}</div>
+  <div class="u mc-u30" class:c-down={m.uptime_30d != null && m.uptime_30d < 99} title={t('overview.row.u30Title')}>{fmtPct(m.uptime_30d)}</div>
+  <div class="last mc-last" title={m.last_check_at ? t('overview.row.lastTitle', { date: fmtDateSec(m.last_check_at) }) : t('overview.row.never')}>
+    {m.last_check_at ? fmtRelative(m.last_check_at, now) : '—'}
+  </div>
+  <div class="interval mc-int" title={t('monitors.row.interval')}>
     <Icon name="refresh" size={13} />
     {fmtInterval(m.interval)}
   </div>
-  <div class="uptime">
+  <div class="uptime mc-bars">
     <UptimeBars bars={m.bars} />
     <div class="pct" class:c-down={m.uptime_24h !== null && m.uptime_24h < 99}>{fmtPct(m.uptime_24h)}</div>
   </div>
   {#if session.canEdit}
-    <div class="menu">
+    <div class="menu mc-menu">
       <button
         type="button"
         class="btn ghost icon"
@@ -215,13 +294,8 @@
 </div>
 
 <style>
+  /* Izgara ve sütunlar: monitor-grid.css (başlıkla ortak). */
   .row {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
-    grid-template-areas: 'ic info inc interval uptime menu';
-    align-items: center;
-    column-gap: 16px;
-    padding: 14px 10px 14px 18px;
     border-bottom: 1px solid var(--border);
     cursor: pointer;
     transition: background 0.12s;
@@ -229,12 +303,6 @@
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
-  }
-  .row.selectable {
-    grid-template-columns: auto auto minmax(0, 1fr) auto auto auto auto;
-    grid-template-areas: 'sel ic info inc interval uptime menu';
-    column-gap: 14px;
-    padding-left: 14px;
   }
   /* Dokunmatik ekranda dokunulan satır "hover" rengiyle takılı kalmasın. */
   @media (hover: hover) {
@@ -251,15 +319,16 @@
     }
   }
   .row.dim .info,
-  .row.dim .uptime {
+  .row.dim .uptime,
+  .row.dim .resp,
+  .row.dim .ssl,
+  .row.dim .u,
+  .row.dim .last {
     opacity: 0.6;
   }
   /* Seçim kutusu: masaüstünde satırın üzerine gelince veya seçim varken görünür. */
   .sel {
-    grid-area: sel;
     align-items: center;
-    padding: 8px 2px;
-    margin: -8px -2px;
     opacity: 0;
     transition: opacity 0.12s;
   }
@@ -272,12 +341,7 @@
     opacity: 1;
   }
   .ic {
-    grid-area: ic;
     display: flex;
-  }
-  .info {
-    grid-area: info;
-    min-width: 0;
   }
   .name {
     display: flex;
@@ -351,7 +415,6 @@
     color: var(--muted);
   }
   .inc {
-    grid-area: inc;
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -391,17 +454,106 @@
     }
   }
   .interval {
-    grid-area: interval;
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 5px;
     color: var(--muted);
     font-size: 0.83rem;
     white-space: nowrap;
   }
-  .uptime {
-    grid-area: uptime;
-    width: 246px;
+  /* Konum noktaları */
+  .locs {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+  }
+  .ldot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--paused);
+    flex-shrink: 0;
+  }
+  .ldot.up {
+    background: var(--up);
+  }
+  .ldot.down {
+    background: var(--down);
+    box-shadow: 0 0 0 3px var(--down-soft);
+  }
+  .ldot.warn {
+    background: var(--pending);
+  }
+  .lmore {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .none {
+    color: var(--muted);
+    opacity: 0.7;
+  }
+  /* Yanıt süresi: küçük grafik + son değer */
+  .resp {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .ms {
+    min-width: 54px;
+    text-align: right;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .ms.slow {
+    color: var(--pending);
+  }
+  .ssl {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: var(--text-2);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .ssl :global(svg) {
+    color: var(--muted);
+  }
+  .ssl.warn,
+  .ssl.warn :global(svg) {
+    color: var(--pending);
+  }
+  .ssl.bad,
+  .ssl.bad :global(svg) {
+    color: var(--down-text-2);
+  }
+  .u {
+    text-align: right;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .u.c-down {
+    color: var(--down-text-2);
+  }
+  .last {
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .pct {
     text-align: right;
@@ -413,22 +565,15 @@
   .pct.c-down {
     color: var(--down-text-2);
   }
-  .menu {
-    grid-area: menu;
-  }
   .menu .btn.open {
     background: var(--card-2);
     color: var(--text);
   }
 
-  /* Liste daraldıkça (kenar çubuğu + yan panel, tablet) ada ve duruma yer bırak:
-     liste kutusu (MonitorList .list) "mlist" adlı kapsayıcıdır. */
-  @container mlist (max-width: 900px) {
-    .uptime {
-      width: 180px;
-    }
-    /* Olay düğmesi varken aralık sütunu gizlenir (ad sıkışmasın). */
-    .row.has-inc .interval {
+  /* Dar listede yalnızca son değer (grafik gizlenir): liste kutusu (MonitorList
+     .list) "mlist" adlı kapsayıcıdır; sütunların kendisi monitor-grid.css'te. */
+  @container mlist (max-width: 799px) {
+    .resp :global(.spark) {
       display: none;
     }
   }
@@ -443,9 +588,6 @@
       }
     }
     @container mlist (max-width: 600px) {
-      .interval {
-        display: none;
-      }
       .inc {
         width: 28px;
         padding: 0;
@@ -457,34 +599,6 @@
     }
   }
   @media (max-width: 640px) {
-    .row,
-    .row.selectable {
-      grid-template-columns: auto minmax(0, 1fr) auto auto;
-      grid-template-areas:
-        'ic info inc menu'
-        '. uptime uptime uptime';
-      column-gap: 10px;
-      row-gap: 8px;
-      padding: 12px 6px 12px 14px;
-    }
-    /* Seçim kutusu yalnızca seçim modunda, durum ikonunun yerinde. */
-    .row.selectable .sel {
-      display: none;
-      grid-area: ic;
-      justify-self: center;
-    }
-    .row.selecting .sel {
-      display: flex;
-      opacity: 1;
-      padding: 7px;
-      margin: 0;
-    }
-    .row.selecting .ic {
-      display: none;
-    }
-    .interval {
-      display: none;
-    }
     .inc {
       height: 26px;
       padding: 0 9px 0 8px;
@@ -518,7 +632,6 @@
       flex-basis: 100%;
     }
     .uptime {
-      width: auto;
       display: flex;
       align-items: center;
       gap: 10px;

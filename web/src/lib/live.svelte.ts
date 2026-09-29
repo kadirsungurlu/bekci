@@ -4,13 +4,24 @@
 // geldiğinde yalnızca o monitörün nesnesi yenisiyle değiştirilir. Böylece keyed each
 // bloğunda sadece değişen satır yeniden çizilir; yüzlerce monitörde de hızlı kalır.
 
-import { api, errorMessage, STATUS_DOWN, STATUS_MAINTENANCE, STATUS_UP, type BeatEvent, type MonitorView, type ProbeEvent, type ServerView, type Summary } from './api';
+import { api, errorMessage, PING_DOWN, PING_NONE, STATUS_DOWN, STATUS_MAINTENANCE, STATUS_UP, type BeatEvent, type MonitorView, type ProbeEvent, type ServerView, type Summary } from './api';
 import { i18n } from './i18n/locale.svelte';
 
 type BeatListener = (b: BeatEvent) => void;
 type MaintListener = (id: number) => void;
 type ProbeListener = (p: ProbeEvent) => void;
 type ServerListener = (s: ServerView) => void;
+
+/** Listedeki küçük yanıt süresi grafiği için tutulan son kontrol sayısı (sunucuyla aynı). */
+const RECENT_PINGS = 30;
+
+/** Yeni kontrol sonucunu son kontroller listesine ekler (sunucunun RecentPings kuralıyla). */
+function appendPing(list: number[], b: BeatEvent): number[] {
+  const v = b.status === STATUS_DOWN ? PING_DOWN : b.ping >= 0 ? b.ping : PING_NONE;
+  const next = list.length >= RECENT_PINGS ? list.slice(list.length - RECENT_PINGS + 1) : list.slice();
+  next.push(v);
+  return next;
+}
 
 class Live {
   monitors = $state.raw<MonitorView[]>([]);
@@ -145,6 +156,7 @@ class Live {
         cert_expires_at: c.cert_expires_at || n.cert_expires_at,
         in_maintenance: c.in_maintenance,
         open_incident_id: c.status === STATUS_UP ? null : (n.open_incident_id ?? c.open_incident_id),
+        pings: c.pings ?? n.pings,
       };
     });
   }
@@ -330,6 +342,7 @@ class Live {
         last_change_at: b.last_change_at,
         cert_expires_at: b.cert_expires_at || m.cert_expires_at,
         in_maintenance: b.status === STATUS_MAINTENANCE,
+        pings: m.pings ? appendPing(m.pings, b) : undefined,
       };
     });
     if (needIncident) this.refreshSoon(800);

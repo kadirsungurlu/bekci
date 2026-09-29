@@ -24,6 +24,7 @@ import apiKeys from './apiKeys';
 import backup from './backup';
 import audit from './audit';
 import tags from './tags';
+import overview from './overview';
 
 const tr = {
   common,
@@ -49,6 +50,7 @@ const tr = {
   backup,
   audit,
   tags,
+  overview,
 };
 
 export default tr;

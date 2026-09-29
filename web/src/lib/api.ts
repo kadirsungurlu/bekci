@@ -158,6 +158,27 @@ export interface MonitorView {
   locations?: LocationSetup;
   /** Süren olayın kimliği ("Olayı gör"); yoksa null. Eski sunucularda alan yok. */
   open_incident_id?: number | null;
+  /**
+   * Son kontrollerin yanıt süreleri (ms, eskiden yeniye; en çok 30). PING_DOWN:
+   * başarısız kontrol, PING_NONE: ölçüm yok. Eski sunucularda alan yok.
+   */
+  pings?: number[];
+  uptime_7d?: number | null;
+  uptime_30d?: number | null;
+  /** Çok konumlu, çalışan monitörde konumların canlı durumu. */
+  loc_states?: LocationDot[];
+}
+
+/** Yanıt süresi listesindeki özel değerler (MonitorView.pings). */
+export const PING_NONE = -1;
+export const PING_DOWN = -2;
+
+/** Listedeki konum noktası. status: up | down | retrying | unknown (| waiting …). */
+export interface LocationDot {
+  probe_id: number;
+  name: string;
+  status: string;
+  ping_ms: number;
 }
 
 /** Monitör listesindeki toplu işlemler (POST /api/monitors/bulk). */
@@ -738,6 +759,10 @@ export interface ServerView {
   ip_lock: boolean;
   /** Sabitlenmiş IP; boşsa ajan henüz bağlanmadı. */
   locked_ip: string;
+  /** Ajanın son bağlandığı IP (yalnızca yöneticiye). */
+  ip?: string;
+  /** Liste biçiminde son bir saatin dakikalık CPU değerleri (eskiden yeniye). */
+  cpu_hist?: number[];
 }
 
 export interface AlertRule {

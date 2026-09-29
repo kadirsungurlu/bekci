@@ -90,6 +90,24 @@ type monitorView struct {
 	Locations store.LocationSetup `json:"locations"`
 	// OpenIncidentID süren olayın kimliği (listede "Olayı gör"); yoksa null.
 	OpenIncidentID *int64 `json:"open_incident_id"`
+	// Geniş ekran listesi için: son kontrollerin yanıt süreleri (eskiden yeniye;
+	// store.PingDown başarısız, store.PingNone ölçümsüz), 7/30 günlük çalışma
+	// oranı ve çok konumlu monitörde konumların canlı durumu.
+	Pings     []int64       `json:"pings"`
+	Uptime7d  *float64      `json:"uptime_7d"`
+	Uptime30d *float64      `json:"uptime_30d"`
+	LocStates []locationDot `json:"loc_states,omitempty"`
+}
+
+// recentPings listede küçük yanıt süresi grafiği için tutulan son kontrol sayısı.
+const recentPings = 30
+
+// locationDot listedeki konum noktası (ayrıntı ve mesaj detay sayfasında).
+type locationDot struct {
+	ProbeID int64  `json:"probe_id"`
+	Name    string `json:"name"`
+	Status  string `json:"status"`
+	PingMs  int64  `json:"ping_ms"`
 }
 
 // hourlyBars son 24 saatin saatlik kovalarını, boş saatleri de doldurarak döner.
@@ -133,6 +151,20 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 		return nil, err
 	}
 	tags, err := s.store.MonitorTags(r.Context())
+	if err != nil {
+		return nil, err
+	}
+	// Tek monitörlük yanıtta (detay, kaydetme) yalnızca o monitör sorgulanır;
+	// listede tüm monitörler tek sorguyla (monitör başına sorgu yok).
+	var only []int64
+	if len(monitors) == 1 {
+		only = []int64{monitors[0].ID}
+	}
+	pings, err := s.store.RecentPings(r.Context(), only, recentPings)
+	if err != nil {
+		return nil, err
+	}
+	windows, err := s.store.UptimeWindows(r.Context(), only, now.Unix()-7*86400, now.Unix()-30*86400)
 	if err != nil {
 		return nil, err
 	}
@@ -188,8 +220,22 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 		if iid, ok := openIncidents[m.ID]; ok {
 			incident = &iid
 		}
-		out = append(out, monitorView{Monitor: m, Target: target, NotificationIDs: ids, Tags: mt, Uptime24h: up, Bars: bars,
-			InMaintenance: m.Active && s.engine.InMaintenance(m.ID, now), Locations: loc, OpenIncidentID: incident})
+		p := pings[m.ID]
+		if p == nil {
+			p = []int64{}
+		}
+		v := monitorView{Monitor: m, Target: target, NotificationIDs: ids, Tags: mt, Uptime24h: up, Bars: bars,
+			InMaintenance: m.Active && s.engine.InMaintenance(m.ID, now), Locations: loc, OpenIncidentID: incident, Pings: p}
+		if w := windows[m.ID]; w != nil {
+			v.Uptime7d, v.Uptime30d = w[0], w[1]
+		}
+		if st, ok := s.engine.LocationStatuses(m.ID); ok {
+			v.LocStates = make([]locationDot, len(st))
+			for i, l := range st {
+				v.LocStates[i] = locationDot{ProbeID: l.ProbeID, Name: locationName(lang, l.Name), Status: l.Status, PingMs: l.PingMs}
+			}
+		}
+		out = append(out, v)
 	}
 	return out, nil
 }

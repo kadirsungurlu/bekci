@@ -59,11 +59,17 @@ type View struct {
 	// olayında bu alanları atar (HideIPLock, api.viewerEvent).
 	IPLock   bool   `json:"ip_lock"`   // yalnızca kilitli IP'den bağlanabilir mi
 	LockedIP string `json:"locked_ip"` // sabitlenmiş IP(ler) (boş: henüz bağlanmadı)
+	// IP ajanın son bağlandığı adres (yalnızca yöneticiye, HideIPLock atar).
+	IP string `json:"ip,omitempty"`
+	// CPUHist liste ve canlı akışta son bir saatin dakikalık CPU değerleri
+	// (eskiden yeniye; küçük grafik için). Bellekteki uyarı geçmişinden gelir,
+	// veritabanına gidilmez; ajan açılıştan beri veri göndermediyse boştur.
+	CPUHist []float64 `json:"cpu_hist,omitempty"`
 }
 
 // HideIPLock yönetici olmayan kullanıcıya gidecek görünümden IP kilidi
 // bilgisini (sunucunun sabitlenmiş IP adresi dahil) çıkarır.
-func (v *View) HideIPLock() { v.IPLock, v.LockedIP = false, "" }
+func (v *View) HideIPLock() { v.IPLock, v.LockedIP, v.IP = false, "", "" }
 
 // Localize ajanın Türkçe gönderdiği/saklanan notu ("metrik toplanamıyor"
 // nedeni) istenen dile çevirir (bkz. i18n.Message). Canlı akıştaki "server"
@@ -77,7 +83,7 @@ func (s *Service) View(ctx context.Context, p store.Probe, rules []store.ServerA
 		ID: p.ID, Name: p.Name, Active: p.Active, Metrics: p.Metrics, State: State(p, s.now()),
 		Note: p.MetricsNote, Interval: Interval, LastSeenAt: p.LastSeenAt, MetricsAt: p.MetricsAt,
 		Version: p.Version, Host: hostOf(p), Firing: []string{},
-		IPLock: p.IPLock, LockedIP: p.LockedIP,
+		IPLock: p.IPLock, LockedIP: p.LockedIP, IP: p.LastIP,
 	}
 	if st := s.Latest(ctx, p); st != nil {
 		v.ContainerCount = len(st.Containers)
@@ -89,12 +95,30 @@ func (s *Service) View(ctx context.Context, p store.Probe, rules []store.ServerA
 		}
 		v.Latest = st
 	}
+	if !full {
+		v.CPUHist = s.cpuHistory(p.ID)
+	}
 	for _, a := range rules {
 		if a.Firing && a.Active {
 			v.Firing = append(v.Firing, a.Metric)
 		}
 	}
 	return v
+}
+
+// cpuHistory bellekteki son bir saatin CPU değerleri (bir ondalık).
+func (s *Service) cpuHistory(id int64) []float64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	h := s.history[id]
+	if len(h) == 0 {
+		return nil
+	}
+	out := make([]float64, len(h))
+	for i, p := range h {
+		out[i] = math.Round(p.cpu*10) / 10
+	}
+	return out
 }
 
 // Grafik serisi -------------------------------------------------------------------------

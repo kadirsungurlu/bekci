@@ -1,10 +1,10 @@
 <script lang="ts">
   import { SvelteSet } from 'svelte/reactivity';
-  import { api, errorMessage, type MonitorView } from '../lib/api';
+  import { api, errorMessage, type Incident, type Maintenance, type MonitorView } from '../lib/api';
   import { live } from '../lib/live.svelte';
   import { session } from '../lib/session.svelte';
   import { clock, confirmDialog, toast } from '../lib/ui.svelte';
-  import { collator, fmtPct, lower, monitorKind } from '../lib/format';
+  import { certDaysLeft, collator, fmtDate, fmtDuration, fmtDurationShort, fmtMs, fmtPct, fmtRelative, lower, monitorKind } from '../lib/format';
   import { cloneMonitor, deleteMonitor, resetStats, togglePause } from '../lib/actions';
   import MonitorRow from '../components/MonitorRow.svelte';
   import MonitorMenu, { type MenuAction } from '../components/MonitorMenu.svelte';
@@ -16,7 +16,7 @@
   import StatusIcon from '../components/StatusIcon.svelte';
   import Icon from '../components/Icon.svelte';
   import { i18n, t, tParts } from '../lib/i18n';
-  import { tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
 
   type Filter = 'all' | 'down' | 'up' | 'maint' | 'paused';
   type Sort = 'status' | 'name' | 'uptime';
@@ -113,6 +113,77 @@
   });
 
   const summary = $derived(live.summary);
+
+  // Yan panelin ek kartları (geniş ekran) ----------------------------------------------
+  // SSL ve yanıt süresi listeden hesaplanır; olaylar ve bakımlar mevcut uçlardan
+  // gelir. Kartlar yalnızca yan panel sütun olarak gösterildiğinde (>1180 px)
+  // yüklenir; özet her yenilendiğinde (en geç 60 sn, durum değişince hemen) tazelenir.
+  const sslSoon = $derived(
+    live.monitors
+      .filter((m) => m.type === 'http' && m.active && m.cert_expires_at > 0)
+      .map((m) => ({ m, days: certDaysLeft(m.cert_expires_at, clock.now) ?? 0 }))
+      .sort((a, b) => a.days - b.days || collator.compare(a.m.name, b.m.name))
+      .slice(0, 5),
+  );
+  // Son 24 saatin ortalama yanıt süresi: saatlik kovaların ortalamaları başarılı
+  // kontrol sayısıyla ağırlıklandırılır.
+  const slowest = $derived.by(() => {
+    const out: { m: MonitorView; avg: number }[] = [];
+    for (const m of live.monitors) {
+      if (!m.active || m.type === 'push' || m.type === 'group') continue;
+      let sum = 0,
+        n = 0;
+      for (const b of m.bars ?? []) {
+        if (b.ping < 0) continue;
+        const w = Math.max(1, b.up);
+        sum += b.ping * w;
+        n += w;
+      }
+      if (n) out.push({ m, avg: sum / n });
+    }
+    return out.sort((a, b) => b.avg - a.avg).slice(0, 5);
+  });
+  const slowMax = $derived(slowest.length ? slowest[0].avg : 1);
+
+  let incidents = $state<Incident[] | null>(null);
+  let maints = $state<Maintenance[] | null>(null);
+  const upcoming = $derived(
+    (maints ?? [])
+      .filter((mt) => mt.active && (mt.status === 'active' || (mt.status === 'scheduled' && mt.next_start > 0)))
+      .sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1) || a.next_start - b.next_start)
+      .slice(0, 3),
+  );
+  const wideMq = window.matchMedia('(min-width: 1181px)');
+  let sideWide = $state(wideMq.matches);
+  $effect(() => {
+    const f = () => (sideWide = wideMq.matches);
+    wideMq.addEventListener('change', f);
+    return () => wideMq.removeEventListener('change', f);
+  });
+  let sideAt = 0;
+  let sideTimer: ReturnType<typeof setTimeout> | undefined;
+  async function loadSide() {
+    sideAt = Date.now();
+    const [inc, mt] = await Promise.allSettled([api.incidents(0, 5), api.maintenance()]);
+    if (inc.status === 'fulfilled') incidents = inc.value;
+    if (mt.status === 'fulfilled') maints = mt.value;
+  }
+  // Art arda gelen yenilemeler tek isteğe iner (en az 5 sn arayla).
+  function loadSideSoon() {
+    clearTimeout(sideTimer);
+    sideTimer = setTimeout(loadSide, Math.max(0, 5000 - (Date.now() - sideAt)));
+  }
+  $effect(() => {
+    void live.summary;
+    if (sideWide && live.loaded) loadSideSoon();
+  });
+  onMount(() => {
+    const offMaint = live.onMaintenance(loadSideSoon);
+    return () => {
+      offMaint();
+      clearTimeout(sideTimer);
+    };
+  });
 
   // Telefonda özet kartları yerine tek satır durum çipleri (aynı zamanda filtre).
   const chips = $derived(
@@ -489,6 +560,22 @@
         bind:this={listEl}
         onscroll={onAnyScroll}
       >
+        {#if visible.length}
+          <div class="mrow mhead" aria-hidden="true">
+            {#if session.canEdit}<span class="mc-sel"></span>{/if}
+            <span class="mc-ic"></span>
+            <span class="mc-info">{t('overview.cols.monitor')}</span>
+            <span class="mc-locs">{t('overview.cols.locations')}</span>
+            <span class="mc-resp r">{t('overview.cols.response')}</span>
+            <span class="mc-ssl r">{t('overview.cols.ssl')}</span>
+            <span class="mc-u7 r">{t('overview.cols.u7')}</span>
+            <span class="mc-u30 r">{t('overview.cols.u30')}</span>
+            <span class="mc-last r">{t('overview.cols.lastCheck')}</span>
+            <span class="mc-int r">{t('overview.cols.interval')}</span>
+            <span class="mc-bars">{t('overview.cols.last24')}</span>
+            {#if session.canEdit}<span class="mc-menu"></span>{/if}
+          </div>
+        {/if}
         {#each visible as m (m.id)}
           <MonitorRow
             {m}
@@ -628,6 +715,81 @@
         </div>
         <a class="more" href="#/incidents">{t('monitors.list.allIncidents')} <Icon name="chevron-right" size={14} /></a>
       </div>
+
+      {#if incidents}
+        <div class="card extra">
+          <h2 class="card-title">{t('overview.side.incidents')}<span class="dot">.</span></h2>
+          {#if incidents.length}
+            <ul class="mini">
+              {#each incidents as inc (inc.id)}
+                <li>
+                  <span class="mdot" class:down={!inc.resolved_at} aria-hidden="true"></span>
+                  <a class="mname" href="#/incidents/{inc.id}">{inc.monitor_name}</a>
+                  <span class="mval" class:c-down={!inc.resolved_at}>
+                    {inc.resolved_at ? t('overview.side.lasted', { d: fmtDuration(inc.resolved_at - inc.started_at) }) : t('overview.side.ongoingFor', { d: fmtDuration(clock.now - inc.started_at) })}
+                  </span>
+                  <span class="msub" title={fmtDate(inc.started_at)}>
+                    {fmtRelative(inc.started_at, clock.now)}{#if inc.cause}{' · '}{inc.cause}{/if}
+                  </span>
+                </li>
+              {/each}
+            </ul>
+          {:else}
+            <p class="quiet">{t('overview.side.incidentsEmpty')}</p>
+          {/if}
+        </div>
+      {/if}
+
+      {#if sslSoon.length}
+        <div class="card extra">
+          <h2 class="card-title">{t('overview.side.ssl')}<span class="dot">.</span></h2>
+          <ul class="mini">
+            {#each sslSoon as x (x.m.id)}
+              <li>
+                <Icon name="lock" size={13} />
+                <a class="mname" href="#/monitors/{x.m.id}">{x.m.name}</a>
+                <span class="mval {x.days < 7 ? 'c-down' : x.days < 14 ? 'c-pending' : ''}" title={fmtDate(x.m.cert_expires_at)}>
+                  {x.days < 0 ? t('overview.side.expired') : t('overview.side.days', { n: x.days, count: x.days })}
+                </span>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+
+      {#if upcoming.length}
+        <div class="card extra">
+          <h2 class="card-title">{t('overview.side.maint')}<span class="dot">.</span></h2>
+          <ul class="mini">
+            {#each upcoming as mt (mt.id)}
+              <li>
+                <Icon name="wrench" size={13} />
+                <a class="mname" href={session.canEdit ? `#/maintenance/${mt.id}` : '#/maintenance'}>{mt.title}</a>
+                <span class="mval" class:c-maint={mt.status === 'active'}>
+                  {mt.status === 'active' ? t('overview.side.maintNow') : t('overview.side.maintIn', { d: fmtDurationShort(mt.next_start - clock.now) })}
+                </span>
+                {#if mt.status !== 'active'}<span class="msub">{fmtDate(mt.next_start)}</span>{/if}
+              </li>
+            {/each}
+          </ul>
+          <a class="more" href="#/maintenance">{t('overview.side.allMaint')} <Icon name="chevron-right" size={14} /></a>
+        </div>
+      {/if}
+
+      {#if slowest.length}
+        <div class="card extra">
+          <h2 class="card-title" title={t('overview.side.avgTitle')}>{t('overview.side.slow')}<span class="dot">.</span></h2>
+          <ul class="mini slow">
+            {#each slowest as x (x.m.id)}
+              <li>
+                <a class="mname" href="#/monitors/{x.m.id}">{x.m.name}</a>
+                <span class="mval">{fmtMs(x.avg)}</span>
+                <span class="sbar" aria-hidden="true"><i style="width:{Math.max(4, (100 * x.avg) / slowMax)}%"></i></span>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
     </aside>
   </div>
 {/if}
@@ -661,9 +823,111 @@
 <style>
   .layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) clamp(300px, 17vw, 340px);
     gap: 24px;
     align-items: start;
+  }
+  /* Sütun başlığı (satırlarla aynı ızgara: components/monitor-grid.css). */
+  .mhead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding-top: 9px;
+    padding-bottom: 9px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    border-top-left-radius: var(--radius);
+    border-top-right-radius: var(--radius);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .mhead > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mhead .r {
+    text-align: right;
+  }
+  /* Yan panelin küçük listeleri */
+  .mini {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .mini li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 1px;
+    font-size: 0.86rem;
+    min-width: 0;
+  }
+  .mini li > :global(svg) {
+    color: var(--muted);
+  }
+  .mini.slow li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .mname {
+    color: var(--text);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .mval {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--text-2);
+    font-size: 0.82rem;
+  }
+  .msub {
+    grid-column: 2 / -1;
+    font-size: 0.76rem;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mdot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--paused);
+  }
+  .mdot.down {
+    background: var(--down);
+    box-shadow: 0 0 0 3px var(--down-soft);
+  }
+  .sbar {
+    grid-column: 1 / -1;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--meter-track);
+    overflow: hidden;
+    margin-top: 3px;
+  }
+  .sbar i {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent);
+    opacity: 0.8;
+  }
+  .quiet {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
   }
   .main-col {
     min-width: 0;
@@ -1071,6 +1335,10 @@
   @media (max-width: 1180px) {
     .layout {
       grid-template-columns: minmax(0, 1fr);
+    }
+    /* Panel listenin üstüne indiğinde yalnızca özet kartları kalır. */
+    .side .extra {
+      display: none;
     }
     .side {
       order: -1;

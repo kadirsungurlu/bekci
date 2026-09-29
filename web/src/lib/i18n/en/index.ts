@@ -24,6 +24,7 @@ import apiKeys from './apiKeys';
 import backup from './backup';
 import audit from './audit';
 import tags from './tags';
+import overview from './overview';
 
 import type { Shape } from '../types';
 import type tr from '../tr';
@@ -52,6 +53,7 @@ const en = {
   backup,
   audit,
   tags,
+  overview,
 } satisfies Shape<typeof tr>;
 
 export default en;
