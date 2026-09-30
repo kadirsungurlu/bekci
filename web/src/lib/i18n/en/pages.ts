@@ -8,7 +8,8 @@ export default {
   },
   published: 'Published',
   draft: 'Draft',
-  preview: 'Preview',
+  preview: 'Full-screen preview',
+  previewTitle: 'Opens the saved page full screen (publish status and password are ignored)',
   monitorCount: '{count} monitor|{count} monitors',
   deleteTitle: 'Delete status page',
   deleted: '“{name}” deleted',
@@ -208,7 +209,7 @@ export default {
   },
   livePreview: {
     title: 'Live preview',
-    show: 'Preview',
+    show: 'Live preview',
     showAria: 'Show live preview',
     close: 'Close preview',
     hide: 'Hide preview',

@@ -162,9 +162,11 @@
 
   // Çerçeve: sayfa sanal bir ekran genişliğinde çizilip panele sığacak kadar küçültülür.
   let stageW = $state(600);
-  // Masaüstü önizleme 1920 px'lik ekranı küçülterek gösterir: "Geniş" (≈1640 px)
-  // ile "Dar" arasındaki fark yayındaki sayfadaki gibi görünsün.
-  const vw = $derived(device === 'mobile' ? 390 : 1920);
+  // Masaüstü önizleme sayfanın genişliğine yetecek sanal bir ekranı küçülterek
+  // gösterir: "Dar" sayfa (860 px) 1100 px'lik, "Geniş" sayfa (≈1640 px) 1720
+  // px'lik ekranda. 1920 px'lik ekran dar sayfada da ~0,25 ölçeğe iniyor ve
+  // yazılar okunmuyordu.
+  const vw = $derived(device === 'mobile' ? 390 : draft.layout?.width === 'wide' ? 1720 : 1100);
   const scale = $derived(Math.min(1, Math.max(0.2, (stageW - 2) / vw)));
 </script>
 

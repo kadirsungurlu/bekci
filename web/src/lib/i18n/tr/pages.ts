@@ -7,7 +7,8 @@ export default {
   },
   published: 'Yayında',
   draft: 'Taslak',
-  preview: 'Önizle',
+  preview: 'Tam ekran önizle',
+  previewTitle: 'Kaydedilmiş sayfayı tam ekranda açar (yayın durumu ve şifre yok sayılır)',
   monitorCount: '{count} monitör',
   deleteTitle: 'Durum sayfasını sil',
   deleted: '“{name}” silindi',
@@ -206,7 +207,7 @@ export default {
   },
   livePreview: {
     title: 'Canlı önizleme',
-    show: 'Önizleme',
+    show: 'Canlı önizleme',
     showAria: 'Canlı önizlemeyi göster',
     close: 'Önizlemeyi kapat',
     hide: 'Önizlemeyi gizle',

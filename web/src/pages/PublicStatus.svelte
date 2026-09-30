@@ -8,17 +8,22 @@
   import { nowSec } from '../lib/format';
   import Icon from '../components/Icon.svelte';
   import StatusView from '../components/StatusView.svelte';
-  import { i18n, isLocale, setLocale, t } from '../lib/i18n';
-
-  // Sayfa kendi dilinde gösterilir (sayfa ayarı; eski sunucuda tr). Dil
-  // tarayıcıda hatırlanmaz; önizlemeden çıkınca panelin dili geri gelir.
-  const prevLocale = i18n.locale;
-  function applyPageLang(l: unknown) {
-    const want = isLocale(l) ? l : 'tr';
-    if (i18n.locale !== want) setLocale(want, false);
-  }
+  import { i18n, isLocale, setLocale, t, type Locale } from '../lib/i18n';
 
   let { slug = '', previewId }: { slug?: string; previewId?: number } = $props();
+
+  // Sayfa kendi dilinde gösterilir (sayfa ayarı; eski sunucuda tr). Dil
+  // tarayıcıda hatırlanmaz. Yönetim panelindeki önizlemede arayüzün dili
+  // değişmez (önizleme çubuğu ve sekme başlığı yöneticinin dilinde kalır);
+  // yalnızca sayfanın gövdesi (StatusView) sayfanın dilinde çizilir.
+  const prevLocale = i18n.locale;
+  const isPreview = untrack(() => previewId !== undefined);
+  let pageLang = $state<Locale>(i18n.locale);
+  function applyPageLang(l: unknown) {
+    const want = isLocale(l) ? l : 'tr';
+    pageLang = want;
+    if (!isPreview && i18n.locale !== want) setLocale(want, false);
+  }
 
   let page = $state.raw<PublicPage | null>(null);
   let locked = $state.raw<PublicLocked | null>(null);
@@ -89,7 +94,9 @@
     if (i18n.locale !== prevLocale) setLocale(prevLocale, false);
   });
 
+  // Önizlemede sekme başlığını yönetim paneli (App) yönetir.
   $effect(() => {
+    if (isPreview) return;
     const title = page?.title ?? locked?.title;
     document.title = notFound ? t('pub.notFoundDoc') : title ? t('pub.docTitle', { title }) : t('pub.docTitleDefault');
   });
@@ -181,7 +188,7 @@
       <div class="center"><span class="spinner"></span></div>
     {/if}
   {:else}
-    <StatusView {page} {logo} {light} lang={i18n.locale} foldKey="durum-kapali:{previewId ?? slug}" />
+    <StatusView {page} {logo} {light} lang={pageLang} foldKey="durum-kapali:{previewId ?? slug}" />
   {/if}
 </div>
 

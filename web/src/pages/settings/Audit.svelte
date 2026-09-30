@@ -5,6 +5,7 @@
   import { fmtDate } from '../../lib/format';
   import { STRATEGY_LABELS } from '../../lib/maintenance';
   import { t } from '../../lib/i18n';
+  import { live } from '../../lib/live.svelte';
 
   // Bakım kayıtlarında ayrıntı strateji kodudur (ör. recurring_weekly).
   const detailText = (a: AuditEntry) =>
@@ -45,7 +46,11 @@
     }
   }
 
-  onMount(loadFirst);
+  onMount(() => {
+    loadFirst();
+    // Dil değişince (ayrıntılar sunucuda çevrilir) ve uzun aradan sonra tazele.
+    return live.onResume(loadFirst);
+  });
 </script>
 
 <div class="card">

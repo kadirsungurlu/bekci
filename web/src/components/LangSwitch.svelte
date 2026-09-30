@@ -4,6 +4,7 @@
   // Ayarlar → Hesabım'da.
   import { api, errorMessage } from '../lib/api';
   import { session } from '../lib/session.svelte';
+  import { live } from '../lib/live.svelte';
   import { toast } from '../lib/ui.svelte';
   import { i18n, LOCALES, setLocale, t, type Locale } from '../lib/i18n';
 
@@ -17,6 +18,8 @@
     try {
       const res = await api.setPreferences({ lang: l });
       session.set(res.user);
+      // Sunucudan gelen metinler (kontrol mesajları, olaylar) de yeni dilde gelsin.
+      live.relocalize();
     } catch (err) {
       setLocale(prev);
       toast.error(errorMessage(err));

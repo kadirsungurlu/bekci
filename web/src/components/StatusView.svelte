@@ -41,7 +41,8 @@
     Severity,
   } from '../lib/api';
   import { clock } from '../lib/ui.svelte';
-  import { fmtDate, fmtDay, fmtDuration, fmtPct, fmtTime, fmtTimeSec, hourRange, nowSec } from '../lib/format';
+  import * as fmt from '../lib/format';
+  import { nowSec } from '../lib/format';
   import Icon, { type IconName } from './Icon.svelte';
   import { tIn, type Locale, type TKey, type TParams } from '../lib/i18n';
 
@@ -66,6 +67,15 @@
   } = $props();
 
   const t = (key: TKey, params?: TParams) => tIn(lang, key, params);
+  // Tarih, süre ve yüzdeler de sayfanın dilinde (düzenleyicideki canlı önizlemede
+  // yönetim arayüzünün dili farklı olabilir).
+  const fmtDate = (ts: number) => fmt.fmtDate(ts, lang);
+  const fmtDay = (ts: number) => fmt.fmtDay(ts, lang);
+  const fmtDuration = (sec: number) => fmt.fmtDuration(sec, lang);
+  const fmtPct = (v: number | null | undefined) => fmt.fmtPct(v, lang);
+  const fmtTime = (ts: number) => fmt.fmtTime(ts, lang);
+  const fmtTimeSec = (ts: number) => fmt.fmtTimeSec(ts, lang);
+  const hourRange = (ts: number) => fmt.hourRange(ts, lang);
 
   /** Web adreslerinde yalnızca alan adı (aydertesisat.com.tr); diğer hedefler olduğu gibi. */
   function targetLabel(v: string): string {
@@ -91,6 +101,7 @@
       folded = new Set();
     }
   });
+  const foldedHas = (si: number) => folded.has(si);
   function toggleFold(si: number) {
     const next = new Set(folded);
     if (next.has(si)) next.delete(si);
@@ -133,7 +144,29 @@
   /** Bir grubun (sütunun) genişliği: çubuk sayısı buna göre seçilir. */
   // Izgara sütun sayısı CSS'teki kapsayıcı sorgularıyla aynı eşiklerde: 760 px'ten
   // iki, 1400 px'ten üç sütun.
-  const gridCols = $derived(layout.style !== 'grid' ? 1 : mainW >= GRID3_MIN ? 3 : mainW >= GRID_MIN ? 2 : 1);
+  // Grup sayısından fazla sütun açılmaz (iki grupta üçüncü sütun boş kalıyordu).
+  const shownSections = $derived(page.sections.map((sec, si) => ({ sec, si })).filter((x) => x.sec.monitors.length > 0));
+  const gridCols = $derived(
+    layout.style !== 'grid'
+      ? 1
+      : Math.max(1, Math.min(shownSections.length, mainW >= GRID3_MIN ? 3 : mainW >= GRID_MIN ? 2 : 1)),
+  );
+  // Izgarada gruplar sütunlara yükseklik dengesiyle dağıtılır (sıradaki grup en
+  // kısa sütuna; eşitlikte soldaki): satır ızgarasında kısa grubun yanında
+  // boşluk kalmaz, sağ sütun boş durmaz. Yükseklik monitör sayısından tahmin edilir.
+  const gridColumns = $derived.by(() => {
+    if (gridCols < 2) return [];
+    const cols: { sec: (typeof shownSections)[number]['sec']; si: number }[][] = Array.from({ length: gridCols }, () => []);
+    const h = new Array(gridCols).fill(0);
+    for (const x of shownSections) {
+      const folded = !!page.collapsible && !!x.sec.title && foldedHas(x.si);
+      let k = 0;
+      for (let i = 1; i < gridCols; i++) if (h[i] < h[k]) k = i;
+      cols[k].push(x);
+      h[k] += 1.4 + (folded ? 0 : x.sec.monitors.length);
+    }
+    return cols;
+  });
   const colW = $derived((mainW - GRID_GAP * (gridCols - 1)) / gridCols);
   // Sayfanın çubuk görünümü (eski sunucu: 90 gün). Dar alanda çubuklar okunur
   // kalsın diye daha az çubuk gösterilir.
@@ -153,10 +186,32 @@
     return colW >= 560 ? 90 : colW >= 420 ? 60 : 30;
   });
 
+  /**
+   * Son kontroller görünümünde, kontrolü duran (durdurulmuş, sonuç gelmeyen)
+   * monitörün son kontrolünden bu yana geçen süre: kontrol aralığı çubuklardan
+   * tahmin edilir; o kadar boş çubuk sağa eklenir. Böylece 18 saat önceki son
+   * kontrol "Şimdi"nin hemen üstünde görünmez.
+   */
+  function staleSlots(bars: PublicBar[]): number {
+    if (range !== 'recent' || bars.length < 2) return 0;
+    const gaps: number[] = [];
+    for (let i = Math.max(1, bars.length - 20); i < bars.length; i++) gaps.push(bars[i].t - bars[i - 1].t);
+    gaps.sort((a, b) => a - b);
+    const step = gaps[Math.floor(gaps.length / 2)];
+    if (!(step > 0)) return 0;
+    const behind = Math.floor((nowSec() - bars[bars.length - 1].t) / step) - 1; // bir aralık tolerans
+    return Math.max(0, Math.min(count, behind));
+  }
+
   /** Gösterilecek çubuklar; son kontroller görünümünde az kontrol varsa soldan boşlukla doldurulur. */
   function shown(bars: PublicBar[]): (PublicBar | null)[] {
-    const last = bars.slice(-count);
-    return range === 'recent' && last.length < count ? [...Array(count - last.length).fill(null), ...last] : last;
+    if (range !== 'recent') return bars.slice(-count);
+    const stale = staleSlots(bars);
+    const keep = count - stale;
+    const last = keep > 0 ? bars.slice(-keep) : [];
+    const tail: null[] = Array(stale).fill(null);
+    const lead: null[] = Array(Math.max(0, count - last.length - stale)).fill(null);
+    return [...lead, ...last, ...tail];
   }
 
   function barKind(b: PublicBar | null): string {
@@ -205,6 +260,22 @@
     return v >= 99.5 ? '' : v >= 95 ? 'warn' : 'bad';
   }
   const upOf = (m: PublicMonitor) => (m.uptime !== undefined ? m.uptime : m.uptime_90d);
+  // 90 günlük görünümde dar alanda daha az gün (ör. 30) çizilir; yüzde ve
+  // etiketi de çizilen günlerden hesaplanır ("son 30 gün"): çubuklar "30 gün
+  // önce" derken yüzdenin "son 90 gün" demesi çelişiyordu.
+  const partialDays = $derived(range === '90d' && page.uptime_window !== '24h' && count < 90);
+  function upFor(m: PublicMonitor, bars: (PublicBar | null)[]): number | null | undefined {
+    if (!partialDays) return upOf(m);
+    let up = 0,
+      down = 0;
+    for (const b of bars) {
+      if (!b) continue;
+      up += b.up;
+      down += b.down;
+    }
+    return up + down ? (100 * up) / (up + down) : null;
+  }
+  const upWinShown = $derived(partialDays ? t('pub.upWinDays', { count }) : upWin);
   const showUptime = $derived(layout.show_uptime);
 
   // Dokunmatik ekranda çubuğa dokununca bilgisi çubukların altında gösterilir.
@@ -217,6 +288,7 @@
   }
 
   const incidents = $derived(page.incidents ?? []);
+  const totalMonitors = $derived(page.sections.reduce((n, s) => n + s.monitors.length, 0));
   const issues = (ms: PublicMonitor[]) => ms.filter((m) => m.status === 'down').length;
   const inMaint = (ms: PublicMonitor[]) => ms.some((m) => m.status === 'maintenance');
   const hasGroups = $derived(page.sections.some((s) => s.monitors.length > 0));
@@ -263,12 +335,14 @@
     {/each}
   </main>
 
-  <footer class="foot">
-    <div class="wrap foot-in">
-      {#if page.footer}<p class="foot-t">{page.footer}</p>{/if}
-      <p class="foot-s">{t('pub.footer', { time: fmtDate(page.updated_at) })}</p>
-    </div>
-  </footer>
+  <!-- Güncelleme zamanı üst çubukta; alt bilgi yalnızca sayfanın kendi metni. -->
+  {#if page.footer}
+    <footer class="foot">
+      <div class="wrap foot-in">
+        <p class="foot-t">{page.footer}</p>
+      </div>
+    </footer>
+  {/if}
 </div>
 
 {#snippet overall()}
@@ -277,7 +351,7 @@
     <span class="hero-ic"><Icon name={ov.icon} size={26} stroke={2.6} /></span>
     <div>
       <div class="hero-l">{ov.l}</div>
-      <div class="hero-s">{t('pub.lastUpdate', { time: fmtTime(page.updated_at) })}</div>
+      {#if totalMonitors > 0}<div class="hero-s">{t('pub.heroCount', { count: totalMonitors })}</div>{/if}
     </div>
   </section>
 {/snippet}
@@ -316,9 +390,9 @@
       </div>
       <div class="m-right">
         {#if showUptime}
-          <span class="m-up {upTone(upOf(m))}" title={uptimeLabel}>
-            <b>{fmtPct(upOf(m))}</b>
-            <span>{upWin}</span>
+          <span class="m-up {upTone(upFor(m, bars))}" title={partialDays ? upWinShown : uptimeLabel}>
+            <b>{fmtPct(upFor(m, bars))}</b>
+            <span>{upWinShown}</span>
           </span>
         {/if}
         <span class="sb {st.c}"><span class="sb-dot" aria-hidden="true"></span>{st.l}</span>
@@ -382,9 +456,9 @@
       {/each}
     </div>
     {#if showUptime}
-      <span class="r-up {rowTone(upOf(m))}" title={uptimeLabel}>
-        <b>{fmtPct(upOf(m))}</b>
-        <span>{upWin}</span>
+      <span class="r-up {rowTone(upFor(m, bars))}" title={partialDays ? upWinShown : uptimeLabel}>
+        <b>{fmtPct(upFor(m, bars))}</b>
+        <span>{upWinShown}</span>
       </span>
     {/if}
     {#if picked?.key === key && bars[picked.i]}
@@ -395,9 +469,27 @@
 
 {#snippet groups()}
   {#if hasGroups}
-    <div class="groups">
-      {#each page.sections as sec, si (si)}
-        {#if sec.monitors.length}
+    {#if gridColumns.length > 1}
+      <div class="groups gcols" style:grid-template-columns="repeat({gridColumns.length}, minmax(0, 1fr))">
+        {#each gridColumns as col, ci (ci)}
+          <div class="gcol">
+            {#each col as x (x.si)}
+              {@render group(x.sec, x.si)}
+            {/each}
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <div class="groups">
+        {#each shownSections as x (x.si)}
+          {@render group(x.sec, x.si)}
+        {/each}
+      </div>
+    {/if}
+  {/if}
+{/snippet}
+
+{#snippet group(sec: PublicPage['sections'][number], si: number)}
           {@const canFold = !!page.collapsible && !!sec.title}
           {@const isFolded = canFold && folded.has(si)}
           <section class="panel group" class:folded={isFolded}>
@@ -441,10 +533,6 @@
               {/if}
             {/if}
           </section>
-        {/if}
-      {/each}
-    </div>
-  {/if}
 {/snippet}
 
 {#snippet incidentList()}
@@ -966,6 +1054,17 @@
     color: var(--text);
   }
 
+  /* Izgara: gruplar sütunlara dengeli dağıtılır (gridColumns); her sütun alt alta kartlar. */
+  .st-grid .groups.gcols {
+    display: grid;
+    align-items: start;
+  }
+  .gcol {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+  }
   /* Izgara: geniş alanda gruplar iki sütunda kart; çubuklar biraz daha sık. */
   @container pubw (min-width: 760px) {
     .st-grid .groups {
@@ -1332,15 +1431,10 @@
     text-align: center;
   }
   .foot-t {
-    margin: 0 0 6px;
+    margin: 0;
     color: var(--text-2);
     white-space: pre-line;
     overflow-wrap: anywhere;
-  }
-  .foot-s {
-    margin: 0;
-    font-size: 0.8rem;
-    color: var(--muted);
   }
 
   /* Dar alan (telefon veya dar önizleme): ekran değil sayfanın kendi genişliği. */

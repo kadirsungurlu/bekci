@@ -107,6 +107,26 @@ class Live {
     if (this.running) this.resume();
   }
 
+  /**
+   * Arayüz dili değişti: sunucunun çevirdiği metinler (kontrol mesajları, olay
+   * nedenleri, grup açıklamaları) yeni dilde yeniden alınır. Liste ve açık
+   * ekranlar (onResume dinleyenler) yeniden yüklenir; canlı akış yeni dille
+   * yeniden bağlanır (bağlantının dili açılışta belirlenir).
+   */
+  relocalize() {
+    if (!this.running) return;
+    if (this.es) {
+      this.es.close();
+      this.es = null;
+      clearTimeout(this.reconnectTimer);
+      // Yeniden bağlanınca "kopup geri geldi" yenilemesi ikinci kez yapılmasın.
+      this.everConnected = false;
+      this.connect();
+    }
+    this.refresh();
+    this.emit(this.resumeListeners, undefined);
+  }
+
   /** Kaçan olayları tamamlamak için liste ve açık ekranlar yeniden yüklenir. */
   private resume() {
     this.refresh();

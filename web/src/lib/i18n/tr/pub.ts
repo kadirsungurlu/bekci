@@ -13,8 +13,6 @@ export default {
   errPassword: 'Şifreyi girin.',
   loadFailed: 'Sayfa yüklenemedi',
   refreshInfo: "Son güncelleme {time} · 60 sn'de bir yenilenir",
-  lastUpdate: 'Son güncelleme: {time}',
-  footer: 'Son güncelleme: {time} · Sayfa her dakika kendiliğinden yenilenir.',
   overall: {
     up: 'Tüm sistemler çalışıyor',
     partial: 'Bazı sistemlerde sorun var',
@@ -60,6 +58,8 @@ export default {
   lasted: '{d} sürdü',
   since: '{time} itibarıyla',
   serviceCount: '{count} servis',
+  upWinDays: 'son {count} gün',
+  heroCount: '{count} servis izleniyor',
   upWin: {
     '24h': 'son 24 saat',
     '90d': 'son 90 gün',

@@ -1,31 +1,34 @@
 // Biçimlendirme yardımcıları. Zamanlar unix saniyesidir. Hepsi geçerli dili
 // (i18n.locale) okur: bileşende çağrıldıklarında dil değişince yeniden çizilir.
+// Durum sayfası gövdesi (StatusView) sayfanın kendi dilini kullanır: tarih,
+// süre ve yüzde yardımcıları isteğe bağlı bir dil (l) alır.
 
 import { STATUS_DOWN, STATUS_MAINTENANCE, STATUS_PENDING, STATUS_UP, type Bucket, type MonitorView } from './api';
-import { i18n, intlLocale, t, type Locale } from './i18n';
+import { i18n, intlLocale, t, tIn, type Locale, type TKey, type TParams } from './i18n';
 
 export const nowSec = () => Math.floor(Date.now() / 1000);
 
 // Süre birimleri: tr "5 sn / 12 dk / 2 sa / 3 gün", en "5s / 12m / 2h / 3d".
-const uSec = (n: number) => t('status.time.sec', { n });
-const uMin = (n: number) => t('status.time.min', { n });
-const uHour = (n: number) => t('status.time.hour', { n });
-const uDay = (n: number) => t('status.time.day', { n });
+const tl = (l: Locale | undefined, key: TKey, params?: TParams) => (l ? tIn(l, key, params) : t(key, params));
+const uSec = (n: number, l?: Locale) => tl(l, 'status.time.sec', { n });
+const uMin = (n: number, l?: Locale) => tl(l, 'status.time.min', { n });
+const uHour = (n: number, l?: Locale) => tl(l, 'status.time.hour', { n });
+const uDay = (n: number, l?: Locale) => tl(l, 'status.time.day', { n });
 
 /** tr "45 sn", "12 dk", "2 sa 5 dk", "3 gün 4 sa"; en "45s", "12m", "2h 5m", "3d 4h" */
-export function fmtDuration(sec: number): string {
+export function fmtDuration(sec: number, l?: Locale): string {
   sec = Math.max(0, Math.floor(sec));
-  if (sec < 60) return uSec(sec);
+  if (sec < 60) return uSec(sec, l);
   const min = Math.floor(sec / 60);
-  if (min < 60) return uMin(min);
+  if (min < 60) return uMin(min, l);
   const h = Math.floor(min / 60);
   if (h < 24) {
     const m = min % 60;
-    return m ? `${uHour(h)} ${uMin(m)}` : uHour(h);
+    return m ? `${uHour(h, l)} ${uMin(m, l)}` : uHour(h, l);
   }
   const d = Math.floor(h / 24);
   const hh = h % 24;
-  return hh ? `${uDay(d)} ${uHour(hh)}` : uDay(d);
+  return hh ? `${uDay(d, l)} ${uHour(hh, l)}` : uDay(d, l);
 }
 
 /** En büyük birimle kısa süre: "3 dk", "2 sa", "5 gün" (en: "3m", "2h", "5d"). */
@@ -110,13 +113,13 @@ export function tzDayStart(ts: number): number {
 }
 
 /** tr dd.MM.yyyy HH:mm, en "Sep 27, 2026, 14:30" */
-export function fmtDate(ts: number): string {
+export function fmtDate(ts: number, l?: Locale): string {
   if (!ts) return '—';
-  return fmts().date.format(new Date(ts * 1000));
+  return fmts(l).date.format(new Date(ts * 1000));
 }
 /** tr dd.MM.yyyy, en "Sep 27, 2026" */
-export function fmtDay(ts: number): string {
-  return fmts().dateOnly.format(new Date(ts * 1000));
+export function fmtDay(ts: number, l?: Locale): string {
+  return fmts(l).dateOnly.format(new Date(ts * 1000));
 }
 /**
  * Saatin okunuşuna göre bulunma eki: "14:30" → "’da", "09:15" → "’te", "12:00" → "’de".
@@ -136,12 +139,12 @@ export function fmtShortDate(ts: number): string {
   return fmts().shortDate.format(new Date(ts * 1000));
 }
 /** HH:mm */
-export function fmtTime(ts: number): string {
-  return fmts().time.format(new Date(ts * 1000));
+export function fmtTime(ts: number, l?: Locale): string {
+  return fmts(l).time.format(new Date(ts * 1000));
 }
 /** HH:mm:ss */
-export function fmtTimeSec(ts: number): string {
-  return fmts().timeSec.format(new Date(ts * 1000));
+export function fmtTimeSec(ts: number, l?: Locale): string {
+  return fmts(l).timeSec.format(new Date(ts * 1000));
 }
 /** tr dd.MM.yyyy HH:mm:ss, en "Sep 27, 2026, 14:30:05" */
 export function fmtDateSec(ts: number): string {
@@ -165,16 +168,16 @@ export function fmtDurationLong(sec: number): string {
 }
 
 /** Yüzde işaretini dile göre koyar: tr "%42", en "42%". */
-function pctSign(n: string): string {
-  return i18n.locale === 'tr' ? '%' + n : n + '%';
+function pctSign(n: string, l: Locale = i18n.locale): string {
+  return l === 'tr' ? '%' + n : n + '%';
 }
 
 /** tr %99,95 / en 99.95% — tam 100 ise %100; yuvarlama asla yukarı doğru yapılmaz. */
-export function fmtPct(v: number | null | undefined): string {
+export function fmtPct(v: number | null | undefined, l: Locale = i18n.locale): string {
   if (v === null || v === undefined || Number.isNaN(v)) return '—';
-  if (v >= 100) return pctSign('100');
+  if (v >= 100) return pctSign('100', l);
   const floored = (Math.floor(v * 100) / 100).toFixed(2);
-  return pctSign(i18n.locale === 'tr' ? floored.replace('.', ',') : floored);
+  return pctSign(l === 'tr' ? floored.replace('.', ',') : floored, l);
 }
 
 /** Binlik ayraçlı sayı: tr 1.234, en 1,234 */
@@ -260,8 +263,8 @@ export function bucketUptime(b: Bucket): number | null {
 }
 
 /** "14:00 – 15:00" */
-export function hourRange(t: number): string {
-  return `${fmtTime(t)} – ${fmtTime(t + 3600)}`;
+export function hourRange(t: number, l?: Locale): string {
+  return `${fmtTime(t, l)} – ${fmtTime(t + 3600, l)}`;
 }
 
 /** Karşılaştırma için Türkçe küçük harf (veriler Türkçe olabilir; arayüz dilinden bağımsız). */

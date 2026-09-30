@@ -508,7 +508,14 @@
   <h1>{isEdit ? t('pages.editor.editTitle') : t('pages.editor.newTitle')}<span class="dot">.</span></h1>
   {#if page}
     <div class="row head-acts">
-      <a class="btn" href="#/status-pages/{page.id}/preview"><Icon name="eye" size={15} /> {t('pages.preview')}</a>
+      {#if !wide}
+        <!-- Dar ekranda canlı önizleme başlıktaki düğmeyle açılır (yüzen düğme form alanlarının üstünü kapatıyordu). -->
+        <button type="button" class="btn primary" aria-label={t('pages.livePreview.showAria')} onclick={() => (previewOpen = true)}>
+          <Icon name="eye" size={15} />
+          {t('pages.livePreview.show')}
+        </button>
+      {/if}
+      <a class="btn" href="#/status-pages/{page.id}/preview" title={t('pages.previewTitle')}><Icon name="maximize" size={15} /> {t('pages.preview')}</a>
       {#if page.published}
         <a class="btn" href={publicUrl} target="_blank" rel="noopener noreferrer"><Icon name="external" size={15} /> {t('pages.editor.openPage')}</a>
       {/if}
@@ -531,7 +538,8 @@
     {#if page}
       <div class="pub-bar card">
         <span class="badge {page.published ? 'up' : 'paused'}">{page.published ? t('pages.published') : t('pages.draft')}</span>
-        <code class="pub-url">{publicUrl}</code>
+        <!-- Adres yalnızca "/" işaretlerinden sonra bölünür (kelime ortasından değil). -->
+        <code class="pub-url">{#each publicUrl.split('/') as part, i (i)}{#if i > 0}/<wbr />{/if}{part}{/each}</code>
         <CopyButton text={publicUrl} />
       </div>
     {/if}
@@ -956,12 +964,6 @@
     </aside>
   {/if}
   </div>
-  {#if !wide && !previewOpen}
-    <button type="button" class="btn primary pv-fab" aria-label={t('pages.livePreview.showAria')} onclick={() => (previewOpen = true)}>
-      <Icon name="eye" size={16} />
-      {t('pages.livePreview.show')}
-    </button>
-  {/if}
 {/if}
 
 {#snippet grip()}
@@ -1043,10 +1045,6 @@
   .ed-main {
     min-width: 0;
   }
-  /* Dar ekranda yüzen önizleme düğmesi son düğmelerin üstünü kapatmasın. */
-  .ed:not(.with-side) .ed-main {
-    padding-bottom: 64px;
-  }
   .ed-side {
     position: sticky;
     top: 16px;
@@ -1062,19 +1060,6 @@
     background: var(--bg);
     padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom))
       max(12px, env(safe-area-inset-left));
-  }
-  .pv-fab {
-    position: fixed;
-    right: 24px;
-    bottom: 24px;
-    z-index: 30;
-    box-shadow: var(--shadow);
-  }
-  @media (max-width: 900px) {
-    .pv-fab {
-      right: max(16px, env(safe-area-inset-right));
-      bottom: calc(84px + env(safe-area-inset-bottom));
-    }
   }
 
   /* Sürükleme tutamağı ve bırakma göstergesi */
@@ -1274,7 +1259,7 @@
     flex: 1 1 220px;
     min-width: 0;
     color: var(--text-2);
-    word-break: break-all;
+    overflow-wrap: break-word;
   }
   .prefixed {
     display: flex;

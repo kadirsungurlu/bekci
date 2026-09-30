@@ -15,8 +15,6 @@ export default {
   errPassword: 'Enter the password.',
   loadFailed: "Couldn't load the page",
   refreshInfo: 'Last updated {time} · refreshes every 60 s',
-  lastUpdate: 'Last updated: {time}',
-  footer: 'Last updated: {time} · The page refreshes automatically every minute.',
   overall: {
     up: 'All systems operational',
     partial: 'Some systems are experiencing issues',
@@ -62,6 +60,8 @@ export default {
   lasted: 'lasted {d}',
   since: 'since {time}',
   serviceCount: '{count} service|{count} services',
+  upWinDays: 'last {count} days',
+  heroCount: '{count} service monitored|{count} services monitored',
   upWin: {
     '24h': 'last 24 hours',
     '90d': 'last 90 days',
