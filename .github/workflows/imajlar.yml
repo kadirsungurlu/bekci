@@ -217,7 +217,10 @@ jobs:
                 echo "$imaj:${v}${SONEK}"
                 case "$v" in
                   *-*) ;; # ön sürüm (1.2.0-rc1): yalnızca tam etiket
-                  *) echo "$imaj:${v%.*}${SONEK}" ;;
+                  *)
+                    echo "$imaj:${v%.*}${SONEK}"   # 1.2
+                    echo "$imaj:${v%%.*}${SONEK}"  # 1
+                    ;;
                 esac
               fi
             done
@@ -234,6 +237,9 @@ jobs:
             SOURCE_COMMIT=${{ github.sha }}
             VERSION=${{ steps.etiket.outputs.surum }}
           tags: ${{ steps.etiket.outputs.liste }}
+          # Tedarik zinciri kanıtları: SBOM ve SLSA provenance (Docker Hub gösterir).
+          provenance: mode=max
+          sbom: true
           cache-from: |
             type=gha,scope=${{ matrix.etiket }}
             type=gha,scope=${{ matrix.etiket }}-coklu
@@ -256,3 +262,21 @@ jobs:
             echo "$plat: $s"
             [ "$s" = "$beklenen" ] || { echo "::error::$plat sürümü $s (beklenen $beklenen)"; exit 1; }
           done
+
+  # Docker Hub depo sayfası (Overview + kısa açıklama) DOCKERHUB.md'den güncellenir.
+  # Token'ın "Read, Write, Delete" yetkisi gerekir; yoksa bu adım uyarı verir ama
+  # yayını bozmaz.
+  dockerhub-sayfa:
+    needs: [yayinla]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: peter-evans/dockerhub-description@v4
+        with:
+          username: kadirsungurlu
+          password: ${{ secrets.DOCKERHUB_TOKEN || secrets.KADIRSUNGURLU }}
+          repository: kadirsungurlu/bekci
+          short-description: "Self-hosted uptime & server monitoring. One image, ~15 MB RAM, EN/TR UI. bekci.app"
+          readme-filepath: ./DOCKERHUB.md
