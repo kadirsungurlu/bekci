@@ -20,7 +20,11 @@ export function fmtDuration(sec: number, l?: Locale): string {
   sec = Math.max(0, Math.floor(sec));
   if (sec < 60) return uSec(sec, l);
   const min = Math.floor(sec / 60);
-  if (min < 60) return uMin(min, l);
+  if (min < 60) {
+    // Bir saatin altında saniye de gösterilir: "3 dk 12 sn".
+    const s = sec % 60;
+    return s ? `${uMin(min, l)} ${uSec(s, l)}` : uMin(min, l);
+  }
   const h = Math.floor(min / 60);
   if (h < 24) {
     const m = min % 60;
@@ -40,12 +44,12 @@ export function fmtDurationShort(sec: number): string {
   return uDay(Math.floor(sec / 86400));
 }
 
-/** "3 dk önce" / "3m ago" */
+/** "12 sn önce", "1 dk 12 sn önce", "2 sa 5 dk önce" (en: "1m 12s ago"). */
 export function fmtRelative(ts: number, now: number): string {
   if (!ts) return '—';
   const diff = now - ts;
-  if (diff < 5) return t('status.time.justNow');
-  return t('status.time.ago', { d: fmtDurationShort(diff) });
+  if (diff < 1) return t('status.time.justNow');
+  return t('status.time.ago', { d: fmtDuration(diff) });
 }
 
 // Sunucu günlük özetleri İstanbul saatine göre kovalar; tarihler de aynı dilimde
