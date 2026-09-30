@@ -1,5 +1,5 @@
 /* Bekci tanıtım sitesi. Çerçeve yok; renkler uygulamanın (web/src/app.css)
-   camgöbeği vurgusundan türetildi. Mor/menekşe ton kullanılmaz. */
+   zümrüt vurgusundan (#10b981) türetildi. Mor/menekşe ton kullanılmaz. */
 
 /* Inter 4.1.1 (değişken, wght 100–900), Latin + Türkçe harflere indirgenmiş
    alt küme. Lisans: SIL Open Font License 1.1 (fonts/OFL.txt). Dosya adı
@@ -18,7 +18,7 @@
 :root {
   color-scheme: light;
   --bg: #f6f8fa;
-  --bg-2: #eef3f5;
+  --bg-2: #eef2f5;
   --surface: #ffffff;
   --surface-2: #f3f6f8;
   --border: #dbe3ea;
@@ -26,28 +26,28 @@
   --text: #0e1726;
   --text-2: #3a4658;
   --muted: #566376;
-  --accent: #0f766e;          /* metin ve bağlantı (beyazda 5,4:1) */
-  --accent-strong: #115e59;
-  --accent-bg: #0f766e;       /* buton zemini, beyaz yazı 5,4:1 */
-  --accent-bg-hover: #115e59;
+  --accent: #047857;          /* metin ve bağlantı (beyazda 5,5:1) */
+  --accent-strong: #065f46;
+  --accent-bg: #047857;       /* buton zemini, beyaz yazı 5,5:1 */
+  --accent-bg-hover: #065f46;
   --accent-ink: #ffffff;
-  --accent-soft: rgba(13, 148, 136, 0.1);
-  --accent-border: rgba(13, 148, 136, 0.35);
-  --up: #16a34a;
-  --up-soft: rgba(22, 163, 74, 0.12);
+  --accent-soft: rgba(5, 150, 105, 0.1);
+  --accent-border: rgba(5, 150, 105, 0.35);
+  --up: #047857;              /* durum yeşili; tablo metni beyazda 5,5:1 */
+  --up-soft: rgba(5, 150, 105, 0.12);
   --down: #dc2626;
   --down-soft: rgba(220, 38, 38, 0.1);
-  --code-bg: #0f1623;
+  --code-bg: #0e1219;
   --code-text: #e6ebf3;
-  --code-muted: #8592aa;
-  --code-accent: #5eead4;
+  --code-muted: #8390a4;
+  --code-accent: #34d399;
   --code-str: #fcd34d;
   --header-bg: rgba(246, 248, 250, 0.82);
   --shadow-sm: 0 1px 2px rgba(15, 23, 38, 0.06);
   --shadow: 0 1px 2px rgba(15, 23, 38, 0.05), 0 12px 32px -12px rgba(15, 23, 38, 0.18);
   --shadow-lg: 0 2px 6px rgba(15, 23, 38, 0.06), 0 30px 70px -24px rgba(15, 40, 50, 0.35);
-  --glow-1: rgba(45, 212, 191, 0.18);
-  --glow-2: rgba(59, 214, 113, 0.12);
+  --glow-1: rgba(16, 185, 129, 0.16);
+  --glow-2: rgba(34, 211, 238, 0.08);
   --grid-line: rgba(15, 23, 38, 0.05);
   --overlay: rgba(6, 12, 20, 0.86);
 }
@@ -55,66 +55,66 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #0b111b;
-    --bg-2: #0f1623;
-    --surface: #131c2b;
-    --surface-2: #172133;
-    --border: #223047;
-    --border-strong: #32425e;
-    --text: #e6ebf3;
-    --text-2: #b3bdcd;
-    --muted: #8d99b0;
-    --accent: #5eead4;
-    --accent-strong: #99f6e4;
-    --accent-bg: #2dd4bf;
-    --accent-bg-hover: #5eead4;
-    --accent-ink: #042f2a;
-    --accent-soft: rgba(45, 212, 191, 0.12);
-    --accent-border: rgba(45, 212, 191, 0.36);
-    --up: #3bd671;
-    --up-soft: rgba(59, 214, 113, 0.14);
+    --bg: #0c1017;
+    --bg-2: #0e1219;
+    --surface: #121620;
+    --surface-2: #171d29;
+    --border: #1b2637;
+    --border-strong: #263349;
+    --text: #f1f5fa;
+    --text-2: #b1bbcb;
+    --muted: #8a97ab;
+    --accent: #34d399;
+    --accent-strong: #a7f3d0;
+    --accent-bg: #10b981;
+    --accent-bg-hover: #34d399;
+    --accent-ink: #022c22;
+    --accent-soft: rgba(16, 185, 129, 0.12);
+    --accent-border: rgba(16, 185, 129, 0.36);
+    --up: #10b981;
+    --up-soft: rgba(16, 185, 129, 0.14);
     --down: #f87171;
     --down-soft: rgba(239, 68, 68, 0.14);
-    --code-bg: #0a0f18;
-    --header-bg: rgba(11, 17, 27, 0.78);
+    --code-bg: #090c12;
+    --header-bg: rgba(12, 16, 23, 0.8);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -12px rgba(0, 0, 0, 0.6);
     --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.3), 0 30px 80px -20px rgba(0, 0, 0, 0.75);
-    --glow-1: rgba(45, 212, 191, 0.16);
-    --glow-2: rgba(59, 214, 113, 0.09);
-    --grid-line: rgba(255, 255, 255, 0.035);
+    --glow-1: rgba(16, 185, 129, 0.14);
+    --glow-2: rgba(34, 211, 238, 0.06);
+    --grid-line: rgba(255, 255, 255, 0.03);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0b111b;
-  --bg-2: #0f1623;
-  --surface: #131c2b;
-  --surface-2: #172133;
-  --border: #223047;
-  --border-strong: #32425e;
-  --text: #e6ebf3;
-  --text-2: #b3bdcd;
-  --muted: #8d99b0;
-  --accent: #5eead4;
-  --accent-strong: #99f6e4;
-  --accent-bg: #2dd4bf;
-  --accent-bg-hover: #5eead4;
-  --accent-ink: #042f2a;
-  --accent-soft: rgba(45, 212, 191, 0.12);
-  --accent-border: rgba(45, 212, 191, 0.36);
-  --up: #3bd671;
-  --up-soft: rgba(59, 214, 113, 0.14);
+  --bg: #0c1017;
+  --bg-2: #0e1219;
+  --surface: #121620;
+  --surface-2: #171d29;
+  --border: #1b2637;
+  --border-strong: #263349;
+  --text: #f1f5fa;
+  --text-2: #b1bbcb;
+  --muted: #8a97ab;
+  --accent: #34d399;
+  --accent-strong: #a7f3d0;
+  --accent-bg: #10b981;
+  --accent-bg-hover: #34d399;
+  --accent-ink: #022c22;
+  --accent-soft: rgba(16, 185, 129, 0.12);
+  --accent-border: rgba(16, 185, 129, 0.36);
+  --up: #10b981;
+  --up-soft: rgba(16, 185, 129, 0.14);
   --down: #f87171;
   --down-soft: rgba(239, 68, 68, 0.14);
-  --code-bg: #0a0f18;
-  --header-bg: rgba(11, 17, 27, 0.78);
+  --code-bg: #090c12;
+  --header-bg: rgba(12, 16, 23, 0.8);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -12px rgba(0, 0, 0, 0.6);
   --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.3), 0 30px 80px -20px rgba(0, 0, 0, 0.75);
-  --glow-1: rgba(45, 212, 191, 0.16);
-  --glow-2: rgba(59, 214, 113, 0.09);
-  --grid-line: rgba(255, 255, 255, 0.035);
+  --glow-1: rgba(16, 185, 129, 0.14);
+  --glow-2: rgba(34, 211, 238, 0.06);
+  --grid-line: rgba(255, 255, 255, 0.03);
 }
 
 /* ---- Temel ---- */
@@ -696,8 +696,8 @@ p {
   display: none;
 }
 .copy.ok {
-  color: #5eead4;
-  border-color: rgba(94, 234, 212, 0.4);
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.4);
 }
 .copy.ok .i-check {
   display: block;
