@@ -142,7 +142,7 @@
     if (range === '24h') return 24;
     if (layout.style === 'rows') {
       const w = rowBarsW || mainW * 0.55;
-      const opts = range === 'recent' ? [60, 45, 30] : [90, 60, 45, 30];
+      const opts = [90, 60, 45, 30];
       return opts.find((n) => w / n >= ROW_PITCH) ?? 30;
     }
     if (range === 'recent') return colW >= 560 ? 60 : colW >= 420 ? 45 : 30;
@@ -1107,10 +1107,7 @@
   }
   .r-bars {
     height: 26px;
-    gap: 2px;
-  }
-  .r-bars .bar {
-    border-radius: 3px;
+    gap: 3px;
   }
   .r-up {
     display: flex;

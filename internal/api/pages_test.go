@@ -722,7 +722,7 @@ func TestPublicBarRanges(t *testing.T) {
 	pe := setupPages(t)
 	a := pe.seedMonitor("A", "https://a.example.com")
 	now := pe.s.now().Unix()
-	for i := 0; i < 70; i++ { // 70 kontrol: son 60'ı gösterilir
+	for i := 0; i < 70; i++ { // 70 kontrol (üst sınır 90): hepsi gösterilir
 		status := store.StatusUp
 		if i == 69 {
 			status = store.StatusDown
@@ -747,11 +747,12 @@ func TestPublicBarRanges(t *testing.T) {
 	}
 	pe.anon().mustDo("GET", "/api/public/pages/anlik", nil, &pub, 200)
 	bars := pub.Sections[0].Monitors[0].Bars
-	if pub.Range != "recent" || pub.UptimeWindow != "24h" || len(bars) != 60 {
+	// 70 kontrol var; en fazla publicRecentBeats (90) gönderilir: hepsi.
+	if pub.Range != "recent" || pub.UptimeWindow != "24h" || len(bars) != 70 {
 		t.Fatalf("son kontroller: %s %s %d çubuk", pub.Range, pub.UptimeWindow, len(bars))
 	}
-	if last := bars[59]; last.Down != 1 || last.T != now || bars[0].Up != 1 || bars[0].T != now-59*60 {
-		t.Errorf("çubuklar eskiden yeniye son 60 kontrol olmalı: ilk %+v son %+v", bars[0], last)
+	if last := bars[69]; last.Down != 1 || last.T != now || bars[0].T != now-69*60 {
+		t.Errorf("çubuklar eskiden yeniye son 70 kontrol olmalı: ilk %+v son %+v", bars[0], last)
 	}
 	if u := pub.Sections[0].Monitors[0].Uptime; u == nil || *u >= 100 {
 		t.Errorf("24 saatlik uptime hesaplanmalı: %v", u)

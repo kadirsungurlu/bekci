@@ -36,7 +36,7 @@ const (
 	pageCookieMaxAge     = 30 * 24 * time.Hour
 	publicDays           = 90
 	publicHours          = 24
-	publicRecentBeats    = 60 // "son kontroller" görünümünde çubuk sayısı
+	publicRecentBeats    = 90 // "son kontroller" görünümünde en fazla çubuk (tek satır düzeni 90'a kadar gösterir)
 	publicIncidentWindow = 14 * 86400
 	publicIncidentLimit  = 100
 )
