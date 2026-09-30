@@ -138,19 +138,21 @@
     width: 180px;
   }
 }
-@container mlist (max-width: 829px) {
+@container mlist (max-width: 779px) {
   .mrow.mrow > .mc-resp {
     display: none;
   }
 }
 
-/* Telefon: iki satırlık kart (ad + durum, altında 24 saatlik çubuklar). */
+/* Telefon: iki satırlık kart (ad + adres/durum/neden, altında 24 saatlik
+   çubuklar ve varsa olay düğmesi). Olay düğmesi alt satırda: üst satırda ad ve
+   neden için yer kalsın. */
 @media (max-width: 640px) {
   .mrow {
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:
-      'ic info inc menu'
-      '. bars bars bars';
+      'ic info menu'
+      '. bars inc';
     column-gap: 10px;
     row-gap: 8px;
     padding: 12px 6px 12px 14px;
@@ -172,6 +174,13 @@
   }
   .mrow > .mc-menu {
     width: auto;
+    align-self: start;
+  }
+  .mrow > .mc-ic {
+    align-self: start;
+  }
+  .mrow > .mc-inc {
+    justify-self: end;
   }
   /* Seçim kutusu yalnızca seçim modunda, durum ikonunun yerinde. */
   .mrow.mrow > .mc-sel {

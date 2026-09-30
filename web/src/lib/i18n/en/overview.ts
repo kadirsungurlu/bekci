@@ -38,7 +38,7 @@ export default {
     locAria: 'Check locations',
   },
   side: {
-    ssl: 'Expiring SSL certificates',
+    ssl: 'SSL certificate expiry',
     days: '{n} day|{n} days',
     expired: 'Expired',
     incidents: 'Recent incidents',
@@ -56,6 +56,7 @@ export default {
     cols: {
       docker: 'Docker',
       trend: 'CPU · 1h',
+      temp: 'Temp.',
       agent: 'Agent',
     },
     tempTitle: 'Hottest sensor',

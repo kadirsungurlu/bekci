@@ -37,7 +37,7 @@ export default {
     locAria: 'Kontrol konumları',
   },
   side: {
-    ssl: 'SSL süresi yaklaşanlar',
+    ssl: 'SSL bitiş tarihleri',
     days: '{n} gün',
     expired: 'Doldu',
     incidents: 'Son olaylar',
@@ -55,6 +55,7 @@ export default {
     cols: {
       docker: 'Docker',
       trend: 'CPU · 1 sa',
+      temp: 'Sıcaklık',
       agent: 'Ajan',
     },
     tempTitle: 'En sıcak sensör',

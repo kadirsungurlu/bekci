@@ -164,8 +164,14 @@
   let sideTimer: ReturnType<typeof setTimeout> | undefined;
   async function loadSide() {
     sideAt = Date.now();
-    const [inc, mt] = await Promise.allSettled([api.incidents(0, 5), api.maintenance()]);
-    if (inc.status === 'fulfilled') incidents = inc.value;
+    // Süren olaylar önce: en yeni 5 olay çözülmüş olaylarla dolarsa süren bir
+    // kesinti listeden düşmesin.
+    const [inc, open, mt] = await Promise.allSettled([api.incidents(0, 5), api.incidents(0, 5, '', true), api.maintenance()]);
+    if (inc.status === 'fulfilled') {
+      const ongoing = open.status === 'fulfilled' ? open.value : inc.value.filter((i) => !i.resolved_at);
+      const seen = new Set(ongoing.map((i) => i.id));
+      incidents = [...ongoing, ...inc.value.filter((i) => !seen.has(i.id))].slice(0, 5);
+    }
     if (mt.status === 'fulfilled') maints = mt.value;
   }
   // Art arda gelen yenilemeler tek isteğe iner (en az 5 sn arayla).
@@ -402,17 +408,27 @@
   // kutu ekranın altına kadar uzanır. Dar ekranda sayfa normal kayar.
   let toolbarEl = $state<HTMLElement>();
   let listEl = $state<HTMLElement>();
+  let sideEl = $state<HTMLElement>();
   let listMax = $state(0);
+  let sideMax = $state(0);
   function fitList() {
     if (!listEl || !window.matchMedia('(min-width: 901px)').matches) {
-      listMax = 0;
+      listMax = sideMax = 0;
       return;
     }
     const top = listEl.getBoundingClientRect().top + window.scrollY;
     listMax = Math.max(320, Math.floor(window.innerHeight - top - 48));
+    // Yan panel sütun olarak yanda duruyorsa (geniş ekran) o da ekranın altında
+    // biter ve gerekirse kendi içinde kayar: panel ekrandan uzun olunca sayfa da
+    // kayıyor, liste ile sayfa iki ayrı kaydırma oluyordu.
+    if (sideEl && wideMq.matches) {
+      const sTop = sideEl.getBoundingClientRect().top + window.scrollY;
+      sideMax = Math.max(320, Math.floor(window.innerHeight - sTop - 48));
+    } else sideMax = 0;
   }
   $effect(() => {
     if (!listEl || !toolbarEl) return;
+    void sideEl;
     fitList();
     // Araç çubuğu satır atlarsa listenin başladığı yer değişir.
     const ro = new ResizeObserver(fitList);
@@ -668,7 +684,7 @@
       </div>
     </section>
 
-    <aside class="side">
+    <aside class="side" class:scroll={sideMax > 0} style:max-height={sideMax ? `${sideMax}px` : null} bind:this={sideEl}>
       <div class="card status-card">
         <h2 class="card-title">{t('monitors.list.currentStatus')}<span class="dot">.</span></h2>
         <div class="big">
@@ -944,6 +960,20 @@
   }
   .main-col {
     min-width: 0;
+    container: mcol / inline-size;
+  }
+  /* Dar liste sütununda (ör. 1280 px ekran, yan panel açık) araç çubuğu tek
+     satırda kalsın: seçim kutusunun sayısı gizlenir, arama kutusu daralır. */
+  @container mcol (max-width: 780px) {
+    .toolbar {
+      gap: 8px;
+    }
+    .toolbar .selbox:not(.on) .cnt {
+      display: none;
+    }
+    .toolbar .search {
+      flex: 1 1 140px;
+    }
   }
   .toolbar {
     display: flex;
@@ -1193,6 +1223,18 @@
     gap: 16px;
     position: sticky;
     top: 24px;
+  }
+  .side.scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+    /* Kartların gölgesi/kenarı kırpılmasın. */
+    padding: 1px;
+    margin: -1px;
+  }
+  .side > :global(*) {
+    flex-shrink: 0;
   }
   .big {
     display: flex;
@@ -1462,8 +1504,17 @@
     .search {
       flex: 1 1 0;
     }
+    /* Sıralama seçicisi yazısına göre genişler: sabit 136 px'te açılır ok işareti
+       (base-select'te metnin yanında) kutunun dışına taşıyordu. */
     .toolbar .ssel {
-      flex: 0 0 136px;
+      flex: 0 0 auto;
+      max-width: 50%;
+    }
+    @supports (appearance: base-select) {
+      .toolbar .sel {
+        padding-right: 12px;
+        gap: 8px;
+      }
     }
     .toolbar .tsel {
       flex: 1 1 100%;

@@ -53,8 +53,8 @@
   // Süren olay: detay sayfasına kısayol (izleyici de görür; liste zaten kapsamla süzülü).
   const incident = $derived(kind === 'down' && m.open_incident_id ? m.open_incident_id : null);
 
-  // Alt satır: durum (+ süre) her zaman görünür; yer daralınca önce kontrol mesajı,
-  // sonra adres kısalır (durum metni kırpılmasın).
+  // Alt satır: adres · durum (+ süre); durum metni kırpılmaz, yer daralınca adres
+  // kısalır. Kontrol mesajı (neden) altında kendi satırındadır.
   const sub = $derived.by((): { status: string; msg?: string } => {
     switch (kind) {
       case 'paused':
@@ -228,8 +228,11 @@
     <div class="sub" title={subText}>
       {#if host}<span class="host">{host}</span>{/if}<span class="st {subClass}"
         >{#if host}<span class="sep" aria-hidden="true">·</span>{/if}{sub.status}</span
-      >{#if sub.msg}<span class="msg {subClass}"><span class="sep" aria-hidden="true">·</span>{sub.msg}</span>{/if}
+      >
     </div>
+    <!-- Neden (kontrol mesajı) kendi satırında: dar listede de okunur kalsın
+         (en fazla iki satır; tamamı title'da). -->
+    {#if sub.msg}<div class="why {subClass}" title={sub.msg}>{sub.msg}</div>{/if}
   </div>
   {#if incident !== null}
     <a
@@ -379,33 +382,37 @@
     color: var(--muted);
     flex-shrink: 0;
   }
-  /* Adres · durum · mesaj. Durum metni hiç kırpılmaz; yer daralınca önce kontrol
-     mesajı, o bitince adres kısalır (ızgara izleri bu önceliği verir). */
+  /* Adres · durum. Durum metni hiç kırpılmaz; yer daralınca adres kısalır. */
   .sub {
-    display: grid;
-    grid-template-columns: minmax(0, max-content) max-content minmax(0, 1fr);
+    display: flex;
     align-items: baseline;
     min-width: 0;
     font-size: 0.83rem;
     margin-top: 2px;
-    overflow: hidden;
     white-space: nowrap;
   }
-  .sub > span {
+  .host {
+    flex: 0 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-  .host {
-    grid-column: 1;
     color: var(--text-2);
     font-weight: 500;
   }
   .st {
-    grid-column: 2;
+    flex: 0 0 auto;
   }
-  .msg {
-    grid-column: 3;
+  /* Neden: kendi satırında, en fazla iki satır. */
+  .why {
+    margin-top: 2px;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow-wrap: anywhere;
   }
   .sep {
     color: var(--muted);
@@ -413,6 +420,9 @@
   }
   .c-muted {
     color: var(--muted);
+  }
+  .row.selected .c-muted {
+    color: var(--text-2);
   }
   .inc {
     display: inline-flex;
@@ -615,6 +625,19 @@
     .name {
       flex-wrap: wrap;
       row-gap: 4px;
+    }
+    /* Telefonda adres ve durum sığmazsa durum alt satıra iner (adres iki harfe
+       inmesin); ayraç yerine boşluk kullanılır, satır başında "·" kalmasın. */
+    .sub {
+      flex-wrap: wrap;
+      column-gap: 8px;
+      row-gap: 1px;
+    }
+    .host {
+      max-width: 100%;
+    }
+    .sub .sep {
+      display: none;
     }
     .tags {
       order: 3;
