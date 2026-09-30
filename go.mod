@@ -20,7 +20,7 @@ require (
 	go.mongodb.org/mongo-driver/v2 v2.9.1
 	golang.org/x/crypto v0.57.0
 	golang.org/x/sys v0.48.0
-	google.golang.org/grpc v1.84.0
+	google.golang.org/grpc v1.83.2
 	modernc.org/sqlite v1.59.0
 )
 
