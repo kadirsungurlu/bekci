@@ -1,46 +1,86 @@
 <script lang="ts">
-  // Giriş/kurulum ekranındaki küçük dil seçici. Seçim tarayıcıda hatırlanır;
-  // hesapta dil tercihi varsa girişten sonra o geçerli olur (Ayarlar › Hesabım).
-  import { i18n, LOCALES, setLocale, t } from '../lib/i18n';
+  // Menüdeki hızlı dil seçici (TR | EN): seçim hesaba kaydedilir (her cihazda
+  // geçerli) ve arayüz anında değişir. Ayrıntılı seçenek (tarayıcı dili)
+  // Ayarlar → Hesabım'da.
+  import { api, errorMessage } from '../lib/api';
+  import { session } from '../lib/session.svelte';
+  import { toast } from '../lib/ui.svelte';
+  import { i18n, LOCALES, setLocale, t, type Locale } from '../lib/i18n';
+
+  let busy = $state(false);
+
+  async function pick(l: Locale) {
+    if (busy || l === i18n.locale) return;
+    const prev = i18n.locale;
+    setLocale(l);
+    busy = true;
+    try {
+      const res = await api.setPreferences({ lang: l });
+      session.set(res.user);
+    } catch (err) {
+      setLocale(prev);
+      toast.error(errorMessage(err));
+    } finally {
+      busy = false;
+    }
+  }
 </script>
 
-<div class="langs" role="group" aria-label={t('auth.language')}>
-  {#each LOCALES as l, i (l)}
-    {#if i > 0}<span class="sep" aria-hidden="true">·</span>{/if}
-    <button type="button" class="lang" class:active={i18n.locale === l} aria-pressed={i18n.locale === l} lang={l} onclick={() => setLocale(l)}>
-      {t(`common.languages.${l}`)}
-    </button>
+<div class="lang" role="group" aria-label={t('account.language.label')}>
+  {#each LOCALES as l (l)}
+    <button
+      type="button"
+      class:on={i18n.locale === l}
+      aria-pressed={i18n.locale === l}
+      disabled={busy}
+      lang={l}
+      title={t(`common.languages.${l}`)}
+      onclick={() => pick(l)}>{l.toUpperCase()}</button
+    >
   {/each}
 </div>
 
 <style>
-  .langs {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    margin-top: 16px;
-    font-size: 0.86rem;
-  }
   .lang {
-    background: none;
-    border: none;
-    font: inherit;
-    color: var(--muted);
-    padding: 8px 10px;
-    min-height: 40px;
+    display: inline-flex;
+    padding: 2px;
+    gap: 2px;
+    border: 1px solid var(--border);
     border-radius: 8px;
+    background: color-mix(in srgb, var(--bg) 60%, transparent);
+  }
+  button {
+    min-width: 34px;
+    height: 26px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
     cursor: pointer;
   }
-  .lang.active {
+  button:hover:not(.on) {
     color: var(--text);
-    font-weight: 700;
   }
-  @media (hover: hover) {
-    .lang:hover {
-      color: var(--text);
+  button.on {
+    background: var(--accent-soft, color-mix(in srgb, var(--accent) 18%, transparent));
+    color: var(--accent);
+  }
+  button:disabled {
+    cursor: default;
+  }
+  button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  @media (pointer: coarse) {
+    button {
+      height: 36px;
+      min-width: 44px;
     }
-  }
-  .sep {
-    color: var(--muted);
   }
 </style>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LangSwitch from './components/LangSwitch.svelte';
   import { onMount, untrack } from 'svelte';
   import { api, errorMessage, onPasswordChangeRequired, onUnauthorized, type User } from './lib/api';
   import { live } from './lib/live.svelte';
@@ -357,7 +358,10 @@
             <span class="who-r">{ROLE_LABELS[session.role]}</span>
           </span>
         </a>
-        <button class="logout" onclick={logout}><Icon name="logout" size={16} /> {t('common.logout')}</button>
+        <div class="foot-row">
+          <button class="logout" onclick={logout}><Icon name="logout" size={16} /> {t('common.logout')}</button>
+          <LangSwitch />
+        </div>
       </div>
     </aside>
 
@@ -549,6 +553,12 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+  }
+  .foot-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
   }
   .side-foot {
     margin-top: auto;

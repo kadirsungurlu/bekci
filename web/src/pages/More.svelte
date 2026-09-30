@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LangSwitch from '../components/LangSwitch.svelte';
   // Mobil "Daha fazla" menüsü: sekme çubuğuna sığmayan bölümler.
   import { ROLE_LABELS, session } from '../lib/session.svelte';
   import Icon, { type IconName } from '../components/Icon.svelte';
@@ -52,7 +53,22 @@
   <button class="btn sm" onclick={onLogout}><Icon name="logout" size={15} /> {t('common.logout')}</button>
 </div>
 
+<div class="card lang-card">
+  <span class="l">{t('account.language.label')}</span>
+  <LangSwitch />
+</div>
+
 <style>
+  .lang-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .lang-card .l {
+    font-weight: 600;
+  }
   .list {
     padding: 0;
   }
