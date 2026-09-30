@@ -24,8 +24,8 @@ Open `http://SERVER:8080` and create the first admin account. For HTTPS with Cad
 
 | Tag | Contents |
 |---|---|
-| `1`, `1.2`, `1.2.0`, `latest` | SQLite (recommended, lightest) |
-| `1-postgres`, `1.2-postgres`, `1.2.0-postgres`, `postgres` | Embedded PostgreSQL 18 |
+| `1`, `1.2`, `1.2.1`, `latest` | SQLite (recommended, lightest) |
+| `1-postgres`, `1.2-postgres`, `1.2.1-postgres`, `postgres` | Embedded PostgreSQL 18 |
 
 - Platforms: `linux/amd64`, `linux/arm64`.
 - Pin a minor version (`1.2`) in production to receive patch fixes only.
