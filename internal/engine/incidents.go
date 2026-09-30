@@ -83,7 +83,7 @@ func (r *runner) openIncident(ctx context.Context, now time.Time, res check.Resu
 		r.e.log.Error("olay açılamadı", "monitor", r.m.Name, "hata", err)
 		return
 	}
-	r.incidentID, r.lastCause, r.maintLogged = id, res.Message, false
+	r.incidentID, r.lastCause, r.maintLogged, r.locLearn = id, res.Message, false, false
 	if r.unresolved != nil && r.unresolved.id == id {
 		// Eski olay hâlâ kapatılamadı ve yeni kesinti onun devamı sayıldı
 		// (açık olay varken yenisi açılmaz): artık kapatılmaya çalışılmaz.
@@ -195,12 +195,31 @@ func (r *runner) incidentProgress(ctx context.Context, now time.Time, status int
 	// Çok konumluda birleşik mesaj konum listesini de içerir; değişimler konum
 	// başına yazılır (locationChanges).
 	if r.locs != nil {
-		evs = append(evs, r.locationChanges(now, &r.locPrev, false)...)
+		// Yeniden başlatmadan sonra konumların ilk sonuçları gelene kadar (son
+		// bekleyen konumun sonucunun geldiği çağrı dahil) yalnızca mevcut durum
+		// öğrenilir: olay sürerken zaten yazılmış "çalışmıyor" kaydı, konum
+		// sonuçları yeniden gelince ikinci kez yazılmasın.
+		learn := r.locLearn
+		if learn && !unsettled(r.locs.statuses(now, r.rules())) {
+			r.locLearn = false
+		}
+		evs = append(evs, r.locationChanges(now, &r.locPrev, learn)...)
 	} else if status == store.StatusDown && res.Message != r.lastCause {
 		r.lastCause = res.Message
 		evs = append(evs, store.IncidentEvent{Time: now.Unix(), Kind: store.EventChange, Message: res.Message})
 	}
 	r.addEvents(ctx, r.incidentID, evs...)
+}
+
+// unsettled sonucu henüz kesinleşmemiş (tekrar deneniyor / ilk sonuç
+// bekleniyor) konum var mı.
+func unsettled(st []LocationStatus) bool {
+	for _, s := range st {
+		if s.Status == locRetrying || s.Status == locWaiting {
+			return true
+		}
+	}
+	return false
 }
 
 // locMark bir konumun işlem geçmişine en son yazılan durumu ve hatası.

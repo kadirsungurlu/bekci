@@ -33,6 +33,7 @@ type runner struct {
 	lastCause   string                // işlem geçmişine yazılan son hata
 	maintLogged bool                  // olay sürerken "bakım başladı" yazıldı
 	locPrev     map[int64]locMark     // çok konumlu: olay sürerken konumların son yazılan durumu
+	locLearn    bool                  // yeniden başlatıldı: açık olayda konumların ilk sonuçları yalnızca öğrenilir
 
 	// Kısmi kesinti (partial.go; yalnızca çok konumlu).
 	partialID     int64             // açık kısmi kesinti olayı (0: yok)
@@ -66,6 +67,7 @@ func (r *runner) initialConfirmed(ctx context.Context) int {
 	if hasIncident {
 		r.incidentID, _ = r.e.store.OpenIncidentID(ctx, r.m.ID)
 		r.lastCause = r.m.LastMessage
+		r.locPrev, r.locLearn = nil, true
 		// Bakım kaydı yeniden başlatmadan önce yazıldıysa (bitişi yazılmamış
 		// başlangıç) ikinci kez yazılmaz; bakım bitince bitişi yazılır.
 		r.maintLogged, _ = r.e.store.InMaintLogged(ctx, r.incidentID)
@@ -304,7 +306,7 @@ func (r *runner) process(res check.Result) {
 		}
 		r.e.log.Info("monitör tekrar UP", "monitor", r.m.Name, "kesinti", downtime.Round(time.Second))
 		r.notify(notify.KindUp, now, res.Message, downtime)
-		r.incidentID, r.locPrev, r.maintLogged = 0, nil, false
+		r.incidentID, r.locPrev, r.maintLogged, r.locLearn = 0, nil, false, false
 
 	case status == store.StatusDown:
 		r.downBeats++

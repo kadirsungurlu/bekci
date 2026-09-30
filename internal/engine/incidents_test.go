@@ -197,3 +197,66 @@ func TestIncidentLocations(t *testing.T) {
 }
 
 func itoa(n int64) string { b, _ := json.Marshal(n); return string(b) }
+
+// QA bulgusu: süren olayda durumu hiç değişmeyen konum, süreç yeniden
+// başladıktan sonra ilk sonucu gelince işlem geçmişine ikinci kez
+// "Çalışmıyor" olarak yazılıyordu. Yeniden başlatmadan sonra konumların ilk
+// sonuçları yalnızca öğrenilir; sonraki gerçek değişim yine yazılır.
+func TestIncidentLocationsRestartNoDuplicate(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	a, b := f.probe(t, "Ankara", true), f.probe(t, "Berlin", true)
+	m := f.monitor(t, nil)
+	r := f.locRunner(t, m, store.LocationSetup{ProbeIDs: []int64{a.ID, b.ID}, DownWhen: store.DownWhenAny})
+	step := func() { f.clock = f.clock.Add(10 * time.Millisecond) }
+	step()
+	r.remote(a, f.clock, up())
+	step()
+	r.remote(b, f.clock, down("Bağlantı reddedildi"))
+	if r.m.Status != store.StatusDown || r.incidentID == 0 {
+		t.Fatalf("olay açılmalıydı: %d", r.m.Status)
+	}
+	id := r.incidentID
+	locEvents := func() []string {
+		evs, _ := f.st.IncidentEvents(ctx, id)
+		var out []string
+		for i := len(evs) - 1; i >= 0; i-- {
+			if evs[i].Kind == store.EventLocation || evs[i].Kind == store.EventChange {
+				out = append(out, evs[i].Kind+":"+evs[i].Location+"="+evs[i].Message)
+			}
+		}
+		return out
+	}
+
+	for range 2 { // iki kez yeniden başlat: her seferinde tekrar yazılmamalı
+		got, _ := f.st.GetMonitor(ctx, m.ID)
+		r = &runner{e: f.e, m: got, checker: fake}
+		r.locs = f.e.loadLocations(got)
+		r.confirmed = r.initialConfirmed(ctx)
+		if r.incidentID != id {
+			t.Fatalf("açık olay yüklenmedi: %d", r.incidentID)
+		}
+		// Konum durumu genel durumu değiştirmediği için olay geçmişi zamanlayıcı
+		// adımında (locationTick) yazılır.
+		step()
+		r.locationTick(ctx)
+		step()
+		r.remote(b, f.clock, down("Bağlantı reddedildi"))
+		r.locationTick(ctx)
+		step()
+		r.remote(a, f.clock, up())
+		r.locationTick(ctx)
+		step()
+		r.locationTick(ctx)
+		if ev := locEvents(); len(ev) != 0 {
+			t.Fatalf("yeniden başlatmadan sonra değişmeyen konum yazıldı: %v", ev)
+		}
+	}
+	// Öğrenme bitti: gerçek değişim yazılır.
+	step()
+	r.remote(a, f.clock, down("Zaman aşımı"))
+	r.locationTick(ctx)
+	if ev := locEvents(); len(ev) != 1 || ev[0] != "location:Ankara=Çalışmıyor: Zaman aşımı" {
+		t.Fatalf("gerçek değişim yazılmalı: %v", ev)
+	}
+}
