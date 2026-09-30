@@ -64,6 +64,9 @@ func TestMessage(t *testing.T) {
 		{"Alan adı bulunamadı: ornek.invalid", "Domain not found: ornek.invalid"},
 		{"Yanıt yok (3 paketin hiçbiri dönmedi)", "No reply (none of the 3 packets came back)"},
 		{"3/3 paket", "3/3 packets"},
+		// Sertifika bitişi: Türkçe tarih arayüzün İngilizce biçimine çevrilir; eski ISO kayıtlar olduğu gibi.
+		{"Sertifika geçerli, bitiş: 24.11.2026", "Certificate valid, expires: Nov 24, 2026"},
+		{"Sertifika geçerli, bitiş: 2026-11-24", "Certificate valid, expires: 2026-11-24"},
 		{"2/3 paket, %33 kayıp", "2/3 packets, 33% loss"},
 		{"Sorgu başarılı (1 satır)", "Query successful (1 row)"},
 		{"Sorgu başarılı (12 satır)", "Query successful (12 rows)"},

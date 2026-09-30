@@ -75,7 +75,7 @@ func (tlsCertChecker) Check(ctx context.Context, raw json.RawMessage) (res Resul
 		dg.failClass(PhaseTLS, ClassTLS)
 		return down("Sunucu sertifika sunmadı")
 	}
-	return Result{Up: true, PingMs: ping, Message: "Sertifika geçerli, bitiş: " + cert.NotAfter.Format("2006-01-02"), Cert: cert}
+	return Result{Up: true, PingMs: ping, Message: "Sertifika geçerli, bitiş: " + cert.NotAfter.Format("02.01.2006"), Cert: cert}
 }
 
 // dialTLSCert host:port'a TLS ile bağlanır ve sunucunun sertifika bilgisini

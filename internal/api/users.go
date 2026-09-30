@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/kadirsungurlu/bekci/internal/i18n"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
@@ -37,6 +38,11 @@ func (s *Server) listAudit(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.dbError(w, err)
 		return
+	}
+	// Ayrıntılar Türkçe saklanır; okuma anında yanıt diline çevrilir.
+	lang := responseLang(w)
+	for i := range list {
+		list[i].Detail = i18n.AuditDetail(lang, list[i].Detail)
 	}
 	writeJSON(w, http.StatusOK, list)
 }

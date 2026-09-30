@@ -791,7 +791,7 @@ func (s *Server) putMonitorLocations(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("monitör yeniden başlatılamadı", "monitor", m.Name, "hata", err)
 	}
 	s.audit(r, store.User{}, "monitor.locations", "monitor", id, m.Name,
-		"konumlar: "+strings.Join(names, ", ")+"; kural: "+setup.DownWhen)
+		"konumlar: "+strings.Join(names, ", ")+"; kural: "+i18n.DownWhenLabel(setup.DownWhen))
 	v, err := s.locationsOf(r.Context(), m)
 	if err != nil {
 		s.dbError(w, err)

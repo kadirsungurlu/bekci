@@ -379,7 +379,7 @@ func TestProbeScopingAndResults(t *testing.T) {
 	admin.mustDo("GET", "/api/audit", nil, &audit, 200)
 	found := false
 	for _, a := range audit {
-		if a.Action == "monitor.locations" && a.TargetID == m1.ID && a.Detail == "konumlar: A; kural: any" {
+		if a.Action == "monitor.locations" && a.TargetID == m1.ID && a.Detail == "konumlar: A; kural: herhangi bir konum çalışmıyorsa" {
 			found = true
 		}
 	}

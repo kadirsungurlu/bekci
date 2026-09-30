@@ -1,9 +1,13 @@
 package i18n
 
 import (
+	"regexp"
 	"strings"
 	"sync"
+	"time"
 )
+
+var trDateRe = regexp.MustCompile(`^\d{2}\.\d{2}\.\d{4}$`)
 
 // Message kontrol sonucu ve olay geçmişi metnini istenen dile çevirir.
 //
@@ -99,6 +103,13 @@ func translateMessage(msg string, depth int) (string, bool) {
 	}
 	if en, ok := msgTable.match(msg, depth, &looseOnly, translateMessage); ok {
 		return en, true
+	}
+	// Yakalanan tarih: "24.11.2026" → arayüzün İngilizce biçimi "Nov 24, 2026"
+	// (sertifika bitişi; arayüzdeki tarih kartlarıyla aynı görünsün).
+	if depth > 0 && trDateRe.MatchString(msg) {
+		if d, err := time.Parse("02.01.2006", msg); err == nil {
+			return d.Format("Jan 2, 2006"), true
+		}
 	}
 	// Yakalanan ad listesi: "Ana sunucu, İstanbul" → yalnızca birebir girdiler.
 	if depth > 0 && strings.Contains(msg, ", ") {

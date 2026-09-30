@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"slices"
 
+	"github.com/kadirsungurlu/bekci/internal/check"
 	"github.com/kadirsungurlu/bekci/internal/engine"
 	"github.com/kadirsungurlu/bekci/internal/i18n"
 	"github.com/kadirsungurlu/bekci/internal/metrics"
@@ -254,6 +255,9 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 func localizeIncident(u store.User, lang, monitorType string, out *incidentDetailView) {
 	out.Incident.Cause = i18n.Message(lang, out.Incident.Cause)
 	out.Location = locationName(lang, out.Location)
+	if monitorType == check.TypeGroup {
+		out.Monitor.Target = i18n.Message(lang, out.Monitor.Target) // "7 monitör" (bkz. monitors.go)
+	}
 	for i := range out.Locations {
 		out.Locations[i].Name = locationName(lang, out.Locations[i].Name)
 		out.Locations[i].Message = i18n.Message(lang, out.Locations[i].Message)

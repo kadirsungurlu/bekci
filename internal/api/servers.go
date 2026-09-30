@@ -264,7 +264,7 @@ func alertSummary(rules []store.ServerAlert) string {
 		}
 		p += strconv.Itoa(a.Minutes) + " dk"
 		if !a.Active {
-			p += " (kapalı)"
+			p += " (devre dışı)"
 		}
 		parts[i] = p
 	}
