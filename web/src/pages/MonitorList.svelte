@@ -4,7 +4,7 @@
   import { live } from '../lib/live.svelte';
   import { session } from '../lib/session.svelte';
   import { clock, confirmDialog, toast } from '../lib/ui.svelte';
-  import { certDaysLeft, collator, fmtDate, fmtDuration, fmtDurationShort, fmtMs, fmtPct, fmtRelative, lower, monitorKind } from '../lib/format';
+  import { certDaysLeft, collator, fmtDate, fmtDuration, fmtDurationShort, fmtMs, fmtPct, fmtRelative, lower, monitorKind, uptimeTone } from '../lib/format';
   import { cloneMonitor, deleteMonitor, resetStats, togglePause } from '../lib/actions';
   import MonitorRow from '../components/MonitorRow.svelte';
   import MonitorMenu, { type MenuAction } from '../components/MonitorMenu.svelte';
@@ -18,7 +18,7 @@
   import { i18n, t, tParts } from '../lib/i18n';
   import { onMount, tick } from 'svelte';
 
-  type Filter = 'all' | 'down' | 'up' | 'maint' | 'paused';
+  type Filter = 'all' | 'down' | 'up' | 'maint' | 'paused' | 'partial';
   type Sort = 'status' | 'name' | 'uptime';
 
   function load<T extends string>(key: string, allowed: readonly T[], def: T): T {
@@ -60,7 +60,7 @@
   });
   // Seçili etiket artık hiçbir monitörde yoksa filtre kendiliğinden kalkar.
   const activeTag = $derived(tagOptions.some((tg) => String(tg.id) === tagFilter) ? tagFilter : '');
-  let filter = $state<Filter>(load('uptime.filter', ['all', 'down', 'up', 'maint', 'paused'] as const, 'all'));
+  let filter = $state<Filter>(load('uptime.filter', ['all', 'down', 'up', 'maint', 'paused', 'partial'] as const, 'all'));
   let sort = $state<Sort>(load('uptime.sort', ['status', 'name', 'uptime'] as const, 'status'));
 
   $effect(() => save('uptime.filter', filter));
@@ -71,17 +71,26 @@
       down = 0,
       pending = 0,
       paused = 0,
-      maint = 0;
+      maint = 0,
+      partial = 0;
     for (const m of live.monitors) {
       const k = monitorKind(m);
+      if (locOutage(m)) partial++;
       if (k === 'paused') paused++;
       else if (k === 'maintenance') maint++;
       else if (k === 'up') up++;
       else if (k === 'down') down++;
       else pending++;
     }
-    return { up, down, pending, paused, maint, total: live.monitors.length };
+    return { up, down, pending, paused, maint, partial, total: live.monitors.length };
   });
+
+  /** Konum kesintisi: monitör genel olarak çalışıyor ama bir konum düşmüş
+   *  (satırdaki sarı işaretle aynı koşul, bkz. MonitorRow). */
+  function locOutage(m: MonitorView): boolean {
+    const k = monitorKind(m);
+    return !!m.open_partial_incident_id && k !== 'paused' && k !== 'down';
+  }
 
   // Önce çalışmayanlar: çalışmayan → bekleyen → bakımda → çalışan → durdurulan
   const RANK = { down: 0, pending: 1, maintenance: 2, up: 3, paused: 4 };
@@ -95,6 +104,7 @@
       if (filter === 'up' && k !== 'up') return false;
       if (filter === 'maint' && k !== 'maintenance') return false;
       if (filter === 'paused' && k !== 'paused') return false;
+      if (filter === 'partial' && !locOutage(m)) return false;
       if (q && !lower(m.name).includes(q) && !lower(m.target).includes(q) && !(m.tags ?? []).some((tg) => lower(`${tg.name} ${tg.value}`).includes(q)))
         return false;
       if (activeTag && !(m.tags ?? []).some((tg) => String(tg.id) === activeTag)) return false;
@@ -197,6 +207,7 @@
       { v: 'all' as Filter, l: t('common.all'), n: counts.total, c: '' },
       { v: 'down' as Filter, l: t('status.down'), n: counts.down, c: 'down' },
       { v: 'up' as Filter, l: t('status.up'), n: counts.up, c: 'up' },
+      { v: 'partial' as Filter, l: t('incidents.kind.partial'), n: counts.partial, c: 'partial' },
       { v: 'maint' as Filter, l: t('status.maintenance'), n: counts.maint, c: 'maint' },
       { v: 'paused' as Filter, l: t('status.paused'), n: counts.paused, c: 'paused' },
     ].filter((c) => c.v === 'all' || c.v === 'down' || c.v === 'up' || c.n > 0 || filter === c.v),
@@ -540,7 +551,7 @@
           href="#/incidents"
           aria-label={t('monitors.list.chip24Aria', { pct: fmtPct(summary?.uptime_24h), count: summary?.incidents_24h ?? 0 })}
         >
-          {t('monitors.list.chip24')} <b class={summary?.uptime_24h == null || summary.uptime_24h >= 99 ? 'c-up' : summary.uptime_24h >= 90 ? 'c-warn' : 'c-down'}>{fmtPct(summary?.uptime_24h)}</b>
+          {t('monitors.list.chip24')} <b class={({ good: 'c-up', warn: 'c-warn', bad: 'c-down', none: 'c-up' })[uptimeTone(summary?.uptime_24h)]}>{fmtPct(summary?.uptime_24h)}</b>
           {#if summary?.incidents_24h}· {t('monitors.list.incidentCount', { count: summary.incidents_24h })}{/if}
         </a>
         {#if counts.pending > 0}<span class="chip info c-pending">{t('monitors.list.pendingCount', { count: counts.pending })}</span>{/if}
@@ -578,6 +589,7 @@
           <option value="all">{t('monitors.list.fAll', { n: counts.total })}</option>
           <option value="down">{t('monitors.list.fDown', { n: counts.down })}</option>
           <option value="up">{t('monitors.list.fUp', { n: counts.up })}</option>
+          {#if counts.partial > 0 || filter === 'partial'}<option value="partial">{t('monitors.list.fPartial', { n: counts.partial })}</option>{/if}
           {#if counts.maint > 0 || filter === 'maint'}<option value="maint">{t('monitors.list.fMaint', { n: counts.maint })}</option>{/if}
           <option value="paused">{t('monitors.list.fPaused', { n: counts.paused })}</option>
         </select>
@@ -756,7 +768,7 @@
         <h2 class="card-title">{t('monitors.list.last24')}<span class="dot">.</span></h2>
         <div class="counts three">
           <div>
-            <b class={summary?.uptime_24h == null || summary.uptime_24h >= 99 ? 'c-up' : summary.uptime_24h >= 90 ? 'c-warn' : 'c-down'}>{fmtPct(summary?.uptime_24h)}</b>
+            <b class={({ good: 'c-up', warn: 'c-warn', bad: 'c-down', none: 'c-up' })[uptimeTone(summary?.uptime_24h)]}>{fmtPct(summary?.uptime_24h)}</b>
             <span>{t('monitors.list.overallUptime')}</span>
           </div>
           <div><b>{summary?.incidents_24h ?? '—'}</b><span>{t('monitors.list.incidents')}</span></div>
@@ -1407,6 +1419,16 @@
     color: var(--text);
     font-variant-numeric: tabular-nums;
   }
+  /* Uptime tonu (genel .c-* sınıfları .chip b'ye yenilmesin). */
+  .chip b.c-up {
+    color: var(--up);
+  }
+  .chip b.c-warn {
+    color: var(--warn-text);
+  }
+  .chip b.c-down {
+    color: var(--down-text-2);
+  }
   .chip.on {
     border-color: var(--accent);
     background: var(--accent-soft);
@@ -1440,6 +1462,9 @@
   }
   .chip.maint .cdot {
     background: var(--maint);
+  }
+  .chip.partial .cdot {
+    background: var(--pending);
   }
   .pulse-wrap {
     display: flex;

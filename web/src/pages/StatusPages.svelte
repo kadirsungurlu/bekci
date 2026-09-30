@@ -2,7 +2,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { api, errorMessage, type OverallStatus, type StatusPageListItem } from '../lib/api';
   import { clock, confirmDialog, copyText, toast } from '../lib/ui.svelte';
-  import { collator, fmtDuration, fmtPct, fmtRelative } from '../lib/format';
+  import { collator, fmtDuration, fmtPct, fmtRelative, uptimeTone } from '../lib/format';
   import RowMenu, { type MenuItem } from '../components/RowMenu.svelte';
   import Icon, { type IconName } from '../components/Icon.svelte';
   import PageThumb from '../components/PageThumb.svelte';
@@ -46,11 +46,8 @@
 
   const STATUS_ICON: Record<OverallStatus, IconName> = { up: 'check', partial: 'alert', down: 'x', unknown: 'info' };
 
-  /** Uptime yüzdesinin rengi: düşükse uyarı/kesinti tonu. */
-  function upTone(v: number | null | undefined): string {
-    if (v === null || v === undefined) return 'none';
-    return v >= 99 ? 'good' : v >= 95 ? 'warn' : 'bad';
-  }
+  /** Uptime yüzdesinin rengi: düşükse uyarı/kesinti tonu (eşikler: uptimeTone). */
+  const upTone = uptimeTone;
 
   async function remove(p: StatusPageListItem) {
     const ok = await confirmDialog({
@@ -491,7 +488,7 @@
     color: var(--text);
   }
   .num.up-warn {
-    color: var(--pending);
+    color: var(--warn-text);
   }
   .num.up-bad {
     color: var(--down-text-2);

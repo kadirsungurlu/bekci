@@ -149,7 +149,7 @@
     border-radius: 4px;
     display: grid;
     place-items: center;
-    background: #0f766e;
+    background: #047857;
     color: #fff;
     flex-shrink: 0;
   }
@@ -180,7 +180,7 @@
     flex-shrink: 0;
   }
   .th-hero.st-up {
-    background: linear-gradient(135deg, #14532d, #115e59);
+    background: linear-gradient(135deg, #14532d, #065f46);
   }
   .th-hero.st-partial {
     background: linear-gradient(135deg, #92400e, #78350f);

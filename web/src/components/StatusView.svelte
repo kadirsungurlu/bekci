@@ -236,7 +236,7 @@
     if (!b) return t('pub.noChecksYet');
     const total = b.up + b.down;
     if (range === 'recent') {
-      const when = `${fmtDate(b.t)} ${fmtTimeSec(b.t)}`;
+      const when = `${fmtDay(b.t)} ${fmtTimeSec(b.t)}`;
       return `${when}\n${b.up ? t('pub.barRecentUp') : b.down ? t('pub.barRecentDown') : t('pub.barRecentOther')}`;
     }
     const head = range === '24h' ? hourRange(b.t) : fmtDay(b.t);
@@ -275,16 +275,13 @@
   const uptimeLabel = $derived(page.uptime_window === '24h' ? t('pub.uptime24h') : t('pub.uptime90d'));
   /** Yüzdenin altındaki kısa pencere adı ("son 24 saat"). */
   const upWin = $derived(page.uptime_window === '24h' ? t('pub.upWin.24h') : t('pub.upWin.90d'));
-  /** Düşük uptime uyarı/kesinti tonuyla gösterilir. */
+  /** Düşük uptime uyarı (turuncu) / kesinti tonuyla gösterilir; eşikler panelle
+   *  aynı (fmt.uptimeTone). */
   function upTone(v: number | null | undefined): string {
-    if (v === null || v === undefined) return 'none';
-    return v >= 99 ? '' : v >= 95 ? 'warn' : 'bad';
+    const tone = fmt.uptimeTone(v);
+    return tone === 'good' ? '' : tone;
   }
-  /** Tek satır yerleşiminde daha hassas eşik: %99,5 altı uyarı, %95 altı kesinti tonu. */
-  function rowTone(v: number | null | undefined): string {
-    if (v === null || v === undefined) return 'none';
-    return v >= 99.5 ? '' : v >= 95 ? 'warn' : 'bad';
-  }
+  const rowTone = upTone;
   const upOf = (m: PublicMonitor) => (m.uptime !== undefined ? m.uptime : m.uptime_90d);
   // 90 günlük görünümde dar alanda daha az gün (ör. 30) çizilir; yüzde ve
   // etiketi de çizilen günlerden hesaplanır ("son 30 gün"): çubuklar "30 gün
@@ -663,7 +660,7 @@
     flex: none;
     display: grid;
     place-items: center;
-    background: #0f766e;
+    background: #047857;
     color: #fff;
   }
   .brand-t {
@@ -1011,7 +1008,7 @@
   }
   .m-up.warn b,
   .c-up.warn {
-    color: var(--pending);
+    color: var(--warn-text);
   }
   .m-up.bad b,
   .c-up.bad {
@@ -1020,10 +1017,6 @@
   .m-up.none b,
   .c-up.none {
     color: var(--muted);
-  }
-  .pub-light .m-up.warn b,
-  .pub-light .c-up.warn {
-    color: var(--pending-text);
   }
   .bars {
     display: flex;
@@ -1274,16 +1267,13 @@
     white-space: nowrap;
   }
   .r-up.warn b {
-    color: var(--pending);
+    color: var(--warn-text);
   }
   .r-up.bad b {
     color: var(--down-text-2);
   }
   .r-up.none b {
     color: var(--muted);
-  }
-  .pub-light .r-up.warn b {
-    color: var(--pending-text);
   }
   .pub-light .r-up.bad b {
     color: var(--down-text);

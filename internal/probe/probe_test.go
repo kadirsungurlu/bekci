@@ -355,3 +355,50 @@ func TestUnalignedWithoutPhase(t *testing.T) {
 		t.Fatalf("eski sunucuyla kontroller çalışmıyor: %d", hits.Load())
 	}
 }
+
+// Deneme hakkı (max_retries) bitince ajan tekrar deneme aralığını bırakır:
+// çalışmayan konum ana sunucu gibi normal aralıkta kontrol edilir.
+func TestRetryStopsAfterMaxRetries(t *testing.T) {
+	fs := newFakeServer(t)
+	var mu sync.Mutex
+	var hits []time.Time
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		hits = append(hits, time.Now())
+		mu.Unlock()
+		w.WriteHeader(500)
+	}))
+	t.Cleanup(bad.Close)
+	j := httpJob(1, bad.URL, 300)
+	j.RetryInterval = 20
+	one := 1
+	j.MaxRetries = &one
+	fs.set(func(f *fakeServer) { f.jobs = []Job{j} })
+	_, stop := start(t, Config{Server: fs.srv.URL})
+	defer stop()
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		mu.Lock()
+		n := len(hits)
+		mu.Unlock()
+		if n >= 4 || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(hits) < 4 {
+		t.Fatalf("yalnızca %d kontrol", len(hits))
+	}
+	// 1. hata → tekrar deneme (20 ms); 2. hata hakkı aşar → normal aralık (300 ms).
+	if d := hits[1].Sub(hits[0]); d > 150*time.Millisecond {
+		t.Errorf("ilk tekrar deneme %v sonra: tekrar deneme aralığı bekleniyordu", d)
+	}
+	for i := 2; i < 4; i++ {
+		if d := hits[i].Sub(hits[i-1]); d < 200*time.Millisecond {
+			t.Errorf("%d. kontrol %v sonra: hak bitince normal aralık bekleniyordu", i+1, d)
+		}
+	}
+}

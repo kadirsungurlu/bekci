@@ -816,6 +816,9 @@ type probeJob struct {
 	// PhaseMs monitörün kontrol ızgarasındaki kayması (bkz. schedule): ajan
 	// ana sunucuyla aynı anlarda kontrol eder. Eski ajanlar yok sayar.
 	PhaseMs int64 `json:"phase_ms"`
+	// MaxRetries tekrar deneme hakkı: ajan art arda bu kadar başarısızlıktan
+	// sonra (konum "çalışmıyor") normal aralığa döner, ana sunucu gibi.
+	MaxRetries int `json:"max_retries"`
 }
 
 // assignedJobs kontrol noktasının çalıştırabileceği aktif monitörleri döner.
@@ -985,7 +988,7 @@ func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 	jobs := make([]probeJob, len(list))
 	for i, m := range list {
 		jobs[i] = probeJob{ID: m.ID, Name: m.Name, Type: m.Type, Interval: m.Interval,
-			RetryInterval: m.RetryInterval, Timeout: m.Timeout, Config: m.Config, PhaseMs: schedule.PhaseMs(m.ID)}
+			RetryInterval: m.RetryInterval, Timeout: m.Timeout, Config: m.Config, PhaseMs: schedule.PhaseMs(m.ID), MaxRetries: m.MaxRetries}
 	}
 	s.probePolls.set(p.ID, version, s.now())
 	writeJSON(w, http.StatusOK, map[string]any{

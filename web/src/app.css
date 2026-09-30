@@ -80,7 +80,7 @@
   --ch-email: #f59e0b;
   --ch-discord: #5865f2;
   --ch-slack: #e01e5a;
-  --ch-webhook: #2dd4bf;
+  --ch-webhook: #34d399;
   --ch-ntfy: #3fb39a;
   --ch-gotify: #1e88e5;
   --ch-pushover: #249df1;
@@ -109,7 +109,7 @@
 
   /* Grafik serileri (sunucu takibi): sabit sırayla atanır, mor yok. Renk körlüğü
      ayrımı ve koyu zemin kontrastı doğrulandı (teal, turuncu, mavi, sarı, pembe). */
-  --chart-1: #16a797;
+  --chart-1: #10b981;
   --chart-2: #dc6a28;
   --chart-3: #3a86dc;
   --chart-4: #b88600;
@@ -670,10 +670,12 @@ input[type='search'].input::-webkit-search-decoration {
   border-color: var(--up-border);
   color: var(--up-text);
 }
+/* Bilgi kutusu nötr: vurgu durum yeşiliyle aynı olduğundan yeşil kutu
+   (ör. hata açıklaması) "çalışıyor" gibi okunuyordu. */
 .alert.info {
-  background: var(--accent-soft);
-  border-color: var(--accent-border);
-  color: var(--accent-text-soft);
+  background: var(--card-2);
+  border-color: var(--border-strong);
+  color: var(--text-2);
 }
 .alert.warning {
   background: var(--pending-soft);
@@ -703,9 +705,9 @@ input[type='search'].input::-webkit-search-decoration {
   vertical-align: middle;
 }
 .badge.accent {
-  background: var(--accent-soft);
-  color: var(--accent-text);
-  border-color: transparent;
+  background: var(--card-2);
+  color: var(--text-2);
+  border-color: var(--border-strong);
 }
 .badge.up {
   background: var(--up-soft);
@@ -1040,7 +1042,7 @@ input[type='search'].input::-webkit-search-decoration {
    aşağıdaki --pub-* değerleri kullanılır; açık temada .pub-light tonları. */
 :root {
   --pub-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.18);
-  --pub-hero-up: linear-gradient(135deg, #0f3a2a, #0f2a3a);
+  --pub-hero-up: linear-gradient(135deg, #0b3a2b, #0e241f);
   --pub-hero-partial: linear-gradient(135deg, #3d2e0c, #2a2413);
   --pub-hero-down: linear-gradient(135deg, #451a1a, #2e1620);
   --pub-hero-unknown: linear-gradient(135deg, #171d29, #121620);
@@ -1064,20 +1066,20 @@ input[type='search'].input::-webkit-search-decoration {
   --muted: #5f6b7e;
   --placeholder: #8a95a8;
 
-  --up: #16a34a;
-  --up-soft: rgba(22, 163, 74, 0.1);
-  --up-text: #166534;
-  --up-border: rgba(22, 163, 74, 0.35);
+  --up: #059669;
+  --up-soft: rgba(5, 150, 105, 0.1);
+  --up-text: #065f46;
+  --up-border: rgba(5, 150, 105, 0.35);
   --down: #dc2626;
   --down-soft: rgba(220, 38, 38, 0.09);
   --down-text: #991b1b;
   --down-text-2: #b91c1c;
   --down-border: rgba(220, 38, 38, 0.35);
   --down-solid: #b91c1c;
-  --pending: #d97706;
-  --pending-soft: rgba(217, 119, 6, 0.1);
-  --pending-text: #92400e;
-  --pending-border: rgba(217, 119, 6, 0.35);
+  --pending: #ca8a04;
+  --pending-soft: rgba(202, 138, 4, 0.1);
+  --pending-text: #854d0e;
+  --pending-border: rgba(202, 138, 4, 0.35);
   --paused: #6b7280;
   --paused-soft: rgba(107, 114, 128, 0.12);
   --paused-text: #4b5563;
@@ -1087,15 +1089,18 @@ input[type='search'].input::-webkit-search-decoration {
   --maint-border: rgba(29, 127, 214, 0.35);
   --empty-bar: #dfe4ec;
 
-  --accent: #0f766e;
-  --accent-hover: #115e59;
-  --accent-soft: rgba(13, 148, 136, 0.1);
-  --accent-border: rgba(13, 148, 136, 0.35);
-  --accent-text: #0f766e;
-  --accent-text-soft: #115e59;
+  --accent: #047857;
+  --accent-hover: #065f46;
+  --accent-soft: rgba(5, 150, 105, 0.1);
+  --accent-border: rgba(5, 150, 105, 0.35);
+  --accent-text: #047857;
+  --accent-text-soft: #065f46;
+  --warn: #ea580c;
+  --warn-text: #c2410c;
+  --spark: #0891b2;
   --accent-contrast: #ffffff;
 
-  --chart-1: #0d9488;
+  --chart-1: #059669;
   --chart-2: #e0661f;
   --chart-3: #2a78d6;
   --chart-4: #c98500;
@@ -1107,7 +1112,7 @@ input[type='search'].input::-webkit-search-decoration {
   --tip-text-2: #b9c3d3;
   --shadow: 0 8px 30px rgba(15, 27, 45, 0.12);
   --pub-shadow: 0 1px 2px rgba(15, 27, 45, 0.05), 0 6px 20px rgba(15, 27, 45, 0.06);
-  --pub-hero-up: linear-gradient(135deg, #16a34a, #0d9488);
+  --pub-hero-up: linear-gradient(135deg, #059669, #047857);
   --pub-hero-partial: linear-gradient(135deg, #d97706, #b45309);
   --pub-hero-down: linear-gradient(135deg, #dc2626, #b91c1c);
   --pub-hero-unknown: linear-gradient(135deg, #64748b, #475569);

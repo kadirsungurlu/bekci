@@ -55,6 +55,7 @@ export default {
     fAll: 'All ({n})',
     fDown: 'Down ({n})',
     fUp: 'Up ({n})',
+    fPartial: 'Location outage ({n})',
     fMaint: 'Maintenance ({n})',
     fPaused: 'Paused ({n})',
     sort: 'Sort',

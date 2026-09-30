@@ -11,6 +11,7 @@
     fmtInterval,
     fmtMs,
     fmtPct,
+    uptimeTone,
     fmtRelative,
     monitorKind,
   } from '../lib/format';
@@ -52,7 +53,7 @@
   const shownTags = $derived(tags.slice(0, 2));
   // Süren olay: detay sayfasına kısayol (izleyici de görür; liste zaten kapsamla süzülü).
   const incident = $derived(kind === 'down' && m.open_incident_id ? m.open_incident_id : null);
-  // Süren konum kesintisi: monitör çalışıyor ama bazı konumlar çalışmıyor (turuncu işaret).
+  // Süren konum kesintisi: monitör çalışıyor ama bazı konumlar çalışmıyor (sarı işaret).
   const locOutage = $derived(incident === null && kind !== 'paused' && m.open_partial_incident_id ? m.open_partial_incident_id : null);
 
   // Alt satır: adres · durum (+ süre); durum metni kırpılmaz, yer daralınca adres
@@ -282,8 +283,8 @@
       <Icon name="lock" size={12} />{certDays < 0 ? t('overview.row.sslExpired') : t('overview.row.sslDays', { n: certDays })}
     {/if}
   </div>
-  <div class="u mc-u7" class:c-warn={m.uptime_7d != null && m.uptime_7d >= 90 && m.uptime_7d < 99} class:c-down={m.uptime_7d != null && m.uptime_7d < 90} title={t('overview.row.u7Title')}>{fmtPct(m.uptime_7d)}</div>
-  <div class="u mc-u30" class:c-warn={m.uptime_30d != null && m.uptime_30d >= 90 && m.uptime_30d < 99} class:c-down={m.uptime_30d != null && m.uptime_30d < 90} title={t('overview.row.u30Title')}>{fmtPct(m.uptime_30d)}</div>
+  <div class="u mc-u7" class:c-warn={uptimeTone(m.uptime_7d) === 'warn'} class:c-down={uptimeTone(m.uptime_7d) === 'bad'} title={t('overview.row.u7Title')}>{fmtPct(m.uptime_7d)}</div>
+  <div class="u mc-u30" class:c-warn={uptimeTone(m.uptime_30d) === 'warn'} class:c-down={uptimeTone(m.uptime_30d) === 'bad'} title={t('overview.row.u30Title')}>{fmtPct(m.uptime_30d)}</div>
   <div class="last mc-last" title={m.last_check_at ? t('overview.row.lastTitle', { date: fmtDateSec(m.last_check_at) }) : t('overview.row.never')}>
     {m.last_check_at ? fmtRelative(m.last_check_at, now) : '—'}
   </div>
@@ -293,7 +294,7 @@
   </div>
   <div class="uptime mc-bars">
     <UptimeBars bars={m.bars} />
-    <div class="pct" class:c-warn={m.uptime_24h !== null && m.uptime_24h >= 90 && m.uptime_24h < 99} class:c-down={m.uptime_24h !== null && m.uptime_24h < 90}>{fmtPct(m.uptime_24h)}</div>
+    <div class="pct" class:c-warn={uptimeTone(m.uptime_24h) === 'warn'} class:c-down={uptimeTone(m.uptime_24h) === 'bad'}>{fmtPct(m.uptime_24h)}</div>
   </div>
   {#if session.canEdit}
     <div class="menu mc-menu">

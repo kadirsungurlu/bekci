@@ -87,6 +87,9 @@ type Job struct {
 	// PhaseMs kontrol ızgarasındaki kayma (bkz. schedule); yok (eski sunucu):
 	// kontroller ana sunucuyla hizalanmaz, kendi aralığında yapılır.
 	PhaseMs *int64 `json:"phase_ms,omitempty"`
+	// MaxRetries tekrar deneme hakkı; yok (eski sunucu): başarısızken hep
+	// tekrar deneme aralığı kullanılır.
+	MaxRetries *int `json:"max_retries,omitempty"`
 }
 
 // Result ana sunucuya gönderilen tek sonuç. Time unix milisaniye.
@@ -461,6 +464,8 @@ func (c *Client) firstDelay(j Job, quick bool) time.Duration {
 
 // runJob bir monitörü kendi aralığında kontrol eder. Başarısız kontrolden
 // sonra tekrar deneme aralığı kullanılır (hata sayımı ana sunucuda yapılır).
+// Hak (MaxRetries) bitince, yani konum ana sunucuda "çalışmıyor" sayılınca,
+// normal aralığa dönülür; ana sunucunun kendi kontrolü de böyle yapar.
 // Sunucu kontrol ızgarasını bildirdiyse (PhaseMs) ilk kontrolden sonrakiler
 // sunucunun saatine göre ızgaraya oturur: ana sunucu ve diğer konumlarla aynı
 // anda kontrol edilir.
@@ -470,6 +475,7 @@ func (c *Client) runJob(ctx context.Context, j Job, done chan struct{}, first ti
 	defer close(done)
 	interval := time.Duration(max(j.Interval, 1)) * c.cfg.Unit
 	retry := time.Duration(max(j.RetryInterval, 1)) * c.cfg.Unit
+	fails := 0 // art arda başarısız kontrol
 	var plan *schedule.Planner
 	if j.PhaseMs != nil {
 		plan = &schedule.Planner{PhaseMs: *j.PhaseMs}
@@ -494,8 +500,13 @@ func (c *Client) runJob(ctx context.Context, j Job, done chan struct{}, first ti
 			default:
 			}
 		}
+		if res.Up {
+			fails = 0
+		} else {
+			fails++
+		}
 		every := interval
-		if !res.Up {
+		if !res.Up && (j.MaxRetries == nil || fails <= *j.MaxRetries) {
 			every = retry
 		}
 		if plan != nil {

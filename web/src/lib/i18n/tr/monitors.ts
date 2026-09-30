@@ -55,6 +55,7 @@ export default {
     fAll: 'Tümü ({n})',
     fDown: 'Çalışmayanlar ({n})',
     fUp: 'Çalışanlar ({n})',
+    fPartial: 'Konum kesintisi ({n})',
     fMaint: 'Bakımda ({n})',
     fPaused: 'Durdurulanlar ({n})',
     sort: 'Sıralama',

@@ -349,6 +349,14 @@ export function fmtRate(bps: number | null | undefined): string {
   return `${fmtBytes(bps)}${t('status.time.perSec')}`;
 }
 
+/** Uptime oranının tonu; tüm ekranlarda aynı eşikler: %99,9 ve üstü iyi,
+ *  %90–99,9 uyarı (turuncu: kesinti olmuş ama "şu an çalışmıyor" değil),
+ *  %90 altı kötü (kırmızı). */
+export function uptimeTone(v: number | null | undefined): 'good' | 'warn' | 'bad' | 'none' {
+  if (v === null || v === undefined || !Number.isFinite(v)) return 'none';
+  return v >= 99.9 ? 'good' : v >= 90 ? 'warn' : 'bad';
+}
+
 /** Tam sayı yüzde: "%42" (en: "42%"). */
 export function fmtPctInt(v: number | null | undefined): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return '—';

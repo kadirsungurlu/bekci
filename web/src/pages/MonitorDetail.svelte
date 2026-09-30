@@ -25,6 +25,7 @@
     fmtInterval,
     fmtMs,
     fmtPct,
+    uptimeTone,
     fmtRelative,
     monitorKind,
     nowSec,
@@ -400,7 +401,7 @@
       {@const v = detail?.uptime[r.key] ?? null}
       <div>
         <div class="label">{t('monitors.detail.lastRange', { range: t(r.label) })}</div>
-        <div class="big {v === null ? 'muted' : v >= 99.9 ? 'c-up' : v >= 90 ? 'c-warn' : 'c-down'}">{fmtPct(v)}</div>
+        <div class="big {({ good: 'c-up', warn: 'c-warn', bad: 'c-down', none: 'muted' })[uptimeTone(v)]}">{fmtPct(v)}</div>
       </div>
     {/each}
   </div>
