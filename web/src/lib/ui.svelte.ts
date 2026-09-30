@@ -62,11 +62,14 @@ class Confirmer {
 export const confirmer = new Confirmer();
 export const confirmDialog = (opts: Omit<ConfirmRequest, 'resolve'>) => confirmer.ask(opts);
 
-/** Göreli zamanlar ("3 dk önce", "Çalışıyor · 2 sa") için birkaç saniyede bir ilerleyen saat. */
+/** Göreli zamanlar ("3 sn önce", "Çalışıyor · 2 sa") için saniyede bir ilerleyen saat. */
 class Clock {
   now = $state(nowSec());
   constructor() {
-    setInterval(() => (this.now = nowSec()), 5000);
+    setInterval(() => {
+      const n = nowSec();
+      if (n !== this.now) this.now = n;
+    }, 1000);
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) this.now = nowSec();
     });
