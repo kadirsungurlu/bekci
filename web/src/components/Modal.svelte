@@ -9,6 +9,7 @@
     title,
     width = 560,
     dismissable = true,
+    canClose,
     onclose,
     children,
     footer,
@@ -18,6 +19,11 @@
     width?: number;
     /** false: Esc, arka plana dokunma ve × ile kapanmaz (ör. kurtarma kodları adımı). */
     dismissable?: boolean;
+    /**
+     * Esc, arka plan ve × ile kapatmadan önce sorulur (ör. kaydedilmemiş
+     * değişiklik); false dönerse pencere açık kalır.
+     */
+    canClose?: () => boolean | Promise<boolean>;
     onclose?: () => void;
     children: Snippet;
     footer?: Snippet;
@@ -49,6 +55,21 @@
   // Dokunmatik cihazda otomatik odak klavyeyi açıp pencereyi kaydırır; orada yapma.
   const isTouch = () => matchMedia('(hover: none)').matches;
 
+  /** Kullanıcının kapatma isteği (Esc, arka plan, ×): canClose sorulur. */
+  let asking = false;
+  async function requestClose() {
+    if (!dismissable || asking) return;
+    if (canClose) {
+      asking = true;
+      try {
+        if (!(await canClose())) return;
+      } finally {
+        asking = false;
+      }
+    }
+    dialog?.close();
+  }
+
   function handleClose() {
     if (open) {
       open = false;
@@ -63,12 +84,13 @@
   aria-labelledby={titleId}
   onclose={handleClose}
   oncancel={(e) => {
-    // Esc: kapatılamayan pencerede yok sayılır.
-    if (!dismissable) e.preventDefault();
+    // Esc: kapatılamayan pencerede yok sayılır; kapatmadan önce sorulacaksa önce sorulur.
+    if (!dismissable || canClose) e.preventDefault();
+    if (dismissable && canClose) requestClose();
   }}
   onpointerdown={(e) => (downOnBackdrop = e.target === dialog)}
   onclick={(e) => {
-    if (dismissable && downOnBackdrop && e.target === dialog) dialog?.close();
+    if (dismissable && downOnBackdrop && e.target === dialog) requestClose();
     downOnBackdrop = false;
   }}
 >
@@ -77,7 +99,7 @@
       <header>
         <h2 id={titleId}>{title}</h2>
         {#if dismissable}
-          <button type="button" class="btn ghost icon" aria-label={t('common.close')} onclick={() => dialog?.close()}>
+          <button type="button" class="btn ghost icon" aria-label={t('common.close')} onclick={requestClose}>
             <Icon name="x" />
           </button>
         {/if}

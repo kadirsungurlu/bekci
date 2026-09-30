@@ -376,12 +376,17 @@
             <Icon name="refresh" size={18} />
           </button>
         {/if}
-        <button class="btn ghost top-btn" onclick={logout} aria-label={t('common.logout')}><Icon name="logout" size={16} /> {t('common.logout')}</button>
+        <!-- Çıkış üst çubukta birincil konumda durmaz (yanlışlıkla basılıyordu); "Daha fazla" sayfasında. -->
+        <a class="btn ghost icon top-btn" href="#/settings" aria-label={t('nav.myAccount')} title={t('nav.myAccount')}><Icon name="user" size={18} /></a>
       </div>
     </header>
 
     <main class="main">
-      <div class="content" class:wide={route.name === 'list' || route.name === 'servers'}>
+      <div
+        class="content"
+        class:wide={route.name === 'list' || route.name === 'servers' || route.name === 'page-edit' || route.name === 'page-new'}
+        class:form-page={route.name === 'new' || route.name === 'edit' || route.name === 'maint-new' || route.name === 'maint-edit'}
+      >
         {#if editorOnly && !session.canEdit}
           {@render forbidden()}
         {:else if (route.name === 'servers' || route.name === 'server') && !session.canSeeServers}
@@ -660,10 +665,16 @@
     margin: 0 auto;
     padding: 32px 36px 48px;
   }
-  /* Liste ekranları (monitörler, sunucular) geniş ekranı kullanır: ek sütunlar
+  /* Liste ekranları (monitörler, sunucular) ve durum sayfası düzenleyicisi (canlı
+     önizlemeye yer kalsın) geniş ekranı kullanır: ek sütunlar
      liste genişliğine göre açılır. */
   .content.wide {
     max-width: 1920px;
+  }
+  /* Tek sütunlu formlar (monitör, bakım): başlık, form ve düğmeler aynı genişlikte
+     ve ortada; geniş ekranda form sola yaslı kalıp sağda boşluk bırakmasın. */
+  .content.form-page {
+    max-width: calc(820px + 72px);
   }
   @media (min-width: 901px) {
     .content.wide {

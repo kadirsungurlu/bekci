@@ -4,7 +4,7 @@
   import { navigate, router } from '../lib/router.svelte';
   import { live } from '../lib/live.svelte';
   import { confirmDialog, toast } from '../lib/ui.svelte';
-  import { isoLocal, nowSec } from '../lib/format';
+  import { fmtDuration, isoLocal, nowSec } from '../lib/format';
   import { guardUnsaved, markInvalid, snapshot } from '../lib/forms';
   import { DEFAULT_TZ, MAINT_STATUS, STRATEGY_DESCS, STRATEGY_LABELS, WEEKDAYS, nextText } from '../lib/maintenance';
   import MonitorPicker from '../components/MonitorPicker.svelte';
@@ -207,6 +207,18 @@
   const overnight = $derived(
     (strategy === 'recurring_weekly' || strategy === 'recurring_daily') && endTime && startTime && endTime < startTime,
   );
+  // Tekrarlayan pencerenin uzunluğu (dakika): bitiş başlangıçtan önceyse ertesi gün.
+  // Ör. 02:00–01:00 23 saatlik bir penceredir; uzun pencerede uyarı gösterilir.
+  const hm = (v: string) => {
+    const m = v.match(/^(\d{2}):(\d{2})/);
+    return m ? +m[1] * 60 + +m[2] : null;
+  };
+  const spanMin = $derived.by(() => {
+    const a = hm(startTime);
+    const b = hm(endTime);
+    if (a === null || b === null || a === b) return 0;
+    return (b - a + 1440) % 1440;
+  });
 </script>
 
 <a class="back" href="#/maintenance"><Icon name="chevron-left" size={16} /> {t('maintenance.form.back')}</a>
@@ -300,9 +312,18 @@
             <div class="field">
               <label for="mt-et">{t('maintenance.form.endTime')}</label>
               <input id="mt-et" class="input" type="time" bind:value={endTime} />
-              <span class="help">{t('maintenance.form.endTimeHelp')}{overnight ? t('maintenance.form.overnight') : ''}</span>
+              <span class="help">{t('maintenance.form.endTimeHelp')}</span>
             </div>
           </div>
+          {#if spanMin > 0}
+            <div class="alert small {spanMin >= 12 * 60 ? 'warning' : 'info'}" role="status">
+              {overnight
+                ? t('maintenance.form.spanOvernight', { start: startTime, end: endTime, d: fmtDuration(spanMin * 60) })
+                : t('maintenance.form.span', { start: startTime, end: endTime, d: fmtDuration(spanMin * 60) })}{#if spanMin >= 12 * 60}{t(
+                  'maintenance.form.spanLong',
+                )}{/if}
+            </div>
+          {/if}
         {:else if strategy === 'cron'}
           <div class="grid-cron">
             <div class="field">
@@ -427,6 +448,9 @@
     border-color: var(--accent);
     background: var(--accent-soft);
     box-shadow: 0 0 0 1px var(--accent) inset;
+  }
+  .strat.active .sd {
+    color: var(--text-2);
   }
   .sl {
     font-weight: 700;

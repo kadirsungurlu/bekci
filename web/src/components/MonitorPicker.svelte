@@ -17,14 +17,24 @@
   const label = $derived(labelProp ?? t('nav.monitors'));
 
   let search = $state('');
+  // Yalnızca seçilenleri göster (uzun listede seçimi gözden geçirmek için).
+  let onlySel = $state(false);
 
+  // Açılışta seçili olanlar listenin başında (düzenlenen kaydın seçimi ilk
+  // bakışta görünsün). Sıra açılıştaki seçime göre sabittir: işaretleyip
+  // kaldırırken satırlar yer değiştirmez.
+  // svelte-ignore state_referenced_locally
+  const pinned = new Set(selected);
   const all = $derived(
-    live.monitors.filter((m) => !exclude.includes(m.id)).sort((a, b) => collator.compare(a.name, b.name)),
+    live.monitors
+      .filter((m) => !exclude.includes(m.id))
+      .sort((a, b) => Number(pinned.has(b.id)) - Number(pinned.has(a.id)) || collator.compare(a.name, b.name)),
   );
   const visible = $derived.by(() => {
     const q = lower(search.trim());
-    if (!q) return all;
-    return all.filter((m) => lower(m.name).includes(q) || lower(m.target).includes(q));
+    let list = onlySel ? all.filter((m) => set.has(m.id)) : all;
+    if (q) list = list.filter((m) => lower(m.name).includes(q) || lower(m.target).includes(q));
+    return list;
   });
   const set = $derived(new Set(selected));
   // Seçili ama listede olmayan (silinmiş/görünmeyen) kimlikler korunur.
@@ -58,7 +68,16 @@
       />
     </div>
     <div class="tools">
-      <span class="muted small" aria-live="polite">{t('monitors.picker.count', { count, total: all.length })}</span>
+      <button
+        type="button"
+        class="cnt"
+        class:on={onlySel}
+        aria-pressed={onlySel}
+        title={t('monitors.picker.onlySelectedTitle')}
+        onclick={() => (onlySel = !onlySel)}
+        disabled={count === 0 && !onlySel}
+        aria-live="polite">{t('monitors.picker.count', { count, total: all.length })}</button
+      >
       <button type="button" class="linkbtn small" onclick={selectVisible}
         >{search ? t('monitors.picker.selectFound') : t('monitors.picker.selectAll')}</button
       >
@@ -117,6 +136,31 @@
   }
   .tools .linkbtn {
     font-size: 0.85rem;
+  }
+  /* "3 / 21 seçili": dokununca yalnızca seçilenler listelenir. */
+  .cnt {
+    border: 1px solid transparent;
+    background: none;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font: inherit;
+    font-size: 0.85rem;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .cnt:disabled {
+    cursor: default;
+  }
+  .cnt.on {
+    border-color: var(--accent-border);
+    background: var(--accent-soft);
+    color: var(--accent-text-soft);
+  }
+  @media (hover: hover) {
+    .cnt:not(:disabled):not(.on):hover {
+      border-color: var(--border-strong);
+      color: var(--text-2);
+    }
   }
   .tools {
     display: flex;

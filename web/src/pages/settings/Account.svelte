@@ -2,8 +2,11 @@
   import { api, errorMessage } from '../../lib/api';
   import { ROLE_LABELS, session } from '../../lib/session.svelte';
   import { toast } from '../../lib/ui.svelte';
+  import { live } from '../../lib/live.svelte';
   import { browserLocale, forgetLocale, isLocale, LOCALES, setLocale, t, type Locale } from '../../lib/i18n';
   import TwoFactor from './TwoFactor.svelte';
+  import { onMount } from 'svelte';
+  import { guardUnsaved } from '../../lib/forms';
   import ApiKeys from './ApiKeys.svelte';
 
   let current = $state('');
@@ -11,6 +14,9 @@
   let next2 = $state('');
   let pwError = $state('');
   let pwBusy = $state(false);
+
+  // Şifre formuna yazılmışken sayfadan ayrılırken sorulur.
+  onMount(() => guardUnsaved(() => !pwBusy && !!(current || next || next2)));
 
   async function changePassword(e: SubmitEvent) {
     e.preventDefault();
@@ -43,6 +49,8 @@
       session.set(res.user);
       if (lang) setLocale(lang);
       else forgetLocale();
+      // Sunucudan gelen metinler (kontrol mesajları, olaylar) de yeni dilde gelsin.
+      live.relocalize();
       toast.success(t('account.language.saved'));
     } catch (err) {
       toast.error(errorMessage(err));
@@ -131,8 +139,10 @@
     align-items: stretch;
     margin-bottom: 16px;
   }
-  /* İki adımlı doğrulama kartı da diğerleriyle aynı yükseklikte olsun. */
-  .top3 > :global(*) {
+  /* İki adımlı doğrulama kartı da diğerleriyle aynı yükseklikte olsun. Kural
+     yalnızca kartlara uygulanır: TwoFactor bileşeni kartın yanında pencereler
+     (<dialog>) de çizer; onların margin:auto ile ortalanması bozulmamalı. */
+  .top3 > :global(.card) {
     height: 100%;
     margin: 0;
   }
@@ -172,7 +182,8 @@
     .top3 {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     }
-    .top3 > :global(:last-child) {
+    /* Üçüncü kart (iki adımlı doğrulama) tam genişlik; son çocuk bir <dialog> olabilir. */
+    .top3 > :global(.card:nth-of-type(3)) {
       grid-column: 1 / -1;
     }
     .pw-row {

@@ -76,8 +76,8 @@ export default {
       create: 'Bakım eklendi',
       update: 'Bakım güncellendi',
       delete: 'Bakım silindi',
-      pause: 'Bakım durduruldu',
-      resume: 'Bakım başlatıldı',
+      pause: 'Bakım devre dışı bırakıldı',
+      resume: 'Bakım etkinleştirildi',
     },
     tag: {
       create: 'Etiket eklendi',

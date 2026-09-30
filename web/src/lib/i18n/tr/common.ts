@@ -50,6 +50,9 @@ export default {
     unsavedMessage: 'Yaptığınız değişiklikler kaydedilmedi. Sayfadan ayrılırsanız kaybolacak.',
     leave: 'Kaydetmeden ayrıl',
     stay: 'Sayfada kal',
+    discard: 'Değişiklikleri at',
+    unsavedModalMessage: 'Yaptığınız değişiklikler kaydedilmedi. Pencereyi kapatırsanız kaybolacak.',
+    keepEditing: 'Düzenlemeye devam et',
     and: 've',
     dest: {
       url: 'adres',

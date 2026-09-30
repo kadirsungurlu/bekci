@@ -78,8 +78,8 @@ export default {
       create: 'Maintenance added',
       update: 'Maintenance updated',
       delete: 'Maintenance deleted',
-      pause: 'Maintenance paused',
-      resume: 'Maintenance resumed',
+      pause: 'Maintenance disabled',
+      resume: 'Maintenance enabled',
     },
     tag: {
       create: 'Tag added',

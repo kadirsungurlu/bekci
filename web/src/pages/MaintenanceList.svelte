@@ -159,7 +159,11 @@
         {#if session.canEdit}
           <div class="acts">
             {#if m.status !== 'ended'}
-              <button class="btn sm tgl" onclick={() => toggle(m)}>
+              <button
+                class="btn sm tgl"
+                onclick={() => toggle(m)}
+                title={m.active ? t('maintenance.list.stopTitle') : t('maintenance.list.startTitle')}
+              >
                 <Icon name={m.active ? 'pause' : 'play'} size={14} />
                 {m.active ? t('maintenance.list.stop') : t('maintenance.list.start')}
               </button>

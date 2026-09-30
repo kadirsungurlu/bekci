@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import {
     api,
     errorMessage,
@@ -9,7 +9,7 @@
     type NotificationType,
   } from '../lib/api';
   import { confirmDialog } from '../lib/ui.svelte';
-  import { changedDestinations, destinationPhrase } from '../lib/forms';
+  import { changedDestinations, destinationPhrase, guardUnsaved, snapshot } from '../lib/forms';
   import { EMAIL_PORTS, NOTIFY_GROUPS, NOTIFY_LABELS, NOTIFY_SCHEMAS, webhookExample, type Field } from '../lib/notifyTypes';
   import { t, tParts } from '../lib/i18n';
   import Modal from './Modal.svelte';
@@ -53,6 +53,26 @@
   let isDefault = $state(orig?.is_default ?? true);
   let active = $state(orig?.active ?? true);
   let applyExisting = $state(false);
+
+  // Kaydedilmemiş değişiklik: pencere kapatılırken (Vazgeç, ×, Esc, arka plan) ve
+  // sayfadan ayrılırken sorulur.
+  const formSnap = () => snapshot({ type, name: name.trim(), values, isDefault, active, applyExisting });
+  const baseline = untrack(formSnap);
+  const dirty = () => !saving && formSnap() !== baseline;
+  async function canClose() {
+    if (!dirty()) return true;
+    return confirmDialog({
+      title: t('common.forms.unsavedTitle'),
+      message: t('common.forms.unsavedModalMessage'),
+      confirmText: t('common.forms.discard'),
+      cancelText: t('common.forms.keepEditing'),
+      danger: true,
+    });
+  }
+  onMount(() => guardUnsaved(() => open && dirty()));
+  async function cancel() {
+    if (await canClose()) open = false;
+  }
 
   let error = $state('');
   let saving = $state(false);
@@ -204,7 +224,7 @@
   });
 </script>
 
-<Modal bind:open title={orig ? t('notifications.form.titleEdit') : t('notifications.form.titleNew')} width={600}>
+<Modal bind:open title={orig ? t('notifications.form.titleEdit') : t('notifications.form.titleNew')} width={600} {canClose}>
   <form
     class="stack"
     id="nf"
@@ -341,6 +361,7 @@
       {t('notifications.form.test')}
     </button>
     <div class="spacer"></div>
+    <button type="button" class="btn" onclick={cancel}>{t('common.cancel')}</button>
     <button type="submit" form="nf" class="btn primary" disabled={saving}>
       {#if saving}<span class="spinner"></span>{/if}
       {t('common.save')}

@@ -49,6 +49,9 @@ export default {
     unsavedMessage: "Your changes haven't been saved. They will be lost if you leave this page.",
     leave: 'Leave without saving',
     stay: 'Stay on page',
+    discard: 'Discard changes',
+    unsavedModalMessage: "Your changes haven't been saved. They'll be lost if you close this window.",
+    keepEditing: 'Keep editing',
     and: 'and',
     dest: {
       url: 'address',

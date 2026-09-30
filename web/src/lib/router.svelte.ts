@@ -81,14 +81,21 @@ export function parse(path: string): Route {
 // Sayfadan ayrılma koruması: kaydedilmemiş değişikliği olan form bir kontrol
 // fonksiyonu kaydeder; uygulama içi geçişte onay sorulur (bkz. lib/forms).
 type LeaveGuard = { dirty: () => boolean; confirm: () => Promise<boolean> };
-let leaveGuard: LeaveGuard | null = null;
+// Aynı sayfada birden çok bağımsız form olabilir (ör. sunucu ayrıntısında uyarı
+// kuralları ve bildirim kanalları): biri kaydedilmemişse sorulur.
+const leaveGuards = new Set<LeaveGuard>();
 
 /** Sayfadan ayrılma korumasını kurar; kaldıran fonksiyon döner. */
 export function setLeaveGuard(g: LeaveGuard): () => void {
-  leaveGuard = g;
+  leaveGuards.add(g);
   return () => {
-    if (leaveGuard === g) leaveGuard = null;
+    leaveGuards.delete(g);
   };
+}
+
+function dirtyGuard(): LeaveGuard | null {
+  for (const g of leaveGuards) if (g.dirty()) return g;
+  return null;
 }
 
 class Router {
@@ -100,8 +107,8 @@ class Router {
     window.addEventListener('hashchange', () => {
       const next = currentPath();
       if (next === this.path) return;
-      const g = leaveGuard;
-      if (g && g.dirty()) {
+      const g = dirtyGuard();
+      if (g) {
         // Adres çubuğunu eski sayfaya geri al (hashchange tetiklemeden) ve sor.
         history.replaceState(null, '', '#' + this.path);
         if (this.asking) return;
@@ -109,7 +116,7 @@ class Router {
         g.confirm().then((ok) => {
           this.asking = false;
           if (!ok) return;
-          if (leaveGuard === g) leaveGuard = null;
+          leaveGuards.clear();
           location.hash = '#' + next;
         });
         return;
@@ -128,7 +135,7 @@ export const router = new Router();
  */
 export function navigate(path: string, replace = false, force = false) {
   const hash = '#' + path;
-  if (force) leaveGuard = null;
+  if (force) leaveGuards.clear();
   if (replace) {
     history.replaceState(null, '', hash);
     router.path = currentPath();

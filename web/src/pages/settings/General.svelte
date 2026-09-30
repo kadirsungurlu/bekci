@@ -3,6 +3,7 @@
   import { api, errorMessage, type AppSettings } from '../../lib/api';
   import { session } from '../../lib/session.svelte';
   import { toast } from '../../lib/ui.svelte';
+  import { guardUnsaved, snapshot } from '../../lib/forms';
   import CopyButton from '../../components/CopyButton.svelte';
   import { LOCALES, t, tParts, type Locale } from '../../lib/i18n';
 
@@ -22,7 +23,13 @@
     certDays = (s.cert_days ?? []).join(', ');
     backupKeep = s.backup_keep;
     notifyLang = s.notify_lang ?? 'tr';
+    baseline = current();
   }
+
+  // Kaydedilmemiş değişiklik koruması (sayfadan ayrılırken sorulur).
+  let baseline = '';
+  const current = () => snapshot({ rawDays, hourlyDays, certDays: certDays.trim(), backupKeep, notifyLang });
+  onMount(() => guardUnsaved(() => loaded && !stBusy && !!baseline && current() !== baseline));
 
   async function load() {
     try {
@@ -175,7 +182,6 @@
     grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
     gap: 16px;
     align-items: start;
-    max-width: 1200px;
   }
   .card-title {
     margin-bottom: 0;

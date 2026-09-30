@@ -30,6 +30,7 @@
     nowSec,
   } from '../lib/format';
   import { t, tParts } from '../lib/i18n';
+  import { guardUnsaved } from '../lib/forms';
   import {
     STATE_LABELS,
     diskPct,
@@ -291,6 +292,8 @@
   const chDirty = $derived(
     !!detail && [...selected].sort((a, b) => a - b).join(',') !== [...(detail.notification_ids ?? [])].sort((a, b) => a - b).join(','),
   );
+  // Kaydedilmemiş kanal seçimi varken sayfadan ayrılırken sorulur.
+  onMount(() => guardUnsaved(() => session.canEdit && !chSaving && chDirty));
   function toggleCh(cid: number, on: boolean) {
     selected = on ? [...selected, cid] : selected.filter((x) => x !== cid);
   }
@@ -1114,6 +1117,10 @@
     .tiles {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
+    }
+    /* Tek sayıda kartta sonuncusu (Ağ) alt satırda yalnız kalmasın: tam genişlik. */
+    .tiles > :global(.tile:last-child:nth-child(odd)) {
+      grid-column: 1 / -1;
     }
     .tile {
       padding: 12px;

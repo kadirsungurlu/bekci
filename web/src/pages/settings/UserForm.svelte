@@ -216,6 +216,9 @@
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
+  .role.active .rd {
+    color: var(--text-2);
+  }
   .rl {
     display: block;
     font-weight: 700;

@@ -1,7 +1,8 @@
 <script lang="ts">
   // Sunucu uyarı kuralları: editör düzenler (tamamı tek PUT ile kaydedilir),
   // izleyici yalnızca okur. Tetiklenmiş kurallar vurgulanır.
-  import { untrack } from 'svelte';
+  import { onMount, untrack } from 'svelte';
+  import { guardUnsaved } from '../lib/forms';
   import { api, errorMessage, type AlertRule, type AlertRuleInput, type ServerMetric } from '../lib/api';
   import { METRICS, METRIC_ORDER, UNIT_LABELS, fmtMetric, metricLabel } from '../lib/servers.svelte';
   import { fmtRelative } from '../lib/format';
@@ -74,6 +75,8 @@
   function dirtyNow() {
     return rows.length > 0 && curSig !== origSig;
   }
+  // Kaydedilmemiş kural değişikliği varken sayfadan ayrılırken sorulur.
+  onMount(() => guardUnsaved(() => canEdit && !saving && dirty));
 
   const byKey = $derived(new Map(rules.map((r) => [ruleKey(r), r])));
   const used = $derived(new Set(rows.map(ruleKey)));

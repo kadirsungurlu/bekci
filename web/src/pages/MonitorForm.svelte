@@ -69,6 +69,8 @@
   let saving = $state(false);
   let error = $state('');
   let errorEl: HTMLDivElement | undefined = $state();
+  /** İlk hatadan sonraki diğer hatalar (hepsi birlikte listelenir). */
+  let moreErrors = $state<string[]>([]);
   let showAdvanced = $state(false);
 
   // Genel
@@ -363,11 +365,44 @@
     v !== null && Number.isInteger(v) && v >= lo && v <= hi;
 
   /** Hata metni, hatanın gelişmiş ayarlarda olup olmadığı ve hatalı alanın kimliği. */
-  function validate(): { msg: string; advanced?: boolean; field?: string } | null {
-    if (!name.trim()) return { msg: t('monitors.form.v.nameRequired'), field: 'name' };
-    if (name.trim().length > 100) return { msg: t('monitors.form.v.nameTooLong'), field: 'name' };
-    if (!inRange(interval, 20, 86400))
-      return { msg: t('monitors.form.v.intervalRange'), field: intervalPreset === 'custom' ? 'cint' : 'int' };
+  type Invalid = { msg: string; advanced?: boolean; field?: string };
+
+  /**
+   * Formdaki tüm hatalar (ilk hata ilk sırada): kullanıcı hataları tek tek
+   * düzeltmek zorunda kalmasın. Her alan grubu kendi ilk hatasını verir.
+   */
+  function validateAll(): Invalid[] {
+    const checks: (() => Invalid | null)[] = [
+      () =>
+        !name.trim()
+          ? { msg: t('monitors.form.v.nameRequired'), field: 'name' }
+          : name.trim().length > 100
+            ? { msg: t('monitors.form.v.nameTooLong'), field: 'name' }
+            : null,
+      () =>
+        !inRange(interval, 20, 86400)
+          ? { msg: t('monitors.form.v.intervalRange'), field: intervalPreset === 'custom' ? 'cint' : 'int' }
+          : null,
+      validateType,
+      () => (showLocations && !locLocal && locProbeIds.length === 0 ? { msg: t('monitors.form.v.locEmpty') } : null),
+      () =>
+        retryInterval !== null && !inRange(retryInterval, 20, 86400)
+          ? { msg: t('monitors.form.v.retryIntervalRange'), advanced: true, field: 'ri' }
+          : null,
+      () => (!inRange(maxRetries, 0, 20) ? { msg: t('monitors.form.v.retriesRange'), advanced: true, field: 'mr' } : null),
+      () =>
+        hasTimeout(type) && !inRange(timeout, 1, 300)
+          ? { msg: t('monitors.form.v.timeoutRange'), advanced: true, field: 'to' }
+          : null,
+      () => (!inRange(resendEvery, 0, 10000) ? { msg: t('monitors.form.v.resendRange'), advanced: true, field: 're' } : null),
+      () =>
+        description.trim().length > 500 ? { msg: t('monitors.form.v.descTooLong'), advanced: true, field: 'desc' } : null,
+    ];
+    return checks.map((c) => c()).filter((v): v is Invalid => v !== null);
+  }
+
+  /** Türe özgü alanların ilk hatası. */
+  function validateType(): Invalid | null {
     switch (type) {
       case 'http': {
         if (!/^https?:\/\/[^\s/]+/i.test(url.trim())) return { msg: t('monitors.form.v.urlInvalid'), field: 'url' };
@@ -430,13 +465,6 @@
           if (fe) return { ...fe, field: `${fe.advanced ? 'mta' : 'mt'}-${fe.key}` };
         }
     }
-    if (showLocations && !locLocal && locProbeIds.length === 0) return { msg: t('monitors.form.v.locEmpty') };
-    if (retryInterval !== null && !inRange(retryInterval, 20, 86400))
-      return { msg: t('monitors.form.v.retryIntervalRange'), advanced: true, field: 'ri' };
-    if (!inRange(maxRetries, 0, 20)) return { msg: t('monitors.form.v.retriesRange'), advanced: true, field: 'mr' };
-    if (hasTimeout(type) && !inRange(timeout, 1, 300)) return { msg: t('monitors.form.v.timeoutRange'), advanced: true, field: 'to' };
-    if (!inRange(resendEvery, 0, 10000)) return { msg: t('monitors.form.v.resendRange'), advanced: true, field: 're' };
-    if (description.trim().length > 500) return { msg: t('monitors.form.v.descTooLong'), advanced: true, field: 'desc' };
     return null;
   }
 
@@ -485,8 +513,9 @@
     }
   }
 
-  async function showError(msg: string, advanced = false, field?: string) {
+  async function showError(msg: string, advanced = false, field?: string, more: string[] = []) {
     error = msg;
+    moreErrors = more;
     if (advanced) showAdvanced = true;
     await tick();
     markInvalid(field, 'mf-error');
@@ -496,10 +525,17 @@
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     error = '';
+    moreErrors = [];
     markInvalid(null, 'mf-error');
-    const v = validate();
-    if (v) {
-      showError(v.msg, v.advanced, v.field);
+    const errs = validateAll();
+    if (errs.length) {
+      const v = errs[0];
+      showError(
+        v.msg,
+        errs.some((x) => x.advanced),
+        v.field,
+        errs.slice(1).map((x) => x.msg),
+      );
       return;
     }
     const input: MonitorInput = {
@@ -1247,7 +1283,16 @@
     </section>
 
     {#if error}
-      <div class="alert error" role="alert" id="mf-error" bind:this={errorEl}>{error}</div>
+      <div class="alert error" role="alert" id="mf-error" bind:this={errorEl}>
+        {#if moreErrors.length}
+          <ul class="errs">
+            <li>{error}</li>
+            {#each moreErrors as m, i (i)}<li>{m}</li>{/each}
+          </ul>
+        {:else}
+          {error}
+        {/if}
+      </div>
     {/if}
 
     <div class="actions">
@@ -1267,6 +1312,13 @@
 {/if}
 
 <style>
+  .errs {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
   .back {
     display: inline-flex;
     align-items: center;
@@ -1401,6 +1453,10 @@
     background: var(--card-2);
     color: var(--text-2);
     grid-area: icon;
+  }
+  /* Seçili kartın açıklaması vurgu zemininde okunur kalsın (≥ 4,5:1). */
+  .type.active .tdesc {
+    color: var(--text-2);
   }
   .type.active .ticon {
     background: var(--accent);
