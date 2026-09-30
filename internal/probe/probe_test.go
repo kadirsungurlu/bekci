@@ -31,6 +31,7 @@ type fakeServer struct {
 	retry     string // sonuç reddinde gönderilen Retry-After
 	version   int64  // iş listesi sürümü; 0: alan gönderilmez (eski sunucu)
 	sinces    []string
+	clock     *time.Duration // nil: server_time gönderilmez (eski sunucu); değilse sunucu saatinin yerelden farkı
 	srv       *httptest.Server
 }
 
@@ -55,6 +56,9 @@ func newFakeServer(t *testing.T) *fakeServer {
 			}
 			if f.metricsIv >= 0 {
 				resp["metrics_interval"] = f.metricsIv
+			}
+			if f.clock != nil {
+				resp["server_time"] = time.Now().Add(*f.clock).UnixMilli()
 			}
 			json.NewEncoder(w).Encode(resp)
 		case "/api/probe/results":
@@ -293,4 +297,61 @@ func TestJobChangeRestarts(t *testing.T) {
 		f.jobs = []Job{{ID: 2, Type: "gelecek-tip", Interval: 10, Timeout: 10}, {ID: 3, Type: "push", Interval: 10, Timeout: 10}}
 	})
 	waitFor(t, "işler atlandı", func() bool { return len(c.Jobs()) == 0 })
+}
+
+// Sunucu kontrol ızgarasını (phase_ms) ve saatini bildirince ajan, ilk
+// kontrolden sonra sunucunun saatine göre ızgara anlarında kontrol eder:
+// saatler farklı olsa da ana sunucuyla aynı anda.
+func TestAlignedToServerGrid(t *testing.T) {
+	fs := newFakeServer(t)
+	s, _ := site(t)
+	skew := 1234 * time.Millisecond // sunucunun saati 1,234 sn ileride
+	phase := int64(37)
+	j := httpJob(1, s.URL, 100)
+	j.PhaseMs = &phase
+	fs.set(func(f *fakeServer) { f.jobs = []Job{j}; f.clock = &skew })
+	_, stop := start(t, Config{Server: fs.srv.URL})
+	defer stop()
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if _, n, _ := fs.received(); n >= 5 || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	fs.mu.Lock()
+	var times []int64
+	for _, b := range fs.batches {
+		for _, r := range b {
+			times = append(times, r.Time)
+		}
+	}
+	fs.mu.Unlock()
+	if len(times) < 5 {
+		t.Fatalf("yalnızca %d sonuç geldi", len(times))
+	}
+	// İlk kontrol yayılarak yapılır; sonrakiler sunucu saatinde phase + k·100 ms.
+	for _, ms := range times[1:] {
+		off := (ms + skew.Milliseconds() - phase) % 100
+		if off > 25 {
+			t.Errorf("kontrol ızgaradan %d ms sonra (sunucu saati %d)", off, ms+skew.Milliseconds())
+		}
+	}
+}
+
+// Eski sunucu (phase_ms yok): kontroller eskisi gibi kendi aralığında yapılır.
+func TestUnalignedWithoutPhase(t *testing.T) {
+	fs := newFakeServer(t)
+	s, hits := site(t)
+	fs.set(func(f *fakeServer) { f.jobs = []Job{httpJob(1, s.URL, 20)} })
+	_, stop := start(t, Config{Server: fs.srv.URL})
+	defer stop()
+	deadline := time.Now().Add(2 * time.Second)
+	for hits.Load() < 4 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if hits.Load() < 4 {
+		t.Fatalf("eski sunucuyla kontroller çalışmıyor: %d", hits.Load())
+	}
 }

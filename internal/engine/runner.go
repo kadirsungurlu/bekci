@@ -7,6 +7,7 @@ import (
 
 	"github.com/kadirsungurlu/bekci/internal/check"
 	"github.com/kadirsungurlu/bekci/internal/notify"
+	"github.com/kadirsungurlu/bekci/internal/schedule"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
@@ -26,6 +27,7 @@ type runner struct {
 	downBeats int // DOWN'dayken art arda kontrol sayısı (hatırlatma için)
 
 	locs *locationSet // nil: tek konumlu (yalnızca ana sunucu); bkz. locations.go
+	plan schedule.Planner
 
 	// Olay ayrıntıları (incidents.go).
 	incidentID  int64                 // açık olayın kimliği (0: yok)
@@ -113,11 +115,36 @@ func (r *runner) initialConfirmed(ctx context.Context) int {
 
 func (r *runner) unit(n int) time.Duration { return time.Duration(n) * r.e.cfg.Unit }
 
-func (r *runner) nextDelay() time.Duration {
-	if r.m.Status == store.StatusPending && r.m.LastCheckAt > 0 {
-		return r.unit(r.m.RetryInterval)
+// nextDelay sıradaki kontrole kadar bekleme. Kontroller monitöre özgü ortak
+// zaman ızgarasına oturur (bkz. schedule): kontrol noktaları da aynı ızgarayı
+// kullandığından tüm konumlar aynı anda kontrol eder. ran: kontrol az önce
+// yapıldı; false: zamanlayıcı yalnızca yeniden kuruluyor.
+func (r *runner) nextDelay(ran bool) time.Duration {
+	every := r.unit(r.m.Interval)
+	if r.retrying() && r.m.RetryInterval > 0 {
+		every = r.unit(r.m.RetryInterval)
 	}
-	return r.unit(r.m.Interval)
+	if r.m.Type == check.TypePush {
+		// Push: süre son sinyalden itibaren sayılır, ızgaraya bağlanmaz.
+		return every
+	}
+	return r.plan.Delay(time.Now(), every, ran)
+}
+
+// retrying tekrar deneme aralığında mı kontrol edilmeli: genel durum
+// "tekrar deneniyor" ya da (çok konumlu) ana sunucunun kendi kontrolü
+// başarısız ve deneme hakkı bitmemiş. İkincisi, genel durumun "çalışıyor"
+// kaldığı kurallarda (ör. "tüm konumlar çalışmıyorsa") da ana sunucunun
+// tekrar denemelerini tekrar deneme aralığında yapar.
+func (r *runner) retrying() bool {
+	if r.m.Status == store.StatusPending && r.m.LastCheckAt > 0 {
+		return true
+	}
+	if r.locs == nil || r.locs.local == nil {
+		return false
+	}
+	l := r.locs.local
+	return l.have && !l.res.Up && !l.res.Pending && l.fails > 0 && l.fails <= r.rules().maxRetries
 }
 
 func (r *runner) loop(ctx context.Context) {
@@ -141,17 +168,17 @@ func (r *runner) loop(ctx context.Context) {
 			return
 		case <-wake:
 			if r.locationWake() {
-				resetTimer(timer, r.nextDelay())
+				resetTimer(timer, r.nextDelay(false))
 			}
 		case res := <-r.pushCh:
 			r.process(res)
-			resetTimer(timer, r.nextDelay())
+			resetTimer(timer, r.nextDelay(true))
 		case <-timer.C:
 			if r.locs != nil {
 				if !r.locationTick(ctx) {
 					return
 				}
-				timer.Reset(r.nextDelay())
+				timer.Reset(r.nextDelay(true))
 				continue
 			}
 			var res check.Result
@@ -164,7 +191,7 @@ func (r *runner) loop(ctx context.Context) {
 				return // durduruldu: yarım kalan kontrol kaydedilmez
 			}
 			r.process(res)
-			timer.Reset(r.nextDelay())
+			timer.Reset(r.nextDelay(true))
 		}
 	}
 }

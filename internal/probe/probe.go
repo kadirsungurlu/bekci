@@ -7,7 +7,7 @@
 //
 // Protokol (HTTPS + JSON, Authorization: Bearer upr_…):
 //
-//	GET  /api/probe/jobs?since=N → {"probe": {...}, "poll_after": 1, "version": N, "metrics_interval": 60, "jobs": [...]}
+//	GET  /api/probe/jobs?since=N → {"probe": {...}, "poll_after": 1, "version": N, "metrics_interval": 60, "server_time": ms, "jobs": [{..., "phase_ms": N}]}
 //	POST /api/probe/results  ← {"sent_at": ms, "results": [{monitor_id, time, up, ping_ms, message, cert_not_after, cert_issuer, detail}]}
 //	POST /api/probe/metrics  ← metrics.Sample: {"time": ms, "host": {...}, "stats": {...}} veya {"time": ms, "unavailable": "neden"}
 //
@@ -37,10 +37,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kadirsungurlu/bekci/internal/check"
 	"github.com/kadirsungurlu/bekci/internal/metrics"
+	"github.com/kadirsungurlu/bekci/internal/schedule"
 )
 
 // Config istemci ayarları. Sıfır değerli alanlar varsayılanla doldurulur.
@@ -82,6 +84,9 @@ type Job struct {
 	RetryInterval int             `json:"retry_interval"`
 	Timeout       int             `json:"timeout"`
 	Config        json.RawMessage `json:"config"`
+	// PhaseMs kontrol ızgarasındaki kayma (bkz. schedule); yok (eski sunucu):
+	// kontroller ana sunucuyla hizalanmaz, kendi aralığında yapılır.
+	PhaseMs *int64 `json:"phase_ms,omitempty"`
 }
 
 // Result ana sunucuya gönderilen tek sonuç. Time unix milisaniye.
@@ -110,6 +115,7 @@ type jobsResponse struct {
 	PollAfter       int    `json:"poll_after"`
 	Version         *int64 `json:"version"`          // iş listesi sürümü; yok (eski sunucu) = uzun yoklama yok
 	MetricsInterval int    `json:"metrics_interval"` // sn; 0 veya alan yok (eski sunucu) = metrik gönderilmez
+	ServerTime      int64  `json:"server_time"`      // unix ms; 0 veya alan yok (eski sunucu) = saat farkı bilinmez
 	Jobs            []Job  `json:"jobs"`
 }
 
@@ -140,6 +146,10 @@ type Client struct {
 	// Yalnızca jobsLoop goroutine'inde:
 	jobsVersion int64 // son alınan iş listesi sürümü (?since=)
 	haveJobs    bool  // ilk iş listesi uygulandı mı (sonraki yeni işler hemen başlar)
+
+	// skewMs ana sunucunun saatiyle bu makinenin saati arasındaki fark (ms,
+	// sunucu - yerel): kontroller sunucunun saatine göre ızgaraya oturur.
+	skewMs atomic.Int64
 
 	flushNow   chan struct{} // yeni işin ilk sonucu: FlushEvery beklenmeden gönder
 	metricsIv  chan int      // iş listesindeki son metrics_interval (yalnızca en yenisi bekler)
@@ -340,6 +350,10 @@ func (c *Client) pollJobs(ctx context.Context) (time.Duration, error) {
 		return 0, err
 	}
 	c.reachable("jobs")
+	if resp.ServerTime > 0 {
+		// Yanıt sunucudan çıktıktan sonra ölçülür: hata tek yönlü gecikme kadar.
+		c.skewMs.Store(resp.ServerTime - time.Now().UnixMilli())
+	}
 	c.apply(ctx, resp.Jobs)
 	c.setMetricsInterval(resp.MetricsInterval)
 	if resp.Version != nil {
@@ -447,12 +461,19 @@ func (c *Client) firstDelay(j Job, quick bool) time.Duration {
 
 // runJob bir monitörü kendi aralığında kontrol eder. Başarısız kontrolden
 // sonra tekrar deneme aralığı kullanılır (hata sayımı ana sunucuda yapılır).
+// Sunucu kontrol ızgarasını bildirdiyse (PhaseMs) ilk kontrolden sonrakiler
+// sunucunun saatine göre ızgaraya oturur: ana sunucu ve diğer konumlarla aynı
+// anda kontrol edilir.
 // quick: sonradan eklenen iş; ilk sonucu beklemeden gönderilir (yeni konumun
 // "ilk sonuç bekleniyor" durumu kısa sürsün).
 func (c *Client) runJob(ctx context.Context, j Job, done chan struct{}, first time.Duration, quick bool) {
 	defer close(done)
 	interval := time.Duration(max(j.Interval, 1)) * c.cfg.Unit
 	retry := time.Duration(max(j.RetryInterval, 1)) * c.cfg.Unit
+	var plan *schedule.Planner
+	if j.PhaseMs != nil {
+		plan = &schedule.Planner{PhaseMs: *j.PhaseMs}
+	}
 	timer := time.NewTimer(first)
 	defer timer.Stop()
 	for {
@@ -473,11 +494,15 @@ func (c *Client) runJob(ctx context.Context, j Job, done chan struct{}, first ti
 			default:
 			}
 		}
-		if res.Up {
-			timer.Reset(interval)
-		} else {
-			timer.Reset(retry)
+		every := interval
+		if !res.Up {
+			every = retry
 		}
+		if plan != nil {
+			skew := time.Duration(c.skewMs.Load()) * time.Millisecond
+			every = plan.Delay(time.Now().Add(skew), every, true)
+		}
+		timer.Reset(every)
 	}
 }
 

@@ -25,6 +25,7 @@ import (
 	"github.com/kadirsungurlu/bekci/internal/check"
 	"github.com/kadirsungurlu/bekci/internal/engine"
 	"github.com/kadirsungurlu/bekci/internal/i18n"
+	"github.com/kadirsungurlu/bekci/internal/schedule"
 	"github.com/kadirsungurlu/bekci/internal/servers"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
@@ -812,6 +813,9 @@ type probeJob struct {
 	RetryInterval int             `json:"retry_interval"`
 	Timeout       int             `json:"timeout"`
 	Config        json.RawMessage `json:"config"`
+	// PhaseMs monitörün kontrol ızgarasındaki kayması (bkz. schedule): ajan
+	// ana sunucuyla aynı anlarda kontrol eder. Eski ajanlar yok sayar.
+	PhaseMs int64 `json:"phase_ms"`
 }
 
 // assignedJobs kontrol noktasının çalıştırabileceği aktif monitörleri döner.
@@ -981,7 +985,7 @@ func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 	jobs := make([]probeJob, len(list))
 	for i, m := range list {
 		jobs[i] = probeJob{ID: m.ID, Name: m.Name, Type: m.Type, Interval: m.Interval,
-			RetryInterval: m.RetryInterval, Timeout: m.Timeout, Config: m.Config}
+			RetryInterval: m.RetryInterval, Timeout: m.Timeout, Config: m.Config, PhaseMs: schedule.PhaseMs(m.ID)}
 	}
 	s.probePolls.set(p.ID, version, s.now())
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -992,6 +996,9 @@ func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 		"jobs":    jobs,
 		// Sunucu metriklerinin örnek aralığı (sn); 0: metrik gönderme.
 		"metrics_interval": servers.IntervalFor(p),
+		// Sunucunun saati (unix ms): ajan kontrol ızgarasını buna göre kurar,
+		// iki makinenin saati farklı olsa da kontroller aynı anda yapılır.
+		"server_time": time.Now().UnixMilli(),
 	})
 }
 

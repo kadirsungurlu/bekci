@@ -20,6 +20,7 @@ import (
 	"github.com/kadirsungurlu/bekci/internal/check"
 	"github.com/kadirsungurlu/bekci/internal/maintenance"
 	"github.com/kadirsungurlu/bekci/internal/notify"
+	"github.com/kadirsungurlu/bekci/internal/schedule"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
@@ -274,6 +275,7 @@ func (e *Engine) start(m store.Monitor) error {
 		done:   make(chan struct{}),
 		pushCh: make(chan check.Result, 8),
 		locs:   locs,
+		plan:   schedule.Planner{PhaseMs: schedule.PhaseMs(m.ID)},
 	}
 	r.confirmed = r.initialConfirmed(ctx)
 	e.runners[m.ID] = r

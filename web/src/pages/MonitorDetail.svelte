@@ -620,7 +620,8 @@
     margin: 0;
     padding: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    /* "Çalışıyor · 259 ms · 59 dk 59 sn önce" tek satıra sığsın. */
+    grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
     gap: 10px;
   }
   .loc {
@@ -682,6 +683,9 @@
   .ls {
     font-size: 0.82rem;
     color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .loc.down .ls {
     color: var(--down-text);
