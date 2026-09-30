@@ -95,7 +95,7 @@ func TestProbeDisconnectMarksLocationUnknown(t *testing.T) {
 	if r.m.Status != store.StatusUp {
 		t.Fatalf("tolerans süresinde genel durum değişmemeli: %d %q", r.m.Status, r.m.LastMessage)
 	}
-	f.clock = f.clock.Add(ProbeGoneGrace + time.Second)
+	f.clock = f.clock.Add(f.e.goneGrace() + time.Second)
 	r.locationTick(ctx) // ana sunucunun güncel (başarısız) sonucuyla
 	if r.m.Status != store.StatusDown {
 		t.Fatalf("tolerans dolunca DOWN bekleniyordu: %d %q", r.m.Status, r.m.LastMessage)
@@ -124,7 +124,7 @@ func TestPartialStaysOpenWhileFailingLocationUnknown(t *testing.T) {
 	}
 	id := r.partialID
 	f.e.SetProbeConnected(fra.ID, false)
-	f.clock = f.clock.Add(ProbeGoneGrace + time.Second)
+	f.clock = f.clock.Add(f.e.goneGrace() + time.Second)
 	r.locationWake()
 	f.clock = f.clock.Add(10 * time.Millisecond)
 	r.locationTick(ctx)

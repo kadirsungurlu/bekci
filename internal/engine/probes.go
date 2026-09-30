@@ -75,11 +75,14 @@ func (e *Engine) scanProbes(ctx context.Context, known map[int64]bool) map[int64
 	return next
 }
 
-// ProbeGoneGrace bağlantısı kopan kontrol noktasının son "çalışıyor" sonucu,
+// probeGoneGrace (aralık birimi; üretimde 5 sn) bağlantısı kopan kontrol
+// noktasının son "çalışıyor" sonucu,
 // monitörün genel kararında bu süre boyunca geçerli sayılır: konum
 // kartı hemen "sonuç yok" olur ama ajanın birkaç saniyelik yeniden başlaması
 // yanlış kesinti bildirimi üretmez. Süre dolunca konum hesaptan düşer.
-const ProbeGoneGrace = 5 * time.Second
+const probeGoneGrace = 5
+
+func (e *Engine) goneGrace() time.Duration { return probeGoneGrace * e.cfg.Unit }
 
 // SetProbeConnected uzun yoklama yapan kontrol noktasının bağlantı durumunu
 // bildirir (API: bağlantı koptu ve ProbeGoneAfter içinde yeniden bağlanmadı).
@@ -109,7 +112,7 @@ func (e *Engine) SetProbeConnected(probeID int64, connected bool) {
 	if !connected {
 		e.log.Warn("kontrol noktasının bağlantısı koptu; konumları sonuç yok sayılıyor", "kontrol_noktasi", probeID)
 		// Tolerans dolunca monitörler yeniden değerlendirilir.
-		time.AfterFunc(ProbeGoneGrace+100*time.Millisecond, func() {
+		time.AfterFunc(e.goneGrace()+e.goneGrace()/20, func() {
 			if _, ok := e.probeGoneAt(probeID); ok {
 				e.wakeProbe(e.probeRunners(probeID))
 			}

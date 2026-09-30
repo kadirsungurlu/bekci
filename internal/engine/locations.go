@@ -269,6 +269,7 @@ type locRules struct {
 	staleAfter time.Duration // bu süreden eski sonuç "bilinmiyor"
 	grace      time.Duration // hiç sonuç vermemiş konum bu süre "ilk sonuç bekleniyor"
 	maxRetries int
+	goneGrace  time.Duration // kopan kontrol noktasının son "çalışıyor" sonucu bu süre geçerli
 }
 
 // firstResultSlack ilk sonuç süresine eklenen pay (aralık birimi): ajanın
@@ -293,7 +294,7 @@ func (e *Engine) locRulesFor(m store.Monitor) locRules {
 	u := func(n int) time.Duration { return time.Duration(n) * e.cfg.Unit }
 	stale := 3 * u(max(m.Interval, m.RetryInterval))
 	grace := max(stale, u(ProbePollAfter+min(m.Interval, 10)+m.Timeout+firstResultSlack))
-	return locRules{staleAfter: stale, grace: grace, maxRetries: m.MaxRetries}
+	return locRules{staleAfter: stale, grace: grace, maxRetries: m.MaxRetries, goneGrace: e.goneGrace()}
 }
 
 func (r *runner) rules() locRules { return r.e.locRulesFor(r.m) }
@@ -517,7 +518,7 @@ func aggregateLocations(locs []*location, downWhen string, now time.Time, rules 
 			continue
 		}
 		if st == locUnknown {
-			if l.gone && l.have && l.res.Up && now.Sub(l.goneAt) < ProbeGoneGrace {
+			if l.gone && l.have && l.res.Up && now.Sub(l.goneAt) < rules.goneGrace {
 				// Az önce kopan, son sonucu "çalışıyor" konum: tolerans süresince
 				// genel kararda son sonucu geçerli sayılır (kart "sonuç yok"
 				// gösterir); ajanın yeniden başlaması yanlış kesinti açmaz.
