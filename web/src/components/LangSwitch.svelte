@@ -1,6 +1,6 @@
 <script lang="ts">
-  // Menüdeki hızlı dil seçici (TR | EN): seçim hesaba kaydedilir (her cihazda
-  // geçerli) ve arayüz anında değişir. Ayrıntılı seçenek (tarayıcı dili)
+  // Hızlı dil seçici (TR | EN): menüde seçim hesaba kaydedilir (her cihazda
+  // geçerli) ve arayüz anında değişir; giriş ekranında yalnızca bu cihazda. Ayrıntılı seçenek (tarayıcı dili)
   // Ayarlar → Hesabım'da.
   import { api, errorMessage } from '../lib/api';
   import { session } from '../lib/session.svelte';
@@ -14,6 +14,9 @@
     if (busy || l === i18n.locale) return;
     const prev = i18n.locale;
     setLocale(l);
+    // Oturum yok (giriş ekranı): seçim yalnızca bu cihazda hatırlanır. Girişte
+    // hesabın kayıtlı dili yoksa bu seçim geçerli kalır (App → deviceLocale).
+    if (!session.user) return;
     busy = true;
     try {
       const res = await api.setPreferences({ lang: l });
