@@ -26,6 +26,9 @@ func TestPageListSummary(t *testing.T) {
 	st.ResolveIncident(ctx, b.ID, now-5*86400+600)
 	st.OpenIncident(ctx, a.ID, now-60, "iç ayrıntı")
 	st.OpenIncident(ctx, other.ID, now-10, "başka")
+	// Süren olaydan daha yeni ama çözülmüş olay: süren kesintiyi gizlememeli (QA bulgusu).
+	st.OpenIncident(ctx, b.ID, now-30, "kısa")
+	st.ResolveIncident(ctx, b.ID, now-20)
 
 	pe.mustDo("POST", "/api/status-pages", map[string]any{
 		"slug": "genel", "title": "Genel",

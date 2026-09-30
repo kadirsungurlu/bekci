@@ -1127,8 +1127,11 @@ export const api = {
     post<StatusPage>(`/api/status-pages/${pageId}/monitors`, body),
   series: (id: number, range: SeriesRange) => get<Series>(`/api/monitors/${id}/series?range=${range}`),
   monitorIncidents: (id: number) => get<Incident[]>(`/api/monitors/${id}/incidents`),
-  incidents: (before: number, limit: number, kind: IncidentFilterKind = '') =>
-    get<Incident[]>(`/api/incidents?limit=${limit}${before > 0 ? `&before=${before}` : ''}${kind ? `&kind=${kind}` : ''}`),
+  /** open: yalnızca süren (çözülmemiş) olaylar. */
+  incidents: (before: number, limit: number, kind: IncidentFilterKind = '', open = false) =>
+    get<Incident[]>(
+      `/api/incidents?limit=${limit}${before > 0 ? `&before=${before}` : ''}${kind ? `&kind=${kind}` : ''}${open ? '&open=1' : ''}`,
+    ),
   serverIncidents: (id: number) => get<Incident[]>(`/api/servers/${id}/incidents`),
   incident: (id: number) => get<IncidentDetail>(`/api/incidents/${id}`),
 

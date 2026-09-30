@@ -78,6 +78,7 @@ type IncidentFilter struct {
 	Kind       string  // süzgeç grubu: monitor | partial | server ("" = hepsi)
 	Before     int64   // sayfalama: bu id'den küçükler
 	Since      int64
+	Open       bool // yalnızca süren (çözülmemiş) olaylar
 	Limit      int
 }
 
@@ -125,6 +126,9 @@ func (s *Store) ListIncidents(ctx context.Context, f IncidentFilter) ([]Incident
 	if f.Before > 0 {
 		q += " AND i.id < ?"
 		args = append(args, f.Before)
+	}
+	if f.Open {
+		q += " AND i.resolved_at IS NULL"
 	}
 	if f.Since > 0 {
 		q += " AND (i.started_at >= ? OR i.resolved_at IS NULL OR i.resolved_at >= ?)"

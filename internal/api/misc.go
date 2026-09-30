@@ -90,7 +90,7 @@ func (s *Server) listIncidents(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Geçersiz olay türü")
 		return
 	}
-	f := store.IncidentFilter{Before: before, Limit: limit, Kind: kind}
+	f := store.IncidentFilter{Before: before, Limit: limit, Kind: kind, Open: q.Get("open") == "1"}
 	if vis := visibleTo(userFrom(r)); !vis.all {
 		// Müşteri kısıtlı izleyici: izinli monitörlerin ve atanmış sunucuların olayları.
 		f.MonitorIDs, f.ServerIDs = vis.list(), vis.serverList()

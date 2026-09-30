@@ -509,7 +509,7 @@ type pageSummary struct {
 	Uptime24h    *float64             `json:"uptime_24h"`
 	Uptime30d    *float64             `json:"uptime_30d"`
 	Sections     []pageSummarySection `json:"sections"`
-	LastIncident *publicIncident      `json:"last_incident"` // son 90 günün en yeni olayı; yoksa null
+	LastIncident *publicIncident      `json:"last_incident"` // en yeni süren olay; yoksa son 90 günün en yeni olayı; yoksa null
 	Ongoing      int                  `json:"ongoing"`       // süren olay sayısı
 }
 
@@ -610,17 +610,28 @@ func (s *Server) pageSummaries(ctx context.Context, pages []store.StatusPage, mo
 		sum.Monitors = len(statuses)
 		sum.Status = overallStatus(statuses)
 		sum.Uptime24h, sum.Uptime30d = avg(s24, n24), avg(s30, n30)
+		// Süren olay varsa en yeni süren olay gösterilir: daha yeni ama çözülmüş
+		// bir olay süren kesintiyi gizlemesin. Yoksa en yeni olay.
+		var latest, ongoing *publicIncident
 		for _, in := range incs { // en yeniden eskiye
 			name, ok := names[in.MonitorID]
 			if !ok {
 				continue
 			}
-			if sum.LastIncident == nil {
-				sum.LastIncident = &publicIncident{Monitor: name, StartedAt: in.StartedAt, ResolvedAt: in.ResolvedAt}
+			pi := &publicIncident{Monitor: name, StartedAt: in.StartedAt, ResolvedAt: in.ResolvedAt}
+			if latest == nil {
+				latest = pi
 			}
 			if in.ResolvedAt == 0 {
+				if ongoing == nil {
+					ongoing = pi
+				}
 				sum.Ongoing++
 			}
+		}
+		sum.LastIncident = latest
+		if ongoing != nil {
+			sum.LastIncident = ongoing
 		}
 		out[i] = pageListItem{StatusPage: p, Summary: sum}
 	}

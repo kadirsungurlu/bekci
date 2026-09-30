@@ -61,6 +61,13 @@ func TestIncidentKindsVisibility(t *testing.T) {
 		t.Fatalf("sunucu süzgeci: %+v", srv)
 	}
 	admin.mustDo("GET", "/api/incidents?kind=kismi", nil, nil, 400)
+	// open=1: yalnızca süren olaylar (monitör listesinin yan paneli).
+	st.ResolveIncident(ctx, hidden.ID, 150)
+	var open []store.Incident
+	admin.mustDo("GET", "/api/incidents?open=1&kind=monitor", nil, &open, 200)
+	if len(open) != 1 || open[0].MonitorID != mon.ID || open[0].ResolvedAt != 0 {
+		t.Fatalf("süren olay süzgeci: %+v", open)
+	}
 
 	var mine []store.Incident
 	cust.mustDo("GET", "/api/incidents", nil, &mine, 200)
