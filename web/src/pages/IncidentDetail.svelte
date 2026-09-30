@@ -563,7 +563,7 @@
                   </span>
                   <span class="lt">
                     <span class="ln">{locName(l.name)}</span>
-                    <span class="ls">{locLabel(l.status)}{l.message && l.status !== 'up' ? ` · ${l.message}` : ''}</span>
+                    <span class="ls">{locLabel(l.status)}{l.message && (l.status === 'down' || l.status === 'retrying') ? ` · ${l.message}` : ''}</span>
                   </span>
                 </li>
               {/each}

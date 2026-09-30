@@ -65,3 +65,36 @@ func TestNextDelayLocalRetryUnderAllRule(t *testing.T) {
 		t.Fatal("deneme hakkı bitince normal aralık bekleniyordu")
 	}
 }
+
+// Kontrol noktasının bağlantısı kopunca konumu eskime süresini beklemeden
+// "sonuç yok" sayılır: kural "tümü" iken yalnızca çalışmayan ana sunucu
+// kalır ve monitör hemen DOWN olur; yeniden bağlanınca eski haline döner.
+func TestProbeDisconnectMarksLocationUnknown(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	fra := f.probe(t, "Frankfurt", true)
+	m := f.monitor(t, func(m *store.Monitor) { m.MaxRetries = 0 })
+	r := f.locRunner(t, m, store.LocationSetup{IncludeLocal: true, ProbeIDs: []int64{fra.ID}, DownWhen: store.DownWhenAll})
+	defer fake.set(up())
+
+	fake.set(down("403 Forbidden"))
+	r.remote(fra, f.clock, up())
+	r.locationTick(ctx)
+	if r.m.Status != store.StatusUp {
+		t.Fatalf("Frankfurt çalışırken genel durum UP olmalı: %d", r.m.Status)
+	}
+	f.e.SetProbeConnected(fra.ID, false)
+	if !f.e.ProbeDisconnected(fra.ID) {
+		t.Fatal("kopukluk kaydedilmedi")
+	}
+	if !r.locationWake() || r.m.Status != store.StatusDown {
+		t.Fatalf("bağlantı kopunca hemen DOWN bekleniyordu: %d %q", r.m.Status, r.m.LastMessage)
+	}
+	if snap := *r.locs.snap.Load(); snap[1].Status != locUnknown {
+		t.Fatalf("Frankfurt 'sonuç yok' olmalı: %+v", snap)
+	}
+	f.e.SetProbeConnected(fra.ID, true)
+	if !r.locationWake() || r.m.Status != store.StatusUp {
+		t.Fatalf("yeniden bağlanınca UP bekleniyordu: %d", r.m.Status)
+	}
+}

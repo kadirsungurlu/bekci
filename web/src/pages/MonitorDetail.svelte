@@ -451,7 +451,7 @@
       <ul class="locs">
         {#each locations.locations as l (l.probe_id)}
           {@const st = LOC_STATE[l.status] ?? LOC_STATE.unknown}
-          <li class="loc {st.c}" title={l.message || t(st.l)}>
+          <li class="loc {st.c}" title={l.status === 'down' || l.status === 'retrying' ? l.message || t(st.l) : t(st.l)}>
             <span class="ldot" aria-hidden="true"></span>
             <span class="lt">
               <span class="ln">{l.name}</span>
@@ -460,7 +460,7 @@
                   .filter(Boolean)
                   .join(' · ')}
               </span>
-              {#if l.message && l.status !== 'up'}<span class="lm">{l.message}</span>{/if}
+              {#if l.message && (l.status === 'down' || l.status === 'retrying')}<span class="lm">{l.message}</span>{/if}
             </span>
           </li>
         {/each}

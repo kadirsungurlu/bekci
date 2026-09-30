@@ -74,3 +74,48 @@ func (e *Engine) scanProbes(ctx context.Context, known map[int64]bool) map[int64
 	}
 	return next
 }
+
+// SetProbeConnected uzun yoklama yapan kontrol noktasının bağlantı durumunu
+// bildirir (API: bağlantı koptu ve ProbeGoneAfter içinde yeniden bağlanmadı).
+// Kopunca konumları hemen "sonuç yok" sayılır; eskime süresi (3 aralık)
+// beklenmez. Durum değişince ilgili monitörler uyandırılır.
+func (e *Engine) SetProbeConnected(probeID int64, connected bool) {
+	e.mu.Lock()
+	was := e.gone[probeID]
+	if connected {
+		delete(e.gone, probeID)
+	} else {
+		e.gone[probeID] = true
+	}
+	var wake []*locationSet
+	if was == connected { // değişti
+		for _, r := range e.runners {
+			if r.locs != nil && r.locs.byProbe[probeID] != nil {
+				wake = append(wake, r.locs)
+			}
+		}
+	}
+	e.mu.Unlock()
+	if was != connected {
+		return
+	}
+	for _, ls := range wake {
+		select {
+		case ls.wake <- struct{}{}:
+		default:
+		}
+	}
+	if !connected {
+		e.log.Warn("kontrol noktasının bağlantısı koptu; konumları sonuç yok sayılıyor", "kontrol_noktasi", probeID)
+	}
+}
+
+// probeGone kontrol noktasının bağlantısı kopmuş mu?
+func (e *Engine) probeGone(probeID int64) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.gone[probeID]
+}
+
+// ProbeDisconnected kontrol noktasının uzun yoklama bağlantısı kopmuş mu (API ve testler için)?
+func (e *Engine) ProbeDisconnected(probeID int64) bool { return e.probeGone(probeID) }

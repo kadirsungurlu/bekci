@@ -603,6 +603,11 @@ func (s *Server) reloadProbeMonitors(ctx context.Context, probeID int64, ids []i
 		if err := s.engine.Reload(ctx, id); err != nil && !errors.Is(err, store.ErrNotFound) {
 			s.log.Error("monitör yeniden başlatılamadı", "id", id, "hata", err)
 		}
+		// Açık ayrıntı sayfaları konum listesini hemen tazelesin (silinen,
+		// devre dışı bırakılan konum sonraki kontrolü beklemeden kalksın).
+		if s.hub != nil {
+			s.hub.Publish("locations", map[string]any{"monitor_id": id, "changed": true})
+		}
 	}
 }
 
@@ -622,7 +627,9 @@ func (s *Server) deleteProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.probePolls.forget(id)
-	s.engine.JobsChanged() // bekleyen isteği yanıtlanır (401): ajan hemen durur
+	s.probeConns.forget(id)
+	s.engine.SetProbeConnected(id, true) // kayıt kalmasın
+	s.engine.JobsChanged()               // bekleyen isteği yanıtlanır (401): ajan hemen durur
 	s.reloadProbeMonitors(r.Context(), id, affected)
 	s.servers.Forget(id)
 	s.log.Info("kontrol noktası silindi", "kontrol_noktasi", p.Name)
@@ -873,6 +880,86 @@ const (
 
 // probePolls ajan başına son teslim edilen iş listesi sürümü ve zamanı (yalnızca
 // bellekte; sunucu yeniden başlayınca boşalır, ilk istekler hemen yanıtlanır).
+// probeReconnectWait sunucu iş listesi isteğini yanıtladıktan sonra ajanın
+// yeniden bağlanması için beklenen süre (ajan poll_after=1 ile ~1 sn içinde
+// döner). Bu sürede yeni istek gelmezse bağlantı kopmuş sayılır.
+const probeReconnectWait = 5 * time.Second
+
+// probeConns ajan başına açık iş listesi istekleri.
+type probeConns struct {
+	mu sync.Mutex
+	m  map[int64]*probeConn
+}
+
+type probeConn struct {
+	open int
+	gen  uint64 // her yeni istekte artar: bekleyen kontrol yeni bağlantıyı görür
+}
+
+func newProbeConns() *probeConns { return &probeConns{m: map[int64]*probeConn{}} }
+
+func (pc *probeConns) begin(id int64) {
+	pc.mu.Lock()
+	c := pc.m[id]
+	if c == nil {
+		c = &probeConn{}
+		pc.m[id] = c
+	}
+	c.open++
+	c.gen++
+	pc.mu.Unlock()
+}
+
+// end isteğin bittiğini kaydeder; açık istek kaldı mı ve son kuşak.
+func (pc *probeConns) end(id int64) (open int, gen uint64) {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	c := pc.m[id]
+	if c == nil {
+		return 0, 0
+	}
+	c.open = max(c.open-1, 0)
+	return c.open, c.gen
+}
+
+// idle gen'den beri yeni istek gelmedi ve açık istek yok.
+func (pc *probeConns) idle(id int64, gen uint64) bool {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	c := pc.m[id]
+	return c != nil && c.open == 0 && c.gen == gen
+}
+
+func (pc *probeConns) forget(id int64) {
+	pc.mu.Lock()
+	delete(pc.m, id)
+	pc.mu.Unlock()
+}
+
+// probeRequestDone iş listesi isteği bitince çağrılır. Ajan bağlantıyı kendisi
+// kopardıysa (durduruldu, silindi, çöktü) konumları hemen "sonuç yok" olur.
+// Sunucu normal yanıt verdiyse ajan ~1 sn içinde yeniden bağlanır;
+// probeReconnectWait içinde gelmezse kopmuş sayılır.
+func (s *Server) probeRequestDone(id int64, ctx context.Context) {
+	open, gen := s.probeConns.end(id)
+	if open > 0 {
+		return
+	}
+	if ctx.Err() != nil {
+		s.engine.SetProbeConnected(id, false)
+		return
+	}
+	wait := s.probeReconnect
+	if wait <= 0 {
+		wait = probeReconnectWait
+	}
+	time.AfterFunc(wait, func() {
+		if s.probeConns.idle(id, gen) {
+			s.engine.SetProbeConnected(id, false)
+		}
+	})
+}
+
 type probePolls struct {
 	mu sync.Mutex
 	m  map[int64]probePollMark
@@ -961,6 +1048,13 @@ func (s *Server) holdJobs(w http.ResponseWriter, r *http.Request, p store.Probe,
 
 func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 	p := probeFrom(r)
+	if p.Kind == store.ProbeKindLocation && r.URL.Query().Has("since") {
+		// Uzun yoklama yapan ajan: bağlantısı kopunca konumları beklemeden
+		// "sonuç yok" sayılır (eski ajanlar since göndermez, 3 aralık kuralı).
+		s.probeConns.begin(p.ID)
+		s.engine.SetProbeConnected(p.ID, true)
+		defer s.probeRequestDone(p.ID, r.Context())
+	}
 	// Sürüm listeden ÖNCE okunur: okuma sırasında gelen değişiklik kaçmaz.
 	version, changed := s.engine.JobsVersion()
 	if s.shouldHold(r, p.ID, version, s.now()) {

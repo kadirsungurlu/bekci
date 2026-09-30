@@ -89,6 +89,7 @@ type location struct {
 	res     check.Result  // ters mod uygulanmış
 	fails   int           // art arda başarısız sonuç
 	detail  *check.Detail // son başarısız sonucun istek/yanıtı (olay kaydı için)
+	gone    bool          // kontrol noktasının bağlantısı koptu (bkz. SetProbeConnected)
 }
 
 type inboxItem struct {
@@ -299,13 +300,19 @@ func (r *runner) rules() locRules { return r.e.locRulesFor(r.m) }
 // staleAfter bu süreden eski konum sonucu "bilinmiyor" sayılır.
 func (r *runner) staleAfter() time.Duration { return r.rules().staleAfter }
 
-// drainInbox kuyruktaki uzak sonuçları konumlara uygular.
+// drainInbox kuyruktaki uzak sonuçları konumlara uygular ve kontrol
+// noktalarının bağlantı durumunu tazeler.
 func (r *runner) drainInbox() {
 	ls := r.locs
 	ls.mu.Lock()
 	items := ls.inbox
 	ls.inbox = nil
 	ls.mu.Unlock()
+	for _, l := range ls.locs {
+		if l != ls.local {
+			l.gone = r.e.probeGone(l.probeID)
+		}
+	}
 	for _, it := range items {
 		if l := ls.byProbe[it.probeID]; l != nil {
 			r.applyLocation(l, it.res.Time, it.res.Result)
@@ -417,9 +424,11 @@ const (
 
 func classify(l *location, now time.Time, rules locRules) string {
 	switch {
-	case !l.have && now.Sub(l.added) < rules.grace:
+	case !l.have && !l.gone && now.Sub(l.added) < rules.grace:
 		return locWaiting
-	case !l.have || now.Sub(l.at) > rules.staleAfter:
+	case !l.have || l.gone || now.Sub(l.at) > rules.staleAfter:
+		// Sonuç yok, eskidi ya da kontrol noktasının bağlantısı koptu: son
+		// sonucu ("çalışıyor") artık geçerli sayılmaz.
 		return locUnknown
 	case l.res.Up:
 		return locUp

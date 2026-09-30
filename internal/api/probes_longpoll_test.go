@@ -343,3 +343,55 @@ func TestProbeLongPollEndToEnd(t *testing.T) {
 	}
 	t.Logf("iş %v, konumun ilk sonucu %v sonra", gotJob.Round(time.Millisecond), gotUp.Round(time.Millisecond))
 }
+
+// Ajan bekleyen iş listesi isteğini kopardığında (durduruldu/silindi/çöktü)
+// kopukluk hemen kaydedilir; normal yanıttan sonra yeniden bağlanmazsa
+// probeReconnect sonra kaydedilir; yeniden bağlanınca silinir.
+func TestProbeDisconnectDetected(t *testing.T) {
+	f := newFeatureEnv(t)
+	f.s.probeHold = 10 * time.Second
+	f.s.probeReconnect = 300 * time.Millisecond
+	cp := f.newProbe("P")
+	id := cp.Probe.ID
+	first := f.pollJobs(cp.Token, "?since=0")
+	since := fmt.Sprintf("?since=%d", *first.resp.Version)
+
+	waitGone := func(want bool, within time.Duration) time.Duration {
+		t.Helper()
+		start := time.Now()
+		for f.s.engine.ProbeDisconnected(id) != want {
+			if time.Since(start) > within {
+				t.Fatalf("kopukluk %v olmadı (%v)", want, within)
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		return time.Since(start)
+	}
+
+	// Bekleyen istek ajan tarafından koparılır: hemen.
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan polled, 1)
+	go func() { done <- f.pollJobsAsync(ctx, cp.Token, since) }()
+	time.Sleep(200 * time.Millisecond)
+	if f.s.engine.ProbeDisconnected(id) {
+		t.Fatal("bağlıyken kopuk sayıldı")
+	}
+	cancel()
+	<-done
+	if took := waitGone(true, time.Second); took > 250*time.Millisecond {
+		t.Fatalf("koparılan bağlantı %v sonra fark edildi", took)
+	}
+
+	// Yeniden bağlanınca silinir.
+	ch := f.goPoll(cp.Token, since)
+	waitGone(false, time.Second)
+
+	// Sunucu normal yanıt verdi (iş listesi değişti), ajan geri gelmedi.
+	f.httpMonitor("site", "https://a.example")
+	recv(t, ch, 2*time.Second)
+	time.Sleep(100 * time.Millisecond)
+	if f.s.engine.ProbeDisconnected(id) {
+		t.Fatal("normal yanıttan hemen sonra kopuk sayılmamalı (ajan yeniden bağlanıyor)")
+	}
+	waitGone(true, 2*time.Second)
+}

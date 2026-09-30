@@ -36,6 +36,11 @@ type Server struct {
 	probePolls *probePolls
 	// probeHold iş listesi isteğinin en uzun bekletilmesi (0: probeHold; testler kısaltır)
 	probeHold time.Duration
+	// probeConns uzun yoklama bağlantıları: kopan ajanın konumları hemen "sonuç yok" (probes.go)
+	probeConns *probeConns
+	// probeReconnect normal yanıttan sonra ajanın yeniden bağlanması için beklenen süre
+	// (0: probeReconnectWait; testler kısaltır)
+	probeReconnect time.Duration
 	// probeAuthRL başarısız ajan kimlik doğrulaması için IP başına ön sınır (probe_guard.go)
 	probeAuthRL *probeAuthLimiter
 	badges      *badgeState    // rozet önbelleği ve IP hız sınırı (badges.go)
@@ -68,6 +73,7 @@ func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatche
 		notifyRL:    newNotifyLimiter(),
 		probeAuthRL: newProbeAuthLimiter(),
 		probePolls:  newProbePolls(),
+		probeConns:  newProbeConns(),
 		sseRecheck:  25 * time.Second,
 		AgentDir:    DefaultAgentDir,
 	}

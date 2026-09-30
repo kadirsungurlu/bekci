@@ -47,6 +47,7 @@ type Engine struct {
 	mu       sync.Mutex
 	ctx      context.Context
 	runners  map[int64]*runner
+	gone     map[int64]bool        // bağlantısı kopan kontrol noktaları (SetProbeConnected)
 	monLocks map[int64]*sync.Mutex // monitör başına: Reload/Remove/start sıraya girer (bkz. lockMonitor)
 	retired  map[int64]retiredLocs // durdurulan çok konumlu runner'ların konum sonuçları (bkz. adoptLocations)
 
@@ -69,6 +70,7 @@ func New(st *store.Store, n Notifier, hub *Hub, log *slog.Logger, cfg Config) *E
 		now:      time.Now,
 		runners:  map[int64]*runner{},
 		monLocks: map[int64]*sync.Mutex{},
+		gone:     map[int64]bool{},
 		retired:  map[int64]retiredLocs{},
 		jobs:     newJobsSignal(),
 
