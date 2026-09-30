@@ -441,28 +441,34 @@ func (ls *locationSet) statuses(now time.Time, rules locRules) []LocationStatus 
 	return out
 }
 
-// publish konum durumlarının kopyasını okuyucular için yayınlar; önceki
-// kopyaya göre bir konumun durumu değiştiyse true döner.
-func (ls *locationSet) publish(now time.Time, rules locRules) bool {
+// publish konum durumlarının kopyasını okuyucular için yayınlar. changed: bir
+// konumun durumu değişti; fresh: durumu aynı kalsa da bir konumdan yeni sonuç
+// geldi (son kontrol zamanı ilerledi).
+func (ls *locationSet) publish(now time.Time, rules locRules) (changed, fresh bool) {
 	st := ls.statuses(now, rules)
 	prev := ls.snap.Swap(&st)
 	if prev == nil || len(*prev) != len(st) {
-		return true
+		return true, true
 	}
 	for i := range st {
 		if (*prev)[i].Status != st[i].Status {
-			return true
+			changed = true
+		}
+		if (*prev)[i].LastCheckAt != st[i].LastCheckAt {
+			fresh = true
 		}
 	}
-	return false
+	return changed, fresh || changed
 }
 
-// publishSnapshot konum durumlarını yayınlar. Bir konumun durumu değiştiyse
-// (ör. ilk sonucu geldi) canlı akışa "locations" olayı gider: genel durum
-// değişmese de (kayıt yazılmasa da) arayüz konum listesini hemen yeniler.
+// publishSnapshot konum durumlarını yayınlar ve canlı akışa "locations" olayı
+// gönderir: bir konumun durumu değiştiğinde (changed: true; arayüz liste
+// rozetlerini de tazeler) ya da yalnızca yeni sonuç geldiğinde (changed:
+// false; açık ayrıntı sayfası konumların "x sn önce"sini hemen günceller —
+// uzak konumun sonucu ana sunucunun kontrolünden birkaç saniye sonra gelir).
 func (r *runner) publishSnapshot(now time.Time) {
-	if r.locs.publish(now, r.rules()) {
-		r.e.hub.Publish("locations", map[string]any{"monitor_id": r.m.ID})
+	if changed, fresh := r.locs.publish(now, r.rules()); fresh {
+		r.e.hub.Publish("locations", map[string]any{"monitor_id": r.m.ID, "changed": changed})
 	}
 }
 

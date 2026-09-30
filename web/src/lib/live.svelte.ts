@@ -237,10 +237,13 @@ class Live {
       else if (msg.type === 'probe' && msg.data) this.handleProbe(msg.data as ProbeEvent);
       else if (msg.type === 'server' && msg.data) this.emit(this.serverListeners, msg.data as ServerView);
       else if (msg.type === 'locations') {
-        // Konum kesintisi açılmış/kapanmış olabilir (liste rozeti): kısa gecikmeyle tazele.
-        this.refreshSoon(1500);
-        // Bir konumun durumu değişti (ör. ilk sonucu geldi); genel durum aynı kalmış olabilir.
-        this.emit(this.locationListeners, (msg.data as { monitor_id?: number })?.monitor_id ?? 0);
+        const d = msg.data as { monitor_id?: number; changed?: boolean } | undefined;
+        // Bir konumun durumu değişti: konum kesintisi açılmış/kapanmış olabilir
+        // (liste rozeti), kısa gecikmeyle tazele. changed: false yalnızca yeni
+        // sonuç demektir (eski sunucu alanı göndermez: değişti sayılır).
+        if (d?.changed !== false) this.refreshSoon(1500);
+        // Konumun durumu ya da son kontrol zamanı değişti; genel durum aynı kalmış olabilir.
+        this.emit(this.locationListeners, d?.monitor_id ?? 0);
       } else if (msg.type === 'stats_reset') {
         const id = (msg.data as { monitor_id?: number })?.monitor_id ?? 0;
         this.emit(this.statsResetListeners, id);

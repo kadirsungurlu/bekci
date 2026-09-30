@@ -334,7 +334,8 @@ export function fmtBytes(n: number | null | undefined): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return '—';
   let v = Math.max(0, n);
   let i = 0;
-  while (v >= 1024 && i < BYTE_UNITS.length - 1) {
+  // 1000'i geçen değer bir üst birime geçer: "1.023 KB" yerine "1 MB".
+  while (v >= 1000 && i < BYTE_UNITS.length - 1) {
     v /= 1024;
     i++;
   }
