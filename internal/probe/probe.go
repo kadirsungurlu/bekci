@@ -518,6 +518,9 @@ func (c *Client) checkOnce(ctx context.Context, j Job) (out Result, ok bool) {
 	// değer göndererek eşzamanlılık slotunu süresiz tutamaz.
 	cctx, cancel := context.WithTimeout(ctx, time.Duration(min(max(j.Timeout, 1), 300))*c.cfg.Unit)
 	defer cancel()
+	// Zaman kontrolün başlangıcıdır: ızgara anına denk gelir, ana sunucu ve
+	// diğer konumlarla aynı saniyeyi gösterir (yanıt süresi eklenmez).
+	started := time.Now()
 	var res check.Result
 	func() {
 		defer func() {
@@ -531,7 +534,7 @@ func (c *Client) checkOnce(ctx context.Context, j Job) (out Result, ok bool) {
 	if ctx.Err() != nil {
 		return out, false
 	}
-	out = Result{MonitorID: j.ID, Time: time.Now().UnixMilli(), Up: res.Up && !res.Pending, PingMs: res.PingMs, Message: res.Message}
+	out = Result{MonitorID: j.ID, Time: started.UnixMilli(), Up: res.Up && !res.Pending, PingMs: res.PingMs, Message: res.Message}
 	if res.Cert != nil {
 		out.CertNotAfter, out.CertIssuer = res.Cert.NotAfter.Unix(), res.Cert.Issuer
 	}

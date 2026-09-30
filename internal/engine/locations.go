@@ -344,11 +344,14 @@ func (r *runner) locationTick(ctx context.Context) bool {
 	ls := r.locs
 	r.drainInbox()
 	if ls.local != nil {
+		// Konumun zamanı kontrolün başlangıcı: kontrol noktaları da başlangıcı
+		// gönderir, aynı ızgara anında yapılan kontroller aynı saniyeyi gösterir.
+		started := r.e.now()
 		res := r.runCheck(ctx)
 		if ctx.Err() != nil {
 			return false // durduruldu: yarım kalan kontrol kaydedilmez
 		}
-		r.applyLocation(ls.local, r.e.now(), res)
+		r.applyLocation(ls.local, started, res)
 		r.drainInbox() // kontrol sürerken gelenler
 	}
 	now := r.e.now()
