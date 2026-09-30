@@ -219,8 +219,14 @@ func TestNormalize(t *testing.T) {
 			m.Strategy, m.Start, m.End = store.MaintOnce, "2026-10-01T05:00", "2026-10-01T04:00"
 		}, "sonra"},
 		{"tek seferlik boş", func(m *store.Maintenance) { m.Strategy = store.MaintOnce }, "Başlangıç zamanı"},
-		{"cron bozuk", func(m *store.Maintenance) { m.Strategy, m.Cron, m.DurationMinutes = store.MaintCron, "61 * * * *", 10 }, "Cron"},
-		{"cron 6 alan", func(m *store.Maintenance) { m.Strategy, m.Cron, m.DurationMinutes = store.MaintCron, "0 0 3 * * 1", 10 }, "Cron"},
+		{"cron bozuk", func(m *store.Maintenance) { m.Strategy, m.Cron, m.DurationMinutes = store.MaintCron, "61 * * * *", 10 },
+			"Cron ifadesinin dakika alanı geçersiz: 61 (izin verilen: 0-59)"},
+		{"cron bozuk ay", func(m *store.Maintenance) { m.Strategy, m.Cron, m.DurationMinutes = store.MaintCron, "0 3 * FOO *", 10 },
+			"ay alanı geçersiz: FOO"},
+		{"cron 6 alan", func(m *store.Maintenance) { m.Strategy, m.Cron, m.DurationMinutes = store.MaintCron, "0 0 3 * * 1", 10 },
+			"5 alandan oluşmalı (dakika saat ayın-günü ay haftanın-günü); 6 alan girildi"},
+		{"cron 2 alan", func(m *store.Maintenance) { m.Strategy, m.Cron, m.DurationMinutes = store.MaintCron, "bozuk cron", 10 }, "2 alan girildi"},
+		{"cron kısaltma", func(m *store.Maintenance) { m.Strategy, m.Cron, m.DurationMinutes = store.MaintCron, "@sometimes", 10 }, "@daily"},
 		{"cron TZ", func(m *store.Maintenance) {
 			m.Strategy, m.Cron, m.DurationMinutes = store.MaintCron, "CRON_TZ=UTC 0 3 * * *", 10
 		}, "saat dilimi"},

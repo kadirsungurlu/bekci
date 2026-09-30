@@ -70,6 +70,12 @@ func TestError(t *testing.T) {
 		{"Bulunamadı", "Not found"},
 		{"Çok fazla hatalı deneme. 15 dakika sonra tekrar deneyin.", "Too many failed attempts. Try again in 15 minutes."},
 		{"Geçersiz istek gövdesi: unexpected EOF", "Invalid request body: unexpected EOF"},
+		// Cron hataları: kütüphanenin İngilizce metni yerine alan adı ve izin verilen değerler.
+		{"Cron ifadesi 5 alandan oluşmalı (dakika saat ayın-günü ay haftanın-günü); 2 alan girildi",
+			"A cron expression has 5 fields (minute hour day-of-month month day-of-week); 2 given"},
+		{"Cron ifadesinin ayın günü alanı geçersiz: 32 (izin verilen: 1-31)", "Invalid day-of-month field in the cron expression: 32 (allowed: 1-31)"},
+		{"Cron ifadesinin ay alanı geçersiz: FOO (izin verilen: 1-12 veya JAN-DEC)",
+			"Invalid month field in the cron expression: FOO (allowed: 1-12 or JAN-DEC)"},
 		// Bilinmeyen mesaj olduğu gibi kalır.
 		{"Hiç görülmemiş bir mesaj", "Hiç görülmemiş bir mesaj"},
 		{"", ""},

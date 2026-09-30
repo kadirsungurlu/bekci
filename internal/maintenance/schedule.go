@@ -49,6 +49,34 @@ func invalid(format string, args ...any) error { return ValidationError(fmt.Spri
 
 var cronParser = cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 
+// Cron alanlarının adları ve izin verilen değerleri (hata mesajı için).
+var (
+	cronFieldNames  = [5]string{"dakika", "saat", "ayın günü", "ay", "haftanın günü"}
+	cronFieldRanges = [5]string{"0-59", "0-23", "1-31", "1-12 veya JAN-DEC", "0-6 veya SUN-SAT"}
+)
+
+// cronProblem geçersiz cron ifadesinin kullanıcıya gösterilecek açıklaması.
+// Kütüphanenin İngilizce hatası (ör. "expected exactly 5 fields, found 2")
+// gösterilmez; alan sayısı yanlışsa beklenen biçim, değilse hatalı alan ve
+// izin verilen değerler söylenir. Metinler i18n hata kataloğunda çevrilir.
+func cronProblem(expr string) string {
+	if strings.HasPrefix(expr, "@") {
+		return "Bilinmeyen cron kısaltması: @yearly, @monthly, @weekly, @daily veya @hourly kullanılabilir"
+	}
+	f := strings.Fields(expr)
+	if len(f) != 5 {
+		return fmt.Sprintf("Cron ifadesi 5 alandan oluşmalı (dakika saat ayın-günü ay haftanın-günü); %d alan girildi", len(f))
+	}
+	for i := range f {
+		probe := []string{"*", "*", "*", "*", "*"}
+		probe[i] = f[i]
+		if _, err := cronParser.Parse(strings.Join(probe, " ")); err != nil {
+			return fmt.Sprintf("Cron ifadesinin %s alanı geçersiz: %s (izin verilen: %s)", cronFieldNames[i], f[i], cronFieldRanges[i])
+		}
+	}
+	return "Cron ifadesi geçersiz"
+}
+
 // Normalize pencereyi doğrular, varsayılanları doldurur ve stratejiyle ilgisiz
 // alanları temizler (arayüz formun tüm alanlarını gönderebilsin diye).
 // Monitörlerin var olup olmadığını çağıran (API) kontrol eder.
@@ -173,7 +201,7 @@ func Normalize(m *store.Maintenance, now time.Time) error {
 		}
 		sched, err := cronParser.Parse(m.Cron)
 		if err != nil {
-			return invalid("Cron ifadesi geçersiz: %v", err)
+			return ValidationError(cronProblem(m.Cron))
 		}
 		if sched.Next(now.In(loc)).IsZero() {
 			return invalid("Cron ifadesi hiçbir zaman çalışmıyor")
