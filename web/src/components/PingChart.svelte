@@ -393,11 +393,13 @@
   {/if}
 </div>
 
-{#if stats}
+<!-- Kontrol varsa özet satırı ve lejant her zaman: yanıt süresi ölçülemediyse
+     (ör. hep çalışmıyor) değerler "—" olur, durum şeridinin renkleri yine açıklanır. -->
+{#if stats || pts.length}
   <div class="stats">
-    <span>{t('status.chart.min')} <b>{fmtMs(stats.min)}</b></span>
-    <span>{t('status.chart.avg')} <b>{fmtMs(stats.avg)}</b></span>
-    <span>{t('status.chart.max')} <b>{fmtMs(stats.max)}</b></span>
+    <span>{t('status.chart.min')} <b>{fmtMs(stats?.min ?? -1)}</b></span>
+    <span>{t('status.chart.avg')} <b>{fmtMs(stats?.avg ?? -1)}</b></span>
+    <span>{t('status.chart.max')} <b>{fmtMs(stats?.max ?? -1)}</b></span>
     {#if isRaw && pts.length}
       <span class="legend" aria-hidden="true">
         <span><i class="lg up"></i>{t('status.up')}</span>

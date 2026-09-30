@@ -37,8 +37,9 @@
   --up-ring: rgba(59, 214, 113, 0.2);
   --on-up: #07361a; /* yeşil zeminde ikon rengi */
   --down-text: #fca5a5;
-  --down-text-2: #f87171;
+  --down-text-2: #f87171; /* kırmızı metin: kart ve seçili satır zemininde ≥ 4,5:1 */
   --down-border: rgba(239, 68, 68, 0.45);
+  --down-solid: #dc2626; /* dolu kırmızı düğme zemini: beyaz yazıyla ≥ 4,5:1 */
   --on-down: #fff;
   --on-pending: #3a2500;
   --pending-text: #fde68a;
@@ -237,8 +238,10 @@ pre {
 .c-up {
   color: var(--up);
 }
+/* Kırmızı metin (neden, süre, "Çalışmıyor"): --down (#ef4444) kart zemininde
+   4,29:1 kalıyordu; metin tonu her iki temada ≥ 4,5:1. */
 .c-down {
-  color: var(--down);
+  color: var(--down-text-2);
 }
 .c-pending {
   color: var(--pending);
@@ -304,8 +307,8 @@ pre {
   color: var(--down-text);
 }
 .btn.danger.solid {
-  background: var(--down);
-  border-color: var(--down);
+  background: var(--down-solid);
+  border-color: var(--down-solid);
   color: var(--on-down);
 }
 .btn.danger.solid:focus-visible {
@@ -329,7 +332,7 @@ pre {
     background: var(--down-soft);
   }
   .btn.danger.solid:hover:not(:disabled) {
-    background: var(--down);
+    background: var(--down-solid);
     filter: brightness(1.1);
   }
   .btn.ghost:hover {
@@ -427,6 +430,7 @@ select.input {
     content: '';
     width: 12px;
     height: 12px;
+    flex-shrink: 0;
     margin-left: auto;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a7b2c5' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
       center / contain no-repeat;
@@ -1059,6 +1063,7 @@ input[type='search'].input::-webkit-search-decoration {
   --down-text: #991b1b;
   --down-text-2: #b91c1c;
   --down-border: rgba(220, 38, 38, 0.35);
+  --down-solid: #b91c1c;
   --pending: #d97706;
   --pending-soft: rgba(217, 119, 6, 0.1);
   --pending-text: #92400e;
@@ -1072,8 +1077,8 @@ input[type='search'].input::-webkit-search-decoration {
   --maint-border: rgba(29, 127, 214, 0.35);
   --empty-bar: #dfe4ec;
 
-  --accent: #0d9488;
-  --accent-hover: #0f766e;
+  --accent: #0f766e;
+  --accent-hover: #115e59;
   --accent-soft: rgba(13, 148, 136, 0.1);
   --accent-border: rgba(13, 148, 136, 0.35);
   --accent-text: #0f766e;

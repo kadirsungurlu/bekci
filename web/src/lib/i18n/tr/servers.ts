@@ -152,7 +152,7 @@ export default {
       intro: 'Bu sunucunun uyarıları seçili kanallara gönderilir.',
       none: 'Henüz bildirim kanalı yok. {link}',
       addLink: 'Kanal ekleyin',
-      off: ' · kapalı',
+      off: ' · devre dışı',
       manage: 'Kanalları yönet',
       saved: 'Bildirim kanalları kaydedildi',
     },

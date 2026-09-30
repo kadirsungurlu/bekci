@@ -424,6 +424,8 @@
             <TypeBadge type={data.monitor.type} />
             {#if !data.monitor.target}
               <span class="muted">{t('incidents.detail.typeMonitor', { type: typeName(data.monitor.type) })}</span>
+            {:else if data.monitor.type === 'group'}
+              <span class="text-2">{data.monitor.target}</span>
             {:else if isWebTarget(data.monitor.type) && /^https?:\/\//i.test(data.monitor.target)}
               <a href={data.monitor.target} target="_blank" rel="noopener noreferrer">{data.monitor.target}<Icon name="external" size={13} /></a>
             {:else}
@@ -442,7 +444,7 @@
         {#if capture}
           <button class="btn" onclick={download}>
             <Icon name="download" size={15} />
-            {isDiag ? t('incidents.conn.download') : t('incidents.detail.downloadResponse')}
+            {t('incidents.detail.downloadDetails')}
           </button>
         {/if}
       </div>
@@ -521,7 +523,8 @@
           </div>
         {/if}
 
-        {#if data.locations.length}
+        <!-- Grup ve push monitörlerinin konumu yoktur ("Ana sunucu" anlamsız). -->
+        {#if data.locations.length && data.monitor.type !== 'group' && data.monitor.type !== 'push'}
           <div class="card">
             <div class="card-head">
               <h2 class="card-title">{t('incidents.detail.locations')}<span class="dot">.</span></h2>
@@ -762,8 +765,12 @@
   .layout.single {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* Yan sütunu olmayan olay (ör. grup) dar ve ortada: sola yaslı dar sayfa
+     diğer olay sayfalarıyla hizasız duruyordu. */
   .page.narrow {
     max-width: 880px;
+    margin-left: auto;
+    margin-right: auto;
   }
   .col {
     display: flex;

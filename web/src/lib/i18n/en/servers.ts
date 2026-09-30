@@ -153,7 +153,7 @@ export default {
       intro: 'This server’s alerts are sent to the selected channels.',
       none: 'No notification channels yet. {link}',
       addLink: 'Add a channel',
-      off: ' · off',
+      off: ' · disabled',
       manage: 'Manage channels',
       saved: 'Notification channels saved',
     },

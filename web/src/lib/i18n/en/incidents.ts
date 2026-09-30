@@ -56,7 +56,7 @@ export default {
     typeMonitor: '{type} monitor',
     goToServer: 'Go to server',
     goToMonitor: 'Go to monitor',
-    downloadResponse: 'Download response',
+    downloadDetails: 'Download details',
     downloadFile: 'incident-{id}-response.json',
     rootCause: 'Root cause',
     noCause: 'No cause recorded',

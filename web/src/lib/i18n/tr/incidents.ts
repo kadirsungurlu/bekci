@@ -58,7 +58,7 @@ export default {
     typeMonitor: '{type} monitörü',
     goToMonitor: 'Monitöre git',
     goToServer: 'Sunucuya git',
-    downloadResponse: 'Yanıtı indir',
+    downloadDetails: 'Ayrıntıları indir',
     downloadFile: 'olay-{id}-yanit.json',
     rootCause: 'Kök neden',
     noCause: 'Neden kaydedilmemiş',

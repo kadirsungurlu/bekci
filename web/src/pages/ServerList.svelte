@@ -124,7 +124,7 @@
         <span class="a-mem">{metricLabel('mem')}</span>
         <span class="a-swap r">{metricLabel('swap')}</span>
         <span class="a-disk">{metricLabel('disk')}</span>
-        <span class="a-temp r">{metricLabel('temp')}</span>
+        <span class="a-temp r" title={metricLabel('temp')}>{t('overview.servers.cols.temp')}</span>
         <span class="a-dock r">{t('overview.servers.cols.docker')}</span>
         <span class="a-net">{metricLabel('net')}</span>
         <span class="a-load">{metricLabel('load')}</span>
@@ -169,7 +169,8 @@
               <span class="ml" aria-hidden="true">{metricLabel('disk')}</span>
               <div class="d1">
                 <UsageBar value={diskPct(st)} label="{s.name}: {metricLabel('disk')}{fm ? ` ${fm}` : ''}" inline />
-                {#if fm}<span class="dm" aria-hidden="true">{fm}</span>{/if}
+                <!-- Tek bölümlü sunucuda telefonda yalnızca "/" yazan satır gösterilmez. -->
+                {#if fm}<span class="dm" class:root={fm === '/' && disks.length <= 1} aria-hidden="true">{fm}</span>{/if}
               </div>
               {#if disks.length > 1}
                 <div class="dlist">
@@ -414,7 +415,7 @@
     .lhead,
     .srow {
       grid-template-columns:
-        minmax(230px, 1.6fr) minmax(84px, 1fr) 110px minmax(84px, 1fr) 50px minmax(170px, 1.4fr) 58px 52px 118px 52px
+        minmax(300px, 2.2fr) minmax(84px, 1fr) 110px minmax(84px, 1fr) 50px minmax(170px, 1.4fr) 64px 52px 118px 52px
         96px 100px;
       grid-template-areas: 'nm cpu trend mem swap disk temp dock net load up agent';
       column-gap: 20px;
@@ -778,6 +779,9 @@
     .dm {
       position: static;
       margin-top: 2px;
+    }
+    .dm.root {
+      display: none;
     }
     .net,
     .load,

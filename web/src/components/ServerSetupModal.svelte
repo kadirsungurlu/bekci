@@ -161,9 +161,12 @@
           </p>
           <CopyButton text={cmd} class="btn sm primary" />
         </div>
-        <!-- Çok satırlı komut: satır sonları korunur, uzun satırlar yatay kayar; klavyeyle kaydırılabilsin diye odaklanabilir. -->
+        <!-- Çok satırlı komut: uzun satırlar kutuya sığacak şekilde alta kayar (yatay
+             kaydırma çubuğu görünmediği için komutun devamı fark edilmiyordu); alta
+             kayan kısım içeriden başlar, yeni satırla karışmaz. Kopyala düğmesi komutu
+             olduğu gibi kopyalar. -->
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-        <pre tabindex="0" aria-label={t('servers.setup.command')}>{cmd}</pre>
+        <pre tabindex="0" aria-label={t('servers.setup.command')}>{#each cmd.split('\n') as line, i (i)}<span class="ln">{line || ' '}</span>{/each}</pre>
       </div>
       {#if tab !== 'windows'}
         <p class="help nomargin">
@@ -316,11 +319,17 @@
     padding: 12px;
     font-size: 0.78rem;
     line-height: 1.55;
-    white-space: pre;
+    white-space: pre-wrap;
     overflow: auto;
     max-height: 260px;
     tab-size: 2;
     color: var(--text);
+  }
+  .cmdbox .ln {
+    display: block;
+    padding-left: 2ch;
+    text-indent: -2ch;
+    overflow-wrap: anywhere;
   }
   .explain {
     font-size: 0.85rem;

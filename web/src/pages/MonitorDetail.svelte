@@ -91,6 +91,7 @@
     unknown: { l: 'monitors.detail.noResult', c: 'paused' },
   };
   async function loadLocations() {
+    if (!ready || notFound) return;
     try {
       locations = await api.monitorLocations(id);
     } catch {
@@ -104,11 +105,25 @@
   };
   const pushUrl = $derived(monitor?.push_token ? `${location.origin}/api/push/${monitor.push_token}` : '');
 
+  // İlk yüklemede önce monitörün kendisi istenir: yoksa (404) grafik, konum ve
+  // olay istekleri hiç gönderilmez ve "bulunamadı" kartının yanında ayrıca hata
+  // bildirimi çıkmaz.
+  let ready = $state(false);
   async function loadDetail() {
+    if (notFound) return;
     try {
-      const [d, inc] = await Promise.all([api.monitor(id), api.monitorIncidents(id)]);
-      detail = d;
-      incidents = inc;
+      if (!detail) {
+        detail = await api.monitor(id);
+        if (!ready) {
+          ready = true;
+          loadLocations();
+        }
+        incidents = await api.monitorIncidents(id);
+      } else {
+        const [d, inc] = await Promise.all([api.monitor(id), api.monitorIncidents(id)]);
+        detail = d;
+        incidents = inc;
+      }
       loadError = '';
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) notFound = true;
@@ -118,6 +133,7 @@
 
   let seriesReq = 0;
   async function loadSeries(r: SeriesRange) {
+    if (!ready || notFound) return;
     const req = ++seriesReq;
     seriesLoading = true;
     try {
@@ -126,14 +142,16 @@
       series = s;
       chartTo = nowSec();
     } catch (e) {
-      if (req === seriesReq) toast.error(errorMessage(e));
+      if (req !== seriesReq) return;
+      if (e instanceof ApiError && e.status === 404) notFound = true;
+      else toast.error(errorMessage(e));
     } finally {
       if (req === seriesReq) seriesLoading = false;
     }
   }
 
   $effect(() => {
-    loadSeries(range);
+    if (ready && !notFound) loadSeries(range);
   });
 
   let reloadTimer: ReturnType<typeof setTimeout> | undefined;
@@ -148,7 +166,6 @@
 
   onMount(() => {
     loadDetail();
-    loadLocations();
     refreshTimer = setInterval(() => {
       loadDetail();
       loadLocations();
@@ -444,6 +461,9 @@
     </div>
   {/if}
 
+  <!-- Grup monitörünün yanıt süresi yoktur (alt monitörlerin durumundan hesaplanır):
+       boş bir yanıt süresi grafiği yerine alt monitörler listelenir. -->
+  {#if monitor.type !== 'group'}
   <div class="card block">
     <div class="chart-head">
       <h2 class="card-title">{t('monitors.detail.responseTime')}<span class="dot">.</span></h2>
@@ -463,6 +483,7 @@
       {/if}
     </div>
   </div>
+  {/if}
 
   {#if monitor.type === 'group' && children.length}
     <div class="card block">

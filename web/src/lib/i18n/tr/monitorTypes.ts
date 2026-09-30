@@ -61,8 +61,8 @@ export default {
   /** Grup monitörünün hedefi (alt monitör sayısı). */
   childCount: '{count} monitör',
   groupModes: {
-    anyDown: 'Herhangi biri çalışmıyorsa DOWN',
-    allDown: 'Hepsi çalışmıyorsa DOWN',
+    anyDown: 'Biri bile çalışmıyorsa grup çalışmıyor',
+    allDown: 'Hepsi çalışmıyorsa grup çalışmıyor',
   },
   /** Örnek değerler (yer tutucular). */
   ph: {

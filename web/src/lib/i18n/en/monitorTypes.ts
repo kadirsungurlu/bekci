@@ -59,8 +59,8 @@ export default {
   },
   childCount: '{count} monitor|{count} monitors',
   groupModes: {
-    anyDown: 'DOWN if any is down',
-    allDown: 'DOWN if all are down',
+    anyDown: 'Group is down if any child is down',
+    allDown: 'Group is down if all children are down',
   },
   ph: {
     dbHost: 'db.example.com',

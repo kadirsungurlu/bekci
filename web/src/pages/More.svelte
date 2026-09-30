@@ -48,7 +48,10 @@
   <span class="ic"><Icon name="user" size={18} /></span>
   <span class="t">
     <span class="l">{session.displayName}</span>
-    <span class="d">{session.user?.username} · {ROLE_LABELS[session.role]}</span>
+    <!-- Görünen ad yoksa displayName kullanıcı adıdır: ikinci kez yazılmaz. -->
+    <span class="d"
+      >{session.user?.username && session.user.username !== session.displayName ? `${session.user.username} · ` : ''}{ROLE_LABELS[session.role]}</span
+    >
   </span>
   <button class="btn sm" onclick={onLogout}><Icon name="logout" size={15} /> {t('common.logout')}</button>
 </div>
