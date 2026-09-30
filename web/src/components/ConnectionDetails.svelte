@@ -282,8 +282,8 @@
     gap: 10px;
     padding: 12px 14px;
     border-radius: var(--radius-sm);
-    background: var(--accent-soft);
-    border: 1px solid var(--accent-border);
+    background: var(--card-2);
+    border: 1px solid var(--border-strong);
     color: var(--text);
     font-size: 0.9rem;
     line-height: 1.45;
@@ -292,7 +292,7 @@
   .verdict :global(svg) {
     flex-shrink: 0;
     margin-top: 1px;
-    color: var(--accent-text);
+    color: var(--text-2);
   }
   .kv {
     margin: 0;

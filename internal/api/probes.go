@@ -248,7 +248,9 @@ type probeAdminView struct {
 }
 
 func (s *Server) probeSummaryOf(p store.Probe) probeSummary {
-	return probeSummary{ID: p.ID, Name: p.Name, Active: p.Active, Online: engine.ProbeOnline(p, s.now()), LastSeenAt: p.LastSeenAt}
+	// Uzun yoklama bağlantısı koptuysa beklemeden çevrimdışı (konum kartlarıyla aynı anda).
+	online := engine.ProbeOnline(p, s.now()) && !s.engine.ProbeDisconnected(p.ID)
+	return probeSummary{ID: p.ID, Name: p.Name, Active: p.Active, Online: online, LastSeenAt: p.LastSeenAt}
 }
 
 func (s *Server) probeAdminOf(p store.Probe, monitors int) probeAdminView {
@@ -554,6 +556,12 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 	}
 	if active != old.Active {
 		changes = append(changes, map[bool]string{true: "etkinleştirildi", false: "devre dışı bırakıldı"}[active])
+	}
+	if active != old.Active {
+		// Etkinlik değişti: eski bağlantı kaydı ve kopukluk işareti kalmasın;
+		// yeniden etkinleşen ajan ilk isteğiyle normal akışa döner.
+		s.probeConns.forget(id)
+		s.engine.SetProbeConnected(id, true)
 	}
 	if len(changes) > 0 {
 		// Ad mesajlarda, etkinlik konum listesinde kullanılır: monitörler yeniden yüklenir.

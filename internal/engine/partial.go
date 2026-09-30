@@ -49,6 +49,13 @@ func (r *runner) partialStep(ctx context.Context, now time.Time, status int, inM
 			down = append(down, s)
 		case locRetrying, locWaiting:
 			unsettled = true
+		case locUnknown:
+			// Bu olayda çalışmayan konumun sonucu gelmiyor (ör. ajan yeniden
+			// başlıyor): düzeldiği bilinmeden olay kapanmaz; yoksa her kısa
+			// kopuşta olay kapanıp yeniden açılır.
+			if slices.Contains(r.partialFailed, s.Name) {
+				unsettled = true
+			}
 		}
 	}
 	switch {

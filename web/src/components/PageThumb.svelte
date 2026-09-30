@@ -176,7 +176,7 @@
     height: 20px;
     padding: 0 7px;
     border-radius: 6px;
-    background: linear-gradient(135deg, #1f2b40, #172133);
+    background: linear-gradient(135deg, #171d29, #121620);
     flex-shrink: 0;
   }
   .th-hero.st-up {

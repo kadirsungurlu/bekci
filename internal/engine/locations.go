@@ -90,6 +90,7 @@ type location struct {
 	fails   int           // art arda başarısız sonuç
 	detail  *check.Detail // son başarısız sonucun istek/yanıtı (olay kaydı için)
 	gone    bool          // kontrol noktasının bağlantısı koptu (bkz. SetProbeConnected)
+	goneAt  time.Time     // kopma anı
 }
 
 type inboxItem struct {
@@ -310,7 +311,7 @@ func (r *runner) drainInbox() {
 	ls.mu.Unlock()
 	for _, l := range ls.locs {
 		if l != ls.local {
-			l.gone = r.e.probeGone(l.probeID)
+			l.goneAt, l.gone = r.e.probeGoneAt(l.probeID)
 		}
 	}
 	for _, it := range items {
@@ -444,6 +445,10 @@ func (ls *locationSet) statuses(now time.Time, rules locRules) []LocationStatus 
 		st := LocationStatus{ProbeID: l.probeID, Name: l.name, Status: classify(l, now, rules), PingMs: -1}
 		if l.have {
 			st.LastCheckAt, st.PingMs, st.Message = l.at.Unix(), l.res.PingMs, l.res.Message
+			if st.Status == locUnknown {
+				// Eski sonucun mesajı ("200 OK") "sonuç yok" durumunda yanıltır.
+				st.PingMs, st.Message = -1, ""
+			}
 		}
 		out[i] = st
 	}
@@ -512,6 +517,14 @@ func aggregateLocations(locs []*location, downWhen string, now time.Time, rules 
 			continue
 		}
 		if st == locUnknown {
+			if l.gone && l.have && l.res.Up && now.Sub(l.goneAt) < ProbeGoneGrace {
+				// Az önce kopan, son sonucu "çalışıyor" konum: tolerans süresince
+				// genel kararda son sonucu geçerli sayılır (kart "sonuç yok"
+				// gösterir); ajanın yeniden başlaması yanlış kesinti açmaz.
+				n++
+				up = append(up, l)
+				continue
+			}
 			stale = append(stale, l.name)
 			continue
 		}

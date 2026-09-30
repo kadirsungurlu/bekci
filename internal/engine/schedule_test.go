@@ -67,8 +67,9 @@ func TestNextDelayLocalRetryUnderAllRule(t *testing.T) {
 }
 
 // Kontrol noktasının bağlantısı kopunca konumu eskime süresini beklemeden
-// "sonuç yok" sayılır: kural "tümü" iken yalnızca çalışmayan ana sunucu
-// kalır ve monitör hemen DOWN olur; yeniden bağlanınca eski haline döner.
+// "sonuç yok" sayılır. Kural "tümü" iken monitör kısa toleransın (yeniden
+// başlayan ajan yanlış kesinti açmasın) sonunda DOWN olur; yeniden
+// bağlanınca eski haline döner.
 func TestProbeDisconnectMarksLocationUnknown(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
@@ -87,14 +88,54 @@ func TestProbeDisconnectMarksLocationUnknown(t *testing.T) {
 	if !f.e.ProbeDisconnected(fra.ID) {
 		t.Fatal("kopukluk kaydedilmedi")
 	}
-	if !r.locationWake() || r.m.Status != store.StatusDown {
-		t.Fatalf("bağlantı kopunca hemen DOWN bekleniyordu: %d %q", r.m.Status, r.m.LastMessage)
-	}
+	r.locationWake()
 	if snap := *r.locs.snap.Load(); snap[1].Status != locUnknown {
-		t.Fatalf("Frankfurt 'sonuç yok' olmalı: %+v", snap)
+		t.Fatalf("Frankfurt kart için hemen 'sonuç yok' olmalı: %+v", snap)
+	}
+	if r.m.Status != store.StatusUp {
+		t.Fatalf("tolerans süresinde genel durum değişmemeli: %d %q", r.m.Status, r.m.LastMessage)
+	}
+	f.clock = f.clock.Add(ProbeGoneGrace + time.Second)
+	r.locationTick(ctx) // ana sunucunun güncel (başarısız) sonucuyla
+	if r.m.Status != store.StatusDown {
+		t.Fatalf("tolerans dolunca DOWN bekleniyordu: %d %q", r.m.Status, r.m.LastMessage)
 	}
 	f.e.SetProbeConnected(fra.ID, true)
-	if !r.locationWake() || r.m.Status != store.StatusUp {
-		t.Fatalf("yeniden bağlanınca UP bekleniyordu: %d", r.m.Status)
+	if !r.remote(fra, f.clock, up()) || r.m.Status != store.StatusUp {
+		t.Fatalf("yeniden bağlanıp sonuç gelince UP bekleniyordu: %d", r.m.Status)
+	}
+}
+
+// Konum kesintisi sürerken çalışmayan konumun sonucu gelmez olursa (ajan
+// yeniden başlıyor) olay kapanmaz; konum yeniden çalışınca kapanır.
+func TestPartialStaysOpenWhileFailingLocationUnknown(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	fra := f.probe(t, "Frankfurt", true)
+	m := f.monitor(t, func(m *store.Monitor) { m.MaxRetries = 0 })
+	r := f.locRunner(t, m, store.LocationSetup{IncludeLocal: true, ProbeIDs: []int64{fra.ID}, DownWhen: store.DownWhenAll})
+	defer fake.set(up())
+
+	fake.set(up())
+	r.remote(fra, f.clock, down("DNS hatası"))
+	r.locationTick(ctx)
+	if r.partialID == 0 {
+		t.Fatal("konum kesintisi açılmalıydı")
+	}
+	id := r.partialID
+	f.e.SetProbeConnected(fra.ID, false)
+	f.clock = f.clock.Add(ProbeGoneGrace + time.Second)
+	r.locationWake()
+	f.clock = f.clock.Add(10 * time.Millisecond)
+	r.locationTick(ctx)
+	if r.partialID != id {
+		t.Fatalf("sonuç gelmezken olay kapanmamalı: %d → %d", id, r.partialID)
+	}
+	f.e.SetProbeConnected(fra.ID, true)
+	f.clock = f.clock.Add(10 * time.Millisecond)
+	r.remote(fra, f.clock, up())
+	r.locationTick(ctx)
+	if r.partialID != 0 {
+		t.Fatal("konum yeniden çalışınca olay kapanmalıydı")
 	}
 }
