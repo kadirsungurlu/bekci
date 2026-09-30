@@ -192,7 +192,9 @@ type pageInput struct {
 	Collapsible *bool `json:"collapsible"`
 	// Lang: herkese açık sayfanın dili (tr | en); yok = değişmez (yeni sayfada tr).
 	Lang *string `json:"lang"`
-	// Layout: yerleşim, genişlik, bölüm sırası/görünürlüğü; yok/null = değişmez.
+	// Layout: yerleşim (list | grid | compact | rows), genişlik, bölüm
+	// sırası/görünürlüğü ve uptime yüzdesi (show_uptime, yok = gösterilir);
+	// yok/null = değişmez.
 	// Bilinmeyen değerler varsayılana çekilir (hata değildir). Olaylar
 	// bölümünün görünürlüğü show_incidents ile aynı alandır: ikisi birden
 	// gönderilirse show_incidents geçerlidir.
@@ -203,9 +205,11 @@ type pageInput struct {
 
 // layoutInput dizilim girdisinin gevşek biçimi: bilinmeyen alanlar yok sayılır.
 type layoutInput struct {
-	Style  string `json:"style"`
-	Width  string `json:"width"`
-	Blocks []struct {
+	Style string `json:"style"`
+	Width string `json:"width"`
+	// ShowUptime yok = gösterilir (dizilim bütün olarak değişir).
+	ShowUptime *bool `json:"show_uptime"`
+	Blocks     []struct {
 		ID      string `json:"id"`
 		Visible *bool  `json:"visible"`
 	} `json:"blocks"`
@@ -221,7 +225,7 @@ func parseLayout(raw json.RawMessage) (l store.PageLayout, incidents *bool, ok b
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return l, nil, false, badInput("Sayfa dizilimi geçersiz")
 	}
-	l.Style, l.Width = in.Style, in.Width
+	l.Style, l.Width, l.ShowUptime = in.Style, in.Width, in.ShowUptime
 	for _, b := range in.Blocks {
 		vis := b.Visible == nil || *b.Visible
 		if b.ID == store.BlockIncidents && incidents == nil {

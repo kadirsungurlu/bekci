@@ -131,7 +131,7 @@
     footer: footer.trim(),
     customDomain: customDomain.trim().toLowerCase(),
     showTargets,
-    layout: [layout.style, layout.width, layout.blocks.map((b) => (b.visible ? b.id : `-${b.id}`))],
+    layout: [layout.style, layout.width, layout.show_uptime, layout.blocks.map((b) => (b.visible ? b.id : `-${b.id}`))],
     collapsible,
     barRange,
     pageLang,
@@ -204,7 +204,7 @@
   }
 
   // Dizilim bölümleri ---------------------------------------------------------------------
-  const STYLES: PageStyle[] = ['list', 'grid', 'compact'];
+  const STYLES: PageStyle[] = ['list', 'grid', 'compact', 'rows'];
   const WIDTHS: PageWidth[] = ['narrow', 'wide'];
   const blockName = (id: PageBlockId) => t(`pages.layout.blockNames.${id}`);
 
@@ -381,7 +381,12 @@
       custom_domain: customDomain.trim().toLowerCase(),
       show_targets: showTargets,
       show_incidents: showIncidents,
-      layout: { style: layout.style, width: layout.width, blocks: layout.blocks.map((b) => ({ id: b.id, visible: b.visible })) },
+      layout: {
+        style: layout.style,
+        width: layout.width,
+        blocks: layout.blocks.map((b) => ({ id: b.id, visible: b.visible })),
+        show_uptime: layout.show_uptime,
+      },
       collapsible,
       bar_range: barRange,
       lang: pageLang,
@@ -480,7 +485,12 @@
     description,
     footer,
     sections: sections.map((s) => ({ title: s.title, monitors: s.monitors.map((m) => ({ id: m.id, name: m.name })) })),
-    layout: { style: layout.style, width: layout.width, blocks: layout.blocks.map((b) => ({ id: b.id, visible: b.visible })) },
+    layout: {
+      style: layout.style,
+      width: layout.width,
+      blocks: layout.blocks.map((b) => ({ id: b.id, visible: b.visible })),
+      show_uptime: layout.show_uptime,
+    },
     barRange,
     showTargets,
     collapsible,
@@ -701,7 +711,7 @@
       </div>
       <fieldset class="opts">
         <legend class="label">{t('pages.layout.style')}</legend>
-        <div class="opt-row three">
+        <div class="opt-row four">
           {#each STYLES as st (st)}
             <label class="opt" class:on={layout.style === st}>
               <input type="radio" name="lay-style" value={st} bind:group={layout.style} />
@@ -725,6 +735,13 @@
           {/each}
         </div>
       </fieldset>
+      <label class="check">
+        <input type="checkbox" bind:checked={layout.show_uptime} />
+        <span>
+          {t('pages.layout.showUptime')}
+          <small>{t('pages.layout.showUptimeHelp')}</small>
+        </span>
+      </label>
       <div class="field">
         <span class="label" id="blocks-l">{t('pages.layout.blocks')}</span>
         <ol class="blocks" aria-labelledby="blocks-l">
@@ -971,6 +988,16 @@
           <rect x={9 + c * 27} y={14 + i * 11} width="19" height="3" rx="1.5" class="a-bar" />
         {/each}
       {/each}
+    {:else if st === 'rows'}
+      <!-- ışık, ad, çubuklar ve yüzde aynı satırda -->
+      {#each [0, 1, 2, 3] as i (i)}
+        <circle cx="8" cy={9.2 + i * 7.5} r="1.9" class="a-dot" />
+        <rect x="12" y={8 + i * 7.5} width="9" height="2.5" rx="1.2" class="a-text" />
+        {#each { length: 12 } as _, k (k)}
+          <rect x={24.5 + k * 2.4} y={6.8 + i * 7.5} width="1.7" height="4.8" rx="0.6" class="a-bar" />
+        {/each}
+        <rect x="54" y={8 + i * 7.5} width="5.5" height="2.5" rx="1.2" class="a-text" />
+      {/each}
     {:else}
       {#each [0, 1, 2, 3, 4] as i (i)}
         <circle cx="10" cy={8 + i * 6} r="1.8" class="a-dot" />
@@ -1101,8 +1128,17 @@
     display: grid;
     gap: 10px;
   }
-  .opt-row.three {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .opts {
+    container-type: inline-size;
+  }
+  .opt-row.four {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  /* Dar form sütununda dört seçenek 2×2. */
+  @container (max-width: 560px) {
+    .opt-row.four {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
   .opt-row.two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1410,16 +1446,16 @@
     margin-top: 24px;
   }
   @media (max-width: 640px) {
-    .opt-row.three {
+    .opt-row.four {
       grid-template-columns: minmax(0, 1fr);
     }
-    .opt-row.three .opt {
+    .opt-row.four .opt {
       display: grid;
       grid-template-columns: 76px minmax(0, 1fr);
       column-gap: 12px;
       align-items: center;
     }
-    .opt-row.three .art {
+    .opt-row.four .art {
       grid-row: span 2;
       margin: 0;
     }

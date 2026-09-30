@@ -10,7 +10,7 @@
    * bölümünün görünürlüğü showIncidents'tır (tek kaynak).
    */
   export function normalizeLayout(l: Partial<PageLayout> | null | undefined, showIncidents = true): PageLayout {
-    const style = l?.style === 'grid' || l?.style === 'compact' ? l.style : 'list';
+    const style = l?.style === 'grid' || l?.style === 'compact' || l?.style === 'rows' ? l.style : 'list';
     const width = l?.width === 'wide' ? 'wide' : 'narrow';
     const blocks: PageLayout['blocks'] = [];
     const seen = new Set<string>();
@@ -21,7 +21,7 @@
     };
     for (const b of l?.blocks ?? []) add(b.id, b.visible !== false);
     for (const id of BLOCK_ORDER) add(id, true);
-    return { style, width, blocks };
+    return { style, width, blocks, show_uptime: l?.show_uptime !== false };
   }
 </script>
 
@@ -134,9 +134,20 @@
   // Sayfanın çubuk görünümü (eski sunucu: 90 gün). Dar alanda çubuklar okunur
   // kalsın diye daha az çubuk gösterilir.
   const range = $derived<BarRange>(page.range ?? '90d');
-  const count = $derived(
-    range === '24h' ? 24 : range === 'recent' ? (colW >= 560 ? 60 : colW >= 420 ? 45 : 30) : colW >= 560 ? 90 : colW >= 420 ? 60 : 30,
-  );
+  // Tek satır yerleşiminde çubuklar ad ile yüzde arasındaki alanı doldurur: sayı
+  // o alanın ölçülen genişliğine göre seçilir (çubuk + boşluk en az ROW_PITCH px).
+  const ROW_PITCH = 8;
+  let rowBarsW = $state(0);
+  const count = $derived.by(() => {
+    if (range === '24h') return 24;
+    if (layout.style === 'rows') {
+      const w = rowBarsW || mainW * 0.55;
+      const opts = range === 'recent' ? [60, 45, 30] : [90, 60, 45, 30];
+      return opts.find((n) => w / n >= ROW_PITCH) ?? 30;
+    }
+    if (range === 'recent') return colW >= 560 ? 60 : colW >= 420 ? 45 : 30;
+    return colW >= 560 ? 90 : colW >= 420 ? 60 : 30;
+  });
 
   /** Gösterilecek çubuklar; son kontroller görünümünde az kontrol varsa soldan boşlukla doldurulur. */
   function shown(bars: PublicBar[]): (PublicBar | null)[] {
@@ -184,7 +195,13 @@
     if (v === null || v === undefined) return 'none';
     return v >= 99 ? '' : v >= 95 ? 'warn' : 'bad';
   }
+  /** Tek satır yerleşiminde daha hassas eşik: %99,5 altı uyarı, %95 altı kesinti tonu. */
+  function rowTone(v: number | null | undefined): string {
+    if (v === null || v === undefined) return 'none';
+    return v >= 99.5 ? '' : v >= 95 ? 'warn' : 'bad';
+  }
   const upOf = (m: PublicMonitor) => (m.uptime !== undefined ? m.uptime : m.uptime_90d);
+  const showUptime = $derived(layout.show_uptime);
 
   // Dokunmatik ekranda çubuğa dokununca bilgisi çubukların altında gösterilir.
   let picked = $state<{ key: string; i: number } | null>(null);
@@ -206,7 +223,7 @@
   }
 </script>
 
-<div class="sv w-{layout.width} st-{layout.style}" class:pub-light={light} class:embedded {lang}>
+<div class="sv w-{layout.width} st-{layout.style}" class:pub-light={light} class:embedded class:no-up={!showUptime} {lang}>
   <header class="top">
     <div class="wrap top-in">
       <div class="brand">
@@ -294,10 +311,12 @@
         {#if m.target}<span class="m-target" title={m.target}>{targetLabel(m.target)}</span>{/if}
       </div>
       <div class="m-right">
-        <span class="m-up {upTone(upOf(m))}" title={uptimeLabel}>
-          <b>{fmtPct(upOf(m))}</b>
-          <span>{upWin}</span>
-        </span>
+        {#if showUptime}
+          <span class="m-up {upTone(upOf(m))}" title={uptimeLabel}>
+            <b>{fmtPct(upOf(m))}</b>
+            <span>{upWin}</span>
+          </span>
+        {/if}
         <span class="sb {st.c}"><span class="sb-dot" aria-hidden="true"></span>{st.l}</span>
       </div>
     </div>
@@ -327,8 +346,46 @@
       <span class="m-t">{m.name}</span>
       {#if m.target}<span class="m-target" title={m.target}>{targetLabel(m.target)}</span>{/if}
     </span>
-    <span class="c-up {upTone(upOf(m))}" title="{uptimeLabel}: {fmtPct(upOf(m))}">{fmtPct(upOf(m))}</span>
+    {#if showUptime}
+      <span class="c-up {upTone(upOf(m))}" title="{uptimeLabel}: {fmtPct(upOf(m))}">{fmtPct(upOf(m))}</span>
+    {:else}
+      <span></span>
+    {/if}
     <span class="sb {st.c}"><span class="sb-dot" aria-hidden="true"></span>{st.l}</span>
+  </li>
+{/snippet}
+
+{#snippet rowMonitor(m: PublicMonitor, key: string)}
+  {@const st = MON[m.status] ?? MON.pending}
+  {@const bars = shown(m.bars)}
+  <li class="rrow">
+    <!-- Durum ışığı: metin rozeti yerine; durum ekran okuyucuya ve ipucuna yazılır. -->
+    <span class="light {st.c}" role="img" aria-label={t('pub.statusLight', { status: st.l })} data-tip={st.l}></span>
+    <div class="r-name">
+      <span class="m-t">{m.name}</span>
+      {#if m.target}<span class="m-target" title={m.target}>{targetLabel(m.target)}</span>{/if}
+    </div>
+    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+    <div
+      class="bars r-bars"
+      bind:clientWidth={rowBarsW}
+      onclick={(e) => pick(e, key)}
+      role="img"
+      aria-label="{m.name}: {uptimeLabel.toLowerCase()} {fmtPct(upOf(m))}"
+    >
+      {#each bars as b, i (i)}
+        <span class="bar {barKind(b)}" class:sel={picked?.key === key && picked.i === i} data-i={i} data-tip={barTip(b)}></span>
+      {/each}
+    </div>
+    {#if showUptime}
+      <span class="r-up {rowTone(upOf(m))}" title={uptimeLabel}>
+        <b>{fmtPct(upOf(m))}</b>
+        <span>{upWin}</span>
+      </span>
+    {/if}
+    {#if picked?.key === key && bars[picked.i]}
+      <div class="picked r-picked">{barTip(bars[picked.i]).replace('\n', ' · ')}</div>
+    {/if}
   </li>
 {/snippet}
 
@@ -361,7 +418,13 @@
               {/if}
             {/if}
             {#if !isFolded}
-              {#if layout.style === 'compact'}
+              {#if layout.style === 'rows'}
+                <ul class="rmons">
+                  {#each sec.monitors as m, mi (mi)}
+                    {@render rowMonitor(m, `${si}-${mi}`)}
+                  {/each}
+                </ul>
+              {:else if layout.style === 'compact'}
                 <ul class="cmons">
                   {#each sec.monitors as m, mi (mi)}
                     {@render compactMonitor(m)}
@@ -989,6 +1052,175 @@
     }
   }
 
+  /* Tek satır: monitör başına bir satır (ışık, ad, çubuklar, uptime). Sütunlar
+     tüm gruplarda hizalı olsun diye satırlar gruplar kabının ızgarasını
+     (subgrid) paylaşır: ad sütunu en uzun ada göre, en fazla %30. */
+  .w-wide.st-rows .wrap {
+    max-width: 1640px;
+  }
+  .st-rows .groups {
+    display: grid;
+    grid-template-columns: auto fit-content(30%) minmax(0, 1fr) auto;
+    gap: 18px 18px;
+  }
+  .st-rows.no-up .groups {
+    grid-template-columns: auto fit-content(30%) minmax(0, 1fr);
+  }
+  .st-rows .group,
+  .rmons,
+  .rrow {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
+    row-gap: 0;
+  }
+  .st-rows .g-head {
+    grid-column: 1 / -1;
+  }
+  .rmons {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .rrow {
+    align-items: center;
+    min-height: 54px;
+    padding: 8px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .rrow:first-child {
+    border-top: none;
+  }
+  .r-name {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 10rem;
+  }
+  .r-name .m-t {
+    font-size: 0.97rem;
+    line-height: 1.25;
+  }
+  .r-name .m-target {
+    font-size: 0.8rem;
+    line-height: 1.2;
+  }
+  .r-bars {
+    height: 26px;
+    gap: 2px;
+  }
+  .r-bars .bar {
+    border-radius: 3px;
+  }
+  .r-up {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    min-width: 4.4rem;
+    line-height: 1.15;
+  }
+  .r-up b {
+    font-size: 1rem;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  .r-up span {
+    font-size: 0.74rem;
+    color: var(--text-2);
+    white-space: nowrap;
+  }
+  .r-up.warn b {
+    color: var(--pending);
+  }
+  .r-up.bad b {
+    color: var(--down-text-2);
+  }
+  .r-up.none b {
+    color: var(--muted);
+  }
+  .pub-light .r-up.warn b {
+    color: var(--pending-text);
+  }
+  .pub-light .r-up.bad b {
+    color: var(--down-text);
+  }
+  .r-picked {
+    grid-column: 3 / -1;
+    margin-top: 4px;
+  }
+
+  /* Durum ışığı: çalışıyorsa yumuşak, kesintide hızlı ve belirgin nabız;
+     bakımda sakin nabız; durdurulmuş/bilinmiyor gri ve sabit. */
+  .light {
+    position: relative;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--paused);
+    flex: none;
+  }
+  .light::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: inherit;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .light.up {
+    background: var(--up);
+  }
+  .light.up::after {
+    animation: sv-halo 2.4s ease-out infinite;
+  }
+  .light.down {
+    background: var(--down);
+    box-shadow: 0 0 0 3px var(--down-soft);
+  }
+  .light.down::after {
+    animation: sv-halo-strong 1s ease-out infinite;
+  }
+  .light.maint {
+    background: var(--maint);
+  }
+  .light.maint::after {
+    animation: sv-halo 2.4s ease-out infinite;
+  }
+  @keyframes sv-halo {
+    0% {
+      transform: scale(1);
+      opacity: 0.55;
+    }
+    70%,
+    100% {
+      transform: scale(2.5);
+      opacity: 0;
+    }
+  }
+  @keyframes sv-halo-strong {
+    0% {
+      transform: scale(1);
+      opacity: 0.9;
+    }
+    100% {
+      transform: scale(3.1);
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .light::after {
+      animation: none !important;
+    }
+    .light.up {
+      box-shadow: 0 0 0 3px var(--up-soft);
+    }
+    .light.maint {
+      box-shadow: 0 0 0 3px var(--maint-soft);
+    }
+  }
+
   /* Olaylar */
   .inc {
     padding: 0;
@@ -1178,6 +1410,48 @@
     .c-name {
       flex-direction: column;
       gap: 1px;
+    }
+    /* Tek satır telefonda: ışık + ad + yüzde üstte, çubuklar altta. */
+    .st-rows .groups,
+    .st-rows.no-up .groups {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .st-rows .group,
+    .rmons {
+      display: block;
+    }
+    .rrow {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-areas:
+        'light name up'
+        'bars bars bars'
+        'pick pick pick';
+      column-gap: 10px;
+      row-gap: 7px;
+      padding: 9px 14px 11px;
+    }
+    .rrow .light {
+      grid-area: light;
+      align-self: start;
+      margin-top: 5px;
+    }
+    .r-name {
+      grid-area: name;
+      min-width: 0;
+    }
+    .r-bars {
+      grid-area: bars;
+      height: 22px;
+    }
+    .r-up {
+      grid-area: up;
+      min-width: 0;
+    }
+    .r-picked {
+      grid-area: pick;
+      margin-top: 0;
     }
   }
 </style>

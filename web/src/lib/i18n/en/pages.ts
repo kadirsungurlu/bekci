@@ -162,12 +162,16 @@ export default {
       list: 'List',
       grid: 'Grid',
       compact: 'Compact',
+      rows: 'Single row',
     },
     styleHelp: {
       list: 'Each monitor with its status bars, one below the other.',
       grid: 'Groups as cards in two columns on wide screens.',
       compact: 'No bars, one row per monitor; for many monitors.',
+      rows: 'Status light, name, bars and uptime on one row; for wide screens.',
     },
+    showUptime: 'Show uptime percentage',
+    showUptimeHelp: 'When off, monitor percentages are hidden; in the single-row layout the bars fill the space.',
     width: 'Page width',
     widths: {
       narrow: 'Narrow',
@@ -175,7 +179,7 @@ export default {
     },
     widthHelp: {
       narrow: 'about 800 px; easy to read, single column',
-      wide: 'about 1200 px; fills wide screens',
+      wide: 'about 1200 px (1600 px in single row); fills wide screens',
     },
     blocks: 'Sections',
     blocksHelp: 'Reorder by dragging the handle or with the arrows; hide with the checkbox.',

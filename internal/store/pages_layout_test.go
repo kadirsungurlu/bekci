@@ -169,3 +169,65 @@ func TestPageLayoutMigration(t *testing.T) {
 		t.Fatalf("sütun varsayılanı boş olmalı: %q %v", raw, err)
 	}
 }
+
+// "rows" yerleşimi ve uptime yüzdesinin gizlenmesi: varsayılan gösterilir,
+// saklama yalnızca gizliyse yazar, eski kayıtlar gösterir.
+func TestPageLayoutRowsAndUptime(t *testing.T) {
+	if !DefaultLayout(true).UptimeShown() || DefaultLayout(true).ShowUptime == nil {
+		t.Fatal("varsayılan dizilimde uptime gösterilmeli (dolu alan)")
+	}
+	no := false
+	l := NormalizeLayout(PageLayout{Style: LayoutRows, Width: WidthWide, ShowUptime: &no}, true)
+	if l.Style != LayoutRows || l.Width != WidthWide || l.UptimeShown() {
+		t.Fatalf("rows/show_uptime korunmalı: %+v", l)
+	}
+	// Normalize kopyası girdiyle işaretçi paylaşmaz.
+	no = true
+	if l.UptimeShown() {
+		t.Fatal("normalize edilmiş dizilim girdinin işaretçisini paylaşmamalı")
+	}
+	enc := encodeLayout(l)
+	if enc != `{"style":"rows","width":"wide","order":["overall","announcements","groups","incidents"],"hide_uptime":true}` {
+		t.Errorf("saklanan biçim: %s", enc)
+	}
+	if got := decodeLayout(enc, true); !reflect.DeepEqual(got, l) {
+		t.Errorf("geri çözme:\n%+v\n%+v", got, l)
+	}
+	// Yalnızca uptime gizli (diğerleri varsayılan) → varsayılan sayılmaz.
+	f := false
+	if enc := encodeLayout(PageLayout{ShowUptime: &f}); enc == "" {
+		t.Error("gizli uptime saklanmalı")
+	}
+	// Eski kayıt (hide_uptime yok) → gösterilir.
+	if got := decodeLayout(`{"style":"grid","width":"wide"}`, true); !got.UptimeShown() || got.Style != LayoutGrid {
+		t.Errorf("eski kayıt: %+v", got)
+	}
+
+	s := openTest(t)
+	ctx := context.Background()
+	p := StatusPage{Slug: "satir", Title: "S", ShowIncidents: true, Layout: l}
+	if err := s.CreatePage(ctx, &p); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetPage(ctx, p.ID)
+	if err != nil || got.Layout.Style != LayoutRows || got.Layout.UptimeShown() {
+		t.Fatalf("rows/gizli uptime saklanmadı: %+v %v", got.Layout, err)
+	}
+	yes := true
+	got.Layout.ShowUptime = &yes
+	if err := s.UpdatePage(ctx, &got); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = s.GetPage(ctx, p.ID)
+	if !got.Layout.UptimeShown() || got.Layout.Style != LayoutRows {
+		t.Fatalf("güncelleme: %+v", got.Layout)
+	}
+	// Dizilimsiz oluşturulan sayfa: uptime gösterilir.
+	q := StatusPage{Slug: "yalin", Title: "Y", ShowIncidents: true}
+	if err := s.CreatePage(ctx, &q); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.GetPage(ctx, q.ID); !got.Layout.UptimeShown() || got.Layout.ShowUptime == nil {
+		t.Fatalf("dizilimsiz sayfa: %+v", got.Layout)
+	}
+}

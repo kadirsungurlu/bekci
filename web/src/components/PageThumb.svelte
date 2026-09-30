@@ -80,7 +80,18 @@
             <span class="th-line w40"></span>
           {/if}
           {#each sec.statuses.slice(0, MAX_ROWS) as st, j (j)}
-            {#if style === 'compact'}
+            {#if style === 'rows'}
+              <!-- tek satır: ışık + ad + çubuklar aynı satırda -->
+              <div class="th-rrow">
+                <span class="th-cdot {pillClass(st)}"></span>
+                <span class="th-line"></span>
+                <div class="th-pills">
+                  {#each { length: PILLS } as _, k (k)}
+                    <span class="th-pill {pillClass(st)}"></span>
+                  {/each}
+                </div>
+              </div>
+            {:else if style === 'compact'}
               <div class="th-crow">
                 <span class="th-cdot {pillClass(st)}"></span>
                 <span class="th-line w60"></span>
@@ -233,6 +244,21 @@
   .th-crow .th-line {
     height: 4px;
     flex: 1;
+  }
+  /* Tek satır: ışık + kısa ad çizgisi + çubuklar. */
+  .th-rrow {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .th-rrow .th-line {
+    width: 24%;
+    height: 4px;
+    flex: none;
+  }
+  .th-rrow .th-pills {
+    flex: 1;
+    min-width: 0;
   }
   .th-cdot {
     width: 5px;

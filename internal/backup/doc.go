@@ -96,13 +96,15 @@ type Announcement struct {
 	EndsAt   int64  `json:"ends_at,omitempty"`
 }
 
-// PageLayout durum sayfası dizilimi: yerleşim (list | grid | compact), genişlik
-// (narrow | wide) ve bölüm sırası/görünürlüğü. Olaylar bölümünün görünürlüğü
-// ShowIncidents'tır.
+// PageLayout durum sayfası dizilimi: yerleşim (list | grid | compact | rows),
+// genişlik (narrow | wide), bölüm sırası/görünürlüğü ve uptime yüzdesi. Olaylar
+// bölümünün görünürlüğü ShowIncidents'tır.
 type PageLayout struct {
 	Style  string      `json:"style"`
 	Width  string      `json:"width"`
 	Blocks []PageBlock `json:"blocks"`
+	// ShowUptime eski yedeklerde yok → gösterilir.
+	ShowUptime *bool `json:"show_uptime,omitempty"`
 }
 
 type PageBlock struct {

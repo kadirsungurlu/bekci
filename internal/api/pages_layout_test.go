@@ -123,6 +123,56 @@ func TestStatusPageLayout(t *testing.T) {
 	}
 }
 
+// "rows" yerleşimi ve show_uptime: varsayılan gösterilir, gizlenebilir,
+// herkese açık yanıtta taşınır; dizilim gönderilmezse değişmez.
+func TestStatusPageRowsLayout(t *testing.T) {
+	pe := setupPages(t)
+	a := pe.seedMonitor("A", "https://a.example.com")
+	pe.beat(a.ID, pe.s.now().Unix(), store.StatusUp)
+	secs := []map[string]any{{"title": "Web", "monitors": []map[string]any{{"id": a.ID}}}}
+
+	// Dizilimsiz yeni sayfa: show_uptime true.
+	var p pageResp
+	pe.mustDo("POST", "/api/status-pages", map[string]any{"slug": "yalin", "title": "Yalın", "sections": secs}, &p, 201)
+	if p.Layout.ShowUptime == nil || !*p.Layout.ShowUptime {
+		t.Fatalf("varsayılan show_uptime true olmalı: %+v", p.Layout)
+	}
+
+	pe.mustDo("POST", "/api/status-pages", map[string]any{"slug": "satir", "title": "Satır", "sections": secs,
+		"layout": map[string]any{"style": "rows", "width": "wide", "show_uptime": false}}, &p, 201)
+	if p.Layout.Style != "rows" || p.Layout.Width != "wide" || p.Layout.UptimeShown() {
+		t.Fatalf("rows/show_uptime=false: %+v", p.Layout)
+	}
+	url := fmt.Sprintf("/api/status-pages/%d", p.ID)
+
+	// Herkese açık yanıt yerleşimi ve show_uptime'ı taşır (ham JSON'da alan var).
+	var raw map[string]json.RawMessage
+	pe.anon().mustDo("GET", "/api/public/pages/satir", nil, &raw, 200)
+	var pubLayout map[string]any
+	if err := json.Unmarshal(raw["layout"], &pubLayout); err != nil || pubLayout["style"] != "rows" || pubLayout["show_uptime"] != false {
+		t.Fatalf("herkese açık dizilim: %s %v", raw["layout"], err)
+	}
+
+	// Dizilim gönderilmezse değişmez.
+	pe.mustDo("PUT", url, map[string]any{"slug": "satir", "title": "Satır", "sections": secs, "show_targets": true}, &p, 200)
+	if p.Layout.Style != "rows" || p.Layout.UptimeShown() {
+		t.Fatalf("dizilim korunmalı: %+v", p.Layout)
+	}
+	// Dizilim bütün olarak değişir: show_uptime verilmezse gösterilir.
+	pe.mustDo("PUT", url, map[string]any{"slug": "satir", "title": "Satır", "sections": secs,
+		"layout": map[string]any{"style": "rows", "width": "narrow"}}, &p, 200)
+	if p.Layout.Style != "rows" || p.Layout.Width != "narrow" || !p.Layout.UptimeShown() {
+		t.Fatalf("show_uptime yok → true: %+v", p.Layout)
+	}
+	pe.anon().mustDo("GET", "/api/public/pages/satir", nil, &raw, 200)
+	if err := json.Unmarshal(raw["layout"], &pubLayout); err != nil || pubLayout["show_uptime"] != true || pubLayout["width"] != "narrow" {
+		t.Fatalf("herkese açık dizilim (gösterilir): %s", raw["layout"])
+	}
+	// Tip hatası 400.
+	pe.mustDo("PUT", url, map[string]any{"slug": "satir", "title": "Satır", "sections": secs,
+		"layout": map[string]any{"style": "rows", "show_uptime": "hayir"}}, nil, 400)
+}
+
 // Canlı önizleme verisi: kaydedilmemiş monitör listesi için kimliğe göre veri.
 func TestPreviewData(t *testing.T) {
 	pe := setupPages(t)
@@ -186,14 +236,15 @@ func TestBackupPageLayout(t *testing.T) {
 	}
 	a.mustDo("POST", "/api/status-pages", map[string]any{"slug": "yedek", "title": "Yedek", "show_incidents": false,
 		"sections": []map[string]any{{"title": "Web", "monitors": []map[string]any{{"id": site}}}},
-		"layout":   map[string]any{"style": "compact", "width": "wide", "blocks": []map[string]any{{"id": "groups"}, {"id": "overall", "visible": false}}}}, nil, 201)
+		"layout":   map[string]any{"style": "compact", "width": "wide", "show_uptime": false, "blocks": []map[string]any{{"id": "groups"}, {"id": "overall", "visible": false}}}}, nil, 201)
 
 	doc, _ := a.exportDoc()
 	if len(doc.StatusPages) != 1 || doc.StatusPages[0].Layout == nil {
 		t.Fatalf("yedekte dizilim yok: %+v", doc.StatusPages)
 	}
 	want := backup.PageLayout{Style: "compact", Width: "wide", Blocks: []backup.PageBlock{
-		{ID: "groups", Visible: true}, {ID: "overall", Visible: false}, {ID: "announcements", Visible: true}, {ID: "incidents", Visible: false}}}
+		{ID: "groups", Visible: true}, {ID: "overall", Visible: false}, {ID: "announcements", Visible: true}, {ID: "incidents", Visible: false}},
+		ShowUptime: new(bool)}
 	if !reflect.DeepEqual(*doc.StatusPages[0].Layout, want) {
 		t.Fatalf("yedekteki dizilim: %+v", *doc.StatusPages[0].Layout)
 	}
@@ -214,7 +265,7 @@ func TestBackupPageLayout(t *testing.T) {
 	p1.Slug, p1.Layout, p1.Sections, p1.ShowIncidents = "eski", nil, nil, nil
 	p2 := doc.StatusPages[0]
 	p2.Slug, p2.ShowIncidents, p2.Sections = "elle", nil, nil
-	p2.Layout = &backup.PageLayout{Style: "grid", Blocks: []backup.PageBlock{{ID: "incidents", Visible: false}}}
+	p2.Layout = &backup.PageLayout{Style: "rows", Blocks: []backup.PageBlock{{ID: "incidents", Visible: false}}}
 	old.StatusPages = []backup.Page{p1, p2}
 	c := setupAdmin(t)
 	raw, _ := json.Marshal(old)
@@ -225,10 +276,11 @@ func TestBackupPageLayout(t *testing.T) {
 	for _, p := range list {
 		got[p.Slug] = p
 	}
-	if e := got["eski"]; e.Layout.Style != "list" || layoutIDs(e.Layout) != "overall,announcements,groups,incidents" || !e.ShowIncidents {
+	if e := got["eski"]; e.Layout.Style != "list" || layoutIDs(e.Layout) != "overall,announcements,groups,incidents" || !e.ShowIncidents || !e.Layout.UptimeShown() {
 		t.Errorf("eski yedek: %+v", e)
 	}
-	if e := got["elle"]; e.Layout.Style != "grid" || e.ShowIncidents || layoutIDs(e.Layout) != "-incidents,overall,announcements,groups" {
+	// show_uptime'sız yedek: uptime gösterilir.
+	if e := got["elle"]; e.Layout.Style != "rows" || e.ShowIncidents || layoutIDs(e.Layout) != "-incidents,overall,announcements,groups" || !e.Layout.UptimeShown() {
 		t.Errorf("elle yazılmış yedek: %+v", e)
 	}
 }

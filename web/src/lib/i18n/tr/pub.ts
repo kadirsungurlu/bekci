@@ -34,6 +34,8 @@ export default {
     danger: 'Sorun',
     success: 'Çözüldü',
   },
+  /** Tek satır yerleşimindeki durum ışığının ekran okuyucu metni. */
+  statusLight: 'Durum: {status}',
   groupDown: '{count} serviste kesinti',
   groupUp: 'Çalışıyor',
   noChecksYet: 'Henüz kontrol yok',

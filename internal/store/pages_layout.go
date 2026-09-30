@@ -16,12 +16,13 @@ const (
 	LayoutList    = "list"    // her monitör çubuklarıyla alt alta (varsayılan)
 	LayoutGrid    = "grid"    // geniş ekranda gruplar iki sütunda kart olarak
 	LayoutCompact = "compact" // çubuksuz, monitör başına tek sık satır
+	LayoutRows    = "rows"    // monitör başına tek satır: durum ışığı, ad, çubuklar, uptime
 )
 
 // Genişlikler.
 const (
 	WidthNarrow = "narrow" // ~800 px (varsayılan)
-	WidthWide   = "wide"   // ~1200 px
+	WidthWide   = "wide"   // ~1200 px ("rows" yerleşiminde ~1650 px)
 )
 
 // Sayfa bölümleri.
@@ -56,7 +57,14 @@ type PageLayout struct {
 	Style  string      `json:"style"`
 	Width  string      `json:"width"`
 	Blocks []PageBlock `json:"blocks"`
+	// ShowUptime monitör satırlarında uptime yüzdesi gösterilsin mi. nil
+	// (eski sayfa, eski yedek, alan gönderilmemiş) = gösterilir;
+	// NormalizeLayout her zaman dolu döndürür.
+	ShowUptime *bool `json:"show_uptime"`
 }
+
+// UptimeShown uptime yüzdesi gösterilir mi (nil = evet)?
+func (l PageLayout) UptimeShown() bool { return l.ShowUptime == nil || *l.ShowUptime }
 
 // Visible bölüm görünür mü?
 func (l PageLayout) Visible(id string) bool {
@@ -78,9 +86,10 @@ func DefaultLayout(showIncidents bool) PageLayout {
 // eksik bölümler görünür olarak sona eklenir. Olaylar bölümünün görünürlüğü
 // her zaman showIncidents'tır.
 func NormalizeLayout(l PageLayout, showIncidents bool) PageLayout {
-	out := PageLayout{Style: l.Style, Width: l.Width, Blocks: make([]PageBlock, 0, len(DefaultBlockOrder))}
+	showUptime := l.UptimeShown()
+	out := PageLayout{Style: l.Style, Width: l.Width, Blocks: make([]PageBlock, 0, len(DefaultBlockOrder)), ShowUptime: &showUptime}
 	switch out.Style {
-	case LayoutList, LayoutGrid, LayoutCompact:
+	case LayoutList, LayoutGrid, LayoutCompact, LayoutRows:
 	default:
 		out.Style = LayoutList
 	}
@@ -110,11 +119,13 @@ func NormalizeLayout(l PageLayout, showIncidents bool) PageLayout {
 }
 
 // storedLayout veritabanındaki biçim: sıra ve gizli bölümler (olaylar hariç).
+// Uptime yüzdesi yalnızca gizliyse yazılır (eski kayıtlar: gösterilir).
 type storedLayout struct {
-	Style  string   `json:"style,omitempty"`
-	Width  string   `json:"width,omitempty"`
-	Order  []string `json:"order,omitempty"`
-	Hidden []string `json:"hidden,omitempty"`
+	Style      string   `json:"style,omitempty"`
+	Width      string   `json:"width,omitempty"`
+	Order      []string `json:"order,omitempty"`
+	Hidden     []string `json:"hidden,omitempty"`
+	HideUptime bool     `json:"hide_uptime,omitempty"`
 }
 
 // encodeLayout layout sütununa yazılacak metin; varsayılan dizilim "" olarak saklanır.
@@ -123,7 +134,7 @@ func encodeLayout(l PageLayout) string {
 	if isDefaultLayout(l) {
 		return ""
 	}
-	st := storedLayout{Style: l.Style, Width: l.Width}
+	st := storedLayout{Style: l.Style, Width: l.Width, HideUptime: !l.UptimeShown()}
 	for _, b := range l.Blocks {
 		st.Order = append(st.Order, b.ID)
 		if !b.Visible && b.ID != BlockIncidents {
@@ -135,7 +146,7 @@ func encodeLayout(l PageLayout) string {
 }
 
 func isDefaultLayout(l PageLayout) bool {
-	if l.Style != LayoutList || l.Width != WidthNarrow || len(l.Blocks) != len(DefaultBlockOrder) {
+	if l.Style != LayoutList || l.Width != WidthNarrow || !l.UptimeShown() || len(l.Blocks) != len(DefaultBlockOrder) {
 		return false
 	}
 	for i, b := range l.Blocks {
@@ -156,7 +167,8 @@ func decodeLayout(s string, showIncidents bool) PageLayout {
 	for _, id := range st.Hidden {
 		hidden[id] = true
 	}
-	l := PageLayout{Style: st.Style, Width: st.Width}
+	showUptime := !st.HideUptime
+	l := PageLayout{Style: st.Style, Width: st.Width, ShowUptime: &showUptime}
 	for _, id := range st.Order {
 		l.Blocks = append(l.Blocks, PageBlock{ID: id, Visible: !hidden[id]})
 	}

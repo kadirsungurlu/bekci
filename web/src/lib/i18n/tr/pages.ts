@@ -160,12 +160,16 @@ export default {
       list: 'Liste',
       grid: 'Izgara',
       compact: 'Sık liste',
+      rows: 'Tek satır',
     },
     styleHelp: {
       list: 'Her monitör durum çubuklarıyla alt alta.',
       grid: 'Geniş ekranda gruplar iki sütunda kart olarak.',
       compact: 'Çubuksuz, monitör başına tek satır; çok sayıda monitör için.',
+      rows: 'Durum ışığı, ad, çubuklar ve uptime aynı satırda; geniş ekranlar için.',
     },
+    showUptime: 'Uptime oranını göster',
+    showUptimeHelp: 'Kapalıyken monitörlerin yüzdesi gizlenir; tek satır yerleşiminde çubuklar boşluğu doldurur.',
     width: 'Sayfa genişliği',
     widths: {
       narrow: 'Dar',
@@ -173,7 +177,7 @@ export default {
     },
     widthHelp: {
       narrow: 'yaklaşık 800 px; okunaklı, tek sütun',
-      wide: 'yaklaşık 1200 px; geniş ekranları doldurur',
+      wide: 'yaklaşık 1200 px (tek satırda 1600 px); geniş ekranları doldurur',
     },
     blocks: 'Bölümler',
     blocksHelp: 'Tutamaktan sürükleyerek veya oklarla sıralayın; kutucukla gizleyin.',

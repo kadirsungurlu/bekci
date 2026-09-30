@@ -137,7 +137,8 @@ func (s *Server) buildExport(ctx context.Context) (*backup.Doc, error) {
 			CustomDomain: p.CustomDomain, PasswordHash: p.PasswordHash, ShowTargets: p.ShowTargets,
 			BarRange: p.BarRange, ShowIncidents: &p.ShowIncidents, Collapsible: p.Collapsible, Lang: p.Lang, Published: p.Published, Sections: []backup.PageSection{}, Announcements: []backup.Announcement{},
 		}
-		bl := backup.PageLayout{Style: p.Layout.Style, Width: p.Layout.Width, Blocks: []backup.PageBlock{}}
+		showUptime := p.Layout.UptimeShown()
+		bl := backup.PageLayout{Style: p.Layout.Style, Width: p.Layout.Width, Blocks: []backup.PageBlock{}, ShowUptime: &showUptime}
 		for _, b := range p.Layout.Blocks {
 			bl.Blocks = append(bl.Blocks, backup.PageBlock{ID: b.ID, Visible: b.Visible})
 		}
@@ -644,7 +645,7 @@ func planPage(bp backup.Page, known map[int64]bool, slugs, domains, selfHosts ma
 		Lang: i18n.Or(bp.Lang),
 	}
 	if bp.Layout != nil {
-		l := store.PageLayout{Style: bp.Layout.Style, Width: bp.Layout.Width}
+		l := store.PageLayout{Style: bp.Layout.Style, Width: bp.Layout.Width, ShowUptime: bp.Layout.ShowUptime}
 		for _, b := range bp.Layout.Blocks {
 			l.Blocks = append(l.Blocks, store.PageBlock{ID: b.ID, Visible: b.Visible})
 			// show_incidents olmayan (elle yazılmış) yedekte olaylar dizilimden alınır.

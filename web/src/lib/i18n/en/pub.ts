@@ -36,6 +36,8 @@ export default {
     danger: 'Issue',
     success: 'Resolved',
   },
+  /** Screen reader text of the status light in the single-row layout. */
+  statusLight: 'Status: {status}',
   groupDown: 'Outage in {count} service|Outage in {count} services',
   groupUp: 'Operational',
   noChecksYet: 'No checks yet',

@@ -690,8 +690,11 @@ export interface AnnouncementInput {
   ends_at: number;
 }
 
-/** Durum sayfası yerleşimi: liste (çubuklu), ızgara (geniş ekranda iki sütun), sık liste (çubuksuz). */
-export type PageStyle = 'list' | 'grid' | 'compact';
+/**
+ * Durum sayfası yerleşimi: liste (çubuklu), ızgara (geniş ekranda iki sütun),
+ * sık liste (çubuksuz), tek satır (durum ışığı, ad, çubuklar ve uptime aynı satırda).
+ */
+export type PageStyle = 'list' | 'grid' | 'compact' | 'rows';
 export type PageWidth = 'narrow' | 'wide';
 /** Herkese açık sayfanın sıralanabilir bölümleri. */
 export type PageBlockId = 'overall' | 'announcements' | 'groups' | 'incidents';
@@ -701,6 +704,8 @@ export interface PageLayout {
   width: PageWidth;
   /** Dört bölüm de sırasıyla. */
   blocks: { id: PageBlockId; visible: boolean }[];
+  /** Monitörlerin uptime yüzdesi gösterilsin mi (eski sunucu/sayfa: gösterilir). */
+  show_uptime: boolean;
 }
 
 /** Düzenleyicideki canlı önizleme verisi (POST /api/status-pages/preview-data). */
