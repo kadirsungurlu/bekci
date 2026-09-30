@@ -95,9 +95,11 @@
    ezsin diye sınıf iki kez yazılır (.mrow.mrow). */
 
 /* Liste daraldıkça sütunlar önem sırasının tersine gizlenir; eşikler, ad
-   sütununa (ad, tür, etiketler, adres, durum) her zaman en az ~320 px kalacak
-   şekilde sütun genişliklerinin toplamından hesaplanmıştır:
-   son kontrol → aralık → 30 gün → 7 gün → konum → SSL → grafik → yanıt süresi. */
+   sütununa (ad, tür, etiketler, adres, durum; neden kendi satırında) en az
+   ~280 px kalacak şekilde sütun genişliklerinin toplamından hesaplanmıştır:
+   son kontrol → aralık → 30 gün → 7 gün → yanıt grafiği → yanıt süresi →
+   SSL → konum. Konum ve SSL, çalışmama nedenini tamamladığı için en son gider
+   (1440 px ekranda ~820 px'lik listede ikisi de görünür); çubuklar daralır. */
 @container mlist (max-width: 1439px) {
   .mrow.mrow > .mc-last {
     display: none;
@@ -119,27 +121,36 @@
   }
 }
 @container mlist (max-width: 1119px) {
-  .mrow.mrow > .mc-locs {
-    display: none;
-  }
-}
-@container mlist (max-width: 1039px) {
-  .mrow.mrow > .mc-ssl {
-    display: none;
-  }
-}
-@container mlist (max-width: 963px) {
   .mrow > .mc-resp {
     width: 64px;
   }
 }
-@container mlist (max-width: 900px) {
+@container mlist (max-width: 1000px) {
   .mrow > .mc-bars {
     width: 180px;
   }
 }
-@container mlist (max-width: 779px) {
+@container mlist (max-width: 919px) {
   .mrow.mrow > .mc-resp {
+    display: none;
+  }
+}
+@container mlist (max-width: 860px) {
+  /* 24 çubuk sıkışık aralıkla sığar (en az 4 px + 2 px boşluk). */
+  .mrow > .mc-bars {
+    width: 164px;
+  }
+  .mrow > .mc-bars .bars {
+    gap: 2px;
+  }
+}
+@container mlist (max-width: 779px) {
+  .mrow.mrow > .mc-ssl {
+    display: none;
+  }
+}
+@container mlist (max-width: 719px) {
+  .mrow.mrow > .mc-locs {
     display: none;
   }
 }

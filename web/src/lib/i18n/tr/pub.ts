@@ -50,6 +50,7 @@ export default {
   uptime90d: '90 günlük uptime',
   today: 'Bugün',
   now: 'Şimdi',
+  lastCheck: 'Son kontrol {ago}',
   incidentsTitle: 'Son 14 günün olayları',
   noIncidents: 'Olay yok',
   ongoing: 'Devam ediyor',

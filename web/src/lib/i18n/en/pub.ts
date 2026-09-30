@@ -52,6 +52,7 @@ export default {
   uptime90d: '90-day uptime',
   today: 'Today',
   now: 'Now',
+  lastCheck: 'Last check {ago}',
   incidentsTitle: 'Incidents in the last 14 days',
   noIncidents: 'No incidents',
   ongoing: 'Ongoing',

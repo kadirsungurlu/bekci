@@ -170,7 +170,7 @@
               <div class="d1">
                 <UsageBar value={diskPct(st)} label="{s.name}: {metricLabel('disk')}{fm ? ` ${fm}` : ''}" inline />
                 <!-- Tek bölümlü sunucuda telefonda yalnızca "/" yazan satır gösterilmez. -->
-                {#if fm}<span class="dm" class:root={fm === '/' && disks.length <= 1} aria-hidden="true">{fm}</span>{/if}
+                {#if fm}<span class="dm" class:root={fm === '/'} aria-hidden="true">{fm}</span>{/if}
               </div>
               {#if disks.length > 1}
                 <div class="dlist">

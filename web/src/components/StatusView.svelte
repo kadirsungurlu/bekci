@@ -192,21 +192,31 @@
    * tahmin edilir; o kadar boş çubuk sağa eklenir. Böylece 18 saat önceki son
    * kontrol "Şimdi"nin hemen üstünde görünmez.
    */
-  function staleSlots(bars: PublicBar[]): number {
-    if (range !== 'recent' || bars.length < 2) return 0;
+  function medianStep(bars: PublicBar[]): number {
     const gaps: number[] = [];
     for (let i = Math.max(1, bars.length - 20); i < bars.length; i++) gaps.push(bars[i].t - bars[i - 1].t);
     gaps.sort((a, b) => a - b);
-    const step = gaps[Math.floor(gaps.length / 2)];
+    return gaps.length ? gaps[Math.floor(gaps.length / 2)] : 0;
+  }
+  // Tek kontrolü olan monitör için sayfadaki monitörlerin tipik kontrol aralığı.
+  const pageStep = $derived.by(() => {
+    const steps = page.sections.flatMap((sec) => sec.monitors.map((m) => medianStep(m.bars))).filter((x) => x > 0);
+    steps.sort((a, b) => a - b);
+    return steps.length ? steps[Math.floor(steps.length / 2)] : 0;
+  });
+  function staleSlots(bars: PublicBar[]): number {
+    if (range !== 'recent' || bars.length < 1) return 0;
+    const step = bars.length >= 2 ? medianStep(bars) : pageStep;
     if (!(step > 0)) return 0;
     const behind = Math.floor((nowSec() - bars[bars.length - 1].t) / step) - 1; // bir aralık tolerans
     return Math.max(0, Math.min(count, behind));
   }
 
   /** Gösterilecek çubuklar; son kontroller görünümünde az kontrol varsa soldan boşlukla doldurulur. */
-  function shown(bars: PublicBar[]): (PublicBar | null)[] {
+  function shown(bars: PublicBar[], paused = false): (PublicBar | null)[] {
     if (range !== 'recent') return bars.slice(-count);
-    const stale = staleSlots(bars);
+    // Durdurulmuş monitörün çubukları son kontrolde biter (eksen sonu "son kontrol").
+    const stale = paused ? 0 : staleSlots(bars);
     const keep = count - stale;
     const last = keep > 0 ? bars.slice(-keep) : [];
     const tail: null[] = Array(stale).fill(null);
@@ -234,6 +244,22 @@
     let s = `${head}\n${t('pub.barUptime', { pct: fmtPct((100 * b.up) / total) })}`;
     if (b.down > 0) s += ` · ${t('pub.barFailed', { count: b.down })}`;
     return s;
+  }
+
+  /**
+   * Alt eksenin sağ ucu. Son kontroller görünümünde durdurulmuş (veya uzun
+   * süredir sonuç gelmeyen) monitörün son çubuğu "şimdi" değildir: son
+   * kontrolün zamanı yazılır.
+   */
+  function axisEnd(m: PublicMonitor, bars: (PublicBar | null)[]): string {
+    if (range === '90d') return t('pub.today');
+    if (range !== 'recent') return t('pub.now');
+    const last = [...bars].reverse().find((b) => b) ?? null;
+    if (!last) return t('pub.now');
+    const min = Math.max(1, Math.round((nowSec() - last.t) / 60));
+    if (m.status !== 'paused' && min < 15) return t('pub.now');
+    const ago = min < 120 ? t('pub.minAgo', { count: min }) : t('pub.hoursAgo', { count: Math.round(min / 60) });
+    return t('pub.lastCheck', { ago });
   }
 
   /** Alt eksenin sol ucu: görünümün başladığı an. */
@@ -381,7 +407,7 @@
 
 {#snippet barMonitor(m: PublicMonitor, key: string)}
   {@const st = MON[m.status] ?? MON.pending}
-  {@const bars = shown(m.bars)}
+  {@const bars = shown(m.bars, m.status === 'paused')}
   <div class="mon">
     <div class="m-top">
       <div class="m-name">
@@ -408,7 +434,7 @@
     <div class="axis" aria-hidden="true">
       <span>{axisStart(bars)}</span>
       <span class="axis-line"></span>
-      <span>{range === '90d' ? t('pub.today') : t('pub.now')}</span>
+      <span>{axisEnd(m, bars)}</span>
     </div>
     {#if picked?.key === key && bars[picked.i]}
       <div class="picked">{barTip(bars[picked.i]).replace('\n', ' · ')}</div>

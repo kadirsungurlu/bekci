@@ -411,6 +411,29 @@
   let sideEl = $state<HTMLElement>();
   let listMax = $state(0);
   let sideMax = $state(0);
+  // Yan panel kendi içinde kayarken altta/üstte içerik olduğunu solan kenarla belli et.
+  let sideMore = $state({ above: false, below: false });
+  function updateSideMore() {
+    const el = sideEl;
+    if (!el || !sideMax) {
+      if (sideMore.above || sideMore.below) sideMore = { above: false, below: false };
+      return;
+    }
+    const above = el.scrollTop > 2;
+    const below = el.scrollTop + el.clientHeight < el.scrollHeight - 2;
+    if (above !== sideMore.above || below !== sideMore.below) sideMore = { above, below };
+  }
+  $effect(() => {
+    if (!sideEl) return;
+    const ro = new ResizeObserver(updateSideMore);
+    ro.observe(sideEl);
+    for (const c of sideEl.children) ro.observe(c);
+    return () => ro.disconnect();
+  });
+  $effect(() => {
+    void [sideMax, incidents, maints];
+    tick().then(updateSideMore);
+  });
   function fitList() {
     if (!listEl || !window.matchMedia('(min-width: 901px)').matches) {
       listMax = sideMax = 0;
@@ -549,6 +572,8 @@
             <button type="button" class="clear" aria-label={t('monitors.list.clearSearch')} onclick={() => (search = '')}><Icon name="x" size={14} /></button>
           {/if}
         </div>
+        <!-- Dar liste sütununda seçiciler ikinci satıra iner (bkz. @container mcol). -->
+        <span class="tb-break" aria-hidden="true"></span>
         <select class="input sel fsel" bind:value={filter} aria-label={t('monitors.list.filter')}>
           <option value="all">{t('monitors.list.fAll', { n: counts.total })}</option>
           <option value="down">{t('monitors.list.fDown', { n: counts.down })}</option>
@@ -684,7 +709,15 @@
       </div>
     </section>
 
-    <aside class="side" class:scroll={sideMax > 0} style:max-height={sideMax ? `${sideMax}px` : null} bind:this={sideEl}>
+    <aside
+      class="side"
+      class:scroll={sideMax > 0}
+      class:more-below={sideMore.below}
+      class:more-above={sideMore.above}
+      style:max-height={sideMax ? `${sideMax}px` : null}
+      bind:this={sideEl}
+      onscroll={updateSideMore}
+    >
       <div class="card status-card">
         <h2 class="card-title">{t('monitors.list.currentStatus')}<span class="dot">.</span></h2>
         <div class="big">
@@ -962,17 +995,24 @@
     min-width: 0;
     container: mcol / inline-size;
   }
-  /* Dar liste sütununda (ör. 1280 px ekran, yan panel açık) araç çubuğu tek
-     satırda kalsın: seçim kutusunun sayısı gizlenir, arama kutusu daralır. */
+  .tb-break {
+    display: none;
+  }
+  /* Dar liste sütununda (ör. 1280 px ekran, yan panel açık) araç çubuğu iki
+     düzenli satır: seçim kutusu + arama tam genişlikte (yer tutucu kesilmez,
+     sayaç görünür), altında seçiciler eşit genişlikte. */
   @container mcol (max-width: 780px) {
     .toolbar {
       gap: 8px;
     }
-    .toolbar .selbox:not(.on) .cnt {
-      display: none;
+    .toolbar .tb-break {
+      display: block;
+      flex-basis: 100%;
+      height: 0;
     }
-    .toolbar .search {
-      flex: 1 1 140px;
+    .toolbar .sel {
+      flex: 1 1 0;
+      min-width: 0;
     }
   }
   .toolbar {
@@ -1235,6 +1275,26 @@
   }
   .side > :global(*) {
     flex-shrink: 0;
+  }
+  .side.more-below {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 56px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 56px), transparent);
+  }
+  .side.more-above {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 40px);
+    mask-image: linear-gradient(to bottom, transparent, #000 40px);
+  }
+  .side.more-above.more-below {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 40px, #000 calc(100% - 56px), transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 40px, #000 calc(100% - 56px), transparent);
+  }
+  /* Kaydırma çubuğu da görünsün (ince). */
+  .side.scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .side.scroll::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 3px;
   }
   .big {
     display: flex;

@@ -1455,7 +1455,8 @@
     grid-area: icon;
   }
   /* Seçili kartın açıklaması vurgu zemininde okunur kalsın (≥ 4,5:1). */
-  .type.active .tdesc {
+  .type.active .tdesc,
+  .tcur .tdesc {
     color: var(--text-2);
   }
   .type.active .ticon {
