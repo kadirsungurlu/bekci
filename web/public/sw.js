@@ -36,6 +36,8 @@ self.addEventListener('activate', (event) => {
     (async () => {
       const keys = await caches.keys();
       await Promise.all(keys.filter((k) => k.startsWith('uptime-') && k !== CACHE).map((k) => caches.delete(k)));
+      // İlk kurulumda açık sayfa da hemen bu çalışanla çalışsın (çevrimdışı açılış).
+      // Sayfa bu ilk sahiplenmede YENİLENMEZ (bkz. pwa.svelte.ts controllerchange).
       await self.clients.claim();
     })(),
   );

@@ -13,6 +13,8 @@ class Pwa {
   private reg: ServiceWorkerRegistration | null = null;
   private reloading = false;
   private started = false;
+  /** Kullanıcı "Yenile" dedi: yeni çalışan devreye girince sayfa yenilenir. */
+  private accepted = false;
 
   constructor() {
     if (typeof window === 'undefined') return;
@@ -27,11 +29,27 @@ class Pwa {
     if (this.started || !import.meta.env.PROD || !('serviceWorker' in navigator)) return;
     this.started = true;
     const sw = navigator.serviceWorker;
-    // Yeni çalışan devreye girince (kullanıcı "Yenile" dedi) sayfa bir kez yenilenir.
+    // Sayfayı şu an bir çalışan yönetiyor mu? İlk ziyarette (veya önbellek
+    // temizlendikten sonra) yönetmiyordur: yeni kurulan çalışan clients.claim()
+    // ile sayfayı sahiplenince controllerchange gelir. Bu İLK sahiplenmede sayfa
+    // YENİLENMEZ (giriş formuna yazılanlar silinir, giriş yarıda kalırdı); sayfa
+    // zaten güncel dosyalarla açılmıştır.
+    let controlled = !!sw.controller;
     sw.addEventListener('controllerchange', () => {
+      if (!controlled) {
+        controlled = true;
+        return;
+      }
       if (this.reloading) return;
-      this.reloading = true;
-      location.reload();
+      if (this.accepted) {
+        // Kullanıcı "Yenile" dedi: yeni sürüm devrede, sayfa bir kez yenilenir.
+        this.reloading = true;
+        location.reload();
+        return;
+      }
+      // Yeni sürümü başka bir sekme devreye aldı: bu sekme kendiliğinden
+      // yenilenmez (yazılanlar kaybolmasın), yalnızca "Yeni sürüm hazır" der.
+      this.updateReady = true;
     });
     sw.register('/sw.js', { scope: '/' })
       .then((reg) => {
@@ -63,8 +81,10 @@ class Pwa {
   /** Bekleyen sürümü devreye alır; controllerchange sayfayı yeniler. */
   applyUpdate() {
     const w = this.reg?.waiting;
-    if (w) w.postMessage({ type: 'SKIP_WAITING' });
-    else location.reload();
+    if (w) {
+      this.accepted = true;
+      w.postMessage({ type: 'SKIP_WAITING' });
+    } else location.reload();
   }
 
   dismissUpdate() {
