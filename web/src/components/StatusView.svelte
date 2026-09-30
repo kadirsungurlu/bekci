@@ -126,11 +126,15 @@
   });
 
   // Izgarada gruplar bu genişlikten itibaren iki sütun olur (CSS'teki @container ile aynı).
-  const GRID_MIN = 720;
+  const GRID_MIN = 760;
+  const GRID3_MIN = 1400;
   const GRID_GAP = 18;
   let mainW = $state(800);
   /** Bir grubun (sütunun) genişliği: çubuk sayısı buna göre seçilir. */
-  const colW = $derived(layout.style === 'grid' && mainW >= GRID_MIN ? (mainW - GRID_GAP) / 2 : mainW);
+  // Izgara sütun sayısı CSS'teki kapsayıcı sorgularıyla aynı eşiklerde: 760 px'ten
+  // iki, 1400 px'ten üç sütun.
+  const gridCols = $derived(layout.style !== 'grid' ? 1 : mainW >= GRID3_MIN ? 3 : mainW >= GRID_MIN ? 2 : 1);
+  const colW = $derived((mainW - GRID_GAP * (gridCols - 1)) / gridCols);
   // Sayfanın çubuk görünümü (eski sunucu: 90 gün). Dar alanda çubuklar okunur
   // kalsın diye daha az çubuk gösterilir.
   const range = $derived<BarRange>(page.range ?? '90d');
@@ -495,13 +499,16 @@
     min-height: 100%;
   }
   .wrap {
+    /* Izgara/sık liste sütun sayısı sayfa kutusunun genişliğine göre (ekrana göre değil). */
+    container: pubw / inline-size;
     width: 100%;
     max-width: 860px;
     margin: 0 auto;
     padding: 0 20px;
   }
   .w-wide .wrap {
-    max-width: 1260px;
+    /* Geniş: tüm yerleşimlerde aynı genişlik (ızgara ve sık liste burada üç sütun). */
+    max-width: 1640px;
   }
   .panel {
     background: var(--card);
@@ -960,11 +967,16 @@
   }
 
   /* Izgara: geniş alanda gruplar iki sütunda kart; çubuklar biraz daha sık. */
-  @container pubv (min-width: 760px) {
+  @container pubw (min-width: 760px) {
     .st-grid .groups {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       align-items: start;
+    }
+  }
+  @container pubw (min-width: 1400px) {
+    .st-grid .groups {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
   .st-grid .mon {
@@ -1041,7 +1053,7 @@
     font-size: 0.8rem;
   }
   /* Geniş sayfada sık liste iki sütun. */
-  @container pubv (min-width: 1000px) {
+  @container pubw (min-width: 1000px) {
     .cmons {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1051,13 +1063,22 @@
       border-right: 1px solid var(--border);
     }
   }
+  /* Geniş sayfada (≈1640 px) sık liste üç sütun. */
+  @container pubw (min-width: 1400px) {
+    .cmons {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .crow:nth-child(odd) {
+      border-right: 0;
+    }
+    .crow:not(:nth-child(3n)) {
+      border-right: 1px solid var(--border);
+    }
+  }
 
   /* Tek satır: monitör başına bir satır (ışık, ad, çubuklar, uptime). Sütunlar
      tüm gruplarda hizalı olsun diye satırlar gruplar kabının ızgarasını
      (subgrid) paylaşır: ad sütunu en uzun ada göre, en fazla %30. */
-  .w-wide.st-rows .wrap {
-    max-width: 1640px;
-  }
   .st-rows .groups {
     display: grid;
     grid-template-columns: auto fit-content(30%) minmax(0, 1fr) auto;

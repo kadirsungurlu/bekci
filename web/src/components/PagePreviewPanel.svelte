@@ -162,7 +162,9 @@
 
   // Çerçeve: sayfa sanal bir ekran genişliğinde çizilip panele sığacak kadar küçültülür.
   let stageW = $state(600);
-  const vw = $derived(device === 'mobile' ? 390 : 1280);
+  // Masaüstü önizleme 1920 px'lik ekranı küçülterek gösterir: "Geniş" (≈1640 px)
+  // ile "Dar" arasındaki fark yayındaki sayfadaki gibi görünsün.
+  const vw = $derived(device === 'mobile' ? 390 : 1920);
   const scale = $derived(Math.min(1, Math.max(0.2, (stageW - 2) / vw)));
 </script>
 
