@@ -203,7 +203,10 @@ jobs:
             for imaj in "$DOCKERHUB_IMAGE" "ghcr.io/${REPO,,}"; do
               # Commit etiketleri yalnızca ghcr.io'da; Docker Hub'da latest,
               # postgres ve sürüm numaraları görünür.
-              if [ "$imaj" != "$DOCKERHUB_IMAGE" ]; then
+              # Etiket (v*) çalıştırması commit etiketini yazmaz: aynı commit'i
+              # main çalıştırması da derleyip aynı etikete yükler; ikisi yarışıp
+              # birbirinin üstüne yazmasın.
+              if [ "$imaj" != "$DOCKERHUB_IMAGE" ] && [ "$GITHUB_REF" = refs/heads/main ]; then
                 echo "$imaj:${ONEK}${kisa}"
               fi
               if [ "$GITHUB_REF" = refs/heads/main ]; then
@@ -240,12 +243,16 @@ jobs:
           ONEK: ${{ matrix.onek }}
           KISA: ${{ steps.etiket.outputs.kisa }}
           SURUM: ${{ steps.etiket.outputs.surum }}
+          SONEK: ${{ matrix.sonek }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           beklenen=${SURUM:-$KISA}
+          # Bu çalıştırmanın yüklediği etiketi dene: sürümde 1.2.3(-postgres),
+          # main'de commit etiketi.
+          if [ -n "$SURUM" ]; then imaj="$DOCKERHUB_IMAGE:${SURUM}${SONEK}"; else imaj="ghcr.io/${REPO,,}:${ONEK}${KISA}"; fi
           for plat in linux/amd64 linux/arm64; do
-            s=$(docker run --rm --platform "$plat" --entrypoint uptime "ghcr.io/${REPO,,}:${ONEK}${KISA}" version)
+            s=$(docker run --rm --pull always --platform "$plat" --entrypoint uptime "$imaj" version)
             echo "$plat: $s"
             [ "$s" = "$beklenen" ] || { echo "::error::$plat sürümü $s (beklenen $beklenen)"; exit 1; }
           done
