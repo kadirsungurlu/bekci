@@ -103,6 +103,7 @@ export default {
     select: 'Select {name}',
     incidentTitle: 'Details of the ongoing incident',
     viewIncident: 'View incident',
+    locOutageTitle: 'Some check locations are down; the monitor is up overall (no notifications, uptime not affected). Open the incident.',
     incident: 'Incident',
     interval: 'Check interval',
     actionsFor: 'Actions for {name}',

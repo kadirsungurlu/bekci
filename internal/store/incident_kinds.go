@@ -385,6 +385,18 @@ func closeServerIncidentTx(ctx context.Context, tx *Tx, alertID, now int64, note
 	return err
 }
 
+// OpenServerIncidentID uyarı kuralının açık sunucu olayı (yoksa 0).
+func (s *Store) OpenServerIncidentID(ctx context.Context, alertID int64) (int64, error) {
+	var id int64
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id FROM incidents WHERE alert_id = ? AND server_id IS NOT NULL AND resolved_at IS NULL
+		ORDER BY id DESC LIMIT 1`, alertID).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return id, err
+}
+
 // UpdateServerIncidentValue tetiklenmiş kuralın açık olayının son ve en
 // yüksek değerini günceller (değer değişmediyse yazmaz).
 func (s *Store) UpdateServerIncidentValue(ctx context.Context, alertID int64, v float64) error {

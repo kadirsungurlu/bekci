@@ -159,6 +159,11 @@ export interface MonitorView {
   /** Süren olayın kimliği ("Olayı gör"); yoksa null. Eski sunucularda alan yok. */
   open_incident_id?: number | null;
   /**
+   * Süren konum kesintisinin kimliği: bazı kontrol konumları çalışmıyor, monitör
+   * genel olarak çalışıyor (durum ve uptime etkilenmez). Yoksa null.
+   */
+  open_partial_incident_id?: number | null;
+  /**
    * Son kontrollerin yanıt süreleri (ms, eskiden yeniye; en çok 30). PING_DOWN:
    * başarısız kontrol, PING_NONE: ölçüm yok. Eski sunucularda alan yok.
    */
@@ -516,7 +521,18 @@ export interface IncidentLocation {
 export interface IncidentDetail {
   incident: Incident;
   /** Sunucu olayında boş (id 0). */
-  monitor: { id: number; name: string; type: string; target: string; active: boolean; status: number };
+  /** type/target olay anındaki değerler; changed: sonradan değiştirildi (güncel değerler current_*). */
+  monitor: {
+    id: number;
+    name: string;
+    type: string;
+    target: string;
+    active: boolean;
+    status: number;
+    changed?: boolean;
+    current_type?: string;
+    current_target?: string;
+  };
   /** Yalnızca sunucu olayında. */
   server?: { id: number; name: string; hostname: string; active: boolean };
   location: string;

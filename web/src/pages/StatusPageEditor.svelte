@@ -26,7 +26,7 @@
   import Announcements from './Announcements.svelte';
   import PagePreviewPanel, { type PreviewDraft } from '../components/PagePreviewPanel.svelte';
   import { normalizeLayout } from '../components/StatusView.svelte';
-  import { LOCALES, t, type Locale } from '../lib/i18n';
+  import { i18n, LOCALES, t, type Locale } from '../lib/i18n';
 
   let { id }: { id?: number } = $props();
   // svelte-ignore state_referenced_locally
@@ -58,7 +58,8 @@
   let showTargets = $state(false);
   let collapsible = $state(false);
   let barRange = $state<BarRange>('recent');
-  let pageLang = $state<Locale>('tr');
+  // Yeni sayfanın dili, oluşturan yöneticinin arayüz dili (sonradan değiştirilebilir).
+  let pageLang = $state<Locale>(i18n.locale);
   let published = $state(true);
   // Dizilim: yerleşim, genişlik, bölüm sırası/görünürlüğü. Olaylar bölümünün
   // görünürlüğü sunucuda show_incidents ile aynı alandır.

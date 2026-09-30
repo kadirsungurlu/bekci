@@ -119,13 +119,20 @@ func (s *Server) serverIncident(w http.ResponseWriter, r *http.Request, u store.
 	writeJSON(w, http.StatusOK, out)
 }
 
+// incidentMonitor olayın monitörü. Type ve Target olay başladığı andaki
+// değerlerdir (başlangıç kaydındaki anlık görüntü; eski kayıtlarda güncel
+// monitör). Tip veya hedef o tarihten beri değiştiyse Changed true olur ve
+// güncel değerler Current* alanlarındadır.
 type incidentMonitor struct {
-	ID     int64  `json:"id"`
-	Name   string `json:"name"`
-	Type   string `json:"type"`
-	Target string `json:"target"`
-	Active bool   `json:"active"`
-	Status int    `json:"status"`
+	ID            int64  `json:"id"`
+	Name          string `json:"name"`
+	Type          string `json:"type"`
+	Target        string `json:"target"`
+	Active        bool   `json:"active"`
+	Status        int    `json:"status"`
+	Changed       bool   `json:"changed,omitempty"`
+	CurrentType   string `json:"current_type,omitempty"`
+	CurrentTarget string `json:"current_target,omitempty"`
 }
 
 type incidentLocationView struct {
@@ -193,10 +200,18 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 		}
 		out.Location = events[i].Location
 		var d struct {
-			Locations []incidentLocationView `json:"locations"`
+			Locations []incidentLocationView  `json:"locations"`
+			Monitor   *engine.MonitorSnapshot `json:"monitor"`
 		}
-		if json.Unmarshal(events[i].Data, &d) == nil && d.Locations != nil {
-			out.Locations = d.Locations
+		if json.Unmarshal(events[i].Data, &d) == nil {
+			if d.Locations != nil {
+				out.Locations = d.Locations
+			}
+			if sn := d.Monitor; sn != nil && sn.Type != "" && (sn.Type != out.Monitor.Type || sn.Target != out.Monitor.Target) {
+				out.Monitor.Changed = true
+				out.Monitor.CurrentType, out.Monitor.CurrentTarget = out.Monitor.Type, out.Monitor.Target
+				out.Monitor.Type, out.Monitor.Target = sn.Type, sn.Target
+			}
 		}
 		break
 	}
@@ -215,14 +230,17 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		out.Events = events
-		localizeIncident(u, responseLang(w), m.Type, &out)
+		localizeIncident(u, responseLang(w), out.Monitor.Type, &out)
 		writeJSON(w, http.StatusOK, out)
 		return
 	}
 
 	// İzleyici: mesajlar temizlenir, bildirim kayıtları ve kullanıcı adları atılır.
-	clean := func(msg string) string { return viewerMessage(u, m.Type, store.StatusDown, msg) }
+	clean := func(msg string) string { return viewerMessage(u, out.Monitor.Type, store.StatusDown, msg) }
 	out.Monitor.Target = publicTarget(out.Monitor.Target)
+	if out.Monitor.CurrentTarget != "" {
+		out.Monitor.CurrentTarget = publicTarget(out.Monitor.CurrentTarget)
+	}
 	out.Incident.Cause = clean(out.Incident.Cause)
 	for i := range out.Locations {
 		out.Locations[i].Message = clean(out.Locations[i].Message)
@@ -243,7 +261,7 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 		ev.Message = clean(ev.Message)
 		out.Events = append(out.Events, ev)
 	}
-	localizeIncident(u, responseLang(w), m.Type, &out)
+	localizeIncident(u, responseLang(w), out.Monitor.Type, &out)
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -255,8 +273,11 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 func localizeIncident(u store.User, lang, monitorType string, out *incidentDetailView) {
 	out.Incident.Cause = i18n.Message(lang, out.Incident.Cause)
 	out.Location = locationName(lang, out.Location)
-	if monitorType == check.TypeGroup {
+	if out.Monitor.Type == check.TypeGroup {
 		out.Monitor.Target = i18n.Message(lang, out.Monitor.Target) // "7 monitör" (bkz. monitors.go)
+	}
+	if out.Monitor.CurrentType == check.TypeGroup {
+		out.Monitor.CurrentTarget = i18n.Message(lang, out.Monitor.CurrentTarget)
 	}
 	for i := range out.Locations {
 		out.Locations[i].Name = locationName(lang, out.Locations[i].Name)

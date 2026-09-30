@@ -362,6 +362,8 @@ func (s *Service) fire(ctx context.Context, p store.Probe, host *metrics.Host, a
 	s.log.Warn("sunucu uyarısı", "sunucu", p.Name, "metrik", a.Metric, "deger", fmt.Sprintf("%.1f", v), "esik", a.Threshold)
 	if s.notifier != nil {
 		ev := s.event(notify.KindServerAlert, p, host, a, v, now, mount)
+		// Gönderim sonucu (veya "bağlı kanal yok") olayın işlem geçmişine yazılsın.
+		ev.IncidentID, _ = s.store.OpenServerIncidentID(ctx, a.ID)
 		if detail != nil {
 			detail(&ev)
 		}
@@ -386,6 +388,8 @@ func (s *Service) resolve(ctx context.Context, p store.Probe, host *metrics.Host
 			s.log.Error("sunucu olayının değeri yazılamadı", "sunucu", p.Name, "hata", err)
 		}
 	}
+	// Kapatılacak olay: "düzeldi" bildiriminin sonucu onun işlem geçmişine yazılır.
+	incidentID, _ := s.store.OpenServerIncidentID(ctx, a.ID)
 	ok, err := s.store.ResolveServerAlert(ctx, a.ID, now.Unix())
 	if err != nil {
 		s.log.Error("sunucu uyarısı kapatılamadı", "sunucu", p.Name, "metrik", a.Metric, "hata", err)
@@ -398,6 +402,7 @@ func (s *Service) resolve(ctx context.Context, p store.Probe, host *metrics.Host
 	s.log.Info("sunucu uyarısı bitti", "sunucu", p.Name, "metrik", a.Metric, "bolum", mount)
 	if s.notifier != nil {
 		ev := s.event(notify.KindServerResolved, p, host, a, v, now, mount)
+		ev.IncidentID = incidentID
 		if detail != nil {
 			detail(&ev)
 		}

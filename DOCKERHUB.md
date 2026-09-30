@@ -34,7 +34,7 @@ Open `http://SERVER:8080` and create the first admin account. For HTTPS with Cad
 ## What it does
 
 - **Uptime checks:** HTTP(S) with keyword/JSON, TCP, ping, DNS, push, Docker, PostgreSQL/MySQL/MSSQL/MongoDB/Redis, MQTT, SNMP, gRPC, WebSocket, TLS certificate.
-- **Multi-location checks:** lightweight agents check from other servers; partial outages are recorded.
+- **Multi-location checks:** lightweight agents check from other servers; location outages (some locations down while the monitor is up) are recorded separately.
 - **Server monitoring:** CPU, RAM, per-mount disk, swap, load, temperature, network and Docker containers on Linux and Windows, with alert rules.
 - **24 notification channels:** Telegram, WhatsApp, e-mail, Slack, Discord, Teams, ntfy, PagerDuty, Opsgenie, webhooks and more.
 - **Status pages:** several layouts, custom domain, password protection and per-page language.

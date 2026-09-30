@@ -203,7 +203,8 @@ var checkEN = map[string]string{
 	// Kısmi kesinti (engine/partial.go)
 	"Tüm konumlar çalışıyor":                 "All locations are up",
 	"Tam kesintiye dönüştü":                  "Escalated to a full outage",
-	"Kısmi kesintiden dönüştü":               "Escalated from a partial outage",
+	"Kısmi kesintiden dönüştü":               "Escalated from a location outage", // eski kayıtlar
+	"Konum kesintisinden dönüştü":            "Escalated from a location outage",
 	"Konum ayarı kaldırıldı; olay kapatıldı": "Location settings removed; incident closed",
 	// Sunucu olayları (store/incident_kinds.go)
 	"Sunucudan veri gelmiyor": "No data from the server",

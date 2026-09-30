@@ -103,6 +103,7 @@ export default {
     select: '{name} seç',
     incidentTitle: 'Süren olayın ayrıntıları',
     viewIncident: 'Olayı gör',
+    locOutageTitle: 'Bazı kontrol konumları çalışmıyor; monitör genel olarak çalışıyor (bildirim gönderilmez, uptime etkilenmez). Olayı aç.',
     incident: 'Olay',
     interval: 'Kontrol aralığı',
     actionsFor: '{name} için işlemler',

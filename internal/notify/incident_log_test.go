@@ -18,7 +18,7 @@ import (
 )
 
 // Gönderim sonuçları olayın işlem geçmişine yazılır: başarılı ve başarısız
-// kanallar, gizli bilgisi temizlenmiş hata; sunucu uyarıları yazılmaz.
+// kanallar, gizli bilgisi temizlenmiş hata.
 func TestDispatcherLogsDeliveries(t *testing.T) {
 	st := storetest.Open(t, time.UTC)
 	ctx := context.Background()
@@ -51,7 +51,6 @@ func TestDispatcherLogsDeliveries(t *testing.T) {
 	d.Notify(Event{Kind: KindDown, MonitorID: m.ID, MonitorName: "site", Time: time.Now(), IncidentID: inc})
 	d.Notify(Event{Kind: KindDown, MonitorID: lonely.ID, MonitorName: "kanalsız", Time: time.Now(), IncidentID: inc2})
 	d.Notify(Event{Kind: KindDown, MonitorID: m.ID, MonitorName: "site", Time: time.Now()}) // olaysız: yazılmaz
-	d.Notify(Event{Kind: KindServerAlert, ProbeID: 5, MonitorID: m.ID, IncidentID: inc, Metric: "cpu", Time: time.Now()})
 	d.Wait(5 * time.Second)
 
 	evs, _ := st.IncidentEvents(ctx, inc)

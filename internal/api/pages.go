@@ -190,7 +190,7 @@ type pageInput struct {
 	ShowIncidents *bool `json:"show_incidents"`
 	// Collapsible: gruplar açılıp kapanabilsin mi; yok = değişmez.
 	Collapsible *bool `json:"collapsible"`
-	// Lang: herkese açık sayfanın dili (tr | en); yok = değişmez (yeni sayfada tr).
+	// Lang: herkese açık sayfanın dili (tr | en); yok = değişmez (yeni sayfada oluşturanın arayüz dili).
 	Lang *string `json:"lang"`
 	// Layout: yerleşim (list | grid | compact | rows), genişlik, bölüm
 	// sırası/görünürlüğü ve uptime yüzdesi (show_uptime, yok = gösterilir);
@@ -696,6 +696,11 @@ func (s *Server) createPage(w http.ResponseWriter, r *http.Request) {
 	var in pageInput
 	if !readJSON(w, r, &in) {
 		return
+	}
+	if in.Lang == nil {
+		// Dil belirtilmezse yeni sayfa oluşturan kullanıcının arayüz dilinde başlar.
+		l := userLang(r)
+		in.Lang = &l
 	}
 	p, err := s.normalizePage(r.Context(), &in, nil, requestHost(r), isPageAdmin(userFrom(r)))
 	if err != nil {

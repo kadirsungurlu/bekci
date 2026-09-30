@@ -49,7 +49,8 @@ type Event struct {
 	URL         string // monitörün arayüzdeki adresi (varsa)
 
 	// IncidentID doluysa her kanalın gönderim sonucu olayın işlem geçmişine
-	// yazılır (docs/PLAN.md §13). Yalnızca monitör olaylarında (down/up/reminder).
+	// yazılır (docs/PLAN.md §13): monitör olayları (down/up/reminder) ve sunucu
+	// olayları (server_alert/server_resolved).
 	// IncidentURL olay sayfasının adresi; varsa "Detay" bağlantısı odur.
 	IncidentID  int64
 	IncidentURL string

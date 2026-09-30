@@ -52,6 +52,8 @@
   const shownTags = $derived(tags.slice(0, 2));
   // Süren olay: detay sayfasına kısayol (izleyici de görür; liste zaten kapsamla süzülü).
   const incident = $derived(kind === 'down' && m.open_incident_id ? m.open_incident_id : null);
+  // Süren konum kesintisi: monitör çalışıyor ama bazı konumlar çalışmıyor (turuncu işaret).
+  const locOutage = $derived(incident === null && kind !== 'paused' && m.open_partial_incident_id ? m.open_partial_incident_id : null);
 
   // Alt satır: adres · durum (+ süre); durum metni kırpılmaz, yer daralınca adres
   // kısalır. Kontrol mesajı (neden) altında kendi satırındadır.
@@ -234,6 +236,20 @@
          (en fazla iki satır; tamamı title'da). -->
     {#if sub.msg}<div class="why {subClass}" title={sub.msg}>{sub.msg}</div>{/if}
   </div>
+  {#if locOutage !== null}
+    <a
+      class="inc loc-out mc-inc"
+      href="#/incidents/{locOutage}"
+      onclick={(e) => e.stopPropagation()}
+      title={t('monitors.row.locOutageTitle')}
+      aria-label={t('incidents.kind.partialLong')}
+    >
+      <Icon name="map-pin" size={13} />
+      <span class="inc-l" aria-hidden="true">{t('incidents.kind.partialLong')}</span><span class="inc-s" aria-hidden="true"
+        >{t('incidents.kind.partialLong')}</span
+      >
+    </a>
+  {/if}
   {#if incident !== null}
     <a
       class="inc mc-inc"
@@ -445,6 +461,18 @@
   .inc-s {
     display: none;
   }
+  /* Konum kesintisi: turuncu (durum yine "Çalışıyor"). */
+  .inc.loc-out {
+    border-color: var(--pending-border);
+    background: var(--pending-soft);
+    color: var(--pending-text);
+  }
+  @media (hover: hover) {
+    .inc.loc-out:hover {
+      background: color-mix(in srgb, var(--pending) 24%, transparent);
+      border-color: var(--pending);
+    }
+  }
   /* Dokunmatikte küçük "Olay" çipine 44 px'lik görünmez dokunma alanı. */
   @media (max-width: 900px), (pointer: coarse) {
     .inc {
@@ -582,7 +610,7 @@
 
   /* Dar listede yalnızca son değer (grafik gizlenir): liste kutusu (MonitorList
      .list) "mlist" adlı kapsayıcıdır; sütunların kendisi monitor-grid.css'te. */
-  @container mlist (max-width: 963px) {
+  @container mlist (max-width: 1119px) {
     .resp :global(.spark) {
       display: none;
     }

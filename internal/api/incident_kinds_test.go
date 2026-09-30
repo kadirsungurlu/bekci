@@ -86,6 +86,22 @@ func TestIncidentKindsVisibility(t *testing.T) {
 	if len(mp) != 1 || mp[0].Kind != store.IncidentPartial {
 		t.Fatalf("kısmi süzgeç: %+v", mp)
 	}
+	// Monitör listesi ve ayrıntısı süren konum kesintisini gösterir (QA 2. tur O2).
+	var mons []monitorView
+	cust.mustDo("GET", "/api/monitors", nil, &mons, 200)
+	partialID := mp[0].ID
+	for _, m := range mons {
+		if m.ID == mon.ID && (m.OpenPartialIncidentID == nil || *m.OpenPartialIncidentID != partialID) {
+			t.Fatalf("listede open_partial_incident_id: %+v", m.OpenPartialIncidentID)
+		}
+	}
+	var det struct {
+		Monitor monitorView `json:"monitor"`
+	}
+	cust.mustDo("GET", fmt.Sprintf("/api/monitors/%d", mon.ID), nil, &det, 200)
+	if det.Monitor.OpenPartialIncidentID == nil || *det.Monitor.OpenPartialIncidentID != partialID {
+		t.Fatalf("ayrıntıda open_partial_incident_id: %+v", det.Monitor.OpenPartialIncidentID)
+	}
 	// Monitör ayrıntısındaki liste kısmi olayı da içerir.
 	var ml []store.Incident
 	cust.mustDo("GET", fmt.Sprintf("/api/monitors/%d/incidents", mon.ID), nil, &ml, 200)

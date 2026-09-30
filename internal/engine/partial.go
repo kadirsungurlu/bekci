@@ -104,7 +104,7 @@ func (r *runner) openPartial(ctx context.Context, now time.Time, down []Location
 		store.EventData(store.PartialIncidentData{Locations: names}))
 	if err != nil || id == 0 {
 		if err != nil {
-			r.e.log.Error("kısmi kesinti olayı açılamadı", "monitor", r.m.Name, "hata", err)
+			r.e.log.Error("konum kesintisi olayı açılamadı", "monitor", r.m.Name, "hata", err)
 		}
 		return
 	}
@@ -112,10 +112,10 @@ func (r *runner) openPartial(ctx context.Context, now time.Time, down []Location
 	locs, _ := r.locationSnapshot(now, &r.partialPrev)
 	r.addEvents(ctx, id, store.IncidentEvent{
 		Time: now.Unix(), Kind: store.EventDown, Location: nameList(names), Message: cause,
-		Data: store.EventData(map[string]any{"locations": locs}),
+		Data: store.EventData(downData{Locations: locs, Monitor: r.snapshot()}),
 	})
 	r.saveCapture(ctx, id, r.failingCapture(now))
-	r.e.log.Warn("kısmi kesinti", "monitor", r.m.Name, "konumlar", nameList(names))
+	r.e.log.Warn("konum kesintisi", "monitor", r.m.Name, "konumlar", nameList(names))
 }
 
 // notePartialLocations olay sürerken ilk kez çalışmayan konumları olayın verisine ekler.
@@ -132,7 +132,7 @@ func (r *runner) notePartialLocations(ctx context.Context, down []LocationStatus
 	}
 	if err := r.e.store.SetIncidentData(ctx, r.partialID,
 		store.EventData(store.PartialIncidentData{Locations: r.partialFailed})); err != nil {
-		r.e.log.Error("kısmi kesinti olayı güncellenemedi", "monitor", r.m.Name, "hata", err)
+		r.e.log.Error("konum kesintisi olayı güncellenemedi", "monitor", r.m.Name, "hata", err)
 	}
 }
 
@@ -141,12 +141,12 @@ func (r *runner) notePartialLocations(ctx context.Context, down []LocationStatus
 func (r *runner) closePartial(ctx context.Context, now time.Time, msg string) {
 	id, started, err := r.e.store.ResolvePartialIncident(ctx, r.m.ID, now.Unix())
 	if err != nil {
-		r.e.log.Error("kısmi kesinti olayı kapatılamadı", "monitor", r.m.Name, "hata", err)
+		r.e.log.Error("konum kesintisi olayı kapatılamadı", "monitor", r.m.Name, "hata", err)
 		return
 	}
 	if id != 0 {
 		r.resolveEvent(ctx, id, now, msg, now.Sub(time.Unix(started, 0)))
-		r.e.log.Info("kısmi kesinti bitti", "monitor", r.m.Name)
+		r.e.log.Info("konum kesintisi bitti", "monitor", r.m.Name)
 	}
 	r.partialID, r.partialPrev, r.partialFailed, r.partialLearn = 0, nil, nil, false
 }
@@ -158,12 +158,12 @@ func (r *runner) escalatePartial(ctx context.Context, now time.Time) {
 	r.addEvents(ctx, pid, store.IncidentEvent{Time: now.Unix(), Kind: store.EventEscalated,
 		Message: "Tam kesintiye dönüştü", Data: store.EventData(map[string]int64{"incident_id": r.incidentID})})
 	if _, _, err := r.e.store.ResolvePartialIncident(ctx, r.m.ID, now.Unix()); err != nil {
-		r.e.log.Error("kısmi kesinti olayı kapatılamadı", "monitor", r.m.Name, "hata", err)
+		r.e.log.Error("konum kesintisi olayı kapatılamadı", "monitor", r.m.Name, "hata", err)
 		return
 	}
 	if r.incidentID != 0 {
 		r.addEvents(ctx, r.incidentID, store.IncidentEvent{Time: now.Unix(), Kind: store.EventFromPartial,
-			Message: "Kısmi kesintiden dönüştü", Data: store.EventData(map[string]int64{"incident_id": pid})})
+			Message: "Konum kesintisinden dönüştü", Data: store.EventData(map[string]int64{"incident_id": pid})})
 	}
 	r.partialID, r.partialPrev, r.partialFailed, r.partialLearn = 0, nil, nil, false
 }
@@ -182,7 +182,7 @@ func (r *runner) restorePartial(ctx context.Context) {
 			ev.Data = store.EventData(map[string]int64{"downtime": max(0, now.Unix()-inc.StartedAt)})
 		}
 		if err := r.e.store.ClosePartialIncident(ctx, r.m.ID, now.Unix(), ev); err != nil {
-			r.e.log.Error("kısmi kesinti olayı kapatılamadı", "monitor", r.m.Name, "hata", err)
+			r.e.log.Error("konum kesintisi olayı kapatılamadı", "monitor", r.m.Name, "hata", err)
 		}
 		return
 	}

@@ -103,10 +103,29 @@ func (r *runner) openIncident(ctx context.Context, now time.Time, res check.Resu
 	}
 	evs := append(pre, store.IncidentEvent{
 		Time: now.Unix(), Kind: store.EventDown, Location: where, Message: res.Message,
-		Data: store.EventData(map[string]any{"locations": locs}),
+		Data: store.EventData(downData{Locations: locs, Monitor: r.snapshot()}),
 	})
 	r.addEvents(ctx, id, evs...)
 	r.saveCapture(ctx, id, c)
+}
+
+// MonitorSnapshot olay başladığı andaki monitör (başlangıç kaydının
+// data.monitor alanı): olay ayrıntısı, monitör sonradan düzenlense de olayın
+// yaşandığı tip ve hedefi gösterir.
+type MonitorSnapshot struct {
+	Name   string `json:"name"`
+	Type   string `json:"type"`
+	Target string `json:"target"`
+}
+
+// downData olayın başlangıç kaydının data alanı: konumların o anki durumu ve monitör.
+type downData struct {
+	Locations []incidentLocation `json:"locations"`
+	Monitor   MonitorSnapshot    `json:"monitor"`
+}
+
+func (r *runner) snapshot() MonitorSnapshot {
+	return MonitorSnapshot{Name: r.m.Name, Type: r.m.Type, Target: Target(r.m)}
 }
 
 // locCapture olay kaydına yazılacak istek/yanıt ayrıntısı.

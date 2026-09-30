@@ -34,6 +34,28 @@ func (s *Store) OpenIncidentIDs(ctx context.Context, monitorIDs []int64) (map[in
 	return out, rows.Err()
 }
 
+// OpenPartialIncidentIDs açık konum kesintisi (kind = partial) olan
+// monitörler: monitör kimliği → olay kimliği. Açık konum kesintisi az olur;
+// tablo resolved_at IS NULL koşuluyla taranır.
+func (s *Store) OpenPartialIncidentIDs(ctx context.Context) (map[int64]int64, error) {
+	out := map[int64]int64{}
+	rows, err := s.db.QueryContext(ctx,
+		"SELECT monitor_id, MAX(id) FROM incidents WHERE kind = ? AND resolved_at IS NULL AND monitor_id IS NOT NULL GROUP BY monitor_id",
+		IncidentPartial)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var mid, iid int64
+		if err := rows.Scan(&mid, &iid); err != nil {
+			return nil, err
+		}
+		out[mid] = iid
+	}
+	return out, rows.Err()
+}
+
 // CloneMonitor kaynak monitörün ayarlarını (gizli alanlar dahil, veritabanı
 // içinde kopyalanır), bildirim kanallarını, etiketlerini ve konum ayarını yeni
 // bir monitöre kopyalar. Durum ve geçmiş kopyalanmaz; yeni monitör "bekliyor"

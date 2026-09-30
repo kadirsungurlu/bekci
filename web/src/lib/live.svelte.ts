@@ -237,6 +237,8 @@ class Live {
       else if (msg.type === 'probe' && msg.data) this.handleProbe(msg.data as ProbeEvent);
       else if (msg.type === 'server' && msg.data) this.emit(this.serverListeners, msg.data as ServerView);
       else if (msg.type === 'locations') {
+        // Konum kesintisi açılmış/kapanmış olabilir (liste rozeti): kısa gecikmeyle tazele.
+        this.refreshSoon(1500);
         // Bir konumun durumu değişti (ör. ilk sonucu geldi); genel durum aynı kalmış olabilir.
         this.emit(this.locationListeners, (msg.data as { monitor_id?: number })?.monitor_id ?? 0);
       } else if (msg.type === 'stats_reset') {

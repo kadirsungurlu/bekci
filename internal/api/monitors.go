@@ -90,6 +90,9 @@ type monitorView struct {
 	Locations store.LocationSetup `json:"locations"`
 	// OpenIncidentID süren olayın kimliği (listede "Olayı gör"); yoksa null.
 	OpenIncidentID *int64 `json:"open_incident_id"`
+	// OpenPartialIncidentID süren konum kesintisinin (bir konum çalışmıyor,
+	// monitörün genel durumu çalışıyor) kimliği; yoksa null.
+	OpenPartialIncidentID *int64 `json:"open_partial_incident_id"`
 	// Geniş ekran listesi için: son kontrollerin yanıt süreleri (eskiden yeniye;
 	// store.PingDown başarısız, store.PingNone ölçümsüz), 7/30 günlük çalışma
 	// oranı ve çok konumlu monitörde konumların canlı durumu.
@@ -183,6 +186,10 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 	if err != nil {
 		return nil, err
 	}
+	openPartials, err := s.store.OpenPartialIncidentIDs(r.Context())
+	if err != nil {
+		return nil, err
+	}
 	out := make([]monitorView, 0, len(monitors))
 	for _, m := range monitors {
 		if !vis.can(m.ID) {
@@ -220,12 +227,17 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 		if iid, ok := openIncidents[m.ID]; ok {
 			incident = &iid
 		}
+		var partial *int64
+		if iid, ok := openPartials[m.ID]; ok {
+			partial = &iid
+		}
 		p := pings[m.ID]
 		if p == nil {
 			p = []int64{}
 		}
 		v := monitorView{Monitor: m, Target: target, NotificationIDs: ids, Tags: mt, Uptime24h: up, Bars: bars,
-			InMaintenance: m.Active && s.engine.InMaintenance(m.ID, now), Locations: loc, OpenIncidentID: incident, Pings: p}
+			InMaintenance: m.Active && s.engine.InMaintenance(m.ID, now), Locations: loc, OpenIncidentID: incident,
+			OpenPartialIncidentID: partial, Pings: p}
 		if w := windows[m.ID]; w != nil {
 			v.Uptime7d, v.Uptime30d = w[0], w[1]
 		}

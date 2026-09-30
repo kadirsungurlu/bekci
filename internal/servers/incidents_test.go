@@ -50,8 +50,13 @@ func TestServerAlertIncidents(t *testing.T) {
 	if list[0].ResolvedAt == 0 || d.Last != 10 || d.Peak != 95 {
 		t.Fatalf("kapanış: %+v %+v", list[0], d)
 	}
-	if evs := e.notif.take(); len(evs) != 2 || evs[0].Kind != notify.KindServerAlert || evs[1].Kind != notify.KindServerResolved {
-		t.Fatalf("bildirimler değişmemeli: %+v", evs)
+	evs0 := e.notif.take()
+	if len(evs0) != 2 || evs0[0].Kind != notify.KindServerAlert || evs0[1].Kind != notify.KindServerResolved {
+		t.Fatalf("bildirimler değişmemeli: %+v", evs0)
+	}
+	// Bildirimler olayın kimliğini taşır: gönderim sonucu işlem geçmişine yazılır (QA 2. tur D2).
+	if evs0[0].IncidentID != list[0].ID || evs0[1].IncidentID != list[0].ID {
+		t.Fatalf("bildirimlerin olay kimliği: %d %d, %d bekleniyordu", evs0[0].IncidentID, evs0[1].IncidentID, list[0].ID)
 	}
 
 	// Çevrimdışı.

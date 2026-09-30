@@ -17,7 +17,7 @@
   import { fmtMetric, metricLabel } from '../lib/servers.svelte';
   import { live } from '../lib/live.svelte';
   import { fmtDateSec, fmtDuration, fmtDurationLong, fmtTimeSec, fmtDay, fmtSize, nowSec } from '../lib/format';
-  import { t, tOr } from '../lib/i18n';
+  import { t, tOr, tParts } from '../lib/i18n';
   import { displayTarget, isWebTarget, typeName } from '../lib/monitorTypes';
   import { NOTIFY_LABELS, NOTIFY_STYLE } from '../lib/notifyTypes';
   import StatusIcon from '../components/StatusIcon.svelte';
@@ -149,10 +149,12 @@
   const num = (v: unknown) => (typeof v === 'number' ? v : 0);
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
-  const NOTIFY_EVENT: Record<string, 'notifyDown' | 'notifyUp' | 'notifyReminder'> = {
+  const NOTIFY_EVENT: Record<string, 'notifyDown' | 'notifyUp' | 'notifyReminder' | 'notifyServerAlert'> = {
     down: 'notifyDown',
     up: 'notifyUp',
     reminder: 'notifyReminder',
+    server_alert: 'notifyServerAlert',
+    server_resolved: 'notifyUp',
   };
   const LOC_TONE: Record<string, Tone> = { up: 'up', down: 'down', retrying: 'pending', unknown: 'muted' };
 
@@ -246,7 +248,7 @@
           r.icon = 'bell';
           r.tone = 'muted';
           r.title = t('incidents.ev.notSent', { what });
-          r.sub = t('incidents.ev.noChannels');
+          r.sub = t(server ? 'incidents.ev.noChannelsServer' : 'incidents.ev.noChannels');
           break;
         }
         r.icon = st?.icon ?? 'bell';
@@ -410,7 +412,12 @@
         <StatusIcon kind={tone} size={40} pulse={ongoing} />
         <div class="tt">
           <h1>
-            <span class="pre" class:c-down={ongoing && !partial} class:c-pending={ongoing && partial} class:c-up={!ongoing}
+            <span
+              class="pre"
+              class:c-down={ongoing && !partial}
+              class:c-pending={ongoing && partial}
+              class:c-up={!ongoing}
+              title={partial ? t('incidents.kind.partialHint') : undefined}
               >{partial ? t('incidents.detail.partialPre') : ongoing ? t('incidents.detail.ongoingPre') : t('incidents.detail.resolvedPre')}</span
             >
             {data.server ? data.server.name : data.monitor.name}
@@ -418,9 +425,12 @@
           <div class="target">
             {#if data.server}
               <span class="badge accent">{t(offline ? 'incidents.kind.serverOffline' : 'incidents.kind.serverAlert')}</span>
-              {#if data.server.hostname}<span class="text-2 mono">{t('incidents.detail.hostname', { name: data.server.hostname })}</span>{/if}
+              {#if data.server.hostname}<span class="text-2"
+                  >{#each tParts('incidents.detail.hostname') as p, i (i)}{#if p.slot === 'name'}<span class="mono">{data.server.hostname}</span
+                      >{:else}{p.text}{/if}{/each}</span
+                >{/if}
             {:else}
-            {#if partial}<span class="badge pending" title={t('incidents.kind.partialHint')}>{t('incidents.kind.partialLong')}</span>{/if}
+            <!-- Konum kesintisi başlıkta yazıyor; ayrıca rozet gösterilmez. -->
             <TypeBadge type={data.monitor.type} />
             {#if !data.monitor.target}
               <span class="muted">{t('incidents.detail.typeMonitor', { type: typeName(data.monitor.type) })}</span>
@@ -433,6 +443,17 @@
             {/if}
             {/if}
           </div>
+          {#if data.monitor?.changed}
+            <!-- Tip/hedef olay anındaki değerlerdir; monitör sonradan değiştirildi. -->
+            <div class="changed">
+              <Icon name="info" size={13} />
+              {t('incidents.detail.changedSince', {
+                now: [data.monitor.current_type ? typeName(data.monitor.current_type) : '', data.monitor.current_target ?? '']
+                  .filter(Boolean)
+                  .join(' · '),
+              })}
+            </div>
+          {/if}
         </div>
       </div>
       <div class="actions">
@@ -484,7 +505,10 @@
             {#if affected.length}
               <div class="aff">
                 {#each affected as name (name)}
-                  <span class="aff-i"><Icon name="map-pin" size={13} /> {locName(name)}</span>
+                  {@const at = data.locations.find((l) => l.name === name && l.status !== 'up')}
+                  <span class="aff-i"
+                    ><Icon name="map-pin" size={13} /> {locName(name)}{#if at?.message}<span class="aff-m">· {at.message}</span>{/if}</span
+                  >
                 {/each}
               </div>
             {/if}
@@ -524,7 +548,8 @@
         {/if}
 
         <!-- Grup ve push monitörlerinin konumu yoktur ("Ana sunucu" anlamsız). -->
-        {#if data.locations.length && data.monitor.type !== 'group' && data.monitor.type !== 'push'}
+        <!-- Konum kesintisinde etkilenen konumlar yukarıdaki kartta (aynı bilgi iki kez yazılmaz). -->
+        {#if data.locations.length && !partial && data.monitor.type !== 'group' && data.monitor.type !== 'push'}
           <div class="card">
             <div class="card-head">
               <h2 class="card-title">{t('incidents.detail.locations')}<span class="dot">.</span></h2>
@@ -703,6 +728,19 @@
 {/snippet}
 
 <style>
+  .changed {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 0.82rem;
+    color: var(--pending-text);
+  }
+  .aff-m {
+    margin-left: 5px;
+    color: var(--text-2);
+    font-weight: 400;
+  }
   .back {
     display: inline-flex;
     align-items: center;

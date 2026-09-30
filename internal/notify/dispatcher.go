@@ -52,7 +52,8 @@ func (d *Dispatcher) Notify(ev Event) {
 			d.log.Error("bildirim kanalları okunamadı", "monitor", ev.MonitorID, "sunucu", ev.ProbeID, "hata", err)
 			return
 		}
-		logIncident := ev.IncidentID != 0 && ev.ProbeID == 0
+		// Monitör ve sunucu olaylarında gönderim sonucu olayın işlem geçmişine yazılır.
+		logIncident := ev.IncidentID != 0
 		if logIncident && len(channels) == 0 {
 			d.incidentEvent(ev, deliveryData{Event: ev.Kind, None: true})
 		}

@@ -297,6 +297,12 @@
         <div class="name-row">
           <h1>{monitor.name}</h1>
           <TypeBadge type={monitor.type} />
+          {#if monitor.open_partial_incident_id && kind !== 'down' && kind !== 'paused'}
+            <!-- Konum kesintisi: durum "Çalışıyor" kalır, uptime etkilenmez. -->
+            <a class="badge pending loc-out" href="#/incidents/{monitor.open_partial_incident_id}" title={t('monitors.row.locOutageTitle')}
+              ><Icon name="map-pin" size={12} /> {t('incidents.kind.partialLong')}</a
+            >
+          {/if}
         </div>
         <div class="target">
           {#if monitor.type === 'push'}
@@ -534,6 +540,10 @@
 {/if}
 
 <style>
+  .loc-out {
+    gap: 4px;
+    text-decoration: none;
+  }
   .back {
     display: inline-flex;
     align-items: center;
