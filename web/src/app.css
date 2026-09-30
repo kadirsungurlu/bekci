@@ -44,6 +44,9 @@
   --on-pending: #2b2200;
   --pending-text: #fde047;
   --pending-border: rgba(234, 179, 8, 0.42);
+  /* Düşük uptime oranı (geçmiş): "şu an çalışmıyor" kırmızısıyla karışmasın. */
+  --warn: #f97316;
+  --warn-text: #fb923c;
   --paused-text: #aab1bd;
   --on-paused: #e5e7eb;
 
@@ -247,6 +250,11 @@ pre {
 }
 .c-pending {
   color: var(--pending);
+}
+/* Uptime oranı %90–99,9: kesinti olmuş ama monitör çalışıyor olabilir; kırmızı
+   yalnızca %90'ın altı için. */
+.c-warn {
+  color: var(--warn-text);
 }
 .c-paused {
   color: var(--paused);

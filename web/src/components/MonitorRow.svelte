@@ -282,8 +282,8 @@
       <Icon name="lock" size={12} />{certDays < 0 ? t('overview.row.sslExpired') : t('overview.row.sslDays', { n: certDays })}
     {/if}
   </div>
-  <div class="u mc-u7" class:c-down={m.uptime_7d != null && m.uptime_7d < 99} title={t('overview.row.u7Title')}>{fmtPct(m.uptime_7d)}</div>
-  <div class="u mc-u30" class:c-down={m.uptime_30d != null && m.uptime_30d < 99} title={t('overview.row.u30Title')}>{fmtPct(m.uptime_30d)}</div>
+  <div class="u mc-u7" class:c-warn={m.uptime_7d != null && m.uptime_7d >= 90 && m.uptime_7d < 99} class:c-down={m.uptime_7d != null && m.uptime_7d < 90} title={t('overview.row.u7Title')}>{fmtPct(m.uptime_7d)}</div>
+  <div class="u mc-u30" class:c-warn={m.uptime_30d != null && m.uptime_30d >= 90 && m.uptime_30d < 99} class:c-down={m.uptime_30d != null && m.uptime_30d < 90} title={t('overview.row.u30Title')}>{fmtPct(m.uptime_30d)}</div>
   <div class="last mc-last" title={m.last_check_at ? t('overview.row.lastTitle', { date: fmtDateSec(m.last_check_at) }) : t('overview.row.never')}>
     {m.last_check_at ? fmtRelative(m.last_check_at, now) : '—'}
   </div>
@@ -293,7 +293,7 @@
   </div>
   <div class="uptime mc-bars">
     <UptimeBars bars={m.bars} />
-    <div class="pct" class:c-down={m.uptime_24h !== null && m.uptime_24h < 99}>{fmtPct(m.uptime_24h)}</div>
+    <div class="pct" class:c-warn={m.uptime_24h !== null && m.uptime_24h >= 90 && m.uptime_24h < 99} class:c-down={m.uptime_24h !== null && m.uptime_24h < 90}>{fmtPct(m.uptime_24h)}</div>
   </div>
   {#if session.canEdit}
     <div class="menu mc-menu">
@@ -602,6 +602,9 @@
   }
   .pct.c-down {
     color: var(--down-text-2);
+  }
+  .pct.c-warn {
+    color: var(--warn-text);
   }
   .menu .btn.open {
     background: var(--card-2);

@@ -540,7 +540,7 @@
           href="#/incidents"
           aria-label={t('monitors.list.chip24Aria', { pct: fmtPct(summary?.uptime_24h), count: summary?.incidents_24h ?? 0 })}
         >
-          {t('monitors.list.chip24')} <b class={summary?.uptime_24h != null && summary.uptime_24h < 99 ? 'c-down' : 'c-up'}>{fmtPct(summary?.uptime_24h)}</b>
+          {t('monitors.list.chip24')} <b class={summary?.uptime_24h == null || summary.uptime_24h >= 99 ? 'c-up' : summary.uptime_24h >= 90 ? 'c-warn' : 'c-down'}>{fmtPct(summary?.uptime_24h)}</b>
           {#if summary?.incidents_24h}· {t('monitors.list.incidentCount', { count: summary.incidents_24h })}{/if}
         </a>
         {#if counts.pending > 0}<span class="chip info c-pending">{t('monitors.list.pendingCount', { count: counts.pending })}</span>{/if}
@@ -756,7 +756,7 @@
         <h2 class="card-title">{t('monitors.list.last24')}<span class="dot">.</span></h2>
         <div class="counts three">
           <div>
-            <b class={summary?.uptime_24h != null && summary.uptime_24h < 99 ? 'c-down' : 'c-up'}>{fmtPct(summary?.uptime_24h)}</b>
+            <b class={summary?.uptime_24h == null || summary.uptime_24h >= 99 ? 'c-up' : summary.uptime_24h >= 90 ? 'c-warn' : 'c-down'}>{fmtPct(summary?.uptime_24h)}</b>
             <span>{t('monitors.list.overallUptime')}</span>
           </div>
           <div><b>{summary?.incidents_24h ?? '—'}</b><span>{t('monitors.list.incidents')}</span></div>
