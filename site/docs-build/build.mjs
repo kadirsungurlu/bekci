@@ -424,7 +424,7 @@ function header(page) {
   return `<header class="site-header">
   <div class="wrap wrap-docs">
     <a class="brand" href="${t.home}" aria-label="${t.homeAria}">
-      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#3bd671" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#3bd671" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#3bd671"/></svg>
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
       Bekci
     </a>
     <nav class="nav" aria-label="${t.mainNav}">
@@ -469,7 +469,7 @@ function footer(page) {
   return `<footer class="site-footer">
   <div class="wrap wrap-docs">
     <a class="brand" href="${t.home}" aria-label="${t.homeAria}">
-      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#3bd671" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#3bd671" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#3bd671"/></svg>
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
       Bekci
     </a>
     <ul class="foot-links">
