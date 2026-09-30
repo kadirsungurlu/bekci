@@ -87,7 +87,13 @@ func TestProbeEndToEnd(t *testing.T) {
 	})
 	failing.Store(false)
 	waitFor(t, "tekrar UP", func() bool { return get().Status == store.StatusUp })
-	incidents, _ := f.st.ListIncidents(ctx, store.IncidentFilter{MonitorID: mon.ID})
+	// Olay, UP kaydından hemen sonra (aynı turda) kapanır; yavaş makinede
+	// ikisinin arasında okunabilir: kapanmasını bekle.
+	var incidents []store.Incident
+	waitFor(t, "olay kapandı", func() bool {
+		incidents, _ = f.st.ListIncidents(ctx, store.IncidentFilter{MonitorID: mon.ID})
+		return len(incidents) == 1 && incidents[0].ResolvedAt != 0
+	})
 	if len(incidents) != 1 || incidents[0].ResolvedAt == 0 || !strings.HasPrefix(incidents[0].Cause, "Frankfurt: ") {
 		t.Fatalf("olay: %+v", incidents)
 	}
