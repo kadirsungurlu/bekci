@@ -537,6 +537,7 @@
   }
   .sidebar nav a.active {
     background: var(--sidebar-active);
+    box-shadow: inset 0 0 0 1px var(--sidebar-active-border);
     color: var(--text);
   }
   .sidebar nav a:focus-visible {

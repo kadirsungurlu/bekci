@@ -90,7 +90,7 @@
     display: block;
     flex-shrink: 0;
     overflow: visible;
-    --c: var(--accent);
+    --c: var(--spark);
   }
   .spark.warn {
     --c: var(--pending);

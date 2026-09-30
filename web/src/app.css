@@ -1,26 +1,26 @@
 /* Tema renkleri. Açık tema eklemek için yalnızca bu değişkenleri
    [data-theme="light"] altında yeniden tanımlamak yeterli. */
 :root {
-  --bg: #0f1623;
-  --bg-elev: #151e2e;
-  --card: #172133;
-  --card-hover: #1c2840;
-  --card-2: #1f2b40;
-  --input: #111a29;
-  --border: #253249;
-  --border-strong: #32425e;
-  --text: #e6ebf3;
-  --text-2: #a7b2c5;
-  --muted: #8592aa; /* kart zemininde küçük metin için ≥ 4,5:1 */
-  --placeholder: #6b7891;
-  --border-hover: #475a7c;
+  --bg: #0c1017;
+  --bg-elev: #0e1219;
+  --card: #121620;
+  --card-hover: #161b27;
+  --card-2: #171d29;
+  --input: #141923;
+  --border: #1b2637;
+  --border-strong: #263349;
+  --text: #f1f5fa;
+  --text-2: #aab4c4;
+  --muted: #8390a4; /* kart zemininde küçük metin için ≥ 4,5:1 */
+  --placeholder: #667288;
+  --border-hover: #34445f;
 
-  --up: #3bd671;
-  --up-soft: rgba(59, 214, 113, 0.14);
+  --up: #10b981;
+  --up-soft: rgba(16, 185, 129, 0.14);
   --down: #ef4444;
   --down-soft: rgba(239, 68, 68, 0.14);
-  --pending: #f59e0b;
-  --pending-soft: rgba(245, 158, 11, 0.14);
+  --pending: #eab308;
+  --pending-soft: rgba(234, 179, 8, 0.14);
   --paused: #6b7280;
   --paused-soft: rgba(107, 114, 128, 0.18);
   /* Bakım: vurgu camgöbeğinden ve durum yeşilinden ayrı, mor olmayan gök mavisi. */
@@ -29,45 +29,47 @@
   --maint-text: #bfdcfb;
   --maint-border: rgba(74, 163, 240, 0.42);
   --on-maint: #05233f;
-  --empty-bar: #2a364c;
+  --empty-bar: #1e2635;
 
   /* Durum renklerinin metin ve kenarlık tonları (koyu zeminde okunaklı). */
-  --up-text: #bbf7d0;
-  --up-border: rgba(59, 214, 113, 0.4);
-  --up-ring: rgba(59, 214, 113, 0.2);
-  --on-up: #07361a; /* yeşil zeminde ikon rengi */
+  --up-text: #a7f3d0;
+  --up-border: rgba(16, 185, 129, 0.4);
+  --up-ring: rgba(16, 185, 129, 0.2);
+  --on-up: #022c22; /* yeşil zeminde ikon rengi */
   --down-text: #fca5a5;
   --down-text-2: #f87171; /* kırmızı metin: kart ve seçili satır zemininde ≥ 4,5:1 */
   --down-border: rgba(239, 68, 68, 0.45);
   --down-solid: #dc2626; /* dolu kırmızı düğme zemini: beyaz yazıyla ≥ 4,5:1 */
   --on-down: #fff;
-  --on-pending: #3a2500;
-  --pending-text: #fde68a;
-  --pending-border: rgba(245, 158, 11, 0.42);
+  --on-pending: #2b2200;
+  --pending-text: #fde047;
+  --pending-border: rgba(234, 179, 8, 0.42);
   --paused-text: #aab1bd;
   --on-paused: #e5e7eb;
 
-  /* Vurgu: logodaki yeşil ve kenar çubuğuyla uyumlu camgöbeği-yeşil; durum
-     yeşilinden (--up) bilerek ayrı tutulur ki butonlar "çalışıyor" ile karışmasın. */
-  --accent: #2dd4bf;
-  --accent-hover: #5eead4;
-  --accent-soft: rgba(45, 212, 191, 0.14);
-  --accent-border: rgba(45, 212, 191, 0.4);
-  --accent-text: #5eead4;
-  --accent-text-soft: #ccfbf1;
-  --accent-contrast: #042f2a; /* vurgu zemininde yazı rengi */
+  /* Vurgu: durum yeşiliyle aynı zümrüt tonu; yanıt süresi çizgileri ayrı bir
+     camgöbeğiyle (--spark) çizilir ki durum çubuklarından ayrışsın. */
+  --accent: #10b981;
+  --accent-hover: #34d399;
+  --accent-soft: rgba(16, 185, 129, 0.12);
+  --accent-border: rgba(16, 185, 129, 0.35);
+  --accent-text: #34d399;
+  --accent-text-soft: #a7f3d0;
+  --accent-contrast: #022c22; /* vurgu zemininde yazı rengi */
+  --spark: #22d3ee;
 
-  --sidebar-bg: linear-gradient(180deg, #0f2a26 0%, #0f1f2e 45%, #111a33 100%);
-  --sidebar-border: rgba(255, 255, 255, 0.06);
-  --sidebar-active: rgba(255, 255, 255, 0.08);
+  --sidebar-bg: #0e1219;
+  --sidebar-border: #1b2637;
+  --sidebar-active: rgba(16, 185, 129, 0.1);
+  --sidebar-active-border: rgba(16, 185, 129, 0.28);
   --sidebar-hover: rgba(255, 255, 255, 0.05);
-  --topbar-bg: linear-gradient(90deg, #0f2a26, #111a33);
-  --tabbar-bg: rgba(13, 20, 33, 0.96);
-  --overlay: rgba(3, 7, 15, 0.7);
-  --tip-bg: #0a101b; /* ipucu ve toast zemini */
+  --topbar-bg: #0e1219;
+  --tabbar-bg: rgba(14, 18, 25, 0.96);
+  --overlay: rgba(3, 5, 9, 0.72);
+  --tip-bg: #0a0d13; /* ipucu ve toast zemini */
   --spinner-track: rgba(255, 255, 255, 0.25);
-  --auth-glow-1: rgba(59, 214, 113, 0.1);
-  --auth-glow-2: rgba(45, 212, 191, 0.1);
+  --auth-glow-1: rgba(16, 185, 129, 0.08);
+  --auth-glow-2: rgba(34, 211, 238, 0.06);
 
   /* Bildirim kanalı simge renkleri (marka tonları; webhook için nötr vurgu). */
   --ch-whatsapp: #25d366;
@@ -110,10 +112,10 @@
   --chart-4: #b88600;
   --chart-5: #d4538a;
   /* Doluluk çubuğu zemini. */
-  --meter-track: #243049;
+  --meter-track: #1e2635;
 
   /* İlerleme çubuğu (dosya yükleme). */
-  --progress-track: #111a29;
+  --progress-track: #141923;
 
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   --qr-bg: #ffffff; /* QR kodu her temada beyaz zeminde okunur */
@@ -1033,7 +1035,7 @@ input[type='search'].input::-webkit-search-decoration {
   --pub-hero-up: linear-gradient(135deg, #0f3a2a, #0f2a3a);
   --pub-hero-partial: linear-gradient(135deg, #3d2e0c, #2a2413);
   --pub-hero-down: linear-gradient(135deg, #451a1a, #2e1620);
-  --pub-hero-unknown: linear-gradient(135deg, #1f2b40, #172133);
+  --pub-hero-unknown: linear-gradient(135deg, #171d29, #121620);
   --pub-hero-text: #f3f6fb;
   --pub-hero-sub: rgba(243, 246, 251, 0.78);
   --pub-hero-ic: rgba(255, 255, 255, 0.16);
