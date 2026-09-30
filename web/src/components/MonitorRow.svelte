@@ -585,6 +585,9 @@
   .u.c-down {
     color: var(--down-text-2);
   }
+  .u.c-warn {
+    color: var(--warn-text);
+  }
   .last {
     text-align: right;
     font-size: 0.8rem;
