@@ -15,12 +15,19 @@ func TestSampleEvents(t *testing.T) {
 			t.Errorf("%s: örnek notu yok:\n%s", ev.Kind, ev.Text())
 		}
 	}
-	for _, k := range []string{KindDown, KindReminder, KindUp, KindCert, KindServerAlert, KindServerResolved} {
+	for _, k := range []string{KindDown, KindReminder, KindUp, KindLocationDown, KindLocationUp, KindCert, KindServerAlert, KindServerResolved} {
 		if kinds[k] == 0 {
 			t.Errorf("%s örneği yok", k)
 		}
 	}
-	if got := evs[6].Title(); got != "🔴 CP Server IST: Disk (/) %91 (1 dk ortalama, eşik %85)" {
-		t.Errorf("disk başlığı: %s", got)
+	for _, ev := range evs {
+		if ev.Metric == "disk" {
+			if got := ev.Title(); got != "🔴 CP Server IST: Disk (/) %91 (1 dk ortalama, eşik %85)" {
+				t.Errorf("disk başlığı: %s", got)
+			}
+		}
+		if ev.Kind == KindLocationDown && (len(ev.Locations) != 1 || !strings.Contains(ev.Body(), "Frankfurt")) {
+			t.Errorf("konum kesintisi örneği konum satırı taşımalı: %q", ev.Body())
+		}
 	}
 }

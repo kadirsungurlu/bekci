@@ -156,7 +156,7 @@ func buildMail(from, to string, ev Event) []byte {
 	h("From", from)
 	h("To", to)
 	h("Subject", mime.QEncoding.Encode("utf-8", ev.Title()))
-	h("Date", ev.Time.Format(time.RFC1123Z))
+	h("Date", time.Now().Format(time.RFC1123Z)) // gönderim anı; olay zamanı gövdede
 	h("Message-ID", messageID(from))
 	h("MIME-Version", "1.0")
 	// Düz metin + HTML: HTML göstermeyen istemci düz metni okur.

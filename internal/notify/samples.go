@@ -21,9 +21,10 @@ type SampleNames struct {
 }
 
 // SampleEvents her bildirim türünden birer örnek: monitör çalışmıyor,
-// hatırlatma, tekrar çalışıyor, SSL sertifikası, sunucu CPU/RAM/disk ve
-// çevrimdışı uyarıları ile düzelme bildirimleri. Hepsi Sample işaretlidir ve
-// lang dilindedir (bildirim dili; yer tutucu adlar da bu dilde).
+// hatırlatma, tekrar çalışıyor, konum kesintisi ve düzelmesi, SSL
+// sertifikası, sunucu CPU/RAM/disk ve çevrimdışı uyarıları ile düzelme
+// bildirimleri. Hepsi Sample işaretlidir ve lang dilindedir (bildirim dili;
+// yer tutucu adlar da bu dilde).
 func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	if n.Monitor == "" {
 		n.Monitor, n.Target = i18n.T(lang, "notify.sample.monitor"), i18n.T(lang, "notify.sample.target")
@@ -53,6 +54,11 @@ func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	reminder.Message, reminder.Downtime = "HTTP 503 Service Unavailable", time.Hour
 	up := mon(KindUp)
 	up.Downtime = 1*time.Hour + 12*time.Minute
+	locDown := mon(KindLocationDown)
+	locDown.Message = "Frankfurt: " + i18n.T(lang, "notify.sample.loc_error")
+	locDown.Locations = []LocationNote{{Name: "Frankfurt", Message: i18n.T(lang, "notify.sample.loc_error")}}
+	locUp := mon(KindLocationUp)
+	locUp.Downtime = 23 * time.Minute
 	cert := mon(KindCert)
 	cert.IncidentURL = ""
 	cert.CertDays, cert.CertExpires, cert.CertIssuer = 7, now.AddDate(0, 0, 7), n.CertIssuer
@@ -66,5 +72,5 @@ func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	cpuOK := srv(KindServerResolved, "cpu", 41, 90, 10)
 	offlineOK := srv(KindServerResolved, "offline", 0, 0, 3)
 
-	return []Event{down, reminder, up, cert, cpu, mem, disk, offline, cpuOK, offlineOK}
+	return []Event{down, reminder, up, locDown, locUp, cert, cpu, mem, disk, offline, cpuOK, offlineOK}
 }

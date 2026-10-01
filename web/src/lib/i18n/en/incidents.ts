@@ -247,6 +247,7 @@ export default {
     noChannels: 'No active notification channels are attached to this monitor',
     noChannelsServer: 'No active notification channels are attached to this server',
     sent: '{ch}: {what} sent',
+    attempts: 'after {n} attempts',
     failed: '{ch}: {what} failed to send',
     edited: 'Monitor settings changed',
     editedClosed: 'Monitor target changed; incident closed',

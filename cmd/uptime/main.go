@@ -204,6 +204,7 @@ func run() error {
 	srv.Shutdown(shutdownCtx)
 	eng.Wait()
 	serverMon.Wait()
+	dispatcher.Stop() // bekleyen yeniden denemeler kapanışı geciktirmesin
 	dispatcher.Wait(10 * time.Second)
 	log.Info("kapandı")
 	return nil

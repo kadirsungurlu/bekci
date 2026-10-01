@@ -48,6 +48,7 @@ func TestDispatcherLogsDeliveries(t *testing.T) {
 	inc2, _ := st.StartIncident(ctx, lonely.ID, 1000, "HTTP 500")
 
 	d := NewDispatcher(st, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	d.retryDelays = nil // 500 veren kanal yeniden denenmesin: tek deneme kaydı beklenir
 	d.Notify(Event{Kind: KindDown, MonitorID: m.ID, MonitorName: "site", Time: time.Now(), IncidentID: inc})
 	d.Notify(Event{Kind: KindDown, MonitorID: lonely.ID, MonitorName: "kanalsız", Time: time.Now(), IncidentID: inc2})
 	d.Notify(Event{Kind: KindDown, MonitorID: m.ID, MonitorName: "site", Time: time.Now()}) // olaysız: yazılmaz

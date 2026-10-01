@@ -29,15 +29,17 @@ func TestEnglishEvents(t *testing.T) {
 		}
 	}
 	want := map[int]string{
-		0: "🔴 Example Site is down",
-		1: "🔴 Example Site is still down",
-		2: "🟢 Example Site is up again",
-		3: "⚠️ Example Site: SSL certificate expires in 7 days",
-		4: "🔴 Example Server: CPU 94% (10 min average, threshold 90%)",
-		6: "🔴 Example Server: Disk (/home) 91% (1 min average, threshold 85%)",
-		7: "🔴 Example Server: server unreachable",
-		8: "🟢 Example Server: CPU back to normal",
-		9: "🟢 Example Server: sending data again",
+		0:  "🔴 Example Site is down",
+		1:  "🔴 Example Site is still down",
+		2:  "🟢 Example Site is up again",
+		3:  "🟡 Example Site: location outage",
+		4:  "🟢 Example Site: all locations up",
+		5:  "⚠️ Example Site: SSL certificate expires in 7 days",
+		6:  "🔴 Example Server: CPU 94% (10 min average, threshold 90%)",
+		8:  "🔴 Example Server: Disk (/home) 91% (1 min average, threshold 85%)",
+		9:  "🔴 Example Server: server unreachable",
+		10: "🟢 Example Server: CPU back to normal",
+		11: "🟢 Example Server: sending data again",
 	}
 	for i, w := range want {
 		if got := evs[i].Title(); got != w {
@@ -47,7 +49,7 @@ func TestEnglishEvents(t *testing.T) {
 	if txt := evs[2].Text(); !strings.Contains(txt, "Downtime: 1h 12m") {
 		t.Errorf("kesinti süresi:\n%s", txt)
 	}
-	if txt := evs[7].Text(); !strings.Contains(txt, "Info: Last data: 2026-09-28") || !strings.Contains(txt, "Server: server01") {
+	if txt := evs[9].Text(); !strings.Contains(txt, "Info: Last data: 2026-09-28") || !strings.Contains(txt, "Server: server01") {
 		t.Errorf("çevrimdışı ayrıntısı:\n%s", txt)
 	}
 

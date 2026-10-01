@@ -27,7 +27,7 @@ export default {
     nameRequired: 'Channel name is required.',
     exampleSummary: 'Example JSON payload',
     exampleHelp:
-      '{event}: {down}, {up}, {reminder}, {cert} or {test}. {downtime_seconds} is included in recovery notifications, {cert_days} in SSL alerts.',
+      '{event}: {down}, {up}, {reminder}, {location_down}, {location_up}, {cert}, {server_alert}, {server_resolved} or {test}. {downtime_seconds} comes with recovery notifications, {cert_days} with SSL alerts, {incident} (id and page) with incident-bound notifications, {locations} with the failing locations of a multi-location monitor, and {server} only with server alerts.',
     active: 'Enabled',
     activeHelp: 'Disabled channels don’t send notifications.',
     isDefault: 'Add to new monitors by default',
@@ -35,6 +35,10 @@ export default {
     applyExistingHelp: 'When you save, this channel is attached to all current monitors.',
     test: 'Send test notification',
     testSent: 'Test notification sent. Check your channel.',
+    samples: 'Send sample notifications',
+    samplesHelp:
+      'Sends one sample of every notification type with the saved settings (outage, reminder, recovery, location outage, SSL, server alerts). Messages carry a “sample” note; can be requested once a minute.',
+    samplesSent: '{count} sample notifications are being sent one by one (two seconds apart). Check your channel.',
     rebind:
       '{dest} changed, so for security the saved {fields} won’t be carried over to the new destination. Re-enter before saving.',
     deleteTitle: 'Delete channel',

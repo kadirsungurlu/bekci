@@ -26,7 +26,7 @@ export default {
     exampleSummary: 'Gönderilen JSON örneği',
     /** {event}, {down} … yer tutucuları <code> olarak çizilir (adları olduğu gibi). */
     exampleHelp:
-      '{event}: {down}, {up}, {reminder}, {cert} veya {test}. {downtime_seconds} düzelme bildiriminde, {cert_days} SSL uyarısında gelir.',
+      '{event}: {down}, {up}, {reminder}, {location_down}, {location_up}, {cert}, {server_alert}, {server_resolved} veya {test}. {downtime_seconds} düzelme bildirimlerinde, {cert_days} SSL uyarısında, {incident} (kimlik ve sayfa) olaya bağlı bildirimlerde, {locations} çok konumlu monitörde çalışmayan konumlarla, {server} yalnızca sunucu uyarılarında gelir.',
     active: 'Etkin',
     activeHelp: 'Devre dışı kanallara bildirim gönderilmez.',
     isDefault: 'Yeni monitörlere varsayılan olarak ekle',
@@ -34,6 +34,10 @@ export default {
     applyExistingHelp: 'Kaydettiğinizde bu kanal şu anki tüm monitörlere bağlanır.',
     test: 'Test gönder',
     testSent: 'Test bildirimi gönderildi. Kanalınızı kontrol edin.',
+    samples: 'Örnek bildirimleri gönder',
+    samplesHelp:
+      'Kayıtlı ayarla her bildirim türünden birer örnek gönderir (kesinti, hatırlatma, düzelme, konum kesintisi, SSL, sunucu uyarıları). Mesajlar “örnek” notu taşır; dakikada bir kez istenebilir.',
+    samplesSent: '{count} örnek bildirim sırayla gönderiliyor (ikişer saniye arayla). Kanalınızı kontrol edin.',
     /** {dest}: "Adres ve port" gibi değişen hedef; {fields}: yeniden girilecek alanlar. */
     rebind: '{dest} değiştiği için kayıtlı {fields} güvenlik gereği yeni hedefe taşınmaz; kaydetmeden önce yeniden girin.',
     deleteTitle: 'Kanalı sil',

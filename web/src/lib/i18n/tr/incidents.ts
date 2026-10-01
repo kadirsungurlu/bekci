@@ -247,6 +247,7 @@ export default {
     noChannels: 'Monitöre bağlı etkin bildirim kanalı yok',
     noChannelsServer: 'Sunucuya bağlı etkin bildirim kanalı yok',
     sent: '{ch}: {what} gönderildi',
+    attempts: '{n} denemede',
     failed: '{ch}: {what} gönderilemedi',
     edited: 'Monitör ayarları değiştirildi',
     editedClosed: 'Monitörün hedefi değiştirildi; olay kapatıldı',

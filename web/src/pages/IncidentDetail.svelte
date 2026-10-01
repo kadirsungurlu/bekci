@@ -262,7 +262,8 @@
         r.tone = d.ok ? 'accent' : 'down';
         const ch = [str(d.channel), NOTIFY_LABELS[type] ?? str(d.type)].filter(Boolean).join(' · ');
         r.title = t(d.ok ? 'incidents.ev.sent' : 'incidents.ev.failed', { ch, what });
-        r.sub = d.ok ? '' : str(d.error);
+        const att = num(d.attempts);
+        r.sub = [d.ok ? '' : str(d.error), att > 1 ? t('incidents.ev.attempts', { n: att }) : ''].filter(Boolean).join(' · ');
         break;
       }
       case 'edited':

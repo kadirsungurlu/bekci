@@ -154,6 +154,23 @@
     }
   }
 
+  // Örnek bildirimler: kayıtlı kanala her türden birer örnek (sunucu sırayla
+  // gönderir). Kaydedilmemiş değişiklikler değil, kayıtlı ayar kullanılır.
+  let sampling = $state(false);
+  async function samples() {
+    if (!orig) return;
+    testResult = null;
+    sampling = true;
+    try {
+      const r = await api.sampleNotifications(orig.id);
+      testResult = { ok: true, msg: t('notifications.form.samplesSent', { count: r.count }) };
+    } catch (e) {
+      testResult = { ok: false, msg: errorMessage(e) };
+    } finally {
+      sampling = false;
+    }
+  }
+
   async function save() {
     error = validate();
     if (error) return;
@@ -360,6 +377,12 @@
       {#if testing}<span class="spinner"></span>{:else}<Icon name="send" size={15} />{/if}
       {t('notifications.form.test')}
     </button>
+    {#if orig}
+      <button type="button" class="btn" onclick={samples} disabled={sampling} title={t('notifications.form.samplesHelp')}>
+        {#if sampling}<span class="spinner"></span>{:else}<Icon name="bell" size={15} />{/if}
+        {t('notifications.form.samples')}
+      </button>
+    {/if}
     <div class="spacer"></div>
     <button type="button" class="btn" onclick={cancel}>{t('common.cancel')}</button>
     <button type="submit" form="nf" class="btn primary" disabled={saving}>

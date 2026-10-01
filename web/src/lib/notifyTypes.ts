@@ -1168,5 +1168,8 @@ export const webhookExample = (d = t('notifyTypes.exampleDomain')) => `{
     "type": "http",
     "target": "https://${d}",
     "url": "https://uptime.${d}/#/monitors/1"
-  }
+  },
+  "incident": { "id": 42, "url": "https://uptime.${d}/#/incidents/42" },
+  "locations": [{ "name": "Frankfurt", "message": "Timeout" }],
+  "server": { "id": 3, "name": "web-1", "metric": "cpu", "value": 94, "threshold": 90, "minutes": 10 }
 }`;

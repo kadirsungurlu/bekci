@@ -18,6 +18,7 @@ var messages = map[string]Msg{
 	"notify.test.title":          {"✅ Test bildirimi", "✅ Test notification"},
 	"notify.test.body":           {"%s bildirim kanalınız çalışıyor.", "Your %s notification channel is working."},
 	"notify.sample.note":         {"(Örnek bildirim — gerçek bir olay değil)", "(Sample notification — not a real event)"},
+	"notify.sample.loc_error":    {"Zaman aşımı", "Timeout"},
 
 	// Bildirim metnindeki satır başlıkları
 	"notify.field.server":         {"Sunucu", "Server"},
