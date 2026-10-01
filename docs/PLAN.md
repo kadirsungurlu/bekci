@@ -1,5 +1,11 @@
 # Uptime — Proje Planı
 
+> **Tarihsel belge.** Bu plan projenin ilk tasarımını (2026-09) anlatır; ürün
+> adı o zaman "Uptime" idi (bugün **Bekci**). Mimari ve veri modeli büyük
+> ölçüde geçerli olsa da onay kutuları ve aşamalar güncel tutulmaz; İngilizce
+> arayüz, kontrol noktaları, kısmi kesinti olayları gibi sonradan eklenen
+> özellikler için README ve belge sitesi (bekci.app/docs) esastır.
+
 Uptime Kuma'nın özelliklerini UptimeRobot sadeliğinde bir arayüzle sunan, Go ile
 yazılmış izleme sistemi. Yüzlerce monitörde arayüz yavaşlamamalı.
 

@@ -25,8 +25,9 @@
 #   1. docker compose pull && docker compose up -d
 #
 # Sürüm sabitleme ve geri dönüş: sürümler numarayla (SQLite: :1.2.3,
-# PostgreSQL: :1.2.3-postgres), her yayın ayrıca commit kısa özetiyle
-# (:abc1234 / :postgres-abc1234) etiketlenir. .env'de
+# PostgreSQL: :1.2.3-postgres) etiketlenir; "latest" son kararlı sürümdür.
+# Geliştirme derlemeleri (commit kısa kodu) yalnızca GHCR'dedir:
+# ghcr.io/kadirsungurlu/bekci:abc1234 (ve :postgres-abc1234). .env'de
 #   UPTIME_TAG=1.2.3              (ya da UPTIME_TAG=1.2.3-postgres)
 # yazarsanız güncelleme siz değiştirene kadar yapılmaz; yeni sürümde sorun
 # çıkarsa eski etiketi yazıp "docker compose up -d" ile geri dönebilirsiniz.

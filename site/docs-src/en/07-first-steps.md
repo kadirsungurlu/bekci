@@ -67,6 +67,10 @@ Add at least one channel so you hear about it when a monitor goes down. There ar
 4. Tick **Add to new monitors by default** so new monitors get this channel automatically. To add it to your existing monitors as well, tick **Add to all existing monitors**.
 5. Click **Save**.
 
+Notifications arrive with a short title: 🔴 outage, 🟢 recovery (locations that are still down are listed), 🟡 location outage, ⚠️ SSL warning; emails contain both HTML and plain text. For a saved channel, **Send sample notifications** sends one sample of every type. On a temporary failure (network, HTTP 5xx/429) delivery is retried after 5 and 20 seconds; the result is written to the incident's timeline.
+
+The **Webhook** channel sends JSON: `event` (`down`, `up`, `reminder`, `location_down`, `location_up`, `cert`, `server_alert`, `server_resolved`, `test`), `title`, `text`, `message`, `time`, `downtime_seconds` (on recovery), `cert_days` (on SSL warnings), `monitor` (`id`, `name`, `type`, `target`, `url`), `incident` (`id`, `url`; on incident-bound notifications), `locations` (failing locations of a multi-location monitor: `name`, `message`) and `server` (server alerts only: `id`, `name`, `metric`, `value`, `threshold`, `minutes`). An example payload is shown in the channel dialog.
+
 > [!CHECK]
 > The test notification reached your channel and the channel shows up in the **Notifications** list. You can also change a monitor's channels on the monitor's edit page.
 
@@ -112,3 +116,4 @@ Opened from the home screen icon, it runs full screen and updates live. On Andro
 - **Silence notifications during planned maintenance:** the **Maintenance** section.
 - **Move from another service:** import your UptimeRobot account or Uptime Kuma backup under **Settings → Backup / Restore**.
 - **Set up backups:** [Updates, backups and rollback](/en/docs/updates-backups/).
+- **Connect Prometheus/Grafana:** the `GET /metrics` endpoint exposes monitor-level status, response time and uptime. Create a key under **Settings → API keys** and call it with the `Authorization: Bearer upk_…` header or Basic auth (user `metrics`, password the key); viewer permission is enough.

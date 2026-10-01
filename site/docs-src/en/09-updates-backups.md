@@ -10,15 +10,15 @@ slug: updates-backups
 
 ## Version tags {#tags}
 
-Bekci images are published for amd64 and arm64 on Docker Hub as [`kadirsungurlu/bekci`](https://hub.docker.com/r/kadirsungurlu/bekci/tags) (the same images are on GitHub Container Registry as `ghcr.io/kadirsungurlu/bekci`):
+Bekci images are published for amd64 and arm64 on Docker Hub as [`kadirsungurlu/bekci`](https://hub.docker.com/r/kadirsungurlu/bekci/tags) (the same images are on GitHub Container Registry as `ghcr.io/kadirsungurlu/bekci`). Only released versions go to Docker Hub; development builds (short commit code) exist on GHCR only:
 
 | Tag | Content | When |
 |---|---|---|
-| `latest` | Newest build (latest state of the main branch), SQLite | If you always want the newest |
-| `postgres` | Newest build, embedded PostgreSQL 18 | The newest with embedded PostgreSQL |
+| `latest` | Latest released stable version, SQLite | If you always want the latest stable version |
+| `postgres` | Latest released stable version, embedded PostgreSQL 18 | The latest stable version with embedded PostgreSQL |
 | `1.0.0`, `1.0` | A specific version, SQLite | To pin the version and to roll back (recommended) |
 | `1.0.0-postgres`, `1.0-postgres` | A specific version, embedded PostgreSQL | The same, for PostgreSQL |
-| `2718268`, `postgres-2718268` | A specific build (short commit code) | To go back to a build you saw in the log |
+| `ghcr.io/kadirsungurlu/bekci:2718268`, `…:postgres-2718268` | A specific development build (short commit code); GHCR only, for every build of the main branch | To go back to a development build you saw in the log |
 
 Two-part tags such as `1.0` follow the latest patch of that series (e.g. once `1.0.1` is out, `1.0` points to it).
 
@@ -53,7 +53,7 @@ Click **Redeploy** (or **Deploy**) on the application's page. If you use a fixed
 :::
 
 > [!CHECK]
-> The log should show a new start line (`docker compose logs bekci | grep "Bekci başladı"`). The `sürüm=` (version) field is the short code of the running build (e.g. `2718268`); it should have changed after the update:
+> The log should show a new start line (`docker compose logs bekci | grep "Bekci başladı"`). The `sürüm=` (version) field is the running version (e.g. `1.2.1`; the short commit code on GHCR commit images, e.g. `2718268`); it should have changed after the update:
 >
 > ```text
 > level=INFO msg="Bekci başladı" sürüm=… adres=:8080 veri=/data
@@ -191,7 +191,7 @@ docker compose start bekci
 
 If a new version causes trouble, you can go back to the tag of the old one:
 
-1. Find the tag to go back to: published versions (e.g. `1.0.0`) are listed [on Docker Hub](https://hub.docker.com/r/kadirsungurlu/bekci/tags). The old `sürüm=` (version) value from the log (e.g. `0ae7b6d`) works as a tag too: `kadirsungurlu/bekci:0ae7b6d`.
+1. Find the tag to go back to: published versions (e.g. `1.0.0`) are listed [on Docker Hub](https://hub.docker.com/r/kadirsungurlu/bekci/tags). If the old `sürüm=` (version) value from the log is a released version (e.g. `1.2.0`), use it directly as the tag; to go back to a development build (short code, e.g. `0ae7b6d`) use `ghcr.io/kadirsungurlu/bekci:0ae7b6d` (GHCR only).
 2. **If the new version upgraded the database** (the log has a `migration uygulandı` line), the old version may not be able to open the new database. First [restore](#restore) the pre-update backup (`pre-migrate-…db`). Changes made after that backup are lost.
 3. Switch the tag back to the old version and start it, e.g. `image: kadirsungurlu/bekci:⟦1.0.0⟧` and `docker compose up -d`.
 

@@ -44,7 +44,8 @@ PostgreSQL; designed to stay fast with hundreds of monitors.
 - **Secure agents** — tokens are stored as hashes, IP lock, pinned version
   verified by SHA-256 that never updates itself.
 - **Works like an app on your phone (PWA)** — add to home screen, live updates.
-- **Turkish UI** — including notifications, date and number formats.
+- **Turkish and English UI** — language per user; separate language settings
+  for status pages and notifications, including date and number formats.
 - **Easy migration** — import from an Uptime Kuma backup or an UptimeRobot account.
 
 ## Quick start
@@ -144,8 +145,11 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
 - Incident history and details (request/response capture at the time of the
   outage — visible to admins only), 24 hour / 7 / 30 / 90 day uptime and
   response time charts
-- Remote **check locations**: monitors are checked from multiple locations,
-  with an outage rule (any / majority / all)
+- Remote **check locations**: monitors are checked from multiple locations at
+  the same time, with an outage rule (any / majority / all); optional
+  **notify on location outages**: when a single location goes down while the
+  monitor stays up, a separate 🟡 notification is sent, and 🟢 when it recovers
+  (uptime is not affected)
 
 **Server monitoring**
 - CPU, RAM, disk (per mount point), swap, load, temperature, network (Mbit/s),
@@ -170,6 +174,12 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
 
 **Other**
 - Live-updating UI (SSE), import/export, automatic nightly backup
+- Prometheus `/metrics` endpoint (monitor-level status, response time, uptime);
+  accessed with an API key: `Authorization: Bearer upk_…` or Basic auth (user
+  `metrics`, password the key)
+- Checks go out with a recognizable User-Agent
+  (`Mozilla/5.0 (compatible; Bekci/<version>; +<BASE_URL>)`; configurable under
+  Settings → General) — allow all locations with a single firewall rule
 - Use it like an app on your phone (PWA): on iPhone, Safari → Share → **Add to
   Home Screen**; on Android, Chrome → **Install app**
 
@@ -180,7 +190,10 @@ Coolify and Compose setups, image tags and environment variables.
 
 ### Coolify
 
-- Build Pack: **Dockerfile**, port **8080**, health check `/healthz`
+- Recommended: Build Pack **Docker Image**, image `kadirsungurlu/bekci:latest`
+  (or a pinned version, e.g. `kadirsungurlu/bekci:1.2.1`); use Build Pack
+  **Dockerfile** if you want to build from source. Port **8080**, health check
+  `/healthz`
 - Persistent storage: **/data** (database and the `backups/` folder). Add it
   in Coolify as a **Volume**. If you want to bind a folder on the host
   (Directory Mount), its owner must be uid 1000 (`chown 1000:1000 <folder>`);
@@ -215,10 +228,10 @@ docker compose up -d
 
 | Tag (`kadirsungurlu/bekci`) | Contents |
 |---|---|
-| `:latest` | SQLite (recommended, lightest) |
-| `:postgres` | Embedded PostgreSQL 18 (data still under `/data`) |
-| `:1.2.3`, `:1.2` / `:1.2.3-postgres`, `:1.2-postgres` | A specific version (for pinning / rollback) |
-| `:<short-sha>` / `:postgres-<short-sha>` | A specific commit |
+| `:latest` | Latest stable release, SQLite (recommended, lightest) |
+| `:postgres` | Latest stable release, embedded PostgreSQL 18 (data still under `/data`) |
+| `:1.2.3`, `:1.2`, `:1` / `:1.2.3-postgres`, `:1.2-postgres`, `:1-postgres` | A specific version or the latest of a series (for pinning / rollback) |
+| `ghcr.io/kadirsungurlu/bekci:<short-sha>` / `:postgres-<short-sha>` | A specific commit — GitHub Container Registry only (main branch builds); only released versions go to Docker Hub |
 
 Data cannot be moved between the two images; pick one from the start. Minimum
 1 vCPU, 512 MB RAM (1 GB recommended), 10 GB disk. The app uses ~15 MB RAM with
@@ -237,9 +250,14 @@ amd64/arm64, Windows amd64) are included.
 | `DATA_DIR` | `/data` | Folder for the SQLite database and backups |
 | `DATABASE_URL` | — | If set, **PostgreSQL** is used: `postgres://kullanıcı:şifre@sunucu:5432/veritabanı?sslmode=disable` (user:password@host:5432/database). Backups must then be taken on the database side (Coolify backups / `pg_dump`) |
 | `ADDR` | `:8080` | Listen address |
+| `TRUSTED_PROXY` | — | Trusted reverse proxy networks (comma-separated CIDRs, e.g. `172.17.0.1/32`). When set, `X-Forwarded-For` is accepted only on connections from these networks; when empty, all private/local addresses are trusted and a warning is logged at startup. For a directly published install without a proxy, set `127.0.0.1/32` |
 | `AGENT_DIR` | `/usr/local/share/uptime/agents` | Agent binaries for other platforms (`uptime-windows-amd64.exe`, `uptime-linux-arm64`); included in the image |
 | `PROBE_IMAGE` | — | If set, the check location install command uses this Docker image instead of downloading the binary |
-| `UPTIME_LOCK_WAIT` | `600` | Maximum number of seconds a second copy waits for the data folder lock (then exits with an error) |
+| `UPTIME_LOCK_WAIT` | `600` | Maximum number of seconds a second copy waits for the single-instance lock (SQLite: data folder, PostgreSQL: database advisory lock) before exiting with an error. Only one copy (replica) runs per database |
+
+The server agent and check location variables (`PROBE_SERVER`, `PROBE_TOKEN`,
+`METRICS`, `HOST_PROC`/`HOST_SYS`/`HOST_ETC`/`HOST_ROOT`, `DOCKER_HOST`) come
+preset in the install command: [bekci.app/en/docs/environment-variables](https://bekci.app/en/docs/environment-variables/#agent).
 
 ## Updates, backups and rollback
 
@@ -352,6 +370,12 @@ panel and run it again:
 
 Since the token is shown only once, you need a **new token** from the panel to
 see the command again; the old token becomes invalid.
+
+**Synchronized location checks** (all locations check at the same moment) and
+the recognizable **User-Agent** introduced in 1.2 also need the new agent
+version: reinstall check locations set up before 1.2 with the steps above. Old
+agents keep working but check on their own schedule and with their own
+User-Agent; the panel shows an **Outdated** badge in the list.
 
 ### Removing the agent
 

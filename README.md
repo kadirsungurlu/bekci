@@ -109,6 +109,7 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
 - [Kurulum](#kurulum)
   - [Coolify](#coolify)
   - [Docker Compose (bağımsız sunucu)](#docker-compose-bağımsız-sunucu)
+  - [İmajlar ve sistem gereksinimi](#imajlar-ve-sistem-gereksinimi)
   - [Ortam değişkenleri](#ortam-değişkenleri)
 - [Güncelleme, yedek ve geri dönüş](#güncelleme-yedek-ve-geri-dönüş)
 - [Sunucu ajanı ve kontrol noktası](#sunucu-ajanı-ve-kontrol-noktası)
@@ -134,8 +135,10 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
 - Monitör grupları, etiketler, bakım pencereleri
 - Olay geçmişi ve ayrıntısı (kesinti anındaki istek/yanıt yakalaması — yalnızca
   yöneticiler görür), 24 saat / 7 / 30 / 90 gün uptime ve yanıt süresi grafikleri
-- Uzak **kontrol noktaları**: monitörler birden çok konumdan kontrol edilir,
-  kesinti kuralı (herhangi biri / çoğunluk / hepsi)
+- Uzak **kontrol noktaları**: monitörler birden çok konumdan aynı anda kontrol
+  edilir, kesinti kuralı (herhangi biri / çoğunluk / hepsi); isteğe bağlı
+  **konum kesintisinde de bildirim**: monitör genel olarak çalışırken tek bir
+  konum düşerse 🟡 başlıklı ayrı bildirim, düzelince 🟢 (uptime etkilenmez)
 
 **Sunucu takibi**
 - CPU, RAM, disk (bağlama noktası başına), swap, yük, sıcaklık, ağ (Mbit/s),
@@ -154,12 +157,18 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
   olaylar (gizlenebilir), şifre koruması, özel alan adı, rozetler
 
 **Kullanıcılar**
-- Roller (yönetici / düzenleyici / izleyici), yalnızca kendisine atanan
+- Roller (yönetici / editör / izleyici), yalnızca kendisine atanan
   monitörleri ve sunucuları gören **müşteri hesapları**, iki adımlı doğrulama
   (2FA), API anahtarları, işlem kaydı
 
 **Diğer**
 - Canlı güncellenen arayüz (SSE), içe/dışa aktarma, gece otomatik yedek
+- Prometheus `/metrics` ucu (monitör düzeyinde durum, yanıt süresi, uptime);
+  API anahtarıyla erişilir: `Authorization: Bearer upk_…` ya da Basic kimlik
+  (kullanıcı `metrics`, şifre anahtar)
+- Kontrol istekleri tanınabilir bir User-Agent ile gider
+  (`Mozilla/5.0 (compatible; Bekci/<sürüm>; +<BASE_URL>)`; Ayarlar → Genel'den
+  değiştirilebilir) — güvenlik duvarında tek kuralla tüm konumlara izin verin
 - Telefonda uygulama gibi kullanım (PWA): iPhone'da Safari → Paylaş → **Ana
   Ekrana Ekle**; Android'de Chrome → **Uygulamayı yükle**
 
@@ -171,7 +180,9 @@ ortam değişkenleri var.
 
 ### Coolify
 
-- Build Pack: **Dockerfile**, port **8080**, health check `/healthz`
+- Önerilen: Build Pack **Docker Image**, imaj `kadirsungurlu/bekci:latest` (ya
+  da sabit bir sürüm, ör. `kadirsungurlu/bekci:1.2.1`); kaynaktan derlemek
+  isterseniz Build Pack **Dockerfile**. Port **8080**, health check `/healthz`
 - Kalıcı depolama: **/data** (veritabanı ve `backups/` klasörü). Coolify'da
   **Volume** türünde ekleyin. Sunucudaki bir klasörü bağlamak (Directory Mount)
   isterseniz sahibi uid 1000 olmalı (`chown 1000:1000 <klasör>`); uygulama root
@@ -203,10 +214,10 @@ docker compose up -d
 
 | Etiket (`kadirsungurlu/bekci`) | İçerik |
 |---|---|
-| `:latest` | SQLite (önerilen, en hafif) |
-| `:postgres` | Gömülü PostgreSQL 18 (veriler yine `/data` altında) |
-| `:1.2.3`, `:1.2` / `:1.2.3-postgres`, `:1.2-postgres` | Belirli bir sürüm (sabitleme / geri dönüş için) |
-| `:<kısa-sha>` / `:postgres-<kısa-sha>` | Belirli bir commit |
+| `:latest` | Son kararlı sürüm, SQLite (önerilen, en hafif) |
+| `:postgres` | Son kararlı sürüm, gömülü PostgreSQL 18 (veriler yine `/data` altında) |
+| `:1.2.3`, `:1.2`, `:1` / `:1.2.3-postgres`, `:1.2-postgres`, `:1-postgres` | Belirli bir sürüm ya da serinin en sonu (sabitleme / geri dönüş için) |
+| `ghcr.io/kadirsungurlu/bekci:<kısa-sha>` / `:postgres-<kısa-sha>` | Belirli bir commit — yalnızca GitHub Container Registry'de (ana dal derlemeleri); Docker Hub'a yalnızca yayınlanmış sürümler gider |
 
 İki imajın verisi birbirine taşınmaz; baştan birini seçin. En az 1 vCPU,
 512 MB RAM (1 GB önerilir), 10 GB disk. Uygulama 10 monitör ve 3 sunucuda
@@ -225,9 +236,14 @@ amd64/arm64, Windows amd64) da içinde hazır gelir.
 | `DATA_DIR` | `/data` | SQLite veritabanı ve yedeklerin klasörü |
 | `DATABASE_URL` | — | Verilirse **PostgreSQL** kullanılır: `postgres://kullanıcı:şifre@sunucu:5432/veritabanı?sslmode=disable`. Yedek bu durumda veritabanı tarafında alınmalıdır (Coolify yedekleri / `pg_dump`) |
 | `ADDR` | `:8080` | Dinlenecek adres |
+| `TRUSTED_PROXY` | — | Güvenilir ters vekil ağları (virgülle CIDR, ör. `172.17.0.1/32`). Ayarlıysa `X-Forwarded-For` yalnızca bu ağlardan gelen bağlantılarda kabul edilir; boşsa tüm özel/yerel adreslere güvenilir ve açılışta bir uyarı yazılır. Vekilsiz, doğrudan yayınlanan kurulumda `127.0.0.1/32` verin |
 | `AGENT_DIR` | `/usr/local/share/uptime/agents` | Diğer platformların ajan programları (`uptime-windows-amd64.exe`, `uptime-linux-arm64`); imajda hazır gelir |
 | `PROBE_IMAGE` | — | Verilirse kontrol noktası kurulum komutu programı indirmek yerine bu Docker imajını kullanır |
-| `UPTIME_LOCK_WAIT` | `600` | İkinci bir kopya veri klasörü kilidini en fazla kaç saniye bekler (sonra hata ile çıkar) |
+| `UPTIME_LOCK_WAIT` | `600` | İkinci bir kopya tek-örnek kilidini (SQLite: veri klasörü, PostgreSQL: veritabanı danışma kilidi) en fazla kaç saniye bekler (sonra hata ile çıkar). Aynı veritabanıyla tek kopya (replika) çalışır |
+
+Sunucu ajanı ve kontrol noktasının değişkenleri (`PROBE_SERVER`, `PROBE_TOKEN`,
+`METRICS`, `HOST_PROC`/`HOST_SYS`/`HOST_ETC`/`HOST_ROOT`, `DOCKER_HOST`) kurulum
+komutunda hazır gelir: [bekci.app/docs/ortam-degiskenleri](https://bekci.app/docs/ortam-degiskenleri/#ajan).
 
 ## Güncelleme, yedek ve geri dönüş
 
@@ -331,6 +347,12 @@ için panelden **güncel** kurulum komutunu alıp tekrar çalıştırın:
 
 Token yalnızca bir kez gösterildiği için komutu yeniden görmek için panelde
 **yeni token** almanız gerekir; eski token geçersiz olur.
+
+1.2 ile gelen **eşzamanlı konum kontrolü** (tüm konumlar aynı anda kontrol
+eder) ve tanınabilir **User-Agent** ajan tarafında da yeni sürümü gerektirir:
+1.2 öncesi kurulmuş kontrol noktalarını yukarıdaki adımlarla yeniden kurun.
+Eski ajanlar çalışmaya devam eder ama kendi zamanlamasıyla ve kendi
+User-Agent'ıyla kontrol eder; panel listede **Eski sürüm** rozeti gösterir.
 
 ### Ajanı kaldırma
 

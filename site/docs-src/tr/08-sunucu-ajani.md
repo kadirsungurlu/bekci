@@ -100,10 +100,10 @@ Kontrol noktası, monitörlerinizi başka bir şehirden ya da ağdan da kontrol 
 2. Konumu anlatan kısa bir ad verin (ör. “Frankfurt”) ve kaydedin.
 3. Gösterilen komutu, kontrol noktası olacak sunucuda (Docker kurulu olmalı) **root** olarak, tamamını yapıştırarak çalıştırın. Komut `/etc/uptime-probe.env` dosyasını ve `uptime-probe` adlı konteyneri oluşturur.
 4. **Kopyaladım, kapat** ile pencereyi kapatın.
-5. Bir monitörün düzenleme sayfasında **Konumlar** bölümünden bu kontrol noktasını seçin ve **Kesinti kuralını** belirleyin: herhangi bir konum, konumların çoğunluğu ya da tüm konumlar çalışmıyorsa.
+5. Bir monitörün düzenleme sayfasında **Konumlar** bölümünden bu kontrol noktasını seçin ve **Kesinti kuralını** belirleyin: herhangi bir konum, konumların çoğunluğu ya da tüm konumlar çalışmıyorsa. İsterseniz **Konum kesintisinde de bildirim gönder** seçeneğini açın: monitör genel olarak çalışırken tek bir konum düşer ya da ulaşılamaz olursa 🟡 başlıklı ayrı bir bildirim gider, konum düzelince 🟢 ile bildirilir; uptime etkilenmez (varsayılan kapalı). Konum kesintileri **Olaylar** sayfasında “Konum kesintisi” türüyle ayrı listelenir.
 
 > [!CHECK]
-> Birkaç saniye içinde kontrol noktası listede **Çevrimiçi** görünür. Son 90 saniyede sonuç gönderen kontrol noktası çevrimiçi sayılır. `docker logs uptime-probe` çıktısında `msg="kontrol noktası başladı"` satırı olmalı.
+> Birkaç saniye içinde kontrol noktası listede **Çevrimiçi** görünür. Son 90 saniyede sonuç gönderen kontrol noktası çevrimiçi sayılır; bağlantısı kopan (durdurulan, çöken) nokta anında çevrimdışı görünür. `docker logs uptime-probe` çıktısında `msg="kontrol noktası başladı"` satırı olmalı.
 
 ## Kurulumun oluşturduğu dosyalar {#dosyalar}
 
@@ -117,6 +117,9 @@ Kontrol noktası, monitörlerinizi başka bir şehirden ya da ağdan da kontrol 
 ## Güncelleme {#guncelleme}
 
 Ajan kendini **güncellemez**: program bir kez indirilir, doğrulanır ve sonraki yeniden başlatmalarda aynı program kullanılır. Böylece panelinizin bulunduğu sunucu ele geçirilse bile sunucularınıza kendiliğinden yeni bir program inmez. Bekci'yi güncelledikten sonra ajanları da güncellemek için:
+
+> [!IMPORTANT]
+> Bekci 1.2 ile gelen **eşzamanlı konum kontrolü** (tüm konumlar aynı anda kontrol eder) ve tanınabilir **User-Agent** ajan tarafında da yeni sürümü gerektirir. 1.2 öncesi kurulmuş kontrol noktalarını aşağıdaki adımlarla yeniden kurun; eski ajanlar çalışmaya devam eder ama kendi zamanlamasıyla ve kendi User-Agent'ıyla kontrol eder. Panel, sürümü kendisinden farklı ajanları listede **Eski sürüm** rozetiyle gösterir.
 
 1. Panelden **güncel** kurulum komutunu alın. Token yalnızca bir kez gösterildiği için bu, token'ı yeniler (eski token hemen geçersiz olur):
    - Sunucu ajanı: sunucunun sayfasında **Kurulum komutu** → **Token’ı yenile ve komutu göster**.
@@ -188,3 +191,5 @@ Günlükler: Docker'da `docker logs uptime-agent` (kontrol noktası için `uptim
 | `PROBE_SERVER https olmalı; şifrelenmemiş http için PROBE_ALLOW_INSECURE=1 gerekir` | Panel `http://` adresinde. Paneli HTTPS arkasına alın ya da ayar dosyasına `PROBE_ALLOW_INSECURE=1` ekleyin. |
 | `ana sunucuya ulaşılamıyor, tekrar denenecek` | Ajan panelin adresine erişemiyor. `BASE_URL`'i, DNS'i ve ajanın sunucusundan dışarı çıkan bağlantıları kontrol edin (ör. `curl -sI https://bekci.ornek.com/healthz`). |
 | Panelde “Docker bulunamadı veya ajan Docker soketine erişemiyor” | Konteyner bilgisi toplanmaz; Docker yoksa bu normaldir. Docker varsa komuttaki `/var/run/docker.sock` bağlamasının yerinde olduğundan emin olun. |
+| Olayda ya da bildirimde “Kontrol noktasına ulaşılamıyor” | O konumdan sonuç gelmiyor (ajan durdu, ağ kesildi). Konum kesinti hesabına katılmaz; son sonucu “çalışmıyor” olan konum, sonuç eskiyene kadar kesinti saymaya devam eder (ajanın yeniden başlaması olayı kapatıp açmaz). Ajanı ve panele erişimini kontrol edin. |
+| Bildirimde “🔴 … sunucuya ulaşılamıyor”, olay listesinde “Sunucuya ulaşılamıyor” | Sunucu ajanından 3 dakikadır veri gelmiyor (çevrimdışı uyarısı). Ajan konteynerinin/hizmetinin çalıştığını ve panele bağlanabildiğini kontrol edin; veri gelince “🟢 … tekrar veri gönderiyor” bildirimi gider ve olay kapanır. |

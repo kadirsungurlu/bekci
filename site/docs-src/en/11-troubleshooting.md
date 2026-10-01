@@ -143,7 +143,7 @@ The image is downloaded from Docker Hub during install and updates. After that B
 
 ### Can I run two copies of Bekci at the same time? {#two-copies}
 
-Not with the same data; the second copy [waits](#lock) until the first one stops. To check from different locations, use a [check location](/en/docs/server-agent/#check-location).
+Not with the same data — neither with SQLite nor with an external PostgreSQL (a single-instance lock is held on the database); the second copy [waits](#lock) until the first one stops. Multiple replicas are not supported. To check from different locations, use a [check location](/en/docs/server-agent/#check-location).
 
 ### Can I move from SQLite to PostgreSQL? {#sqlite-postgresql}
 

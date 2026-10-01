@@ -222,6 +222,8 @@ Bekci only believes the client address in the `X-Forwarded-For` header if the co
 
 To be stricter, list the trusted networks in the `TRUSTED_PROXY` environment variable, separated by commas, e.g. `TRUSTED_PROXY=172.17.0.1/32`. When it's set, only headers from these networks are trusted.
 
+When the variable is empty, Bekci logs a warning once at startup (`TRUSTED_PROXY ayarlı değil …`, “TRUSTED_PROXY not set”). The default is kept permissive so that existing Coolify/Traefik/Caddy installs keep working. In an install **without a reverse proxy**, published directly with `-p 8080:8080`, every request arrives from a private address (the Docker gateway) because of Docker NAT; a client could then forge an address with the `X-Forwarded-For` header to bypass login limits and the IP lock, or write a fake address into the audit log. For such installs set `TRUSTED_PROXY=127.0.0.1/32`: headers are not trusted and the connecting address is used.
+
 ## Common problems {#problems}
 
 ### Live updates don't arrive, “Offline” notice {#no-live-updates}

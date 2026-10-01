@@ -44,8 +44,8 @@ Add them under the application's **Environment Variables** and redeploy.
 | `DATABASE_URL` | — | If set, **PostgreSQL** is used instead of SQLite: `postgres://user:password@host:5432/database?sslmode=disable`. Must start with `postgres://` or `postgresql://`. Bekci then takes no nightly backup; back up on the database side. Ignored by the `postgres` image (it always uses its embedded database). |
 | `DATA_DIR` | `/data` | Folder for the SQLite database and backups. No need to change it in Docker; mount the volume at `/data`. |
 | `ADDR` | `:8080` | Address and port to listen on inside the container. |
-| `TRUSTED_PROXY` | — | Trusted reverse proxy networks as a comma-separated CIDR list (e.g. `172.17.0.1/32,10.0.0.0/8`). When set, the `X-Forwarded-For` header is only trusted on connections from these networks. When empty, all private and local addresses are trusted ([details](/en/docs/install/reverse-proxy/#trusted-proxy)). |
-| `UPTIME_LOCK_WAIT` | `600` | How many seconds a second copy using the same data folder waits at most for the first one to stop. When the time is up it exits with an error. |
+| `TRUSTED_PROXY` | — | Trusted reverse proxy networks as a comma-separated CIDR list (e.g. `172.17.0.1/32,10.0.0.0/8`). When set, the `X-Forwarded-For` header is only trusted on connections from these networks. When empty, all private and local addresses are trusted and a warning is logged at startup; for an install without a proxy, set `127.0.0.1/32` ([details](/en/docs/install/reverse-proxy/#trusted-proxy)). |
+| `UPTIME_LOCK_WAIT` | `600` | How many seconds a second copy using the same data folder (SQLite) or the same database (PostgreSQL) waits at most for the first one to stop. When the time is up it exits with an error. Only one copy (replica) runs per database. |
 | `AGENT_DIR` | `/usr/local/share/uptime/agents` | Folder with the agent programs for other platforms. Ready in the official image; don't change it. |
 | `PROBE_IMAGE` | — | If set, the check location install command uses this Docker image instead of downloading the program. |
 

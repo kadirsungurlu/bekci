@@ -44,8 +44,8 @@ Uygulamanın **Environment Variables** bölümüne ekleyip yeniden dağıtın.
 | `DATABASE_URL` | — | Verilirse SQLite yerine **PostgreSQL** kullanılır: `postgres://kullanıcı:parola@sunucu:5432/veritabanı?sslmode=disable`. `postgres://` ya da `postgresql://` ile başlamalıdır. Bu durumda Bekci gece yedeği almaz; yedeği veritabanı tarafında alın. `postgres` imajında bu değişken yok sayılır (her zaman gömülü veritabanı kullanılır). |
 | `DATA_DIR` | `/data` | SQLite veritabanı ve yedeklerin klasörü. Docker'da değiştirmeniz gerekmez; birimi `/data`'ya bağlayın. |
 | `ADDR` | `:8080` | Konteynerin içinde dinlenecek adres ve port. |
-| `TRUSTED_PROXY` | — | Güvenilir ters vekil ağları, virgülle ayrılmış CIDR listesi (ör. `172.17.0.1/32,10.0.0.0/8`). Ayarlıysa `X-Forwarded-For` başlığına yalnızca bu ağlardan gelen bağlantılarda güvenilir. Boşsa tüm özel ve yerel adresler güvenilir sayılır ([ayrıntı](/docs/kurulum/ters-vekil/#trusted-proxy)). |
-| `UPTIME_LOCK_WAIT` | `600` | Aynı veri klasörünü kullanan ikinci bir kopyanın, ilki kapanana kadar en fazla kaç saniye bekleyeceği. Süre dolarsa hata ile çıkar. |
+| `TRUSTED_PROXY` | — | Güvenilir ters vekil ağları, virgülle ayrılmış CIDR listesi (ör. `172.17.0.1/32,10.0.0.0/8`). Ayarlıysa `X-Forwarded-For` başlığına yalnızca bu ağlardan gelen bağlantılarda güvenilir. Boşsa tüm özel ve yerel adresler güvenilir sayılır ve açılışta bir uyarı yazılır; vekilsiz kurulumda `127.0.0.1/32` verin ([ayrıntı](/docs/kurulum/ters-vekil/#trusted-proxy)). |
+| `UPTIME_LOCK_WAIT` | `600` | Aynı veri klasörünü (SQLite) ya da aynı veritabanını (PostgreSQL) kullanan ikinci bir kopyanın, ilki kapanana kadar en fazla kaç saniye bekleyeceği. Süre dolarsa hata ile çıkar. Aynı veritabanıyla tek kopya (replika) çalışır. |
 | `AGENT_DIR` | `/usr/local/share/uptime/agents` | Diğer platformların ajan programlarının klasörü. Resmi imajda hazırdır; değiştirmeyin. |
 | `PROBE_IMAGE` | — | Verilirse kontrol noktası kurulum komutu programı indirmek yerine bu Docker imajını kullanır. |
 

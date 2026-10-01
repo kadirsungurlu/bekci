@@ -64,6 +64,10 @@ Bir monitör çalışmadığında haberiniz olsun diye en az bir kanal ekleyin. 
 4. Yeni monitörlerde bu kanal otomatik seçili gelsin diye **Yeni monitörlere varsayılan olarak ekle** kutusunu işaretleyin. Mevcut monitörlerinize de eklemek için **Mevcut tüm monitörlere ekle** kutusunu işaretleyin.
 5. **Kaydet** düğmesine basın.
 
+Bildirimler kısa bir başlıkla gelir: 🔴 kesinti, 🟢 düzelme (hâlâ çalışmayan konumlar varsa listelenir), 🟡 konum kesintisi, ⚠️ SSL uyarısı; e-posta hem HTML hem düz metin içerir. Kayıtlı bir kanala **Örnek bildirimleri gönder** ile her türden birer örnek gönderebilirsiniz. Geçici bir hata (ağ, HTTP 5xx/429) olursa gönderim 5 ve 20 saniye sonra yeniden denenir; sonuç olayın işlem geçmişine yazılır.
+
+**Webhook** kanalı JSON gönderir: `event` (`down`, `up`, `reminder`, `location_down`, `location_up`, `cert`, `server_alert`, `server_resolved`, `test`), `title`, `text`, `message`, `time`, `downtime_seconds` (düzelmede), `cert_days` (SSL uyarısında), `monitor` (`id`, `name`, `type`, `target`, `url`), `incident` (`id`, `url`; olaya bağlı bildirimlerde), `locations` (çok konumlu monitörde çalışmayan konumlar: `name`, `message`) ve `server` (yalnızca sunucu uyarılarında: `id`, `name`, `metric`, `value`, `threshold`, `minutes`). Örnek gövde kanal penceresinde görünür.
+
 > [!CHECK]
 > Test bildirimi kanalınıza ulaştı ve kanal **Bildirimler** listesinde görünüyor. Bir monitörün kanallarını monitörün düzenleme sayfasından da değiştirebilirsiniz.
 
@@ -109,3 +113,4 @@ Ana ekrandaki simgeden açıldığında tam ekran çalışır ve canlı güncell
 - **Planlı bakımlarda bildirimleri susturun:** **Bakım** bölümü.
 - **Başka bir servisten taşıyın:** **Ayarlar → Yedekle / Geri yükle** bölümünden UptimeRobot hesabınızı ya da Uptime Kuma yedeğinizi içe aktarın.
 - **Yedeklemeyi ayarlayın:** [Güncelleme, yedek ve geri dönüş](/docs/guncelleme-yedek/).
+- **Prometheus/Grafana'ya bağlayın:** `GET /metrics` ucu monitör düzeyinde durum, yanıt süresi ve uptime verir. **Ayarlar → API anahtarları** bölümünden bir anahtar alın ve `Authorization: Bearer upk_…` başlığıyla ya da Basic kimlikle (kullanıcı `metrics`, şifre anahtar) çağırın; anahtarın izleyici yetkisi yeter.

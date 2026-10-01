@@ -143,7 +143,7 @@ Kurulum ve güncelleme sırasında imaj Docker Hub'dan indirilir. Sonrasında Be
 
 ### Aynı anda iki Bekci kopyası çalıştırabilir miyim? {#iki-kopya}
 
-Aynı verilerle hayır; ikinci kopya ilki kapanana kadar [bekler](#kilit). Farklı konumlardan kontrol için [kontrol noktası](/docs/sunucu-ajani/#kontrol-noktasi) kullanın.
+Aynı verilerle hayır — SQLite'ta da harici PostgreSQL'de de (veritabanı üzerinde tek-örnek kilidi tutulur); ikinci kopya ilki kapanana kadar [bekler](#kilit). Birden çok replika çalıştırılamaz. Farklı konumlardan kontrol için [kontrol noktası](/docs/sunucu-ajani/#kontrol-noktasi) kullanın.
 
 ### SQLite'tan PostgreSQL'e geçebilir miyim? {#sqlite-postgresql}
 

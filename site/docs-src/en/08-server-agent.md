@@ -100,10 +100,10 @@ A check location checks your monitors from another city or network too. That way
 2. Give it a short name describing the place (e.g. “Frankfurt”) and save.
 3. Run the command shown on the server that will be the check location (it needs Docker), as **root**, pasting the whole command. It creates `/etc/uptime-probe.env` and a container named `uptime-probe`.
 4. Close the window with **I've copied it, close**.
-5. On a monitor's edit page, select this check location under **Locations** and choose the **Outage rule**: down when any location, the majority of locations or all locations fail.
+5. On a monitor's edit page, select this check location under **Locations** and choose the **Outage rule**: down when any location, the majority of locations or all locations fail. Optionally enable **Also notify on location outages**: when a single location goes down or becomes unreachable while the monitor stays up, a separate 🟡 notification is sent, and 🟢 when the location recovers; uptime is not affected (off by default). Location outages are listed separately on the **Incidents** page under the “Location outage” type.
 
 > [!CHECK]
-> Within a few seconds the check location shows as **Online** in the list. A check location that sent results in the last 90 seconds counts as online. `docker logs uptime-probe` should contain a `msg="kontrol noktası başladı"` (“agent started”) line.
+> Within a few seconds the check location shows as **Online** in the list. A check location that sent results in the last 90 seconds counts as online; a location whose connection drops (stopped, crashed) shows as offline immediately. `docker logs uptime-probe` should contain a `msg="kontrol noktası başladı"` (“agent started”) line.
 
 ## Files the install creates {#files}
 
@@ -117,6 +117,9 @@ A check location checks your monitors from another city or network too. That way
 ## Updating {#update}
 
 The agent does **not** update itself: the program is downloaded and verified once, and the same program is used on every restart. That way, even if the server running your panel is compromised, no new program lands on your servers by itself. To update your agents after updating Bekci:
+
+> [!IMPORTANT]
+> **Synchronized location checks** (all locations check at the same moment) and the recognizable **User-Agent** introduced in Bekci 1.2 also need the new agent version. Reinstall check locations set up before 1.2 with the steps below; old agents keep working but check on their own schedule and with their own User-Agent. The panel marks agents whose version differs from its own with an **Outdated** badge in the list.
 
 1. Get the **current** install command from the panel. Since the token is only shown once, this regenerates it (the old token stops working immediately):
    - Server agent: on the server's page, **Install command** → **Regenerate token and show command**.
@@ -188,3 +191,5 @@ Logs: on Docker `docker logs uptime-agent` (for a check location `uptime-probe`)
 | `PROBE_SERVER https olmalı; şifrelenmemiş http için PROBE_ALLOW_INSECURE=1 gerekir` — “PROBE_SERVER must be https; unencrypted http needs PROBE_ALLOW_INSECURE=1” | The panel is at an `http://` address. Put the panel behind HTTPS or add `PROBE_ALLOW_INSECURE=1` to the settings file. |
 | `ana sunucuya ulaşılamıyor, tekrar denenecek` — “can't reach the main server, will retry” | The agent can't reach the panel's address. Check `BASE_URL`, DNS and outgoing connections from the agent's server (e.g. `curl -sI https://bekci.example.com/healthz`). |
 | “Docker wasn’t found or the agent can’t access the Docker socket” in the panel | Container data isn't collected; that's normal if there's no Docker. If there is, make sure the `/var/run/docker.sock` mount from the command is in place. |
+| “Check location unreachable” in an incident or notification | No results arrive from that location (agent stopped, network down). The location is left out of the outage rule; a location whose last result was “down” keeps counting as down until that result goes stale (an agent restart doesn't close and reopen the incident). Check the agent and its access to the panel. |
+| “🔴 … server unreachable” notification, “Server unreachable” in the incident list | No data from the server agent for 3 minutes (offline alert). Check that the agent container/service is running and can reach the panel; once data arrives, a “🟢 … sending data again” notification is sent and the incident closes. |

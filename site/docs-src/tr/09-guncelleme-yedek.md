@@ -10,15 +10,15 @@ slug: guncelleme-yedek
 
 ## Sürüm etiketleri {#surum-etiketleri}
 
-Bekci imajları Docker Hub'da [`kadirsungurlu/bekci`](https://hub.docker.com/r/kadirsungurlu/bekci/tags) adıyla (aynısı `ghcr.io/kadirsungurlu/bekci` adıyla GitHub Container Registry'de) amd64 ve arm64 için yayınlanır:
+Bekci imajları Docker Hub'da [`kadirsungurlu/bekci`](https://hub.docker.com/r/kadirsungurlu/bekci/tags) adıyla (aynısı `ghcr.io/kadirsungurlu/bekci` adıyla GitHub Container Registry'de) amd64 ve arm64 için yayınlanır. Docker Hub'a yalnızca yayınlanmış sürümler gider; geliştirme derlemeleri (commit kısa kodu) yalnızca GHCR'dedir:
 
 | Etiket | İçerik | Ne zaman |
 |---|---|---|
-| `latest` | En yeni derleme (ana daldaki son hâl), SQLite | Her zaman en yenisini istiyorsanız |
-| `postgres` | En yeni derleme, gömülü PostgreSQL 18 | Gömülü PostgreSQL ile en yenisi |
+| `latest` | En son yayınlanmış kararlı sürüm, SQLite | Her zaman son kararlı sürümü istiyorsanız |
+| `postgres` | En son yayınlanmış kararlı sürüm, gömülü PostgreSQL 18 | Gömülü PostgreSQL ile son kararlı sürüm |
 | `1.0.0`, `1.0` | Belirli bir sürüm, SQLite | Sürümü sabitlemek ve geri dönmek için (önerilen) |
 | `1.0.0-postgres`, `1.0-postgres` | Belirli bir sürüm, gömülü PostgreSQL | Aynısı, PostgreSQL için |
-| `2718268`, `postgres-2718268` | Belirli bir derleme (commit kısa kodu) | Günlükte gördüğünüz bir derlemeye dönmek için |
+| `ghcr.io/kadirsungurlu/bekci:2718268`, `…:postgres-2718268` | Belirli bir geliştirme derlemesi (commit kısa kodu); yalnızca GHCR'de, ana dalın her derlemesinde | Günlükte gördüğünüz bir geliştirme derlemesine dönmek için |
 
 `1.0` gibi iki parçalı etiketler o serinin en son yamasını izler (ör. `1.0.1` çıkınca `1.0` onu gösterir).
 
@@ -53,7 +53,7 @@ Uygulamanın sayfasında **Redeploy** (ya da **Deploy**) düğmesine basın. Sab
 :::
 
 > [!CHECK]
-> Günlükte yeni bir başlama satırı görmelisiniz (`docker compose logs bekci | grep "Bekci başladı"`). `sürüm=` alanı çalışan derlemenin kısa kodudur (ör. `2718268`); güncellemeden sonra değişmiş olmalı:
+> Günlükte yeni bir başlama satırı görmelisiniz (`docker compose logs bekci | grep "Bekci başladı"`). `sürüm=` alanı çalışan sürümdür (ör. `1.2.1`; GHCR commit imajlarında kısa kod, ör. `2718268`); güncellemeden sonra değişmiş olmalı:
 >
 > ```text
 > level=INFO msg="Bekci başladı" sürüm=… adres=:8080 veri=/data
@@ -191,7 +191,7 @@ docker compose start bekci
 
 Yeni sürümde bir sorun çıkarsa eski sürümün etiketine dönebilirsiniz:
 
-1. Döneceğiniz etiketi bulun: yayınlanan sürümler (ör. `1.0.0`) [Docker Hub'da](https://hub.docker.com/r/kadirsungurlu/bekci/tags) listelenir. Günlükteki eski `sürüm=` değeri de (ör. `0ae7b6d`) bir etiket olarak kullanılabilir: `kadirsungurlu/bekci:0ae7b6d`.
+1. Döneceğiniz etiketi bulun: yayınlanan sürümler (ör. `1.0.0`) [Docker Hub'da](https://hub.docker.com/r/kadirsungurlu/bekci/tags) listelenir. Günlükteki eski `sürüm=` değeri yayınlanmış bir sürümse (ör. `1.2.0`) doğrudan etiket olarak kullanılır; bir geliştirme derlemesine (kısa kod, ör. `0ae7b6d`) dönmek için `ghcr.io/kadirsungurlu/bekci:0ae7b6d` (yalnızca GHCR).
 2. **Yeni sürüm veritabanını yükselttiyse** (günlükte `migration uygulandı` satırı varsa) eski sürüm yeni veritabanını açamayabilir. Önce güncelleme öncesi yedeği (`pre-migrate-…db`) [geri yükleyin](#geri-yukleme). Bu yedekten sonraki değişiklikler kaybolur.
 3. Etiketi eski sürüme çevirip başlatın, ör. `image: kadirsungurlu/bekci:⟦1.0.0⟧` ve `docker compose up -d`.
 

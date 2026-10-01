@@ -222,6 +222,8 @@ Bekci, `X-Forwarded-For` başlığındaki istemci adresine yalnızca isteği ile
 
 Daha sıkı olmak isterseniz güvenilir ağları `TRUSTED_PROXY` ortam değişkeniyle virgülle ayırarak verin, ör. `TRUSTED_PROXY=172.17.0.1/32`. Ayarlıysa yalnızca bu ağlardan gelen başlıklara güvenilir.
 
+Değişken boşken Bekci açılışta bir kez uyarı yazar (`TRUSTED_PROXY ayarlı değil …`). Varsayılan, mevcut Coolify/Traefik/Caddy kurulumları bozulmasın diye gevşek bırakılmıştır. **Ters vekilsiz**, doğrudan `-p 8080:8080` ile yayınlanan bir kurulumda ise Docker NAT yüzünden her istek özel bir adresten (Docker ağ geçidi) gelir; o zaman bir istemci `X-Forwarded-For` başlığıyla adres uydurup giriş sınırlarını ve IP kilidini aşabilir, işlem kaydına sahte adres yazdırabilir. Böyle kurulumlarda `TRUSTED_PROXY=127.0.0.1/32` verin: başlıklara güvenilmez, bağlanan adres kullanılır.
+
 ## Sık karşılaşılan sorunlar {#sorunlar}
 
 ### Canlı güncellemeler gelmiyor, “Bağlantı yok” uyarısı {#canli-guncelleme-yok}
