@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/kadirsungurlu/bekci/internal/notify"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
@@ -71,8 +72,62 @@ func (e *Engine) scanProbes(ctx context.Context, known map[int64]bool) map[int64
 		e.hub.Publish("probe", map[string]any{
 			"probe_id": p.ID, "name": p.Name, "online": online, "last_seen_at": p.LastSeenAt,
 		})
+		e.probeTransition(ctx, p, online, now)
 	}
 	return next
+}
+
+// probeTransition kontrol noktasının çevrimdışı/çevrimiçi geçişinde olay açar
+// veya kapatır ve "çevrimdışında bildir" açıksa bağlı kanallara bildirim
+// gönderir. Tolerans ProbeOfflineAfter'dır (90 sn): ajanın birkaç saniyelik
+// yeniden başlaması bildirim üretmez. İlk taramada (known == nil) çağrılmaz:
+// ana sunucu uzun kapalı kaldıysa açılışta tüm kontrol noktaları çevrimdışı
+// görünür, o an bildirim gitmez. Devre dışı bırakılan kontrol noktası için
+// açık olay bildirimsiz kapanır; devre dışıyken yeni olay açılmaz.
+func (e *Engine) probeTransition(ctx context.Context, p store.Probe, online bool, now time.Time) {
+	if !online {
+		if !p.Active || !p.NotifyOffline {
+			if !p.Active {
+				if _, _, err := e.store.ResolveProbeIncident(ctx, p.ID, now.Unix()); err != nil {
+					e.log.Error("kontrol noktası olayı kapatılamadı", "kontrol_noktasi", p.Name, "hata", err)
+				}
+			}
+			return
+		}
+		id, err := e.store.OpenProbeIncident(ctx, p.ID, now.Unix(), p.LastSeenAt)
+		if err != nil {
+			e.log.Error("kontrol noktası olayı açılamadı", "kontrol_noktasi", p.Name, "hata", err)
+		}
+		ev := e.probeEvent(notify.KindProbeOffline, p, now, id)
+		ev.LastSeen = time.Unix(p.LastSeenAt, 0)
+		e.notifier.Notify(ev)
+		return
+	}
+	id, started, err := e.store.ResolveProbeIncident(ctx, p.ID, now.Unix())
+	if err != nil {
+		e.log.Error("kontrol noktası olayı kapatılamadı", "kontrol_noktasi", p.Name, "hata", err)
+		return
+	}
+	if id == 0 {
+		return // açık olay yoktu (bildirim kapalıydı ya da hiç çevrimdışı olmadı)
+	}
+	ev := e.probeEvent(notify.KindProbeOnline, p, now, id)
+	ev.Downtime = now.Sub(time.Unix(started, 0))
+	if p.NotifyOffline {
+		e.notifier.Notify(ev)
+	}
+}
+
+func (e *Engine) probeEvent(kind string, p store.Probe, now time.Time, incidentID int64) notify.Event {
+	ev := notify.Event{Kind: kind, ProbeID: p.ID, MonitorName: p.Name, MonitorType: "probe", Target: p.LastIP,
+		Metric: "offline", Time: now, IncidentID: incidentID}
+	if e.cfg.BaseURL != "" {
+		ev.URL = e.cfg.BaseURL + "/#/settings/probes"
+		if incidentID != 0 {
+			ev.IncidentURL = e.IncidentURL(incidentID)
+		}
+	}
+	return ev
 }
 
 // probeGoneGrace (aralık birimi; üretimde 5 sn) bağlantısı kopan kontrol

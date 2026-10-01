@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { api, errorMessage, type Probe, type ProbeSetup } from '../../lib/api';
+  import { api, errorMessage, type NotificationChannel, type Probe, type ProbeSetup } from '../../lib/api';
+  import { NOTIFY_LABELS } from '../../lib/notifyTypes';
   import { live } from '../../lib/live.svelte';
   import { clock, confirmDialog, toast } from '../../lib/ui.svelte';
   import { collator, fmtDate, fmtRelative } from '../../lib/format';
@@ -119,16 +120,36 @@
   let editName = $state('');
   let editIpLock = $state(true);
   let editLockedIp = $state('');
+  let editNotify = $state(false);
+  let editChannels = $state<number[]>([]);
   let editError = $state('');
   let editBusy = $state(false);
+  // Bildirim kanalları düzenleme penceresi ilk açıldığında bir kez yüklenir.
+  let channels = $state.raw<NotificationChannel[] | null>(null);
+
+  async function loadChannels() {
+    if (channels !== null) return;
+    try {
+      channels = (await api.notifications()).slice().sort((a, b) => collator.compare(a.name, b.name));
+    } catch {
+      channels = [];
+    }
+  }
 
   function openEdit(p: Probe) {
     editing = p;
     editName = p.name;
     editIpLock = p.ip_lock ?? false;
     editLockedIp = p.locked_ip ?? '';
+    editNotify = p.notify_offline ?? false;
+    editChannels = (p.notification_ids ?? []).slice();
     editError = '';
     editOpen = true;
+    loadChannels();
+  }
+
+  function toggleChannel(id: number, on: boolean) {
+    editChannels = on ? [...editChannels.filter((x) => x !== id), id] : editChannels.filter((x) => x !== id);
   }
 
   async function saveEdit(e: SubmitEvent) {
@@ -139,7 +160,11 @@
     if (!n) return (editError = t('probes.form.errNameRequired'));
     editBusy = true;
     try {
-      await api.updateProbe(editing.id, n, editing.active, undefined, { ipLock: editIpLock });
+      await api.updateProbe(editing.id, n, editing.active, undefined, {
+        ipLock: editIpLock,
+        notifyOffline: editNotify,
+        notificationIds: editChannels,
+      });
       toast.success(t('probes.toast.saved'));
       editOpen = false;
       load();
@@ -376,6 +401,38 @@
         <button type="button" class="btn sm" onclick={resetEditIp} disabled={editBusy}>{t('probes.form.resetLock')}</button>
       </div>
     {/if}
+    <label class="check">
+      <input type="checkbox" bind:checked={editNotify} />
+      <span>
+        {t('probes.form.notifyOffline')}
+        <small>{t('probes.form.notifyOfflineHelp')}</small>
+      </span>
+    </label>
+    {#if editNotify}
+      <div class="field">
+        <span class="label">{t('probes.form.channels')}</span>
+        {#if channels === null}
+          <div class="skeleton" style="height:40px"></div>
+        {:else if channels.length === 0}
+          <p class="help nomargin">
+            {#each tParts('probes.form.noChannels') as part, i (i)}{#if part.slot === 'link'}<a href="#/notifications">{t('probes.form.addChannel')}</a>{:else}{part.text}{/if}{/each}
+          </p>
+        {:else}
+          <div class="chs">
+            {#each channels as c (c.id)}
+              <label class="check ch">
+                <input type="checkbox" checked={editChannels.includes(c.id)} onchange={(e) => toggleChannel(c.id, (e.currentTarget as HTMLInputElement).checked)} />
+                <span>
+                  {c.name}
+                  <small>{NOTIFY_LABELS[c.type] ?? c.type}{c.active ? '' : ` · ${t('probes.form.channelOff')}`}</small>
+                </span>
+              </label>
+            {/each}
+          </div>
+          {#if editChannels.length === 0}<p class="help nomargin warn">{t('probes.form.noChannelSelected')}</p>{/if}
+        {/if}
+      </div>
+    {/if}
     {#if editError}<div class="alert error" role="alert">{editError}</div>{/if}
   </form>
   {#snippet footer()}
@@ -509,6 +566,16 @@
   }
   .spacer {
     flex: 1;
+  }
+  .chs {
+    display: grid;
+    gap: 6px;
+    max-height: 220px;
+    overflow: auto;
+    padding: 2px;
+  }
+  .warn {
+    color: var(--pending-text, var(--text-2));
   }
   @media (max-width: 720px) {
     .probes tr {

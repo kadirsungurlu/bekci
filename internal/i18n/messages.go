@@ -54,6 +54,13 @@ var messages = map[string]Msg{
 	"feed.incident.resolved":      {"🟢 %s: kesinti giderildi", "🟢 %s: outage resolved"},
 	"feed.incident.resolved_body": {"Başlangıç: %s. Çözüldü: %s. Süre: %s.", "Started: %s. Resolved: %s. Duration: %s."},
 
+	// Kontrol noktası çevrimdışı/çevrimiçi (%s: kontrol noktasının adı)
+	"notify.probe.offline":   {"🔴 %s: kontrol noktasına ulaşılamıyor", "🔴 %s: check location unreachable"},
+	"notify.probe.online":    {"🟢 %s: kontrol noktası tekrar çevrimiçi", "🟢 %s: check location back online"},
+	"notify.field.probe":     {"Kontrol noktası", "Check location"},
+	"incident.probe.offline": {"Kontrol noktasına ulaşılamıyor", "Check location unreachable"},
+	"notify.sample.probe":    {"Frankfurt", "Frankfurt"},
+
 	// Sunucu uyarıları (%s: sunucu adı)
 	"notify.server.offline":      {"🔴 %s: sunucuya ulaşılamıyor", "🔴 %s: server unreachable"},
 	"notify.server.online":       {"🟢 %s: tekrar veri gönderiyor", "🟢 %s: sending data again"},

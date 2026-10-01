@@ -239,6 +239,10 @@ export interface Probe {
   ip_lock?: boolean;
   /** Sabitlenmiş IP; boşsa ajan henüz bağlanmadı (yönetici görünümü). */
   locked_ip?: string;
+  /** Çevrimdışı kalınca / tekrar çevrimiçi olunca bildirim (yönetici görünümü; eski sunucuda yok). */
+  notify_offline?: boolean;
+  /** Çevrimdışı bildiriminin gideceği kanallar (yönetici görünümü). */
+  notification_ids?: number[];
 }
 
 export interface ProbeSetup {
@@ -376,7 +380,7 @@ export type Series =
  * monitör çalışıyor; bildirim yok), server_offline / server_alert (sunucu takibi).
  * Eski sunucular türü göndermez (monitor sayılır).
  */
-export type IncidentKind = 'monitor' | 'partial' | 'server_offline' | 'server_alert';
+export type IncidentKind = 'monitor' | 'partial' | 'server_offline' | 'server_alert' | 'probe_offline' | 'degraded';
 /** Olay listesi süzgeci (sunucu: iki sunucu türü birlikte). */
 export type IncidentFilterKind = '' | 'monitor' | 'server' | 'partial';
 
@@ -407,7 +411,10 @@ export interface ServerIncidentData {
   last_seen?: number;
 }
 
-export const isServerIncident = (k: IncidentKind | undefined) => k === 'server_offline' || k === 'server_alert';
+/** Ajan olayı: sunucu (server_offline/server_alert) veya kontrol noktası (probe_offline); server_id dolu. */
+export const isServerIncident = (k: IncidentKind | undefined) => k === 'server_offline' || k === 'server_alert' || k === 'probe_offline';
+/** Kontrol noktası çevrimdışı olayı (ayrıntı ve bağlantılar kontrol noktaları sayfasına gider). */
+export const isProbeIncident = (k: IncidentKind | undefined) => k === 'probe_offline';
 
 /** Olay ayrıntıları (docs/PLAN.md §13). */
 export type IncidentEventKind =
@@ -1257,12 +1264,14 @@ export const api = {
     name: string,
     active: boolean,
     metrics?: boolean,
-    opts?: { ipLock?: boolean; resetIp?: boolean },
+    opts?: { ipLock?: boolean; resetIp?: boolean; notifyOffline?: boolean; notificationIds?: number[] },
   ) => {
     const body: Record<string, unknown> = { name, active };
     if (metrics !== undefined) body.metrics = metrics;
     if (opts?.ipLock !== undefined) body.ip_lock = opts.ipLock;
     if (opts?.resetIp) body.reset_ip = true;
+    if (opts?.notifyOffline !== undefined) body.notify_offline = opts.notifyOffline;
+    if (opts?.notificationIds !== undefined) body.notification_ids = opts.notificationIds;
     return put<Probe>(`/api/probes/${id}`, body);
   },
   deleteProbe: (id: number) => del<{ ok: boolean }>(`/api/probes/${id}`),

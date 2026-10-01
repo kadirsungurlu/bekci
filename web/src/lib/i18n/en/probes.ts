@@ -61,6 +61,14 @@ export default {
       'The check location can only send results from the IP it first connected from; reset the lock if the server moves.',
     lockedIp: 'Locked IP: {ip}',
     resetLock: 'Reset lock',
+    notifyOffline: 'Notify when offline',
+    notifyOfflineHelp:
+      'If the check location sends no request for 90 seconds, a “🔴 check location unreachable” notification goes to the selected channels and an incident is opened; when it reconnects, a “🟢” notification closes it. Short restarts do not notify.',
+    channels: 'Notification channels',
+    noChannels: 'No notification channels yet. {link}',
+    addChannel: 'Add a channel',
+    channelOff: 'disabled',
+    noChannelSelected: 'No channel selected: no notification is sent, only the incident is recorded.',
   },
   setup: {
     addedTitle: '“{name}” added',

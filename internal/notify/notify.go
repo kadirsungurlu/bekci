@@ -36,6 +36,11 @@ const (
 
 	KindServerAlert    = "server_alert"
 	KindServerResolved = "server_resolved"
+
+	// Kontrol noktası çevrimdışı kaldı / tekrar çevrimiçi (ProbeID kontrol
+	// noktasının kimliği, Metric "offline", LastSeen son isteğin zamanı).
+	KindProbeOffline = "probe_offline"
+	KindProbeOnline  = "probe_online"
 )
 
 // Event gönderilecek bildirimin içeriği.
@@ -150,6 +155,10 @@ func (e Event) Title() string {
 		return i18n.T(l, "notify.location_up.title", e.MonitorName)
 	case KindServerAlert, KindServerResolved:
 		return e.serverTitle()
+	case KindProbeOffline:
+		return i18n.T(l, "notify.probe.offline", e.MonitorName)
+	case KindProbeOnline:
+		return i18n.T(l, "notify.probe.online", e.MonitorName)
 	}
 	return e.MonitorName
 }
@@ -200,9 +209,12 @@ func (e Event) Rows() []Row {
 			rows = append(rows, Row{Key: key, Label: i18n.T(l, "notify.field."+key), Value: v})
 		}
 	}
-	if e.ProbeID != 0 {
+	switch {
+	case e.Kind == KindProbeOffline || e.Kind == KindProbeOnline:
+		add("probe", e.Target)
+	case e.ProbeID != 0:
 		add("server", e.Target)
-	} else {
+	default:
 		add("target", e.Target)
 	}
 	locations := func(key string) {
@@ -244,6 +256,10 @@ func (e Event) Rows() []Row {
 			add("last_avg", FormatMetric(l, e.Metric, e.Value))
 		}
 		add("info", e.info())
+	case KindProbeOffline:
+		add("info", e.info())
+	case KindProbeOnline:
+		add("downtime", i18n.Duration(l, e.Downtime))
 	}
 	add("time", i18n.DateTime(l, e.Time.Local()))
 	add("link", e.DetailURL())
@@ -290,13 +306,14 @@ func (e Event) DetailURL() string {
 
 // IsProblem olayın kötü haber olup olmadığı (öncelik/renk seçimi için).
 func (e Event) IsProblem() bool {
-	return e.Kind == KindDown || e.Kind == KindReminder || e.Kind == KindCert || e.Kind == KindServerAlert || e.Kind == KindLocationDown
+	return e.Kind == KindDown || e.Kind == KindReminder || e.Kind == KindCert || e.Kind == KindServerAlert || e.Kind == KindLocationDown ||
+		e.Kind == KindProbeOffline
 }
 
 // IsRecovery sorunun bittiğini bildiren olay mı (monitör tekrar çalışıyor,
 // sunucu uyarısı bitti). Olay kapatan servisler (PagerDuty, Opsgenie) için.
 func (e Event) IsRecovery() bool {
-	return e.Kind == KindUp || e.Kind == KindServerResolved || e.Kind == KindLocationUp
+	return e.Kind == KindUp || e.Kind == KindServerResolved || e.Kind == KindLocationUp || e.Kind == KindProbeOnline
 }
 
 // AlertKey olayın dış servislerdeki kimliği: aynı sorunun başlangıç ve bitiş
@@ -312,6 +329,8 @@ func (e Event) AlertKey() string {
 		prefix = "uptime-sample-"
 	}
 	switch {
+	case e.Kind == KindProbeOffline || e.Kind == KindProbeOnline:
+		return fmt.Sprintf("%sprobe-%d-offline", prefix, e.ProbeID)
 	case e.ProbeID != 0:
 		return fmt.Sprintf("%sserver-%d-%s", prefix, e.ProbeID, e.Metric)
 	case e.Kind == KindCert:

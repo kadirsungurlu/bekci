@@ -48,6 +48,10 @@ func (e Event) mailStatus() (string, mailTone) {
 		key, tone = "location", toneWarn
 	case KindLocationUp:
 		key, tone = "resolved", toneUp
+	case KindProbeOffline:
+		key, tone = "alert", toneDown
+	case KindProbeOnline:
+		key, tone = "resolved", toneUp
 	}
 	return i18n.T(e.Lang, "notify.mail.status."+key), tone
 }

@@ -12,6 +12,7 @@
     type NotificationType,
     type ServerIncidentData,
     type ServerMetric,
+    isProbeIncident,
     isServerIncident,
   } from '../lib/api';
   import { fmtMetric, metricLabel } from '../lib/servers.svelte';
@@ -94,7 +95,8 @@
   // Olay türü: kısmi kesinti (sarı) ve sunucu olayları ayrı gösterilir.
   const partial = $derived(inc?.kind === 'partial');
   const server = $derived(isServerIncident(inc?.kind));
-  const offline = $derived(inc?.kind === 'server_offline');
+  const probe = $derived(isProbeIncident(inc?.kind));
+  const offline = $derived(inc?.kind === 'server_offline' || probe);
   const sdata = $derived<ServerIncidentData | null>(server ? ((inc?.data ?? null) as ServerIncidentData | null) : null);
   const smetric = $derived((sdata?.metric ?? '') as ServerMetric);
   const affected = $derived.by<string[]>(() => {
@@ -195,9 +197,11 @@
         r.tone = partial ? 'pending' : 'down';
         r.title = partial
           ? t('incidents.ev.partialStarted')
-          : server
-            ? t(offline ? 'incidents.ev.serverOffline' : 'incidents.ev.serverAlert')
-            : t('incidents.ev.started');
+          : probe
+            ? t('incidents.ev.probeOffline')
+            : server
+              ? t(offline ? 'incidents.ev.serverOffline' : 'incidents.ev.serverAlert')
+              : t('incidents.ev.started');
         r.sub = offline ? '' : ev.message;
         r.note = ev.location ? t('incidents.ev.confirmedBy', { where: locName(ev.location) }) : '';
         break;
@@ -283,9 +287,11 @@
         r.tone = 'up';
         r.title = partial
           ? t('incidents.ev.partialResolved')
-          : server
-            ? t(offline ? 'incidents.ev.serverOnline' : 'incidents.ev.serverResolved')
-            : t('incidents.ev.resolved');
+          : probe
+            ? t('incidents.ev.probeOnline')
+            : server
+              ? t(offline ? 'incidents.ev.serverOnline' : 'incidents.ev.serverResolved')
+              : t('incidents.ev.resolved');
         r.sub = [
           partial && PARTIAL_RESOLVED_MSG.includes(ev.message) ? '' : ev.message,
           d.downtime !== undefined ? t('incidents.ev.downtime', { d: fmtDurationLong(num(d.downtime)) }) : '',
@@ -431,7 +437,7 @@
           </h1>
           <div class="target">
             {#if data.server}
-              <span class="badge accent">{t(offline ? 'incidents.kind.serverOffline' : 'incidents.kind.serverAlert')}</span>
+              <span class="badge accent">{t(probe ? 'incidents.kind.probeOffline' : offline ? 'incidents.kind.serverOffline' : 'incidents.kind.serverAlert')}</span>
               {#if data.server.hostname}<span class="text-2"
                   >{#each tParts('incidents.detail.hostname') as p, i (i)}{#if p.slot === 'name'}<span class="mono">{data.server.hostname}</span
                       >{:else}{p.text}{/if}{/each}</span
@@ -464,7 +470,9 @@
         </div>
       </div>
       <div class="actions">
-        {#if data.server}
+        {#if probe}
+          <a class="btn" href="#/settings/probes"><Icon name="map-pin" size={15} /> {t('incidents.detail.goToProbes')}</a>
+        {:else if data.server}
           <a class="btn" href="#/servers/{data.server.id}"><Icon name="server" size={15} /> {t('incidents.detail.goToServer')}</a>
         {:else}
           <a class="btn" href="#/monitors/{data.monitor.id}"><Icon name="activity" size={15} /> {t('incidents.detail.goToMonitor')}</a>

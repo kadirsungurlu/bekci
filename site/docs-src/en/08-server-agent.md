@@ -105,6 +105,10 @@ A check location checks your monitors from another city or network too. That way
 > [!CHECK]
 > Within a few seconds the check location shows as **Online** in the list. A check location that sent results in the last 90 seconds counts as online; a location whose connection drops (stopped, crashed) shows as offline immediately. `docker logs uptime-probe` should contain a `msg="kontrol noktası başladı"` (“agent started”) line.
 
+### Offline notification {#check-location-notification}
+
+To be told when a check location goes down, open **Edit** from the row menu, enable **Notify when offline** and pick the notification channels. If the check location sends no request for 90 seconds, a “🔴 *Name*: check location unreachable” notification is sent and an incident of type “Check location offline” is opened on the **Incidents** page; when it reconnects, a “🟢 … back online” notification closes the incident with the downtime. Thanks to the 90-second grace period a short agent restart does not notify. If you disable the check location yourself, nothing is sent and an open incident is closed quietly. These notifications are independent of the monitors' own channels: they go to the channels selected for the check location.
+
 ## Files the install creates {#files}
 
 | Install | Program | Token (settings file) | Service / container |

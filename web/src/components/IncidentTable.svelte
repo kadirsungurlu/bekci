@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { isServerIncident, type Incident } from '../lib/api';
+  import { isProbeIncident, isServerIncident, type Incident } from '../lib/api';
   import { fmtDate, fmtDuration } from '../lib/format';
   import { navigate } from '../lib/router.svelte';
   import Icon from './Icon.svelte';
@@ -50,12 +50,15 @@
         {@const ongoing = inc.resolved_at === 0}
         {@const partial = inc.kind === 'partial'}
         {@const server = isServerIncident(inc.kind)}
+        {@const probe = isProbeIncident(inc.kind)}
         <!-- Klavyeyle erişim satır sonundaki bağlantıyla; satır tıklaması fare/dokunma kolaylığı. -->
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
         <tr class="inc-row" class:partial onclick={(e) => open(e, inc.id)}>
           {#if showMonitor}
             <td data-label={t('incidents.table.monitor')} class="mon">
-              {#if server}
+              {#if probe}
+                <a href="#/settings/probes"><Icon name="map-pin" size={13} /> {inc.server_name}</a>
+              {:else if server}
                 <a href="#/servers/{inc.server_id}"><Icon name="server" size={13} /> {inc.server_name}</a>
               {:else}
                 <a href="#/monitors/{inc.monitor_id}">{inc.monitor_name}</a>
@@ -69,6 +72,8 @@
           <td data-label={t('incidents.table.cause')} class="cause">
             {#if partial}
               <span class="badge pending kind" title={t('incidents.kind.partialHint')}>{t('incidents.kind.partial')}</span>
+            {:else if probe}
+              <span class="badge accent kind">{t('incidents.kind.probe')}</span>
             {:else if server && serverBadge}
               <span class="badge accent kind">{t('incidents.kind.server')}</span>
             {/if}

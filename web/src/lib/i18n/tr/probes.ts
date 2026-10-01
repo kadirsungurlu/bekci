@@ -61,6 +61,15 @@ export default {
     /** {ip}: kalın kilitli IP. */
     lockedIp: 'Kilitli IP: {ip}',
     resetLock: 'Kilidi sıfırla',
+    notifyOffline: 'Çevrimdışı kalınca bildir',
+    notifyOfflineHelp:
+      'Kontrol noktası 90 saniye boyunca istek göndermezse seçili kanallara “🔴 kontrol noktasına ulaşılamıyor” bildirimi gider ve bir olay açılır; tekrar bağlanınca “🟢” bildirimiyle olay kapanır. Kısa yeniden başlatmalar bildirim üretmez.',
+    channels: 'Bildirim kanalları',
+    /** {link}: kanal ekleme bağlantısı. */
+    noChannels: 'Henüz bildirim kanalı yok. {link}',
+    addChannel: 'Kanal ekleyin',
+    channelOff: 'devre dışı',
+    noChannelSelected: 'Kanal seçilmedi: bildirim gitmez, yalnızca olay kaydedilir.',
   },
   setup: {
     addedTitle: '“{name}” eklendi',

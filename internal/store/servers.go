@@ -495,6 +495,24 @@ func (s *Store) ProbeNotificationIDs(ctx context.Context, probeID int64) ([]int6
 	return out, rows.Err()
 }
 
+// AllProbeNotificationIDs tüm ajanların bağlı kanalları (ajan → kanal kimlikleri).
+func (s *Store) AllProbeNotificationIDs(ctx context.Context) (map[int64][]int64, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT probe_id, notification_id FROM probe_notifications ORDER BY probe_id, notification_id")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64][]int64{}
+	for rows.Next() {
+		var pid, nid int64
+		if err := rows.Scan(&pid, &nid); err != nil {
+			return nil, err
+		}
+		out[pid] = append(out[pid], nid)
+	}
+	return out, rows.Err()
+}
+
 // SetProbeNotifications ajanın kanallarını verilen listeyle değiştirir.
 func (s *Store) SetProbeNotifications(ctx context.Context, probeID int64, ids []int64) error {
 	return s.tx(ctx, func(tx *Tx) error {

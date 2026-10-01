@@ -105,6 +105,10 @@ Kontrol noktası, monitörlerinizi başka bir şehirden ya da ağdan da kontrol 
 > [!CHECK]
 > Birkaç saniye içinde kontrol noktası listede **Çevrimiçi** görünür. Son 90 saniyede sonuç gönderen kontrol noktası çevrimiçi sayılır; bağlantısı kopan (durdurulan, çöken) nokta anında çevrimdışı görünür. `docker logs uptime-probe` çıktısında `msg="kontrol noktası başladı"` satırı olmalı.
 
+### Çevrimdışı bildirimi {#kontrol-noktasi-bildirim}
+
+Kontrol noktası düşünce haberiniz olsun diye satır menüsünden **Düzenle** → **Çevrimdışı kalınca bildir** seçeneğini açıp bildirim kanallarını seçin. Kontrol noktası 90 saniye boyunca hiç istek göndermezse “🔴 *Ad*: kontrol noktasına ulaşılamıyor” bildirimi gider ve **Olaylar** sayfasında “Kontrol noktası çevrimdışı” türünde bir olay açılır; tekrar bağlanınca “🟢 … tekrar çevrimiçi” bildirimiyle olay kapanır ve kesinti süresi yazılır. 90 saniyelik tolerans sayesinde ajanın kısa bir yeniden başlatması bildirim üretmez. Kontrol noktasını siz devre dışı bırakırsanız bildirim gitmez, açık olay sessizce kapanır. Bu bildirimler monitörlerin kendi kanallarından bağımsızdır: kontrol noktasına seçtiğiniz kanallara gider.
+
 ## Kurulumun oluşturduğu dosyalar {#dosyalar}
 
 | Kurulum | Program | Token (ayar dosyası) | Hizmet / konteyner |

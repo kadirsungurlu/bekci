@@ -95,16 +95,21 @@ type Probe struct {
 	// IPLock açıksa ajan yalnızca LockedIP'den bağlanabilir (probes_iplock.go).
 	IPLock   bool   `json:"ip_lock"`
 	LockedIP string `json:"locked_ip"`
+
+	// NotifyOffline (kontrol noktası) çevrimdışı kalınca ve tekrar çevrimiçi
+	// olunca bağlı kanallara (probe_notifications) bildirim gönderilir ve
+	// probe_offline olayı açılır (migration 21).
+	NotifyOffline bool `json:"notify_offline"`
 }
 
 const probeCols = `id, name, token_prefix, active, created_at, last_seen_at, last_ip, version, token_hash,
-	metrics, host_info, metrics_at, metrics_note, kind, ip_lock, locked_ip`
+	metrics, host_info, metrics_at, metrics_note, kind, ip_lock, locked_ip, notify_offline`
 
 func scanProbe(sc scanner) (Probe, error) {
 	var p Probe
 	var seen, metricsAt sql.NullInt64
 	err := sc.Scan(&p.ID, &p.Name, &p.TokenPrefix, &p.Active, &p.CreatedAt, &seen, &p.LastIP, &p.Version, &p.Hash,
-		&p.Metrics, &p.HostInfo, &metricsAt, &p.MetricsNote, &p.Kind, &p.IPLock, &p.LockedIP)
+		&p.Metrics, &p.HostInfo, &metricsAt, &p.MetricsNote, &p.Kind, &p.IPLock, &p.LockedIP, &p.NotifyOffline)
 	p.LastSeenAt, p.MetricsAt = seen.Int64, metricsAt.Int64
 	return p, err
 }
@@ -326,6 +331,20 @@ type LocationSetup struct {
 func init() {
 	// 19: konum kesintisi bildirimi (monitör başına; varsayılan kapalı).
 	RegisterMigration(19, `ALTER TABLE monitor_location_settings ADD COLUMN notify_partial INTEGER NOT NULL DEFAULT 0;`)
+	// 21: kontrol noktası çevrimdışı bildirimi (varsayılan kapalı).
+	RegisterMigration(21, `ALTER TABLE probes ADD COLUMN notify_offline INTEGER NOT NULL DEFAULT 0;`)
+}
+
+// SetProbeNotifyOffline kontrol noktasının çevrimdışı bildirimini açar/kapatır.
+func (s *Store) SetProbeNotifyOffline(ctx context.Context, id int64, on bool) error {
+	res, err := s.db.ExecContext(ctx, "UPDATE probes SET notify_offline = ? WHERE id = ?", boolInt(on), id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // Configured varsayılandan (yalnızca ana sunucu) farklı bir ayar mı?

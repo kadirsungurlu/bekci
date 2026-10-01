@@ -245,6 +245,10 @@ type probeAdminView struct {
 	Metrics      bool   `json:"metrics"`   // sunucu metrikleri toplanıyor mu
 	IPLock       bool   `json:"ip_lock"`   // yalnızca kilitli IP'den bağlanabilir mi
 	LockedIP     string `json:"locked_ip"` // sabitlenmiş IP (boş: henüz bağlanmadı)
+	// NotifyOffline: 90 sn istek gelmeyince ve tekrar gelince NotificationIDs
+	// kanallarına bildirim gider, probe_offline olayı açılır/kapanır.
+	NotifyOffline   bool    `json:"notify_offline"`
+	NotificationIDs []int64 `json:"notification_ids"`
 }
 
 func (s *Server) probeSummaryOf(p store.Probe) probeSummary {
@@ -253,11 +257,14 @@ func (s *Server) probeSummaryOf(p store.Probe) probeSummary {
 	return probeSummary{ID: p.ID, Name: p.Name, Active: p.Active, Online: online, LastSeenAt: p.LastSeenAt}
 }
 
-func (s *Server) probeAdminOf(p store.Probe, monitors int) probeAdminView {
+func (s *Server) probeAdminOf(p store.Probe, monitors int, notificationIDs []int64) probeAdminView {
+	if notificationIDs == nil {
+		notificationIDs = []int64{}
+	}
 	return probeAdminView{
 		probeSummary: s.probeSummaryOf(p), Kind: p.Kind, TokenPrefix: p.TokenPrefix, CreatedAt: p.CreatedAt,
 		LastIP: p.LastIP, Version: p.Version, MonitorCount: monitors, Metrics: p.Metrics,
-		IPLock: p.IPLock, LockedIP: p.LockedIP,
+		IPLock: p.IPLock, LockedIP: p.LockedIP, NotifyOffline: p.NotifyOffline, NotificationIDs: notificationIDs,
 	}
 }
 
@@ -301,9 +308,14 @@ func (s *Server) listProbes(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
+	channels, err := s.store.AllProbeNotificationIDs(r.Context())
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
 	out := make([]probeAdminView, len(list))
 	for i, p := range list {
-		out[i] = s.probeAdminOf(p, counts[p.ID])
+		out[i] = s.probeAdminOf(p, counts[p.ID], channels[p.ID])
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -357,7 +369,7 @@ func (s *Server) probeSetup(r *http.Request, p store.Probe, token string, monito
 		}
 	}
 	lang := userLang(r)
-	out := map[string]any{"probe": s.probeAdminOf(p, monitors), "token": token, "server_url": server}
+	out := map[string]any{"probe": s.probeAdminOf(p, monitors, nil), "token": token, "server_url": server}
 	if p.Kind == store.ProbeKindServer {
 		dockerAgent, systemd, windows := s.serverSetupCommands(server, token)
 		out["docker_agent"], out["systemd"], out["windows"] =
@@ -513,6 +525,9 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 		Metrics *bool  `json:"metrics"`  // sunucu metrikleri; yoksa değişmez
 		IPLock  *bool  `json:"ip_lock"`  // IP kilidi; yoksa değişmez
 		ResetIP bool   `json:"reset_ip"` // kilitli IP'yi sıfırla (yeniden sabitlensin)
+		// Kontrol noktası: çevrimdışı bildirimi ve kanalları; yoksa değişmez.
+		NotifyOffline   *bool    `json:"notify_offline"`
+		NotificationIDs *[]int64 `json:"notification_ids"`
 	}
 	if !readJSON(w, r, &in) {
 		return
@@ -520,6 +535,17 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 	in.Name = strings.TrimSpace(in.Name)
 	if !s.validateProbeName(w, r, in.Name, old.Kind, id) {
 		return
+	}
+	var channelIDs []int64
+	if in.NotificationIDs != nil && old.Kind == store.ProbeKindLocation {
+		channelIDs = slices.Compact(slices.Sorted(slices.Values(*in.NotificationIDs)))
+		if channelIDs == nil {
+			channelIDs = []int64{} // boş liste: tüm kanallar kaldırılır
+		}
+		if _, err := s.notificationIDs(r, &channelIDs); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 	active := old.Active
 	if in.Active != nil {
@@ -550,6 +576,27 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		changes = append(changes, "IP kilidi sıfırlandı")
+	}
+	if in.NotifyOffline != nil && *in.NotifyOffline != old.NotifyOffline && old.Kind == store.ProbeKindLocation {
+		if err := s.store.SetProbeNotifyOffline(r.Context(), id, *in.NotifyOffline); err != nil {
+			s.dbError(w, err)
+			return
+		}
+		changes = append(changes, map[bool]string{true: "çevrimdışı bildirimi açıldı", false: "çevrimdışı bildirimi kapatıldı"}[*in.NotifyOffline])
+	}
+	if channelIDs != nil {
+		oldIDs, err := s.store.ProbeNotificationIDs(r.Context(), id)
+		if err != nil {
+			s.dbError(w, err)
+			return
+		}
+		if !sameIDs(oldIDs, channelIDs) {
+			if err := s.store.SetProbeNotifications(r.Context(), id, channelIDs); err != nil {
+				s.dbError(w, err)
+				return
+			}
+			changes = append(changes, "bildirim kanalları değişti")
+		}
 	}
 	if in.Name != old.Name {
 		changes = append(changes, "ad: "+old.Name+" → "+in.Name)
@@ -594,7 +641,12 @@ func (s *Server) respondProbe(w http.ResponseWriter, r *http.Request, id int64) 
 		s.dbError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.probeAdminOf(p, len(ids)))
+	channels, err := s.store.ProbeNotificationIDs(r.Context(), id)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, s.probeAdminOf(p, len(ids), channels))
 }
 
 // reloadProbeMonitors kontrol noktasına atanmış (veya ids ile verilen)

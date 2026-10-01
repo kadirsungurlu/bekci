@@ -792,7 +792,7 @@
                     {inc.resolved_at ? t('overview.side.lasted', { d: fmtDuration(inc.resolved_at - inc.started_at) }) : t('overview.side.ongoingFor', { d: fmtDuration(clock.now - inc.started_at) })}
                   </span>
                   <span class="msub" title={fmtDate(inc.started_at)}>
-                    {#if partial}<span class="badge pending mk">{t('incidents.kind.partial')}</span>{:else if srv}<span class="badge accent mk">{t('incidents.kind.server')}</span>{/if}
+                    {#if partial}<span class="badge pending mk">{t('incidents.kind.partial')}</span>{:else if srv}<span class="badge accent mk">{t(inc.kind === 'probe_offline' ? 'incidents.kind.probe' : 'incidents.kind.server')}</span>{/if}
                     {fmtRelative(inc.started_at, clock.now)}{#if inc.cause}{' · '}{inc.cause}{/if}
                   </span>
                 </li>

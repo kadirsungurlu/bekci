@@ -95,10 +95,14 @@ const (
 	IncidentPartial       = "partial"
 	IncidentServerOffline = "server_offline"
 	IncidentServerAlert   = "server_alert"
+	// IncidentProbeOffline kontrol noktasından 90 sn'dir istek gelmiyor
+	// (server_id kontrol noktasının kimliğidir; yalnızca "çevrimdışında
+	// bildir" açık kontrol noktalarında açılır).
+	IncidentProbeOffline = "probe_offline"
 )
 
 // IncidentKinds tüm olay türleri (sabit sırayla; /metrics sayaçları için).
-var IncidentKinds = []string{IncidentMonitor, IncidentPartial, IncidentServerOffline, IncidentServerAlert}
+var IncidentKinds = []string{IncidentMonitor, IncidentPartial, IncidentServerOffline, IncidentServerAlert, IncidentProbeOffline}
 
 // İşlem geçmişinin olay türlerine özgü kayıtları.
 const (
@@ -151,9 +155,10 @@ func (s *Store) EscalatedPartialOf(ctx context.Context, incidentID int64) (int64
 	return d.IncidentID, nil
 }
 
-// IsServerIncident sunucu olayı mı?
+// IsServerIncident ajan (sunucu veya kontrol noktası) olayı mı: server_id
+// dolu, monitor_id boş; görünürlük sunucu atamasına göre.
 func IsServerIncident(kind string) bool {
-	return kind == IncidentServerOffline || kind == IncidentServerAlert
+	return kind == IncidentServerOffline || kind == IncidentServerAlert || kind == IncidentProbeOffline
 }
 
 // Olay filtresinin tür grupları (arayüzdeki süzgeç çipleri).
@@ -171,7 +176,7 @@ func kindsOf(group string) []string {
 	case KindGroupPartial:
 		return []string{IncidentPartial}
 	case KindGroupServer:
-		return []string{IncidentServerOffline, IncidentServerAlert}
+		return []string{IncidentServerOffline, IncidentServerAlert, IncidentProbeOffline}
 	}
 	return nil
 }
@@ -349,6 +354,9 @@ type ServerIncidentData struct {
 // ServerIncidentCause sunucu olayının neden metni (dilde): "Sunucudan veri
 // gelmiyor" veya "CPU %93,4 (10 dk ortalama, eşik %90)".
 func ServerIncidentCause(lang, kind string, d ServerIncidentData) string {
+	if kind == IncidentProbeOffline {
+		return i18n.T(lang, "incident.probe.offline")
+	}
 	if kind == IncidentServerOffline || d.Metric == "offline" {
 		return i18n.T(lang, "incident.server.offline")
 	}
@@ -463,6 +471,74 @@ func (s *Store) UpdateServerIncidentValue(ctx context.Context, alertID int64, v 
 	d.Last = v
 	d.Peak = max(d.Peak, v)
 	return s.SetIncidentData(ctx, id, EventData(d))
+}
+
+// Kontrol noktası olayları ------------------------------------------------------------
+
+// OpenProbeIncident kontrol noktası için probe_offline olayı açar (açık olan
+// varsa onun kimliğini döner, yenisi açılmaz). lastSeen son isteğin zamanı.
+func (s *Store) OpenProbeIncident(ctx context.Context, probeID, now, lastSeen int64) (int64, error) {
+	d := ServerIncidentData{Metric: "offline", LastSeen: lastSeen}
+	if lastSeen > 0 {
+		d.Minutes = int(max(0, now-lastSeen) / 60)
+		d.Value = float64(d.Minutes)
+	}
+	cause := ServerIncidentCause(i18n.TR, IncidentProbeOffline, d)
+	err := s.tx(ctx, func(tx *Tx) error {
+		var open int64
+		err := tx.QueryRowContext(ctx, "SELECT COALESCE(MAX(id), 0) FROM incidents WHERE server_id = ? AND kind = ? AND resolved_at IS NULL",
+			probeID, IncidentProbeOffline).Scan(&open)
+		if err != nil || open > 0 {
+			return err
+		}
+		id, err := insertID(ctx, tx, `
+			INSERT INTO incidents (kind, server_id, started_at, cause, data) VALUES (?, ?, ?, ?, ?)`,
+			IncidentProbeOffline, probeID, now, cause, string(EventData(d)))
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx,
+			"INSERT INTO incident_events (incident_id, time, kind, location, message, data) VALUES (?, ?, ?, '', ?, '')",
+			id, now, EventDown, cause)
+		return err
+	})
+	if err != nil {
+		return 0, err
+	}
+	return s.OpenProbeIncidentID(ctx, probeID)
+}
+
+// OpenProbeIncidentID kontrol noktasının açık probe_offline olayı (yoksa 0).
+func (s *Store) OpenProbeIncidentID(ctx context.Context, probeID int64) (int64, error) {
+	var id sql.NullInt64
+	err := s.db.QueryRowContext(ctx, "SELECT MAX(id) FROM incidents WHERE server_id = ? AND kind = ? AND resolved_at IS NULL",
+		probeID, IncidentProbeOffline).Scan(&id)
+	return id.Int64, err
+}
+
+// ResolveProbeIncident kontrol noktasının açık probe_offline olayını kapatır;
+// kimliğini ve başlangıcını döner (yoksa 0, 0).
+func (s *Store) ResolveProbeIncident(ctx context.Context, probeID, now int64) (int64, int64, error) {
+	var id, started int64
+	err := s.tx(ctx, func(tx *Tx) error {
+		err := tx.QueryRowContext(ctx, `
+			SELECT id, started_at FROM incidents WHERE server_id = ? AND kind = ? AND resolved_at IS NULL
+			ORDER BY id DESC LIMIT 1`, probeID, IncidentProbeOffline).Scan(&id, &started)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, "UPDATE incidents SET resolved_at = ? WHERE id = ?", now, id); err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx,
+			"INSERT INTO incident_events (incident_id, time, kind, location, message, data) VALUES (?, ?, ?, '', '', ?)",
+			id, now, EventUp, `{"downtime":`+strconv.FormatInt(max(0, now-started), 10)+`}`)
+		return err
+	})
+	return id, started, err
 }
 
 // rawString JSON veriyi saklama biçimine çevirir (yok: ”).
