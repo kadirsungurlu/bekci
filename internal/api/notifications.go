@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/kadirsungurlu/bekci/internal/engine"
+	"github.com/kadirsungurlu/bekci/internal/i18n"
 	"github.com/kadirsungurlu/bekci/internal/notify"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
@@ -73,7 +74,23 @@ type notificationInput struct {
 	IsDefault     bool            `json:"is_default"`
 	Active        *bool           `json:"active"`
 	ApplyExisting bool            `json:"apply_existing"` // mevcut tüm monitörlere bağla
+
+	// Kurallar (eski istemci göndermezse: tüm türler, kural yok).
+	// Events: alınacak olay türleri (boş/yok = hepsi). QuietHours: sessiz
+	// saatler (yok/null = kapalı). DelayMin: gecikme (dk). EscalateMin:
+	// eskalasyon (dk). Lang: kanalın bildirim dili ("" = ayarlardaki).
+	Events      []string          `json:"events"`
+	QuietHours  *store.QuietHours `json:"quiet_hours"`
+	DelayMin    int               `json:"delay_min"`
+	EscalateMin int               `json:"escalate_min"`
+	Lang        string            `json:"lang"`
 }
+
+// Kural sınırları (dakika).
+const (
+	maxNotifyDelayMin    = 1440 // 24 saat
+	maxNotifyEscalateMin = 1440
+)
 
 func (in *notificationInput) toNotification() (store.Notification, error) {
 	in.Name = strings.TrimSpace(in.Name)
@@ -92,7 +109,40 @@ func (in *notificationInput) toNotification() (store.Notification, error) {
 	if in.Active != nil {
 		active = *in.Active
 	}
-	return store.Notification{Name: in.Name, Type: in.Type, Config: cfg, IsDefault: in.IsDefault, Active: active}, nil
+	events := []string{}
+	seen := map[string]bool{}
+	for _, k := range in.Events {
+		k = strings.TrimSpace(k)
+		if !notify.ValidKind(k) {
+			return store.Notification{}, errors.New("Geçersiz olay türü: " + k)
+		}
+		if !seen[k] {
+			seen[k] = true
+			events = append(events, k)
+		}
+	}
+	if len(events) == len(notify.Kinds) {
+		events = []string{} // hepsi seçiliyse süzgeç yok (yeni türler de gelsin)
+	}
+	if in.QuietHours != nil {
+		q := *in.QuietHours
+		if err := q.Validate(); err != nil {
+			return store.Notification{}, err
+		}
+		in.QuietHours = &q
+	}
+	if in.DelayMin < 0 || in.DelayMin > maxNotifyDelayMin {
+		return store.Notification{}, fmt.Errorf("Gecikme 0-%d dakika olmalı", maxNotifyDelayMin)
+	}
+	if in.EscalateMin < 0 || in.EscalateMin > maxNotifyEscalateMin {
+		return store.Notification{}, fmt.Errorf("Eskalasyon süresi 0-%d dakika olmalı", maxNotifyEscalateMin)
+	}
+	in.Lang = strings.TrimSpace(in.Lang)
+	if in.Lang != "" && !i18n.Valid(in.Lang) {
+		return store.Notification{}, errors.New("Bildirim dili tr veya en olmalı")
+	}
+	return store.Notification{Name: in.Name, Type: in.Type, Config: cfg, IsDefault: in.IsDefault, Active: active,
+		Events: events, Quiet: in.QuietHours, DelayMin: in.DelayMin, EscalateMin: in.EscalateMin, Lang: in.Lang}, nil
 }
 
 func masked(n store.Notification) store.Notification {
@@ -196,8 +246,13 @@ func (s *Server) testNotification(w http.ResponseWriter, r *http.Request) {
 		ID     int64           `json:"id"`
 		Type   string          `json:"type"`
 		Config json.RawMessage `json:"config"`
+		Lang   string          `json:"lang"` // kanalın dili (boş: ayarlardaki)
 	}
 	if !readJSON(w, r, &in) {
+		return
+	}
+	if in.Lang != "" && !i18n.Valid(in.Lang) {
+		writeError(w, http.StatusBadRequest, "Bildirim dili tr veya en olmalı")
 		return
 	}
 	p, ok := notify.Get(in.Type)
@@ -226,7 +281,7 @@ func (s *Server) testNotification(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := s.notifier.Test(in.Type, cfg); err != nil {
+	if err := s.notifier.TestLang(in.Type, cfg, in.Lang); err != nil {
 		// 502 değil: önündeki proxy (Cloudflare vb.) 502 gövdesini kendi sayfasıyla
 		// değiştirebilir ve arayüz hatanın nedenini göremez.
 		writeError(w, http.StatusUnprocessableEntity, "Gönderilemedi: "+err.Error())
@@ -275,7 +330,11 @@ func (s *Server) sampleNotifications(w http.ResponseWriter, r *http.Request) {
 			n.DiskMount = v.Latest.Disks[0].Mount
 		}
 	}
-	events := notify.SampleEvents(n, s.now(), s.notifier.Lang(r.Context()))
+	lang := s.notifier.Lang(r.Context())
+	if ch.Lang != "" {
+		lang = i18n.Or(ch.Lang) // örnekler kanalın kendi dilinde
+	}
+	events := notify.SampleEvents(n, s.now(), lang)
 	name := ch.Name
 	s.notifier.SendSamples(ch.Type, ch.Config, events, 2*time.Second, func(ev notify.Event, err error) {
 		if err != nil {

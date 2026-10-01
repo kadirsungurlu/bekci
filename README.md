@@ -151,6 +151,9 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
 - WhatsApp (WP API), Telegram, e-posta, Discord, Slack, Teams, Google Chat,
   Mattermost, Rocket.Chat, Webhook, ntfy, Gotify, Pushover, PagerDuty,
   Opsgenie ve diğerleri; her kanal için "örnek bildirim gönder"
+- Kanal başına kurallar: olay türü süzgeci, sessiz saatler (yalnızca kritik /
+  hiçbiri; ertelenen bildirim pencere bitince gider), gecikme ("N dakika
+  sürerse bildir"), eskalasyon kanalı (N dakikadır açık her olay) ve dil
 
 **Durum sayfaları**
 - Gruplar (katlanabilir), hedef adres gösterimi (yalnızca alan adı), son

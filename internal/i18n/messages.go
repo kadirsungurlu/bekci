@@ -20,6 +20,12 @@ var messages = map[string]Msg{
 	"notify.sample.note":         {"(Örnek bildirim — gerçek bir olay değil)", "(Sample notification — not a real event)"},
 	"notify.sample.loc_error":    {"Zaman aşımı", "Timeout"},
 
+	// Kural hattı notları (%s: süre)
+	"notify.escalation.note":    {"⏫ Eskalasyon: olay %s süredir devam ediyor", "⏫ Escalation: the incident has been going on for %s"},
+	"notify.delayed.note":       {"⏳ Gecikmeli bildirim: sorun %s süredir devam ediyor", "⏳ Delayed notification: the problem has persisted for %s"},
+	"notify.delayed.note_plain": {"⏳ Gecikmeli bildirim", "⏳ Delayed notification"},
+	"notify.quiet.note":         {"🌙 Sessiz saatler bitti; ertelenmiş bildirim", "🌙 Quiet hours ended; deferred notification"},
+
 	// Bildirim metnindeki satır başlıkları
 	"notify.field.server":         {"Sunucu", "Server"},
 	"notify.field.target":         {"Hedef", "Target"},

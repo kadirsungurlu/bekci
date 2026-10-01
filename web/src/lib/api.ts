@@ -594,7 +594,45 @@ export type NotificationType =
   | 'line'
   | 'apprise';
 
-export interface NotificationChannel {
+/** Bildirim türleri (kanal süzgeci için; test hariç). */
+export type NotifyKind =
+  | 'down'
+  | 'up'
+  | 'reminder'
+  | 'cert'
+  | 'location_down'
+  | 'location_up'
+  | 'slow'
+  | 'slow_resolved'
+  | 'server_alert'
+  | 'server_resolved'
+  | 'probe_offline'
+  | 'probe_online';
+
+/** Sessiz saatler: start/end "SS:DD" (tz diliminde; end <= start gece yarısını aşar). */
+export interface QuietHours {
+  start: string;
+  end: string;
+  /** IANA saat dilimi; boş: sunucunun yerel saati. */
+  tz: string;
+  /** critical: yalnızca 🔴 ve onların 🟢'si geçer; none: her şey pencere bitimine ertelenir. */
+  mode: 'critical' | 'none';
+}
+
+/** Kanal kuralları (eski sunucuda gelmez → kural yok). */
+export interface NotificationRules {
+  /** Alınacak olay türleri; boş = hepsi. */
+  events?: NotifyKind[] | null;
+  quiet_hours?: QuietHours | null;
+  /** Gecikme (dk): sorun bu kadar sürmezse 🔴 (ve 🟢) gitmez. 0 = kapalı. */
+  delay_min?: number;
+  /** Eskalasyon (dk): bu kadar süredir açık her olay bağlı olmasa da bu kanala gider. 0 = kapalı. */
+  escalate_min?: number;
+  /** Kanalın bildirim dili; "" = ayarlardaki. */
+  lang?: '' | Locale;
+}
+
+export interface NotificationChannel extends NotificationRules {
   id: number;
   name: string;
   type: NotificationType;
@@ -605,7 +643,7 @@ export interface NotificationChannel {
   updated_at: number;
 }
 
-export interface NotificationInput {
+export interface NotificationInput extends NotificationRules {
   name: string;
   type: NotificationType;
   config: Record<string, unknown>;
@@ -1191,7 +1229,7 @@ export const api = {
   createNotification: (n: NotificationInput) => post<NotificationChannel>('/api/notifications', n),
   updateNotification: (id: number, n: NotificationInput) => put<NotificationChannel>(`/api/notifications/${id}`, n),
   deleteNotification: (id: number) => del<{ ok: boolean }>(`/api/notifications/${id}`),
-  testNotification: (body: { id?: number; type: NotificationType; config: Record<string, unknown> }) =>
+  testNotification: (body: { id?: number; type: NotificationType; config: Record<string, unknown>; lang?: '' | Locale }) =>
     post<{ ok: boolean }>('/api/notifications/test', body),
   /** Kayıtlı kanala her bildirim türünden birer örnek gönderir (arka planda, sırayla). */
   sampleNotifications: (id: number) => post<{ count: number }>(`/api/notifications/${id}/samples`, {}),

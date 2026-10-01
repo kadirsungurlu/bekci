@@ -71,6 +71,20 @@ Bildirimler kısa bir başlıkla gelir: 🔴 kesinti, 🟢 düzelme (hâlâ çal
 
 **Webhook** kanalı JSON gönderir: `event` (`down`, `up`, `reminder`, `location_down`, `location_up`, `cert`, `server_alert`, `server_resolved`, `test`), `title`, `text`, `message`, `time`, `downtime_seconds` (düzelmede), `cert_days` (SSL uyarısında), `monitor` (`id`, `name`, `type`, `target`, `url`), `incident` (`id`, `url`; olaya bağlı bildirimlerde), `locations` (çok konumlu monitörde çalışmayan konumlar: `name`, `message`) ve `server` (yalnızca sunucu uyarılarında: `id`, `name`, `metric`, `value`, `threshold`, `minutes`). Örnek gövde kanal penceresinde görünür.
 
+### Bildirim kuralları {#bildirim-kurallari}
+
+Kanal penceresinin **Kurallar** bölümü kanalın ne zaman ve neyi alacağını belirler. Varsayılan: tüm olaylar, her saat, gecikmesiz (mevcut kanallar değişmez).
+
+| Kural | Ne yapar |
+|---|---|
+| **Alınacak olaylar** | İşareti kaldırılan türler (ör. düzelme, hatırlatma, SSL) bu kanala gitmez. 🔴 ile 🟢 ayrı seçilir: "yalnızca kesintiyi istiyorum" diyen bir kanal kurabilirsiniz. |
+| **Sessiz saatler** | Başlangıç-bitiş (kanalın saat diliminde; `22:00`–`07:00` gibi gece yarısını aşan pencere olabilir). **Yalnızca kritik olanlar geçsin** kipinde 🔴 kesinti, sunucu uyarısı ve kontrol noktası bildirimleri ile bunların 🟢 düzelmesi hemen gider; 🟡 yavaş yanıt, konum kesintisi ve ⚠️ SSL uyarısı pencerenin bitimine ertelenir. **Hiçbir bildirim gitmesin** kipinde her şey ertelenir. Ertelenen sorun bildirimi pencere bitince yalnızca sorun hâlâ sürüyorsa gönderilir ("🌙 Sessiz saatler bitti" notuyla); hatırlatmalar atılır. |
+| **Gecikme** | "Yalnızca N dakika sürerse bildir": kısa kesintilerde (ör. iki dakikalık yeniden başlatma) bildirim gelmez. 🔴 süre dolunca sorun hâlâ sürüyorsa "⏳ Gecikmeli bildirim" notuyla gider; gitmediyse o olayın 🟢 düzelmesi ve hatırlatmaları da gitmez. |
+| **Eskalasyon** | "N dakikadır süren her olayı buraya da bildir": kanal monitöre ya da sunucuya bağlı olmasa da bu kadar dakikadır açık kalan her kesinti, sunucu uyarısı ve kontrol noktası kesintisi "⏫ Eskalasyon" notuyla gelir; olay kapanınca 🟢 de gelir. Nöbetçi yöneticinin kanalı için uygundur. |
+| **Bildirim dili** | Kanal başına dil (ayarlardaki genel dili geçersiz kılar); test ve örnek bildirimleri de bu dilde gider. |
+
+Atlanan ve ertelenen bildirimler nedeniyle birlikte olayın **işlem geçmişine** yazılır ("kanal bu olay türünü almıyor", "sessiz saatler", "gecikme kuralı"…). Ertelenmiş bildirimler veritabanında bekler; uygulama yeniden başlasa da kaybolmaz. **Test gönder** ve **Örnek bildirimleri gönder** kurallardan etkilenmez.
+
 > [!CHECK]
 > Test bildirimi kanalınıza ulaştı ve kanal **Bildirimler** listesinde görünüyor. Bir monitörün kanallarını monitörün düzenleme sayfasından da değiştirebilirsiniz.
 

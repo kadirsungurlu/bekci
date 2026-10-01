@@ -17,15 +17,27 @@ type Notification struct {
 	Active    bool            `json:"active"`
 	CreatedAt int64           `json:"created_at"`
 	UpdatedAt int64           `json:"updated_at"`
+
+	// Kurallar (migration 23; bkz. notification_rules.go). Events boş = tüm
+	// türler; Quiet nil = sessiz saat yok; DelayMin / EscalateMin 0 = kapalı;
+	// Lang boş = ayarlardaki bildirim dili.
+	Events      []string    `json:"events"`
+	Quiet       *QuietHours `json:"quiet_hours"`
+	DelayMin    int         `json:"delay_min"`
+	EscalateMin int         `json:"escalate_min"`
+	Lang        string      `json:"lang"`
 }
 
-const notificationCols = "id, name, type, config, is_default, active, created_at, updated_at"
+const notificationCols = "id, name, type, config, is_default, active, created_at, updated_at, events, quiet_hours, delay_min, escalate_min, lang"
 
 func scanNotification(sc scanner) (Notification, error) {
 	var n Notification
-	var cfg string
-	err := sc.Scan(&n.ID, &n.Name, &n.Type, &cfg, &n.IsDefault, &n.Active, &n.CreatedAt, &n.UpdatedAt)
+	var cfg, events, quiet string
+	err := sc.Scan(&n.ID, &n.Name, &n.Type, &cfg, &n.IsDefault, &n.Active, &n.CreatedAt, &n.UpdatedAt,
+		&events, &quiet, &n.DelayMin, &n.EscalateMin, &n.Lang)
 	n.Config = json.RawMessage(cfg)
+	n.Events = decodeEvents(events)
+	n.Quiet = decodeQuiet(quiet)
 	return n, err
 }
 
@@ -74,9 +86,11 @@ func (s *Store) CreateNotification(ctx context.Context, n *Notification, applyTo
 	return s.tx(ctx, func(tx *Tx) error {
 		var err error
 		n.ID, err = insertID(ctx, tx, `
-			INSERT INTO notifications (name, type, config, is_default, active, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			n.Name, n.Type, string(n.Config), boolInt(n.IsDefault), boolInt(n.Active), n.CreatedAt, n.UpdatedAt)
+			INSERT INTO notifications (name, type, config, is_default, active, created_at, updated_at,
+				events, quiet_hours, delay_min, escalate_min, lang)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			n.Name, n.Type, string(n.Config), boolInt(n.IsDefault), boolInt(n.Active), n.CreatedAt, n.UpdatedAt,
+			encodeEvents(n.Events), encodeQuiet(n.Quiet), n.DelayMin, n.EscalateMin, n.Lang)
 		if err != nil {
 			return err
 		}
@@ -88,9 +102,11 @@ func (s *Store) UpdateNotification(ctx context.Context, n *Notification, applyTo
 	n.UpdatedAt = time.Now().Unix()
 	return s.tx(ctx, func(tx *Tx) error {
 		res, err := tx.ExecContext(ctx, `
-			UPDATE notifications SET name = ?, type = ?, config = ?, is_default = ?, active = ?, updated_at = ?
+			UPDATE notifications SET name = ?, type = ?, config = ?, is_default = ?, active = ?, updated_at = ?,
+				events = ?, quiet_hours = ?, delay_min = ?, escalate_min = ?, lang = ?
 			WHERE id = ?`,
-			n.Name, n.Type, string(n.Config), boolInt(n.IsDefault), boolInt(n.Active), n.UpdatedAt, n.ID)
+			n.Name, n.Type, string(n.Config), boolInt(n.IsDefault), boolInt(n.Active), n.UpdatedAt,
+			encodeEvents(n.Events), encodeQuiet(n.Quiet), n.DelayMin, n.EscalateMin, n.Lang, n.ID)
 		if err != nil {
 			return err
 		}

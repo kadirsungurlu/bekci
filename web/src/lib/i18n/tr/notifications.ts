@@ -43,4 +43,62 @@ export default {
     deleteTitle: 'Kanalı sil',
     deleteMessage: '“{name}” bildirim kanalı silinecek ve bağlı olduğu monitörlerden kaldırılacak.',
   },
+  /** Kanal kuralları (NotificationForm › Kurallar bölümü ve liste rozetleri). */
+  rules: {
+    title: 'Kurallar',
+    summaryDefault: 'Tüm olaylar, her saat, gecikmesiz',
+    eventsTitle: 'Alınacak olaylar',
+    eventsHelp: 'İşareti kaldırılan türler bu kanala gönderilmez. Test ve örnek bildirimleri süzgeçten geçmez.',
+    eventsAll: 'Hepsi',
+    eventsNone: 'Hiçbiri',
+    events: {
+      down: '🔴 Kesinti',
+      up: '🟢 Düzelme',
+      reminder: '🔔 Hatırlatma (hâlâ çalışmıyor)',
+      cert: '⚠️ SSL sertifikası',
+      slow: '🟡 Yavaş yanıt (başladı / normale döndü)',
+      location: '🟡 Konum kesintisi (başladı / bitti)',
+      server: '🖥 Sunucu uyarıları (başladı / bitti)',
+      probe: '📍 Kontrol noktası (çevrimdışı / çevrimiçi)',
+    },
+    quietTitle: 'Sessiz saatler',
+    quietEnable: 'Sessiz saatleri aç',
+    quietHelp:
+      'Pencere içinde bildirim gönderilmez: sorun başlangıçları pencerenin bitimine ertelenir ve o anda hâlâ sürüyorsa gönderilir; hatırlatmalar atılır. 🔴 gitmeyen olayın 🟢’si de gitmez.',
+    quietStart: 'Başlangıç',
+    quietEnd: 'Bitiş',
+    quietTz: 'Saat dilimi',
+    quietTzHelp: 'Boş: sunucunun saati.',
+    quietMode: 'Sessiz saatlerde',
+    quietModes: {
+      critical: 'Yalnızca kritik olanlar geçsin',
+      none: 'Hiçbir bildirim gitmesin',
+    },
+    quietModeHelp: {
+      critical: '🔴 kesinti, sunucu uyarısı ve kontrol noktası bildirimleri ile bunların 🟢 düzelmesi hemen gider; 🟡 yavaş yanıt, konum kesintisi ve SSL uyarısı pencere bitince.',
+      none: 'Her şey pencere bitince (sorun o sırada hâlâ sürüyorsa) gönderilir.',
+    },
+    delayTitle: 'Gecikme',
+    delayLabel: 'Yalnızca şu kadar sürerse bildir (dk)',
+    delayHelp:
+      '0 = hemen. Kısa kesintilerde (ör. 2 dakikalık yeniden başlatma) bildirim gelmesin diye kullanın: 🔴 bu süre dolunca sorun hâlâ sürüyorsa gider; gitmediyse 🟢 ve hatırlatma da gitmez.',
+    escalateTitle: 'Eskalasyon',
+    escalateLabel: 'Şu kadar dakikadır süren her olayı buraya da bildir',
+    escalateHelp:
+      '0 = kapalı. Açıkken bu kanal bir eskalasyon kanalıdır: monitöre ya da sunucuya bağlı olmasa da bu kadar dakikadır açık kalan her kesinti, sunucu uyarısı ve kontrol noktası kesintisi “⏫ Eskalasyon” notuyla buraya gelir; olay kapanınca 🟢 de gelir.',
+    langLabel: 'Bildirim dili',
+    langDefault: 'Ayarlardaki bildirim dili',
+    langHelp: 'Bu kanala giden mesajların dili; test ve örnekler de bu dilde gider.',
+    errQuiet: 'Sessiz saat başlangıcı ve bitişi SS:DD biçiminde ve farklı olmalı.',
+    errDelay: 'Gecikme 0-1440 dakika olmalı.',
+    errEscalate: 'Eskalasyon süresi 0-1440 dakika olmalı.',
+    errEvents: 'En az bir olay türü seçin ya da süzgeci kapatın.',
+    /** Liste rozetleri. */
+    badge: {
+      filter: '{n} tür',
+      quiet: 'Sessiz {start}–{end}',
+      delay: 'Gecikme {n} dk',
+      escalate: 'Eskalasyon {n} dk',
+    },
+  },
 };

@@ -93,6 +93,11 @@
           </span>
           <span class="sub">
             {NOTIFY_LABELS[ch.type] ?? ch.type} · {t('notifications.list.monitorCount', { count: usage.get(ch.id) ?? 0 })}
+            {#if ch.events?.length}<span class="rule">{t('notifications.rules.badge.filter', { n: ch.events.length, count: ch.events.length })}</span>{/if}
+            {#if ch.quiet_hours}<span class="rule">{t('notifications.rules.badge.quiet', { start: ch.quiet_hours.start, end: ch.quiet_hours.end })}</span>{/if}
+            {#if ch.delay_min}<span class="rule">{t('notifications.rules.badge.delay', { n: ch.delay_min })}</span>{/if}
+            {#if ch.escalate_min}<span class="rule">{t('notifications.rules.badge.escalate', { n: ch.escalate_min })}</span>{/if}
+            {#if ch.lang}<span class="rule">{t(`common.languages.${ch.lang}`)}</span>{/if}
           </span>
         </span>
         <span class="edit"><Icon name="edit" size={15} /> <span class="lbl">{t('common.edit')}</span></span>
@@ -177,6 +182,17 @@
   .sub {
     font-size: 0.84rem;
     color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    align-items: center;
+  }
+  .rule {
+    font-size: 0.74rem;
+    padding: 1px 7px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-2);
   }
   .edit {
     display: inline-flex;

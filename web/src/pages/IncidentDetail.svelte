@@ -17,7 +17,7 @@
   } from '../lib/api';
   import { fmtMetric, metricLabel } from '../lib/servers.svelte';
   import { live } from '../lib/live.svelte';
-  import { fmtDateSec, fmtDuration, fmtDurationLong, fmtTimeSec, fmtDay, fmtSize, nowSec } from '../lib/format';
+  import { fmtDate, fmtDateSec, fmtDuration, fmtDurationLong, fmtTimeSec, fmtDay, fmtSize, nowSec } from '../lib/format';
   import { t, tOr, tParts } from '../lib/i18n';
   import { displayTarget, isWebTarget, typeName } from '../lib/monitorTypes';
   import { NOTIFY_LABELS, NOTIFY_STYLE } from '../lib/notifyTypes';
@@ -271,9 +271,26 @@
         }
         r.icon = st?.icon ?? 'bell';
         r.color = st?.color;
-        r.tone = d.ok ? 'accent' : 'down';
         const ch = [str(d.channel), NOTIFY_LABELS[type] ?? str(d.type)].filter(Boolean).join(' · ');
-        r.title = t(d.ok ? 'incidents.ev.sent' : 'incidents.ev.failed', { ch, what });
+        const skipped = str(d.skipped);
+        const deferred = num(d.deferred);
+        if (skipped) {
+          // Kural hattı: süzgeç, eşleşmeyen düzelme, sessiz saat, iptal.
+          r.icon = 'bell';
+          r.tone = 'muted';
+          r.title = t('incidents.ev.skipped', { ch, what });
+          r.sub = tOr(`incidents.ev.skipReason.${skipped}`, skipped);
+          break;
+        }
+        if (deferred) {
+          r.icon = 'clock';
+          r.tone = 'pending';
+          r.title = t('incidents.ev.deferred', { ch, what });
+          r.sub = t('incidents.ev.deferredUntil', { when: fmtDate(deferred), why: tOr(`incidents.ev.deferReason.${str(d.reason)}`, str(d.reason)) });
+          break;
+        }
+        r.tone = d.ok ? 'accent' : 'down';
+        r.title = t(d.ok ? (d.escalated ? 'incidents.ev.escalatedSent' : d.delayed ? 'incidents.ev.delayedSent' : 'incidents.ev.sent') : 'incidents.ev.failed', { ch, what });
         const att = num(d.attempts);
         r.sub = [d.ok ? '' : str(d.error), att > 1 ? t('incidents.ev.attempts', { n: att }) : ''].filter(Boolean).join(' · ');
         break;

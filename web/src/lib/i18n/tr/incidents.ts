@@ -261,6 +261,23 @@ export default {
     sent: '{ch}: {what} gönderildi',
     attempts: '{n} denemede',
     failed: '{ch}: {what} gönderilemedi',
+    /** Kural hattı: atlanan / ertelenen / eskalasyon bildirimleri. */
+    skipped: '{ch}: {what} gönderilmedi',
+    skipReason: {
+      filter: 'kanal bu olay türünü almıyor',
+      unpaired: 'sorun bildirimi bu kanala gitmediği için',
+      quiet: 'sessiz saatler',
+      cancelled: 'ertelenmiş bildirim iptal edildi; olay gönderilmeden kapandı',
+      duplicate: 'bu kanala zaten gönderilmiş',
+    },
+    deferred: '{ch}: {what} ertelendi',
+    deferredUntil: '{when} tarihine kadar · {why}',
+    deferReason: {
+      delay: 'gecikme kuralı',
+      quiet: 'sessiz saatler',
+    },
+    escalatedSent: '{ch}: eskalasyon ({what}) gönderildi',
+    delayedSent: '{ch}: ertelenmiş {what} gönderildi',
     edited: 'Monitör ayarları değiştirildi',
     editedClosed: 'Monitörün hedefi değiştirildi; olay kapatıldı',
     paused: 'Monitör durduruldu; olay kapatıldı',

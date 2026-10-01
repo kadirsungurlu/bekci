@@ -94,6 +94,7 @@ func (s *Server) buildExport(ctx context.Context) (*backup.Doc, error) {
 		notifName[n.ID] = name
 		doc.Notifications = append(doc.Notifications, backup.Notification{
 			Name: name, Type: n.Type, Config: n.Config, IsDefault: n.IsDefault, Active: n.Active,
+			Events: n.Events, QuietHours: n.Quiet, DelayMin: n.DelayMin, EscalateMin: n.EscalateMin, Lang: n.Lang,
 		})
 	}
 
@@ -381,7 +382,8 @@ func (s *Server) planImport(ctx context.Context, conv *backup.Result, replace bo
 			continue
 		}
 		active := bn.Active
-		in := notificationInput{Name: bn.Name, Type: bn.Type, Config: bn.Config, IsDefault: bn.IsDefault, Active: &active}
+		in := notificationInput{Name: bn.Name, Type: bn.Type, Config: bn.Config, IsDefault: bn.IsDefault, Active: &active,
+			Events: bn.Events, QuietHours: bn.QuietHours, DelayMin: bn.DelayMin, EscalateMin: bn.EscalateMin, Lang: bn.Lang}
 		n, err := in.toNotification()
 		if err != nil {
 			it.Result, it.Messages = "skipped", append(it.Messages, err.Error())

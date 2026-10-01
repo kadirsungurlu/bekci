@@ -162,6 +162,10 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
 - WhatsApp (WP API), Telegram, email, Discord, Slack, Teams, Google Chat,
   Mattermost, Rocket.Chat, Webhook, ntfy, Gotify, Pushover, PagerDuty,
   Opsgenie and more; "send sample notification" for every channel
+- Per-channel rules: event-type filter, quiet hours (critical only / nothing;
+  deferred notifications go out when the window ends), delay ("notify if it
+  lasts N minutes"), escalation channel (every incident open for N minutes)
+  and language
 
 **Status pages**
 - Groups (collapsible), target address display (domain only), recent

@@ -119,9 +119,11 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 		notifIDs := make([]int64, len(d.Notifications))
 		for i, n := range d.Notifications {
 			id, err := insertID(ctx, tx, `
-				INSERT INTO notifications (name, type, config, is_default, active, created_at, updated_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?)`,
-				n.Name, n.Type, string(n.Config), boolInt(n.IsDefault), boolInt(n.Active), now, now)
+				INSERT INTO notifications (name, type, config, is_default, active, created_at, updated_at,
+					events, quiet_hours, delay_min, escalate_min, lang)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				n.Name, n.Type, string(n.Config), boolInt(n.IsDefault), boolInt(n.Active), now, now,
+				encodeEvents(n.Events), encodeQuiet(n.Quiet), n.DelayMin, n.EscalateMin, n.Lang)
 			if err != nil {
 				return err
 			}

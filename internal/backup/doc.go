@@ -51,7 +51,13 @@ type Notification struct {
 	Config    json.RawMessage `json:"config"`
 	IsDefault bool            `json:"is_default"`
 	Active    bool            `json:"active"`
-	Notes     []string        `json:"-"` // dönüştürmede oluşan uyarılar
+	// Kurallar (eski yedeklerde yok → tüm türler, kural yok).
+	Events      []string          `json:"events,omitempty"`
+	QuietHours  *store.QuietHours `json:"quiet_hours,omitempty"`
+	DelayMin    int               `json:"delay_min,omitempty"`
+	EscalateMin int               `json:"escalate_min,omitempty"`
+	Lang        string            `json:"lang,omitempty"`
+	Notes       []string          `json:"-"` // dönüştürmede oluşan uyarılar
 }
 
 type MonitorTag struct {

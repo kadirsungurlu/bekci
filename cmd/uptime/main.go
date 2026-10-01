@@ -146,10 +146,13 @@ func run() error {
 
 	hub := engine.NewHub()
 	dispatcher := notify.NewDispatcher(st, log)
+	dispatcher.SetBaseURL(baseURL)
 	eng := engine.New(st, dispatcher, hub, log, engine.Config{MaxConcurrent: maxChecks, BaseURL: baseURL})
 	if err := eng.Start(ctx); err != nil {
 		return fmt.Errorf("kontrol motoru başlatılamadı: %w", err)
 	}
+	// Ertelenmiş bildirimler (gecikme, sessiz saat) ve eskalasyon taraması.
+	dispatcher.Run(ctx)
 	maint := stats.NewMaintenance(st, log, dataDir, time.Local)
 	if st.Postgres() {
 		maint.SetPostgresDump(target)

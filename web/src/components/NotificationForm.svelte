@@ -7,11 +7,21 @@
     type NotificationChannel,
     type NotificationInput,
     type NotificationType,
+    type NotifyKind,
   } from '../lib/api';
   import { confirmDialog } from '../lib/ui.svelte';
   import { changedDestinations, destinationPhrase, guardUnsaved, snapshot } from '../lib/forms';
-  import { EMAIL_PORTS, NOTIFY_GROUPS, NOTIFY_LABELS, NOTIFY_SCHEMAS, webhookExample, type Field } from '../lib/notifyTypes';
-  import { t, tParts } from '../lib/i18n';
+  import {
+    ALL_NOTIFY_KINDS,
+    EMAIL_PORTS,
+    NOTIFY_EVENT_GROUPS,
+    NOTIFY_GROUPS,
+    NOTIFY_LABELS,
+    NOTIFY_SCHEMAS,
+    webhookExample,
+    type Field,
+  } from '../lib/notifyTypes';
+  import { LOCALES, t, tParts, type Locale } from '../lib/i18n';
   import Modal from './Modal.svelte';
   import Icon from './Icon.svelte';
 
@@ -54,9 +64,48 @@
   let active = $state(orig?.active ?? true);
   let applyExisting = $state(false);
 
+  // Kurallar: olay süzgeci (boş liste = hepsi), sessiz saatler, gecikme, eskalasyon, dil.
+  const origEvents = orig?.events ?? [];
+  let filterOn = $state(origEvents.length > 0);
+  let events = $state<NotifyKind[]>(origEvents.length > 0 ? [...origEvents] : [...ALL_NOTIFY_KINDS]);
+  let quietOn = $state(!!orig?.quiet_hours);
+  let quietStart = $state(orig?.quiet_hours?.start ?? '22:00');
+  let quietEnd = $state(orig?.quiet_hours?.end ?? '07:00');
+  let quietTz = $state(orig?.quiet_hours?.tz ?? '');
+  let quietMode = $state<'critical' | 'none'>(orig?.quiet_hours?.mode ?? 'critical');
+  let delayMin = $state<number | null>(orig?.delay_min ?? 0);
+  let escalateMin = $state<number | null>(orig?.escalate_min ?? 0);
+  let lang = $state<'' | Locale>(orig?.lang ?? '');
+  const hasRules = (orig?.events?.length ?? 0) > 0 || !!orig?.quiet_hours || (orig?.delay_min ?? 0) > 0 || (orig?.escalate_min ?? 0) > 0 || !!orig?.lang;
+  let rulesOpen = $state(hasRules);
+
+  const timezones: string[] = (() => {
+    try {
+      return typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+    } catch {
+      return [];
+    }
+  })();
+
+  const groupOn = (kinds: NotifyKind[]) => kinds.every((k) => events.includes(k));
+  function toggleGroup(kinds: NotifyKind[], on: boolean) {
+    events = on ? [...new Set([...events, ...kinds])] : events.filter((k) => !kinds.includes(k));
+  }
+  const clockRe = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+  function rulesBody() {
+    return {
+      events: filterOn ? events : [],
+      quiet_hours: quietOn ? { start: quietStart, end: quietEnd, tz: quietTz.trim(), mode: quietMode } : null,
+      delay_min: delayMin ?? 0,
+      escalate_min: escalateMin ?? 0,
+      lang,
+    };
+  }
+
   // Kaydedilmemiş değişiklik: pencere kapatılırken (Vazgeç, ×, Esc, arka plan) ve
   // sayfadan ayrılırken sorulur.
-  const formSnap = () => snapshot({ type, name: name.trim(), values, isDefault, active, applyExisting });
+  const formSnap = () => snapshot({ type, name: name.trim(), values, isDefault, active, applyExisting, rules: rulesBody() });
   const baseline = untrack(formSnap);
   const dirty = () => !saving && formSnap() !== baseline;
   async function canClose() {
@@ -115,6 +164,15 @@
     return cfg;
   }
 
+  function validateRules(): string {
+    if (filterOn && events.length === 0) return t('notifications.rules.errEvents');
+    if (quietOn && (!clockRe.test(quietStart) || !clockRe.test(quietEnd) || quietStart === quietEnd)) return t('notifications.rules.errQuiet');
+    const isInt = (v: number | null, hi: number) => v !== null && Number.isInteger(v) && v >= 0 && v <= hi;
+    if (!isInt(delayMin, 1440)) return t('notifications.rules.errDelay');
+    if (!isInt(escalateMin, 1440)) return t('notifications.rules.errEscalate');
+    return '';
+  }
+
   function validate(): string {
     if (!name.trim()) return t('notifications.form.nameRequired');
     for (const f of schema.fields) {
@@ -145,6 +203,7 @@
         ...(orig && orig.type === type ? { id: orig.id } : {}),
         type,
         config: buildConfig(),
+        lang,
       });
       testResult = { ok: true, msg: t('notifications.form.testSent') };
     } catch (e) {
@@ -172,8 +231,11 @@
   }
 
   async function save() {
-    error = validate();
-    if (error) return;
+    error = validate() || validateRules();
+    if (error) {
+      if (validateRules()) rulesOpen = true;
+      return;
+    }
     const body: NotificationInput = {
       name: name.trim(),
       type,
@@ -181,6 +243,7 @@
       is_default: isDefault,
       active,
       apply_existing: applyExisting,
+      ...rulesBody(),
     };
     saving = true;
     try {
@@ -234,6 +297,17 @@
       }
     });
   });
+  // Kurallar bölümünün kapalı haldeki özeti.
+  const rulesSummary = $derived.by(() => {
+    const parts: string[] = [];
+    if (filterOn) parts.push(t('notifications.rules.badge.filter', { n: events.length, count: events.length }));
+    if (quietOn) parts.push(t('notifications.rules.badge.quiet', { start: quietStart, end: quietEnd }));
+    if ((delayMin ?? 0) > 0) parts.push(t('notifications.rules.badge.delay', { n: delayMin ?? 0 }));
+    if ((escalateMin ?? 0) > 0) parts.push(t('notifications.rules.badge.escalate', { n: escalateMin ?? 0 }));
+    if (lang) parts.push(t(`common.languages.${lang}`));
+    return parts.length ? parts.join(' · ') : t('notifications.rules.summaryDefault');
+  });
+
   const rebindMsg = $derived.by(() => {
     if (!cleared.length || !destChanged.length) return '';
     const labels = cleared.map((k) => schema.fields.find((f) => f.key === k)?.label ?? k);
@@ -348,6 +422,108 @@
 
     <div class="divider"></div>
 
+    <details class="rules" bind:open={rulesOpen}>
+      <summary>
+        <span class="chev"><Icon name="chevron-right" size={15} /></span>
+        <span class="r-title">{t('notifications.rules.title')}</span>
+        <span class="r-sum muted small">{rulesSummary}</span>
+      </summary>
+      <div class="stack r-body">
+        <fieldset class="r-group">
+          <legend>
+            <label class="check inline">
+              <input type="checkbox" bind:checked={filterOn} />
+              <span>{t('notifications.rules.eventsTitle')}</span>
+            </label>
+          </legend>
+          <p class="help nomargin">{t('notifications.rules.eventsHelp')}</p>
+          {#if filterOn}
+            <div class="ev-grid">
+              {#each NOTIFY_EVENT_GROUPS as g (g.id)}
+                <label class="check">
+                  <input type="checkbox" checked={groupOn(g.kinds)} onchange={(e) => toggleGroup(g.kinds, e.currentTarget.checked)} />
+                  <span>{t(`notifications.rules.events.${g.id}`)}</span>
+                </label>
+              {/each}
+            </div>
+            <div class="ev-actions">
+              <button type="button" class="btn sm ghost" onclick={() => (events = [...ALL_NOTIFY_KINDS])}>{t('notifications.rules.eventsAll')}</button>
+              <button type="button" class="btn sm ghost" onclick={() => (events = [])}>{t('notifications.rules.eventsNone')}</button>
+            </div>
+          {/if}
+        </fieldset>
+
+        <fieldset class="r-group">
+          <legend>
+            <label class="check inline">
+              <input type="checkbox" bind:checked={quietOn} />
+              <span>{t('notifications.rules.quietTitle')}</span>
+            </label>
+          </legend>
+          <p class="help nomargin">{t('notifications.rules.quietHelp')}</p>
+          {#if quietOn}
+            <div class="grid-3">
+              <div class="field">
+                <label for="q-start">{t('notifications.rules.quietStart')}</label>
+                <input id="q-start" class="input" type="time" bind:value={quietStart} />
+              </div>
+              <div class="field">
+                <label for="q-end">{t('notifications.rules.quietEnd')}</label>
+                <input id="q-end" class="input" type="time" bind:value={quietEnd} />
+              </div>
+              <div class="field">
+                <label for="q-tz">{t('notifications.rules.quietTz')}</label>
+                <input id="q-tz" class="input" list="q-tzs" bind:value={quietTz} placeholder="Europe/Istanbul" autocapitalize="none" spellcheck="false" />
+                {#if timezones.length}
+                  <datalist id="q-tzs">
+                    {#each timezones as z (z)}<option value={z}></option>{/each}
+                  </datalist>
+                {/if}
+                <span class="help">{t('notifications.rules.quietTzHelp')}</span>
+              </div>
+            </div>
+            <div class="field">
+              <span class="label">{t('notifications.rules.quietMode')}</span>
+              <div class="seg" role="radiogroup" aria-label={t('notifications.rules.quietMode')}>
+                {#each ['critical', 'none'] as const as m (m)}
+                  <button type="button" role="radio" aria-checked={quietMode === m} class:active={quietMode === m} onclick={() => (quietMode = m)}>
+                    {t(`notifications.rules.quietModes.${m}`)}
+                  </button>
+                {/each}
+              </div>
+              <span class="help">{t(`notifications.rules.quietModeHelp.${quietMode}`)}</span>
+            </div>
+          {/if}
+        </fieldset>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="r-delay">{t('notifications.rules.delayLabel')}</label>
+            <input id="r-delay" class="input" type="number" min="0" max="1440" bind:value={delayMin} />
+            <span class="help">{t('notifications.rules.delayHelp')}</span>
+          </div>
+          <div class="field">
+            <label for="r-esc">{t('notifications.rules.escalateLabel')}</label>
+            <input id="r-esc" class="input" type="number" min="0" max="1440" bind:value={escalateMin} />
+            <span class="help">{t('notifications.rules.escalateHelp')}</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="r-lang">{t('notifications.rules.langLabel')}</label>
+          <select id="r-lang" class="input" bind:value={lang}>
+            <option value="">{t('notifications.rules.langDefault')}</option>
+            {#each LOCALES as l (l)}
+              <option value={l} lang={l}>{t(`common.languages.${l}`)}</option>
+            {/each}
+          </select>
+          <span class="help">{t('notifications.rules.langHelp')}</span>
+        </div>
+      </div>
+    </details>
+
+    <div class="divider"></div>
+
     <label class="check">
       <input type="checkbox" bind:checked={active} />
       <span>{t('notifications.form.active')}<small>{t('notifications.form.activeHelp')}</small></span>
@@ -435,6 +611,81 @@
   }
   .help code {
     color: var(--text-2);
+  }
+  .rules summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    list-style: none;
+    border-radius: 4px;
+    min-height: 28px;
+  }
+  .rules summary::-webkit-details-marker {
+    display: none;
+  }
+  .rules[open] .chev {
+    transform: rotate(90deg);
+  }
+  .r-title {
+    font-weight: 700;
+  }
+  .r-sum {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .r-body {
+    margin-top: 12px;
+  }
+  .r-group {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px 12px;
+    margin: 0;
+    min-width: 0;
+  }
+  .r-group legend {
+    padding: 0 6px;
+    font-weight: 600;
+  }
+  .check.inline {
+    padding: 0;
+    gap: 8px;
+  }
+  .ev-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 12px;
+    margin-top: 8px;
+  }
+  .ev-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+  }
+  .label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-2);
+    margin: 10px 0 6px;
+  }
+  .nomargin {
+    margin: 0;
+  }
+  @media (max-width: 640px) {
+    .ev-grid,
+    .grid-3 {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
   @media (max-width: 640px) {
     .spacer {

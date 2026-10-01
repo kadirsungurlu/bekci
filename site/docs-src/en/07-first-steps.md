@@ -74,6 +74,20 @@ Notifications arrive with a short title: 🔴 outage, 🟢 recovery (locations t
 
 The **Webhook** channel sends JSON: `event` (`down`, `up`, `reminder`, `location_down`, `location_up`, `cert`, `server_alert`, `server_resolved`, `test`), `title`, `text`, `message`, `time`, `downtime_seconds` (on recovery), `cert_days` (on SSL warnings), `monitor` (`id`, `name`, `type`, `target`, `url`), `incident` (`id`, `url`; on incident-bound notifications), `locations` (failing locations of a multi-location monitor: `name`, `message`) and `server` (server alerts only: `id`, `name`, `metric`, `value`, `threshold`, `minutes`). An example payload is shown in the channel dialog.
 
+### Notification rules {#notification-rules}
+
+The **Rules** section of the channel dialog decides when the channel is notified and about what. Default: all events, any time, no delay (existing channels are unchanged).
+
+| Rule | What it does |
+|---|---|
+| **Events to receive** | Unchecked types (e.g. recovery, reminder, SSL) are not sent to this channel. 🔴 and 🟢 are selected separately, so you can build a channel that only wants outages. |
+| **Quiet hours** | A start-end window in the channel's time zone (`22:00`–`07:00` style windows across midnight are fine). In **Let only critical ones through** mode, 🔴 outage, server alert and check-location notifications and their 🟢 recovery go out immediately; 🟡 slow response, location outage and ⚠️ SSL warnings are deferred to the end of the window. In **Send nothing** mode everything is deferred. A deferred problem notification is sent when the window ends only if the problem is still ongoing (with a "🌙 Quiet hours ended" note); reminders are dropped. |
+| **Delay** | "Notify only if it lasts N minutes": short outages (e.g. a two-minute restart) produce no notification. 🔴 goes out once the time has passed if the problem persists (with a "⏳ Delayed notification" note); if it never went out, that incident's 🟢 recovery and reminders are skipped too. |
+| **Escalation** | "Also report every incident that has lasted N minutes": even when the channel is not attached to the monitor or server, every outage, server alert and check-location outage open for this many minutes arrives here with an "⏫ Escalation" note, followed by 🟢 when it resolves. Good for the on-call manager's channel. |
+| **Notification language** | Per-channel language (overrides the global setting); tests and samples use it too. |
+
+Skipped and deferred notifications are written to the incident's **timeline** with their reason ("the channel does not receive this event type", "quiet hours", "delay rule"…). Deferred notifications wait in the database and survive a restart. **Send test notification** and **Send sample notifications** ignore the rules.
+
 > [!CHECK]
 > The test notification reached your channel and the channel shows up in the **Notifications** list. You can also change a monitor's channels on the monitor's edit page.
 

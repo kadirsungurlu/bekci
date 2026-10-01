@@ -4,7 +4,7 @@
 // kurulduğundan çevrilen değerler getter'dır: her okunuşta geçerli dilde t() çağrılır
 // (şablonda veya $derived içinde okununca dil değişince yeniden çizilir).
 
-import type { NotificationType } from './api';
+import type { NotificationType, NotifyKind } from './api';
 import type { IconName } from '../components/Icon.svelte';
 import { APP_NAME } from './brand';
 import { t } from './i18n';
@@ -1165,6 +1165,24 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
 };
 
 export const EMAIL_PORTS: Record<string, number> = { starttls: 587, tls: 465, none: 25 };
+
+/**
+ * Kanal olay süzgecindeki gruplar: her grup birlikte açılıp kapanan türleri
+ * toplar (🔴 ile 🟢 çifti aynı grupta değildir: "düzelme istemeyen kanal"
+ * kurulabilsin). Etiket: t(`notifications.rules.events.${id}`).
+ */
+export type NotifyEventGroupId = 'down' | 'up' | 'reminder' | 'cert' | 'slow' | 'location' | 'server' | 'probe';
+export const NOTIFY_EVENT_GROUPS: { id: NotifyEventGroupId; kinds: NotifyKind[] }[] = [
+  { id: 'down', kinds: ['down'] },
+  { id: 'up', kinds: ['up'] },
+  { id: 'reminder', kinds: ['reminder'] },
+  { id: 'cert', kinds: ['cert'] },
+  { id: 'slow', kinds: ['slow', 'slow_resolved'] },
+  { id: 'location', kinds: ['location_down', 'location_up'] },
+  { id: 'server', kinds: ['server_alert', 'server_resolved'] },
+  { id: 'probe', kinds: ['probe_offline', 'probe_online'] },
+];
+export const ALL_NOTIFY_KINDS: NotifyKind[] = NOTIFY_EVENT_GROUPS.flatMap((g) => g.kinds);
 
 /** Webhook kanalının gönderdiği JSON örneği (monitör adı örnek veridir, dile göre). */
 export const webhookExample = (d = t('notifyTypes.exampleDomain')) => `{

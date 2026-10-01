@@ -242,6 +242,12 @@ type WebhookPayload struct {
 	Server *WebhookServer `json:"server,omitempty"`
 	// Incident down/up/hatırlatmada olayın kimliği ve sayfası.
 	Incident *WebhookIncident `json:"incident,omitempty"`
+	// Escalated: eskalasyon kanalına N dakikadır süren olay için gönderildi.
+	// Delayed: gecikme kuralı ya da sessiz saatler yüzünden ertelenip sonra
+	// gönderildi; ElapsedSeconds o ana kadar geçen süre.
+	Escalated      bool  `json:"escalated,omitempty"`
+	Delayed        bool  `json:"delayed,omitempty"`
+	ElapsedSeconds int64 `json:"elapsed_seconds,omitempty"`
 }
 
 type WebhookIncident struct {
@@ -275,6 +281,7 @@ func (webhook) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 		DowntimeSeconds: int64(ev.Downtime.Seconds()),
 		Monitor:         WebhookMonitor{ID: ev.MonitorID, Name: ev.MonitorName, Type: ev.MonitorType, Target: ev.Target, URL: ev.URL},
 		Locations:       ev.Locations,
+		Escalated:       ev.Escalated, Delayed: ev.Delayed, ElapsedSeconds: int64(ev.Elapsed.Seconds()),
 	}
 	if ev.Kind == KindCert {
 		d := ev.CertDays

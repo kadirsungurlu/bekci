@@ -98,6 +98,54 @@ type Event struct {
 	// Lang bildirim metninin dili (tr/en). Boşsa Dispatcher ayarlardaki
 	// bildirim dilini (AppSettings.NotifyLang) doldurur; yine boşsa tr.
 	Lang string
+
+	// Kural hattı (dispatcher): Escalated eskalasyon bildirimi (olay kanala
+	// bağlı olmasa da N dakikadır sürdüğü için gidiyor); Delayed gecikme
+	// kuralıyla ya da sessiz saatlerin bitiminde gönderilen ertelenmiş
+	// bildirim (DeferReason: "delay" | "quiet"); Elapsed o ana kadar geçen süre.
+	Escalated   bool
+	Delayed     bool
+	DeferReason string
+	Elapsed     time.Duration
+}
+
+// Kinds tüm bildirim türleri (kanal süzgeci için; test hariç).
+var Kinds = []string{
+	KindDown, KindUp, KindReminder, KindCert, KindLocationDown, KindLocationUp,
+	KindSlow, KindSlowResolved, KindServerAlert, KindServerResolved, KindProbeOffline, KindProbeOnline,
+}
+
+// ValidKind tür bilinen bir bildirim türü mü (test hariç)?
+func ValidKind(k string) bool { return slices.Contains(Kinds, k) }
+
+// ProblemOf düzelme ve hatırlatma türlerinin eşlendiği sorun türü ("" = yok):
+// up → down, server_resolved → server_alert, probe_online → probe_offline,
+// location_up → location_down, slow_resolved → slow, reminder → down.
+func ProblemOf(kind string) string {
+	switch kind {
+	case KindUp, KindReminder:
+		return KindDown
+	case KindServerResolved:
+		return KindServerAlert
+	case KindProbeOnline:
+		return KindProbeOffline
+	case KindLocationUp:
+		return KindLocationDown
+	case KindSlowResolved:
+		return KindSlow
+	}
+	return ""
+}
+
+// IsProblemStart olaya bağlı bir sorunun başlangıç bildirimi mi (gecikme
+// kuralı ve sessiz saat ertelemesi bunlara uygulanır; hatırlatma değildir).
+func IsProblemStart(kind string) bool {
+	return kind == KindDown || kind == KindServerAlert || kind == KindProbeOffline || kind == KindLocationDown || kind == KindSlow
+}
+
+// IsCritical sessiz saatlerin "yalnızca kritik" kipinde geçen 🔴 türler.
+func IsCritical(kind string) bool {
+	return kind == KindDown || kind == KindServerAlert || kind == KindProbeOffline
 }
 
 // MetricName sunucu metriğinin bildirimlerdeki adı ("Yük" / "Load").
@@ -206,6 +254,16 @@ func (e Event) Notes() []string {
 	}
 	if e.Sample {
 		out = append(out, i18n.T(e.Lang, "notify.sample.note"))
+	}
+	switch {
+	case e.Escalated:
+		out = append(out, i18n.T(e.Lang, "notify.escalation.note", i18n.Duration(e.Lang, e.Elapsed)))
+	case e.Delayed && e.DeferReason == "quiet":
+		out = append(out, i18n.T(e.Lang, "notify.quiet.note"))
+	case e.Delayed && e.Elapsed > 0:
+		out = append(out, i18n.T(e.Lang, "notify.delayed.note", i18n.Duration(e.Lang, e.Elapsed)))
+	case e.Delayed:
+		out = append(out, i18n.T(e.Lang, "notify.delayed.note_plain"))
 	}
 	return out
 }
