@@ -25,14 +25,21 @@ func TestMonitorTimeoutAndUpsideDownRules(t *testing.T) {
 		"name": "Yavaş", "type": "http", "interval": 20, "timeout": 300, "config": map[string]any{"url": "https://example.com"},
 	}, &errResp)
 	if code != 400 || !strings.Contains(errResp.Error, "Zaman aşımı kontrol aralığından") {
-		t.Fatalf("zaman aşımı ≥ aralık reddedilmeli: %d %q", code, errResp.Error)
+		t.Fatalf("zaman aşımı > aralık reddedilmeli: %d %q", code, errResp.Error)
 	}
-	// Tekrar deneme aralığı daha kısaysa ölçüt odur.
+	// Tekrar deneme aralığından uzun zaman aşımı serbest (kontroller sırayla).
 	code = e.do("POST", "/api/monitors", map[string]any{
 		"name": "Yavaş", "type": "http", "interval": 120, "retry_interval": 20, "timeout": 30, "config": map[string]any{"url": "https://example.com"},
-	}, &errResp)
-	if code != 400 {
-		t.Fatalf("zaman aşımı ≥ tekrar deneme aralığı reddedilmeli: %d", code)
+	}, nil)
+	if code != 201 {
+		t.Fatalf("zaman aşımı > tekrar deneme aralığı kabul edilmeli: %d", code)
+	}
+	// Aralığa eşit zaman aşımı serbest.
+	code = e.do("POST", "/api/monitors", map[string]any{
+		"name": "Eşit", "type": "http", "interval": 30, "timeout": 30, "config": map[string]any{"url": "https://example.com"},
+	}, nil)
+	if code != 201 {
+		t.Fatalf("zaman aşımı = aralık kabul edilmeli: %d", code)
 	}
 	// Varsayılan zaman aşımı aralığın yarısını geçmez.
 	var m monitorView

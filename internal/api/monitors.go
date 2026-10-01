@@ -409,8 +409,10 @@ func (in *monitorInput) toMonitor(strict bool) (store.Monitor, error) {
 		return store.Monitor{}, errors.New("Tekrar deneme sayısı 0-20 olmalı")
 	case !between(in.Timeout, 1, 300):
 		return store.Monitor{}, errors.New("Zaman aşımı 1-300 saniye olmalı")
-	case strict && usesTimeout && in.Timeout >= min(in.Interval, in.RetryInterval):
-		return store.Monitor{}, errors.New("Zaman aşımı kontrol aralığından (ve tekrar deneme aralığından) kısa olmalı")
+	case strict && usesTimeout && in.Timeout > in.Interval:
+		// Kontroller sırayla yapılır; tekrar deneme aralığından uzun zaman
+		// aşımı çakışma yaratmaz, yalnızca kontrol aralığını aşan reddedilir.
+		return store.Monitor{}, errors.New("Zaman aşımı kontrol aralığından uzun olamaz")
 	case !between(in.ResendEvery, 0, 10000):
 		return store.Monitor{}, errors.New("Hatırlatma sıklığı 0-10000 olmalı")
 	case in.UpsideDown && in.Type == check.TypePush:

@@ -435,13 +435,10 @@ func (s *Server) planImport(ctx context.Context, conv *backup.Result, replace bo
 			RetryInterval: bm.RetryInterval, MaxRetries: bm.MaxRetries, Timeout: bm.Timeout,
 			ResendEvery: bm.ResendEvery, UpsideDown: bm.UpsideDown, Config: bm.Config,
 		}
-		if ri := max(in.RetryInterval, 0); in.Type != check.TypePush && in.Type != check.TypeGroup && in.Timeout > 0 {
+		if in.Type != check.TypePush && in.Type != check.TypeGroup && in.Timeout > 0 {
 			// Eski sürümler zaman aşımının aralığı aşmasına izin veriyordu;
 			// kayıt reddedilmez, zaman aşımı aralığın yarısına düşürülür.
-			if ri == 0 {
-				ri = in.Interval
-			}
-			if lim := min(in.Interval, ri); lim >= 20 && in.Timeout >= lim {
+			if lim := in.Interval; lim >= 20 && in.Timeout > lim {
 				in.Timeout = max(1, lim/2)
 				it.Messages = append(it.Messages, fmt.Sprintf("Zaman aşımı kontrol aralığından kısa olacak biçimde %d saniyeye düşürüldü", in.Timeout))
 			}

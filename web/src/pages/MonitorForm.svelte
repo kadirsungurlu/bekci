@@ -168,9 +168,9 @@
   ];
 
   const interval = $derived(intervalPreset === 'custom' ? (customInterval ?? 0) : Number(intervalPreset));
-  /** Zaman aşımının kısa kalması gereken aralık (tekrar deneme aralığı daha kısaysa o). */
-  const timeoutLimit = $derived(Math.min(interval || 0, retryInterval ?? interval ?? 0));
-  const timeoutTooLong = $derived(hasTimeout(type) && timeout !== null && timeoutLimit >= 20 && timeout >= timeoutLimit);
+  /** Zaman aşımı kontrol aralığını aşamaz (tekrar deneme aralığından uzun olabilir: kontroller sırayla). */
+  const timeoutLimit = $derived(interval || 0);
+  const timeoutTooLong = $derived(hasTimeout(type) && timeout !== null && timeoutLimit >= 20 && timeout > timeoutLimit);
   $effect(() => {
     if (timeoutAuto && hasTimeout(type) && interval >= 20) timeout = Math.min(30, Math.max(1, Math.floor(interval / 2)));
   });
