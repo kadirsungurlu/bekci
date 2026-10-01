@@ -54,6 +54,17 @@ var messages = map[string]Msg{
 	"feed.incident.resolved":      {"🟢 %s: kesinti giderildi", "🟢 %s: outage resolved"},
 	"feed.incident.resolved_body": {"Başlangıç: %s. Çözüldü: %s. Süre: %s.", "Started: %s. Resolved: %s. Duration: %s."},
 
+	// Yavaş yanıt (%s: monitör adı; %d: ms / kontrol sayısı)
+	"notify.slow.title":          {"🟡 %s yavaş yanıt veriyor", "🟡 %s is responding slowly"},
+	"notify.slow_resolved.title": {"🟢 %s yanıt süresi normale döndü", "🟢 %s response time back to normal"},
+	"notify.field.avg_response":  {"Ortalama yanıt", "Average response"},
+	"notify.field.threshold":     {"Eşik", "Threshold"},
+	"notify.slow.window":         {"%d ms (son %d kontrol)", "%d ms (last %d checks)"},
+	"notify.mail.status.slow":    {"Yavaş yanıt", "Slow response"},
+	"incident.degraded.cause":    {"Ortalama yanıt %d ms (son %d kontrol, eşik %d ms)", "Average response %d ms (last %d checks, threshold %d ms)"},
+	"incident.degraded.outage":   {"Kesintiye dönüştü; yavaş yanıt olayı kapatıldı", "Turned into an outage; slow response incident closed"},
+	"incident.degraded.disabled": {"Yanıt süresi eşiği kaldırıldı; olay kapatıldı", "Response-time threshold removed; incident closed"},
+
 	// Kontrol noktası çevrimdışı/çevrimiçi (%s: kontrol noktasının adı)
 	"notify.probe.offline":   {"🔴 %s: kontrol noktasına ulaşılamıyor", "🔴 %s: check location unreachable"},
 	"notify.probe.online":    {"🟢 %s: kontrol noktası tekrar çevrimiçi", "🟢 %s: check location back online"},

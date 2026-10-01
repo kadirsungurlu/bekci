@@ -90,6 +90,9 @@
   let timeout = $state<number | null>(30);
   let timeoutAuto = $state(true);
   let resendEvery = $state<number | null>(0);
+  // Yavaş yanıt eşiği (ms; 0 = kapalı) ve ortalama penceresi (kontrol sayısı).
+  let slowMs = $state<number | null>(0);
+  let slowChecks = $state<number | null>(3);
   let upsideDown = $state(false);
 
   // Bildirimler
@@ -222,6 +225,8 @@
     timeout = m.timeout;
     timeoutAuto = false;
     resendEvery = m.resend_every;
+    slowMs = m.slow_ms ?? 0;
+    slowChecks = m.slow_checks || 3;
     upsideDown = m.upside_down;
     notifIds = [...m.notification_ids];
     mtags = (m.tags ?? []).map((t) => ({ id: t.id, value: t.value }));
@@ -447,6 +452,8 @@
             ? { msg: t('monitors.form.v.timeoutInterval'), advanced: true, field: 'to' }
             : null,
       () => (!inRange(resendEvery, 0, 10000) ? { msg: t('monitors.form.v.resendRange'), advanced: true, field: 're' } : null),
+      () => (!inRange(slowMs ?? 0, 0, 600000) ? { msg: t('monitors.form.v.slowMsRange'), advanced: true, field: 'sm' } : null),
+      () => ((slowMs ?? 0) > 0 && !inRange(slowChecks ?? 0, 1, 100) ? { msg: t('monitors.form.v.slowChecksRange'), advanced: true, field: 'sc' } : null),
       () =>
         description.trim().length > 500 ? { msg: t('monitors.form.v.descTooLong'), advanced: true, field: 'desc' } : null,
     ];
@@ -602,6 +609,8 @@
       timeout: timeout ?? 30,
       resend_every: resendEvery ?? 0,
       upside_down: hasUpsideDown(type) ? upsideDown : false,
+      slow_ms: slowMs ?? 0,
+      slow_checks: slowChecks ?? 3,
       config: buildConfig(),
       // Kanal listesi alınamadıysa null: yeni monitörde varsayılanlar, düzenlemede mevcut bağlantılar korunur.
       notification_ids: channelsOk ? notifIds.filter((nid) => channels.some((c) => c.id === nid)) : null,
@@ -1212,6 +1221,23 @@
               <span class="help">{t('monitors.form.resendHelp')}</span>
             </div>
           </div>
+
+          {#if type !== 'group'}
+            <div class="grid-2">
+              <div class="field">
+                <label for="sm">{t('monitors.form.slowMs')}</label>
+                <input id="sm" class="input" type="number" min="0" max="600000" step="100" bind:value={slowMs} placeholder="0" />
+                <span class="help">{t('monitors.form.slowMsHelp')}</span>
+              </div>
+              {#if (slowMs ?? 0) > 0}
+                <div class="field">
+                  <label for="sc">{t('monitors.form.slowChecks')}</label>
+                  <input id="sc" class="input" type="number" min="1" max="100" bind:value={slowChecks} />
+                  <span class="help">{t('monitors.form.slowChecksHelp')}</span>
+                </div>
+              {/if}
+            </div>
+          {/if}
 
           {#if hasUpsideDown(type)}
             <label class="check">

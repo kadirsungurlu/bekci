@@ -140,6 +140,11 @@ export interface MonitorView {
   upside_down: boolean;
   config: Record<string, unknown>;
   push_token?: string;
+  /** Yavaş yanıt eşiği (ms; 0 = kapalı) ve ortalama penceresi (kontrol sayısı). Eski sunucuda yok. */
+  slow_ms?: number;
+  slow_checks?: number;
+  /** Şu an yavaş (son kontrollerin ortalaması eşiği aşıyor). */
+  slow?: boolean;
   status: number;
   last_check_at: number;
   last_change_at: number;
@@ -163,6 +168,8 @@ export interface MonitorView {
    * genel olarak çalışıyor (durum ve uptime etkilenmez). Yoksa null.
    */
   open_partial_incident_id?: number | null;
+  /** Süren yavaş yanıt olayının kimliği; yoksa null. Eski sunucuda alan yok. */
+  open_degraded_incident_id?: number | null;
   /**
    * Son kontrollerin yanıt süreleri (ms, eskiden yeniye; en çok 30). PING_DOWN:
    * başarısız kontrol, PING_NONE: ölçüm yok. Eski sunucularda alan yok.
@@ -338,6 +345,9 @@ export interface MonitorInput {
   upside_down: boolean;
   config: Record<string, unknown>;
   notification_ids: number[] | null;
+  /** Yavaş yanıt eşiği (ms; 0 = kapalı) ve penceresi (kontrol sayısı; 0 = varsayılan 3). */
+  slow_ms?: number;
+  slow_checks?: number;
 }
 
 export type UptimeKey = '24h' | '7d' | '30d' | '90d';
@@ -381,8 +391,8 @@ export type Series =
  * Eski sunucular türü göndermez (monitor sayılır).
  */
 export type IncidentKind = 'monitor' | 'partial' | 'server_offline' | 'server_alert' | 'probe_offline' | 'degraded';
-/** Olay listesi süzgeci (sunucu: iki sunucu türü birlikte). */
-export type IncidentFilterKind = '' | 'monitor' | 'server' | 'partial';
+/** Olay listesi süzgeci (sunucu: sunucu ve kontrol noktası türleri birlikte). */
+export type IncidentFilterKind = '' | 'monitor' | 'server' | 'partial' | 'degraded';
 
 export interface Incident {
   id: number;
@@ -625,6 +635,8 @@ export interface BeatEvent {
   message: string;
   last_change_at: number;
   cert_expires_at: number;
+  /** Yavaş yanıt durumu (eski sunucuda gelmez). */
+  slow?: boolean;
 }
 
 // Durum sayfaları ------------------------------------------------------------------

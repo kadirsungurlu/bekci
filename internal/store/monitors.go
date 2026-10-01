@@ -26,6 +26,13 @@ type Monitor struct {
 	Config        json.RawMessage `json:"config"`
 	PushToken     string          `json:"push_token,omitempty"`
 
+	// Yavaş yanıt uyarısı (migration 22): son SlowChecks kontrolün ortalama
+	// yanıt süresi SlowMs'yi aşarsa "yavaş" (degraded olayı + 🟡 bildirim);
+	// 0 = kapalı. Slow şu anki durumu (runner yazar); uptime etkilenmez.
+	SlowMs     int  `json:"slow_ms"`
+	SlowChecks int  `json:"slow_checks"`
+	Slow       bool `json:"slow"`
+
 	Status        int    `json:"status"`
 	LastCheckAt   int64  `json:"last_check_at"`
 	LastChangeAt  int64  `json:"last_change_at"`
@@ -41,7 +48,25 @@ type Monitor struct {
 const monitorCols = `id, name, type, description, active, interval_sec, retry_interval_sec,
 	max_retries, timeout_sec, resend_every, upside_down, config, push_token, status,
 	last_check_at, last_change_at, last_ping_ms, last_message, cert_expires_at, cert_issuer,
-	created_at, updated_at`
+	created_at, updated_at, slow_ms, slow_checks, slow`
+
+func init() {
+	// 22: yavaş yanıt uyarısı (monitör başına eşik ve pencere; varsayılan kapalı).
+	RegisterMigration(22, `
+ALTER TABLE monitors ADD COLUMN slow_ms INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE monitors ADD COLUMN slow_checks INTEGER NOT NULL DEFAULT 3;
+ALTER TABLE monitors ADD COLUMN slow INTEGER NOT NULL DEFAULT 0;
+`)
+}
+
+// DefaultSlowChecks eşik verilip pencere verilmezse kullanılan kontrol sayısı.
+const DefaultSlowChecks = 3
+
+// SetMonitorSlow monitörün "yavaş" durumunu yazar (runner).
+func (s *Store) SetMonitorSlow(ctx context.Context, id int64, slow bool) error {
+	_, err := s.db.ExecContext(ctx, "UPDATE monitors SET slow = ? WHERE id = ?", boolInt(slow), id)
+	return err
+}
 
 type scanner interface{ Scan(...any) error }
 
@@ -55,7 +80,7 @@ func scanMonitor(sc scanner) (Monitor, error) {
 	err := sc.Scan(&m.ID, &m.Name, &m.Type, &m.Description, &m.Active, &m.Interval,
 		&m.RetryInterval, &m.MaxRetries, &m.Timeout, &m.ResendEvery, &m.UpsideDown, &cfg,
 		&pushToken, &m.Status, &lastCheck, &lastChange, &lastPing, &m.LastMessage,
-		&certExpires, &m.CertIssuer, &m.CreatedAt, &m.UpdatedAt)
+		&certExpires, &m.CertIssuer, &m.CreatedAt, &m.UpdatedAt, &m.SlowMs, &m.SlowChecks, &m.Slow)
 	if err != nil {
 		return m, err
 	}
@@ -123,11 +148,11 @@ func (s *Store) CreateMonitor(ctx context.Context, m *Monitor, notificationIDs [
 		m.ID, err = insertID(ctx, tx, `
 			INSERT INTO monitors (name, type, description, active, interval_sec, retry_interval_sec,
 				max_retries, timeout_sec, resend_every, upside_down, config, push_token, status,
-				created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				created_at, updated_at, slow_ms, slow_checks)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			m.Name, m.Type, m.Description, boolInt(m.Active), m.Interval, m.RetryInterval,
 			m.MaxRetries, m.Timeout, m.ResendEvery, boolInt(m.UpsideDown), string(m.Config),
-			nullStr(m.PushToken), m.Status, m.CreatedAt, m.UpdatedAt)
+			nullStr(m.PushToken), m.Status, m.CreatedAt, m.UpdatedAt, m.SlowMs, slowChecksOr(m.SlowChecks))
 		if err != nil {
 			return err
 		}
@@ -144,11 +169,11 @@ func (s *Store) UpdateMonitor(ctx context.Context, m *Monitor, notificationIDs [
 		res, err := tx.ExecContext(ctx, `
 			UPDATE monitors SET name = ?, type = ?, description = ?, interval_sec = ?,
 				retry_interval_sec = ?, max_retries = ?, timeout_sec = ?, resend_every = ?,
-				upside_down = ?, config = ?, push_token = ?, updated_at = ?
+				upside_down = ?, config = ?, push_token = ?, updated_at = ?, slow_ms = ?, slow_checks = ?
 			WHERE id = ?`,
 			m.Name, m.Type, m.Description, m.Interval, m.RetryInterval, m.MaxRetries,
 			m.Timeout, m.ResendEvery, boolInt(m.UpsideDown), string(m.Config),
-			nullStr(m.PushToken), m.UpdatedAt, m.ID)
+			nullStr(m.PushToken), m.UpdatedAt, m.SlowMs, slowChecksOr(m.SlowChecks), m.ID)
 		if err != nil {
 			return err
 		}
@@ -246,6 +271,14 @@ func (s *Store) MarkCertNotice(ctx context.Context, monitorID, notAfter int64, d
 	}
 	n, err := res.RowsAffected()
 	return n > 0, err
+}
+
+// slowChecksOr yavaş yanıt penceresi (0 → varsayılan).
+func slowChecksOr(n int) int {
+	if n <= 0 {
+		return DefaultSlowChecks
+	}
+	return n
 }
 
 // IsUniqueViolation SQLite ve PostgreSQL'in UNIQUE kısıtı hatasını tanır.

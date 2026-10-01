@@ -94,6 +94,8 @@ type monitorView struct {
 	// OpenPartialIncidentID süren konum kesintisinin (bir konum çalışmıyor,
 	// monitörün genel durumu çalışıyor) kimliği; yoksa null.
 	OpenPartialIncidentID *int64 `json:"open_partial_incident_id"`
+	// OpenDegradedIncidentID süren yavaş yanıt olayının kimliği; yoksa null.
+	OpenDegradedIncidentID *int64 `json:"open_degraded_incident_id"`
 	// Geniş ekran listesi için: son kontrollerin yanıt süreleri (eskiden yeniye;
 	// store.PingDown başarısız, store.PingNone ölçümsüz), 7/30 günlük çalışma
 	// oranı ve çok konumlu monitörde konumların canlı durumu.
@@ -191,6 +193,10 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 	if err != nil {
 		return nil, err
 	}
+	openDegraded, err := s.store.OpenDegradedIncidentIDs(r.Context())
+	if err != nil {
+		return nil, err
+	}
 	out := make([]monitorView, 0, len(monitors))
 	for _, m := range monitors {
 		if !vis.can(m.ID) {
@@ -228,9 +234,12 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 		if iid, ok := openIncidents[m.ID]; ok {
 			incident = &iid
 		}
-		var partial *int64
+		var partial, degraded *int64
 		if iid, ok := openPartials[m.ID]; ok {
 			partial = &iid
+		}
+		if iid, ok := openDegraded[m.ID]; ok {
+			degraded = &iid
 		}
 		p := pings[m.ID]
 		if p == nil {
@@ -238,7 +247,7 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 		}
 		v := monitorView{Monitor: m, Target: target, NotificationIDs: ids, Tags: mt, Uptime24h: up, Bars: bars,
 			InMaintenance: m.Active && s.engine.InMaintenance(m.ID, now), Locations: loc, OpenIncidentID: incident,
-			OpenPartialIncidentID: partial, Pings: p}
+			OpenPartialIncidentID: partial, OpenDegradedIncidentID: degraded, Pings: p}
 		if w := windows[m.ID]; w != nil {
 			v.Uptime7d, v.Uptime30d = w[0], w[1]
 		}
@@ -364,6 +373,10 @@ type monitorInput struct {
 	UpsideDown      bool            `json:"upside_down"`
 	Config          json.RawMessage `json:"config"`
 	NotificationIDs *[]int64        `json:"notification_ids"` // null: varsayılan kanallar
+	// Yavaş yanıt eşiği (ms; 0 = kapalı) ve ortalama penceresi (kontrol sayısı;
+	// 0 = varsayılan 3). Eski arayüz göndermezse kapalı kalır / varsayılan.
+	SlowMs     int `json:"slow_ms"`
+	SlowChecks int `json:"slow_checks"`
 }
 
 func between(v, lo, hi int) bool { return v >= lo && v <= hi }
@@ -417,6 +430,13 @@ func (in *monitorInput) toMonitor(strict bool) (store.Monitor, error) {
 		return store.Monitor{}, errors.New("Hatırlatma sıklığı 0-10000 olmalı")
 	case in.UpsideDown && in.Type == check.TypePush:
 		return store.Monitor{}, errors.New("Push monitöründe ters mod kullanılamaz")
+	case !between(in.SlowMs, 0, 600000):
+		return store.Monitor{}, errors.New("Yanıt süresi eşiği 0-600000 ms arasında olmalı")
+	case !between(in.SlowChecks, 0, 100):
+		return store.Monitor{}, errors.New("Yanıt süresi penceresi 1-100 kontrol olmalı")
+	}
+	if in.SlowChecks == 0 {
+		in.SlowChecks = store.DefaultSlowChecks
 	}
 	cfg, err := checker.Normalize(in.Config)
 	if err != nil {
@@ -426,6 +446,7 @@ func (in *monitorInput) toMonitor(strict bool) (store.Monitor, error) {
 		Name: in.Name, Type: in.Type, Description: in.Description, Active: true,
 		Interval: in.Interval, RetryInterval: in.RetryInterval, MaxRetries: in.MaxRetries,
 		Timeout: in.Timeout, ResendEvery: in.ResendEvery, UpsideDown: in.UpsideDown, Config: cfg,
+		SlowMs: in.SlowMs, SlowChecks: in.SlowChecks,
 	}, nil
 }
 
@@ -584,6 +605,7 @@ func monitorChanges(old, m store.Monitor, oldIDs, newIDs []int64) string {
 	add(old.Timeout != m.Timeout, "zaman aşımı")
 	add(old.ResendEvery != m.ResendEvery, "hatırlatma sıklığı")
 	add(old.UpsideDown != m.UpsideDown, "ters mod")
+	add(old.SlowMs != m.SlowMs || old.SlowChecks != m.SlowChecks, "yanıt süresi eşiği")
 	add(!bytes.Equal(old.Config, m.Config), "ayarlar")
 	add(!sameIDs(oldIDs, newIDs), "bildirim kanalları")
 	if len(changed) == 0 {

@@ -37,6 +37,11 @@ const (
 	KindServerAlert    = "server_alert"
 	KindServerResolved = "server_resolved"
 
+	// Yavaş yanıt: son Checks kontrolün ortalaması (Value, ms) Threshold'u (ms)
+	// aştı / normale döndü. Uptime etkilenmez; monitörün kanallarına gider.
+	KindSlow         = "slow"
+	KindSlowResolved = "slow_resolved"
+
 	// Kontrol noktası çevrimdışı kaldı / tekrar çevrimiçi (ProbeID kontrol
 	// noktasının kimliği, Metric "offline", LastSeen son isteğin zamanı).
 	KindProbeOffline = "probe_offline"
@@ -75,6 +80,7 @@ type Event struct {
 	Threshold float64
 	Minutes   int
 	Mount     string // disk uyarısında bölüm (ör. "/home")
+	Checks    int    // yavaş yanıt: ortalama penceresi (kontrol sayısı)
 
 	// LastSeen çevrimdışı uyarısında son verinin zamanı; GoneMinutes değeri
 	// artık gelmeyen metrikte kaç dakikadır gelmediği. "Ayrıntı" satırı
@@ -155,6 +161,10 @@ func (e Event) Title() string {
 		return i18n.T(l, "notify.location_up.title", e.MonitorName)
 	case KindServerAlert, KindServerResolved:
 		return e.serverTitle()
+	case KindSlow:
+		return i18n.T(l, "notify.slow.title", e.MonitorName)
+	case KindSlowResolved:
+		return i18n.T(l, "notify.slow_resolved.title", e.MonitorName)
 	case KindProbeOffline:
 		return i18n.T(l, "notify.probe.offline", e.MonitorName)
 	case KindProbeOnline:
@@ -260,6 +270,12 @@ func (e Event) Rows() []Row {
 		add("info", e.info())
 	case KindProbeOnline:
 		add("downtime", i18n.Duration(l, e.Downtime))
+	case KindSlow:
+		add("avg_response", i18n.T(l, "notify.slow.window", int(e.Value), e.Checks))
+		add("threshold", fmt.Sprintf("%d ms", int(e.Threshold)))
+	case KindSlowResolved:
+		add("downtime", i18n.Duration(l, e.Downtime))
+		add("avg_response", i18n.T(l, "notify.slow.window", int(e.Value), e.Checks))
 	}
 	add("time", i18n.DateTime(l, e.Time.Local()))
 	add("link", e.DetailURL())
@@ -307,13 +323,13 @@ func (e Event) DetailURL() string {
 // IsProblem olayın kötü haber olup olmadığı (öncelik/renk seçimi için).
 func (e Event) IsProblem() bool {
 	return e.Kind == KindDown || e.Kind == KindReminder || e.Kind == KindCert || e.Kind == KindServerAlert || e.Kind == KindLocationDown ||
-		e.Kind == KindProbeOffline
+		e.Kind == KindProbeOffline || e.Kind == KindSlow
 }
 
 // IsRecovery sorunun bittiğini bildiren olay mı (monitör tekrar çalışıyor,
 // sunucu uyarısı bitti). Olay kapatan servisler (PagerDuty, Opsgenie) için.
 func (e Event) IsRecovery() bool {
-	return e.Kind == KindUp || e.Kind == KindServerResolved || e.Kind == KindLocationUp || e.Kind == KindProbeOnline
+	return e.Kind == KindUp || e.Kind == KindServerResolved || e.Kind == KindLocationUp || e.Kind == KindProbeOnline || e.Kind == KindSlowResolved
 }
 
 // AlertKey olayın dış servislerdeki kimliği: aynı sorunun başlangıç ve bitiş
@@ -337,6 +353,8 @@ func (e Event) AlertKey() string {
 		return fmt.Sprintf("%smonitor-%d-cert", prefix, e.MonitorID)
 	case e.Kind == KindLocationDown || e.Kind == KindLocationUp:
 		return fmt.Sprintf("%smonitor-%d-locations", prefix, e.MonitorID)
+	case e.Kind == KindSlow || e.Kind == KindSlowResolved:
+		return fmt.Sprintf("%smonitor-%d-slow", prefix, e.MonitorID)
 	}
 	return fmt.Sprintf("%smonitor-%d", prefix, e.MonitorID)
 }

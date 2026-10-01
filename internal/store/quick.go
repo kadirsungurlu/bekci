@@ -38,10 +38,20 @@ func (s *Store) OpenIncidentIDs(ctx context.Context, monitorIDs []int64) (map[in
 // monitörler: monitör kimliği → olay kimliği. Açık konum kesintisi az olur;
 // tablo resolved_at IS NULL koşuluyla taranır.
 func (s *Store) OpenPartialIncidentIDs(ctx context.Context) (map[int64]int64, error) {
+	return s.openKindIncidentIDs(ctx, IncidentPartial)
+}
+
+// OpenDegradedIncidentIDs açık yavaş yanıt (kind = degraded) olayı olan
+// monitörler: monitör kimliği → olay kimliği.
+func (s *Store) OpenDegradedIncidentIDs(ctx context.Context) (map[int64]int64, error) {
+	return s.openKindIncidentIDs(ctx, IncidentDegraded)
+}
+
+func (s *Store) openKindIncidentIDs(ctx context.Context, kind string) (map[int64]int64, error) {
 	out := map[int64]int64{}
 	rows, err := s.db.QueryContext(ctx,
 		"SELECT monitor_id, MAX(id) FROM incidents WHERE kind = ? AND resolved_at IS NULL AND monitor_id IS NOT NULL GROUP BY monitor_id",
-		IncidentPartial)
+		kind)
 	if err != nil {
 		return nil, err
 	}
@@ -68,10 +78,10 @@ func (s *Store) CloneMonitor(ctx context.Context, srcID int64, name string, acti
 		id, err = insertID(ctx, tx, `
 			INSERT INTO monitors (name, type, description, active, interval_sec, retry_interval_sec,
 				max_retries, timeout_sec, resend_every, upside_down, config, push_token, status,
-				created_at, updated_at)
+				created_at, updated_at, slow_ms, slow_checks)
 			SELECT CAST(? AS TEXT), type, description, CAST(? AS BIGINT), interval_sec, retry_interval_sec,
 				max_retries, timeout_sec, resend_every, upside_down, config, CAST(? AS TEXT),
-				CAST(? AS BIGINT), CAST(? AS BIGINT), CAST(? AS BIGINT)
+				CAST(? AS BIGINT), CAST(? AS BIGINT), CAST(? AS BIGINT), slow_ms, slow_checks
 			FROM monitors WHERE id = ?`,
 			name, boolInt(active), nullStr(pushToken), StatusPending, now, now, srcID)
 		if errors.Is(err, sql.ErrNoRows) {

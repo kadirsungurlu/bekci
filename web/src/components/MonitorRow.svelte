@@ -55,6 +55,8 @@
   const incident = $derived(kind === 'down' && m.open_incident_id ? m.open_incident_id : null);
   // Süren konum kesintisi: monitör çalışıyor ama bazı konumlar çalışmıyor (sarı işaret).
   const locOutage = $derived(incident === null && kind !== 'paused' && m.open_partial_incident_id ? m.open_partial_incident_id : null);
+  // Yavaş yanıt: monitör çalışıyor ama ortalama yanıt süresi eşiği aşıyor (sarı çip).
+  const slow = $derived(incident === null && kind !== 'paused' && m.slow ? (m.open_degraded_incident_id ?? 0) : null);
 
   // Alt satır: adres · durum (+ süre); durum metni kırpılmaz, yer daralınca adres
   // kısalır. Kontrol mesajı (neden) altında kendi satırındadır.
@@ -249,6 +251,18 @@
       <span class="inc-l" aria-hidden="true">{t('incidents.kind.partialLong')}</span><span class="inc-s" aria-hidden="true"
         >{t('incidents.kind.partialLong')}</span
       >
+    </a>
+  {/if}
+  {#if slow !== null}
+    <a
+      class="inc loc-out slow mc-inc"
+      href={slow ? `#/incidents/${slow}` : href}
+      onclick={(e) => e.stopPropagation()}
+      title={t('monitors.row.slowTitle')}
+      aria-label={t('monitors.row.slow')}
+    >
+      <Icon name="clock" size={13} />
+      <span class="inc-l" aria-hidden="true">{t('monitors.row.slow')}</span><span class="inc-s" aria-hidden="true">{t('monitors.row.slow')}</span>
     </a>
   {/if}
   {#if incident !== null}

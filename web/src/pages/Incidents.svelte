@@ -95,6 +95,7 @@
     { k: 'monitor', label: () => t('incidents.filter.monitor') },
     { k: 'server', label: () => t('incidents.filter.server') },
     { k: 'partial', label: () => t('incidents.filter.partial') },
+    { k: 'degraded', label: () => t('incidents.filter.degraded') },
   ];
 
   let timer: ReturnType<typeof setTimeout> | undefined;

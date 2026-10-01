@@ -59,6 +59,10 @@ func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	locDown.Locations = []LocationNote{{Name: "Frankfurt", Message: i18n.T(lang, "notify.sample.loc_error")}}
 	locUp := mon(KindLocationUp)
 	locUp.Downtime = 23 * time.Minute
+	slow := mon(KindSlow)
+	slow.Value, slow.Threshold, slow.Checks = 2840, 2000, 3
+	slowOK := mon(KindSlowResolved)
+	slowOK.Value, slowOK.Threshold, slowOK.Checks, slowOK.Downtime = 640, 2000, 3, 18*time.Minute
 	cert := mon(KindCert)
 	cert.IncidentURL = ""
 	cert.CertDays, cert.CertExpires, cert.CertIssuer = 7, now.AddDate(0, 0, 7), n.CertIssuer
@@ -76,5 +80,5 @@ func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	probeOn := probeOff
 	probeOn.Kind, probeOn.LastSeen, probeOn.Downtime = KindProbeOnline, time.Time{}, 7*time.Minute
 
-	return []Event{down, reminder, up, locDown, locUp, cert, cpu, mem, disk, offline, cpuOK, offlineOK, probeOff, probeOn}
+	return []Event{down, reminder, up, slow, slowOK, locDown, locUp, cert, cpu, mem, disk, offline, cpuOK, offlineOK, probeOff, probeOn}
 }

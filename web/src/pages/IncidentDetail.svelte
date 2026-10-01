@@ -93,14 +93,16 @@
   const inc = $derived(data?.incident);
   const ongoing = $derived(!!inc && inc.resolved_at === 0);
   // Olay türü: kısmi kesinti (sarı) ve sunucu olayları ayrı gösterilir.
-  const partial = $derived(inc?.kind === 'partial');
+  // Yavaş yanıt (degraded) da kısmi kesinti gibi sarı tonda, "çalışıyor" kalır.
+  const degraded = $derived(inc?.kind === 'degraded');
+  const partial = $derived(inc?.kind === 'partial' || degraded);
   const server = $derived(isServerIncident(inc?.kind));
   const probe = $derived(isProbeIncident(inc?.kind));
   const offline = $derived(inc?.kind === 'server_offline' || probe);
   const sdata = $derived<ServerIncidentData | null>(server ? ((inc?.data ?? null) as ServerIncidentData | null) : null);
   const smetric = $derived((sdata?.metric ?? '') as ServerMetric);
   const affected = $derived.by<string[]>(() => {
-    const l = partial ? inc?.data?.locations : null;
+    const l = partial && !degraded ? inc?.data?.locations : null;
     return Array.isArray(l) ? l.filter((x): x is string => typeof x === 'string') : [];
   });
   const tone = $derived(ongoing ? (partial ? 'pending' : 'down') : 'up');
@@ -154,12 +156,16 @@
   const num = (v: unknown) => (typeof v === 'number' ? v : 0);
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
-  const NOTIFY_EVENT: Record<string, 'notifyDown' | 'notifyUp' | 'notifyReminder' | 'notifyServerAlert'> = {
+  const NOTIFY_EVENT: Record<string, 'notifyDown' | 'notifyUp' | 'notifyReminder' | 'notifyServerAlert' | 'notifySlow'> = {
     down: 'notifyDown',
     up: 'notifyUp',
     reminder: 'notifyReminder',
     server_alert: 'notifyServerAlert',
     server_resolved: 'notifyUp',
+    slow: 'notifySlow',
+    slow_resolved: 'notifyUp',
+    probe_offline: 'notifyServerAlert',
+    probe_online: 'notifyUp',
   };
   const LOC_TONE: Record<string, Tone> = { up: 'up', down: 'down', retrying: 'pending', unknown: 'muted' };
 
@@ -195,7 +201,9 @@
       case 'down':
         r.icon = server ? (offline ? 'wifi-off' : 'alert') : 'zap';
         r.tone = partial ? 'pending' : 'down';
-        r.title = partial
+        r.title = degraded
+          ? t('incidents.ev.degradedStarted')
+          : partial
           ? t('incidents.ev.partialStarted')
           : probe
             ? t('incidents.ev.probeOffline')
@@ -285,7 +293,9 @@
       case 'up':
         r.icon = 'check';
         r.tone = 'up';
-        r.title = partial
+        r.title = degraded
+          ? t('incidents.ev.degradedResolved')
+          : partial
           ? t('incidents.ev.partialResolved')
           : probe
             ? t('incidents.ev.probeOnline')
@@ -430,8 +440,14 @@
               class:c-down={ongoing && !partial}
               class:c-pending={ongoing && partial}
               class:c-up={!ongoing}
-              title={partial ? t('incidents.kind.partialHint') : undefined}
-              >{partial ? t('incidents.detail.partialPre') : ongoing ? t('incidents.detail.ongoingPre') : t('incidents.detail.resolvedPre')}</span
+              title={degraded ? t('incidents.kind.degradedHint') : partial ? t('incidents.kind.partialHint') : undefined}
+              >{degraded
+                ? t('incidents.detail.degradedPre')
+                : partial
+                  ? t('incidents.detail.partialPre')
+                  : ongoing
+                    ? t('incidents.detail.ongoingPre')
+                    : t('incidents.detail.resolvedPre')}</span
             >
             {data.server ? data.server.name : data.monitor.name}
           </h1>
@@ -518,7 +534,7 @@
           <div class="alert warning small" role="status"><Icon name="wrench" size={14} /> {t('incidents.detail.maintNote')}</div>
         {/if}
 
-        {#if partial}
+        {#if partial && !degraded}
           <div class="card">
             <div class="card-head">
               <h2 class="card-title">{t('incidents.detail.affected')}<span class="dot">.</span></h2>

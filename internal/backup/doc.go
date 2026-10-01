@@ -73,7 +73,9 @@ type Monitor struct {
 	UpsideDown    bool            `json:"upside_down"`
 	Config        json.RawMessage `json:"config"`
 	PushToken     string          `json:"push_token,omitempty"`
-	Notifications []string        `json:"notifications"` // bildirim kanalı adları
+	SlowMs        int             `json:"slow_ms,omitempty"`     // yavaş yanıt eşiği (ms; 0 = kapalı)
+	SlowChecks    int             `json:"slow_checks,omitempty"` // ortalama penceresi (kontrol sayısı)
+	Notifications []string        `json:"notifications"`         // bildirim kanalı adları
 	Tags          []MonitorTag    `json:"tags"`
 	Notes         []string        `json:"-"`
 }

@@ -377,6 +377,9 @@ class Live {
         last_change_at: b.last_change_at,
         cert_expires_at: b.cert_expires_at || m.cert_expires_at,
         in_maintenance: b.status === STATUS_MAINTENANCE,
+        slow: b.slow ?? m.slow,
+        // Yavaşlık başlayınca olay kimliği canlı olayda yok: liste yenilenince gelir; bitince kapanmıştır.
+        open_degraded_incident_id: b.slow === false ? null : m.open_degraded_incident_id,
         pings: m.pings ? appendPing(m.pings, b) : undefined,
       };
     });

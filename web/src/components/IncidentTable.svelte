@@ -48,7 +48,8 @@
     <tbody>
       {#each incidents as inc (inc.id)}
         {@const ongoing = inc.resolved_at === 0}
-        {@const partial = inc.kind === 'partial'}
+        {@const degraded = inc.kind === 'degraded'}
+        {@const partial = inc.kind === 'partial' || degraded}
         {@const server = isServerIncident(inc.kind)}
         {@const probe = isProbeIncident(inc.kind)}
         <!-- Klavyeyle erişim satır sonundaki bağlantıyla; satır tıklaması fare/dokunma kolaylığı. -->
@@ -70,7 +71,9 @@
             {fmtDuration((ongoing ? now : inc.resolved_at) - inc.started_at)}
           </td>
           <td data-label={t('incidents.table.cause')} class="cause">
-            {#if partial}
+            {#if degraded}
+              <span class="badge pending kind" title={t('incidents.kind.degradedHint')}>{t('incidents.kind.degraded')}</span>
+            {:else if partial}
               <span class="badge pending kind" title={t('incidents.kind.partialHint')}>{t('incidents.kind.partial')}</span>
             {:else if probe}
               <span class="badge accent kind">{t('incidents.kind.probe')}</span>

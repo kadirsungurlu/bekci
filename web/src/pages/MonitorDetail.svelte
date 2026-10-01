@@ -298,6 +298,12 @@
         <div class="name-row">
           <h1>{monitor.name}</h1>
           <TypeBadge type={monitor.type} />
+          {#if monitor.slow && kind !== 'down' && kind !== 'paused'}
+            <!-- Yavaş yanıt: durum "Çalışıyor" kalır, uptime etkilenmez. -->
+            <a class="badge pending loc-out" href={monitor.open_degraded_incident_id ? `#/incidents/${monitor.open_degraded_incident_id}` : '#/incidents'} title={t('monitors.row.slowTitle')}
+              ><Icon name="clock" size={12} /> {t('monitors.row.slow')}</a
+            >
+          {/if}
           {#if monitor.open_partial_incident_id && kind !== 'down' && kind !== 'paused'}
             <!-- Konum kesintisi: durum "Çalışıyor" kalır, uptime etkilenmez. -->
             <a class="badge pending loc-out" href="#/incidents/{monitor.open_partial_incident_id}" title={t('monitors.row.locOutageTitle')}

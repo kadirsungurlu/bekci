@@ -50,6 +50,11 @@ type runner struct {
 	// Monitör UP'a döndüğü halde veritabanında kapatılamamış olay: sonraki
 	// her sonuçta (yeni olay açılmadan önce) yeniden kapatılmaya çalışılır.
 	unresolved *pendingResolve
+
+	// Yavaş yanıt (slow.go): son başarılı kontrollerin yanıt süreleri (en çok
+	// SlowChecks) ve açık yavaş yanıt olayı.
+	slowPings []int64
+	slowID    int64
 }
 
 // pendingResolve kapatılamamış olayın kimliği ve çözülme anı.
@@ -68,6 +73,7 @@ type pendingResolve struct {
 // burada tamamlanır; böylece kesinti süresi düzelince doğru hesaplanır.
 func (r *runner) initialConfirmed(ctx context.Context) int {
 	r.restorePartial(ctx)
+	r.restoreSlow(ctx)
 	started, err := r.e.store.OpenIncidentStart(ctx, r.m.ID)
 	hasIncident := err == nil && started > 0
 	if hasIncident {
@@ -374,6 +380,8 @@ func (r *runner) process(res check.Result) {
 
 	// Kısmi kesinti (çok konumlu): normal olay açılıp kapandıktan sonra.
 	r.partialStep(ctx, now, status, inMaint)
+	// Yavaş yanıt: başarılı kontrollerin ortalaması eşiğe göre.
+	r.slowStep(ctx, now, status, inMaint, res)
 
 	// Sertifika döndüren her tip (http, grpc, smtp, websocket, tlscert…) için;
 	// bakımda SSL uyarısı gönderilmez.
@@ -384,6 +392,7 @@ func (r *runner) process(res check.Result) {
 	r.e.hub.Publish("beat", map[string]any{
 		"monitor_id": r.m.ID, "status": status, "time": now.Unix(), "ping": res.PingMs,
 		"message": res.Message, "last_change_at": r.m.LastChangeAt, "cert_expires_at": r.m.CertExpiresAt,
+		"slow": r.m.Slow,
 	})
 }
 

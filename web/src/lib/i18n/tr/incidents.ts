@@ -15,6 +15,7 @@ export default {
     monitor: 'Monitör',
     server: 'Sunucu',
     partial: 'Konum kesintisi',
+    degraded: 'Yavaş yanıt',
   },
   /** Tür rozetleri (monitör olaylarında rozet yok). */
   kind: {
@@ -25,6 +26,8 @@ export default {
     serverAlert: 'Sunucu uyarısı',
     probeOffline: 'Kontrol noktası çevrimdışı',
     probe: 'Kontrol noktası',
+    degraded: 'Yavaş yanıt',
+    degradedHint: 'Son kontrollerin ortalama yanıt süresi monitörün eşiğini aşıyor; monitör çalışıyor, uptime etkilenmez.',
     partialHint: 'Bazı kontrol konumları çalışmıyor ama monitör çalışıyor; uptime etkilenmez. Bildirim yalnızca monitörde “Konum kesintisinde de bildirim gönder” açıksa gider.',
   },
   /** Sunucu ayrıntısındaki olaylar kartı. */
@@ -99,6 +102,7 @@ export default {
     truncated: 'ilk 16 KB gösteriliyor',
     captureLocations: 'Yakalanan konumlar',
     partialPre: 'Konum kesintisi:',
+    degradedPre: 'Yavaş yanıt:',
     partialNote: 'Monitör bu süre boyunca çalışmaya devam etti; yalnızca bazı kontrol konumları hedefe ulaşamadı. Bu monitörde konum kesintisi bildirimi kapalı (monitör ayarlarında “Konum kesintisinde de bildirim gönder” ile açılır); uptime oranı etkilenmez, olay herkese açık durum sayfalarında görünmez.',
     partialNoteNotify: 'Monitör bu süre boyunca çalışmaya devam etti; yalnızca bazı kontrol konumları hedefe ulaşamadı. Bu monitörde konum kesintisi bildirimi açık: konum düşünce ve düzelince seçili kanallara bildirim gider. Uptime oranı etkilenmez, olay herkese açık durum sayfalarında görünmez.',
     inMaint: 'Bakımda',
@@ -247,6 +251,9 @@ export default {
     notifyUp: 'düzelme bildirimi',
     notifyReminder: 'hatırlatma',
     notifyServerAlert: 'uyarı bildirimi',
+    notifySlow: 'yavaş yanıt bildirimi',
+    degradedStarted: 'Yavaş yanıt başladı',
+    degradedResolved: 'Yanıt süresi normale döndü (çözüldü)',
     notifyOther: 'bildirim',
     notSent: 'Bildirim gönderilmedi ({what})',
     noChannels: 'Monitöre bağlı etkin bildirim kanalı yok',

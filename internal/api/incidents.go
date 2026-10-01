@@ -60,6 +60,12 @@ func incidentCause(lang string, inc store.Incident) string {
 	if store.IsServerIncident(inc.Kind) && len(inc.Data) > 0 {
 		return store.ServerIncidentCause(lang, inc.Kind, store.ParseServerIncidentData(inc.Data))
 	}
+	if inc.Kind == store.IncidentDegraded && len(inc.Data) > 0 {
+		d := store.ParseDegradedIncidentData(inc.Data)
+		if d.Checks > 0 {
+			return store.DegradedIncidentCause(lang, d)
+		}
+	}
 	return i18n.Message(lang, inc.Cause)
 }
 

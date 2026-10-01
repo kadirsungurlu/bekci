@@ -35,6 +35,9 @@ Paneli ilk açtığınızda **Hoş geldiniz** ekranı yönetici hesabını oluş
 > [!CHECK]
 > Monitör listede görünür ve birkaç saniye içinde ilk kontrol yapılır. Site çalışıyorsa durumu yeşile döner; yanıt süresi ve durum çubukları her kontrolde sayfayı yenilemeden güncellenir.
 
+> [!TIP] Yavaş yanıt uyarısı
+> Site açık ama yavaşsa haberiniz olsun diye **Gelişmiş ayarlar → Yanıt süresi eşiği (ms)** alanını doldurun (ör. 2000). Son N başarılı kontrolün (**Ortalama penceresi**, varsayılan 3) ortalama yanıt süresi eşiği aşınca monitöre **Yavaş** rozeti gelir, bağlı kanallara 🟡 “yavaş yanıt veriyor” bildirimi gider ve **Olaylar** sayfasında “Yavaş yanıt” türünde bir olay açılır; ortalama eşiğin %90 altına inince 🟢 ile kapanır. Durum “Çalışıyor” kalır, uptime etkilenmez; monitör çalışmaz olursa yavaş yanıt olayı sessizce kapanıp normal kesinti olayı açılır.
+
 ### Monitör tipleri {#monitor-tipleri}
 
 **Monitör tipi** seçicisinde 18 tip dört grupta toplanır:

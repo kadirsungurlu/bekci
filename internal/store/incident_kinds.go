@@ -95,6 +95,10 @@ const (
 	IncidentPartial       = "partial"
 	IncidentServerOffline = "server_offline"
 	IncidentServerAlert   = "server_alert"
+	// IncidentDegraded yavaş yanıt: monitör çalışıyor ama son N kontrolün
+	// ortalama yanıt süresi eşiği aşıyor (monitor_id dolu; uptime etkilenmez,
+	// herkese açık sayfalarda görünmez).
+	IncidentDegraded = "degraded"
 	// IncidentProbeOffline kontrol noktasından 90 sn'dir istek gelmiyor
 	// (server_id kontrol noktasının kimliğidir; yalnızca "çevrimdışında
 	// bildir" açık kontrol noktalarında açılır).
@@ -102,7 +106,7 @@ const (
 )
 
 // IncidentKinds tüm olay türleri (sabit sırayla; /metrics sayaçları için).
-var IncidentKinds = []string{IncidentMonitor, IncidentPartial, IncidentServerOffline, IncidentServerAlert, IncidentProbeOffline}
+var IncidentKinds = []string{IncidentMonitor, IncidentDegraded, IncidentPartial, IncidentServerOffline, IncidentServerAlert, IncidentProbeOffline}
 
 // İşlem geçmişinin olay türlerine özgü kayıtları.
 const (
@@ -163,9 +167,10 @@ func IsServerIncident(kind string) bool {
 
 // Olay filtresinin tür grupları (arayüzdeki süzgeç çipleri).
 const (
-	KindGroupMonitor = "monitor"
-	KindGroupPartial = "partial"
-	KindGroupServer  = "server"
+	KindGroupMonitor  = "monitor"
+	KindGroupPartial  = "partial"
+	KindGroupServer   = "server"
+	KindGroupDegraded = "degraded"
 )
 
 // kindsOf süzgeç grubunun olay türleri; bilinmeyen grup nil (süzgeç yok).
@@ -175,6 +180,8 @@ func kindsOf(group string) []string {
 		return []string{IncidentMonitor}
 	case KindGroupPartial:
 		return []string{IncidentPartial}
+	case KindGroupDegraded:
+		return []string{IncidentDegraded}
 	case KindGroupServer:
 		return []string{IncidentServerOffline, IncidentServerAlert, IncidentProbeOffline}
 	}
@@ -236,6 +243,84 @@ func (s *Store) OpenPartialIncidentID(ctx context.Context, monitorID int64) (int
 // kimliğini ve başlangıcını döner (yoksa 0, 0).
 func (s *Store) ResolvePartialIncident(ctx context.Context, monitorID, t int64) (int64, int64, error) {
 	return s.resolveKindIncident(ctx, IncidentPartial, monitorID, t)
+}
+
+// Yavaş yanıt olayları ---------------------------------------------------------------
+
+// DegradedIncidentData yavaş yanıt olayının verisi (ms).
+type DegradedIncidentData struct {
+	ThresholdMs int   `json:"threshold_ms"`
+	Checks      int   `json:"checks"`  // ortalama penceresi (kontrol sayısı)
+	AvgMs       int64 `json:"avg_ms"`  // başlangıçtaki ortalama
+	PeakMs      int64 `json:"peak_ms"` // olay boyunca en yüksek ortalama
+	LastMs      int64 `json:"last_ms"` // son (kapanışta: kapanış) ortalaması
+}
+
+// DegradedIncidentCause yavaş yanıt olayının neden metni (dilde).
+func DegradedIncidentCause(lang string, d DegradedIncidentData) string {
+	return i18n.T(lang, "incident.degraded.cause", d.AvgMs, d.Checks, d.ThresholdMs)
+}
+
+// ParseDegradedIncidentData olay verisini çözer (bozuksa boş).
+func ParseDegradedIncidentData(raw json.RawMessage) DegradedIncidentData {
+	var d DegradedIncidentData
+	if len(raw) > 0 {
+		json.Unmarshal(raw, &d)
+	}
+	return d
+}
+
+// StartDegradedIncident monitör için yavaş yanıt olayı açar (açık olan varsa
+// onun kimliğini döner) ve başlangıç kaydını yazar.
+func (s *Store) StartDegradedIncident(ctx context.Context, monitorID, t int64, d DegradedIncidentData) (int64, error) {
+	cause := DegradedIncidentCause(i18n.TR, d)
+	before, err := s.openKindIncidentID(ctx, IncidentDegraded, monitorID)
+	if err != nil {
+		return 0, err
+	}
+	id, err := s.startKindIncident(ctx, IncidentDegraded, monitorID, t, cause, EventData(d))
+	if err != nil || id == 0 || id == before {
+		return id, err
+	}
+	return id, s.AddIncidentEvents(ctx, id, IncidentEvent{Time: t, Kind: EventDown, Message: cause})
+}
+
+// OpenDegradedIncidentID monitörün açık yavaş yanıt olayı (yoksa 0).
+func (s *Store) OpenDegradedIncidentID(ctx context.Context, monitorID int64) (int64, error) {
+	return s.openKindIncidentID(ctx, IncidentDegraded, monitorID)
+}
+
+// UpdateDegradedIncident açık yavaş yanıt olayının son/en yüksek ortalamasını yazar.
+func (s *Store) UpdateDegradedIncident(ctx context.Context, monitorID int64, avg int64) error {
+	var id int64
+	var raw string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, data FROM incidents WHERE monitor_id = ? AND kind = ? AND resolved_at IS NULL
+		ORDER BY id DESC LIMIT 1`, monitorID, IncidentDegraded).Scan(&id, &raw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	d := ParseDegradedIncidentData(json.RawMessage(raw))
+	if d.LastMs == avg && d.PeakMs >= avg {
+		return nil
+	}
+	d.LastMs, d.PeakMs = avg, max(d.PeakMs, avg)
+	return s.SetIncidentData(ctx, id, EventData(d))
+}
+
+// ResolveDegradedIncident monitörün açık yavaş yanıt olayını kapatır ve
+// çözülme kaydını yazar (msg boşsa "normale döndü"); kimliğini ve
+// başlangıcını döner (yoksa 0, 0).
+func (s *Store) ResolveDegradedIncident(ctx context.Context, monitorID, t int64, msg string) (int64, int64, error) {
+	id, started, err := s.resolveKindIncident(ctx, IncidentDegraded, monitorID, t)
+	if err != nil || id == 0 {
+		return id, started, err
+	}
+	return id, started, s.AddIncidentEvents(ctx, id, IncidentEvent{Time: t, Kind: EventUp, Message: msg,
+		Data: EventData(map[string]int64{"downtime": max(0, t-started)})})
 }
 
 // ClosePartialIncident monitörün açık kısmi olayı varsa işlem geçmişine ev'i

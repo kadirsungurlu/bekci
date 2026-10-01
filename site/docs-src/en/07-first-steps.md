@@ -38,6 +38,9 @@ Click **Create account** and you're taken straight into the panel. This screen a
 > [!CHECK]
 > The monitor appears in the list and the first check runs within a few seconds. If the site is up, it turns green; the response time and status bars update after every check without reloading the page.
 
+> [!TIP] Slow response alert
+> To hear about a site that is up but slow, fill in **Advanced settings → Response-time threshold (ms)** (e.g. 2000). When the average response time of the last N successful checks (**Averaging window**, default 3) exceeds the threshold, the monitor gets a **Slow** badge, a 🟡 “responding slowly” notification goes to its channels and an incident of type “Slow response” opens on the **Incidents** page; it closes with 🟢 once the average drops below 90% of the threshold. The status stays “Up” and uptime is not affected; if the monitor goes down, the slow-response incident closes quietly and a normal outage incident opens.
+
 ### Monitor types {#monitor-types}
 
 The **Monitor type** picker offers 18 types in four groups:

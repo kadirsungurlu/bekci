@@ -21,8 +21,8 @@ func TestIncidentKindsMigration(t *testing.T) {
 	if v, _ := old.schemaVersion(ctx); v != 16 {
 		t.Fatalf("eski sürüm %d, 16 bekleniyordu", v)
 	}
-	m := newMonitor(t, old, "eski-site")
-	other := newMonitor(t, old, "diger")
+	m := legacyMonitor(t, old, "eski-site")
+	other := legacyMonitor(t, old, "diger")
 	// Kimlikler RETURNING ile alınır (PostgreSQL'de kimlik sütunu dizisi ilerlesin).
 	ins := func(q string, args ...any) int64 {
 		t.Helper()
@@ -324,4 +324,19 @@ func TestPauseClearsCert(t *testing.T) {
 	if got.LastCheckAt != 0 || got.Status != StatusPending || got.CertExpiresAt != 0 || got.CertIssuer != "" {
 		t.Fatalf("durdurulan monitör: son kontrol %d durum %d sertifika %d %q", got.LastCheckAt, got.Status, got.CertExpiresAt, got.CertIssuer)
 	}
+}
+
+// legacyMonitor eski şemadaki (migration 22 öncesi, slow_* sütunları yok)
+// veritabanına ham SQL ile monitör ekler.
+func legacyMonitor(t *testing.T, s *Store, name string) Monitor {
+	t.Helper()
+	ctx := context.Background()
+	id, err := insertID(ctx, s.db, `
+		INSERT INTO monitors (name, type, description, active, interval_sec, retry_interval_sec,
+			max_retries, timeout_sec, resend_every, upside_down, config, status, created_at, updated_at)
+		VALUES (?, 'http', '', 1, 60, 60, 0, 30, 0, 0, '{"url":"https://example.com"}', ?, 1, 1)`, name, StatusPending)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return Monitor{ID: id, Name: name, Type: "http", Active: true, Interval: 60, RetryInterval: 60, Timeout: 30}
 }
