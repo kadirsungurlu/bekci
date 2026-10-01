@@ -5,8 +5,14 @@
 #   docker.io/kadirsungurlu/bekci            (herkese açık, Docker Hub)
 #   ghcr.io/<sahip>/bekci
 # Etiketler (SQLite | PostgreSQL gömülü):
-#   main:        :latest | :postgres  (+ yalnızca ghcr.io'da :<kısa-sha> | :postgres-<kısa-sha>)
-#   v1.2.3 etiketi: :1.2.3, :1.2 | :1.2.3-postgres, :1.2-postgres (+ kısa sha)
+#   main:        yalnızca ghcr.io'da :<kısa-sha> | :postgres-<kısa-sha>
+#   v1.2.3 etiketi: :1.2.3, :1.2, :1, :latest | :1.2.3-postgres, :1.2-postgres,
+#                :1-postgres, :postgres (ön sürümde yalnızca tam etiket)
+# :latest yalnızca sürüm etiketinden yazılır: içindeki program sürüm numarasını
+# bilir (main derlemesi commit kimliğini gösterirdi) ve iki çalıştırma aynı
+# etiket için yarışmaz.
+# Elle (workflow_dispatch, surum=1.2.3): :latest ve :postgres o sürümün
+# imajına yönlendirilir (yeniden derlenmez).
 # Docker Hub girişi için repo sırrı: DOCKERHUB_TOKEN (ya da KADIRSUNGURLU).
 name: İmajlar
 
@@ -16,6 +22,11 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      surum:
+        description: ":latest ve :postgres bu sürüme yönlendirilsin (ör. 1.2.1); boş: yalnızca testler"
+        required: false
+        default: ""
 
 # Aynı dalda yeni bir çalıştırma başlayınca eskisi iptal edilir: eski bir
 # commit'in imajı yenisinin üstüne yazılıp :latest geriye gidemez.
@@ -209,9 +220,6 @@ jobs:
               if [ "$imaj" != "$DOCKERHUB_IMAGE" ] && [ "$GITHUB_REF" = refs/heads/main ]; then
                 echo "$imaj:${ONEK}${kisa}"
               fi
-              if [ "$GITHUB_REF" = refs/heads/main ]; then
-                echo "$imaj:${ETIKET}"
-              fi
               if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
                 v=${GITHUB_REF#refs/tags/v}
                 echo "$imaj:${v}${SONEK}"
@@ -220,6 +228,7 @@ jobs:
                   *)
                     echo "$imaj:${v%.*}${SONEK}"   # 1.2
                     echo "$imaj:${v%%.*}${SONEK}"  # 1
+                    echo "$imaj:${ETIKET}"         # latest | postgres
                     ;;
                 esac
               fi
@@ -280,3 +289,39 @@ jobs:
           repository: kadirsungurlu/bekci
           short-description: "Self-hosted uptime & server monitoring. One image, ~15 MB RAM, EN/TR UI. bekci.app"
           readme-filepath: ./DOCKERHUB.md
+
+  # Elle: :latest ve :postgres verilen sürümün imajına yönlendirilir (yeniden
+  # derleme yok; aynı manifest, SBOM ve provenance ile).
+  latest-yonlendir:
+    if: github.event_name == 'workflow_dispatch' && inputs.surum != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/login-action@v3
+        with:
+          username: kadirsungurlu
+          password: ${{ secrets.DOCKERHUB_TOKEN || secrets.KADIRSUNGURLU }}
+      - name: Yönlendir ve doğrula
+        env:
+          SURUM: ${{ inputs.surum }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [[ "$SURUM" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::geçersiz sürüm: $SURUM"; exit 1; }
+          for imaj in docker.io/kadirsungurlu/bekci "ghcr.io/${REPO,,}"; do
+            docker buildx imagetools create -t "$imaj:latest" "$imaj:$SURUM"
+            docker buildx imagetools create -t "$imaj:postgres" "$imaj:$SURUM-postgres"
+          done
+          for t in latest postgres; do
+            s=$(docker run --rm --pull always --entrypoint uptime "docker.io/kadirsungurlu/bekci:$t" version)
+            echo "$t: $s"
+            [ "$s" = "$SURUM" ] || { echo "::error::$t sürümü $s (beklenen $SURUM)"; exit 1; }
+          done
