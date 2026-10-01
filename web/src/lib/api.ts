@@ -424,7 +424,8 @@ export type IncidentEventKind =
   | 'up'
   | 'limit'
   | 'escalated'
-  | 'from_partial';
+  | 'from_partial'
+  | 'resumed';
 
 export interface IncidentEvent {
   id: number;
@@ -534,6 +535,10 @@ export interface IncidentDetail {
     changed?: boolean;
     current_type?: string;
     current_target?: string;
+    /** Monitörde "konum kesintisinde de bildirim gönder" açık. */
+    notify_partial?: boolean;
+    /** Monitör şu an bakım penceresinde (yalnızca süren olayda). */
+    in_maintenance?: boolean;
   };
   /** Yalnızca sunucu olayında. */
   server?: { id: number; name: string; hostname: string; active: boolean };

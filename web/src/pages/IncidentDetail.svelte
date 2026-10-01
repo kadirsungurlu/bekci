@@ -102,6 +102,9 @@
     return Array.isArray(l) ? l.filter((x): x is string => typeof x === 'string') : [];
   });
   const tone = $derived(ongoing ? (partial ? 'pending' : 'down') : 'up');
+  // Süren olayın monitörü bakım penceresinde: kontroller sürer, bildirim gitmez;
+  // olay bakım bitip monitör düzelince kapanır (D-16).
+  const inMaint = $derived(ongoing && !server && !!data?.monitor.in_maintenance);
   const duration = $derived(inc ? (ongoing ? Math.max(now, inc.started_at) : inc.resolved_at) - inc.started_at : 0);
   const isHttp = $derived(data?.monitor.type === 'http');
   // Yakalanan konumlar: çok konumlu olayda çalışmayan her konumun kaydı (ilki
@@ -199,10 +202,13 @@
         r.note = ev.location ? t('incidents.ev.confirmedBy', { where: locName(ev.location) }) : '';
         break;
       case 'escalated':
-      case 'from_partial': {
+      case 'from_partial':
+      case 'resumed': {
         r.icon = ev.kind === 'escalated' ? 'zap' : 'map-pin';
         r.tone = ev.kind === 'escalated' ? 'down' : 'pending';
-        r.title = t(ev.kind === 'escalated' ? 'incidents.ev.escalated' : 'incidents.ev.fromPartial');
+        r.title = t(
+          ev.kind === 'escalated' ? 'incidents.ev.escalated' : ev.kind === 'resumed' ? 'incidents.ev.resumed' : 'incidents.ev.fromPartial',
+        );
         const other = num(d.incident_id);
         if (other) r.href = `#/incidents/${other}`;
         break;
@@ -486,6 +492,9 @@
             <div class="label">{t('incidents.detail.status')}</div>
             <div class="value">
               <span class="pill {tone}">{ongoing ? t('incidents.detail.ongoing') : t('incidents.detail.resolved')}</span>
+              {#if inMaint}
+                <span class="pill maintenance" title={t('incidents.detail.maintNote')}>{t('incidents.detail.inMaint')}</span>
+              {/if}
             </div>
             <div class="sub">{t('incidents.detail.started', { date: fmtDateSec(inc.started_at) })}</div>
           </div>
@@ -495,6 +504,10 @@
             <div class="sub">{ongoing ? t('incidents.detail.stillOngoing') : t('incidents.detail.resolvedAt', { date: fmtDateSec(inc.resolved_at) })}</div>
           </div>
         </div>
+
+        {#if inMaint}
+          <div class="alert warning small" role="status"><Icon name="wrench" size={14} /> {t('incidents.detail.maintNote')}</div>
+        {/if}
 
         {#if partial}
           <div class="card">
@@ -512,7 +525,10 @@
                 {/each}
               </div>
             {/if}
-            <p class="note"><Icon name="info" size={14} /> {t('incidents.detail.partialNote')}</p>
+            <p class="note">
+              <Icon name="info" size={14} />
+              {t(data.monitor.notify_partial ? 'incidents.detail.partialNoteNotify' : 'incidents.detail.partialNote')}
+            </p>
           </div>
         {/if}
 

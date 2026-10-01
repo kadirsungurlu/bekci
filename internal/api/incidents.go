@@ -133,6 +133,10 @@ type incidentMonitor struct {
 	Changed       bool   `json:"changed,omitempty"`
 	CurrentType   string `json:"current_type,omitempty"`
 	CurrentTarget string `json:"current_target,omitempty"`
+	// NotifyPartial konum kesintisinde de bildirim açık (olay sayfası metni buna göre).
+	NotifyPartial bool `json:"notify_partial"`
+	// InMaintenance monitör şu an bakım penceresinde (açık olayda rozet ve not).
+	InMaintenance bool `json:"in_maintenance"`
 }
 
 type incidentLocationView struct {
@@ -190,6 +194,12 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 			Active: m.Active, Status: m.Status},
 		Locations: []incidentLocationView{},
 		Details:   capture,
+	}
+	if setup, err := s.store.MonitorLocations(r.Context(), m.ID); err == nil {
+		out.Monitor.NotifyPartial = setup.NotifyPartial
+	}
+	if s.engine != nil && inc.ResolvedAt == 0 && m.Active {
+		out.Monitor.InMaintenance = s.engine.InMaintenance(m.ID, s.now())
 	}
 	events = completeEvents(inc, events)
 

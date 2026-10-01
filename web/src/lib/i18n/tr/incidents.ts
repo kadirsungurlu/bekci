@@ -21,7 +21,7 @@ export default {
     partialLong: 'Konum kesintisi',
     serverOffline: 'Sunucu çevrimdışı',
     serverAlert: 'Sunucu uyarısı',
-    partialHint: 'Bazı kontrol konumları çalışmıyor ama monitör çalışıyor; bildirim gönderilmez, uptime etkilenmez.',
+    partialHint: 'Bazı kontrol konumları çalışmıyor ama monitör çalışıyor; uptime etkilenmez. Bildirim yalnızca monitörde “Konum kesintisinde de bildirim gönder” açıksa gider.',
   },
   /** Sunucu ayrıntısındaki olaylar kartı. */
   serverCard: {
@@ -94,7 +94,10 @@ export default {
     truncated: 'ilk 16 KB gösteriliyor',
     captureLocations: 'Yakalanan konumlar',
     partialPre: 'Konum kesintisi:',
-    partialNote: 'Monitör bu süre boyunca çalışmaya devam etti; yalnızca bazı kontrol konumları hedefe ulaşamadı. Konum kesintileri bildirim göndermez, uptime oranını etkilemez ve herkese açık durum sayfalarında görünmez.',
+    partialNote: 'Monitör bu süre boyunca çalışmaya devam etti; yalnızca bazı kontrol konumları hedefe ulaşamadı. Bu monitörde konum kesintisi bildirimi kapalı (monitör ayarlarında “Konum kesintisinde de bildirim gönder” ile açılır); uptime oranı etkilenmez, olay herkese açık durum sayfalarında görünmez.',
+    partialNoteNotify: 'Monitör bu süre boyunca çalışmaya devam etti; yalnızca bazı kontrol konumları hedefe ulaşamadı. Bu monitörde konum kesintisi bildirimi açık: konum düşünce ve düzelince seçili kanallara bildirim gider. Uptime oranı etkilenmez, olay herkese açık durum sayfalarında görünmez.',
+    inMaint: 'Bakımda',
+    maintNote: 'Monitör şu an bakım penceresinde: kontroller sürüyor ama bildirim gönderilmiyor ve uptime etkilenmiyor. Olay, bakım bitip monitör tekrar çalışınca kapanır.',
     affected: 'Etkilenen konumlar',
     affectedHint: 'Olay boyunca çalışmayan',
     server: 'Sunucu',
@@ -254,6 +257,7 @@ export default {
     partialStarted: 'Konum kesintisi başladı',
     partialResolved: 'Tüm konumlar çalışıyor (konum kesintisi bitti)',
     escalated: 'Tam kesintiye dönüştü',
+    resumed: 'Tam kesinti bitti; konum kesintisi sürüyor',
     fromPartial: 'Konum kesintisinden dönüştü',
     openLinked: 'Bağlı olayı aç',
     serverOffline: 'Sunucuya ulaşılamıyor',
