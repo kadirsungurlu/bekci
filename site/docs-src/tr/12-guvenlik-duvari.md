@@ -15,10 +15,10 @@ Siteniz Cloudflare, bir WAF veya bot koruması arkasındaysa Bekci'nin kontrolle
 Web sitesi kontrolleri (HTTP, anahtar kelime, JSON) varsayılan olarak şu User-Agent ile gider:
 
 ```text
-Mozilla/5.0 (compatible; Bekci/<sürüm>; +https://bekci.app/bot)
+Mozilla/5.0 (compatible; Bekci/<sürüm>; +https://uptime.ornek.com)
 ```
 
-Sürüm numarası güncellemeyle değişir; kurallarınızda "**Bekci** içeriyor" koşulunu kullanın. Ana sunucu ve tüm kontrol noktaları aynı değeri kullanır: kontrol noktaları bu değeri ana sunucudan alır. (Kontrol noktasının da güncel sürümde olması gerekir; eski ajanlar kendi varsayılanlarıyla gider.)
+Sondaki adres, Bekci'nin kurulu olduğu panelin adresidir (`BASE_URL` ortam değişkeni; verilmemişse yazılmaz). Siteyi kontrol edilen kişi günlüğünde kimin kontrol ettiğini böylece görür. Sürüm numarası güncellemeyle değişir; kurallarınızda "**Bekci** içeriyor" koşulunu kullanın. Ana sunucu ve tüm kontrol noktaları aynı değeri kullanır: kontrol noktaları bu değeri ana sunucudan alır. (Kontrol noktasının da güncel sürümde olması gerekir; eski ajanlar kendi varsayılanlarıyla gider.)
 
 Değeri **Ayarlar → Genel → Kontrol isteklerinin User-Agent'ı** alanından değiştirebilirsiniz; boş bırakırsanız varsayılan kullanılır. Bir monitörün **Başlıklar (headers)** alanına `User-Agent: …` yazarsanız o monitör için bu değer geçerli olur.
 

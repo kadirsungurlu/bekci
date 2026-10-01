@@ -552,7 +552,7 @@ func doRequest(ctx context.Context, method, u string, body io.Reader, headers ma
 		req.Header.Set(k, v)
 	}
 	if req.Header.Get("User-Agent") == "" {
-		req.Header.Set("User-Agent", brand.Name+" (+https://bekci.app)")
+		req.Header.Set("User-Agent", brand.Name)
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {

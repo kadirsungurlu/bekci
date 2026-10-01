@@ -137,6 +137,7 @@ func run() error {
 
 	maxChecks, _ := strconv.Atoi(env("MAX_CONCURRENT_CHECKS", "50"))
 	baseURL := strings.TrimRight(env("BASE_URL", ""), "/")
+	check.SetInfoURL(baseURL) // kontrol isteklerinin User-Agent'ında panelin adresi
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

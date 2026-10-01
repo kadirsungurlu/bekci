@@ -63,7 +63,7 @@ func FetchUptimeRobot(ctx context.Context, client *http.Client, apiKey string) (
 		}
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Set("Cache-Control", "no-cache")
-		req.Header.Set("User-Agent", "Bekci (+https://bekci.app)")
+		req.Header.Set("User-Agent", "Bekci")
 		resp, err := client.Do(req)
 		if err != nil {
 			var ue *url.Error

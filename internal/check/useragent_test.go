@@ -9,12 +9,21 @@ import (
 
 func TestUserAgent(t *testing.T) {
 	defer SetUserAgent("")
+	defer SetInfoURL("")
 	SetVersion("v1.2.3")
-	if got := DefaultUserAgent(); got != "Mozilla/5.0 (compatible; Bekci/1.2.3; +https://bekci.app/bot)" {
+	if got := DefaultUserAgent(); got != "Mozilla/5.0 (compatible; Bekci/1.2.3)" {
+		t.Fatalf("adressiz varsayılan: %q", got)
+	}
+	SetInfoURL("https://uptime.ornek.com")
+	if got := DefaultUserAgent(); got != "Mozilla/5.0 (compatible; Bekci/1.2.3; +https://uptime.ornek.com)" {
 		t.Fatalf("varsayılan: %q", got)
 	}
+	SetInfoURL("https://kötü adres")
+	if got := DefaultUserAgent(); got != "Mozilla/5.0 (compatible; Bekci/1.2.3)" {
+		t.Fatalf("geçersiz adres yazılmamalı: %q", got)
+	}
 	SetVersion("30ddabe") // commit kimliği: sürüm değişmez
-	if !strings.Contains(UserAgent(), "Bekci/1.2.3;") {
+	if !strings.Contains(UserAgent(), "Bekci/1.2.3") {
 		t.Fatalf("sürüm korunmalı: %q", UserAgent())
 	}
 

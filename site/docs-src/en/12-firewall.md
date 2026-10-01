@@ -15,10 +15,10 @@ If your site is behind Cloudflare, a WAF or bot protection, Bekci's checks may h
 Website checks (HTTP, keyword, JSON) use this User-Agent by default:
 
 ```text
-Mozilla/5.0 (compatible; Bekci/<version>; +https://bekci.app/bot)
+Mozilla/5.0 (compatible; Bekci/<version>; +https://uptime.example.com)
 ```
 
-The version number changes with updates, so match "**contains Bekci**" in your rules. The main server and all check locations use the same value: check locations receive it from the main server. (Check locations need to be up to date too; older agents use their own default.)
+The address at the end is your Bekci panel's address (the `BASE_URL` environment variable; omitted if not set), so whoever runs the checked site can see who is checking it. The version number changes with updates, so match "**contains Bekci**" in your rules. The main server and all check locations use the same value: check locations receive it from the main server. (Check locations need to be up to date too; older agents use their own default.)
 
 Change it under **Settings → General → User-Agent for checks**; leave it empty for the default. A `User-Agent: …` line in a monitor's **Headers** field overrides it for that monitor.
 
