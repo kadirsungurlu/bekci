@@ -53,6 +53,7 @@
     light = false,
     foldKey = null,
     embedded = false,
+    feedUrl = '',
   }: {
     page: PublicPage;
     logo?: string;
@@ -64,6 +65,8 @@
     foldKey?: string | null;
     /** Düzenleyicideki önizleme: tam ekran yüksekliği istenmez. */
     embedded?: boolean;
+    /** RSS akışının adresi (boş: bağlantı gösterilmez; önizleme ve şifreli sayfa). */
+    feedUrl?: string;
   } = $props();
 
   const t = (key: TKey, params?: TParams) => tIn(lang, key, params);
@@ -358,11 +361,14 @@
     {/each}
   </main>
 
-  <!-- Güncelleme zamanı üst çubukta; alt bilgi yalnızca sayfanın kendi metni. -->
-  {#if page.footer}
+  <!-- Güncelleme zamanı üst çubukta; alt bilgi sayfanın kendi metni ve (varsa) RSS bağlantısı. -->
+  {#if page.footer || feedUrl}
     <footer class="foot">
       <div class="wrap foot-in">
-        <p class="foot-t">{page.footer}</p>
+        {#if page.footer}<p class="foot-t">{page.footer}</p>{/if}
+        {#if feedUrl}
+          <a class="foot-rss" href={feedUrl} title={t('pub.rssTitle')}><Icon name="rss" size={13} /> {t('pub.rss')}</a>
+        {/if}
       </div>
     </footer>
   {/if}
@@ -1451,6 +1457,17 @@
     color: var(--text-2);
     white-space: pre-line;
     overflow-wrap: anywhere;
+  }
+  .foot-rss {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .foot-rss:hover {
+    color: var(--text);
   }
 
   /* Dar alan (telefon veya dar önizleme): ekran değil sayfanın kendi genişliği. */

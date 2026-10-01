@@ -798,6 +798,8 @@ export interface PublicPage {
   collapsible?: boolean;
   /** Sayfanın dili; sayfa bu dilde gösterilir (eski sunucuda gelmez: tr). */
   lang?: Locale;
+  /** Sayfa şifreli (ziyaretçi açmış): RSS bağlantısı gösterilmez. Eski sunucuda gelmez. */
+  has_password?: boolean;
   /** Yerleşim, genişlik ve bölüm sırası (eski sunucuda gelmez: varsayılan). */
   layout?: PageLayout;
 }

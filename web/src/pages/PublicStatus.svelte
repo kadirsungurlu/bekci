@@ -101,6 +101,20 @@
     document.title = notFound ? t('pub.notFoundDoc') : title ? t('pub.docTitle', { title }) : t('pub.docTitleDefault');
   });
 
+  // RSS akışı: gerçek sayfada (önizlemede değil); şifreli sayfanın akışı
+  // okuyuculara açık olmadığından bağlantı gösterilmez.
+  const feedUrl = $derived(!isPreview && page && !page.has_password ? `/api/public/pages/${page.slug}/feed.xml` : '');
+  $effect(() => {
+    if (!feedUrl) return;
+    const link = document.createElement('link');
+    link.rel = 'alternate';
+    link.type = 'application/rss+xml';
+    link.title = t('pub.rssTitle');
+    link.href = feedUrl;
+    document.head.appendChild(link);
+    return () => link.remove();
+  });
+
   const logo = $derived.by(() => {
     const p = page ?? locked;
     if (!p?.has_logo) return '';
@@ -188,7 +202,7 @@
       <div class="center"><span class="spinner"></span></div>
     {/if}
   {:else}
-    <StatusView {page} {logo} {light} lang={pageLang} foldKey="durum-kapali:{previewId ?? slug}" />
+    <StatusView {page} {logo} {light} lang={pageLang} foldKey="durum-kapali:{previewId ?? slug}" {feedUrl} />
   {/if}
 </div>
 

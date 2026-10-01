@@ -68,4 +68,6 @@ export default {
   startedAt: 'Başlangıç: {time}',
   duration: 'Süre: {d}',
   resolvedAt: 'Çözüldü: {time}',
+  rss: 'RSS',
+  rssTitle: 'Olayları ve duyuruları RSS ile izle',
 };

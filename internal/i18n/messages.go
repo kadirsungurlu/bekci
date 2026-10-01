@@ -45,6 +45,15 @@ var messages = map[string]Msg{
 	"notify.field.time":           {"Zaman", "Time"},
 	"notify.field.link":           {"Detay", "Details"},
 
+	// Durum sayfası RSS akışı (%s: sayfa başlığı / monitör adı / zamanlar)
+	"feed.description":            {"%s durum sayfasının olayları ve duyuruları", "Incidents and announcements of the %s status page"},
+	"feed.category.announcement":  {"Duyuru", "Announcement"},
+	"feed.category.incident":      {"Olay", "Incident"},
+	"feed.incident.ongoing":       {"🔴 %s: kesinti sürüyor", "🔴 %s: outage ongoing"},
+	"feed.incident.ongoing_body":  {"Başlangıç: %s. Kesinti devam ediyor.", "Started: %s. The outage is ongoing."},
+	"feed.incident.resolved":      {"🟢 %s: kesinti giderildi", "🟢 %s: outage resolved"},
+	"feed.incident.resolved_body": {"Başlangıç: %s. Çözüldü: %s. Süre: %s.", "Started: %s. Resolved: %s. Duration: %s."},
+
 	// Sunucu uyarıları (%s: sunucu adı)
 	"notify.server.offline":      {"🔴 %s: sunucuya ulaşılamıyor", "🔴 %s: server unreachable"},
 	"notify.server.online":       {"🟢 %s: tekrar veri gönderiyor", "🟢 %s: sending data again"},

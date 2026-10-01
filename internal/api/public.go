@@ -99,6 +99,9 @@ type publicPageView struct {
 	Collapsible bool `json:"collapsible"`
 	// Lang sayfanın dili (tr | en): arayüz sayfayı bu dilde gösterir.
 	Lang string `json:"lang"`
+	// HasPassword sayfa şifreli (ziyaretçi açmış): RSS bağlantısı gösterilmez,
+	// akış yalnızca şifre çerezi olan tarayıcıya verilir.
+	HasPassword bool `json:"has_password"`
 	// Layout yerleşim, genişlik ve bölüm sırası/görünürlüğü. Gizli duyuru ve
 	// grup bölümlerinin verisi gönderilmez (boş liste).
 	Layout store.PageLayout `json:"layout"`
@@ -302,7 +305,7 @@ func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byt
 		}
 		view.Announcements = toPublicAnnouncements(anns)
 	}
-	view.ShowIncidents, view.Collapsible, view.Lang = p.ShowIncidents, p.Collapsible, i18n.Or(p.Lang)
+	view.ShowIncidents, view.Collapsible, view.Lang, view.HasPassword = p.ShowIncidents, p.Collapsible, i18n.Or(p.Lang), p.HasPassword
 	if !p.ShowIncidents {
 		return json.Marshal(view)
 	}

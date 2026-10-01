@@ -140,3 +140,17 @@ scrape_configs:
 | `uptime_incidents_open` | `kind` | Süren olay sayısı (monitor, degraded, partial, server_offline, server_alert, probe_offline) |
 
 Sunucu değerleri ajanın son örneğidir (dakikada bir gelir); konteyner ve sıcaklık sensörü listeleri etiket olarak verilmez, etiket sayısı sunucu sayısıyla sınırlı kalır.
+
+## Durum sayfası RSS akışı {#rss}
+
+Yayındaki her durum sayfasının bir RSS 2.0 akışı vardır; sayfanın alt bilgisindeki **RSS** bağlantısı ve sayfanın `<head>` bölümündeki `alternate` bağlantısı okuyuculara bunu gösterir:
+
+```plaintext
+https://⟦bekci.ornek.com⟧/durum/⟦kisa-ad⟧/feed.xml
+https://⟦bekci.ornek.com⟧/api/public/pages/⟦kisa-ad⟧/feed.xml
+```
+
+Akışta son 14 günün olayları (sayfada **Olayları göster** açıksa; başlangıç, çözülme ve süre — neden yazılmaz) ve yayına girmiş duyurular (süresi bitmişler dahil, ileri tarihliler hariç) sayfanın dilinde yer alır; süren bir olay çözülünce ayrı bir kayıt olarak eklenir. Slack, Teams ya da herhangi bir RSS okuyucusu bu adrese abone olabilir.
+
+> [!NOTE]
+> Şifre korumalı sayfaların akışı yalnızca şifreyi girmiş tarayıcıya verilir; RSS okuyucularının kullanabileceği bir token yoktur. Bu yüzden şifreli sayfada RSS bağlantısı gösterilmez.

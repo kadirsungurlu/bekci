@@ -70,4 +70,6 @@ export default {
   startedAt: 'Started: {time}',
   duration: 'Duration: {d}',
   resolvedAt: 'Resolved: {time}',
+  rss: 'RSS',
+  rssTitle: 'Follow incidents and announcements via RSS',
 } satisfies Shape<typeof tr>;

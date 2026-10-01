@@ -317,3 +317,6 @@ func boolInt(b bool) int {
 	}
 	return 0
 }
+
+// Location günlük özetlerin ve yerel saat gösterimlerinin saat dilimi.
+func (s *Store) Location() *time.Location { return s.loc }

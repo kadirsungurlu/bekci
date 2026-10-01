@@ -140,3 +140,17 @@ scrape_configs:
 | `uptime_incidents_open` | `kind` | Ongoing incidents (monitor, degraded, partial, server_offline, server_alert, probe_offline) |
 
 Server values are the agent's last sample (sent once a minute); container and temperature-sensor lists are not exposed as labels, so cardinality stays bounded by the number of servers.
+
+## Status page RSS feed {#rss}
+
+Every published status page has an RSS 2.0 feed; the **RSS** link in the page footer and the `alternate` link in the page's `<head>` point readers to it:
+
+```plaintext
+https://⟦bekci.example.com⟧/durum/⟦slug⟧/feed.xml
+https://⟦bekci.example.com⟧/api/public/pages/⟦slug⟧/feed.xml
+```
+
+The feed contains the last 14 days of incidents (if **Show incidents** is on for the page; start, resolution and duration — never the cause) and published announcements (expired ones included, future-dated ones excluded) in the page's language; when an ongoing incident is resolved, a separate entry is added. Slack, Teams or any RSS reader can subscribe to the address.
+
+> [!NOTE]
+> The feed of a password-protected page is only served to a browser that has entered the password; there is no token for RSS readers. That is why the RSS link is not shown on protected pages.
