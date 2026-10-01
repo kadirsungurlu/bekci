@@ -83,6 +83,7 @@ export default {
       url: { label: 'URL' },
       method: { label: 'Method' },
       headers: { label: 'Headers', help: 'One header per line: “Name: value”. Stored as a secret.' },
+      secret: { label: 'Signing secret (HMAC)', help: 'When set, every request carries an X-Bekci-Signature header: t=<unix>,v1=HMAC-SHA256(secret, t + "." + body). The receiver can verify the request came from Bekci.' },
     },
   },
   ntfy: {

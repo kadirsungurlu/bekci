@@ -86,6 +86,7 @@ export default {
       url: { label: 'Adres' },
       method: { label: 'Metot' },
       headers: { label: 'Başlıklar', help: 'Her satıra bir başlık: “Ad: değer”. Gizli bilgi olarak saklanır.' },
+      secret: { label: 'İmza anahtarı (HMAC)', help: 'Doluysa her istek X-Bekci-Signature başlığıyla imzalanır: t=<unix>,v1=HMAC-SHA256(anahtar, t + "." + gövde). Alıcı isteğin Bekci’den geldiğini doğrulayabilir.' },
     },
   },
   ntfy: {

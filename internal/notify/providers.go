@@ -1,7 +1,11 @@
 package notify
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"mime"
 	"net/http"
@@ -168,11 +172,32 @@ type webhookConfig struct {
 	URL     string `json:"url"`
 	Method  string `json:"method"`
 	Headers string `json:"headers"` // her satır "Ad: değer"; gizli sayılır (Authorization vb.)
+	// Secret doluysa her istek X-Bekci-Signature başlığıyla imzalanır (bkz.
+	// WebhookSignature); alıcı isteğin gerçekten bu sunucudan geldiğini doğrular.
+	Secret string `json:"secret,omitempty"`
 }
 
 type webhook struct{}
 
-func (webhook) Secrets() []string { return []string{"headers"} }
+func (webhook) Secrets() []string { return []string{"headers", "secret"} }
+
+// WebhookSignatureHeader imzanın gönderildiği başlık.
+const WebhookSignatureHeader = "X-Bekci-Signature"
+
+// webhookSecretMax imza anahtarının en fazla uzunluğu.
+const webhookSecretMax = 256
+
+// WebhookSignature webhook gövdesinin imzası: "t=<unix>,v1=<hex>" biçiminde;
+// v1 = HMAC-SHA256(secret, t + "." + body). Zaman damgası tekrar (replay)
+// saldırısına karşı alıcının eski istekleri reddedebilmesi içindir.
+func WebhookSignature(secret string, t int64, body []byte) string {
+	ts := strconv.FormatInt(t, 10)
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(ts))
+	mac.Write([]byte("."))
+	mac.Write(body)
+	return "t=" + ts + ",v1=" + hex.EncodeToString(mac.Sum(nil))
+}
 
 func (webhook) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 	var c webhookConfig
@@ -192,6 +217,10 @@ func (webhook) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 	}
 	if _, err := parseHeaderLines(c.Headers); err != nil {
 		return nil, err
+	}
+	c.Secret = strings.TrimSpace(c.Secret)
+	if len(c.Secret) > webhookSecretMax {
+		return nil, invalid("İmza anahtarı en fazla %d karakter olabilir", webhookSecretMax)
 	}
 	return encode(c), nil
 }
@@ -264,7 +293,10 @@ func (webhook) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	for _, h := range lines {
 		headers[h[0]] = h[1]
 	}
-	return doRequest(ctx, c.Method, c.URL, strings.NewReader(string(b)), headers)
+	if c.Secret != "" {
+		headers[WebhookSignatureHeader] = WebhookSignature(c.Secret, time.Now().Unix(), b)
+	}
+	return doRequest(ctx, c.Method, c.URL, bytes.NewReader(b), headers)
 }
 
 func parseHeaderLines(s string) ([][2]string, error) {

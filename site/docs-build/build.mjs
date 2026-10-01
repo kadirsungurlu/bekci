@@ -28,6 +28,8 @@ import apache from 'highlight.js/lib/languages/apache';
 import ini from 'highlight.js/lib/languages/ini';
 import powershell from 'highlight.js/lib/languages/powershell';
 import json from 'highlight.js/lib/languages/json';
+import javascript from 'highlight.js/lib/languages/javascript';
+import python from 'highlight.js/lib/languages/python';
 import plaintext from 'highlight.js/lib/languages/plaintext';
 
 // ---------------------------------------------------------------- ayarlar
@@ -61,10 +63,12 @@ hljs.registerLanguage('apache', apache);
 hljs.registerLanguage('ini', ini);
 hljs.registerLanguage('powershell', powershell);
 hljs.registerLanguage('json', json);
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('python', python);
 hljs.registerLanguage('plaintext', plaintext);
 hljs.registerLanguage('caddyfile', caddyfile);
-const LANG_ALIAS = { sh: 'bash', shell: 'bash', console: 'bash', yml: 'yaml', env: 'ini', dotenv: 'ini', ps: 'powershell', ps1: 'powershell', text: 'plaintext', txt: 'plaintext', caddy: 'caddyfile' };
-const LANG_LABEL = { bash: 'terminal', powershell: 'PowerShell', yaml: 'YAML', nginx: 'Nginx', apache: 'Apache', ini: '.env', json: 'JSON', caddyfile: 'Caddyfile', plaintext: '' };
+const LANG_ALIAS = { js: 'javascript', py: 'python', sh: 'bash', shell: 'bash', console: 'bash', yml: 'yaml', env: 'ini', dotenv: 'ini', ps: 'powershell', ps1: 'powershell', text: 'plaintext', txt: 'plaintext', caddy: 'caddyfile' };
+const LANG_LABEL = { bash: 'terminal', powershell: 'PowerShell', yaml: 'YAML', nginx: 'Nginx', apache: 'Apache', ini: '.env', json: 'JSON', javascript: 'JavaScript', python: 'Python', caddyfile: 'Caddyfile', plaintext: '' };
 
 const T = {
   tr: {

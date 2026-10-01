@@ -346,6 +346,18 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
         },
         wide: true,
       },
+      {
+        key: 'secret',
+        get label() {
+          return t('notifyTypes.webhook.fields.secret.label');
+        },
+        kind: 'secret',
+        optional: true,
+        get help() {
+          return t('notifyTypes.webhook.fields.secret.help');
+        },
+        wide: true,
+      },
     ],
   },
   ntfy: {
