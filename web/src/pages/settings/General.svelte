@@ -16,6 +16,10 @@
   let notifyLang = $state<Locale>('tr');
   let userAgent = $state('');
   let defaultUA = $state('');
+  // Saklama (gün; 0 = süresiz).
+  let incidentDays = $state<number | null>(365);
+  let captureDays = $state<number | null>(90);
+  let auditDays = $state<number | null>(365);
   let stError = $state('');
   let stBusy = $state(false);
 
@@ -26,13 +30,17 @@
     backupKeep = s.backup_keep;
     notifyLang = s.notify_lang ?? 'tr';
     userAgent = s.check_user_agent ?? '';
+    incidentDays = s.retention_incident_days ?? 365;
+    captureDays = s.retention_capture_days ?? 90;
+    auditDays = s.retention_audit_days ?? 365;
     if (s.default_user_agent) defaultUA = s.default_user_agent;
     baseline = current();
   }
 
   // Kaydedilmemiş değişiklik koruması (sayfadan ayrılırken sorulur).
   let baseline = '';
-  const current = () => snapshot({ rawDays, hourlyDays, certDays: certDays.trim(), backupKeep, notifyLang, userAgent: userAgent.trim() });
+  const current = () =>
+    snapshot({ rawDays, hourlyDays, certDays: certDays.trim(), backupKeep, notifyLang, userAgent: userAgent.trim(), incidentDays, captureDays, auditDays });
   onMount(() => guardUnsaved(() => loaded && !stBusy && !!baseline && current() !== baseline));
 
   async function load() {
@@ -63,6 +71,11 @@
       return (stError = t('settings.general.errCertDays'));
     if (days.length > 10) return (stError = t('settings.general.errCertCount'));
     if (!isInt(backupKeep, 0, 60)) return (stError = t('settings.general.errBackup'));
+    // Saklama: 0 (süresiz) ya da aralık.
+    const keepOk = (v: number | null, lo: number) => v === 0 || isInt(v, lo, 3650);
+    if (!keepOk(incidentDays, 7)) return (stError = t('settings.general.errIncidentDays'));
+    if (!keepOk(captureDays, 1)) return (stError = t('settings.general.errCaptureDays'));
+    if (!keepOk(auditDays, 7)) return (stError = t('settings.general.errAuditDays'));
     const ua = userAgent.trim();
     if (ua.length > 300 || /[^\x20-\x7e]/.test(ua)) return (stError = t('settings.general.errUserAgent'));
     stBusy = true;
@@ -74,6 +87,9 @@
         backup_keep: backupKeep!,
         notify_lang: notifyLang,
         check_user_agent: ua,
+        retention_incident_days: incidentDays!,
+        retention_capture_days: captureDays!,
+        retention_audit_days: auditDays!,
       });
       apply(res);
       toast.success(t('settings.general.saved'));
@@ -119,6 +135,24 @@
           <span class="help">{t('settings.general.hourlyDaysHelp')}</span>
         </div>
       </div>
+      <div class="grid-3">
+        <div class="field">
+          <label for="inc-keep">{t('settings.general.incidentDays')}</label>
+          <input id="inc-keep" class="input" type="number" min="0" max="3650" bind:value={incidentDays} />
+          <span class="help">{t('settings.general.incidentDaysHelp')}</span>
+        </div>
+        <div class="field">
+          <label for="cap-keep">{t('settings.general.captureDays')}</label>
+          <input id="cap-keep" class="input" type="number" min="0" max="3650" bind:value={captureDays} />
+          <span class="help">{t('settings.general.captureDaysHelp')}</span>
+        </div>
+        <div class="field">
+          <label for="aud-keep">{t('settings.general.auditDays')}</label>
+          <input id="aud-keep" class="input" type="number" min="0" max="3650" bind:value={auditDays} />
+          <span class="help">{t('settings.general.auditDaysHelp')}</span>
+        </div>
+      </div>
+      <p class="help nomargin">{t('settings.general.foreverHint')}</p>
       <div class="field">
         <label for="cert">{t('settings.general.certDays')}</label>
         <input id="cert" class="input" bind:value={certDays} placeholder={t('settings.general.certDaysPlaceholder')} />
@@ -211,6 +245,16 @@
   }
   .nomargin {
     margin: 0;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  @media (max-width: 640px) {
+    .grid-3 {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
   .prom code {
     color: var(--text-2);

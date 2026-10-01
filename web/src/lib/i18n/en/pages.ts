@@ -122,6 +122,18 @@ export default {
       'When off, monitor addresses are hidden. When on, websites show their domain (e.g. example.com) and other monitors show the host address.',
     showIncidents: 'Show incidents from the last 14 days',
     showIncidentsHelp: 'When off, past outages aren’t listed; visitors only see the current status and the bars.',
+    incidentDays: 'Incident window',
+    incidentDaysOpt: 'Last {count} days',
+    incidentDaysHelp: 'How many days of history the “Recent incidents” section and the RSS feed show.',
+    uptimeWindows: 'Uptime windows',
+    uptimeWindowsHelp:
+      'Uptime percentages shown on each monitor row. With none selected, a single window follows the bar view (24 hours or 90 days); with several selected, all are shown side by side (e.g. 24h + 30d + 90d).',
+    uptimeWin: {
+      '24h': '24 hours',
+      '7d': '7 days',
+      '30d': '30 days',
+      '90d': '90 days',
+    },
     collapsible: 'Collapsible groups',
     collapsibleHelp:
       'Visitors can collapse a group by clicking its header; their choice is remembered in their browser. Groups start expanded.',
@@ -188,7 +200,7 @@ export default {
       overall: 'Overall status',
       announcements: 'Announcements',
       groups: 'Groups and monitors',
-      incidents: 'Incidents (last 14 days)',
+      incidents: 'Recent incidents',
     },
     blockDesc: {
       overall: 'The “All systems operational” banner',
@@ -256,6 +268,10 @@ export default {
     errEnd: 'End time must be after the start time.',
     updated: 'Announcement updated',
     added: 'Announcement added',
+    addedCopies: 'Announcement added and copied to {count} more page|Announcement added and copied to {count} more pages',
+    copyTitle: 'Also add to other pages',
+    copyAll: 'All status pages',
+    copyHelp: 'An independent copy of the same announcement is added to the selected pages; afterwards each page edits its own copy.',
     ended: 'Announcement unpublished',
     deleteTitle: 'Delete announcement',
     deleteMsg: '“{name}” will be deleted.',

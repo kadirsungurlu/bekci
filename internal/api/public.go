@@ -22,6 +22,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"time"
 
@@ -57,6 +58,9 @@ type publicMonitor struct {
 	Uptime90d *float64    `json:"uptime_90d"` // eski istemciler için; yalnız 90d görünümünde dolu
 	Bars      []publicBar `json:"bars"`
 	Target    string      `json:"target,omitempty"`
+	// Uptimes sayfada birden fazla uptime penceresi seçiliyse (uptime_windows)
+	// pencere → yüzde (veri yoksa null). Eski istemciler yok sayar.
+	Uptimes map[string]*float64 `json:"uptimes,omitempty"`
 }
 
 type publicSection struct {
@@ -105,6 +109,10 @@ type publicPageView struct {
 	// Layout yerleşim, genişlik ve bölüm sırası/görünürlüğü. Gizli duyuru ve
 	// grup bölümlerinin verisi gönderilmez (boş liste).
 	Layout store.PageLayout `json:"layout"`
+	// IncidentDays olay bölümünün penceresi (gün); UptimeWindows monitör
+	// satırlarında gösterilen uptime pencereleri (boşsa tek pencere: UptimeWindow).
+	IncidentDays  int      `json:"incident_days"`
+	UptimeWindows []string `json:"uptime_windows"`
 }
 
 func logoURL(p store.StatusPage) *string {
@@ -174,11 +182,37 @@ type monitorData struct {
 	window   string
 }
 
-func (s *Server) publicMonitorData(ctx context.Context, ids []int64, barRange string, showTargets bool, now int64) (monitorData, error) {
+func (s *Server) publicMonitorData(ctx context.Context, ids []int64, barRange string, showTargets bool, now int64, windows ...string) (monitorData, error) {
 	d := monitorData{pub: map[int64]publicMonitor{}}
 	mons, err := s.store.MonitorsByIDs(ctx, ids)
 	if err != nil {
 		return d, err
+	}
+	// Ek uptime pencereleri: 24h saatlik özetten, 7d/30d/90d günlük özetten.
+	windows = store.NormalizeUptimeWindows(windows)
+	var winHourly, winDaily map[int64][]store.Bucket
+	if len(windows) > 0 {
+		var winDays int
+		for _, w := range windows {
+			switch w {
+			case "7d":
+				winDays = max(winDays, 7)
+			case "30d":
+				winDays = max(winDays, 30)
+			case "90d":
+				winDays = max(winDays, 90)
+			}
+		}
+		if slices.Contains(windows, "24h") {
+			if winHourly, err = s.store.HourlyFor(ctx, ids, now-now%3600-(publicHours-1)*3600); err != nil {
+				return d, err
+			}
+		}
+		if winDays > 0 {
+			if winDaily, err = s.store.DailyFor(ctx, ids, s.store.DayStarts(now, winDays)[0]); err != nil {
+				return d, err
+			}
+		}
 	}
 	// Çubuk zaman dilimleri (recent dışındakiler için) ve özet verisi.
 	var (
@@ -253,16 +287,48 @@ func (s *Server) publicMonitorData(ctx context.Context, ids []int64, barRange st
 		if showTargets {
 			pub.Target = publicTarget(engine.Target(m))
 		}
+		if len(windows) > 0 {
+			pub.Uptimes = make(map[string]*float64, len(windows))
+			for _, w := range windows {
+				var bs []store.Bucket
+				if w == "24h" {
+					bs = winHourly[m.ID]
+				} else {
+					days := map[string]int{"7d": 7, "30d": 30, "90d": 90}[w]
+					since := s.store.DayStarts(now, days)[0]
+					for _, b := range winDaily[m.ID] {
+						if b.Time >= since {
+							bs = append(bs, b)
+						}
+					}
+				}
+				pub.Uptimes[w] = uptimeOf(bs)
+			}
+		}
 		d.pub[m.ID] = pub
 	}
 	return d, nil
+}
+
+// uptimeOf özet kovalarının toplam uptime yüzdesi (veri yoksa nil).
+func uptimeOf(bs []store.Bucket) *float64 {
+	var up, down int64
+	for _, b := range bs {
+		up += b.Up
+		down += b.Down
+	}
+	if up+down == 0 {
+		return nil
+	}
+	pct := math.Round(100000*float64(up)/float64(up+down)) / 1000
+	return &pct
 }
 
 // buildPublicPage sayfanın herkese açık JSON'unu hesaplar.
 func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byte, error) {
 	now := s.now().Unix()
 	ids := p.MonitorIDs()
-	data, err := s.publicMonitorData(ctx, ids, p.BarRange, p.ShowTargets, now)
+	data, err := s.publicMonitorData(ctx, ids, p.BarRange, p.ShowTargets, now, p.UptimeWindows...)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +337,7 @@ func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byt
 		Slug: p.Slug, Title: p.Title, Description: p.Description, Footer: p.Footer,
 		HasLogo: p.HasLogo, LogoURL: logoURL(p), UpdatedAt: now, Range: data.barRange, UptimeWindow: data.window,
 		Sections: []publicSection{}, Announcements: []publicAnnouncement{}, Incidents: []publicIncident{},
-		Layout: layout,
+		Layout: layout, IncidentDays: p.IncidentDays, UptimeWindows: store.NormalizeUptimeWindows(p.UptimeWindows),
 	}
 	names := map[int64]string{}
 	var statuses []string
@@ -310,7 +376,7 @@ func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byt
 		return json.Marshal(view)
 	}
 	// Olay nedeni bilerek yok: iç IP ve hata ayrıntısı içerebilir.
-	incs, err := s.store.IncidentsFor(ctx, ids, now-publicIncidentWindow, publicIncidentLimit)
+	incs, err := s.store.IncidentsFor(ctx, ids, now-incidentWindow(p), publicIncidentLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -320,6 +386,14 @@ func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byt
 		}
 	}
 	return json.Marshal(view)
+}
+
+// incidentWindow sayfanın olay penceresi (saniye; ayarı yoksa 14 gün).
+func incidentWindow(p store.StatusPage) int64 {
+	if store.ValidIncidentDays(p.IncidentDays) {
+		return int64(p.IncidentDays) * 86400
+	}
+	return publicIncidentWindow
 }
 
 func toPublicAnnouncements(anns []store.Announcement) []publicAnnouncement {

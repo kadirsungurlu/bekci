@@ -120,6 +120,18 @@ export default {
       'Kapalıyken monitörlerin adresleri gizlenir. Açıksa web sitelerinde alan adı (ör. ornek.com), diğerlerinde sunucu adresi gösterilir.',
     showIncidents: 'Son 14 günün olaylarını göster',
     showIncidentsHelp: 'Kapalıyken sayfada geçmiş kesintiler listelenmez; ziyaretçi yalnızca anlık durumu ve çubukları görür.',
+    incidentDays: 'Olay penceresi',
+    incidentDaysOpt: 'Son {count} gün',
+    incidentDaysHelp: '“Son olaylar” bölümünde ve RSS akışında kaç günlük geçmiş gösterilir.',
+    uptimeWindows: 'Uptime pencereleri',
+    uptimeWindowsHelp:
+      'Monitör satırında gösterilecek uptime yüzdeleri. Hiçbiri seçili değilse çubuk görünümüne göre tek pencere (24 saat ya da 90 gün) gösterilir; birden fazlası seçilirse hepsi yan yana yazılır (ör. 24 sa + 30 g + 90 g).',
+    uptimeWin: {
+      '24h': '24 saat',
+      '7d': '7 gün',
+      '30d': '30 gün',
+      '90d': '90 gün',
+    },
     collapsible: 'Gruplar açılıp kapanabilsin',
     collapsibleHelp:
       'Ziyaretçi grup başlığına tıklayarak grubu daraltabilir; seçimi kendi tarayıcısında hatırlanır. Gruplar başlangıçta açık gelir.',
@@ -186,7 +198,7 @@ export default {
       overall: 'Genel durum',
       announcements: 'Duyurular',
       groups: 'Gruplar ve monitörler',
-      incidents: 'Son 14 günün olayları',
+      incidents: 'Son olaylar',
     },
     blockDesc: {
       overall: '“Tüm sistemler çalışıyor” kutusu',
@@ -254,6 +266,10 @@ export default {
     errEnd: 'Bitiş zamanı başlangıçtan sonra olmalı.',
     updated: 'Duyuru güncellendi',
     added: 'Duyuru eklendi',
+    addedCopies: 'Duyuru eklendi; {count} sayfaya daha kopyalandı',
+    copyTitle: 'Diğer sayfalara da ekle',
+    copyAll: 'Tüm durum sayfaları',
+    copyHelp: 'Seçilen sayfalara aynı duyurunun bağımsız bir kopyası eklenir; sonradan her sayfada ayrı düzenlenir.',
     ended: 'Duyuru yayından kaldırıldı',
     deleteTitle: 'Duyuruyu sil',
     deleteMsg: '“{name}” silinecek.',

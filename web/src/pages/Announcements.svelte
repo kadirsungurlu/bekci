@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { api, errorMessage, type Announcement, type AnnouncementInput, type Severity } from '../lib/api';
+  import { api, errorMessage, type Announcement, type AnnouncementInput, type Severity, type StatusPage } from '../lib/api';
   import { clock, confirmDialog, toast } from '../lib/ui.svelte';
   import { fmtDate, isoLocal, parseLocal } from '../lib/format';
   import Modal from '../components/Modal.svelte';
@@ -53,6 +53,18 @@
   let endsAt = $state('');
   let error = $state('');
   let busy = $state(false);
+  // Eklemede: aynı duyurunun kopyası diğer sayfalara da eklenebilir.
+  let otherPages = $state.raw<StatusPage[]>([]);
+  let copyTo = $state<number[]>([]);
+  let allPages = $state(false);
+
+  async function loadOtherPages() {
+    try {
+      otherPages = (await api.pages()).filter((p) => p.id !== pageId);
+    } catch {
+      otherPages = [];
+    }
+  }
 
   function openForm(a: Announcement | null) {
     editing = a;
@@ -61,8 +73,11 @@
     severity = a?.severity ?? 'info';
     startsAt = a ? isoLocal(a.starts_at) : '';
     endsAt = a?.ends_at ? isoLocal(a.ends_at) : '';
+    copyTo = [];
+    allPages = false;
     error = '';
     open = true;
+    if (!a) loadOtherPages();
   }
 
   async function save(e: SubmitEvent) {
@@ -80,9 +95,11 @@
         list = list.map((x) => (x.id === res.id ? res : x));
         toast.success(t('pages.ann.updated'));
       } else {
+        if (allPages) input.all_pages = true;
+        else if (copyTo.length) input.page_ids = copyTo;
         const res = await api.createAnnouncement(pageId, input);
         list = [...list, res];
-        toast.success(t('pages.ann.added'));
+        toast.success(res.copies ? t('pages.ann.addedCopies', { count: res.copies }) : t('pages.ann.added'));
       }
       open = false;
     } catch (err) {
@@ -201,6 +218,26 @@
         <input id="an-e" class="input" type="datetime-local" bind:value={endsAt} />
       </div>
     </div>
+    {#if !editing && otherPages.length}
+      <fieldset class="copy">
+        <legend class="label">{t('pages.ann.copyTitle')}</legend>
+        <label class="check inline">
+          <input type="checkbox" bind:checked={allPages} />
+          <span>{t('pages.ann.copyAll')}</span>
+        </label>
+        {#if !allPages}
+          <div class="copy-list">
+            {#each otherPages as p (p.id)}
+              <label class="check inline">
+                <input type="checkbox" value={p.id} bind:group={copyTo} />
+                <span>{p.title} <span class="muted small">/durum/{p.slug}</span></span>
+              </label>
+            {/each}
+          </div>
+        {/if}
+        <span class="help">{t('pages.ann.copyHelp')}</span>
+      </fieldset>
+    {/if}
     {#if error}<div class="alert error" role="alert">{error}</div>{/if}
   </form>
   {#snippet footer()}
@@ -300,6 +337,31 @@
   textarea.plain {
     font-family: var(--font);
     font-size: 0.92rem;
+  }
+  .copy {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 12px 10px;
+    margin: 0;
+    min-width: 0;
+  }
+  .copy legend {
+    padding: 0 6px;
+  }
+  .copy .check.inline {
+    padding: 3px 0;
+  }
+  .copy-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 12px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  @media (max-width: 640px) {
+    .copy-list {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
   .spacer {
     flex: 1;

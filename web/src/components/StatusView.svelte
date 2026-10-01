@@ -303,6 +303,12 @@
   }
   const upWinShown = $derived(partialDays ? t('pub.upWinDays', { count }) : upWin);
   const showUptime = $derived(layout.show_uptime);
+  // Birden fazla uptime penceresi seçiliyse (24 sa + 30 g + 90 g gibi) her
+  // monitörde pencere başına yüzde gösterilir; tek pencerede eski görünüm.
+  const multiWins = $derived((page.uptime_windows ?? []).length > 0 ? (page.uptime_windows ?? []) : []);
+  const winLabel = (w: string) => t(`pub.upWin.${w}` as TKey);
+  const winOf = (m: PublicMonitor, w: string): number | null | undefined => m.uptimes?.[w];
+  const incidentDays = $derived(page.incident_days ?? 14);
 
   // Dokunmatik ekranda çubuğa dokununca bilgisi çubukların altında gösterilir.
   let picked = $state<{ key: string; i: number } | null>(null);
@@ -418,7 +424,16 @@
         {#if m.target}<span class="m-target" title={m.target}>{targetLabel(m.target)}</span>{/if}
       </div>
       <div class="m-right">
-        {#if showUptime}
+        {#if showUptime && multiWins.length}
+          <span class="m-ups">
+            {#each multiWins as w (w)}
+              <span class="m-up {upTone(winOf(m, w))}" title="{winLabel(w)}: {fmtPct(winOf(m, w))}">
+                <b>{fmtPct(winOf(m, w))}</b>
+                <span>{winLabel(w)}</span>
+              </span>
+            {/each}
+          </span>
+        {:else if showUptime}
           <span class="m-up {upTone(upFor(m, bars))}" title={partialDays ? upWinShown : uptimeLabel}>
             <b>{fmtPct(upFor(m, bars))}</b>
             <span>{upWinShown}</span>
@@ -453,7 +468,13 @@
       <span class="m-t">{m.name}</span>
       {#if m.target}<span class="m-target" title={m.target}>{targetLabel(m.target)}</span>{/if}
     </span>
-    {#if showUptime}
+    {#if showUptime && multiWins.length}
+      <span class="c-ups">
+        {#each multiWins as w (w)}
+          <span class="c-up {upTone(winOf(m, w))}" title="{winLabel(w)}: {fmtPct(winOf(m, w))}">{fmtPct(winOf(m, w))}<small>{winLabel(w)}</small></span>
+        {/each}
+      </span>
+    {:else if showUptime}
       <span class="c-up {upTone(upOf(m))}" title="{uptimeLabel}: {fmtPct(upOf(m))}">{fmtPct(upOf(m))}</span>
     {:else}
       <span></span>
@@ -484,7 +505,16 @@
         <span class="bar {barKind(b)}" class:sel={picked?.key === key && picked.i === i} data-i={i} data-tip={barTip(b)}></span>
       {/each}
     </div>
-    {#if showUptime}
+    {#if showUptime && multiWins.length}
+      <span class="r-ups">
+        {#each multiWins as w (w)}
+          <span class="r-up {rowTone(winOf(m, w))}" title="{winLabel(w)}: {fmtPct(winOf(m, w))}">
+            <b>{fmtPct(winOf(m, w))}</b>
+            <span>{winLabel(w)}</span>
+          </span>
+        {/each}
+      </span>
+    {:else if showUptime}
       <span class="r-up {rowTone(upFor(m, bars))}" title={partialDays ? upWinShown : uptimeLabel}>
         <b>{fmtPct(upFor(m, bars))}</b>
         <span>{upWinShown}</span>
@@ -567,7 +597,7 @@
 {#snippet incidentList()}
   <section class="panel inc">
     <div class="inc-h">
-      <h2>{t('pub.incidentsTitle')}</h2>
+      <h2>{t('pub.incidentsTitleN', { count: incidentDays })}</h2>
       {#if incidents.length}<span class="g-count">{incidents.length}</span>{/if}
     </div>
     {#if incidents.length === 0}
@@ -1023,6 +1053,45 @@
   .m-up.none b,
   .c-up.none {
     color: var(--muted);
+  }
+  /* Birden fazla uptime penceresi: yan yana küçük sütunlar. */
+  .m-ups,
+  .r-ups {
+    display: flex;
+    gap: 14px;
+    align-items: flex-end;
+  }
+  .m-ups .m-up b,
+  .r-ups .r-up b {
+    font-size: 0.95rem;
+  }
+  .c-ups {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+  .c-ups .c-up {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.1;
+    font-size: 0.88rem;
+  }
+  .c-ups .c-up small {
+    font-size: 0.66rem;
+    font-weight: 500;
+    color: var(--text-2);
+    white-space: nowrap;
+  }
+  @media (max-width: 480px) {
+    .m-ups,
+    .r-ups {
+      gap: 8px;
+    }
+    .m-ups .m-up span,
+    .r-ups .r-up span {
+      font-size: 0.66rem;
+    }
   }
   .bars {
     display: flex;

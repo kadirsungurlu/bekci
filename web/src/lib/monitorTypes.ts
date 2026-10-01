@@ -1192,7 +1192,8 @@ export const isRemoteCapable = (key: string) => BY_KEY.get(key)?.remote !== fals
 /** Adresi tarayıcıda açılabilen tipler (hedef bağlantı olarak gösterilir). */
 export const isWebTarget = (key: string) => key === 'http';
 
-export const GROUP_MODES: { v: 'any_down' | 'all_down'; l: string }[] = [
+export type GroupMode = 'any_down' | 'all_down' | 'percent_down';
+export const GROUP_MODES: { v: GroupMode; l: string }[] = [
   {
     v: 'any_down',
     get l() {
@@ -1203,6 +1204,12 @@ export const GROUP_MODES: { v: 'any_down' | 'all_down'; l: string }[] = [
     v: 'all_down',
     get l() {
       return t('monitorTypes.groupModes.allDown');
+    },
+  },
+  {
+    v: 'percent_down',
+    get l() {
+      return t('monitorTypes.groupModes.percentDown');
     },
   },
 ];

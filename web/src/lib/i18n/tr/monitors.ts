@@ -385,6 +385,7 @@ export default {
       dnsPortRange: 'DNS sunucu portu 1-65535 arasında olmalı',
       groupEmpty: 'En az bir alt monitör seçin',
       groupSelf: 'Grup kendisini alt monitör olarak içeremez',
+      groupPercent: 'Grup eşiği %0-99 arasında olmalı',
       locEmpty: 'Konumlar: en az bir konum seçin',
       retryIntervalRange: 'Tekrar deneme aralığı 20 saniye ile 24 saat arasında olmalı',
       retriesRange: 'Tekrar deneme sayısı 0-20 arasında olmalı',

@@ -4,8 +4,11 @@
     api,
     ApiError,
     errorMessage,
+    INCIDENT_DAY_OPTIONS,
+    UPTIME_WINDOWS,
     type BarRange,
     type PageBlockId,
+    type UptimeWindow,
     type PageInput,
     type PageLayout,
     type PageStyle,
@@ -58,6 +61,9 @@
   let showTargets = $state(false);
   let collapsible = $state(false);
   let barRange = $state<BarRange>('recent');
+  // Olay penceresi (gün) ve monitör satırlarındaki uptime pencereleri (boş: tek pencere).
+  let incidentDays = $state<number>(14);
+  let uptimeWindows = $state<UptimeWindow[]>([]);
   // Yeni sayfanın dili, oluşturan yöneticinin arayüz dili (sonradan değiştirilebilir).
   let pageLang = $state<Locale>(i18n.locale);
   let published = $state(true);
@@ -100,6 +106,8 @@
     layout = normalizeLayout(p.layout, p.show_incidents ?? true);
     collapsible = p.collapsible ?? false;
     barRange = p.bar_range ?? 'recent';
+    incidentDays = p.incident_days ?? 14;
+    uptimeWindows = [...(p.uptime_windows ?? [])];
     pageLang = p.lang ?? 'tr';
     published = p.published;
     pwMode = 'keep';
@@ -135,6 +143,8 @@
     layout: [layout.style, layout.width, layout.show_uptime, layout.blocks.map((b) => (b.visible ? b.id : `-${b.id}`))],
     collapsible,
     barRange,
+    incidentDays,
+    uptimeWindows: [...uptimeWindows].sort(),
     pageLang,
     published,
     pwMode,
@@ -390,6 +400,8 @@
       },
       collapsible,
       bar_range: barRange,
+      incident_days: incidentDays,
+      uptime_windows: uptimeWindows,
       lang: pageLang,
       published,
     };
@@ -497,6 +509,8 @@
     collapsible,
     lang: pageLang,
     logo: page?.has_logo ? `/api/status-pages/${page.id}/logo?v=${page.updated_at}` : '',
+    incidentDays,
+    uptimeWindows,
   });
 
   const publicUrl = $derived(page ? `${location.origin}/durum/${page.slug}` : '');
@@ -852,6 +866,27 @@
         <span class="help">{t('pages.editor.barsHelp')}</span>
       </div>
       <div class="field">
+        <span class="label" id="up-wins-l">{t('pages.editor.uptimeWindows')}</span>
+        <div class="win-row" role="group" aria-labelledby="up-wins-l">
+          {#each UPTIME_WINDOWS as w (w)}
+            <label class="check inline">
+              <input type="checkbox" value={w} bind:group={uptimeWindows} />
+              <span>{t(`pages.editor.uptimeWin.${w}`)}</span>
+            </label>
+          {/each}
+        </div>
+        <span class="help">{t('pages.editor.uptimeWindowsHelp')}</span>
+      </div>
+      <div class="field">
+        <label for="inc-days">{t('pages.editor.incidentDays')}</label>
+        <select id="inc-days" class="input" bind:value={incidentDays}>
+          {#each INCIDENT_DAY_OPTIONS as d (d)}
+            <option value={d}>{t('pages.editor.incidentDaysOpt', { count: d })}</option>
+          {/each}
+        </select>
+        <span class="help">{t('pages.editor.incidentDaysHelp')}</span>
+      </div>
+      <div class="field">
         <label for="page-lang">{t('pages.lang.label')}</label>
         <select id="page-lang" class="input" bind:value={pageLang}>
           {#each LOCALES as l (l)}
@@ -1036,6 +1071,15 @@
 </Modal>
 
 <style>
+  /* Uptime pencereleri: yan yana kutucuklar. */
+  .win-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 18px;
+  }
+  .win-row .check.inline {
+    padding: 4px 0;
+  }
   /* Geniş ekranda form ve canlı önizleme yan yana. */
   .ed.with-side {
     display: grid;

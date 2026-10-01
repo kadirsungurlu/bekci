@@ -164,7 +164,7 @@ func (s *Server) feedItems(r *http.Request, p store.StatusPage, lang, pageURL st
 				names[pm.ID] = pm.Name
 			}
 		}
-		incs, err := s.store.IncidentsFor(ctx, p.MonitorIDs(), now-publicIncidentWindow, publicIncidentLimit)
+		incs, err := s.store.IncidentsFor(ctx, p.MonitorIDs(), now-incidentWindow(p), publicIncidentLimit)
 		if err != nil {
 			return nil, err
 		}

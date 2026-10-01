@@ -138,6 +138,7 @@ func (s *Server) buildExport(ctx context.Context) (*backup.Doc, error) {
 			Slug: p.Slug, Title: p.Title, Description: p.Description, Footer: p.Footer,
 			CustomDomain: p.CustomDomain, PasswordHash: p.PasswordHash, ShowTargets: p.ShowTargets,
 			BarRange: p.BarRange, ShowIncidents: &p.ShowIncidents, Collapsible: p.Collapsible, Lang: p.Lang, Published: p.Published, Sections: []backup.PageSection{}, Announcements: []backup.Announcement{},
+			IncidentDays: p.IncidentDays, UptimeWindows: p.UptimeWindows,
 		}
 		showUptime := p.Layout.UptimeShown()
 		bl := backup.PageLayout{Style: p.Layout.Style, Width: p.Layout.Width, Blocks: []backup.PageBlock{}, ShowUptime: &showUptime}
@@ -654,7 +655,7 @@ func planPage(bp backup.Page, known map[int64]bool, slugs, domains, selfHosts ma
 		Description: strings.TrimSpace(bp.Description), Footer: strings.TrimSpace(bp.Footer),
 		ShowTargets: bp.ShowTargets, Published: bp.Published, BarRange: bp.BarRange,
 		ShowIncidents: bp.ShowIncidents == nil || *bp.ShowIncidents, Collapsible: bp.Collapsible,
-		Lang: i18n.Or(bp.Lang),
+		Lang: i18n.Or(bp.Lang), IncidentDays: bp.IncidentDays, UptimeWindows: store.NormalizeUptimeWindows(bp.UptimeWindows),
 	}
 	if bp.Layout != nil {
 		l := store.PageLayout{Style: bp.Layout.Style, Width: bp.Layout.Width, ShowUptime: bp.Layout.ShowUptime}

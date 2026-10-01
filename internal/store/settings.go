@@ -23,10 +23,43 @@ type AppSettings struct {
 	// CheckUserAgent kontrol isteklerinin User-Agent'ı; boş: varsayılan
 	// (check.DefaultUserAgent, "Bekci" içerir). Kontrol noktalarına da gider.
 	CheckUserAgent string `json:"check_user_agent"`
+
+	// Saklama süreleri (gün; 0 = süresiz). Eski kayıtlarda alan yoksa
+	// varsayılanlar (365 / 90 / 365) geçerlidir: davranış değişmez.
+	RetentionIncidentDays *int `json:"retention_incident_days"` // çözülmüş olaylar (işlem geçmişiyle)
+	RetentionCaptureDays  *int `json:"retention_capture_days"`  // olayı açan istek/yanıt kaydı
+	RetentionAuditDays    *int `json:"retention_audit_days"`    // işlem kaydı
 }
 
+// Saklama varsayılanları (gün).
+const (
+	DefaultIncidentKeepDays = IncidentKeepDays
+	DefaultCaptureKeepDays  = CaptureKeepDays
+	DefaultAuditKeepDays    = 365
+)
+
+func intPtr(n int) *int { return &n }
+
 func DefaultSettings() AppSettings {
-	return AppSettings{RetentionRawDays: 14, RetentionHourlyDays: 365, CertDays: []int{21, 14, 7, 3, 1}, BackupKeep: 7, NotifyLang: i18n.Default}
+	return AppSettings{RetentionRawDays: 14, RetentionHourlyDays: 365, CertDays: []int{21, 14, 7, 3, 1}, BackupKeep: 7, NotifyLang: i18n.Default,
+		RetentionIncidentDays: intPtr(DefaultIncidentKeepDays), RetentionCaptureDays: intPtr(DefaultCaptureKeepDays), RetentionAuditDays: intPtr(DefaultAuditKeepDays)}
+}
+
+// IncidentKeep / CaptureKeep / AuditKeep saklama süreleri (gün; 0 = süresiz;
+// alan yoksa varsayılan).
+func (a AppSettings) IncidentKeep() int {
+	return orDefault(a.RetentionIncidentDays, DefaultIncidentKeepDays)
+}
+func (a AppSettings) CaptureKeep() int {
+	return orDefault(a.RetentionCaptureDays, DefaultCaptureKeepDays)
+}
+func (a AppSettings) AuditKeep() int { return orDefault(a.RetentionAuditDays, DefaultAuditKeepDays) }
+
+func orDefault(p *int, def int) int {
+	if p == nil {
+		return def
+	}
+	return *p
 }
 
 // Validate hatalıysa Türkçe açıklama döner; CertDays'i sıralar ve tekilleştirir.
@@ -69,6 +102,24 @@ func (a *AppSettings) Validate() error {
 	a.CertDays = days
 	if a.BackupKeep < 0 || a.BackupKeep > 60 {
 		return fmt.Errorf("Saklanacak yedek sayısı 0-60 olmalı (0: yedek alma)")
+	}
+	if a.RetentionIncidentDays == nil {
+		a.RetentionIncidentDays = intPtr(DefaultIncidentKeepDays)
+	}
+	if a.RetentionCaptureDays == nil {
+		a.RetentionCaptureDays = intPtr(DefaultCaptureKeepDays)
+	}
+	if a.RetentionAuditDays == nil {
+		a.RetentionAuditDays = intPtr(DefaultAuditKeepDays)
+	}
+	if d := *a.RetentionIncidentDays; d != 0 && (d < 7 || d > 3650) {
+		return fmt.Errorf("Olay saklama süresi 7-3650 gün ya da 0 (süresiz) olmalı")
+	}
+	if d := *a.RetentionCaptureDays; d != 0 && (d < 1 || d > 3650) {
+		return fmt.Errorf("İstek/yanıt kaydı saklama süresi 1-3650 gün ya da 0 (süresiz) olmalı")
+	}
+	if d := *a.RetentionAuditDays; d != 0 && (d < 7 || d > 3650) {
+		return fmt.Errorf("İşlem kaydı saklama süresi 7-3650 gün ya da 0 (süresiz) olmalı")
 	}
 	if a.NotifyLang == "" {
 		a.NotifyLang = i18n.Default

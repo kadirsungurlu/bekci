@@ -204,11 +204,12 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 			id, err := insertID(ctx, tx, `
 				INSERT INTO status_pages (slug, title, description, footer, sections, custom_domain,
 					password_hash, show_targets, published, logo, logo_type, created_at, updated_at, bar_range,
-					show_incidents, collapsible, lang, layout)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					show_incidents, collapsible, lang, layout, incident_days, uptime_windows)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				p.Slug, p.Title, p.Description, p.Footer, string(sj), nullStr(p.CustomDomain),
 				nullStr(p.PasswordHash), boolInt(p.ShowTargets), boolInt(p.Published), logo, ip.LogoType, now, now,
-				barRangeOr(p.BarRange), boolInt(p.ShowIncidents), boolInt(p.Collapsible), pageLangOr(p.Lang), encodeLayout(p.Layout))
+				barRangeOr(p.BarRange), boolInt(p.ShowIncidents), boolInt(p.Collapsible), pageLangOr(p.Lang), encodeLayout(p.Layout),
+				incidentDaysOr(p.IncidentDays), encodeWindows(p.UptimeWindows))
 			if err != nil {
 				return err
 			}

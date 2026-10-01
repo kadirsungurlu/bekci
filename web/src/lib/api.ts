@@ -663,6 +663,10 @@ export interface AppSettings {
   check_user_agent?: string;
   /** Yalnızca okunur: varsayılan User-Agent (GET yanıtında). */
   default_user_agent?: string;
+  /** Saklama süreleri (gün; 0 = süresiz). Eski sunucuda gelmez → 365 / 90 / 365. */
+  retention_incident_days?: number;
+  retention_capture_days?: number;
+  retention_audit_days?: number;
 }
 
 export interface BeatEvent {
@@ -708,6 +712,10 @@ export interface StatusPage {
   lang?: Locale;
   /** Yerleşim, genişlik ve bölüm sırası (eski sunucuda gelmez: varsayılan). */
   layout?: PageLayout;
+  /** Olay bölümünün penceresi (gün; eski sunucuda gelmez: 14). */
+  incident_days?: number;
+  /** Uptime pencereleri (boş: çubuk kapsamına göre tek pencere). */
+  uptime_windows?: UptimeWindow[];
   published: boolean;
   has_logo: boolean;
   created_at: number;
@@ -750,6 +758,9 @@ export interface PageInput {
   published: boolean;
   /** Gönderilmezse değişmez, "" kaldırır, dolu değer yeni şifredir. */
   password?: string;
+  /** Gönderilmezse değişmez. */
+  incident_days?: number;
+  uptime_windows?: UptimeWindow[];
 }
 
 export type Severity = 'info' | 'warning' | 'danger' | 'success';
@@ -772,6 +783,9 @@ export interface AnnouncementInput {
   severity: Severity;
   starts_at: number;
   ends_at: number;
+  /** Yalnızca eklemede: kopyası eklenecek diğer sayfalar / tüm sayfalar. */
+  page_ids?: number[];
+  all_pages?: boolean;
 }
 
 /**
@@ -823,7 +837,15 @@ export interface PublicMonitor {
   uptime_90d: number | null;
   bars: PublicBar[];
   target?: string;
+  /** Sayfada birden fazla uptime penceresi seçiliyse pencere → yüzde (veri yoksa null). */
+  uptimes?: Record<string, number | null>;
 }
+
+/** Durum sayfasındaki uptime pencereleri (sabit sıra). */
+export type UptimeWindow = '24h' | '7d' | '30d' | '90d';
+export const UPTIME_WINDOWS: UptimeWindow[] = ['24h', '7d', '30d', '90d'];
+/** Olay bölümünün penceresi (gün). */
+export const INCIDENT_DAY_OPTIONS = [7, 14, 30, 90] as const;
 
 export interface PublicAnnouncement {
   id: number;
@@ -859,6 +881,10 @@ export interface PublicPage {
   has_password?: boolean;
   /** Yerleşim, genişlik ve bölüm sırası (eski sunucuda gelmez: varsayılan). */
   layout?: PageLayout;
+  /** Olay bölümünün penceresi (gün; eski sunucuda gelmez: 14). */
+  incident_days?: number;
+  /** Monitör satırlarında gösterilen uptime pencereleri (boş: tek pencere, uptime_window). */
+  uptime_windows?: UptimeWindow[];
 }
 
 /** Şifreli sayfanın 401 yanıtı. */
@@ -1267,14 +1293,21 @@ export const api = {
   updatePage: (id: number, p: PageInput) => put<StatusPage>(`/api/status-pages/${id}`, p),
   deletePage: (id: number) => del<{ ok: boolean }>(`/api/status-pages/${id}`),
   previewPage: (id: number) => get<PublicPage>(`/api/status-pages/${id}/preview`),
-  pagePreviewData: (body: { page_id?: number; monitor_ids: number[]; bar_range: BarRange; show_targets: boolean }) =>
+  pagePreviewData: (body: {
+    page_id?: number;
+    monitor_ids: number[];
+    bar_range: BarRange;
+    show_targets: boolean;
+    incident_days?: number;
+    uptime_windows?: UptimeWindow[];
+  }) =>
     post<PagePreviewData>('/api/status-pages/preview-data', body),
   uploadLogo: (id: number, file: File) =>
     request<StatusPage>('PUT', `/api/status-pages/${id}/logo`, undefined, { type: file.type, data: file }),
   deleteLogo: (id: number) => del<StatusPage>(`/api/status-pages/${id}/logo`),
   announcements: (pageId: number) => get<Announcement[]>(`/api/status-pages/${pageId}/announcements`),
   createAnnouncement: (pageId: number, a: AnnouncementInput) =>
-    post<Announcement>(`/api/status-pages/${pageId}/announcements`, a),
+    post<Announcement & { copies?: number }>(`/api/status-pages/${pageId}/announcements`, a),
   updateAnnouncement: (id: number, a: AnnouncementInput) => put<Announcement>(`/api/announcements/${id}`, a),
   deleteAnnouncement: (id: number) => del<{ ok: boolean }>(`/api/announcements/${id}`),
 

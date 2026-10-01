@@ -69,6 +69,34 @@ func TestAggregateGroup(t *testing.T) {
 	if r := AggregateGroup(GroupAnyDown, many); !strings.HasSuffix(r.Message, "M10 ve 2 diğer") {
 		t.Errorf("uzun liste kısaltılmalı: %q", r.Message)
 	}
+
+	// "%N'den fazlası" modu: 4 monitörün 2'si DOWN → %50'den fazla değil (çalışıyor);
+	// 3'ü DOWN → fazla (çalışmıyor); bekleyenler eşiği aşabiliyorsa karar beklenir.
+	pct := []struct {
+		name     string
+		percent  int
+		children []ChildStatus
+		up, pend bool
+	}{
+		{"yarısı DOWN, eşik 50", 50, []ChildStatus{child(1, down), child(2, down), child(3, up), child(4, up)}, true, false},
+		{"üçü DOWN, eşik 50", 50, []ChildStatus{child(1, down), child(2, down), child(3, down), child(4, up)}, false, false},
+		{"eşik 0: biri DOWN", 0, []ChildStatus{child(1, down), child(2, up)}, false, false},
+		{"bekleyenle eşik aşılabilir", 50, []ChildStatus{child(1, down), child(2, down), child(3, pend), child(4, up)}, false, true},
+		{"bekleyen eşiği aşamaz", 75, []ChildStatus{child(1, down), child(2, pend), child(3, up), child(4, up)}, true, false},
+		{"durdurulmuş sayılmaz", 50, []ChildStatus{child(1, down), child(2, down), child(3, up), paused}, false, false},
+	}
+	for _, c := range pct {
+		r := AggregateGroupPct(GroupPercentDown, c.percent, c.children)
+		if r.Up != c.up || r.Pending != c.pend {
+			t.Errorf("%s: %+v; up=%v pending=%v bekleniyordu", c.name, r, c.up, c.pend)
+		}
+	}
+	if _, err := (groupChecker{}).Normalize([]byte(`{"monitor_ids":[1],"mode":"percent_down","percent":120}`)); err == nil {
+		t.Error("yüzde sınırı denetlenmeli")
+	}
+	if cfg, err := (groupChecker{}).Normalize([]byte(`{"monitor_ids":[1],"mode":"any_down","percent":40}`)); err != nil || strings.Contains(string(cfg), "percent") {
+		t.Errorf("any_down'da yüzde saklanmamalı: %s %v", cfg, err)
+	}
 }
 
 func TestGroupCheckSource(t *testing.T) {

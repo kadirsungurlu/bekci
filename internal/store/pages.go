@@ -39,12 +39,17 @@ type StatusPage struct {
 	Lang string `json:"lang"`
 	// Layout yerleşim, genişlik ve bölüm sırası (migration 17). Olaylar
 	// bölümünün görünürlüğü ShowIncidents'ın aynısıdır.
-	Layout       PageLayout `json:"layout"`
-	Published    bool       `json:"published"`
-	HasLogo      bool       `json:"has_logo"`
-	CreatedAt    int64      `json:"created_at"`
-	UpdatedAt    int64      `json:"updated_at"`
-	PasswordHash string     `json:"-"`
+	Layout PageLayout `json:"layout"`
+	// IncidentDays olay bölümünün penceresi (7/14/30/90 gün); UptimeWindows
+	// monitör satırlarındaki uptime yüzdelerinin pencereleri (boş = çubuk
+	// kapsamına göre tek pencere). Migration 24.
+	IncidentDays  int      `json:"incident_days"`
+	UptimeWindows []string `json:"uptime_windows"`
+	Published     bool     `json:"published"`
+	HasLogo       bool     `json:"has_logo"`
+	CreatedAt     int64    `json:"created_at"`
+	UpdatedAt     int64    `json:"updated_at"`
+	PasswordHash  string   `json:"-"`
 }
 
 // MonitorIDs sayfadaki tüm monitörlerin kimlikleri.
@@ -60,22 +65,26 @@ func (p StatusPage) MonitorIDs() []int64 {
 
 const pageCols = `id, slug, title, description, footer, sections, custom_domain, password_hash,
 	show_targets, published, CASE WHEN logo IS NULL THEN 0 ELSE 1 END, created_at, updated_at, bar_range,
-	show_incidents, collapsible, lang, layout`
+	show_incidents, collapsible, lang, layout, incident_days, uptime_windows`
 
 func scanPage(sc scanner) (StatusPage, error) {
 	var (
 		p        StatusPage
 		sections string
 		layout   string
+		windows  string
 		domain   sql.NullString
 		pw       sql.NullString
 	)
 	err := sc.Scan(&p.ID, &p.Slug, &p.Title, &p.Description, &p.Footer, &sections, &domain, &pw,
-		&p.ShowTargets, &p.Published, &p.HasLogo, &p.CreatedAt, &p.UpdatedAt, &p.BarRange, &p.ShowIncidents, &p.Collapsible, &p.Lang, &layout)
+		&p.ShowTargets, &p.Published, &p.HasLogo, &p.CreatedAt, &p.UpdatedAt, &p.BarRange, &p.ShowIncidents, &p.Collapsible, &p.Lang, &layout,
+		&p.IncidentDays, &windows)
 	if err != nil {
 		return p, err
 	}
 	p.Layout = decodeLayout(layout, p.ShowIncidents)
+	p.IncidentDays = incidentDaysOr(p.IncidentDays)
+	p.UptimeWindows = decodeWindows(windows)
 	p.CustomDomain = domain.String
 	p.PasswordHash = pw.String
 	p.HasPassword = pw.String != ""
@@ -148,11 +157,13 @@ func (s *Store) CreatePage(ctx context.Context, p *StatusPage) error {
 	sections, _ := json.Marshal(p.Sections)
 	return s.db.QueryRowContext(ctx, `
 		INSERT INTO status_pages (slug, title, description, footer, sections, custom_domain,
-			password_hash, show_targets, published, created_at, updated_at, bar_range, show_incidents, collapsible, lang, layout)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+			password_hash, show_targets, published, created_at, updated_at, bar_range, show_incidents, collapsible, lang, layout,
+			incident_days, uptime_windows)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 		p.Slug, p.Title, p.Description, p.Footer, string(sections), nullStr(p.CustomDomain),
 		nullStr(p.PasswordHash), boolInt(p.ShowTargets), boolInt(p.Published), now, now, barRangeOr(p.BarRange),
-		boolInt(p.ShowIncidents), boolInt(p.Collapsible), pageLangOr(p.Lang), encodeLayout(p.Layout)).Scan(&p.ID)
+		boolInt(p.ShowIncidents), boolInt(p.Collapsible), pageLangOr(p.Lang), encodeLayout(p.Layout),
+		incidentDaysOr(p.IncidentDays), encodeWindows(p.UptimeWindows)).Scan(&p.ID)
 }
 
 // UpdatePage logo dışındaki alanları günceller (PasswordHash dahil; çağıran
@@ -164,11 +175,12 @@ func (s *Store) UpdatePage(ctx context.Context, p *StatusPage) error {
 	res, err := s.db.ExecContext(ctx, `
 		UPDATE status_pages SET slug = ?, title = ?, description = ?, footer = ?, sections = ?,
 			custom_domain = ?, password_hash = ?, show_targets = ?, published = ?, updated_at = ?,
-			bar_range = ?, show_incidents = ?, collapsible = ?, lang = ?, layout = ?
+			bar_range = ?, show_incidents = ?, collapsible = ?, lang = ?, layout = ?, incident_days = ?, uptime_windows = ?
 		WHERE id = ?`,
 		p.Slug, p.Title, p.Description, p.Footer, string(sections), nullStr(p.CustomDomain),
 		nullStr(p.PasswordHash), boolInt(p.ShowTargets), boolInt(p.Published), p.UpdatedAt,
-		barRangeOr(p.BarRange), boolInt(p.ShowIncidents), boolInt(p.Collapsible), pageLangOr(p.Lang), encodeLayout(p.Layout), p.ID)
+		barRangeOr(p.BarRange), boolInt(p.ShowIncidents), boolInt(p.Collapsible), pageLangOr(p.Lang), encodeLayout(p.Layout),
+		incidentDaysOr(p.IncidentDays), encodeWindows(p.UptimeWindows), p.ID)
 	if err != nil {
 		return err
 	}

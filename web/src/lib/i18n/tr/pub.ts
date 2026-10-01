@@ -63,8 +63,11 @@ export default {
   heroCount: '{count} servis izleniyor',
   upWin: {
     '24h': 'son 24 saat',
+    '7d': 'son 7 gün',
+    '30d': 'son 30 gün',
     '90d': 'son 90 gün',
   },
+  incidentsTitleN: 'Son {count} günün olayları',
   startedAt: 'Başlangıç: {time}',
   duration: 'Süre: {d}',
   resolvedAt: 'Çözüldü: {time}',

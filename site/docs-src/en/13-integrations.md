@@ -150,7 +150,7 @@ https://⟦bekci.example.com⟧/durum/⟦slug⟧/feed.xml
 https://⟦bekci.example.com⟧/api/public/pages/⟦slug⟧/feed.xml
 ```
 
-The feed contains the last 14 days of incidents (if **Show incidents** is on for the page; start, resolution and duration — never the cause) and published announcements (expired ones included, future-dated ones excluded) in the page's language; when an ongoing incident is resolved, a separate entry is added. Slack, Teams or any RSS reader can subscribe to the address.
+The feed contains the incidents within the page's incident window (last 14 days by default; 7/14/30/90 in the editor) (if **Show incidents** is on for the page; start, resolution and duration — never the cause) and published announcements (expired ones included, future-dated ones excluded) in the page's language; when an ongoing incident is resolved, a separate entry is added. Slack, Teams or any RSS reader can subscribe to the address.
 
 > [!NOTE]
 > The feed of a password-protected page is only served to a browser that has entered the password; there is no token for RSS readers. That is why the RSS link is not shown on protected pages.

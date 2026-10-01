@@ -63,6 +63,9 @@ export default {
   groupModes: {
     anyDown: 'Biri bile çalışmıyorsa grup çalışmıyor',
     allDown: 'Hepsi çalışmıyorsa grup çalışmıyor',
+    percentDown: '%N’den fazlası çalışmıyorsa grup çalışmıyor',
+    percentLabel: 'Eşik (%)',
+    percentHelp: 'Çalışmayan alt monitörlerin oranı bu yüzdeden fazlaysa grup çalışmıyor sayılır. 50: yarısından fazlası.',
   },
   /** Örnek değerler (yer tutucular). */
   ph: {

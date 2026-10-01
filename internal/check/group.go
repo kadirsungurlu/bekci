@@ -16,8 +16,9 @@ const TypeGroup = "group"
 
 // Grup modları.
 const (
-	GroupAnyDown = "any_down" // herhangi bir alt monitör DOWN ise grup DOWN (varsayılan)
-	GroupAllDown = "all_down" // yalnızca tüm alt monitörler DOWN ise grup DOWN
+	GroupAnyDown     = "any_down"     // herhangi bir alt monitör DOWN ise grup DOWN (varsayılan)
+	GroupAllDown     = "all_down"     // yalnızca tüm alt monitörler DOWN ise grup DOWN
+	GroupPercentDown = "percent_down" // alt monitörlerin %Percent'inden FAZLASI DOWN ise grup DOWN
 )
 
 const maxGroupChildren = 1000
@@ -25,6 +26,9 @@ const maxGroupChildren = 1000
 type GroupConfig struct {
 	MonitorIDs []int64 `json:"monitor_ids"`
 	Mode       string  `json:"mode"`
+	// Percent yalnızca percent_down modunda: eşik yüzdesi (0-99; çalışmayan
+	// oranı bundan büyükse grup çalışmıyor). 50 = "yarısından fazlası".
+	Percent int `json:"percent,omitempty"`
 }
 
 // ChildStatus bir alt monitörün grup için gereken bilgisi.
@@ -68,8 +72,13 @@ func (groupChecker) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 	case "":
 		c.Mode = GroupAnyDown
 	case GroupAnyDown, GroupAllDown:
+		c.Percent = 0
+	case GroupPercentDown:
+		if c.Percent < 0 || c.Percent > 99 {
+			return nil, invalid("Grup eşiği %%0-99 arasında olmalı")
+		}
 	default:
-		return nil, invalid("Grup modu any_down veya all_down olmalı")
+		return nil, invalid("Grup modu any_down, all_down veya percent_down olmalı")
 	}
 	ids := make([]int64, 0, len(c.MonitorIDs))
 	seen := map[int64]bool{}
@@ -114,12 +123,19 @@ func (groupChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 			children = append(children, c)
 		}
 	}
-	return AggregateGroup(cfg.Mode, children)
+	return AggregateGroupPct(cfg.Mode, cfg.Percent, children)
 }
 
-// AggregateGroup alt monitör durumlarından grup sonucunu hesaplar.
-// Durdurulmuş ve bakımdaki alt monitörler hesaba katılmaz.
+// AggregateGroup alt monitör durumlarından grup sonucunu hesaplar (any_down / all_down).
 func AggregateGroup(mode string, children []ChildStatus) Result {
+	return AggregateGroupPct(mode, 0, children)
+}
+
+// AggregateGroupPct AggregateGroup; percent_down modunda çalışmayanların oranı
+// percent'ten büyükse grup çalışmıyor (eşit değilse: "%50'den fazlası" 4
+// monitörün 2'sinde çalışır sayılır, 3'ünde çalışmıyor). Durdurulmuş ve
+// bakımdaki alt monitörler hesaba katılmaz.
+func AggregateGroupPct(mode string, percent int, children []ChildStatus) Result {
 	var downNames, pendingNames []string
 	var up, paused, maint int
 	for _, c := range children {
@@ -151,9 +167,15 @@ func AggregateGroup(mode string, children []ChildStatus) Result {
 
 	isDown := len(downNames) > 0
 	isPending := len(pendingNames) > 0
-	if mode == GroupAllDown {
+	switch mode {
+	case GroupAllDown:
 		isDown = counted > 0 && len(downNames) == counted
 		isPending = !isDown && up == 0 && len(pendingNames) > 0
+	case GroupPercentDown:
+		// Çalışmayan oranı eşiği aşıyorsa kesinti; bekleyenler eşiği aşabilecek
+		// kadar çoksa karar ertelenir (bekliyor).
+		isDown = counted > 0 && len(downNames)*100 > percent*counted
+		isPending = !isDown && len(pendingNames) > 0 && (len(downNames)+len(pendingNames))*100 > percent*counted
 	}
 	switch {
 	case isDown:
@@ -164,7 +186,7 @@ func AggregateGroup(mode string, children []ChildStatus) Result {
 			len(pendingNames), nameList(pendingNames), suffix)}
 	case counted == 0:
 		return Result{Up: true, PingMs: -1, Message: "Değerlendirilecek alt monitör yok" + suffix}
-	case len(downNames) > 0: // all_down: bazıları DOWN ama hepsi değil
+	case len(downNames) > 0: // all_down / percent_down: bazıları DOWN ama eşik aşılmadı
 		return Result{Up: true, PingMs: -1, Message: fmt.Sprintf("%d/%d alt monitör çalışmıyor: %s%s",
 			len(downNames), counted, nameList(downNames), suffix)}
 	}

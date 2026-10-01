@@ -151,7 +151,7 @@ Veritabanı doğrudan taşınmaz. Monitörleri, bildirim kanallarını, etiketle
 
 ### Ne kadar disk kullanır? {#disk-kullanimi}
 
-Monitör sayısına ve kontrol aralığına bağlıdır. Her kontrolün ayrı kaydı varsayılan olarak 14 gün tutulur, sonra saatlik ve günlük özetlere dönüştürülür; bu süreleri **Ayarlar → Genel** bölümünden değiştirebilirsiniz. Gece yedekleri de veritabanı boyutunun katları kadar yer kaplar.
+Monitör sayısına ve kontrol aralığına bağlıdır. Her kontrolün ayrı kaydı varsayılan olarak 14 gün tutulur, sonra saatlik ve günlük özetlere dönüştürülür; bu süreleri **Ayarlar → Genel** bölümünden değiştirebilirsiniz. Aynı yerde çözülmüş olayların (varsayılan 365 gün), olayı açan istek/yanıt kaydının (90 gün) ve işlem kaydının (365 gün) saklama süreleri de ayarlanır; 0 yazarsanız o kayıtlar süresiz tutulur. Gece yedekleri de veritabanı boyutunun katları kadar yer kaplar.
 
 ### Bir hata buldum ya da bir özellik istiyorum {#hata-bildir}
 

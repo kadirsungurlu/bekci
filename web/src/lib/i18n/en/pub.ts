@@ -65,8 +65,11 @@ export default {
   heroCount: '{count} service monitored|{count} services monitored',
   upWin: {
     '24h': 'last 24 hours',
+    '7d': 'last 7 days',
+    '30d': 'last 30 days',
     '90d': 'last 90 days',
   },
+  incidentsTitleN: 'Incidents in the last {count} days',
   startedAt: 'Started: {time}',
   duration: 'Duration: {d}',
   resolvedAt: 'Resolved: {time}',

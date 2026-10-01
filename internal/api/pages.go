@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -201,6 +202,11 @@ type pageInput struct {
 	Layout json.RawMessage `json:"layout"`
 	// Password: yok/null = değişmez, "" = kaldır, dolu = yeni şifre.
 	Password *string `json:"password"`
+	// IncidentDays: olay bölümünün penceresi (7 | 14 | 30 | 90); yok = değişmez.
+	IncidentDays *int `json:"incident_days"`
+	// UptimeWindows: monitör satırlarındaki uptime pencereleri (24h, 7d, 30d,
+	// 90d'den seçim; boş liste = çubuk kapsamına göre tek pencere); yok = değişmez.
+	UptimeWindows *[]string `json:"uptime_windows"`
 }
 
 // layoutInput dizilim girdisinin gevşek biçimi: bilinmeyen alanlar yok sayılır.
@@ -306,7 +312,7 @@ var reservedSlugs = map[string]bool{
 // reqHost isteğin geldiği sunucu adı (özel alan adı kendini kilitlemesin diye).
 // isAdmin özel alan adı alanını değiştirme yetkisi (yalnızca yönetici).
 func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.StatusPage, reqHost string, isAdmin bool) (store.StatusPage, error) {
-	p := store.StatusPage{Published: true, BarRange: store.BarRangeRecent, ShowIncidents: true}
+	p := store.StatusPage{Published: true, BarRange: store.BarRangeRecent, ShowIncidents: true, IncidentDays: store.DefaultIncidentDays, UptimeWindows: []string{}}
 	if old != nil {
 		p = *old
 	}
@@ -420,6 +426,20 @@ func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.St
 	p.Layout = store.NormalizeLayout(p.Layout, p.ShowIncidents)
 	if in.Collapsible != nil {
 		p.Collapsible = *in.Collapsible
+	}
+	if in.IncidentDays != nil {
+		if !store.ValidIncidentDays(*in.IncidentDays) {
+			return p, badInput("Olay penceresi 7, 14, 30 veya 90 gün olmalı")
+		}
+		p.IncidentDays = *in.IncidentDays
+	}
+	if in.UptimeWindows != nil {
+		for _, w := range *in.UptimeWindows {
+			if !slices.Contains(store.UptimeWindowOptions, w) {
+				return p, badInput("Uptime penceresi 24h, 7d, 30d veya 90d olmalı")
+			}
+		}
+		p.UptimeWindows = store.NormalizeUptimeWindows(*in.UptimeWindows)
 	}
 	if in.Lang != nil {
 		if !i18n.Valid(*in.Lang) {
@@ -811,6 +831,9 @@ type previewDataInput struct {
 	MonitorIDs  []int64 `json:"monitor_ids"`
 	BarRange    string  `json:"bar_range"` // bilinmeyen: recent
 	ShowTargets bool    `json:"show_targets"`
+	// IncidentDays olay penceresi (geçersiz: 14); UptimeWindows ek uptime pencereleri.
+	IncidentDays  int      `json:"incident_days"`
+	UptimeWindows []string `json:"uptime_windows"`
 }
 
 type previewIncident struct {
@@ -868,13 +891,13 @@ func (s *Server) previewData(w http.ResponseWriter, r *http.Request) {
 		}
 		view.Announcements = toPublicAnnouncements(anns)
 	}
-	data, err := s.publicMonitorData(ctx, ids, in.BarRange, in.ShowTargets, now)
+	data, err := s.publicMonitorData(ctx, ids, in.BarRange, in.ShowTargets, now, in.UptimeWindows...)
 	if err != nil {
 		s.dbError(w, err)
 		return
 	}
 	view.Range, view.UptimeWindow, view.UpdatedAt, view.Monitors = data.barRange, data.window, now, data.pub
-	incs, err := s.store.IncidentsFor(ctx, ids, now-publicIncidentWindow, publicIncidentLimit)
+	incs, err := s.store.IncidentsFor(ctx, ids, now-incidentWindow(store.StatusPage{IncidentDays: in.IncidentDays}), publicIncidentLimit)
 	if err != nil {
 		s.dbError(w, err)
 		return
@@ -980,6 +1003,11 @@ type announcementInput struct {
 	Severity string `json:"severity"`
 	StartsAt int64  `json:"starts_at"`
 	EndsAt   int64  `json:"ends_at"`
+	// Yalnızca eklemede: duyurunun kopyası şu sayfalara da eklenir (PageIDs)
+	// ya da tüm sayfalara (AllPages). Kopyalar bağımsız kayıtlardır; sonradan
+	// her sayfada ayrı düzenlenir.
+	PageIDs  []int64 `json:"page_ids"`
+	AllPages bool    `json:"all_pages"`
 }
 
 func (s *Server) normalizeAnnouncement(in announcementInput, a *store.Announcement) error {
@@ -1048,13 +1076,54 @@ func (s *Server) createAnnouncement(w http.ResponseWriter, r *http.Request) {
 		s.writeInputError(w, err)
 		return
 	}
+	// Diğer sayfalara kopya: var olan sayfalar, bu sayfa hariç, tekilleştirilmiş.
+	var others []store.StatusPage
+	if in.AllPages || len(in.PageIDs) > 0 {
+		pages, err := s.store.ListPages(r.Context())
+		if err != nil {
+			s.dbError(w, err)
+			return
+		}
+		want := map[int64]bool{}
+		for _, pid := range in.PageIDs {
+			want[pid] = true
+		}
+		for _, op := range pages {
+			if op.ID != id && (in.AllPages || want[op.ID]) {
+				others = append(others, op)
+				delete(want, op.ID)
+			}
+		}
+		delete(want, id)
+		if len(want) > 0 && !in.AllPages {
+			writeError(w, http.StatusBadRequest, "Seçilen durum sayfalarından biri bulunamadı")
+			return
+		}
+	}
 	if err := s.store.CreateAnnouncement(r.Context(), &a); err != nil {
 		s.dbError(w, err)
 		return
 	}
+	names := []string{p.Title}
+	for _, op := range others {
+		c := a
+		c.ID, c.PageID = 0, op.ID
+		if err := s.store.CreateAnnouncement(r.Context(), &c); err != nil {
+			s.dbError(w, err)
+			return
+		}
+		names = append(names, op.Title)
+	}
 	s.pagesChanged(r.Context())
-	s.audit(r, store.User{}, "announcement.create", "announcement", a.ID, a.Title, "sayfa: "+p.Title+", "+a.Severity)
-	writeJSON(w, http.StatusCreated, a)
+	detail := "sayfa: " + p.Title + ", " + a.Severity
+	if len(others) > 0 {
+		detail = "sayfalar: " + strings.Join(names, ", ") + "; " + a.Severity
+	}
+	s.audit(r, store.User{}, "announcement.create", "announcement", a.ID, a.Title, detail)
+	writeJSON(w, http.StatusCreated, struct {
+		store.Announcement
+		Copies int `json:"copies"` // diğer sayfalara eklenen kopya sayısı
+	}{a, len(others)})
 }
 
 func (s *Server) updateAnnouncement(w http.ResponseWriter, r *http.Request) {

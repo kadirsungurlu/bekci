@@ -61,6 +61,9 @@ export default {
   groupModes: {
     anyDown: 'Group is down if any child is down',
     allDown: 'Group is down if all children are down',
+    percentDown: 'Group is down if more than N% are down',
+    percentLabel: 'Threshold (%)',
+    percentHelp: 'The group counts as down when the share of failing children exceeds this percentage. 50: more than half.',
   },
   ph: {
     dbHost: 'db.example.com',

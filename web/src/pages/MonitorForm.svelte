@@ -26,6 +26,7 @@
     CATEGORY_LABELS,
     CATEGORY_ORDER,
     GROUP_MODES,
+    type GroupMode,
     HTTP_EXTRA_FIELDS,
     JSON_OPS,
     MONITOR_TYPES,
@@ -131,7 +132,8 @@
 
   // Grup
   let groupIds = $state<number[]>([]);
-  let groupMode = $state<'any_down' | 'all_down'>('any_down');
+  let groupMode = $state<GroupMode>('any_down');
+  let groupPercent = $state<number | null>(50);
 
   // Kayıt defterinde alanlarıyla tanımlı (özel bölümü olmayan) tipler
   let extra = $state<Record<string, string>>({});
@@ -288,7 +290,8 @@
         break;
       case 'group':
         groupIds = Array.isArray(c.monitor_ids) ? (c.monitor_ids as number[]).slice() : [];
-        groupMode = c.mode === 'all_down' ? 'all_down' : 'any_down';
+        groupMode = c.mode === 'all_down' || c.mode === 'percent_down' ? c.mode : 'any_down';
+        groupPercent = typeof c.percent === 'number' ? c.percent : 50;
         break;
       default: {
         const f = typeDef(m.type)?.fields;
@@ -517,6 +520,7 @@
       case 'group':
         if (groupIds.length === 0) return { msg: t('monitors.form.v.groupEmpty') };
         if (isEdit && groupIds.includes(id!)) return { msg: t('monitors.form.v.groupSelf') };
+        if (groupMode === 'percent_down' && !inRange(groupPercent, 0, 99)) return { msg: t('monitors.form.v.groupPercent'), field: 'grp-pct' };
         break;
       default:
         if (genericFields.length) {
@@ -566,7 +570,9 @@
           expected: dnsExpected.trim(),
         };
       case 'group':
-        return { monitor_ids: groupIds, mode: groupMode };
+        return groupMode === 'percent_down'
+          ? { monitor_ids: groupIds, mode: groupMode, percent: groupPercent ?? 50 }
+          : { monitor_ids: groupIds, mode: groupMode };
       case 'push':
         return pushGrace ? { grace_sec: pushGrace } : {};
       default:
@@ -1004,6 +1010,13 @@
           </div>
           <span class="help">{t('monitors.childrenHelp')}</span>
         </div>
+        {#if groupMode === 'percent_down'}
+          <div class="field pct">
+            <label for="grp-pct">{t('monitorTypes.groupModes.percentLabel')}</label>
+            <input id="grp-pct" class="input" type="number" min="0" max="99" bind:value={groupPercent} />
+            <span class="help">{t('monitorTypes.groupModes.percentHelp')}</span>
+          </div>
+        {/if}
       {:else if genericFields.length}
         {#if def?.about}<p class="about text-2 small">{def.about}</p>{/if}
         {#if def?.note}<div class="alert warning">{def.note}</div>{/if}
@@ -1186,24 +1199,27 @@
       {#if showAdvanced}
         <div class="adv-body stack">
           <div class="grid-2">
-            <div class="field">
-              <label for="mr">{t('monitors.form.retries')}</label>
-              <input id="mr" class="input" type="number" min="0" max="20" bind:value={maxRetries} />
-              <span class="help">{t('monitors.form.retriesHelp')}</span>
-            </div>
-            <div class="field">
-              <label for="ri">{t('monitors.form.retryInterval')}</label>
-              <input
-                id="ri"
-                class="input"
-                type="number"
-                min="20"
-                max="86400"
-                bind:value={retryInterval}
-                placeholder={t('monitors.form.retryIntervalPh', { n: interval || 60 })}
-              />
-              <span class="help">{t('monitors.form.retryIntervalHelp')}</span>
-            </div>
+            <!-- Grup kendisi ağa çıkmaz: tekrar deneme ve zaman aşımı alt monitörlerde uygulanır, burada gizlenir. -->
+            {#if type !== 'group'}
+              <div class="field">
+                <label for="mr">{t('monitors.form.retries')}</label>
+                <input id="mr" class="input" type="number" min="0" max="20" bind:value={maxRetries} />
+                <span class="help">{t('monitors.form.retriesHelp')}</span>
+              </div>
+              <div class="field">
+                <label for="ri">{t('monitors.form.retryInterval')}</label>
+                <input
+                  id="ri"
+                  class="input"
+                  type="number"
+                  min="20"
+                  max="86400"
+                  bind:value={retryInterval}
+                  placeholder={t('monitors.form.retryIntervalPh', { n: interval || 60 })}
+                />
+                <span class="help">{t('monitors.form.retryIntervalHelp')}</span>
+              </div>
+            {/if}
             {#if hasTimeout(type)}
               <div class="field">
                 <label for="to">{t('monitors.form.timeout')}</label>

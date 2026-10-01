@@ -384,6 +384,7 @@ export default {
       dnsPortRange: 'DNS server port must be between 1 and 65535',
       groupEmpty: 'Select at least one child monitor',
       groupSelf: 'A group can’t contain itself as a child monitor',
+      groupPercent: 'The group threshold must be between 0% and 99%',
       locEmpty: 'Locations: select at least one location',
       retryIntervalRange: 'Retry interval must be between 20 seconds and 24 hours',
       retriesRange: 'Retries must be between 0 and 20',

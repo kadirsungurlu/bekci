@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { BarRange, PageLayout } from '../lib/api';
+  import type { BarRange, PageLayout, UptimeWindow } from '../lib/api';
   import type { Locale } from '../lib/i18n';
 
   /** Düzenleyicinin kaydedilmemiş hali (önizlemenin girdisi). */
@@ -15,6 +15,9 @@
     collapsible: boolean;
     lang: Locale;
     logo: string;
+    /** Olay penceresi (gün) ve uptime pencereleri. */
+    incidentDays?: number;
+    uptimeWindows?: UptimeWindow[];
   }
 </script>
 
@@ -67,7 +70,14 @@
 
   const ids = $derived([...new Set(draft.sections.flatMap((s) => s.monitors.map((m) => m.id)))]);
   const req = $derived(
-    JSON.stringify({ page_id: draft.pageId, monitor_ids: ids, bar_range: draft.barRange, show_targets: draft.showTargets }),
+    JSON.stringify({
+      page_id: draft.pageId,
+      monitor_ids: ids,
+      bar_range: draft.barRange,
+      show_targets: draft.showTargets,
+      incident_days: draft.incidentDays ?? 14,
+      uptime_windows: draft.uptimeWindows ?? [],
+    }),
   );
 
   async function fetchData(body: string) {
@@ -157,6 +167,8 @@
       collapsible: draft.collapsible,
       lang: draft.lang,
       layout: draft.layout,
+      incident_days: draft.incidentDays ?? 14,
+      uptime_windows: draft.uptimeWindows ?? [],
     };
   });
 

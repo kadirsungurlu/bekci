@@ -47,7 +47,7 @@ Paneli ilk açtığınızda **Hoş geldiniz** ekranı yönetici hesabını oluş
 | Web | HTTP(S) | Web siteleri ve API'ler; başlık, gövde, kimlik doğrulama, kelime ve JSON sorgusu kontrolü, SSL bitiş uyarısı |
 | Ağ ve protokoller | TCP Port, Ping, DNS, TLS sertifikası, SMTP, WebSocket, gRPC, MQTT, SNMP | Sunucular, portlar, alan adları, posta sunucuları ve ağ cihazları |
 | Veritabanı | MySQL / MariaDB, PostgreSQL, Microsoft SQL Server, Redis, MongoDB | Veritabanına bağlanıp basit bir sorgu çalıştırır |
-| Sistem ve sinyaller | Docker konteyner, Push, Grup | Konteyner sağlığı; cron işlerinin düzenli sinyal göndermesi; birden çok monitörün tek durumda toplanması |
+| Sistem ve sinyaller | Docker konteyner, Push, Grup | Konteyner sağlığı; cron işlerinin düzenli sinyal göndermesi; birden çok monitörün tek durumda toplanması (grup "biri bile", "hepsi" ya da "%N'den fazlası çalışmıyorsa" kurallarıyla) |
 
 **Push** monitörü ters yönde çalışır: Bekci bir yeri kontrol etmez, sizin cron işinizin ya da betiğinizin belirli aralıklarla kendisine haber vermesini bekler. Monitörü kaydettikten sonra size özel bir adres verilir; işiniz her çalıştığında bu adresi çağırır, çağrı gelmezse monitör **çalışmıyor** olur:
 
@@ -102,6 +102,10 @@ Durum sayfası, müşterilerinize servislerinizin durumunu, planlı bakımları 
 > Sayfanız `https://⟦bekci.ornek.com⟧/durum/⟦acme⟧` adresinde açılır. Giriş yapmamış bir tarayıcıda (ör. gizli pencerede) açıp deneyin.
 
 Sayfayı `durum.ornek.com` gibi ayrı bir alan adından yayınlamak için sayfanın **Özel alan adı** alanını kullanın; alan adının DNS kaydı sunucunuzu göstermeli ve vekiliniz bu adı Bekci'ye yönlendirmelidir ([Caddy'li kurulumda nasıl yapılır](/docs/kurulum/caddy/#durum-alan-adi)).
+
+**Pencereler:** **Uptime pencereleri** ile her monitör satırında hangi yüzdelerin yazılacağını seçin (24 saat, 7, 30, 90 gün; birden fazlası seçilirse yan yana gösterilir, hiçbiri seçili değilse çubuk görünümüne göre tek pencere). **Olay penceresi** (7/14/30/90 gün) "Son olaylar" bölümünün ve RSS akışının kaç günlük geçmişi göstereceğini belirler.
+
+**Duyurular:** Sayfa düzenleyicisinin altındaki **Duyurular** kartından planlı bakım ya da bilgi notu ekleyin. Duyuru eklerken **Diğer sayfalara da ekle** ile aynı duyurunun kopyasını seçtiğiniz sayfalara ya da tüm sayfalara tek seferde bırakabilirsiniz; kopyalar sonradan her sayfada ayrı düzenlenir.
 
 ## 5. Dil ayarları {#dil}
 

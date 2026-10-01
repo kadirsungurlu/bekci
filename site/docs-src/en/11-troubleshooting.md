@@ -151,7 +151,7 @@ The database can't be moved directly. You can carry monitors, notification chann
 
 ### How much disk does it use? {#disk-usage}
 
-It depends on the number of monitors and the check interval. Each individual check is kept for 14 days by default, then condensed into hourly and daily summaries; you can change these periods under **Settings → General**. Nightly backups take a few times the database size as well.
+It depends on the number of monitors and the check interval. Each individual check is kept for 14 days by default, then condensed into hourly and daily summaries; you can change these periods under **Settings → General**. The same place sets the retention of resolved incidents (365 days by default), the request/response capture of the check that opened an incident (90 days) and the audit log (365 days); enter 0 to keep those records forever. Nightly backups take a few times the database size as well.
 
 ### I found a bug or want a feature {#report}
 

@@ -50,7 +50,7 @@ The **Monitor type** picker offers 18 types in four groups:
 | Web | HTTP(S) | Websites and APIs; headers, body, authentication, keyword and JSON query checks, SSL expiry alerts |
 | Network and protocols | TCP Port, Ping, DNS, TLS certificate, SMTP, WebSocket, gRPC, MQTT, SNMP | Servers, ports, domains, mail servers and network devices |
 | Database | MySQL / MariaDB, PostgreSQL, Microsoft SQL Server, Redis, MongoDB | Connects to the database and runs a simple query |
-| System and signals | Docker container, Push, Group | Container health; cron jobs sending regular signals; combining several monitors into one status |
+| System and signals | Docker container, Push, Group | Container health; cron jobs sending regular signals; combining several monitors into one status (group rules: "any", "all" or "more than N% down") |
 
 The **Push** monitor works the other way round: Bekci doesn't check anything, it waits for your cron job or script to report in at regular intervals. After you save the monitor you get a unique address; your job calls it every time it runs, and if the call doesn't arrive the monitor goes **down**:
 
@@ -105,6 +105,10 @@ A status page is a public page that shows your customers the state of your servi
 > Your page opens at `https://⟦bekci.example.com⟧/durum/⟦acme⟧` (`durum` is Turkish for “status”). Open it in a browser where you're not signed in (e.g. a private window) to check.
 
 To publish the page on a separate domain such as `status.example.com`, use the page's **Custom domain** field; the domain's DNS record must point to your server and your proxy must route that name to Bekci ([how to do it with the Caddy install](/en/docs/install/caddy/#status-domain)).
+
+**Windows:** **Uptime windows** picks which percentages each monitor row shows (24 hours, 7, 30, 90 days; several are shown side by side, none means a single window following the bar view). **Incident window** (7/14/30/90 days) sets how much history the "Recent incidents" section and the RSS feed show.
+
+**Announcements:** add planned-maintenance or information notes from the **Announcements** card below the page editor. When adding one, **Also add to other pages** drops a copy of the same announcement onto the selected pages or all pages at once; copies are edited separately per page afterwards.
 
 ## 5. Language settings {#language}
 
