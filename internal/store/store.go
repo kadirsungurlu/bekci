@@ -46,7 +46,8 @@ type Store struct {
 	path     string         // SQLite dosya yolu
 	loc      *time.Location // günlük özetlerin gün sınırı bu saat dilimine göre
 	opts     Options
-	lockFile *os.File // InstanceLock: süreç boyunca tutulan veri klasörü kilidi
+	lockFile *os.File  // InstanceLock: süreç boyunca tutulan veri klasörü kilidi (SQLite)
+	pgLock   *sql.Conn // InstanceLock: süreç boyunca tutulan danışma kilidinin bağlantısı (PostgreSQL)
 }
 
 // Options Open'ın isteğe bağlı ayarları.
@@ -56,9 +57,11 @@ type Options struct {
 	BackupDir string
 	// Log migration kayıtları için; nil ise slog.Default().
 	Log *slog.Logger
-	// InstanceLock SQLite dosyasına özel kilit alır: aynı veri klasörünü iki
-	// örnek aynı anda kullanamaz, ikinci örnek birincinin kapanmasını bekler.
-	// Yalnızca uygulama açar; testler aynı dosyayı birden çok kez açabilir.
+	// InstanceLock tek-örnek kilidi alır: SQLite dosyasına özel flock,
+	// PostgreSQL'de süreç boyunca tutulan danışma kilidi (pg_advisory_lock).
+	// Aynı veritabanını iki örnek aynı anda kullanamaz, ikinci örnek
+	// birincinin kapanmasını bekler. Yalnızca uygulama açar; testler aynı
+	// veritabanını birden çok kez açabilir.
 	InstanceLock bool
 	// LockWait kilidin en fazla ne kadar bekleneceği (0 → 10 dk).
 	LockWait time.Duration
@@ -105,6 +108,12 @@ func OpenWith(target string, loc *time.Location, opts Options) (*Store, error) {
 			raw.Close()
 			return nil, fmt.Errorf("PostgreSQL'e bağlanılamadı: %w", err)
 		}
+		if opts.InstanceLock {
+			if err := s.acquirePGInstanceLock(context.Background(), raw); err != nil {
+				raw.Close()
+				return nil, err
+			}
+		}
 	} else {
 		s.path = target
 		if opts.InstanceLock {
@@ -138,13 +147,16 @@ func sqliteDSN(path string) string {
 }
 
 func (s *Store) Close() error {
+	s.releasePGLock() // havuz kapanmadan önce (bağlantı havuzdan alınmıştı)
 	err := s.db.db.Close()
 	s.releaseLock()
 	return err
 }
 
-// releaseLock veri klasörü kilidini bırakır (dosyayı kapatmak flock'u bırakır).
+// releaseLock tek-örnek kilidini bırakır (SQLite: dosyayı kapatmak flock'u
+// bırakır; PostgreSQL: danışma kilidi ve bağlantısı).
 func (s *Store) releaseLock() {
+	s.releasePGLock()
 	if s.lockFile != nil {
 		s.lockFile.Close()
 		s.lockFile = nil

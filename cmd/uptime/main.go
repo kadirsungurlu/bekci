@@ -113,9 +113,11 @@ func run() error {
 		}
 		target, dbDesc = u, "PostgreSQL "+redactDSN(u)
 	}
-	// Sunucu modunda SQLite dosyasına tek örnek kilidi alınır (Coolify yeni
-	// konteyneri eskisi kapanmadan başlatır). Komutlar (sifre-sifirla vb.)
-	// çalışan sunucunun yanında kullanıldığı için kilit almaz.
+	// Sunucu modunda tek örnek kilidi alınır: SQLite dosyasına flock,
+	// PostgreSQL'de süreç boyunca tutulan danışma kilidi (Coolify yeni
+	// konteyneri eskisi kapanmadan başlatır; iki motor çift bildirim gönderirdi).
+	// Komutlar (sifre-sifirla vb.) çalışan sunucunun yanında kullanıldığı için
+	// kilit almaz.
 	serverMode := len(os.Args) <= 1
 	lockWait, _ := strconv.Atoi(env("UPTIME_LOCK_WAIT", "600"))
 	st, err := store.OpenWith(target, time.Local, store.Options{
