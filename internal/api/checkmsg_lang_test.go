@@ -234,6 +234,7 @@ func BenchmarkListMonitorsLang(b *testing.B) {
 		b.Fatal(err)
 	}
 	s := New(st, eng, hub, disp, log, fstest.MapFS{"index.html": {Data: []byte("x")}}, "test")
+	s.relaxTimeoutRule = true // aralıklar milisaniye biriminde (bkz. newEnv)
 	srv := httptest.NewServer(s.Handler())
 	defer func() {
 		srv.Close()

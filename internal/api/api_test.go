@@ -421,6 +421,7 @@ func TestEventsSurviveServerTimeouts(t *testing.T) {
 	disp := notify.NewDispatcher(st, log)
 	eng := engine.New(st, disp, hub, log, engine.Config{Unit: time.Millisecond})
 	s := New(st, eng, hub, disp, log, fstest.MapFS{}, "test")
+	s.relaxTimeoutRule = true // aralıklar milisaniye biriminde (bkz. newEnv)
 
 	srv := httptest.NewUnstartedServer(s.Handler())
 	srv.Config.ReadTimeout = 300 * time.Millisecond

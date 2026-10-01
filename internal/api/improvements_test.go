@@ -77,12 +77,12 @@ func TestPushTokenRegenerate(t *testing.T) {
 // Ayrılmış adresler durum sayfası adresi olamaz.
 func TestReservedStatusPageSlugs(t *testing.T) {
 	admin := setupAdmin(t)
-	for _, slug := range []string{"new", "api", "admin", "durum", "status", "healthz"} {
+	for _, slug := range []string{"new", "api", "admin", "healthz", "metrics"} {
 		if code := admin.do("POST", "/api/status-pages", map[string]any{"slug": slug, "title": "X", "sections": []any{}}, nil); code != 400 {
 			t.Errorf("%q adresi reddedilmeli: %d", slug, code)
 		}
 	}
-	admin.mustDo("POST", "/api/status-pages", map[string]any{"slug": "genel-durum", "title": "X", "sections": []any{}}, nil, 201)
+	admin.mustDo("POST", "/api/status-pages", map[string]any{"slug": "durum", "title": "X", "sections": []any{}}, nil, 201) // doğal ad serbest
 }
 
 // İşlem kaydı ayrıntısı: monitör ve ayar güncellemelerinde değişen alanlar;

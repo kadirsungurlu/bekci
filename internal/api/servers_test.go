@@ -42,6 +42,7 @@ func newServersEnv(t *testing.T) *fenv {
 	}
 	static := fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Uptime</title>")}}
 	s := New(st, eng, hub, disp, log, static, "test")
+	s.relaxTimeoutRule = true // aralıklar milisaniye biriminde (bkz. newEnv)
 	clk := &testClock{}
 	s.now = clk.now
 	srv := httptest.NewServer(s.Handler())

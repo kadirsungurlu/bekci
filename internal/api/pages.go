@@ -294,13 +294,12 @@ func (s *Server) baseHost() string {
 }
 
 // reservedSlugs durum sayfası adresi olamayacak kelimeler: uygulamanın kendi
-// yolları ve arayüzdeki "yeni" gibi ekranlarla karışabilecek adlar.
+// yollarıyla ve arayüzdeki "yeni" ekranıyla karışabilecek adlar. Sayfalar
+// /durum/<ad> altında yayınlandığı için "durum" ve "status" gibi doğal adlar
+// serbesttir.
 var reservedSlugs = map[string]bool{
-	"new": true, "yeni": true, "api": true, "admin": true, "durum": true, "status": true,
-	"login": true, "giris": true, "logout": true, "settings": true, "ayarlar": true,
-	"monitors": true, "monitorler": true, "incidents": true, "olaylar": true,
-	"healthz": true, "metrics": true, "assets": true, "static": true, "docs": true,
-	"servers": true, "sunucular": true, "maintenance": true, "bakim": true,
+	"new": true, "api": true, "admin": true, "login": true, "logout": true,
+	"healthz": true, "metrics": true, "assets": true, "static": true,
 }
 
 // normalizePage girdiyi doğrular ve sayfaya uygular. old nil ise yeni sayfa.
