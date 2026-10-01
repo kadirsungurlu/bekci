@@ -143,13 +143,24 @@ func TestPartialIncidentLifecycle(t *testing.T) {
 	}
 
 	// Bir konum düzelir: monitör çalışır, normal olay kapanır; Berlin hâlâ
-	// çalışmadığı için yeni bir kısmi olay açılır. Berlin de düzelince kapanır.
+	// çalışmadığı için dönüştürülen kısmi olay yeniden açılır (yeni olay
+	// açılmaz, geçmiş bölünmez). Berlin de düzelince kapanır.
 	step()
 	r.remote(a, f.clock, up())
 	parts = kindIncidents(t, f, m.ID, store.KindGroupPartial)
-	if r.m.Status != store.StatusUp || len(parts) != 2 || parts[0].ResolvedAt != 0 ||
+	if r.m.Status != store.StatusUp || len(parts) != 1 || parts[0].ResolvedAt != 0 ||
 		kindIncidents(t, f, m.ID, store.KindGroupMonitor)[0].ResolvedAt == 0 {
 		t.Fatalf("kısmi düzelme: %d %+v", r.m.Status, kindIncidents(t, f, m.ID, ""))
+	}
+	if pk := eventKinds(t, f, parts[0].ID); pk[len(pk)-1] != store.EventResumed || countKind(pk, store.EventEscalated) != 1 {
+		t.Fatalf("yeniden açılan kısmi olayın geçmişi: %v", pk)
+	}
+	if upEv := f.n.events[len(f.n.events)-1]; upEv.Kind != notify.KindUp || len(upEv.Locations) != 1 || upEv.Locations[0].Name != "Berlin" {
+		t.Fatalf("düzelme bildirimi hâlâ çalışmayan konumu listelemeli: %+v", upEv)
+	}
+	json.Unmarshal(parts[0].Data, &pd)
+	if !equal(pd.Locations, []string{"Ankara", "Berlin"}) {
+		t.Fatalf("etkilenen konumlar: %v", pd.Locations)
 	}
 	step()
 	r.remote(b, f.clock, up())
@@ -163,8 +174,8 @@ func TestPartialIncidentLifecycle(t *testing.T) {
 	step()
 	r.remote(c, f.clock, down("HTTP 503"))
 	parts = kindIncidents(t, f, m.ID, store.KindGroupPartial)
-	if len(parts) != 3 || parts[0].ResolvedAt != 0 {
-		t.Fatalf("üçüncü kısmi olay: %+v", parts)
+	if len(parts) != 2 || parts[0].ResolvedAt != 0 {
+		t.Fatalf("ikinci kısmi olay: %+v", parts)
 	}
 	step()
 	r.remote(c, f.clock, up())
@@ -358,5 +369,88 @@ func TestMaintenanceEventsIdempotent(t *testing.T) {
 	}
 	if s, e := count(); s != 1 || e != 1 {
 		t.Fatalf("bakım bitince: başlangıç %d bitiş %d", s, e)
+	}
+}
+
+// Yükseltilen kısmi olay: tam kesinti bitince uzak konum hâlâ çalışmıyorsa
+// aynı kısmi olay yeniden açılır; ikinci bir konum kesintisi (🟡) bildirimi
+// gitmez, düzelme (🟢) bildirimi hâlâ çalışmayan konumu listeler. Yeniden
+// başlatma bu bağı unutturmaz.
+func TestEscalatedPartialResumesWithoutSecondNotification(t *testing.T) {
+	for _, restart := range []bool{false, true} {
+		f := newFixture(t)
+		ctx := context.Background()
+		fra := f.probe(t, "Frankfurt", true)
+		m := f.monitor(t, func(m *store.Monitor) { m.MaxRetries = 0 })
+		setup := store.LocationSetup{IncludeLocal: true, ProbeIDs: []int64{fra.ID}, DownWhen: store.DownWhenAll, NotifyPartial: true}
+		r := f.locRunner(t, m, setup)
+		step := func() { f.clock = f.clock.Add(10 * time.Millisecond) }
+		defer fake.set(up())
+
+		fake.set(up())
+		r.locationTick(ctx)
+		step()
+		r.remote(fra, f.clock, down("DNS hatası"))
+		pid := r.partialID
+		if pid == 0 {
+			t.Fatal("konum kesintisi açılmalıydı")
+		}
+		// Ana sunucu da düşer: tam kesinti, kısmi olay dönüşür.
+		fake.set(down("HTTP 503"))
+		step()
+		r.locationTick(ctx)
+		if r.m.Status != store.StatusDown || r.partialID != 0 || r.escalatedPartial != pid {
+			t.Fatalf("dönüşüm: durum %d kısmi %d dönüşen %d", r.m.Status, r.partialID, r.escalatedPartial)
+		}
+		if restart {
+			r = f.runnerFor(t, m.ID)
+			r.locs = f.e.loadLocations(r.m)
+			if r.escalatedPartial != pid || r.incidentID == 0 {
+				t.Fatalf("yeniden başlatmada dönüşüm bağı yüklenmeli: %d (olay %d)", r.escalatedPartial, r.incidentID)
+			}
+			step()
+			r.remote(fra, f.clock, down("DNS hatası"))
+		}
+		// Ana sunucu düzelir, Frankfurt hâlâ çalışmıyor.
+		fake.set(up())
+		step()
+		r.locationTick(ctx)
+		if r.m.Status != store.StatusUp {
+			t.Fatalf("UP bekleniyordu: %d %q", r.m.Status, r.m.LastMessage)
+		}
+		if r.partialID != pid {
+			t.Fatalf("aynı kısmi olay yeniden açılmalı: %d → %d", pid, r.partialID)
+		}
+		parts := kindIncidents(t, f, m.ID, store.KindGroupPartial)
+		if len(parts) != 1 || parts[0].ResolvedAt != 0 {
+			t.Fatalf("kısmi olaylar: %+v", parts)
+		}
+		evs, _ := f.st.IncidentEvents(ctx, pid)
+		if evs[0].Kind != store.EventResumed || !strings.Contains(string(evs[0].Data), `"incident_id":`) {
+			t.Fatalf("yeniden açılma kaydı: %+v", evs[0])
+		}
+		got := f.n.kinds()
+		if !equal(got, []string{notify.KindLocationDown, notify.KindDown, notify.KindUp}) {
+			t.Fatalf("bildirimler (restart=%v): %v", restart, got)
+		}
+		upEv := f.n.events[2]
+		if len(upEv.Locations) != 1 || upEv.Locations[0].Name != "Frankfurt" || upEv.Locations[0].Message != "DNS hatası" {
+			t.Fatalf("düzelme bildirimi hâlâ çalışmayan konumu listelemeli: %+v", upEv.Locations)
+		}
+		if body := upEv.Body(); !strings.Contains(body, "Frankfurt: DNS hatası") {
+			t.Fatalf("bildirim gövdesi: %q", body)
+		}
+		// Frankfurt düzelir: kısmi olay kapanır, 🟢 aynı olaya bağlı.
+		step()
+		r.remote(fra, f.clock, up())
+		if r.partialID != 0 {
+			t.Fatal("konum düzelince kısmi olay kapanmalıydı")
+		}
+		if got := f.n.kinds(); !equal(got, []string{notify.KindLocationDown, notify.KindDown, notify.KindUp, notify.KindLocationUp}) {
+			t.Fatalf("bildirimler: %v", got)
+		}
+		if f.n.events[3].IncidentID != pid {
+			t.Fatalf("konum düzelme bildirimi ilk kısmi olaya bağlı olmalı: %d", f.n.events[3].IncidentID)
+		}
 	}
 }

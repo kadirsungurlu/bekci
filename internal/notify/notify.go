@@ -205,12 +205,8 @@ func (e Event) Rows() []Row {
 	} else {
 		add("target", e.Target)
 	}
-	reason := func() {
-		if len(e.Locations) == 0 {
-			add("reason", e.LocalMessage())
-			return
-		}
-		r := Row{Key: "locations", Label: i18n.T(l, "notify.field.locations")}
+	locations := func(key string) {
+		r := Row{Key: key, Label: i18n.T(l, "notify.field."+key)}
 		for _, n := range e.Locations {
 			lr := LocRow{Name: n.Name, Message: i18n.Message(l, n.Message), NoData: n.NoData}
 			if n.NoData {
@@ -220,11 +216,23 @@ func (e Event) Rows() []Row {
 		}
 		rows = append(rows, r)
 	}
+	reason := func() {
+		if len(e.Locations) == 0 {
+			add("reason", e.LocalMessage())
+			return
+		}
+		locations("locations")
+	}
 	switch e.Kind {
 	case KindDown, KindLocationDown:
 		reason()
 	case KindUp, KindLocationUp:
 		add("downtime", i18n.Duration(l, e.Downtime))
+		if len(e.Locations) > 0 {
+			// Monitör düzeldi ama bazı konumlar hâlâ çalışmıyor (konum
+			// kesintisi sürüyor; ayrıca 🟡 gönderilmez).
+			locations("still_down")
+		}
 	case KindReminder:
 		add("downtime", i18n.Duration(l, e.Downtime))
 		reason()

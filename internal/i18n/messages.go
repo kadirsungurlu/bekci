@@ -24,6 +24,7 @@ var messages = map[string]Msg{
 	"notify.field.target":         {"Hedef", "Target"},
 	"notify.field.reason":         {"Neden", "Reason"},
 	"notify.field.locations":      {"Konumlar", "Locations"},
+	"notify.field.still_down":     {"Hâlâ çalışmayan konumlar", "Locations still down"},
 	"notify.mail.status.down":     {"Çalışmıyor", "Down"},
 	"notify.mail.status.up":       {"Tekrar çalışıyor", "Recovered"},
 	"notify.mail.status.reminder": {"Hâlâ çalışmıyor", "Still down"},

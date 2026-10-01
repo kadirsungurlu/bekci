@@ -262,19 +262,16 @@ func (e *Engine) start(m store.Monitor) error {
 		return fmt.Errorf("bilinmeyen monitör tipi: %s", m.Type)
 	}
 	e.stop(m.ID)
-	locs := e.loadLocations(m) // kilit dışında: veritabanı okur
+	// Veritabanı okumaları (konum ayarı, açık olay) küresel kilit dışında:
+	// açılış/Reload sırasında ProbeResults, Push ve LocationStatuses bloklanmasın.
+	locs := e.loadLocations(m)
 	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.ctx == nil {
+	ectx := e.ctx
+	e.mu.Unlock()
+	if ectx == nil {
 		return errors.New("motor başlatılmadı")
 	}
-	if old := e.runners[m.ID]; old != nil {
-		return fmt.Errorf("monitör %d zaten çalışıyor", m.ID) // monitör kilidi tutulduğu sürece olmaz
-	}
-	if locs != nil {
-		e.adoptLocations(m, locs)
-	}
-	ctx, cancel := context.WithCancel(e.ctx)
+	ctx, cancel := context.WithCancel(ectx)
 	ctx = check.WithStatusSource(ctx, e.monitorStatuses) // grup monitörleri alt monitörleri okur
 	r := &runner{
 		e: e, m: m, checker: checker, cancel: cancel,
@@ -284,6 +281,15 @@ func (e *Engine) start(m store.Monitor) error {
 		plan:   schedule.Planner{PhaseMs: schedule.PhaseMs(m.ID)},
 	}
 	r.confirmed = r.initialConfirmed(ctx)
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if old := e.runners[m.ID]; old != nil {
+		cancel()
+		return fmt.Errorf("monitör %d zaten çalışıyor", m.ID) // monitör kilidi tutulduğu sürece olmaz
+	}
+	if locs != nil {
+		e.adoptLocations(m, locs)
+	}
 	e.runners[m.ID] = r
 	go r.loop(ctx)
 	return nil

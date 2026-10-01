@@ -230,4 +230,14 @@ func (s *Store) Beats(ctx context.Context, monitorID int64, since int64) ([]Beat
 	return out, rows.Err()
 }
 
+// CountBeats monitörün since'ten (dahil) itibaren verilen durumdaki kontrol
+// kayıtlarının sayısı (yeniden başlatmada hatırlatma sayacını kurmak için).
+func (s *Store) CountBeats(ctx context.Context, monitorID int64, status int, since int64) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM heartbeats WHERE monitor_id = ? AND status = ? AND time >= ?",
+		monitorID, status, since).Scan(&n)
+	return n, err
+}
+
 // Veri temizliği: bkz. cleanup.go (parçalı silme).

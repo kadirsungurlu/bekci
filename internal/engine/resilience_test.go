@@ -219,3 +219,86 @@ func TestConcurrentReload(t *testing.T) {
 	cancel()
 	f.e.Wait()
 }
+
+// failBeats kontrol kaydı yazımını (heartbeats INSERT) veritabanı
+// tetikleyicisiyle başarısız kılar; dönen fonksiyon tetikleyiciyi kaldırır.
+func (f *fixture) failBeats(t *testing.T) (restore func()) {
+	t.Helper()
+	db := f.rawDB(t)
+	stmts := []string{`CREATE TRIGGER fail_beat BEFORE INSERT ON heartbeats
+		FOR EACH ROW BEGIN SELECT RAISE(ABORT, 'test: kayıt başarısız'); END`}
+	drop := []string{"DROP TRIGGER fail_beat"}
+	if storetest.PG() {
+		stmts = []string{
+			`CREATE FUNCTION fail_beat() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'test: kayıt başarısız'; END $$ LANGUAGE plpgsql`,
+			`CREATE TRIGGER fail_beat BEFORE INSERT ON heartbeats FOR EACH ROW EXECUTE FUNCTION fail_beat()`,
+		}
+		drop = []string{"DROP TRIGGER fail_beat ON heartbeats", "DROP FUNCTION fail_beat()"}
+	}
+	for _, q := range stmts {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return func() {
+		for _, q := range drop {
+			if _, err := db.Exec(q); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
+// Bulgu (D-10): kontrol sonucu kaydedilemeyince tekrar deneme sayacı geri
+// alınmıyordu; bir deneme hakkı boşa gidip monitör erken DOWN oluyordu.
+func TestRetriesRolledBackWhenBeatFails(t *testing.T) {
+	f := newFixture(t)
+	m := f.monitor(t, func(m *store.Monitor) { m.MaxRetries = 2 })
+	r := f.runnerFor(t, m.ID)
+	restore := f.failBeats(t)
+	r.process(down("502"))
+	if r.retries != 0 || r.confirmed != unknown {
+		t.Fatalf("kaydedilmeyen deneme hak düşürmemeli: retries=%d confirmed=%d", r.retries, r.confirmed)
+	}
+	restore()
+	f.clock = f.clock.Add(time.Minute)
+	r.process(down("502"))
+	f.clock = f.clock.Add(time.Minute)
+	r.process(down("502"))
+	if r.m.Status != store.StatusPending || r.retries != 2 {
+		t.Fatalf("iki deneme hakkı sonra hâlâ PENDING olmalı: %d retries=%d", r.m.Status, r.retries)
+	}
+	f.clock = f.clock.Add(time.Minute)
+	r.process(down("502"))
+	if r.m.Status != store.StatusDown {
+		t.Fatalf("üçüncü hatada DOWN: %d", r.m.Status)
+	}
+}
+
+// Bulgu (D-11): hatırlatma sayacı bellekteydi; yeniden başlatma hatırlatma
+// sıklığını sıfırlıyordu. Sayaç olayın DOWN kayıtlarından kurulur.
+func TestReminderCounterSurvivesRestart(t *testing.T) {
+	f := newFixture(t)
+	m := f.monitor(t, func(m *store.Monitor) { m.ResendEvery = 3 })
+	r := f.runnerFor(t, m.ID)
+	r.process(down("502")) // olay açıldı, 🔴
+	f.clock = f.clock.Add(time.Minute)
+	r.process(down("502")) // 1. ek kontrol
+	if r.downBeats != 1 {
+		t.Fatalf("downBeats=%d", r.downBeats)
+	}
+	f.clock = f.clock.Add(time.Minute)
+	r = f.runnerFor(t, m.ID) // yeniden başlatma
+	if r.downBeats != 1 {
+		t.Fatalf("yeniden başlatmada sayaç korunmalı: %d", r.downBeats)
+	}
+	r.process(down("502")) // 2. ek kontrol
+	if got := f.n.kinds(); !equal(got, []string{notify.KindDown}) {
+		t.Fatalf("henüz hatırlatma gitmemeli: %v", got)
+	}
+	f.clock = f.clock.Add(time.Minute)
+	r.process(down("502")) // 3. ek kontrol → hatırlatma
+	if got := f.n.kinds(); !equal(got, []string{notify.KindDown, notify.KindReminder}) {
+		t.Fatalf("üçüncü ek kontrolde hatırlatma: %v", got)
+	}
+}

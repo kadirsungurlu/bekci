@@ -547,12 +547,24 @@ func aggregateLocations(locs []*location, downWhen string, now time.Time, rules 
 			continue
 		}
 		if st == locUnknown {
-			if l.gone && l.have && l.res.Up && now.Sub(l.goneAt) < rules.goneGrace {
+			switch {
+			case l.gone && l.have && l.res.Up && now.Sub(l.goneAt) < rules.goneGrace:
 				// Az önce kopan, son sonucu "çalışıyor" konum: tolerans süresince
 				// genel kararda son sonucu geçerli sayılır (kart "sonuç yok"
 				// gösterir); ajanın yeniden başlaması yanlış kesinti açmaz.
 				n++
 				up = append(up, l)
+				continue
+			case l.gone && l.have && !l.res.Up && !l.res.Pending && l.fails > rules.maxRetries &&
+				now.Sub(l.at) <= rules.staleAfter:
+				// Kopan konumun son sonucu "çalışmıyor" (deneme hakkı bitmiş):
+				// sonuç eskiyene kadar (staleAfter) oy geçerli kalır. Aksi halde
+				// ajanın her yeniden başlaması açık kesinti olayını kapatıp bir
+				// saniye sonra yeniden açar (sahte 🟢 + 🔴). Konum düzeldiği
+				// bilinmeden kesinti bitmiş sayılmaz.
+				n++
+				down++
+				failing = append(failing, l.name+": "+l.res.Message)
 				continue
 			}
 			stale = append(stale, l.name)

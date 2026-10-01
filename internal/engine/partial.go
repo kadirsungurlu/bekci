@@ -31,7 +31,10 @@ import (
 //     dönüştü" yazılır. İki olay birbirinin kimliğini data.incident_id'de taşır.
 //     (Aynı olayın türünü yükseltmek yerine bu yol seçildi: normal olayın
 //     başlangıcı, kesinti süresi ve bildirimleri tam kesintinin başladığı
-//     andan hesaplanır; kısmi dönem ayrı kalır.)
+//     andan hesaplanır; kısmi dönem ayrı kalır.) Tam kesinti bittiğinde konum
+//     hâlâ çalışmıyorsa dönüştürülen kısmi olay yeniden açılır ("tam kesinti
+//     bitti; konum kesintisi sürüyor" kaydıyla): yeni olay ve yeni 🟡 bildirimi
+//     yoktur; düzelme (🟢) bildirimi hâlâ çalışmayan konumları listeler.
 //
 // Bakım penceresinde yeni kısmi olay açılmaz; sürenin konum değişimleri yazılır.
 
@@ -61,9 +64,19 @@ func (r *runner) partialStep(ctx context.Context, now time.Time, status int, inM
 	}
 	switch {
 	case r.partialID == 0:
-		if status == store.StatusUp && !inMaint && r.incidentID == 0 && len(down) > 0 {
+		switch {
+		case status != store.StatusUp || inMaint || r.incidentID != 0:
+		case len(down) > 0:
+			if r.escalatedPartial != 0 && r.reopenPartial(ctx, now, down) {
+				break
+			}
 			r.openPartial(ctx, now, down)
+		case !unsettled:
+			// Tam kesinti bitti ve hiçbir konum çalışmıyor değil: dönüştürülen
+			// kısmi olay geride kaldı, yeniden açılmaz.
+			r.escalatedPartial = 0
 		}
+		r.resolvedID = 0
 	case status == store.StatusDown:
 		r.escalatePartial(ctx, now)
 	default:
@@ -177,6 +190,39 @@ func (r *runner) escalatePartial(ctx context.Context, now time.Time) {
 			Message: "Konum kesintisinden dönüştü", Data: store.EventData(map[string]int64{"incident_id": pid})})
 	}
 	r.partialID, r.partialPrev, r.partialFailed, r.partialLearn = 0, nil, nil, false
+	r.escalatedPartial = pid
+}
+
+// reopenPartial tam kesinti bittiğinde konum hâlâ çalışmıyorsa, tam kesintiye
+// dönüşerek kapanan kısmi olayı yeniden açar: konum hiç düzelmediği için aynı
+// olay sürer (geçmiş üçe bölünmez) ve ikinci bir konum kesintisi bildirimi
+// gitmez — düzelme bildirimi hâlâ çalışmayan konumları zaten listeler. Olay
+// yeniden açılamazsa (silinmiş vb.) false döner, yeni olay açılır.
+func (r *runner) reopenPartial(ctx context.Context, now time.Time, down []LocationStatus) bool {
+	pid := r.escalatedPartial
+	r.escalatedPartial = 0
+	ok, err := r.e.store.ReopenPartialIncident(ctx, pid, r.m.ID)
+	if err != nil {
+		r.e.log.Error("konum kesintisi olayı yeniden açılamadı", "monitor", r.m.Name, "hata", err)
+		return false
+	}
+	if !ok {
+		return false
+	}
+	r.partialID, r.partialLearn, r.partialFailed = pid, false, nil
+	if inc, err := r.e.store.GetIncident(ctx, pid); err == nil && len(inc.Data) > 0 {
+		var d store.PartialIncidentData
+		if json.Unmarshal(inc.Data, &d) == nil {
+			r.partialFailed = d.Locations
+		}
+	}
+	r.locationSnapshot(now, &r.partialPrev)
+	r.addEvents(ctx, pid, store.IncidentEvent{Time: now.Unix(), Kind: store.EventResumed,
+		Message: "Tam kesinti bitti; konum kesintisi sürüyor",
+		Data:    store.EventData(map[string]int64{"incident_id": r.resolvedID})})
+	r.notePartialLocations(ctx, down)
+	r.e.log.Warn("konum kesintisi sürüyor", "monitor", r.m.Name, "olay", pid)
+	return true
 }
 
 // restorePartial yeniden başlatmada açık kısmi olayı yükler. Monitör artık

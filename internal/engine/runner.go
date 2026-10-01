@@ -42,6 +42,10 @@ type runner struct {
 	partialPrev   map[int64]locMark // kısmi olayda konumların son yazılan durumu
 	partialFailed []string          // kısmi olay boyunca çalışmayan konumlar (olay verisi)
 	partialLearn  bool              // yeniden başlatıldı: konumların ilk sonuçları yalnızca öğrenilir
+	// Tam kesintiye dönüşerek kapanan kısmi olay: tam kesinti bitince konum
+	// hâlâ çalışmıyorsa aynı olay yeniden açılır (yeni 🟡 gitmez, geçmiş bölünmez).
+	escalatedPartial int64
+	resolvedID       int64 // bu sonuçta kapanan normal olay (partialStep bağlantı için)
 
 	// Monitör UP'a döndüğü halde veritabanında kapatılamamış olay: sonraki
 	// her sonuçta (yeni olay açılmadan önce) yeniden kapatılmaya çalışılır.
@@ -73,6 +77,16 @@ func (r *runner) initialConfirmed(ctx context.Context) int {
 		// Bakım kaydı yeniden başlatmadan önce yazıldıysa (bitişi yazılmamış
 		// başlangıç) ikinci kez yazılmaz; bakım bitince bitişi yazılır.
 		r.maintLogged, _ = r.e.store.InMaintLogged(ctx, r.incidentID)
+		// Olay bir konum kesintisinden dönüştüyse, tam kesinti bitince konum
+		// hâlâ çalışmıyorsa o kısmi olay yeniden açılır (yeniden başlatma
+		// bu bağı unutturmasın).
+		r.escalatedPartial, _ = r.e.store.EscalatedPartialOf(ctx, r.incidentID)
+		// Hatırlatma sayacı olay boyunca kaydedilen DOWN kontrollerinden kurulur
+		// (olayı açan ilk kontrol sayılmaz; bkz. process): yeniden başlatma
+		// hatırlatma sıklığını sıfırlamaz.
+		if n, err := r.e.store.CountBeats(ctx, r.m.ID, store.StatusDown, started); err == nil && n > 0 {
+			r.downBeats = n - 1
+		}
 	}
 	switch {
 	case r.m.Status == store.StatusDown:
@@ -245,6 +259,7 @@ func (r *runner) process(res check.Result) {
 
 	status := store.StatusDown
 	retried := false // olay açılmadan önceki bir tekrar deneme hakkı kullanıldı
+	prevRetries := r.retries
 	switch {
 	case inMaint:
 		status = store.StatusMaintenance
@@ -279,9 +294,10 @@ func (r *runner) process(res check.Result) {
 	})
 	if err != nil {
 		// Kaydedilemeyen sonuç için bildirim gönderilmez; durum bellekte de
-		// değişmez, bir sonraki kontrol aynı geçişi tekrar dener.
+		// değişmez (deneme sayacı dahil: kaydedilmeyen deneme hak düşürmez),
+		// bir sonraki kontrol aynı geçişi tekrar dener.
 		r.e.log.Error("kontrol sonucu kaydedilemedi", "monitor", r.m.Name, "hata", err)
-		r.confirmed = prevConfirmed
+		r.confirmed, r.retries = prevConfirmed, prevRetries
 		return
 	}
 	r.m.Status, r.m.LastCheckAt, r.m.LastMessage = status, now.Unix(), res.Message
@@ -333,6 +349,7 @@ func (r *runner) process(res check.Result) {
 		}
 		r.e.log.Info("monitör tekrar UP", "monitor", r.m.Name, "kesinti", downtime.Round(time.Second))
 		r.notify(notify.KindUp, now, res.Message, downtime)
+		r.resolvedID = r.incidentID
 		r.incidentID, r.locPrev, r.maintLogged, r.locLearn = 0, nil, false, false
 
 	case status == store.StatusDown:
@@ -374,10 +391,31 @@ func (r *runner) notify(kind string, now time.Time, msg string, downtime time.Du
 		// "Detay" bağlantısı olay sayfasına gider; gönderim sonuçları olaya yazılır.
 		ev.IncidentID, ev.IncidentURL = r.incidentID, r.e.IncidentURL(r.incidentID)
 	}
-	if kind == notify.KindDown || kind == notify.KindReminder {
+	switch kind {
+	case notify.KindDown, notify.KindReminder:
 		ev.Locations = r.locationNotes(now)
+	case notify.KindUp:
+		// Düzelme bildiriminde hâlâ çalışmayan konumlar ayrı satırda: tam
+		// kesinti bitti ama konum kesintisi sürüyorsa ikinci bir 🟡 gitmez,
+		// bilgi bu bildirimde verilir.
+		ev.Locations = r.downLocationNotes(now)
 	}
 	r.e.notifier.Notify(ev)
+}
+
+// downLocationNotes çok konumlu monitörde deneme hakkı bitmiş (çalışmıyor)
+// konumlar; tek konumluda veya hepsi çalışıyorsa nil.
+func (r *runner) downLocationNotes(now time.Time) []notify.LocationNote {
+	if r.locs == nil {
+		return nil
+	}
+	var out []notify.LocationNote
+	for _, s := range r.locs.statuses(now, r.rules()) {
+		if s.Status == locDown {
+			out = append(out, notify.LocationNote{Name: s.Name, Message: s.Message})
+		}
+	}
+	return out
 }
 
 // notifyPartial konum kesintisi bildirimi (yalnızca monitörde açıksa); olay

@@ -204,11 +204,12 @@ var checkEN = map[string]string{
 	"Bakım penceresi bitti": "Maintenance window ended",
 	"Hatırlatma bildirimi":  "Reminder notification",
 	// Kısmi kesinti (engine/partial.go)
-	"Tüm konumlar çalışıyor":                 "All locations are up",
-	"Tam kesintiye dönüştü":                  "Escalated to a full outage",
-	"Kısmi kesintiden dönüştü":               "Escalated from a location outage", // eski kayıtlar
-	"Konum kesintisinden dönüştü":            "Escalated from a location outage",
-	"Konum ayarı kaldırıldı; olay kapatıldı": "Location settings removed; incident closed",
+	"Tüm konumlar çalışıyor":                     "All locations are up",
+	"Tam kesintiye dönüştü":                      "Escalated to a full outage",
+	"Kısmi kesintiden dönüştü":                   "Escalated from a location outage", // eski kayıtlar
+	"Konum kesintisinden dönüştü":                "Escalated from a location outage",
+	"Tam kesinti bitti; konum kesintisi sürüyor": "Full outage over; location outage continues",
+	"Konum ayarı kaldırıldı; olay kapatıldı":     "Location settings removed; incident closed",
 	// Sunucu olayları (store/incident_kinds.go)
 	"Sunucuya ulaşılamıyor":   "Server unreachable",
 	"Sunucudan veri gelmiyor": "No data from the server",

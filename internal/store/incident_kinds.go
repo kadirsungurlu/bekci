@@ -104,7 +104,49 @@ const (
 	EventEscalated = "escalated"
 	// EventFromPartial normal olay bir kısmi kesintiden dönüştü (data.incident_id kısmi olay).
 	EventFromPartial = "from_partial"
+	// EventResumed tam kesinti bitti ama konum hâlâ çalışmıyor: dönüştürülen
+	// kısmi olay yeniden açıldı (data.incident_id kapanan normal olay).
+	EventResumed = "resumed"
 )
+
+// ReopenPartialIncident tam kesintiye dönüşerek kapanmış kısmi olayı yeniden
+// açar (tam kesinti bitti ama konum hâlâ çalışmıyor): geçmiş bölünmez, aynı
+// olay sürer. Olay kapalı değilse, başka bir monitöre aitse ya da monitörün
+// açık bir kısmi olayı zaten varsa açılmaz (false).
+func (s *Store) ReopenPartialIncident(ctx context.Context, id, monitorID int64) (bool, error) {
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE incidents SET resolved_at = NULL
+		WHERE id = ? AND monitor_id = ? AND kind = ? AND resolved_at IS NOT NULL
+		AND NOT EXISTS (SELECT 1 FROM incidents WHERE monitor_id = ? AND kind = ? AND resolved_at IS NULL)`,
+		id, monitorID, IncidentPartial, monitorID, IncidentPartial)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n > 0, err
+}
+
+// EscalatedPartialOf normal olayın dönüştüğü kısmi olayın kimliği
+// ("Konum kesintisinden dönüştü" kaydının data.incident_id'si; yoksa 0).
+func (s *Store) EscalatedPartialOf(ctx context.Context, incidentID int64) (int64, error) {
+	var data string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT data FROM incident_events WHERE incident_id = ? AND kind = ?
+		ORDER BY time DESC, id DESC LIMIT 1`, incidentID, EventFromPartial).Scan(&data)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	var d struct {
+		IncidentID int64 `json:"incident_id"`
+	}
+	if json.Unmarshal([]byte(data), &d) != nil {
+		return 0, nil
+	}
+	return d.IncidentID, nil
+}
 
 // IsServerIncident sunucu olayı mı?
 func IsServerIncident(kind string) bool {

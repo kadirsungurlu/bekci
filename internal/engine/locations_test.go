@@ -333,3 +333,57 @@ func TestProbeWatcher(t *testing.T) {
 		t.Fatalf("olaylar %v", got)
 	}
 }
+
+// Kontrol noktasının bağlantısı kopunca son sonucu "çalışmıyor" olan konumun
+// oyu sonuç eskiyene kadar korunur: ajanın yeniden başlaması açık kesinti
+// olayını kapatıp yeniden açmaz (sahte 🟢 + 🔴 yok).
+func TestGoneProbeKeepsDownVote(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	fra := f.probe(t, "Frankfurt", true)
+	m := f.monitor(t, func(m *store.Monitor) { m.MaxRetries = 0 })
+	r := f.locRunner(t, m, store.LocationSetup{IncludeLocal: true, ProbeIDs: []int64{fra.ID}, DownWhen: store.DownWhenAny})
+	fake.set(up())
+	defer fake.set(up())
+
+	r.locationTick(ctx)
+	f.clock = f.clock.Add(10 * time.Millisecond)
+	r.remote(fra, f.clock, down("Alan adı bulunamadı"))
+	if r.m.Status != store.StatusDown || r.incidentID == 0 {
+		t.Fatalf("DOWN ve açık olay bekleniyordu: %d", r.m.Status)
+	}
+	inc := r.incidentID
+
+	// Ajan yeniden başlıyor: bağlantı koptu, kart "sonuç yok" ama oy korunur.
+	f.e.SetProbeConnected(fra.ID, false)
+	f.clock = f.clock.Add(10 * time.Millisecond)
+	r.locationWake()
+	if snap := *r.locs.snap.Load(); snap[1].Status != locUnknown {
+		t.Fatalf("kart için 'sonuç yok' bekleniyordu: %+v", snap)
+	}
+	if r.m.Status != store.StatusDown || r.incidentID != inc {
+		t.Fatalf("kopan ajanın DOWN oyu korunmalı: durum %d olay %d → %d", r.m.Status, inc, r.incidentID)
+	}
+	f.clock = f.clock.Add(f.e.goneGrace() + time.Millisecond)
+	r.locationTick(ctx)
+	if r.m.Status != store.StatusDown || r.incidentID != inc {
+		t.Fatalf("tolerans dolsa da DOWN oyu sonuç eskiyene kadar korunmalı: %d", r.m.Status)
+	}
+	if got := f.n.kinds(); !equal(got, []string{notify.KindDown}) {
+		t.Fatalf("yalnızca ilk kesinti bildirimi gitmeli: %v", got)
+	}
+	// Ajan geri döner, konum hâlâ çalışmıyor: olay değişmez.
+	f.e.SetProbeConnected(fra.ID, true)
+	f.clock = f.clock.Add(10 * time.Millisecond)
+	r.remote(fra, f.clock, down("Alan adı bulunamadı"))
+	if r.m.Status != store.StatusDown || r.incidentID != inc {
+		t.Fatalf("olay sürmeli: %d", r.incidentID)
+	}
+	// Sonuç eskiyince (ajan uzun süre gelmezse) konum hesaptan düşer: UP + "ulaşılamayan".
+	f.e.SetProbeConnected(fra.ID, false)
+	f.clock = f.clock.Add(r.staleAfter() + time.Millisecond)
+	r.locationTick(ctx)
+	if r.m.Status != store.StatusUp || !strings.Contains(r.m.LastMessage, "ulaşılamayan: Frankfurt") {
+		t.Fatalf("eskiyen sonuç kurala katılmamalı: %d %q", r.m.Status, r.m.LastMessage)
+	}
+}
