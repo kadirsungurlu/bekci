@@ -55,7 +55,7 @@ The **Push** monitor works the other way round: Bekci doesn't check anything, it
 curl -fsS "https://⟦bekci.example.com⟧/api/push/⟦TOKEN⟧?status=up&msg=ok&ping=120"
 ```
 
-Send `status=down` to report a failure.
+Send `status=down` to report a failure. If your job is sometimes late (e.g. a 30-minute backup that occasionally takes 40), use the **Grace period (sec)** field in the form to allow extra time on top of the expected interval; the monitor only goes down once interval + grace period have passed. If the address leaked, the **Regenerate URL** button in the monitor form creates a new one; the old address stops working immediately.
 
 ## 3. Add a notification channel {#notifications}
 

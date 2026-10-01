@@ -139,11 +139,16 @@ func (r *runner) nextDelay(ran bool) time.Duration {
 		every = r.unit(r.m.RetryInterval)
 	}
 	if r.m.Type == check.TypePush {
-		// Push: süre son sinyalden itibaren sayılır, ızgaraya bağlanmaz.
-		return every
+		// Push: süre son sinyalden itibaren sayılır, ızgaraya bağlanmaz;
+		// tolerans (grace_sec) beklenen aralığın üstüne eklenir.
+		return every + r.pushGrace()
 	}
 	return r.plan.Delay(time.Now(), every, ran)
 }
+
+// pushGrace push monitörünün toleransı (aralık birimi cinsinden): sinyal
+// beklenen aralık + tolerans geçmeden "sinyal gelmedi" sayılmaz.
+func (r *runner) pushGrace() time.Duration { return r.unit(check.PushGrace(r.m.Config)) }
 
 // retrying tekrar deneme aralığında mı kontrol edilmeli: genel durum
 // "tekrar deneniyor" ya da (çok konumlu) ana sunucunun kendi kontrolü
@@ -165,9 +170,10 @@ func (r *runner) loop(ctx context.Context) {
 	defer close(r.done)
 	first := r.e.jitter(r.unit(r.m.Interval))
 	if r.m.Type == check.TypePush {
-		// Push'ta ilk kontrol şimdiden tam bir aralık sonra: uygulama kapalıyken
-		// veya monitör durdurulmuşken gelemeyen sinyaller yüzünden sahte DOWN olmasın.
-		first = r.unit(r.m.Interval)
+		// Push'ta ilk kontrol şimdiden tam bir aralık (+ tolerans) sonra: uygulama
+		// kapalıyken veya monitör durdurulmuşken gelemeyen sinyaller yüzünden sahte
+		// DOWN olmasın.
+		first = r.unit(r.m.Interval) + r.pushGrace()
 	}
 	timer := time.NewTimer(first)
 	defer timer.Stop()

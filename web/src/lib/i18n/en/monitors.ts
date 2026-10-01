@@ -185,6 +185,7 @@ export default {
     notFoundText: 'This monitor may have been deleted.',
     loadFailed: 'Couldn’t load',
     pushTarget: 'Push monitor · expected every {interval}',
+    pushTargetGrace: 'Push monitor · expected every {interval} · grace {grace}',
     typeMonitor: '{type} monitor',
     group: 'Group',
     maintNote: 'This monitor is currently in a maintenance window. Outages are not notified and don’t count towards uptime.',
@@ -261,6 +262,9 @@ export default {
     custom: 'Custom',
     seconds: 'Seconds',
     intervalPushHelp: 'If no push request arrives within this time, the monitor is marked down.',
+    pushGrace: 'Grace period (sec)',
+    pushGraceHelp:
+      'Extra time added on top of the expected interval: if the job is sometimes late (e.g. a 30-minute backup that occasionally takes 40), it is not counted as “no signal” before this runs out. 0 = no grace period.',
     intervalHelp: 'How often the target is checked. At least 20 seconds, at most 24 hours.',
     noChannels:
       'No notification channels yet. You can add one (WhatsApp, Telegram, email and more) on the {link} page.',
@@ -356,6 +360,7 @@ export default {
       nameRequired: 'Monitor name is required',
       nameTooLong: 'Name can be at most 100 characters',
       intervalRange: 'Check interval must be between 20 seconds and 24 hours (86400 sec)',
+      pushGraceRange: 'Grace period must be between 0 and 86400 seconds',
       urlInvalid: 'Enter a valid http:// or https:// URL',
       badCode: 'Invalid status code: “{code}”. Codes must be between 100 and 599; example formats: 200, 200-299, 2xx',
       redirectsRange: 'Max redirects must be between 0 and 30',

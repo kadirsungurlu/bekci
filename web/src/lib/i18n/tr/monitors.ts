@@ -185,6 +185,7 @@ export default {
     notFoundText: 'Bu monitör silinmiş olabilir.',
     loadFailed: 'Yüklenemedi',
     pushTarget: 'Push monitörü · beklenen aralık {interval}',
+    pushTargetGrace: 'Push monitörü · beklenen aralık {interval} · tolerans {grace}',
     typeMonitor: '{type} monitörü',
     group: 'Grup',
     maintNote: 'Bu monitör şu anda bir bakım penceresinde. Kesintiler bildirilmez ve uptime hesabına katılmaz.',
@@ -261,6 +262,9 @@ export default {
     custom: 'Özel',
     seconds: 'Saniye',
     intervalPushHelp: 'Bu süre içinde push isteği gelmezse monitör çalışmıyor sayılır.',
+    pushGrace: 'Tolerans (sn)',
+    pushGraceHelp:
+      'Beklenen aralığın üstüne eklenen ek süre: iş bazen gecikiyorsa (ör. 30 dk’lık yedek bazen 40 dk sürüyorsa) bu süre dolmadan “sinyal gelmedi” sayılmaz. 0 = tolerans yok.',
     intervalHelp: 'Hedef bu sıklıkla kontrol edilir. En az 20 saniye, en fazla 24 saat.',
     noChannels:
       'Henüz bildirim kanalı yok. {link} sayfasından WhatsApp, Telegram, e-posta gibi bir kanal ekleyebilirsiniz.',
@@ -357,6 +361,7 @@ export default {
       nameRequired: 'Monitör adı gerekli',
       nameTooLong: 'Ad en fazla 100 karakter olabilir',
       intervalRange: 'Kontrol aralığı 20 saniye ile 24 saat (86400 sn) arasında olmalı',
+      pushGraceRange: 'Tolerans 0 ile 86400 saniye arasında olmalı',
       urlInvalid: 'Geçerli bir http:// veya https:// adresi girin',
       badCode: 'Geçersiz durum kodu: “{code}”. Kodlar 100-599 arasında olmalı; örnek biçimler: 200, 200-299, 2xx',
       redirectsRange: 'Yönlendirme sayısı 0-30 arasında olmalı',

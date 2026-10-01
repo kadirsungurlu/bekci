@@ -80,6 +80,8 @@
   let description = $state('');
   let intervalPreset = $state('60');
   let customInterval = $state<number | null>(60);
+  // Push: beklenen aralığın üstüne eklenen tolerans (sn); 0 = yok.
+  let pushGrace = $state<number | null>(0);
   let retryInterval = $state<number | null>(null);
   // Yeni monitör varsayılanları: 1 tekrar deneme (tek anlık hata alarm
   // üretmesin) ve aralığın yarısını geçmeyen zaman aşımı (kullanıcı elle
@@ -240,6 +242,7 @@
     const c = m.config ?? {};
     origType = m.type;
     origConfig = c;
+    pushGrace = num(c, 'grace_sec', 0);
     switch (m.type) {
       case 'http': {
         url = str(c, 'url');
@@ -429,6 +432,7 @@
         !inRange(interval, 20, 86400)
           ? { msg: t('monitors.form.v.intervalRange'), field: intervalPreset === 'custom' ? 'cint' : 'int' }
           : null,
+      () => (type === 'push' && !inRange(pushGrace ?? 0, 0, 86400) ? { msg: t('monitors.form.v.pushGraceRange'), field: 'pgrace' } : null),
       validateType,
       () => (showLocations && !locLocal && locProbeIds.length === 0 ? { msg: t('monitors.form.v.locEmpty') } : null),
       () =>
@@ -556,6 +560,8 @@
         };
       case 'group':
         return { monitor_ids: groupIds, mode: groupMode };
+      case 'push':
+        return pushGrace ? { grace_sec: pushGrace } : {};
       default:
         return genericFields.length ? fieldConfig(genericFields, extra) : {};
     }
@@ -1017,6 +1023,13 @@
       <span class="help int-help">
         {type === 'push' ? t('monitors.form.intervalPushHelp') : t('monitors.form.intervalHelp')}
       </span>
+      {#if type === 'push'}
+        <div class="field grace">
+          <label for="pgrace">{t('monitors.form.pushGrace')}</label>
+          <input id="pgrace" class="input" type="number" min="0" max="86400" step="1" bind:value={pushGrace} />
+          <span class="help">{t('monitors.form.pushGraceHelp')}</span>
+        </div>
+      {/if}
     </section>
 
     <section class="card">
@@ -1657,6 +1670,10 @@
     display: grid;
     grid-template-columns: 220px 160px;
     gap: 16px;
+  }
+  .grace {
+    margin-top: 12px;
+    max-width: 260px;
   }
   .int-help {
     margin-top: -8px;

@@ -307,7 +307,11 @@
         </div>
         <div class="target">
           {#if monitor.type === 'push'}
-            <span class="muted">{t('monitors.detail.pushTarget', { interval: fmtInterval(monitor.interval) })}</span>
+            {#if typeof monitor.config?.grace_sec === 'number' && monitor.config.grace_sec > 0}
+              <span class="muted">{t('monitors.detail.pushTargetGrace', { interval: fmtInterval(monitor.interval), grace: fmtInterval(monitor.config.grace_sec) })}</span>
+            {:else}
+              <span class="muted">{t('monitors.detail.pushTarget', { interval: fmtInterval(monitor.interval) })}</span>
+            {/if}
           {:else if !monitor.target}
             <span class="muted">{t('monitors.detail.typeMonitor', { type: typeName(monitor.type) })}</span>
           {:else if isWebTarget(monitor.type) && /^https?:\/\//i.test(monitor.target)}

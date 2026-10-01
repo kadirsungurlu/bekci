@@ -52,7 +52,7 @@ Paneli ilk açtığınızda **Hoş geldiniz** ekranı yönetici hesabını oluş
 curl -fsS "https://⟦bekci.ornek.com⟧/api/push/⟦TOKEN⟧?status=up&msg=tamam&ping=120"
 ```
 
-Hata bildirmek için `status=down` gönderin.
+Hata bildirmek için `status=down` gönderin. İşiniz bazen gecikiyorsa (ör. 30 dakikalık yedek bazen 40 dakika sürüyorsa) formdaki **Tolerans (sn)** alanıyla beklenen aralığın üstüne ek süre tanıyın; monitör ancak aralık + tolerans dolunca çalışmıyor sayılır. Adres sızdıysa monitör formundaki **Adresi yenile** düğmesi yeni bir adres üretir; eski adres hemen geçersiz olur.
 
 ## 3. Bildirim kanalı ekleyin {#bildirim}
 
