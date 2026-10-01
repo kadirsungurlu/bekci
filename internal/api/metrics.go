@@ -129,6 +129,10 @@ func (s *Server) metrics(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(&b, "uptime_monitor_uptime_ratio{%s,window=\"%s\"} %s\n", labels(m), win.name, promFloat(float64(c.Up)/float64(c.Up+c.Down)))
 		}
 	}
+	if err := s.agentMetrics(r, &b, family, vis); err != nil {
+		s.dbError(w, err)
+		return
+	}
 
 	h := w.Header()
 	h.Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")

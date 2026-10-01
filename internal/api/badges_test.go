@@ -214,7 +214,7 @@ func TestBadgeHelpers(t *testing.T) {
 	}
 }
 
-var promLine = regexp.MustCompile(`^[a-z_]+(\{([a-z_]+="([^"\\]|\\.)*",?)*\})? -?[0-9.e+-]+$`)
+var promLine = regexp.MustCompile(`^[a-z_][a-z0-9_]*(\{([a-z_]+="([^"\\]|\\.)*",?)*\})? -?[0-9.e+-]+$`)
 
 func TestMetrics(t *testing.T) {
 	f := newFeatureEnv(t)

@@ -116,4 +116,4 @@ Opened from the home screen icon, it runs full screen and updates live. On Andro
 - **Silence notifications during planned maintenance:** the **Maintenance** section.
 - **Move from another service:** import your UptimeRobot account or Uptime Kuma backup under **Settings → Backup / Restore**.
 - **Set up backups:** [Updates, backups and rollback](/en/docs/updates-backups/).
-- **Connect Prometheus/Grafana:** the `GET /metrics` endpoint exposes monitor-level status, response time and uptime. Create a key under **Settings → API keys** and call it with the `Authorization: Bearer upk_…` header or Basic auth (user `metrics`, password the key); viewer permission is enough.
+- **Connect Prometheus/Grafana:** the `GET /metrics` endpoint exposes monitor status, response time and uptime as well as the server agents' CPU, RAM, disk and network metrics ([metric list](/en/docs/integrations/#prometheus)). Create a key under **Settings → API keys** and call it with the `Authorization: Bearer upk_…` header or Basic auth (user `metrics`, password the key); viewer permission is enough.

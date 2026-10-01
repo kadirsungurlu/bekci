@@ -106,3 +106,37 @@ curl -H "Authorization: Bearer upk_…" "https://⟦bekci.ornek.com⟧/api/incid
 | `cause` | Neden (istek dilinde) |
 
 Dosya UTF-8'dir ve Excel'in Türkçe karakterleri doğru açması için BOM ile başlar.
+
+## Prometheus metrikleri {#prometheus}
+
+`GET /metrics` ucu Prometheus metin biçiminde (0.0.4) veri verir. **Ayarlar → API anahtarları** bölümünden bir anahtar alın; `Authorization: Bearer upk_…` başlığıyla ya da Basic kimlikle (kullanıcı `metrics`, şifre anahtar) çağırın. İzleyici yetkisi yeter; kısıtlı bir kullanıcının anahtarı yalnızca ona atanmış monitör ve sunucuları görür.
+
+```yaml title="prometheus.yml (parça)"
+scrape_configs:
+  - job_name: bekci
+    scheme: https
+    static_configs: [{ targets: ['⟦bekci.ornek.com⟧'] }]
+    basic_auth: { username: metrics, password: upk_… }
+```
+
+| Metrik | Etiketler | Anlamı |
+|---|---|---|
+| `uptime_monitor_status` | `monitor_id`, `monitor_name`, `monitor_type` | 0 çalışmıyor, 1 çalışıyor, 2 bekliyor |
+| `uptime_monitor_active` | monitör | 1 etkin, 0 durduruldu |
+| `uptime_monitor_response_time_ms` | monitör | Son kontrolün yanıt süresi |
+| `uptime_monitor_slow` | monitör | 1 = yanıt süresi eşiği aşılmış (yalnızca eşik tanımlı monitörlerde) |
+| `uptime_monitor_cert_days_remaining` | monitör | SSL sertifikasına kalan gün |
+| `uptime_monitor_uptime_ratio` | monitör, `window` (24h, 7d, 30d) | Çalışma oranı (0-1) |
+| `uptime_server_online` | `server_id`, `server_name` | 1 ajan veri gönderiyor |
+| `uptime_server_last_sample_timestamp_seconds` | sunucu | Son örneğin zamanı |
+| `uptime_server_cpu_percent`, `uptime_server_memory_percent`, `uptime_server_memory_used_bytes`, `uptime_server_memory_total_bytes`, `uptime_server_swap_percent` | sunucu | Son örnek |
+| `uptime_server_load1`, `uptime_server_load5`, `uptime_server_load15`, `uptime_server_load1_per_core` | sunucu | Yük ortalamaları |
+| `uptime_server_net_rx_bytes_per_second`, `uptime_server_net_tx_bytes_per_second` | sunucu | Ağ trafiği |
+| `uptime_server_disk_read_bytes_per_second`, `uptime_server_disk_write_bytes_per_second` | sunucu | Disk G/Ç |
+| `uptime_server_disk_percent` | sunucu, `mount` | Bölüm doluluğu |
+| `uptime_server_temperature_celsius` | sunucu | En sıcak sensör |
+| `uptime_server_uptime_seconds`, `uptime_server_containers` | sunucu | Açık kalma süresi, konteyner sayısı |
+| `uptime_probe_online` | `probe_id`, `probe_name` | 1 kontrol noktası çevrimiçi (yalnızca kısıtsız kullanıcıya) |
+| `uptime_incidents_open` | `kind` | Süren olay sayısı (monitor, degraded, partial, server_offline, server_alert, probe_offline) |
+
+Sunucu değerleri ajanın son örneğidir (dakikada bir gelir); konteyner ve sıcaklık sensörü listeleri etiket olarak verilmez, etiket sayısı sunucu sayısıyla sınırlı kalır.

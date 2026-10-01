@@ -97,6 +97,9 @@ const (
 	IncidentServerAlert   = "server_alert"
 )
 
+// IncidentKinds tüm olay türleri (sabit sırayla; /metrics sayaçları için).
+var IncidentKinds = []string{IncidentMonitor, IncidentPartial, IncidentServerOffline, IncidentServerAlert}
+
 // İşlem geçmişinin olay türlerine özgü kayıtları.
 const (
 	// EventEscalated kısmi kesinti tam kesintiye dönüştü (kısmi olayı kapatır;

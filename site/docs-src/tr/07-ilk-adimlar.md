@@ -113,4 +113,4 @@ Ana ekrandaki simgeden açıldığında tam ekran çalışır ve canlı güncell
 - **Planlı bakımlarda bildirimleri susturun:** **Bakım** bölümü.
 - **Başka bir servisten taşıyın:** **Ayarlar → Yedekle / Geri yükle** bölümünden UptimeRobot hesabınızı ya da Uptime Kuma yedeğinizi içe aktarın.
 - **Yedeklemeyi ayarlayın:** [Güncelleme, yedek ve geri dönüş](/docs/guncelleme-yedek/).
-- **Prometheus/Grafana'ya bağlayın:** `GET /metrics` ucu monitör düzeyinde durum, yanıt süresi ve uptime verir. **Ayarlar → API anahtarları** bölümünden bir anahtar alın ve `Authorization: Bearer upk_…` başlığıyla ya da Basic kimlikle (kullanıcı `metrics`, şifre anahtar) çağırın; anahtarın izleyici yetkisi yeter.
+- **Prometheus/Grafana'ya bağlayın:** `GET /metrics` ucu monitör durumu, yanıt süresi ve uptime ile sunucu ajanlarının CPU, RAM, disk ve ağ ölçümlerini verir ([metrik listesi](/docs/entegrasyonlar/#prometheus)). **Ayarlar → API anahtarları** bölümünden bir anahtar alın ve `Authorization: Bearer upk_…` başlığıyla ya da Basic kimlikle (kullanıcı `metrics`, şifre anahtar) çağırın; anahtarın izleyici yetkisi yeter.

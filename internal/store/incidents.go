@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"strings"
 )
 
 // Incident olay satırı. Monitör olaylarında (monitor, partial) MonitorID,
@@ -162,6 +163,46 @@ func placeholders(n int) string {
 		b = append(b, '?')
 	}
 	return string(b)
+}
+
+// OpenIncidentCounts süren (çözülmemiş) olayların türe göre sayısı. monitorIDs
+// ve serverIDs ikisi de nil ise tüm olaylar; biri nil değilse yalnızca listelenen
+// monitörlerin ve sunucuların olayları (müşteri kısıtı; nil olan boş sayılır).
+func (s *Store) OpenIncidentCounts(ctx context.Context, monitorIDs, serverIDs []int64) (map[string]int, error) {
+	q := "SELECT kind, COUNT(*) FROM incidents WHERE resolved_at IS NULL"
+	var args []any
+	if monitorIDs != nil || serverIDs != nil {
+		var or []string
+		if len(monitorIDs) > 0 {
+			in, a := inClause(monitorIDs)
+			or = append(or, "monitor_id IN ("+in+")")
+			args = append(args, a...)
+		}
+		if len(serverIDs) > 0 {
+			in, a := inClause(serverIDs)
+			or = append(or, "server_id IN ("+in+")")
+			args = append(args, a...)
+		}
+		if len(or) == 0 {
+			return map[string]int{}, nil
+		}
+		q += " AND (" + strings.Join(or, " OR ") + ")"
+	}
+	rows, err := s.db.QueryContext(ctx, q+" GROUP BY kind", args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var kind string
+		var n int
+		if err := rows.Scan(&kind, &n); err != nil {
+			return nil, err
+		}
+		out[kind] = n
+	}
+	return out, rows.Err()
 }
 
 // CountIncidentsSince since'den sonra başlayan monitör olayı (kesinti) sayısı;

@@ -106,3 +106,37 @@ The `kind` filter: `monitor` (outages), `partial` (location outages), `server` (
 | `cause` | Cause (in the request language) |
 
 The file is UTF-8 and starts with a BOM so that Excel opens Turkish characters correctly.
+
+## Prometheus metrics {#prometheus}
+
+`GET /metrics` serves data in the Prometheus text format (0.0.4). Create a key under **Settings → API keys** and call the endpoint with the `Authorization: Bearer upk_…` header or Basic auth (user `metrics`, password the key). Viewer permission is enough; a restricted user's key only sees the monitors and servers assigned to them.
+
+```yaml title="prometheus.yml (excerpt)"
+scrape_configs:
+  - job_name: bekci
+    scheme: https
+    static_configs: [{ targets: ['⟦bekci.example.com⟧'] }]
+    basic_auth: { username: metrics, password: upk_… }
+```
+
+| Metric | Labels | Meaning |
+|---|---|---|
+| `uptime_monitor_status` | `monitor_id`, `monitor_name`, `monitor_type` | 0 down, 1 up, 2 pending |
+| `uptime_monitor_active` | monitor | 1 active, 0 paused |
+| `uptime_monitor_response_time_ms` | monitor | Response time of the last check |
+| `uptime_monitor_slow` | monitor | 1 = response-time threshold exceeded (only for monitors with a threshold) |
+| `uptime_monitor_cert_days_remaining` | monitor | Days until the SSL certificate expires |
+| `uptime_monitor_uptime_ratio` | monitor, `window` (24h, 7d, 30d) | Uptime ratio (0-1) |
+| `uptime_server_online` | `server_id`, `server_name` | 1 the agent is sending data |
+| `uptime_server_last_sample_timestamp_seconds` | server | Time of the last sample |
+| `uptime_server_cpu_percent`, `uptime_server_memory_percent`, `uptime_server_memory_used_bytes`, `uptime_server_memory_total_bytes`, `uptime_server_swap_percent` | server | Last sample |
+| `uptime_server_load1`, `uptime_server_load5`, `uptime_server_load15`, `uptime_server_load1_per_core` | server | Load averages |
+| `uptime_server_net_rx_bytes_per_second`, `uptime_server_net_tx_bytes_per_second` | server | Network traffic |
+| `uptime_server_disk_read_bytes_per_second`, `uptime_server_disk_write_bytes_per_second` | server | Disk I/O |
+| `uptime_server_disk_percent` | server, `mount` | Partition usage |
+| `uptime_server_temperature_celsius` | server | Hottest sensor |
+| `uptime_server_uptime_seconds`, `uptime_server_containers` | server | Uptime, container count |
+| `uptime_probe_online` | `probe_id`, `probe_name` | 1 check location online (unrestricted users only) |
+| `uptime_incidents_open` | `kind` | Ongoing incidents (monitor, degraded, partial, server_offline, server_alert, probe_offline) |
+
+Server values are the agent's last sample (sent once a minute); container and temperature-sensor lists are not exposed as labels, so cardinality stays bounded by the number of servers.
