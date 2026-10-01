@@ -8,6 +8,8 @@ export default {
   emptyAll: 'No incidents yet. They will appear here when a monitor goes down.',
   loadMore: 'Load more',
   emptyKind: 'No incidents of this kind.',
+  exportCsv: 'Download CSV',
+  exportCsvTitle: 'Downloads the incidents of the selected kind (up to 10,000) as a CSV file',
   filter: {
     label: 'Incident kind',
     all: 'All',

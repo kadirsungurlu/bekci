@@ -6,6 +6,8 @@ export default {
   emptyAll: 'Henüz hiç olay yok. Bir monitör çalışmadığında burada görünecek.',
   loadMore: 'Daha fazla yükle',
   emptyKind: 'Bu türde olay yok.',
+  exportCsv: 'CSV indir',
+  exportCsvTitle: 'Seçili türdeki olayları (en fazla 10.000) CSV dosyası olarak indirir',
   /** Olay listesi süzgeci. */
   filter: {
     label: 'Olay türü',

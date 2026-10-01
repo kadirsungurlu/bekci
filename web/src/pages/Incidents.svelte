@@ -19,6 +19,7 @@
   import { session } from '../lib/session.svelte';
   import { clock } from '../lib/ui.svelte';
   import IncidentTable from '../components/IncidentTable.svelte';
+  import Icon from '../components/Icon.svelte';
   import { t } from '../lib/i18n';
 
   const LIMIT = 50;
@@ -137,6 +138,8 @@
   });
 
   const ongoing = $derived(items.filter((i) => i.resolved_at === 0).length);
+  // CSV dışa aktarımı geçerli süzgeçle, oturum çerezi ile doğrudan indirilir.
+  const csvHref = $derived(`/api/incidents?format=csv${kind ? `&kind=${kind}` : ''}`);
 </script>
 
 <svelte:window onscroll={() => (cache.scrollY = window.scrollY)} />
@@ -152,6 +155,9 @@
       <button role="radio" aria-checked={kind === f.k} class:active={kind === f.k} onclick={() => setKind(f.k)}>{f.label()}</button>
     {/each}
   </div>
+  {#if items.length > 0}
+    <a class="btn sm csv" href={csvHref} download title={t('incidents.exportCsvTitle')}><Icon name="download" size={14} /> {t('incidents.exportCsv')}</a>
+  {/if}
 </div>
 
 <div class="card">
@@ -184,7 +190,14 @@
 <style>
   .filters {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
     margin: -4px 0 14px;
+  }
+  .csv {
+    margin-left: auto;
   }
   .more {
     display: flex;

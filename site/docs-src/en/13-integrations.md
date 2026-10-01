@@ -85,3 +85,24 @@ def bekci():
 
 > [!TIP]
 > The signing secret is stored like the other secret fields: after saving it is shown masked and only re-entered to change it. The channel's **Send sample notifications** button sends signed requests too; use it to test your receiver.
+
+## Exporting incidents as CSV {#csv}
+
+The **Download CSV** button on the **Incidents** page downloads the incidents of the selected filter (up to 10,000 rows, newest first). The same file is available from the API; a session cookie or an API key is enough, and a user only receives the incidents they are allowed to see:
+
+```bash
+curl -H "Authorization: Bearer upk_…" "https://⟦bekci.example.com⟧/api/incidents?format=csv&kind=monitor" -o incidents.csv
+```
+
+The `kind` filter: `monitor` (outages), `partial` (location outages), `server` (server and check-location incidents); empty means all. Columns:
+
+| Column | Meaning |
+|---|---|
+| `id` | Incident id (`/#/incidents/<id>`) |
+| `kind` | `monitor`, `degraded` (slow response), `partial`, `server_offline`, `server_alert`, `probe_offline` |
+| `source` | Name of the monitor or of the server / check location |
+| `started_at`, `resolved_at` | RFC 3339 in local time; empty `resolved_at` while ongoing |
+| `duration_seconds` | Duration in seconds; for an ongoing incident, so far |
+| `cause` | Cause (in the request language) |
+
+The file is UTF-8 and starts with a BOM so that Excel opens Turkish characters correctly.

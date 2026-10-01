@@ -1,6 +1,8 @@
 package api
 
 import (
+	"context"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/kadirsungurlu/bekci/internal/check"
 	"github.com/kadirsungurlu/bekci/internal/engine"
+	"github.com/kadirsungurlu/bekci/internal/i18n"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
@@ -97,7 +100,14 @@ func (s *Server) listIncidents(w http.ResponseWriter, r *http.Request) {
 		// Müşteri kısıtlı izleyici: izinli monitörlerin ve atanmış sunucuların olayları.
 		f.MonitorIDs, f.ServerIDs = vis.list(), vis.serverList()
 	}
-	list, err := s.store.ListIncidents(r.Context(), f)
+	asCSV := q.Get("format") == "csv"
+	var list []store.Incident
+	var err error
+	if asCSV {
+		list, err = s.allIncidents(r.Context(), f)
+	} else {
+		list, err = s.store.ListIncidents(r.Context(), f)
+	}
 	if err != nil {
 		s.dbError(w, err)
 		return
@@ -119,8 +129,69 @@ func (s *Server) listIncidents(w http.ResponseWriter, r *http.Request) {
 			list[k].Cause = viewerMessage(u, typ, store.StatusDown, list[k].Cause)
 		}
 	}
-	localizeIncidents(responseLang(w), list)
+	lang := responseLang(w)
+	localizeIncidents(lang, list)
+	if asCSV {
+		s.writeIncidentsCSV(w, lang, list)
+		return
+	}
 	writeJSON(w, http.StatusOK, list)
+}
+
+// csvExportMax CSV dışa aktarımındaki en fazla satır (süzgeçle daraltılır).
+const csvExportMax = 10000
+
+// allIncidents süzgece uyan olayları sayfalayarak toplar (en fazla csvExportMax).
+func (s *Server) allIncidents(ctx context.Context, f store.IncidentFilter) ([]store.Incident, error) {
+	var out []store.Incident
+	f.Limit = 500
+	for len(out) < csvExportMax {
+		page, err := s.store.ListIncidents(ctx, f)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, page...)
+		if len(page) < f.Limit {
+			break
+		}
+		f.Before = page[len(page)-1].ID
+	}
+	if len(out) > csvExportMax {
+		out = out[:csvExportMax]
+	}
+	return out, nil
+}
+
+// writeIncidentsCSV olay listesini CSV olarak yazar (UTF-8 BOM ile: Excel
+// Türkçe karakterleri doğru açar). Zamanlar yerel saatte RFC 3339'dur; süre
+// saniye cinsindendir (süren olayda şu ana kadar).
+func (s *Server) writeIncidentsCSV(w http.ResponseWriter, lang string, list []store.Incident) {
+	now := s.now()
+	name := "olaylar"
+	if lang == i18n.EN {
+		name = "incidents"
+	}
+	h := w.Header()
+	h.Set("Content-Type", "text/csv; charset=utf-8")
+	h.Set("Content-Disposition", `attachment; filename="`+name+`-`+now.Format("2006-01-02")+`.csv"`)
+	h.Set("Cache-Control", "no-store")
+	w.Write([]byte("\xEF\xBB\xBF"))
+	cw := csv.NewWriter(w)
+	cw.Write([]string{"id", "kind", "source", "started_at", "resolved_at", "duration_seconds", "cause"})
+	for _, in := range list {
+		source := in.MonitorName
+		if store.IsServerIncident(in.Kind) {
+			source = in.ServerName
+		}
+		started := time.Unix(in.StartedAt, 0).Local().Format(time.RFC3339)
+		resolved, end := "", now.Unix()
+		if in.ResolvedAt > 0 {
+			resolved, end = time.Unix(in.ResolvedAt, 0).Local().Format(time.RFC3339), in.ResolvedAt
+		}
+		cw.Write([]string{strconv.FormatInt(in.ID, 10), in.Kind, source, started, resolved,
+			strconv.FormatInt(max(0, end-in.StartedAt), 10), in.Cause})
+	}
+	cw.Flush()
 }
 
 // groupIDs grup tipindeki monitörlerin kimlikleri (izleyici mesaj temizliği için).

@@ -85,3 +85,24 @@ def bekci():
 
 > [!TIP]
 > İmza anahtarı diğer gizli alanlar gibi saklanır: kaydettikten sonra arayüzde maskeli görünür, yalnızca değiştirmek için yeniden yazılır. Kanalın **Örnek bildirim gönder** düğmesi imzalı istek de gönderir; alıcınızı onunla deneyin.
+
+## Olayları CSV olarak dışa aktarma {#csv}
+
+**Olaylar** sayfasındaki **CSV indir** düğmesi, seçili süzgeçteki olayları (en fazla 10.000 satır, en yeniden eskiye) indirir. Aynı dosya API'den de alınabilir; oturum çerezi ya da API anahtarı yeter ve kullanıcı yalnızca görmeye yetkili olduğu olayları alır:
+
+```bash
+curl -H "Authorization: Bearer upk_…" "https://⟦bekci.ornek.com⟧/api/incidents?format=csv&kind=monitor" -o olaylar.csv
+```
+
+`kind` süzgeci: `monitor` (kesintiler), `partial` (konum kesintileri), `server` (sunucu ve kontrol noktası olayları); boşsa hepsi. Sütunlar:
+
+| Sütun | Anlamı |
+|---|---|
+| `id` | Olayın kimliği (`/#/incidents/<id>`) |
+| `kind` | `monitor`, `degraded` (yavaş yanıt), `partial`, `server_offline`, `server_alert`, `probe_offline` |
+| `source` | Monitörün ya da sunucunun / kontrol noktasının adı |
+| `started_at`, `resolved_at` | Yerel saatte RFC 3339; süren olayda `resolved_at` boş |
+| `duration_seconds` | Süre (saniye); süren olayda şu ana kadar |
+| `cause` | Neden (istek dilinde) |
+
+Dosya UTF-8'dir ve Excel'in Türkçe karakterleri doğru açması için BOM ile başlar.
