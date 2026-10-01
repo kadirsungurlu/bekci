@@ -91,7 +91,7 @@ func TestLocationLinesAndBody(t *testing.T) {
 		Time:      time.Date(2026, 10, 1, 10, 58, 1, 0, time.Local),
 		Locations: []LocationNote{{Name: "Ana sunucu", Message: "HTTP 403 Forbidden"}, {Name: "CP Server IST", NoData: true}}}
 	body := ev.Body()
-	want := "Hedef: https://a.example\nKonumlar:\n• Ana sunucu: HTTP 403 Forbidden\n• CP Server IST: sonuç gelmiyor\nZaman: "
+	want := "Hedef: https://a.example\nKonumlar:\n• Ana sunucu: HTTP 403 Forbidden\n• CP Server IST: Kontrol noktasına ulaşılamıyor\nZaman: "
 	if !strings.HasPrefix(body, want) {
 		t.Fatalf("gövde:\n%s", body)
 	}
@@ -102,7 +102,7 @@ func TestLocationLinesAndBody(t *testing.T) {
 		t.Fatalf("Text = başlık + gövde olmalı:\n%s", ev.Text())
 	}
 	ev.Lang = "en"
-	if b := ev.Body(); !strings.Contains(b, "Locations:\n• Ana sunucu: HTTP 403 Forbidden\n• CP Server IST: no result") {
+	if b := ev.Body(); !strings.Contains(b, "Locations:\n• Ana sunucu: HTTP 403 Forbidden\n• CP Server IST: Check location unreachable") {
 		t.Fatalf("İngilizce gövde:\n%s", b)
 	}
 	// Konum bilgisi yoksa eskisi gibi "Neden".

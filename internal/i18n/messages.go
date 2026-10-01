@@ -31,7 +31,7 @@ var messages = map[string]Msg{
 	"notify.mail.status.test":     {"Test", "Test"},
 	"notify.mail.open":            {"Ayrıntıları aç", "Open details"},
 	"notify.mail.footer":          {"Bu e-posta %s tarafından gönderildi.", "This email was sent by %s."},
-	"notify.loc.no_data":          {"sonuç gelmiyor", "no result"},
+	"notify.loc.no_data":          {"Kontrol noktasına ulaşılamıyor", "Check location unreachable"},
 	"notify.field.downtime":       {"Kesinti süresi", "Downtime"},
 	"notify.field.expires":        {"Bitiş", "Expires"},
 	"notify.field.issuer":         {"Veren", "Issuer"},

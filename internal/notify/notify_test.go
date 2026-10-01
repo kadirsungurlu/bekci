@@ -400,11 +400,11 @@ func TestMailMultipartHTML(t *testing.T) {
 		ct, _, _ := mime.ParseMediaType(p.Header.Get("Content-Type"))
 		parts[ct] = string(body)
 	}
-	if !strings.Contains(parts["text/plain"], "• CP Server IST: sonuç gelmiyor") {
+	if !strings.Contains(parts["text/plain"], "• CP Server IST: Kontrol noktasına ulaşılamıyor") {
 		t.Fatalf("düz metin:\n%s", parts["text/plain"])
 	}
 	h := parts["text/html"]
-	for _, want := range []string{"Çalışmıyor", "Ayder &lt;Tesisat&gt; çalışmıyor", "CP Server IST", "sonuç gelmiyor", `href="https://u.example/#/incidents/17"`, "Ayrıntıları aç"} {
+	for _, want := range []string{"Çalışmıyor", "Ayder &lt;Tesisat&gt; çalışmıyor", "CP Server IST", "Kontrol noktasına ulaşılamıyor", `href="https://u.example/#/incidents/17"`, "Ayrıntıları aç"} {
 		if !strings.Contains(h, want) {
 			t.Fatalf("HTML'de %q yok:\n%s", want, h)
 		}
