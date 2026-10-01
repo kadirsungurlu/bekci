@@ -490,21 +490,23 @@ func (s *Server) publicUnlock(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
 	}
+	// Kilit yalnızca IP + sayfa başına: bir saldırgan (ya da şifresini
+	// unutan tek ziyaretçi) sayfayı herkese kapatamaz. Giriş sınırından ayrı.
 	ip := clientIP(r)
-	ipKey, pageKey := ip+" "+slug, "sayfa:"+slug
+	ipKey := "sayfa:" + slug + " " + ip
 	lim := s.pages.limiter
-	if ok, wait := lim.allow(ipKey, pageKey, s.now()); !ok {
+	if ok, wait := lim.allowKeys(s.now(), ipKey); !ok {
 		w.Header().Set("Retry-After", strconv.Itoa(int(wait.Seconds())+1))
 		writeError(w, http.StatusTooManyRequests, "Çok fazla hatalı deneme. "+strconv.Itoa(int(wait.Minutes())+1)+" dakika sonra tekrar deneyin.")
 		return
 	}
 	if len(in.Password) > 72 || bcrypt.CompareHashAndPassword([]byte(e.page.PasswordHash), []byte(in.Password)) != nil {
-		lim.fail(ipKey, pageKey, s.now())
+		lim.failKey(ipKey, loginMaxPerIP, s.now())
 		s.log.Warn("durum sayfası için hatalı şifre", "ip", ip, "sayfa", slug)
 		writeError(w, http.StatusUnauthorized, "Şifre hatalı")
 		return
 	}
-	lim.success(ipKey)
+	lim.reset(ipKey)
 	token, err := s.unlockToken(r.Context(), e.page)
 	if err != nil {
 		s.dbError(w, err)

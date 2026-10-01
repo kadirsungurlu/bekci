@@ -24,9 +24,10 @@ import (
 // oluşturulabilir). İki adımlı doğrulama da anahtarı etkilemez.
 //
 // Anahtar yönetimi (/api/api-keys), hesap güvenliği uç noktaları (/api/auth/…:
-// şifre değişimi, iki adımlı doğrulama) ve iki adımlı doğrulama sıfırlama
-// anahtarla kullanılamaz, gerçek oturum gerekir: sızan bir anahtar kendini
-// çoğaltamaz veya hesabı ele geçiremez.
+// şifre değişimi, iki adımlı doğrulama), iki adımlı doğrulama sıfırlama ve
+// kullanıcı yönetiminin yazma uçları (kullanıcı ekleme/düzenleme/silme, şifre
+// sıfırlama) anahtarla kullanılamaz, gerçek oturum gerekir: sızan bir anahtar
+// kendini çoğaltamaz, yeni yönetici açamaz veya hesabı ele geçiremez.
 
 const (
 	apiKeyPrefix     = "upk_"
@@ -84,20 +85,27 @@ func isAPIKeyRequest(r *http.Request) bool {
 	return err != nil
 }
 
-// sessionOnly anahtarla kullanılamayan, gerçek oturum gerektiren yollar.
+// sessionOnly anahtarla kullanılamayan, gerçek oturum gerektiren uçlar.
 // Yedek dışa/içe aktarma da buradadır: dışa aktarma tüm gizli bilgileri ve
 // sayfa şifre özetlerini açık verir; sızan bir API anahtarı her şeyi
-// dökememeli. Tarayıcı bu uçları oturum çereziyle kullandığından etkilenmez.
-func sessionOnly(path string) bool {
-	return strings.HasPrefix(path, "/api/auth/") ||
+// dökememeli. Kullanıcı yönetiminin yazma uçları da buradadır: yönetici
+// rollü bir anahtar yeni yönetici açıp ya da bir şifreyi sıfırlayıp
+// tarayıcıdan oturum açarak bu korumaları dolaylı aşamamalı (listeleme
+// serbesttir). Tarayıcı bu uçları oturum çereziyle kullandığından etkilenmez.
+func sessionOnly(method, path string) bool {
+	if strings.HasPrefix(path, "/api/auth/") ||
 		path == "/api/api-keys" || strings.HasPrefix(path, "/api/api-keys/") ||
 		path == "/api/export" || strings.HasPrefix(path, "/api/import") ||
-		strings.Contains(path, "/2fa/")
+		strings.Contains(path, "/2fa/") {
+		return true
+	}
+	write := method != http.MethodGet && method != http.MethodHead
+	return write && (path == "/api/users" || strings.HasPrefix(path, "/api/users/"))
 }
 
 func apiKeyAuthenticator(s *Server, r *http.Request) (store.User, bool) {
 	secret, ok := bearerAPIKey(r)
-	if !ok || sessionOnly(r.URL.Path) {
+	if !ok || sessionOnly(r.Method, r.URL.Path) {
 		return store.User{}, false
 	}
 	return s.userForAPIKey(r, secret)

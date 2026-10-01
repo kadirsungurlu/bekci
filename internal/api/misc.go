@@ -176,6 +176,14 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 // push: /api/push/{token}?status=up|down&msg=...&ping=123
 // Cron işleri ve betikler tarafından çağrılır; oturum gerektirmez.
 func (s *Server) push(w http.ResponseWriter, r *http.Request) {
+	// IP başına cömert bir sınır: token 192 bit, tahmin edilemez; sınır
+	// yalnızca kaynak tüketimine (veritabanı sorgusu) karşıdır. Aynı
+	// sunucudaki onlarca cron işi rahatça sığar.
+	if ok, retry := s.pushRL.allow(clientIP(r), s.now()); !ok {
+		w.Header().Set("Retry-After", strconv.Itoa(retry))
+		writeJSON(w, http.StatusTooManyRequests, map[string]any{"ok": false, "error": "çok fazla istek; biraz sonra tekrar deneyin"})
+		return
+	}
 	q := r.URL.Query()
 	up := q.Get("status") != "down"
 	msg := strings.ToValidUTF8(q.Get("msg"), "�")
@@ -218,6 +226,16 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	// ederek akışı keser.)
 	rc.SetReadDeadline(time.Time{})
 	rc.SetWriteDeadline(time.Time{})
+	// Yazmalar yine de süre sınırlıdır: her yazma öncesi kısa bir süre tanınır
+	// (sseWriteTimeout); veri almayan yarı açık istemci sonsuza dek eşzamanlı
+	// bağlantı kotasında yer tutmaz.
+	write := func(format string, a ...any) bool {
+		rc.SetWriteDeadline(time.Now().Add(sseWriteTimeout))
+		if _, err := fmt.Fprintf(w, format, a...); err != nil {
+			return false
+		}
+		return rc.Flush() == nil
+	}
 
 	h := w.Header()
 	h.Set("Content-Type", "text/event-stream")
@@ -233,8 +251,7 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 		groups, _ = s.groupIDs(r)
 	}
 
-	fmt.Fprint(w, "retry: 5000\n\n")
-	if rc.Flush() != nil {
+	if !write("retry: 5000\n\n") {
 		return
 	}
 	// Cloudflare ve proxy'ler boşta kalan bağlantıyı kesmesin diye düzenli yorum
@@ -262,7 +279,7 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			msg = localizeEvent(lang, msg)
-			if _, err := fmt.Fprintf(w, "data: %s\n\n", msg); err != nil {
+			if !write("data: %s\n\n", msg) {
 				return
 			}
 		case <-keepAlive.C:
@@ -281,15 +298,15 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 			} else {
 				groups = nil
 			}
-			if _, err := fmt.Fprint(w, ": ping\n\n"); err != nil {
+			if !write(": ping\n\n") {
 				return
 			}
 		}
-		if rc.Flush() != nil {
-			return
-		}
 	}
 }
+
+// sseWriteTimeout canlı akışta tek bir yazmanın en uzun süresi.
+const sseWriteTimeout = 30 * time.Second
 
 // eventVisible kısıtlı kullanıcı için olayın izinli bir monitöre ait olup
 // olmadığını söyler; monitöre bağlı olmayan olaylar gönderilmez.

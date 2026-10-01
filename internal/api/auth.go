@@ -235,8 +235,35 @@ func validatePassword(p string) error {
 	if len(p) > 72 {
 		return errors.New("Şifre en fazla 72 bayt olabilir")
 	}
+	if commonPasswords[strings.ToLower(strings.TrimSpace(p))] {
+		return errors.New("Bu şifre çok yaygın; tahmin edilmesi zor başka bir şifre seçin")
+	}
 	return nil
 }
+
+// commonPasswords sızıntı listelerinde en sık görülen, 8+ karakterli şifreler
+// (küçük harfle). Kısa bir yerleşik liste: amaç sözlük saldırısına ilk
+// dakikada düşecek şifreleri engellemektir, tam bir politika motoru değil.
+var commonPasswords = func() map[string]bool {
+	list := []string{
+		"password", "password1", "password12", "password123", "passw0rd", "p@ssw0rd", "p@ssword",
+		"12345678", "123456789", "1234567890", "123456789a", "1234567891", "123123123", "1q2w3e4r",
+		"1q2w3e4r5t", "qwerty123", "qwertyuiop", "qwerty12345", "abc12345", "abcd1234", "abcdefgh",
+		"iloveyou", "sunshine", "princess", "football", "baseball", "superman", "trustno1",
+		"welcome1", "welcome123", "letmein1", "whatever", "starwars", "computer", "internet",
+		"michael1", "jennifer", "charlie1", "monkey123", "dragon123", "shadow123", "master123",
+		"admin123", "admin1234", "administrator", "root1234", "changeme", "default1", "secret123",
+		"test1234", "testtest", "deneme123", "sifre123", "sifre1234", "parola123", "parola1234",
+		"istanbul", "galatasaray", "fenerbahce", "besiktas", "trabzonspor", "turkiye1", "merhaba1",
+		"11111111", "00000000", "88888888", "987654321", "1qaz2wsx", "zaq12wsx", "asdfghjk",
+		"asdfghjkl", "aa123456", "a1234567", "uptime123", "bekci123",
+	}
+	m := make(map[string]bool, len(list))
+	for _, p := range list {
+		m[p] = true
+	}
+	return m
+}()
 
 func (s *Server) setup(w http.ResponseWriter, r *http.Request) {
 	var in credentials
@@ -496,10 +523,16 @@ func limiterKeys(ip, username string) [2]string {
 }
 
 func (l *loginLimiter) allow(ip, username string, now time.Time) (bool, time.Duration) {
+	keys := limiterKeys(ip, username)
+	return l.allowKeys(now, keys[:]...)
+}
+
+// allowKeys verilen anahtarlardan biri kilitliyse false ve kalan bekleme.
+func (l *loginLimiter) allowKeys(now time.Time, keys ...string) (bool, time.Duration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	var wait time.Duration
-	for _, k := range limiterKeys(ip, username) {
+	for _, k := range keys {
 		if a := l.keys[k]; a != nil && now.Before(a.locked) {
 			wait = max(wait, a.locked.Sub(now))
 		}
@@ -508,26 +541,27 @@ func (l *loginLimiter) allow(ip, username string, now time.Time) (bool, time.Dur
 }
 
 func (l *loginLimiter) fail(ip, username string, now time.Time) {
+	keys := limiterKeys(ip, username)
+	l.failKey(keys[0], loginMaxPerIP, now)
+	l.failKey(keys[1], loginMaxPerUser, now)
+}
+
+// failKey anahtarın hata sayacını artırır; pencere içinde limit'e ulaşınca
+// anahtarı kilitler.
+func (l *loginLimiter) failKey(key string, limit int, now time.Time) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	keys := limiterKeys(ip, username)
-	for i, k := range keys {
-		a := l.keys[k]
-		if a == nil {
-			a = &attempts{}
-			l.keys[k] = a
-		}
-		if now.Sub(a.first) > loginWindow {
-			a.count, a.first = 0, now
-		}
-		a.count++
-		limit := loginMaxPerIP
-		if i == 1 {
-			limit = loginMaxPerUser
-		}
-		if a.count >= limit {
-			a.locked = now.Add(loginLockoutTime)
-		}
+	a := l.keys[key]
+	if a == nil {
+		a = &attempts{}
+		l.keys[key] = a
+	}
+	if now.Sub(a.first) > loginWindow {
+		a.count, a.first = 0, now
+	}
+	a.count++
+	if a.count >= limit {
+		a.locked = now.Add(loginLockoutTime)
 	}
 	// Bellek şişmesin: süresi geçmiş kayıtları ara ara temizle.
 	if len(l.keys) > 10000 {
@@ -541,8 +575,11 @@ func (l *loginLimiter) fail(ip, username string, now time.Time) {
 
 // success başarılı girişte sadece o IP'nin sayacını sıfırlar; kullanıcı adı
 // sayacı dağıtık saldırıyı izlemeye devam eder.
-func (l *loginLimiter) success(ip string) {
+func (l *loginLimiter) success(ip string) { l.reset("ip:" + ip) }
+
+// reset anahtarın sayacını siler.
+func (l *loginLimiter) reset(key string) {
 	l.mu.Lock()
-	delete(l.keys, "ip:"+ip)
+	delete(l.keys, key)
 	l.mu.Unlock()
 }

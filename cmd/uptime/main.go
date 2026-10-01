@@ -156,6 +156,15 @@ func run() error {
 
 	apiServer := api.New(st, eng, hub, dispatcher, log, web.Dist(), version)
 	apiServer.BaseURL = baseURL
+	if env("TRUSTED_PROXY", "") == "" {
+		// Varsayılan geriye dönük uyumlu kalır (Coolify/Traefik gibi aynı
+		// makinedeki vekiller özel ağdan bağlanır); yine de kurulumun farkında
+		// olması için açılışta bir kez uyarılır. Ters vekilsiz, doğrudan
+		// yayınlanan (-p 8080:8080) kurulumda Docker NAT yüzünden herkes özel
+		// adresten görünür ve X-Forwarded-For ile istemci adresi uydurulabilir.
+		log.Warn("TRUSTED_PROXY ayarlı değil: tüm özel ağ adreslerinden gelen X-Forwarded-For başlığına güveniliyor; " +
+			"ters vekilin adresini TRUSTED_PROXY ile verin (ör. 172.17.0.1/32), vekilsiz kurulumda loopback verin (127.0.0.1/32)")
+	}
 	apiServer.ProbeImage = env("PROBE_IMAGE", "")
 	if d := env("AGENT_DIR", ""); d != "" {
 		apiServer.AgentDir = d

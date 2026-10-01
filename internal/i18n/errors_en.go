@@ -43,6 +43,7 @@ var errorsEN = map[string]string{
 	"Devam etmeden önce şifrenizi değiştirmeniz gerekiyor":                                     "You need to change your password before continuing",
 	"Hesabınız devre dışı bırakılmış; yöneticinize başvurun":                                   "Your account has been disabled; contact your administrator",
 	"Kullanıcı adı 3-32 karakter olmalı; harf, rakam, nokta, tire ve alt çizgi kullanılabilir": "Username must be 3-32 characters; letters, digits, periods, hyphens and underscores are allowed",
+	"Bu şifre çok yaygın; tahmin edilmesi zor başka bir şifre seçin":                           "This password is too common; choose a harder-to-guess one",
 	"Şifre en az 8 karakter olmalı":                                                            "Password must be at least 8 characters",
 	"Şifre en fazla 72 bayt olabilir":                                                          "Password can be at most 72 bytes",
 	"Şifre hatalı":                                                                             "Incorrect password",

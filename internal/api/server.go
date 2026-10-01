@@ -45,6 +45,7 @@ type Server struct {
 	probeAuthRL *probeAuthLimiter
 	badges      *badgeState    // rozet önbelleği ve IP hız sınırı (badges.go)
 	notifyRL    *notifyLimiter // bildirim test/örnek hız sınırı (notifications.go)
+	pushRL      *ipLimiter     // push sinyali için IP başına hız sınırı (ratelimit.go)
 	servers     *servers.Service
 	// sseRecheck canlı akışta keepalive ve erişimin yeniden doğrulanma aralığı
 	// (varsayılan 25 sn; testler kısaltır).
@@ -74,6 +75,7 @@ func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatche
 		limiter: newLoginLimiter(), now: time.Now, pages: newPagesState(), probeRL: newProbeLimiter(),
 		badges:      newBadgeState(),
 		notifyRL:    newNotifyLimiter(),
+		pushRL:      newIPLimiter(pushPerMinute),
 		probeAuthRL: newProbeAuthLimiter(),
 		probePolls:  newProbePolls(),
 		probeConns:  newProbeConns(),
