@@ -41,6 +41,7 @@ export default {
       notifications: 'Monitör bildirim kanalları değiştirildi',
       tags: 'Monitör etiketleri değiştirildi',
       locations: 'Monitör konumları değiştirildi',
+      push_token: 'Push adresi yenilendi',
     },
     notification: {
       create: 'Bildirim kanalı eklendi',
@@ -78,6 +79,7 @@ export default {
       delete: 'Bakım silindi',
       pause: 'Bakım devre dışı bırakıldı',
       resume: 'Bakım etkinleştirildi',
+      end: 'Bakım erken bitirildi',
     },
     tag: {
       create: 'Etiket eklendi',

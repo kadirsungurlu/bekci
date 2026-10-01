@@ -93,6 +93,18 @@ func (s *Store) GetMonitor(ctx context.Context, id int64) (Monitor, error) {
 	return m, err
 }
 
+// SetPushToken push monitörünün adresini (token) değiştirir; eskisi hemen geçersiz olur.
+func (s *Store) SetPushToken(ctx context.Context, id int64, token string) error {
+	res, err := s.db.ExecContext(ctx, "UPDATE monitors SET push_token = ?, updated_at = ? WHERE id = ?", token, time.Now().Unix(), id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (s *Store) MonitorByPushToken(ctx context.Context, token string) (Monitor, error) {
 	m, err := scanMonitor(s.db.QueryRowContext(ctx, "SELECT "+monitorCols+" FROM monitors WHERE push_token = ?", token))
 	if errors.Is(err, sql.ErrNoRows) {

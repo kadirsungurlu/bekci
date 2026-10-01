@@ -554,7 +554,7 @@
     border-radius: 10px;
     background: var(--down);
     color: var(--on-down);
-    font-size: 0.72rem;
+    font-size: 0.78rem; /* ≥ 11,5 px: kırmızı zeminde beyaz yazı okunaklı kalsın */
     font-weight: 700;
     display: inline-flex;
     align-items: center;

@@ -315,7 +315,7 @@ export default {
     valueColor: 'Value color',
     auto: 'automatic',
     autoHelp: 'The value color is picked automatically from the ratio / days left (green, orange, red).',
-    badColor: 'Invalid color ignored. Examples: #2dd4bf, 0a0, brightgreen.',
+    badColor: 'Invalid color ignored. Examples: #22c55e, 0a0, brightgreen.',
     preview: 'Preview',
     previewAlt: 'Badge preview',
     loadFailed: "Couldn't load the badge.",

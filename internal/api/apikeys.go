@@ -130,6 +130,7 @@ func (s *Server) userForAPIKey(r *http.Request, secret string) (store.User, bool
 		u.Role = k.Role
 	}
 	u.MustChangePassword = false
+	u.APIKeyName = k.Name
 	if now-k.LastUsedAt >= apiKeyTouchEvery {
 		if err := s.store.TouchAPIKey(ctx, k.ID, now); err != nil {
 			s.log.Warn("API anahtarı son kullanım zamanı yazılamadı", "hata", err)

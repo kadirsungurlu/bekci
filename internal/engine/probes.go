@@ -90,6 +90,12 @@ func (e *Engine) goneGrace() time.Duration { return probeGoneGrace * e.cfg.Unit 
 // beklenmez. Durum değişince ilgili monitörler uyandırılır.
 func (e *Engine) SetProbeConnected(probeID int64, connected bool) {
 	e.mu.Lock()
+	if e.ctx != nil && e.ctx.Err() != nil {
+		// Kapanış: tüm uzun yoklamalar aynı anda kopar; her kontrol noktası
+		// için uyarı yazmanın ve monitörleri uyandırmanın anlamı yok.
+		e.mu.Unlock()
+		return
+	}
 	_, was := e.gone[probeID]
 	if connected {
 		delete(e.gone, probeID)

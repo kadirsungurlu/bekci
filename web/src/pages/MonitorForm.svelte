@@ -16,7 +16,8 @@
   } from '../lib/api';
   import { live } from '../lib/live.svelte';
   import { navigate, router } from '../lib/router.svelte';
-  import { toast } from '../lib/ui.svelte';
+  import { confirmDialog, toast } from '../lib/ui.svelte';
+  import CopyButton from '../components/CopyButton.svelte';
   import { collator, fmtInterval, lower } from '../lib/format';
   import { session } from '../lib/session.svelte';
   import { NOTIFY_LABELS } from '../lib/notifyTypes';
@@ -178,7 +179,34 @@
   const num = (c: Record<string, unknown>, k: string, d: number) => (typeof c[k] === 'number' ? (c[k] as number) : d);
   const bool = (c: Record<string, unknown>, k: string, d: boolean) => (typeof c[k] === 'boolean' ? (c[k] as boolean) : d);
 
+  // Push adresi (yalnızca düzenlemede; kaydedildikten sonra görünür).
+  let pushToken = $state('');
+  const pushUrl = $derived(pushToken ? `${location.origin}/api/push/${pushToken}` : '');
+  let regenerating = $state(false);
+  async function regeneratePush() {
+    if (!isEdit) return;
+    const ok = await confirmDialog({
+      title: t('monitors.form.pushRegenerate'),
+      message: t('monitors.form.pushRegenerateMsg'),
+      confirmText: t('monitors.form.pushRegenerate'),
+      danger: true,
+    });
+    if (!ok) return;
+    regenerating = true;
+    try {
+      const res = await api.regeneratePushToken(id!);
+      pushToken = res.push_token ?? '';
+      live.upsert(res);
+      toast.success(t('monitors.form.pushRegenerated'));
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      regenerating = false;
+    }
+  }
+
   function fill(m: MonitorView) {
+    pushToken = m.push_token ?? '';
     type = m.type;
     name = m.name;
     description = m.description;
@@ -927,9 +955,24 @@
           <span class="help">{t('monitors.form.dnsExpectedHelp')}</span>
         </div>
       {:else if type === 'push'}
-        <div class="alert info">
-          {#each tParts('monitors.form.pushInfo') as p, i (i)}{#if p.slot === 'push'}<b>{t('monitors.form.pushUrl')}</b>{:else}{p.text}{/if}{/each}
-        </div>
+        {#if isEdit && pushUrl}
+          <div class="field">
+            <span class="label">{t('monitors.form.pushAddress')}</span>
+            <div class="pushbox">
+              <code>{pushUrl}</code>
+              <CopyButton text={pushUrl} />
+              <button type="button" class="btn sm" onclick={regeneratePush} disabled={regenerating} title={t('monitors.form.pushRegenerateTitle')}>
+                {#if regenerating}<span class="spinner"></span>{:else}<Icon name="refresh" size={14} />{/if}
+                {t('monitors.form.pushRegenerate')}
+              </button>
+            </div>
+            <span class="help">{t('monitors.form.pushAddressHelp')}</span>
+          </div>
+        {:else}
+          <div class="alert info">
+            {#each tParts('monitors.form.pushInfo') as p, i (i)}{#if p.slot === 'push'}<b>{t('monitors.form.pushUrl')}</b>{:else}{p.text}{/if}{/each}
+          </div>
+        {/if}
       {:else if type === 'group'}
         <div class="field">
           <span class="label" id="grp-l">{t('monitors.detail.children')}</span>
@@ -1342,6 +1385,23 @@
 {/if}
 
 <style>
+  .pushbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm, 8px);
+    background: var(--card-2, var(--bg-2));
+  }
+  .pushbox code {
+    flex: 1 1 240px;
+    min-width: 0;
+    word-break: break-all;
+    font-size: 0.85rem;
+  }
+
   .errs {
     margin: 0;
     padding-left: 18px;

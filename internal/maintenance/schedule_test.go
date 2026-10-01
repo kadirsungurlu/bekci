@@ -289,3 +289,31 @@ func TestIndex(t *testing.T) {
 		t.Error("boş dizin bakım demez")
 	}
 }
+
+// "Şimdi bitir": o anda süren tekrar bitiş anından itibaren bitmiş sayılır,
+// sonraki tekrarlar normal işler; Status sıradaki tekrarı gösterir.
+func TestEndedEarly(t *testing.T) {
+	m := store.Maintenance{Active: true, Strategy: store.MaintDaily, Timezone: "Europe/Istanbul",
+		StartTime: "22:00", EndTime: "23:00", EndedAt: at(2026, 10, 1, 22, 30).Unix()}
+	s := compile(t, m)
+	cases := []probe{
+		{at(2026, 10, 1, 22, 15), true},  // bitirilmeden önce
+		{at(2026, 10, 1, 22, 30), false}, // bitirildiği an
+		{at(2026, 10, 1, 22, 59), false}, // aynı tekrarın kalanı
+		{at(2026, 10, 2, 22, 15), true},  // sonraki tekrar normal
+	}
+	for _, c := range cases {
+		if got := s.ActiveAt(c.t); got != c.active {
+			t.Errorf("%s: aktif=%v, %v bekleniyordu", c.t, got, c.active)
+		}
+	}
+	st, ns, ne := Status(m, at(2026, 10, 1, 22, 45))
+	if st != StatusScheduled || ns != at(2026, 10, 2, 22, 0).Unix() || ne != at(2026, 10, 2, 23, 0).Unix() {
+		t.Errorf("bitirilen tekrardan sonra sıradaki gösterilmeli: %s %d %d", st, ns, ne)
+	}
+	once := store.Maintenance{Active: true, Strategy: store.MaintOnce, Timezone: "Europe/Istanbul",
+		Start: "2026-10-01T22:00", End: "2026-10-01T23:00", EndedAt: at(2026, 10, 1, 22, 30).Unix()}
+	if st, _, _ := Status(once, at(2026, 10, 1, 22, 45)); st != StatusEnded {
+		t.Errorf("erken bitirilen tek seferlik pencere bitmiş sayılmalı: %s", st)
+	}
+}

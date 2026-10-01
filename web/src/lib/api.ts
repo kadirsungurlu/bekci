@@ -839,6 +839,8 @@ export interface Maintenance extends MaintenanceInput {
   id: number;
   created_at: number;
   updated_at: number;
+  /** Süren tekrar "şimdi bitir" ile bitirildiyse o an (unix); 0: yok. */
+  ended_at?: number;
   status: MaintStatus;
   next_start: number;
   next_end: number;
@@ -1147,6 +1149,8 @@ export const api = {
   // Listedeki hızlı işlemler
   cloneMonitor: (id: number) => post<MonitorView>(`/api/monitors/${id}/clone`),
   resetMonitorStats: (id: number) => post<MonitorView>(`/api/monitors/${id}/reset-stats`),
+  /** Push monitörünün adresini (token) yeniler; eski adres hemen geçersiz olur. */
+  regeneratePushToken: (id: number) => post<MonitorView>(`/api/monitors/${id}/push-token`),
   setMonitorNotifications: (id: number, ids: number[]) =>
     put<MonitorView>(`/api/monitors/${id}/notifications`, { notification_ids: ids }),
   bulkMonitors: (ids: number[], a: BulkAction) => post<BulkResult>('/api/monitors/bulk', { ids, ...a }),
@@ -1168,6 +1172,8 @@ export const api = {
   deleteNotification: (id: number) => del<{ ok: boolean }>(`/api/notifications/${id}`),
   testNotification: (body: { id?: number; type: NotificationType; config: Record<string, unknown> }) =>
     post<{ ok: boolean }>('/api/notifications/test', body),
+  /** Kayıtlı kanala her bildirim türünden birer örnek gönderir (arka planda, sırayla). */
+  sampleNotifications: (id: number) => post<{ count: number }>(`/api/notifications/${id}/samples`, {}),
 
   settings: () => get<AppSettings>('/api/settings'),
   saveSettings: (s: AppSettings) => put<AppSettings>('/api/settings', s),
@@ -1227,6 +1233,8 @@ export const api = {
   deleteMaintenance: (id: number) => del<{ ok: boolean }>(`/api/maintenance/${id}`),
   pauseMaintenance: (id: number) => post<Maintenance>(`/api/maintenance/${id}/pause`),
   resumeMaintenance: (id: number) => post<Maintenance>(`/api/maintenance/${id}/resume`),
+  /** Süren bakımı hemen bitirir; zamanlama açık kalır. */
+  endMaintenance: (id: number) => post<Maintenance>(`/api/maintenance/${id}/end`),
 
   // Etiketler
   tags: () => get<Tag[]>('/api/tags'),

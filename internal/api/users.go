@@ -21,6 +21,13 @@ func (s *Server) audit(r *http.Request, actor store.User, action, targetType str
 	if actor.ID == 0 {
 		actor = userFrom(r)
 	}
+	if actor.APIKeyName != "" {
+		// İşlem bir API anahtarıyla yapıldı: kullanıcı adının yanında anahtarın adı.
+		if detail != "" {
+			detail += "; "
+		}
+		detail += "API anahtarı: " + actor.APIKeyName
+	}
 	err := s.store.AddAudit(r.Context(), store.AuditEntry{
 		UserID: actor.ID, Username: actor.Username, Action: action, TargetType: targetType,
 		TargetID: targetID, TargetName: targetName, Detail: detail, IP: clientIP(r),

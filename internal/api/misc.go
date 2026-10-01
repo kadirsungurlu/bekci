@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -164,13 +165,34 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	old, _ := s.store.LoadSettings(r.Context())
 	if err := s.store.SaveSettings(r.Context(), in); err != nil {
 		s.dbError(w, err)
 		return
 	}
 	s.engine.SetSettings(in)
-	s.audit(r, store.User{}, "settings.update", "settings", 0, "", "")
+	s.audit(r, store.User{}, "settings.update", "settings", 0, "", settingsChanges(old, in))
 	writeJSON(w, http.StatusOK, in)
+}
+
+// settingsChanges işlem kaydı için değişen ayarların listesi (Türkçe saklanır).
+func settingsChanges(old, in store.AppSettings) string {
+	var changed []string
+	add := func(cond bool, label string) {
+		if cond {
+			changed = append(changed, label)
+		}
+	}
+	add(old.RetentionRawDays != in.RetentionRawDays, "ham kayıt saklama")
+	add(old.RetentionHourlyDays != in.RetentionHourlyDays, "saatlik özet saklama")
+	add(!slices.Equal(old.CertDays, in.CertDays), "SSL eşikleri")
+	add(old.BackupKeep != in.BackupKeep, "yedek sayısı")
+	add(old.NotifyLang != in.NotifyLang, "bildirim dili")
+	add(old.CheckUserAgent != in.CheckUserAgent, "User-Agent")
+	if len(changed) == 0 {
+		return "değişiklik yok"
+	}
+	return "değişen: " + strings.Join(changed, ", ")
 }
 
 // push: /api/push/{token}?status=up|down&msg=...&ping=123

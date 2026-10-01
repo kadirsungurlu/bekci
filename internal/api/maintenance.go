@@ -19,6 +19,7 @@ func init() {
 		mux.Handle("DELETE /api/maintenance/{id}", s.editor(s.deleteMaintenance))
 		mux.Handle("POST /api/maintenance/{id}/pause", s.editor(s.pauseMaintenance))
 		mux.Handle("POST /api/maintenance/{id}/resume", s.editor(s.resumeMaintenance))
+		mux.Handle("POST /api/maintenance/{id}/end", s.editor(s.endMaintenance))
 	})
 }
 
@@ -242,6 +243,32 @@ func (s *Server) setMaintenanceActive(w http.ResponseWriter, r *http.Request, ac
 		action = "maintenance.resume"
 	}
 	s.audit(r, store.User{}, action, "maintenance", id, old.Title, "")
+	s.respondMaintenance(w, r, id, http.StatusOK)
+}
+
+// endMaintenance: POST /api/maintenance/{id}/end. Süren tekrarı hemen
+// bitirir; zamanlama açık kalır (sonraki tekrarlar normal işler). Elle
+// pencere "devre dışı bırak" ile biter.
+func (s *Server) endMaintenance(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	old, err := s.store.GetMaintenance(r.Context(), id)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	if old.Strategy == store.MaintManual {
+		writeError(w, http.StatusBadRequest, "Elle bakım penceresi devre dışı bırakılarak biter")
+		return
+	}
+	if err := s.store.EndMaintenanceNow(r.Context(), id, s.now().Unix()); err != nil {
+		s.dbError(w, err)
+		return
+	}
+	s.maintenanceChanged(r, id)
+	s.audit(r, store.User{}, "maintenance.end", "maintenance", id, old.Title, "")
 	s.respondMaintenance(w, r, id, http.StatusOK)
 }
 

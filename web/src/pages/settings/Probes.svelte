@@ -9,6 +9,7 @@
   import Icon from '../../components/Icon.svelte';
   import CopyButton from '../../components/CopyButton.svelte';
   import { t, tParts } from '../../lib/i18n';
+  import { session } from '../../lib/session.svelte';
 
   let probes = $state.raw<Probe[]>([]);
   let loading = $state(true);
@@ -41,6 +42,10 @@
   });
 
   const sorted = $derived(probes.slice().sort((a, b) => collator.compare(a.name, b.name)));
+
+  // Ajan sürümü panelden farklıysa güncelleme önerilir: eşzamanlı konum
+  // kontrolü ve yeni User-Agent eski ajanlarda yoktur.
+  const outdated = (p: Probe) => !!p.version && !!session.version && p.version !== session.version;
 
   function probeState(p: Probe): { l: string; c: string } {
     if (!p.active) return { l: t('probes.state.disabled'), c: 'paused' };
@@ -265,7 +270,12 @@
               {p.last_ip || '—'}
               {#if p.ip_lock}<span class="iplock" title={p.locked_ip ? t('probes.lockedTo', { ip: p.locked_ip }) : t('probes.lockPending')}><Icon name="lock" size={12} /></span>{/if}
             </td>
-            <td data-label={t('common.version')} class="small">{p.version || '—'}</td>
+            <td data-label={t('common.version')} class="small">
+              {p.version || '—'}
+              {#if outdated(p)}
+                <span class="badge pending" title={t('probes.outdatedTitle', { v: p.version ?? '', server: session.version })}>{t('probes.outdated')}</span>
+              {/if}
+            </td>
             <td data-label={t('probes.col.monitors')}>{p.monitor_count ?? 0}</td>
             <td class="act"><RowMenu items={menu(p)} label={t('probes.actionsFor', { name: p.name })} /></td>
           </tr>

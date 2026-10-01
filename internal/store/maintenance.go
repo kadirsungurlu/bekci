@@ -43,6 +43,13 @@ CREATE INDEX maintenance_monitors_monitor ON maintenance_monitors(monitor_id);
 `)
 }
 
+// 20: ended_at — süren tekrar "şimdi bitir" ile erken bitirildiğinde o an
+// (unix); bu andan sonra, o anda süren tekrar bitmiş sayılır, sonraki
+// tekrarlar normal işler. Pencere düzenlenince sıfırlanır.
+func init() {
+	RegisterMigration(20, `ALTER TABLE maintenance ADD COLUMN ended_at INTEGER NOT NULL DEFAULT 0;`)
+}
+
 // Bakım stratejileri.
 const (
 	MaintManual = "manual"           // "aktif" açık olduğu sürece
@@ -77,18 +84,20 @@ type Maintenance struct {
 	MonitorIDs      []int64 `json:"monitor_ids"`
 	CreatedAt       int64   `json:"created_at"`
 	UpdatedAt       int64   `json:"updated_at"`
+	// EndedAt süren tekrarın "şimdi bitir" ile bitirildiği an (unix; 0: yok).
+	EndedAt int64 `json:"ended_at"`
 }
 
 const maintCols = `id, title, description, active, strategy, timezone, start_local, end_local,
 	weekdays, start_time, end_time, date_from, date_to, cron, duration_min, all_monitors,
-	created_at, updated_at`
+	created_at, updated_at, ended_at`
 
 func scanMaintenance(sc scanner) (Maintenance, error) {
 	var m Maintenance
 	var weekdays string
 	err := sc.Scan(&m.ID, &m.Title, &m.Description, &m.Active, &m.Strategy, &m.Timezone,
 		&m.Start, &m.End, &weekdays, &m.StartTime, &m.EndTime, &m.DateFrom, &m.DateTo,
-		&m.Cron, &m.DurationMinutes, &m.AllMonitors, &m.CreatedAt, &m.UpdatedAt)
+		&m.Cron, &m.DurationMinutes, &m.AllMonitors, &m.CreatedAt, &m.UpdatedAt, &m.EndedAt)
 	if err != nil {
 		return m, err
 	}
@@ -194,7 +203,8 @@ func (s *Store) UpdateMaintenance(ctx context.Context, m *Maintenance) error {
 		res, err := tx.ExecContext(ctx, `
 			UPDATE maintenance SET title = ?, description = ?, active = ?, strategy = ?, timezone = ?,
 				start_local = ?, end_local = ?, weekdays = ?, start_time = ?, end_time = ?,
-				date_from = ?, date_to = ?, cron = ?, duration_min = ?, all_monitors = ?, updated_at = ?
+				date_from = ?, date_to = ?, cron = ?, duration_min = ?, all_monitors = ?, updated_at = ?,
+				ended_at = 0
 			WHERE id = ?`,
 			append(maintArgs(m), m.UpdatedAt, m.ID)...)
 		if err != nil {
@@ -211,6 +221,19 @@ func (s *Store) UpdateMaintenance(ctx context.Context, m *Maintenance) error {
 func (s *Store) SetMaintenanceActive(ctx context.Context, id int64, active bool) error {
 	res, err := s.db.ExecContext(ctx, "UPDATE maintenance SET active = ?, updated_at = ? WHERE id = ?",
 		boolInt(active), time.Now().Unix(), id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// EndMaintenanceNow süren tekrarı t anında bitirir (ended_at = t); zamanlama
+// açık kalır, sonraki tekrarlar normal işler.
+func (s *Store) EndMaintenanceNow(ctx context.Context, id, t int64) error {
+	res, err := s.db.ExecContext(ctx, "UPDATE maintenance SET ended_at = ?, updated_at = ? WHERE id = ?", t, t, id)
 	if err != nil {
 		return err
 	}

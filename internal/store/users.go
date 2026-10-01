@@ -45,6 +45,9 @@ type User struct {
 	TwoFactorEnabled   bool    `json:"two_factor_enabled"` // TOTP (migration 6, twofactor.go)
 	Lang               string  `json:"lang"`               // arayüz dili; "" = tarayıcı dili (migration 16)
 	PasswordHash       string  `json:"-"`
+	// APIKeyName istek bir API anahtarıyla yetkilendirildiyse anahtarın adı
+	// (yalnızca istek süresince; işlem kaydına yazılır). Saklanmaz.
+	APIKeyName string `json:"-"`
 }
 
 // Restricted kullanıcı sadece kendisine atanmış monitörleri mi görür?

@@ -24,6 +24,7 @@ func init() {
 	RegisterRoutes(func(s *Server, mux *http.ServeMux) {
 		mux.Handle("POST /api/monitors/{id}/clone", s.editor(s.cloneMonitor))
 		mux.Handle("POST /api/monitors/{id}/reset-stats", s.editor(s.resetMonitorStats))
+		mux.Handle("POST /api/monitors/{id}/push-token", s.editor(s.regeneratePushToken))
 		mux.Handle("PUT /api/monitors/{id}/notifications", s.editor(s.setMonitorNotifications))
 		mux.Handle("POST /api/monitors/bulk", s.editor(s.bulkMonitors))
 		mux.Handle("POST /api/status-pages/{id}/monitors", s.editor(s.addPageMonitor))
@@ -79,6 +80,26 @@ func (s *Server) cloneMonitor(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r, store.User{}, "monitor.clone", "monitor", id, name, "kaynak: "+src.Name)
 	s.respondMonitor(w, r, id, http.StatusCreated)
+}
+
+// regeneratePushToken: POST /api/monitors/{id}/push-token. Push monitörünün
+// adresi yenilenir; eski adres hemen 404 verir (token sızdıysa monitörü
+// silmek gerekmez).
+func (s *Server) regeneratePushToken(w http.ResponseWriter, r *http.Request) {
+	m, ok := s.visibleMonitor(w, r)
+	if !ok {
+		return
+	}
+	if m.Type != check.TypePush {
+		writeError(w, http.StatusBadRequest, "Yalnızca push monitörünün adresi yenilenebilir")
+		return
+	}
+	if err := s.store.SetPushToken(r.Context(), m.ID, randomToken(24)); err != nil {
+		s.dbError(w, err)
+		return
+	}
+	s.audit(r, store.User{}, "monitor.push_token", "monitor", m.ID, m.Name, "")
+	s.respondMonitor(w, r, m.ID, http.StatusOK)
 }
 
 // resetMonitorStats: POST /api/monitors/{id}/reset-stats. Kontrol geçmişi,

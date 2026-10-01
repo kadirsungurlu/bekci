@@ -249,6 +249,12 @@ export default {
     pushInfo:
       'Kaydettikten sonra bu monitöre özel bir {push} oluşturulur. Zamanlanmış işiniz her çalıştığında bu adrese istek gönderir; belirlediğiniz süre içinde istek gelmezse size haber veririz.',
     pushUrl: 'push adresi',
+    pushAddress: 'Push adresi',
+    pushAddressHelp: 'Zamanlanmış işiniz bu adrese istek göndermeli. Adres sızdıysa yenileyin: eski adres hemen geçersiz olur.',
+    pushRegenerate: 'Adresi yenile',
+    pushRegenerateTitle: 'Yeni bir push adresi üretir; eski adres hemen geçersiz olur.',
+    pushRegenerateMsg: 'Eski push adresi hemen geçersiz olur; zamanlanmış işlerinizi yeni adresle güncellemeniz gerekir.',
+    pushRegenerated: 'Push adresi yenilendi. Zamanlanmış işlerinizi yeni adresle güncelleyin.',
     mode: 'Mod',
     intervalPush: 'Beklenen push aralığı',
     interval: 'Kontrol aralığı',

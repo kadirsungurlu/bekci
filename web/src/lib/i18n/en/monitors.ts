@@ -249,6 +249,12 @@ export default {
     pushInfo:
       'After saving, a unique {push} is created for this monitor. Your scheduled job sends a request to it every time it runs; if no request arrives within the interval you set, we’ll let you know.',
     pushUrl: 'push URL',
+    pushAddress: 'Push URL',
+    pushAddressHelp: 'Your scheduled job should send a request to this URL. If it leaked, regenerate it: the old URL stops working immediately.',
+    pushRegenerate: 'Regenerate URL',
+    pushRegenerateTitle: 'Generates a new push URL; the old one stops working immediately.',
+    pushRegenerateMsg: 'The old push URL stops working immediately; you will need to update your scheduled jobs with the new one.',
+    pushRegenerated: 'Push URL regenerated. Update your scheduled jobs with the new URL.',
     mode: 'Mode',
     intervalPush: 'Expected push interval',
     interval: 'Check interval',

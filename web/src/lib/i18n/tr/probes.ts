@@ -19,6 +19,9 @@ export default {
     monitors: 'Monitör',
   },
   neverConnected: 'Hiç bağlanmadı',
+  outdated: 'Eski sürüm',
+  outdatedTitle:
+    'Kontrol noktası {v} sürümünde, panel {server}. Eşzamanlı konum kontrolü ve yeni User-Agent için ajanı güncelleyin: alttaki komutu çalıştırıp kurulum komutunu yeniden alın.',
   lockedTo: '{ip} IP’sine kilitli',
   lockPending: 'IP kilidi açık; ilk bağlantıda sabitlenir',
   actionsFor: '{name} için işlemler',

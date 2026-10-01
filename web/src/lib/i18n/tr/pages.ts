@@ -313,7 +313,7 @@ export default {
     valueColor: 'Değer rengi',
     auto: 'otomatik',
     autoHelp: 'Değer rengi orana / kalan güne göre otomatik seçilir (yeşil, turuncu, kırmızı).',
-    badColor: 'Geçersiz renk yok sayıldı. Örnek: #2dd4bf, 0a0, brightgreen.',
+    badColor: 'Geçersiz renk yok sayıldı. Örnek: #22c55e, 0a0, brightgreen.',
     preview: 'Önizleme',
     previewAlt: 'Rozet önizlemesi',
     loadFailed: 'Rozet yüklenemedi.',

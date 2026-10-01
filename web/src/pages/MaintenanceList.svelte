@@ -78,9 +78,22 @@
     }
   }
 
+  // Süren (elle olmayan) bakımı hemen bitir; zamanlama ve sonraki tekrarlar kalır.
+  const canEndNow = (m: Maintenance) => m.status === 'active' && m.strategy !== 'manual';
+  async function endNow(m: Maintenance) {
+    try {
+      const res = await api.endMaintenance(m.id);
+      list = list.map((x) => (x.id === m.id ? res : x));
+      toast.success(t('maintenance.list.endedNow', { name: m.title }));
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  }
+
   function menu(m: Maintenance): MenuItem[] {
     return [
       { label: t('common.edit'), icon: 'edit', href: `#/maintenance/${m.id}` },
+      ...(canEndNow(m) ? [{ label: t('maintenance.list.endNow'), icon: 'check' as const, onclick: () => endNow(m) }] : []),
       { label: m.active ? t('maintenance.list.stop') : t('maintenance.list.start'), icon: m.active ? 'pause' : 'play', onclick: () => toggle(m) },
       { label: t('common.delete'), icon: 'trash', danger: true, onclick: () => remove(m) },
     ];
@@ -158,6 +171,12 @@
         </div>
         {#if session.canEdit}
           <div class="acts">
+            {#if canEndNow(m)}
+              <button class="btn sm tgl" onclick={() => endNow(m)} title={t('maintenance.list.endNowTitle')}>
+                <Icon name="check" size={14} />
+                {t('maintenance.list.endNow')}
+              </button>
+            {/if}
             {#if m.status !== 'ended'}
               <button
                 class="btn sm tgl"

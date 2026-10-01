@@ -270,6 +270,7 @@ type Schedule struct {
 	dateTo       time.Time // tekrarlayan: son günün ertesi (yerel gece yarısı); sıfırsa sınır yok
 	cron         cron.Schedule
 	duration     time.Duration
+	endedAt      time.Time // "şimdi bitir": bu anda süren tekrar, bu andan itibaren bitmiş sayılır
 
 	cache atomic.Pointer[span]
 }
@@ -288,6 +289,9 @@ func Compile(m store.Maintenance) (*Schedule, error) {
 		return nil, err
 	}
 	s := &Schedule{ID: m.ID, loc: loc, strategy: m.Strategy}
+	if m.EndedAt > 0 {
+		s.endedAt = time.Unix(m.EndedAt, 0)
+	}
 	switch m.Strategy {
 	case store.MaintManual:
 		s.manual = true
@@ -438,7 +442,13 @@ func (s *Schedule) ActiveAt(t time.Time) bool {
 		c = &span{from: t, start: start, end: end, ok: ok}
 		s.cache.Store(c)
 	}
-	return c.ok && !t.Before(c.start)
+	return c.ok && !t.Before(c.start) && !s.endedEarly(t, c.start)
+}
+
+// endedEarly start'ta başlayan tekrar "şimdi bitir" ile bitirilmiş ve t o
+// andan sonra mı: tekrar endedAt'ten önce (ya da o anda) başlamış ve t ≥ endedAt.
+func (s *Schedule) endedEarly(t, start time.Time) bool {
+	return !s.endedAt.IsZero() && !t.Before(s.endedAt) && !start.After(s.endedAt)
 }
 
 // Status pencerenin t anındaki durumu ve şu anki/sonraki tekrarın sınırları
@@ -461,6 +471,10 @@ func Status(m store.Maintenance, t time.Time) (status string, nextStart, nextEnd
 		return status, 0, 0
 	}
 	start, end, ok := s.Occurrence(t)
+	if ok && !t.Before(start) && s.endedEarly(t, start) {
+		// Süren tekrar erken bitirildi: sıradaki tekrar (varsa) gösterilir.
+		start, end, ok = s.Occurrence(end)
+	}
 	if ok {
 		nextStart, nextEnd = start.Unix(), end.Unix()
 	}

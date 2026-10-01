@@ -43,6 +43,7 @@ export default {
       notifications: 'Monitor notification channels changed',
       tags: 'Monitor tags changed',
       locations: 'Monitor locations changed',
+      push_token: 'Push URL regenerated',
     },
     notification: {
       create: 'Notification channel added',
@@ -79,6 +80,7 @@ export default {
       update: 'Maintenance updated',
       delete: 'Maintenance deleted',
       pause: 'Maintenance disabled',
+      end: 'Maintenance ended early',
       resume: 'Maintenance enabled',
     },
     tag: {

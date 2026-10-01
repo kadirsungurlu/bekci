@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -520,14 +521,14 @@ func (s *Server) updateMonitor(w http.ResponseWriter, r *http.Request) {
 	if !s.validateGroup(w, r, id, m) {
 		return
 	}
+	links, err := s.store.MonitorNotificationIDs(r.Context())
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
 	var ids []int64
 	if in.NotificationIDs == nil {
 		// Alan gönderilmediyse mevcut bağlantılar korunur.
-		links, err := s.store.MonitorNotificationIDs(r.Context())
-		if err != nil {
-			s.dbError(w, err)
-			return
-		}
 		ids = links[id]
 	} else if ids, err = s.notificationIDs(r, in.NotificationIDs); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -559,8 +560,51 @@ func (s *Server) updateMonitor(w http.ResponseWriter, r *http.Request) {
 	if err := s.engine.Reload(r.Context(), id); err != nil {
 		s.log.Error("monitör yeniden başlatılamadı", "monitor", m.Name, "hata", err)
 	}
-	s.audit(r, store.User{}, "monitor.update", "monitor", id, m.Name, "")
+	s.audit(r, store.User{}, "monitor.update", "monitor", id, m.Name, monitorChanges(old, m, links[id], ids))
 	s.respondMonitor(w, r, id, http.StatusOK)
+}
+
+// monitorChanges işlem kaydı için değişen alanların listesi ("değişen: ad,
+// zaman aşımı"); Türkçe saklanır, okunurken çevrilir (i18n.AuditDetail).
+func monitorChanges(old, m store.Monitor, oldIDs, newIDs []int64) string {
+	var changed []string
+	add := func(cond bool, label string) {
+		if cond {
+			changed = append(changed, label)
+		}
+	}
+	add(old.Name != m.Name, "ad")
+	add(old.Type != m.Type, "tip")
+	add(old.Description != m.Description, "açıklama")
+	add(old.Interval != m.Interval, "kontrol aralığı")
+	add(old.RetryInterval != m.RetryInterval, "tekrar deneme aralığı")
+	add(old.MaxRetries != m.MaxRetries, "tekrar deneme sayısı")
+	add(old.Timeout != m.Timeout, "zaman aşımı")
+	add(old.ResendEvery != m.ResendEvery, "hatırlatma sıklığı")
+	add(old.UpsideDown != m.UpsideDown, "ters mod")
+	add(!bytes.Equal(old.Config, m.Config), "ayarlar")
+	add(!sameIDs(oldIDs, newIDs), "bildirim kanalları")
+	if len(changed) == 0 {
+		return "değişiklik yok"
+	}
+	return "değişen: " + strings.Join(changed, ", ")
+}
+
+// sameIDs iki kimlik listesi sırasız aynı mı?
+func sameIDs(a, b []int64) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	set := make(map[int64]bool, len(a))
+	for _, x := range a {
+		set[x] = true
+	}
+	for _, x := range b {
+		if !set[x] {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Server) deleteMonitor(w http.ResponseWriter, r *http.Request) {

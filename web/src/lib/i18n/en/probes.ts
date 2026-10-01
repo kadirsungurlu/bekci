@@ -20,6 +20,9 @@ export default {
     monitors: 'Monitors',
   },
   neverConnected: 'Never connected',
+  outdated: 'Outdated',
+  outdatedTitle:
+    'The check location runs {v}, the panel {server}. Update the agent for synchronized location checks and the new User-Agent: run the command below, then fetch the install command again.',
   lockedTo: 'Locked to IP {ip}',
   lockPending: 'IP lock on; pinned on first connection',
   actionsFor: 'Actions for {name}',

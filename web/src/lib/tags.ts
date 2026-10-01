@@ -52,5 +52,36 @@ export function tagInk(color: string): 'dark' | 'light' {
   return ratio(l, DARK_INK) >= ratio(l, LIGHT_INK) ? 'dark' : 'light';
 }
 
+const MIN_CHIP_CONTRAST = 4.5;
+
+function mix(hex: string, towards: string, amount: number): string {
+  const a = parseInt(hex.slice(1), 16);
+  const b = parseInt(towards.slice(1), 16);
+  const ch = (shift: number) => {
+    const x = (a >> shift) & 255;
+    const y = (b >> shift) & 255;
+    return Math.round(x + (y - x) * amount);
+  };
+  return '#' + [ch(16), ch(8), ch(0)].map((v) => v.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Etiket çipinin zemini ve yazı tonu. Seçilen renk hiçbir yazı tonuyla 4,5:1
+ * kontrastı vermiyorsa (ör. orta parlaklıktaki mor/turuncu) zemin, yazı
+ * okunaklı olana kadar hafifçe açılır ya da koyulaştırılır; renk tanınır kalır.
+ */
+export function tagSurface(color: string): { bg: string; ink: 'dark' | 'light' } {
+  if (!HEX_RE.test(color)) return { bg: DEFAULT_TAG_COLOR, ink: 'light' };
+  let bg = color;
+  let ink = tagInk(bg);
+  for (let i = 0; i < 6; i++) {
+    const l = luminance(bg);
+    if (ratio(l, ink === 'dark' ? DARK_INK : LIGHT_INK) >= MIN_CHIP_CONTRAST) break;
+    bg = mix(bg, ink === 'dark' ? '#ffffff' : '#000000', 0.12);
+    ink = tagInk(bg);
+  }
+  return { bg, ink };
+}
+
 /** "ad: değer" veya yalnızca ad. */
 export const tagText = (t: Pick<MonitorTag, 'name' | 'value'>) => (t.value ? `${t.name}: ${t.value}` : t.name);

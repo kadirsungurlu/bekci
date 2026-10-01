@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { DEFAULT_TAG_COLOR, isHexColor, tagInk } from '../lib/tags';
+  import { tagSurface } from '../lib/tags';
   import Icon from './Icon.svelte';
   import { t } from '../lib/i18n';
 
@@ -19,8 +19,10 @@
   } = $props();
 
   // Renk sunucudan #rrggbb gelir; yine de yalnızca geçerli değer stile yazılır.
-  const bg = $derived(isHexColor(color) ? color : DEFAULT_TAG_COLOR);
-  const ink = $derived(tagInk(bg));
+  // Zemin, yazı okunaklı olacak kadar ayarlanır (bkz. tagSurface).
+  const surface = $derived(tagSurface(color));
+  const bg = $derived(surface.bg);
+  const ink = $derived(surface.ink);
 </script>
 
 <span class="tag-chip {ink} {size}" style="--tag-bg:{bg}" title={value ? `${name}: ${value}` : name}>

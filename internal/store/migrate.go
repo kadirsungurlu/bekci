@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -398,7 +399,30 @@ func (s *Store) preMigrateBackup(ctx context.Context, from, to int) error {
 		return fail(err)
 	}
 	s.opts.Log.Info("migration öncesi yedek alındı", "dosya", path, "eski_surum", from, "yeni_surum", to)
+	s.prunePreMigrateBackups(dir)
 	return nil
+}
+
+// keepPreMigrateBackups saklanan en fazla migration öncesi yedek sayısı
+// (en yenileri). Eskiler her sürüm geçişinde birikip diski doldurmasın.
+const keepPreMigrateBackups = 3
+
+// prunePreMigrateBackups klasördeki pre-migrate-*.db dosyalarından en yeni
+// keepPreMigrateBackups tanesini bırakır (ad zaman damgası taşır: ada göre
+// sıralama zamana göredir). Hata yalnızca loglanır.
+func (s *Store) prunePreMigrateBackups(dir string) {
+	names, err := filepath.Glob(filepath.Join(dir, "pre-migrate-v*-to-v*-*.db"))
+	if err != nil || len(names) <= keepPreMigrateBackups {
+		return
+	}
+	sort.Strings(names)
+	for _, old := range names[:len(names)-keepPreMigrateBackups] {
+		if err := os.Remove(old); err != nil {
+			s.opts.Log.Warn("eski migration yedeği silinemedi", "dosya", old, "hata", err)
+			continue
+		}
+		s.opts.Log.Info("eski migration yedeği silindi", "dosya", old)
+	}
 }
 
 // pgMigrateLock migration danışma kilidini ayrı bir bağlantıda alır; dönen

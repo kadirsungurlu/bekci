@@ -293,6 +293,16 @@ func (s *Server) baseHost() string {
 	return strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
 }
 
+// reservedSlugs durum sayfası adresi olamayacak kelimeler: uygulamanın kendi
+// yolları ve arayüzdeki "yeni" gibi ekranlarla karışabilecek adlar.
+var reservedSlugs = map[string]bool{
+	"new": true, "yeni": true, "api": true, "admin": true, "durum": true, "status": true,
+	"login": true, "giris": true, "logout": true, "settings": true, "ayarlar": true,
+	"monitors": true, "monitorler": true, "incidents": true, "olaylar": true,
+	"healthz": true, "metrics": true, "assets": true, "static": true, "docs": true,
+	"servers": true, "sunucular": true, "maintenance": true, "bakim": true,
+}
+
 // normalizePage girdiyi doğrular ve sayfaya uygular. old nil ise yeni sayfa.
 // reqHost isteğin geldiği sunucu adı (özel alan adı kendini kilitlemesin diye).
 // isAdmin özel alan adı alanını değiştirme yetkisi (yalnızca yönetici).
@@ -304,6 +314,9 @@ func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.St
 	p.Slug = strings.ToLower(strings.TrimSpace(in.Slug))
 	if !slugRe.MatchString(p.Slug) {
 		return p, badInput("Adres 1-50 karakter olmalı; küçük harf, rakam ve tire kullanılabilir (başta ve sonda tire olamaz)")
+	}
+	if reservedSlugs[p.Slug] {
+		return p, badInput("Bu adres ayrılmış; başka bir adres seçin")
 	}
 	p.Title = strings.TrimSpace(in.Title)
 	if n := runes(p.Title); n < 1 || n > 100 {
