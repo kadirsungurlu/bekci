@@ -751,14 +751,15 @@ func (s *Server) putMonitorLocations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		IncludeLocal *bool   `json:"include_local"`
-		ProbeIDs     []int64 `json:"probe_ids"`
-		DownWhen     string  `json:"down_when"`
+		IncludeLocal  *bool   `json:"include_local"`
+		ProbeIDs      []int64 `json:"probe_ids"`
+		DownWhen      string  `json:"down_when"`
+		NotifyPartial bool    `json:"notify_partial"`
 	}
 	if !readJSON(w, r, &in) {
 		return
 	}
-	setup := store.LocationSetup{IncludeLocal: in.IncludeLocal == nil || *in.IncludeLocal, DownWhen: in.DownWhen, ProbeIDs: []int64{}}
+	setup := store.LocationSetup{IncludeLocal: in.IncludeLocal == nil || *in.IncludeLocal, DownWhen: in.DownWhen, ProbeIDs: []int64{}, NotifyPartial: in.NotifyPartial}
 	if setup.DownWhen == "" {
 		setup.DownWhen = store.DownWhenAny
 	}
@@ -807,7 +808,8 @@ func (s *Server) putMonitorLocations(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("monitör yeniden başlatılamadı", "monitor", m.Name, "hata", err)
 	}
 	s.audit(r, store.User{}, "monitor.locations", "monitor", id, m.Name,
-		"konumlar: "+strings.Join(names, ", ")+"; kural: "+i18n.DownWhenLabel(setup.DownWhen))
+		"konumlar: "+strings.Join(names, ", ")+"; kural: "+i18n.DownWhenLabel(setup.DownWhen)+
+			map[bool]string{true: "; konum kesintisinde bildirim", false: ""}[setup.NotifyPartial])
 	v, err := s.locationsOf(r.Context(), m)
 	if err != nil {
 		s.dbError(w, err)

@@ -26,7 +26,7 @@ func (teams) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	if ev.IsProblem() {
 		color = "attention"
 	}
-	title := strings.TrimSpace(strings.TrimLeft(ev.Title(), "🔴🟢⚠️✅ "))
+	title := strings.TrimSpace(strings.TrimLeft(ev.Title(), "🔴🟢🟡⚠️✅ "))
 	card := map[string]any{
 		"type": "message",
 		"attachments": []map[string]any{{

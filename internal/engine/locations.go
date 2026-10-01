@@ -100,6 +100,7 @@ type inboxItem struct {
 
 type locationSet struct {
 	downWhen string
+	notify   bool        // konum kesintisinde de bildirim (LocationSetup.NotifyPartial)
 	locs     []*location // sıra: ana sunucu (varsa), sonra kontrol noktaları (kimliğe göre)
 	local    *location   // nil: ana sunucu konumlardan biri değil
 	byProbe  map[int64]*location
@@ -136,7 +137,7 @@ func (e *Engine) loadLocations(m store.Monitor) *locationSet {
 	}
 	now := e.now()
 	ls := &locationSet{
-		downWhen: setup.DownWhen, byProbe: map[int64]*location{},
+		downWhen: setup.DownWhen, notify: setup.NotifyPartial, byProbe: map[int64]*location{},
 		started: now, wake: make(chan struct{}, 1),
 	}
 	if setup.IncludeLocal {

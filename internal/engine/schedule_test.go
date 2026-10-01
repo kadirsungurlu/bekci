@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kadirsungurlu/bekci/internal/notify"
 	"github.com/kadirsungurlu/bekci/internal/schedule"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
@@ -137,5 +138,39 @@ func TestPartialStaysOpenWhileFailingLocationUnknown(t *testing.T) {
 	r.locationTick(ctx)
 	if r.partialID != 0 {
 		t.Fatal("konum yeniden çalışınca olay kapanmalıydı")
+	}
+}
+
+// "Konum kesintisinde bildir" açıksa kesinti açılınca ve kapanınca bildirim
+// gider; kapalıysa gitmez.
+func TestPartialNotifications(t *testing.T) {
+	for _, on := range []bool{false, true} {
+		f := newFixture(t)
+		ctx := context.Background()
+		fra := f.probe(t, "Frankfurt", true)
+		m := f.monitor(t, func(m *store.Monitor) { m.MaxRetries = 0 })
+		r := f.locRunner(t, m, store.LocationSetup{IncludeLocal: true, ProbeIDs: []int64{fra.ID}, DownWhen: store.DownWhenAll, NotifyPartial: on})
+		fake.set(up())
+		r.locationTick(ctx)
+		r.remote(fra, f.clock, down("DNS hatası"))
+		f.clock = f.clock.Add(10 * time.Millisecond)
+		r.remote(fra, f.clock, up())
+		got := f.n.kinds()
+		if !on {
+			if len(got) != 0 {
+				t.Fatalf("kapalıyken bildirim gitmemeli: %v", got)
+			}
+			continue
+		}
+		if !equal(got, []string{notify.KindLocationDown, notify.KindLocationUp}) {
+			t.Fatalf("bildirimler %v", got)
+		}
+		ev := f.n.events[0]
+		if ev.IncidentID == 0 || len(ev.Locations) != 1 || ev.Locations[0].Name != "Frankfurt" || ev.Locations[0].Message != "DNS hatası" {
+			t.Fatalf("konum kesintisi bildirimi: %+v", ev)
+		}
+		if f.n.events[1].IncidentID != ev.IncidentID {
+			t.Fatal("düzelme bildirimi aynı olaya bağlı olmalı")
+		}
 	}
 }

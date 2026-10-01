@@ -7,15 +7,17 @@ package i18n
 // ".one" ile biten anahtarlar TN'nin tekil biçimidir.
 var messages = map[string]Msg{
 	// Monitör bildirimleri: başlıklar (%s: monitör adı)
-	"notify.down.title":        {"🔴 %s çalışmıyor", "🔴 %s is down"},
-	"notify.up.title":          {"🟢 %s tekrar çalışıyor", "🟢 %s is up again"},
-	"notify.reminder.title":    {"🔴 %s hâlâ çalışmıyor", "🔴 %s is still down"},
-	"notify.cert.expired":      {"⚠️ %s: SSL sertifikasının süresi doldu", "⚠️ %s: SSL certificate has expired"},
-	"notify.cert.expiring":     {"⚠️ %s: SSL sertifikası %d gün içinde bitiyor", "⚠️ %s: SSL certificate expires in %d days"},
-	"notify.cert.expiring.one": {"⚠️ %s: SSL sertifikası %d gün içinde bitiyor", "⚠️ %s: SSL certificate expires in %d day"},
-	"notify.test.title":        {"✅ Test bildirimi", "✅ Test notification"},
-	"notify.test.body":         {"%s bildirim kanalınız çalışıyor.", "Your %s notification channel is working."},
-	"notify.sample.note":       {"(Örnek bildirim — gerçek bir olay değil)", "(Sample notification — not a real event)"},
+	"notify.down.title":          {"🔴 %s çalışmıyor", "🔴 %s is down"},
+	"notify.location_down.title": {"🟡 %s: konum kesintisi", "🟡 %s: location outage"},
+	"notify.location_up.title":   {"🟢 %s: tüm konumlar çalışıyor", "🟢 %s: all locations up"},
+	"notify.up.title":            {"🟢 %s tekrar çalışıyor", "🟢 %s is up again"},
+	"notify.reminder.title":      {"🔴 %s hâlâ çalışmıyor", "🔴 %s is still down"},
+	"notify.cert.expired":        {"⚠️ %s: SSL sertifikasının süresi doldu", "⚠️ %s: SSL certificate has expired"},
+	"notify.cert.expiring":       {"⚠️ %s: SSL sertifikası %d gün içinde bitiyor", "⚠️ %s: SSL certificate expires in %d days"},
+	"notify.cert.expiring.one":   {"⚠️ %s: SSL sertifikası %d gün içinde bitiyor", "⚠️ %s: SSL certificate expires in %d day"},
+	"notify.test.title":          {"✅ Test bildirimi", "✅ Test notification"},
+	"notify.test.body":           {"%s bildirim kanalınız çalışıyor.", "Your %s notification channel is working."},
+	"notify.sample.note":         {"(Örnek bildirim — gerçek bir olay değil)", "(Sample notification — not a real event)"},
 
 	// Bildirim metnindeki satır başlıkları
 	"notify.field.server":         {"Sunucu", "Server"},
@@ -27,6 +29,7 @@ var messages = map[string]Msg{
 	"notify.mail.status.reminder": {"Hâlâ çalışmıyor", "Still down"},
 	"notify.mail.status.cert":     {"SSL uyarısı", "SSL warning"},
 	"notify.mail.status.alert":    {"Sunucu uyarısı", "Server alert"},
+	"notify.mail.status.location": {"Konum kesintisi", "Location outage"},
 	"notify.mail.status.resolved": {"Düzeldi", "Resolved"},
 	"notify.mail.status.test":     {"Test", "Test"},
 	"notify.mail.open":            {"Ayrıntıları aç", "Open details"},

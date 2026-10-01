@@ -74,20 +74,20 @@ func TestProbeStore(t *testing.T) {
 	}
 
 	// Konumlar.
-	if err := s.SetMonitorLocations(ctx, a.ID, LocationSetup{IncludeLocal: false, ProbeIDs: []int64{q.ID, p.ID}, DownWhen: DownWhenAll}); err != nil {
+	if err := s.SetMonitorLocations(ctx, a.ID, LocationSetup{IncludeLocal: false, ProbeIDs: []int64{q.ID, p.ID}, DownWhen: DownWhenAll, NotifyPartial: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.SetMonitorLocations(ctx, b.ID, LocationSetup{IncludeLocal: true, ProbeIDs: []int64{q.ID}, DownWhen: DownWhenAny}); err != nil {
 		t.Fatal(err)
 	}
 	l, _ := s.MonitorLocations(ctx, a.ID)
-	if l.IncludeLocal || len(l.ProbeIDs) != 2 || l.ProbeIDs[0] != p.ID || l.DownWhen != DownWhenAll {
+	if l.IncludeLocal || len(l.ProbeIDs) != 2 || l.ProbeIDs[0] != p.ID || l.DownWhen != DownWhenAll || !l.NotifyPartial {
 		t.Fatalf("a: %+v", l)
 	}
 	// Yeniden yazma (ON CONFLICT DO UPDATE).
 	s.SetMonitorLocations(ctx, a.ID, LocationSetup{IncludeLocal: true, ProbeIDs: []int64{p.ID}, DownWhen: DownWhenMajority})
 	all, _ := s.AllMonitorLocations(ctx)
-	if len(all) != 2 || !all[a.ID].IncludeLocal || len(all[a.ID].ProbeIDs) != 1 || all[a.ID].DownWhen != DownWhenMajority {
+	if len(all) != 2 || !all[a.ID].IncludeLocal || len(all[a.ID].ProbeIDs) != 1 || all[a.ID].DownWhen != DownWhenMajority || all[a.ID].NotifyPartial {
 		t.Fatalf("hepsi: %+v", all)
 	}
 	counts, _ := s.ProbeMonitorCounts(ctx)

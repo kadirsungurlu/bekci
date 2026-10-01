@@ -260,6 +260,8 @@ export interface LocationSetup {
   include_local: boolean;
   probe_ids: number[];
   down_when: DownWhen;
+  /** Konum kesintisinde (monitör çalışırken bir konum düştüğünde) de bildirim. */
+  notify_partial?: boolean;
 }
 
 /** waiting: konum yeni eklendi, ilk sonucu henüz gelmedi (süresi dolunca unknown). */

@@ -84,7 +84,7 @@ func (s *Store) CloneMonitor(ctx context.Context, srcID int64, name string, acti
 		for _, q := range []string{
 			"INSERT INTO monitor_notifications (monitor_id, notification_id) SELECT CAST(? AS BIGINT), notification_id FROM monitor_notifications WHERE monitor_id = ?",
 			"INSERT INTO monitor_tags (monitor_id, tag_id, value) SELECT CAST(? AS BIGINT), tag_id, value FROM monitor_tags WHERE monitor_id = ?",
-			"INSERT INTO monitor_location_settings (monitor_id, include_local, down_when) SELECT CAST(? AS BIGINT), include_local, down_when FROM monitor_location_settings WHERE monitor_id = ?",
+			"INSERT INTO monitor_location_settings (monitor_id, include_local, down_when, notify_partial) SELECT CAST(? AS BIGINT), include_local, down_when, notify_partial FROM monitor_location_settings WHERE monitor_id = ?",
 			"INSERT INTO monitor_locations (monitor_id, probe_id) SELECT CAST(? AS BIGINT), probe_id FROM monitor_locations WHERE monitor_id = ?",
 		} {
 			if _, err := tx.ExecContext(ctx, q, id, srcID); err != nil {

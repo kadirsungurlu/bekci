@@ -153,7 +153,8 @@
   let locLocal = $state(true);
   let locProbeIds = $state<number[]>([]);
   let locDownWhen = $state<DownWhen>('any');
-  let origLoc: LocationSetup = { include_local: true, probe_ids: [], down_when: 'any' };
+  let locNotify = $state(false);
+  let origLoc: LocationSetup = { include_local: true, probe_ids: [], down_when: 'any', notify_partial: false };
   const remoteOk = $derived(isRemoteCapable(type));
   const DOWN_WHEN: { v: DownWhen; l: TKey }[] = [
     { v: 'any', l: 'monitors.form.dwAny' },
@@ -185,10 +186,16 @@
     mtags = (m.tags ?? []).map((t) => ({ id: t.id, value: t.value }));
     origTags = mtags.map((t) => ({ ...t }));
     if (m.locations) {
-      origLoc = { include_local: m.locations.include_local, probe_ids: [...(m.locations.probe_ids ?? [])], down_when: m.locations.down_when || 'any' };
+      origLoc = {
+        include_local: m.locations.include_local,
+        probe_ids: [...(m.locations.probe_ids ?? [])],
+        down_when: m.locations.down_when || 'any',
+        notify_partial: !!m.locations.notify_partial,
+      };
       locLocal = origLoc.include_local;
       locProbeIds = [...origLoc.probe_ids];
       locDownWhen = origLoc.down_when;
+      locNotify = !!origLoc.notify_partial;
     }
 
     const c = m.config ?? {};
@@ -578,7 +585,7 @@
     if (loc) {
       try {
         const l = await api.setMonitorLocations(res.id, loc);
-        res = { ...res, locations: { include_local: l.include_local, probe_ids: l.probe_ids, down_when: l.down_when } };
+        res = { ...res, locations: { include_local: l.include_local, probe_ids: l.probe_ids, down_when: l.down_when, notify_partial: l.notify_partial } };
       } catch (err) {
         problems.push(t('monitors.form.locFailed', { err: errorMessage(err) }));
       }
@@ -620,7 +627,7 @@
       cfg: buildConfig(),
       notif: [...notifIds].sort((a, b) => a - b),
       tags: tagKey(mtags),
-      loc: [locLocal, [...locProbeIds].sort((a, b) => a - b), locDownWhen],
+      loc: [locLocal, [...locProbeIds].sort((a, b) => a - b), locDownWhen, locNotify],
     };
   }
   const isDirty = () => !saved && !!baseline && !loading && !loadError && snapshot(formState()) !== baseline;
@@ -719,11 +726,13 @@
             include_local: locLocal,
             probe_ids: locProbeIds.filter((pid) => probes.some((p) => p.id === pid)).sort((a, b) => a - b),
             down_when: locDownWhen,
+            notify_partial: locNotify,
           }
-        : { include_local: true, probe_ids: [], down_when: 'any' };
+        : { include_local: true, probe_ids: [], down_when: 'any', notify_partial: false };
     const same =
       target.include_local === origLoc.include_local &&
       target.down_when === origLoc.down_when &&
+      !!target.notify_partial === !!origLoc.notify_partial &&
       target.probe_ids.join(',') === [...origLoc.probe_ids].sort((a, b) => a - b).join(',');
     return same ? null : target;
   }
@@ -1082,6 +1091,10 @@
             </select>
             <span class="help">{t('monitors.form.downRuleHelp')}</span>
           </div>
+          <label class="check">
+            <input type="checkbox" bind:checked={locNotify} disabled={locCount < 2} />
+            <span>{t('monitors.form.notifyPartial')}<small>{t('monitors.form.notifyPartialHelp')}</small></span>
+          </label>
         {/if}
       </section>
     {/if}

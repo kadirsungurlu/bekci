@@ -104,7 +104,7 @@ export default {
     select: 'Select {name}',
     incidentTitle: 'Details of the ongoing incident',
     viewIncident: 'View incident',
-    locOutageTitle: 'Some check locations are down; the monitor is up overall (no notifications, uptime not affected). Open the incident.',
+    locOutageTitle: 'Some check locations are down; the monitor is up overall (uptime not affected; notified only if enabled for the monitor). Open the incident.',
     incident: 'Incident',
     interval: 'Check interval',
     actionsFor: 'Actions for {name}',
@@ -278,6 +278,9 @@ export default {
     dwAny: 'If any location is down',
     dwMajority: 'If most locations are down',
     dwAll: 'If all locations are down',
+    notifyPartial: 'Also notify on location outages',
+    notifyPartialHelp:
+      'When a location goes down or becomes unreachable while the monitor is up, the selected channels are notified, and again when it recovers. Uptime is not affected.',
     downRuleHelp:
       'A location counts as down if it still fails after using its retries. Unreachable locations (no results for 3 check intervals, or disconnected) are ignored.',
     advanced: 'Advanced settings',

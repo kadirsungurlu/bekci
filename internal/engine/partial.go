@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kadirsungurlu/bekci/internal/notify"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
@@ -123,6 +124,7 @@ func (r *runner) openPartial(ctx context.Context, now time.Time, down []Location
 	})
 	r.saveCapture(ctx, id, r.failingCapture(now))
 	r.e.log.Warn("konum kesintisi", "monitor", r.m.Name, "konumlar", nameList(names))
+	r.notifyPartial(notify.KindLocationDown, now, id, cause, 0)
 }
 
 // notePartialLocations olay sürerken ilk kez çalışmayan konumları olayın verisine ekler.
@@ -152,8 +154,10 @@ func (r *runner) closePartial(ctx context.Context, now time.Time, msg string) {
 		return
 	}
 	if id != 0 {
-		r.resolveEvent(ctx, id, now, msg, now.Sub(time.Unix(started, 0)))
+		downtime := now.Sub(time.Unix(started, 0))
+		r.resolveEvent(ctx, id, now, msg, downtime)
 		r.e.log.Info("konum kesintisi bitti", "monitor", r.m.Name)
+		r.notifyPartial(notify.KindLocationUp, now, id, msg, downtime)
 	}
 	r.partialID, r.partialPrev, r.partialFailed, r.partialLearn = 0, nil, nil, false
 }

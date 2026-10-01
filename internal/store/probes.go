@@ -318,6 +318,14 @@ type LocationSetup struct {
 	IncludeLocal bool    `json:"include_local"`
 	ProbeIDs     []int64 `json:"probe_ids"`
 	DownWhen     string  `json:"down_when"`
+	// NotifyPartial konum kesintisinde (monitör çalışırken bir konum
+	// düştüğünde) de bildirim gönderilir; düzelince de.
+	NotifyPartial bool `json:"notify_partial"`
+}
+
+func init() {
+	// 19: konum kesintisi bildirimi (monitör başına; varsayılan kapalı).
+	RegisterMigration(19, `ALTER TABLE monitor_location_settings ADD COLUMN notify_partial INTEGER NOT NULL DEFAULT 0;`)
 }
 
 // Configured varsayılandan (yalnızca ana sunucu) farklı bir ayar mı?
@@ -352,7 +360,7 @@ func (s *Store) monitorLocations(ctx context.Context, monitorID int64) (map[int6
 		where, args = " WHERE s.monitor_id = ?", []any{monitorID}
 	}
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT s.monitor_id, s.include_local, s.down_when, l.probe_id
+		SELECT s.monitor_id, s.include_local, s.down_when, s.notify_partial, l.probe_id
 		FROM monitor_location_settings s
 		LEFT JOIN monitor_locations l ON l.monitor_id = s.monitor_id`+where+`
 		ORDER BY s.monitor_id, l.probe_id`, args...)
@@ -363,15 +371,15 @@ func (s *Store) monitorLocations(ctx context.Context, monitorID int64) (map[int6
 	out := map[int64]LocationSetup{}
 	for rows.Next() {
 		var id int64
-		var local bool
+		var local, notify bool
 		var downWhen string
 		var pid sql.NullInt64
-		if err := rows.Scan(&id, &local, &downWhen, &pid); err != nil {
+		if err := rows.Scan(&id, &local, &downWhen, &notify, &pid); err != nil {
 			return nil, err
 		}
 		l, ok := out[id]
 		if !ok {
-			l = LocationSetup{IncludeLocal: local, ProbeIDs: []int64{}, DownWhen: downWhen}
+			l = LocationSetup{IncludeLocal: local, ProbeIDs: []int64{}, DownWhen: downWhen, NotifyPartial: notify}
 		}
 		if pid.Valid {
 			l.ProbeIDs = append(l.ProbeIDs, pid.Int64)
@@ -393,9 +401,10 @@ func (s *Store) SetMonitorLocations(ctx context.Context, monitorID int64, l Loca
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO monitor_location_settings (monitor_id, include_local, down_when) VALUES (?, ?, ?)
-			ON CONFLICT (monitor_id) DO UPDATE SET include_local = excluded.include_local, down_when = excluded.down_when`,
-			monitorID, boolInt(l.IncludeLocal), l.DownWhen); err != nil {
+			INSERT INTO monitor_location_settings (monitor_id, include_local, down_when, notify_partial) VALUES (?, ?, ?, ?)
+			ON CONFLICT (monitor_id) DO UPDATE SET include_local = excluded.include_local, down_when = excluded.down_when,
+				notify_partial = excluded.notify_partial`,
+			monitorID, boolInt(l.IncludeLocal), l.DownWhen, boolInt(l.NotifyPartial)); err != nil {
 			return err
 		}
 		for _, pid := range l.ProbeIDs {

@@ -29,6 +29,11 @@ const (
 	KindTest     = "test"
 
 	// Sunucu takibi: eşik uyarısı başladı / bitti (ProbeID dolu, MonitorID 0).
+	// Konum kesintisi (çok konumlu monitör çalışırken bir konum düştü / düzeldi);
+	// yalnızca monitörde "konum kesintisinde bildir" açıksa.
+	KindLocationDown = "location_down"
+	KindLocationUp   = "location_up"
+
 	KindServerAlert    = "server_alert"
 	KindServerResolved = "server_resolved"
 )
@@ -139,6 +144,10 @@ func (e Event) Title() string {
 		return i18n.TN(l, "notify.cert.expiring", e.CertDays, e.MonitorName, e.CertDays)
 	case KindTest:
 		return i18n.T(l, "notify.test.title")
+	case KindLocationDown:
+		return i18n.T(l, "notify.location_down.title", e.MonitorName)
+	case KindLocationUp:
+		return i18n.T(l, "notify.location_up.title", e.MonitorName)
 	case KindServerAlert, KindServerResolved:
 		return e.serverTitle()
 	}
@@ -212,9 +221,9 @@ func (e Event) Rows() []Row {
 		rows = append(rows, r)
 	}
 	switch e.Kind {
-	case KindDown:
+	case KindDown, KindLocationDown:
 		reason()
-	case KindUp:
+	case KindUp, KindLocationUp:
 		add("downtime", i18n.Duration(l, e.Downtime))
 	case KindReminder:
 		add("downtime", i18n.Duration(l, e.Downtime))
@@ -273,12 +282,14 @@ func (e Event) DetailURL() string {
 
 // IsProblem olayın kötü haber olup olmadığı (öncelik/renk seçimi için).
 func (e Event) IsProblem() bool {
-	return e.Kind == KindDown || e.Kind == KindReminder || e.Kind == KindCert || e.Kind == KindServerAlert
+	return e.Kind == KindDown || e.Kind == KindReminder || e.Kind == KindCert || e.Kind == KindServerAlert || e.Kind == KindLocationDown
 }
 
 // IsRecovery sorunun bittiğini bildiren olay mı (monitör tekrar çalışıyor,
 // sunucu uyarısı bitti). Olay kapatan servisler (PagerDuty, Opsgenie) için.
-func (e Event) IsRecovery() bool { return e.Kind == KindUp || e.Kind == KindServerResolved }
+func (e Event) IsRecovery() bool {
+	return e.Kind == KindUp || e.Kind == KindServerResolved || e.Kind == KindLocationUp
+}
 
 // AlertKey olayın dış servislerdeki kimliği: aynı sorunun başlangıç ve bitiş
 // olayları aynı anahtarı taşır (PagerDuty dedup_key, Opsgenie alias).
@@ -297,6 +308,8 @@ func (e Event) AlertKey() string {
 		return fmt.Sprintf("%sserver-%d-%s", prefix, e.ProbeID, e.Metric)
 	case e.Kind == KindCert:
 		return fmt.Sprintf("%smonitor-%d-cert", prefix, e.MonitorID)
+	case e.Kind == KindLocationDown || e.Kind == KindLocationUp:
+		return fmt.Sprintf("%smonitor-%d-locations", prefix, e.MonitorID)
 	}
 	return fmt.Sprintf("%smonitor-%d", prefix, e.MonitorID)
 }

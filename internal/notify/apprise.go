@@ -40,7 +40,7 @@ func appriseType(ev Event) string {
 	switch ev.Kind {
 	case KindDown, KindReminder, KindServerAlert:
 		return "failure"
-	case KindCert:
+	case KindCert, KindLocationDown:
 		return "warning"
 	default:
 		return "success"

@@ -374,18 +374,45 @@ func (r *runner) notify(kind string, now time.Time, msg string, downtime time.Du
 		// "Detay" bağlantısı olay sayfasına gider; gönderim sonuçları olaya yazılır.
 		ev.IncidentID, ev.IncidentURL = r.incidentID, r.e.IncidentURL(r.incidentID)
 	}
-	if r.locs != nil && (kind == notify.KindDown || kind == notify.KindReminder) {
-		// Çok konumlu: çalışmayan ve sonuç gelmeyen konumlar ayrı satırlarda.
-		for _, s := range r.locs.statuses(now, r.rules()) {
-			switch s.Status {
-			case locDown, locRetrying:
-				ev.Locations = append(ev.Locations, notify.LocationNote{Name: s.Name, Message: s.Message})
-			case locUnknown:
-				ev.Locations = append(ev.Locations, notify.LocationNote{Name: s.Name, NoData: true})
-			}
-		}
+	if kind == notify.KindDown || kind == notify.KindReminder {
+		ev.Locations = r.locationNotes(now)
 	}
 	r.e.notifier.Notify(ev)
+}
+
+// notifyPartial konum kesintisi bildirimi (yalnızca monitörde açıksa); olay
+// kimliği kısmi olayınki: gönderim sonuçları onun işlem geçmişine yazılır.
+func (r *runner) notifyPartial(kind string, now time.Time, incidentID int64, msg string, downtime time.Duration) {
+	if r.locs == nil || !r.locs.notify || incidentID == 0 {
+		return
+	}
+	ev := notify.Event{
+		Kind: kind, MonitorID: r.m.ID, MonitorName: r.m.Name, MonitorType: r.m.Type,
+		Target: r.checker.Target(r.m.Config), Message: msg, Time: now, Downtime: downtime,
+		URL: r.e.MonitorURL(r.m.ID), IncidentID: incidentID, IncidentURL: r.e.IncidentURL(incidentID),
+	}
+	if kind == notify.KindLocationDown {
+		ev.Locations = r.locationNotes(now)
+	}
+	r.e.notifier.Notify(ev)
+}
+
+// locationNotes çok konumlu monitörde çalışmayan ve ulaşılamayan konumlar
+// (bildirimde ayrı satırlar); tek konumluda nil.
+func (r *runner) locationNotes(now time.Time) []notify.LocationNote {
+	if r.locs == nil {
+		return nil
+	}
+	var out []notify.LocationNote
+	for _, s := range r.locs.statuses(now, r.rules()) {
+		switch s.Status {
+		case locDown, locRetrying:
+			out = append(out, notify.LocationNote{Name: s.Name, Message: s.Message})
+		case locUnknown:
+			out = append(out, notify.LocationNote{Name: s.Name, NoData: true})
+		}
+	}
+	return out
 }
 
 // invertUpsideDown ters modu uygular: sonuç tersine çevrilir, mesaj neden

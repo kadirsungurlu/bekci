@@ -104,7 +104,7 @@ export default {
     select: '{name} seç',
     incidentTitle: 'Süren olayın ayrıntıları',
     viewIncident: 'Olayı gör',
-    locOutageTitle: 'Bazı kontrol konumları çalışmıyor; monitör genel olarak çalışıyor (bildirim gönderilmez, uptime etkilenmez). Olayı aç.',
+    locOutageTitle: 'Bazı kontrol konumları çalışmıyor; monitör genel olarak çalışıyor (uptime etkilenmez; bildirim yalnızca monitörde açıksa gider). Olayı aç.',
     incident: 'Olay',
     interval: 'Kontrol aralığı',
     actionsFor: '{name} için işlemler',
@@ -278,6 +278,9 @@ export default {
     dwAny: 'Herhangi bir konum çalışmıyorsa',
     dwMajority: 'Konumların çoğunluğu çalışmıyorsa',
     dwAll: 'Tüm konumlar çalışmıyorsa',
+    notifyPartial: 'Konum kesintisinde de bildirim gönder',
+    notifyPartialHelp:
+      'Monitör çalışırken bir konum çalışmaz ya da ulaşılamaz olursa seçili kanallara bildirim gider; konum düzelince de bildirilir. Uptime etkilenmez.',
     downRuleHelp:
       'Bir konum, tekrar deneme hakkını kullandıktan sonra da başarısızsa çalışmıyor sayılır. Ulaşılamayan konum (3 kontrol aralığı boyunca sonuç göndermeyen ya da bağlantısı kopan) hesaba katılmaz.',
     advanced: 'Gelişmiş ayarlar',
