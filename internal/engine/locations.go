@@ -170,8 +170,14 @@ type retiredLocs struct {
 const retireKeep = 10 * time.Second
 
 // retire durdurulan (goroutine'i bitmiş) runner'ın konumlarını kısa süre saklar.
+// Tek konumlu monitörün son sonucu da "Ana sunucu" konumu olarak saklanır: ilk
+// kontrol noktası eklenince ana sunucu "ilk sonuç bekleniyor"a düşmesin.
 func (e *Engine) retire(r *runner) {
-	if r.locs == nil {
+	locs := r.locs
+	if locs == nil {
+		locs = r.localOnlyLocations()
+	}
+	if locs == nil {
 		return
 	}
 	now := e.now()
@@ -182,7 +188,29 @@ func (e *Engine) retire(r *runner) {
 			delete(e.retired, id)
 		}
 	}
-	e.retired[r.m.ID] = retiredLocs{m: r.m, locs: r.locs, at: now}
+	e.retired[r.m.ID] = retiredLocs{m: r.m, locs: locs, at: now}
+}
+
+// localOnlyLocations tek konumlu runner'ın son sonucundan yalnızca ana
+// sunucuyu içeren konum kümesi (retire için); sonuç yoksa nil.
+func (r *runner) localOnlyLocations() *locationSet {
+	if !RemoteCapable(r.m.Type) || r.m.LastCheckAt == 0 {
+		return nil
+	}
+	l := &location{probeID: LocalProbeID, name: LocalName, have: true, at: time.Unix(r.m.LastCheckAt, 0)}
+	l.added = l.at
+	l.res = check.Result{PingMs: r.m.LastPingMs, Message: r.m.LastMessage}
+	switch r.m.Status {
+	case store.StatusUp:
+		l.res.Up = true
+	case store.StatusDown:
+		l.fails = r.m.MaxRetries + 1 // deneme hakkı bitmiş: konum "çalışmıyor"
+	case store.StatusPending:
+		l.fails = max(r.retries, 1)
+	default:
+		return nil // bakım vb.: aktarılacak konum sonucu yok
+	}
+	return &locationSet{locs: []*location{l}, local: l, byProbe: map[int64]*location{}, wake: make(chan struct{}, 1)}
 }
 
 // adoptLocations yeniden başlatılan runner'a (düzenleme, konum ayarı veya

@@ -288,3 +288,42 @@ func gotEvent(ch <-chan []byte, typ string) bool {
 		}
 	}
 }
+
+// Tek konumlu monitöre ilk kontrol noktası eklenince ana sunucunun son sonucu
+// korunur; yalnızca yeni konum "ilk sonuç bekleniyor" olur.
+func TestLocalResultKeptWhenFirstProbeAdded(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	a := f.probe(t, "A", true)
+	m := f.monitor(t, nil)
+	r := f.runnerFor(t, m.ID)
+	r.process(up())
+	f.e.retire(r)
+
+	setup := store.LocationSetup{IncludeLocal: true, ProbeIDs: []int64{a.ID}, DownWhen: store.DownWhenAny}
+	if err := f.st.SetMonitorLocations(ctx, m.ID, setup); err != nil {
+		t.Fatal(err)
+	}
+	ls := f.e.loadLocations(r.m)
+	f.e.mu.Lock()
+	f.e.adoptLocations(r.m, ls)
+	f.e.mu.Unlock()
+	got := *ls.snap.Load()
+	if len(got) != 2 || got[0].Name != LocalName || got[0].Status != locUp || got[0].PingMs != 10 || got[1].Status != locWaiting {
+		t.Fatalf("ana sunucu korunmalı, A beklemeli: %+v", got)
+	}
+
+	// Çalışmıyorken eklenirse ana sunucu "çalışmıyor" kalır.
+	r2 := f.runnerFor(t, m.ID)
+	r2.locs = nil
+	r2.m.MaxRetries = 0
+	r2.process(down("503"))
+	f.e.retire(r2)
+	ls2 := f.e.loadLocations(r2.m)
+	f.e.mu.Lock()
+	f.e.adoptLocations(r2.m, ls2)
+	f.e.mu.Unlock()
+	if got := *ls2.snap.Load(); got[0].Status != locDown {
+		t.Fatalf("ana sunucu çalışmıyor kalmalı: %+v", got)
+	}
+}
