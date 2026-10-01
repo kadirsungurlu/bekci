@@ -374,6 +374,17 @@ func (r *runner) notify(kind string, now time.Time, msg string, downtime time.Du
 		// "Detay" bağlantısı olay sayfasına gider; gönderim sonuçları olaya yazılır.
 		ev.IncidentID, ev.IncidentURL = r.incidentID, r.e.IncidentURL(r.incidentID)
 	}
+	if r.locs != nil && (kind == notify.KindDown || kind == notify.KindReminder) {
+		// Çok konumlu: çalışmayan ve sonuç gelmeyen konumlar ayrı satırlarda.
+		for _, s := range r.locs.statuses(now, r.rules()) {
+			switch s.Status {
+			case locDown, locRetrying:
+				ev.Locations = append(ev.Locations, notify.LocationNote{Name: s.Name, Message: s.Message})
+			case locUnknown:
+				ev.Locations = append(ev.Locations, notify.LocationNote{Name: s.Name, NoData: true})
+			}
+		}
+	}
 	r.e.notifier.Notify(ev)
 }
 

@@ -37,7 +37,7 @@ func (teams) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 				"version": "1.4",
 				"body": []map[string]any{
 					{"type": "TextBlock", "text": title, "weight": "Bolder", "size": "Medium", "wrap": true, "color": color},
-					{"type": "TextBlock", "text": ev.Text(), "wrap": true, "isSubtle": true},
+					{"type": "TextBlock", "text": ev.Body(), "wrap": true, "isSubtle": true},
 				},
 			},
 		}},

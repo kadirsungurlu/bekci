@@ -82,3 +82,32 @@ func TestTurkishUnchanged(t *testing.T) {
 		t.Errorf("tr çevrimdışı:\n%s", txt)
 	}
 }
+
+// Çok konumlu kesintide her konum ayrı satırda; başlığı ayrı giden kanalların
+// gövdesi başlıkla başlamaz.
+func TestLocationLinesAndBody(t *testing.T) {
+	ev := Event{Kind: KindDown, Lang: "tr", MonitorName: "Ayder", Target: "https://a.example",
+		Message:   "Ana sunucu: HTTP 403 Forbidden (sonuç gelmeyen: CP Server IST)",
+		Time:      time.Date(2026, 10, 1, 10, 58, 1, 0, time.Local),
+		Locations: []LocationNote{{Name: "Ana sunucu", Message: "HTTP 403 Forbidden"}, {Name: "CP Server IST", NoData: true}}}
+	body := ev.Body()
+	want := "Hedef: https://a.example\nKonumlar:\n• Ana sunucu: HTTP 403 Forbidden\n• CP Server IST: sonuç gelmiyor\nZaman: "
+	if !strings.HasPrefix(body, want) {
+		t.Fatalf("gövde:\n%s", body)
+	}
+	if strings.Contains(body, "Neden") || strings.Contains(body, ev.Title()) {
+		t.Fatalf("gövdede Neden satırı ya da başlık olmamalı:\n%s", body)
+	}
+	if ev.Text() != ev.Title()+"\n"+body {
+		t.Fatalf("Text = başlık + gövde olmalı:\n%s", ev.Text())
+	}
+	ev.Lang = "en"
+	if b := ev.Body(); !strings.Contains(b, "Locations:\n• Ana sunucu: HTTP 403 Forbidden\n• CP Server IST: no result") {
+		t.Fatalf("İngilizce gövde:\n%s", b)
+	}
+	// Konum bilgisi yoksa eskisi gibi "Neden".
+	ev.Lang, ev.Locations = "tr", nil
+	if b := ev.Body(); !strings.Contains(b, "\nNeden: Ana sunucu: HTTP 403") {
+		t.Fatalf("konumsuz gövde:\n%s", b)
+	}
+}

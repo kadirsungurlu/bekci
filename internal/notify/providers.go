@@ -206,6 +206,8 @@ type WebhookPayload struct {
 	DowntimeSeconds int64          `json:"downtime_seconds,omitempty"`
 	CertDays        *int           `json:"cert_days,omitempty"`
 	Monitor         WebhookMonitor `json:"monitor"`
+	// Locations çok konumlu monitörde çalışmayan / sonuç gelmeyen konumlar.
+	Locations []LocationNote `json:"locations,omitempty"`
 	// Server yalnızca sunucu uyarılarında (server_alert, server_resolved)
 	// doludur; o zaman Monitor sunucunun adını ve host adını taşır, kimliği 0'dır.
 	Server *WebhookServer `json:"server,omitempty"`
@@ -243,6 +245,7 @@ func (webhook) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 		Time:            ev.Time.Format(time.RFC3339),
 		DowntimeSeconds: int64(ev.Downtime.Seconds()),
 		Monitor:         WebhookMonitor{ID: ev.MonitorID, Name: ev.MonitorName, Type: ev.MonitorType, Target: ev.Target, URL: ev.URL},
+		Locations:       ev.Locations,
 	}
 	if ev.Kind == KindCert {
 		d := ev.CertDays
@@ -341,7 +344,7 @@ func (ntfy) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	if c.Token != "" {
 		headers["Authorization"] = "Bearer " + c.Token
 	}
-	return doRequest(ctx, http.MethodPost, c.Server+"/"+url.PathEscape(c.Topic), strings.NewReader(ev.Text()), headers)
+	return doRequest(ctx, http.MethodPost, c.Server+"/"+url.PathEscape(c.Topic), strings.NewReader(ev.Body()), headers)
 }
 
 // Gotify --------------------------------------------------------------------------
@@ -385,7 +388,7 @@ func (gotify) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 		prio = c.Priority
 	}
 	return postJSON(ctx, c.Server+"/message", map[string]any{
-		"title": ev.Title(), "message": ev.Text(), "priority": prio,
+		"title": ev.Title(), "message": ev.Body(), "priority": prio,
 	}, map[string]string{"X-Gotify-Key": c.AppToken})
 }
 
@@ -429,7 +432,7 @@ func (pushover) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	}
 	form := url.Values{
 		"token": {c.AppToken}, "user": {c.UserKey},
-		"title": {ev.Title()}, "message": {ev.Text()}, "priority": {strconv.Itoa(prio)},
+		"title": {ev.Title()}, "message": {ev.Body()}, "priority": {strconv.Itoa(prio)},
 	}
 	if c.Device != "" {
 		form.Set("device", c.Device)

@@ -53,7 +53,7 @@ func (apprise) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	payload := map[string]any{
 		"urls":  c.URLs,
 		"title": ev.Title(),
-		"body":  ev.Text(),
+		"body":  ev.Body(),
 		"type":  appriseType(ev),
 	}
 	return postJSON(ctx, c.Server+"/notify", payload, nil)

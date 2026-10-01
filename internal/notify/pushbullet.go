@@ -40,7 +40,7 @@ func (pushbullet) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 func (pushbullet) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	var c pushbulletConfig
 	json.Unmarshal(raw, &c)
-	payload := map[string]any{"type": "note", "title": ev.Title(), "body": ev.Text()}
+	payload := map[string]any{"type": "note", "title": ev.Title(), "body": ev.Body()}
 	if c.ChannelTag != "" {
 		payload["channel_tag"] = c.ChannelTag
 	}

@@ -75,6 +75,10 @@ type Event struct {
 	// Sample örnek bildirim (gerçek bir olay değil); metne not düşülür.
 	Sample bool
 
+	// Locations çok konumlu monitörde çalışmayan / sonuç gelmeyen konumlar:
+	// doluysa "Neden" yerine her konum ayrı satırda yazılır.
+	Locations []LocationNote
+
 	// Lang bildirim metninin dili (tr/en). Boşsa Dispatcher ayarlardaki
 	// bildirim dilini (AppSettings.NotifyLang) doldurur; yine boşsa tr.
 	Lang string
@@ -141,47 +145,110 @@ func (e Event) Title() string {
 	return e.MonitorName
 }
 
-// Text başlık dahil tam düz metin.
-func (e Event) Text() string {
-	l := e.Lang
-	var b strings.Builder
-	b.WriteString(e.Title())
-	line := func(key, v string) {
-		if v != "" {
-			fmt.Fprintf(&b, "\n%s: %s", i18n.T(l, "notify.field."+key), v)
-		}
-	}
+// LocationNote bildirimde bir konumun satırı. NoData: konumdan sonuç gelmiyor.
+type LocationNote struct {
+	Name    string `json:"name"`
+	Message string `json:"message,omitempty"`
+	NoData  bool   `json:"no_data,omitempty"`
+}
+
+// Text başlık dahil tam düz metin (başlığı ayrı alanda gitmeyen kanallar).
+func (e Event) Text() string { return e.Title() + "\n" + e.Body() }
+
+// Row bildirim gövdesinin bir satırı: etiket ve değer; Locations doluysa
+// değer yerine her konum ayrı satırda yazılır.
+type Row struct {
+	Key       string // notify.field.* anahtarı (link, time… kanal biçimi için)
+	Label     string
+	Value     string
+	Locations []LocRow
+}
+
+// LocRow konum satırı (bildirim dilinde). NoData: sonuç gelmiyor.
+type LocRow struct {
+	Name, Message string
+	NoData        bool
+}
+
+// Notes test/örnek bildirim açıklamaları (gövdenin başında).
+func (e Event) Notes() []string {
+	var out []string
 	if e.Kind == KindTest {
-		b.WriteString("\n" + i18n.T(l, "notify.test.body", brand.Name))
+		out = append(out, i18n.T(e.Lang, "notify.test.body", brand.Name))
 	}
 	if e.Sample {
-		b.WriteString("\n" + i18n.T(l, "notify.sample.note"))
+		out = append(out, i18n.T(e.Lang, "notify.sample.note"))
+	}
+	return out
+}
+
+// Rows gövde satırları (düz metin ve e-posta HTML'i aynı satırlardan üretilir).
+func (e Event) Rows() []Row {
+	l := e.Lang
+	var rows []Row
+	add := func(key, v string) {
+		if v != "" {
+			rows = append(rows, Row{Key: key, Label: i18n.T(l, "notify.field."+key), Value: v})
+		}
 	}
 	if e.ProbeID != 0 {
-		line("server", e.Target)
+		add("server", e.Target)
 	} else {
-		line("target", e.Target)
+		add("target", e.Target)
+	}
+	reason := func() {
+		if len(e.Locations) == 0 {
+			add("reason", e.LocalMessage())
+			return
+		}
+		r := Row{Key: "locations", Label: i18n.T(l, "notify.field.locations")}
+		for _, n := range e.Locations {
+			lr := LocRow{Name: n.Name, Message: i18n.Message(l, n.Message), NoData: n.NoData}
+			if n.NoData {
+				lr.Message = i18n.T(l, "notify.loc.no_data")
+			}
+			r.Locations = append(r.Locations, lr)
+		}
+		rows = append(rows, r)
 	}
 	switch e.Kind {
 	case KindDown:
-		line("reason", e.LocalMessage())
+		reason()
 	case KindUp:
-		line("downtime", i18n.Duration(l, e.Downtime))
+		add("downtime", i18n.Duration(l, e.Downtime))
 	case KindReminder:
-		line("downtime", i18n.Duration(l, e.Downtime))
-		line("reason", e.LocalMessage())
+		add("downtime", i18n.Duration(l, e.Downtime))
+		reason()
 	case KindCert:
-		line("expires", i18n.DateTimeMin(l, e.CertExpires.Local()))
-		line("issuer", e.CertIssuer)
+		add("expires", i18n.DateTimeMin(l, e.CertExpires.Local()))
+		add("issuer", e.CertIssuer)
 	case KindServerAlert, KindServerResolved:
 		if e.Metric != "offline" && e.Kind == KindServerResolved {
-			line("last_avg", FormatMetric(l, e.Metric, e.Value))
+			add("last_avg", FormatMetric(l, e.Metric, e.Value))
 		}
-		line("info", e.info())
+		add("info", e.info())
 	}
-	line("time", i18n.DateTime(l, e.Time.Local()))
-	line("link", e.DetailURL())
-	return b.String()
+	add("time", i18n.DateTime(l, e.Time.Local()))
+	add("link", e.DetailURL())
+	return rows
+}
+
+// Body başlıksız gövde: başlığı ayrı gönderen kanallar (ntfy, Gotify,
+// Pushover, e-posta konusu…) başlığı gövdede tekrarlamasın.
+func (e Event) Body() string {
+	var lines []string
+	lines = append(lines, e.Notes()...)
+	for _, r := range e.Rows() {
+		if r.Locations == nil {
+			lines = append(lines, r.Label+": "+r.Value)
+			continue
+		}
+		lines = append(lines, r.Label+":")
+		for _, lr := range r.Locations {
+			lines = append(lines, "• "+lr.Name+": "+lr.Message)
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // info sunucu uyarısının "Ayrıntı" satırı: yapılandırılmış alanlardan (dile

@@ -49,7 +49,7 @@ func (bark) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	json.Unmarshal(raw, &c)
 	payload := map[string]any{
 		"title":      ev.Title(),
-		"body":       ev.Text(),
+		"body":       ev.Body(),
 		"device_key": c.DeviceKey,
 		"group":      c.Group,
 	}

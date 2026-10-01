@@ -86,7 +86,7 @@ func (opsgenie) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	payload := map[string]any{
 		"message":     ev.Title(),
 		"alias":       alias,
-		"description": ev.Text(),
+		"description": ev.Body(),
 		"priority":    priority,
 	}
 	return postJSON(ctx, base+"/v2/alerts", payload, headers)

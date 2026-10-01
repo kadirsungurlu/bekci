@@ -2,13 +2,17 @@ package notify
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
 	"mime"
+	"mime/multipart"
+	"mime/quotedprintable"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/mail"
 	"strings"
 	"sync"
 	"testing"
@@ -368,5 +372,41 @@ func TestMergeSecretsRejectsDestinationChange(t *testing.T) {
 	storedMail := json.RawMessage(`{"host":"smtp.kadir.app","port":587,"password":"p","from":"a@b.c","to":"c@d.e"}`)
 	if _, err := MergeSecrets("email", json.RawMessage(`{"host":"smtp.saldirgan.example","port":587,"password":"`+Mask+`","from":"a@b.c","to":"c@d.e"}`), storedMail); err != ErrSecretRebind {
 		t.Errorf("SMTP sunucusu değişince ret bekleniyordu: %v", err)
+	}
+}
+
+// E-posta: düz metin ve HTML alternatifleri; HTML'de konumlar ve kaçış.
+func TestMailMultipartHTML(t *testing.T) {
+	ev := Event{Kind: KindDown, Lang: "tr", MonitorName: "Ayder <Tesisat>", Target: "https://a.example",
+		Time: time.Date(2026, 10, 1, 10, 58, 1, 0, time.Local), IncidentURL: "https://u.example/#/incidents/17",
+		Locations: []LocationNote{{Name: "Ana sunucu", Message: "HTTP 403 Forbidden"}, {Name: "CP Server IST", NoData: true}}}
+	raw := buildMail("a@example.com", "b@example.com", ev)
+	msg, err := mail.ReadMessage(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mt, params, err := mime.ParseMediaType(msg.Header.Get("Content-Type"))
+	if err != nil || mt != "multipart/alternative" {
+		t.Fatalf("içerik türü %q %v", mt, err)
+	}
+	mr := multipart.NewReader(msg.Body, params["boundary"])
+	parts := map[string]string{}
+	for {
+		p, err := mr.NextPart()
+		if err != nil {
+			break
+		}
+		body, _ := io.ReadAll(quotedprintable.NewReader(p))
+		ct, _, _ := mime.ParseMediaType(p.Header.Get("Content-Type"))
+		parts[ct] = string(body)
+	}
+	if !strings.Contains(parts["text/plain"], "• CP Server IST: sonuç gelmiyor") {
+		t.Fatalf("düz metin:\n%s", parts["text/plain"])
+	}
+	h := parts["text/html"]
+	for _, want := range []string{"Çalışmıyor", "Ayder &lt;Tesisat&gt; çalışmıyor", "CP Server IST", "sonuç gelmiyor", `href="https://u.example/#/incidents/17"`, "Ayrıntıları aç"} {
+		if !strings.Contains(h, want) {
+			t.Fatalf("HTML'de %q yok:\n%s", want, h)
+		}
 	}
 }

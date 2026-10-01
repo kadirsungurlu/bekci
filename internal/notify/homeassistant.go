@@ -43,7 +43,7 @@ func (homeassistant) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 func (homeassistant) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	var c homeassistantConfig
 	json.Unmarshal(raw, &c)
-	payload := map[string]any{"title": ev.Title(), "message": ev.Text()}
+	payload := map[string]any{"title": ev.Title(), "message": ev.Body()}
 	return postJSON(ctx, c.URL+"/api/services/notify/"+c.Service, payload,
 		map[string]string{"Authorization": "Bearer " + c.Token})
 }

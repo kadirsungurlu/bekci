@@ -75,7 +75,7 @@ func (pagerduty) Send(ctx context.Context, raw json.RawMessage, ev Event) error 
 			"severity":  severity,
 			"timestamp": ev.Time.UTC().Format(time.RFC3339),
 			"custom_details": map[string]any{
-				"detay": ev.Text(),
+				"detay": ev.Body(),
 			},
 		}
 	}

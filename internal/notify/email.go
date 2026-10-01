@@ -159,11 +159,23 @@ func buildMail(from, to string, ev Event) []byte {
 	h("Date", ev.Time.Format(time.RFC1123Z))
 	h("Message-ID", messageID(from))
 	h("MIME-Version", "1.0")
-	h("Content-Type", "text/plain; charset=utf-8")
-	h("Content-Transfer-Encoding", "quoted-printable")
+	// Düz metin + HTML: HTML göstermeyen istemci düz metni okur.
+	sep := make([]byte, 12)
+	rand.Read(sep)
+	boundary := fmt.Sprintf("bekci-%x", sep)
+	h("Content-Type", `multipart/alternative; boundary="`+boundary+`"`)
 	b.WriteString("\r\n")
-	qp := quotedprintable.NewWriter(&b)
-	qp.Write([]byte(strings.ReplaceAll(ev.Text(), "\n", "\r\n")))
-	qp.Close()
+	part := func(ctype, body string) {
+		fmt.Fprintf(&b, "--%s\r\nContent-Type: %s; charset=utf-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n", boundary, ctype)
+		qp := quotedprintable.NewWriter(&b)
+		qp.Write([]byte(strings.ReplaceAll(body, "\n", "\r\n")))
+		qp.Close()
+		b.WriteString("\r\n")
+	}
+	part("text/plain", ev.Text())
+	if html := ev.HTML(); html != "" {
+		part("text/html", html)
+	}
+	fmt.Fprintf(&b, "--%s--\r\n", boundary)
 	return b.Bytes()
 }
