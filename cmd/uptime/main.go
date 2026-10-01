@@ -51,6 +51,7 @@ import (
 
 	"github.com/kadirsungurlu/bekci/internal/api"
 	"github.com/kadirsungurlu/bekci/internal/brand"
+	"github.com/kadirsungurlu/bekci/internal/check"
 	"github.com/kadirsungurlu/bekci/internal/engine"
 	"github.com/kadirsungurlu/bekci/internal/notify"
 	"github.com/kadirsungurlu/bekci/internal/stats"
@@ -87,6 +88,7 @@ func newLogger(w io.Writer) *slog.Logger {
 
 func run() error {
 	log := newLogger(os.Stdout)
+	check.SetVersion(version) // kontrol isteklerinin User-Agent'ı
 	// Veritabanı gerektirmeyen komutlar.
 	if len(os.Args) > 1 {
 		switch os.Args[1] {

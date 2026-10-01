@@ -268,7 +268,7 @@ func fetchOAuthToken(ctx context.Context, client *http.Client, c HTTPConfig) (st
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", UserAgent)
+	req.Header.Set("User-Agent", UserAgent())
 	if c.OAuthAuthStyle != "body" {
 		// RFC 6749 2.3.1: kimlik bilgileri form kodlamasıyla kodlanıp Basic'e konur.
 		req.SetBasicAuth(url.QueryEscape(c.OAuthClientID), url.QueryEscape(c.OAuthClientSecret))

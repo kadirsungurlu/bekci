@@ -28,6 +28,10 @@ export default {
     backupKeep: 'Gece yedeği sayısı',
     backupKeepHelp: 'Her gece veritabanı yedeklenir ve son N yedek tutulur. 0 = yedek alma.',
     notifyLang: 'Bildirim dili',
+    userAgent: 'Kontrol isteklerinin User-Agent\'ı',
+    userAgentHelp:
+      'Web sitesi kontrolleri bu değerle gider; tüm kontrol noktaları da aynısını kullanır. Siteniz Cloudflare veya başka bir güvenlik duvarı arkasındaysa, IP adreslerini tek tek eklemek yerine User-Agent\'ında "Bekci" geçen isteklere izin verebilirsiniz. Boş bırakırsanız varsayılan kullanılır; monitörde özel User-Agent başlığı varsa o geçerlidir.',
+    errUserAgent: 'User-Agent en fazla 300 karakter olabilir ve yalnızca İngilizce harf, rakam ve noktalama içerebilir.',
     notifyLangHelp: 'Tüm bildirim kanallarına giden mesajların (e-posta, Telegram, webhook…) dili.',
     errRaw: 'Ham kayıt süresi 1-90 gün arasında olmalı.',
     errHourly: 'Saatlik özet süresi 90-3650 gün arasında olmalı.',

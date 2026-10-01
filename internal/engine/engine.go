@@ -85,6 +85,7 @@ func New(st *store.Store, n Notifier, hub *Hub, log *slog.Logger, cfg Config) *E
 func (e *Engine) Start(ctx context.Context) error {
 	if s, err := e.store.LoadSettings(ctx); err == nil {
 		e.settings.Store(&s)
+		check.SetUserAgent(s.CheckUserAgent)
 	}
 	if err := e.ReloadMaintenance(ctx); err != nil {
 		e.log.Error("bakım pencereleri yüklenemedi", "hata", err)
@@ -116,7 +117,10 @@ func (e *Engine) Start(ctx context.Context) error {
 }
 
 // SetSettings ayarlar değişince çağrılır (SSL eşikleri anında geçerli olur).
-func (e *Engine) SetSettings(s store.AppSettings) { e.settings.Store(&s) }
+func (e *Engine) SetSettings(s store.AppSettings) {
+	e.settings.Store(&s)
+	check.SetUserAgent(s.CheckUserAgent)
+}
 
 // Reload monitör eklendi/düzenlendi/durduruldu/başlatıldıktan sonra çağrılır.
 //

@@ -119,6 +119,7 @@ type jobsResponse struct {
 	Version         *int64 `json:"version"`          // iş listesi sürümü; yok (eski sunucu) = uzun yoklama yok
 	MetricsInterval int    `json:"metrics_interval"` // sn; 0 veya alan yok (eski sunucu) = metrik gönderilmez
 	ServerTime      int64  `json:"server_time"`      // unix ms; 0 veya alan yok (eski sunucu) = saat farkı bilinmez
+	UserAgent       string `json:"user_agent"`       // kontrol isteklerinin User-Agent'ı; boş (eski sunucu) = ajanın varsayılanı
 	Jobs            []Job  `json:"jobs"`
 }
 
@@ -353,6 +354,9 @@ func (c *Client) pollJobs(ctx context.Context) (time.Duration, error) {
 		return 0, err
 	}
 	c.reachable("jobs")
+	if ua := resp.UserAgent; ua != "" && len(ua) <= 300 && !strings.ContainsAny(ua, "\r\n") {
+		check.SetUserAgent(ua)
+	}
 	if resp.ServerTime > 0 {
 		// Yanıt sunucudan çıktıktan sonra ölçülür: hata tek yönlü gecikme kadar.
 		c.skewMs.Store(resp.ServerTime - time.Now().UnixMilli())

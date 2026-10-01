@@ -599,6 +599,10 @@ export interface AppSettings {
   backup_keep: number;
   /** Bildirim metinlerinin dili (eski sunucuda gelmez → tr). */
   notify_lang?: Locale;
+  /** Kontrol isteklerinin User-Agent'ı; boş: varsayılan. */
+  check_user_agent?: string;
+  /** Yalnızca okunur: varsayılan User-Agent (GET yanıtında). */
+  default_user_agent?: string;
 }
 
 export interface BeatEvent {

@@ -17,9 +17,6 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// UserAgent kontrol isteklerinde varsayılan User-Agent.
-const UserAgent = "Mozilla/5.0 (compatible; Uptime-Kadir/1.0; +https://uptime.kadir.app)"
-
 var errTooManyRedirects = errors.New("çok fazla yönlendirme")
 
 // maxBody keyword/JSON kontrolü için okunacak en fazla gövde boyutu.
@@ -177,7 +174,7 @@ func (httpChecker) Check(ctx context.Context, raw json.RawMessage) Result {
 		req.Header.Add(h[0], h[1])
 	}
 	if req.Header.Get("User-Agent") == "" {
-		req.Header.Set("User-Agent", UserAgent)
+		req.Header.Set("User-Agent", UserAgent())
 	}
 	if c.Body != "" && req.Header.Get("Content-Type") == "" {
 		if json.Valid([]byte(c.Body)) {

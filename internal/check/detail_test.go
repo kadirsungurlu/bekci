@@ -81,7 +81,7 @@ func TestHTTPDetailCapture(t *testing.T) {
 		if v, _ := headerValue(d.RequestHeaders, "Accept"); v != "application/json" {
 			t.Errorf("zararsız başlık maskelenmemeli: %q", v)
 		}
-		if v, _ := headerValue(d.RequestHeaders, "User-Agent"); v != UserAgent {
+		if v, _ := headerValue(d.RequestHeaders, "User-Agent"); v != UserAgent() {
 			t.Errorf("User-Agent: %q", v)
 		}
 		if v, _ := headerValue(d.ResponseHeaders, "Set-Cookie"); v != detailMaskedValue {

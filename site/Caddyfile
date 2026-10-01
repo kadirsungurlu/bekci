@@ -49,6 +49,8 @@
 	respond /healthz "ok" 200
 	redir /en /en/ 301
 	redir /index.html / 301
+	# Kontrol isteklerinin User-Agent'ındaki adres (check.DefaultUserAgent).
+	redir /bot /docs/guvenlik-duvari/ 302
 	redir /en/index.html /en/ 301
 
 	@indir path /indir/*

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/kadirsungurlu/bekci/internal/i18n"
 )
@@ -19,6 +20,9 @@ type AppSettings struct {
 	BackupKeep          int   `json:"backup_keep"`           // saklanacak gece yedeği sayısı
 	// NotifyLang bildirim metinlerinin dili (tr | en). Boş (eski kayıt) tr sayılır.
 	NotifyLang string `json:"notify_lang"`
+	// CheckUserAgent kontrol isteklerinin User-Agent'ı; boş: varsayılan
+	// (check.DefaultUserAgent, "Bekci" içerir). Kontrol noktalarına da gider.
+	CheckUserAgent string `json:"check_user_agent"`
 }
 
 func DefaultSettings() AppSettings {
@@ -27,6 +31,16 @@ func DefaultSettings() AppSettings {
 
 // Validate hatalıysa Türkçe açıklama döner; CertDays'i sıralar ve tekilleştirir.
 func (a *AppSettings) Validate() error {
+	a.CheckUserAgent = strings.TrimSpace(a.CheckUserAgent)
+	if len(a.CheckUserAgent) > 300 {
+		return fmt.Errorf("User-Agent en fazla 300 karakter olabilir")
+	}
+	for _, r := range a.CheckUserAgent {
+		// HTTP başlık değeri: yazdırılabilir ASCII (satır sonu ile başlık eklenemez).
+		if r < 0x20 || r > 0x7e {
+			return fmt.Errorf("User-Agent yalnızca yazdırılabilir ASCII karakterler içerebilir")
+		}
+	}
 	if a.RetentionRawDays < 1 || a.RetentionRawDays > 90 {
 		return fmt.Errorf("Ham kayıt saklama süresi 1-90 gün olmalı")
 	}

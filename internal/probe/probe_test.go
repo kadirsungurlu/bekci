@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kadirsungurlu/bekci/internal/check"
 	"github.com/kadirsungurlu/bekci/internal/metrics"
 )
 
@@ -32,6 +33,7 @@ type fakeServer struct {
 	version   int64  // iş listesi sürümü; 0: alan gönderilmez (eski sunucu)
 	sinces    []string
 	clock     *time.Duration // nil: server_time gönderilmez (eski sunucu); değilse sunucu saatinin yerelden farkı
+	ua        string         // boş değilse user_agent gönderilir
 	srv       *httptest.Server
 }
 
@@ -59,6 +61,9 @@ func newFakeServer(t *testing.T) *fakeServer {
 			}
 			if f.clock != nil {
 				resp["server_time"] = time.Now().Add(*f.clock).UnixMilli()
+			}
+			if f.ua != "" {
+				resp["user_agent"] = f.ua
 			}
 			json.NewEncoder(w).Encode(resp)
 		case "/api/probe/results":
@@ -400,5 +405,30 @@ func TestRetryStopsAfterMaxRetries(t *testing.T) {
 		if d := hits[i].Sub(hits[i-1]); d < 200*time.Millisecond {
 			t.Errorf("%d. kontrol %v sonra: hak bitince normal aralık bekleniyordu", i+1, d)
 		}
+	}
+}
+
+// Ajan kontrolleri ana sunucunun bildirdiği User-Agent ile yapar.
+func TestProbeUsesServerUserAgent(t *testing.T) {
+	defer check.SetUserAgent("")
+	fs := newFakeServer(t)
+	got := make(chan string, 8)
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case got <- r.Header.Get("User-Agent"):
+		default:
+		}
+	}))
+	t.Cleanup(s.Close)
+	fs.set(func(f *fakeServer) { f.jobs = []Job{httpJob(1, s.URL, 50)}; f.ua = "Bekci-Ozel/7" })
+	_, stop := start(t, Config{Server: fs.srv.URL})
+	defer stop()
+	select {
+	case ua := <-got:
+		if ua != "Bekci-Ozel/7" {
+			t.Fatalf("User-Agent %q", ua)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("kontrol yapılmadı")
 	}
 }

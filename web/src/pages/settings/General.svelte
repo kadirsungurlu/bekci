@@ -14,6 +14,8 @@
   let certDays = $state('21, 14, 7, 3, 1');
   let backupKeep = $state<number | null>(7);
   let notifyLang = $state<Locale>('tr');
+  let userAgent = $state('');
+  let defaultUA = $state('');
   let stError = $state('');
   let stBusy = $state(false);
 
@@ -23,12 +25,14 @@
     certDays = (s.cert_days ?? []).join(', ');
     backupKeep = s.backup_keep;
     notifyLang = s.notify_lang ?? 'tr';
+    userAgent = s.check_user_agent ?? '';
+    if (s.default_user_agent) defaultUA = s.default_user_agent;
     baseline = current();
   }
 
   // Kaydedilmemiş değişiklik koruması (sayfadan ayrılırken sorulur).
   let baseline = '';
-  const current = () => snapshot({ rawDays, hourlyDays, certDays: certDays.trim(), backupKeep, notifyLang });
+  const current = () => snapshot({ rawDays, hourlyDays, certDays: certDays.trim(), backupKeep, notifyLang, userAgent: userAgent.trim() });
   onMount(() => guardUnsaved(() => loaded && !stBusy && !!baseline && current() !== baseline));
 
   async function load() {
@@ -59,6 +63,8 @@
       return (stError = t('settings.general.errCertDays'));
     if (days.length > 10) return (stError = t('settings.general.errCertCount'));
     if (!isInt(backupKeep, 0, 60)) return (stError = t('settings.general.errBackup'));
+    const ua = userAgent.trim();
+    if (ua.length > 300 || /[^\x20-\x7e]/.test(ua)) return (stError = t('settings.general.errUserAgent'));
     stBusy = true;
     try {
       const res = await api.saveSettings({
@@ -67,6 +73,7 @@
         cert_days: days,
         backup_keep: backupKeep!,
         notify_lang: notifyLang,
+        check_user_agent: ua,
       });
       apply(res);
       toast.success(t('settings.general.saved'));
@@ -132,6 +139,11 @@
           </select>
           <span class="help">{t('settings.general.notifyLangHelp')}</span>
         </div>
+      </div>
+      <div class="field">
+        <label for="ua">{t('settings.general.userAgent')}</label>
+        <input id="ua" class="input mono" bind:value={userAgent} placeholder={defaultUA} maxlength="300" spellcheck="false" autocomplete="off" />
+        <span class="help">{t('settings.general.userAgentHelp')}</span>
       </div>
       {#if stError}<div class="alert error" role="alert">{stError}</div>{/if}
       <div class="actions">

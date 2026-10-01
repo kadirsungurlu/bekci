@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kadirsungurlu/bekci/internal/check"
 	"github.com/kadirsungurlu/bekci/internal/engine"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
@@ -142,14 +143,23 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, st)
+	// Varsayılan User-Agent yalnızca bilgi (formda örnek olarak gösterilir).
+	writeJSON(w, http.StatusOK, struct {
+		store.AppSettings
+		DefaultUserAgent string `json:"default_user_agent"`
+	}{st, check.DefaultUserAgent()})
 }
 
 func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
-	var in store.AppSettings
-	if !readJSON(w, r, &in) {
+	// GET yanıtı aynen geri gönderilebilsin: salt okunur alan kabul edilip yok sayılır.
+	var body struct {
+		store.AppSettings
+		DefaultUserAgent string `json:"default_user_agent"`
+	}
+	if !readJSON(w, r, &body) {
 		return
 	}
+	in := body.AppSettings
 	if err := in.Validate(); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

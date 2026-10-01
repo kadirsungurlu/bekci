@@ -1106,6 +1106,9 @@ func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 		// Sunucunun saati (unix ms): ajan kontrol ızgarasını buna göre kurar,
 		// iki makinenin saati farklı olsa da kontroller aynı anda yapılır.
 		"server_time": time.Now().UnixMilli(),
+		// Kontrol isteklerinin User-Agent'ı: tüm konumlar aynı değerle gider
+		// (güvenlik duvarında tek kuralla izin verilebilsin).
+		"user_agent": check.UserAgent(),
 	})
 }
 

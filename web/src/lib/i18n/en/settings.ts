@@ -30,6 +30,10 @@ export default {
     backupKeep: 'Nightly backups to keep',
     backupKeepHelp: 'The database is backed up every night and the last N backups are kept. 0 = no backups.',
     notifyLang: 'Notification language',
+    userAgent: 'User-Agent for checks',
+    userAgentHelp:
+      'Website checks are sent with this value, and every check location uses the same one. If your site is behind Cloudflare or another firewall, allow requests whose User-Agent contains "Bekci" instead of adding IP addresses one by one. Leave empty for the default; a custom User-Agent header on a monitor takes precedence.',
+    errUserAgent: 'The User-Agent can be at most 300 characters and may only contain ASCII letters, digits and punctuation.',
     notifyLangHelp: 'Language of the messages sent to all notification channels (email, Telegram, webhook…).',
     errRaw: 'Raw check history must be between 1 and 90 days.',
     errHourly: 'Hourly summaries must be kept between 90 and 3650 days.',
