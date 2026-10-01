@@ -329,11 +329,11 @@ func (ntfy) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	if ev.IsProblem() {
 		prio = c.Priority
 	}
-	// Başlık HTTP başlığında, emojisiz gider (ntfy etiketi/emoji eklenmez).
-	// ntfy, ASCII dışı başlıklar için RFC 2047 kodlamasını destekler; ham UTF-8
-	// başlık araya giren proxy'lerde bozulabilir.
+	// Başlık diğer kanallardaki gibi durum noktasıyla (🔴/🟢) gider; ntfy
+	// etiketi (🚨/✅) eklenmez. ntfy, ASCII dışı başlıklar için RFC 2047
+	// kodlamasını destekler; ham UTF-8 başlık araya giren proxy'lerde bozulabilir.
 	headers := map[string]string{
-		"Title":    mime.QEncoding.Encode("utf-8", plainTitle(ev.Title())),
+		"Title":    mime.QEncoding.Encode("utf-8", ev.Title()),
 		"Priority": strconv.Itoa(prio),
 	}
 	if u := ev.DetailURL(); u != "" {
