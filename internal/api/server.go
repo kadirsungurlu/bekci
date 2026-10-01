@@ -49,6 +49,9 @@ type Server struct {
 	// sseRecheck canlı akışta keepalive ve erişimin yeniden doğrulanma aralığı
 	// (varsayılan 25 sn; testler kısaltır).
 	sseRecheck time.Duration
+	// relaxTimeoutRule "zaman aşımı < kontrol aralığı" kuralını kapatır:
+	// yalnızca testler için (aralıklar milisaniye biriminde çalışır).
+	relaxTimeoutRule bool
 
 	// BaseURL uygulamanın dış adresi (BASE_URL); durum sayfası özel alan adı
 	// bu adresin sunucu adıyla aynı olamaz. Boş olabilir.

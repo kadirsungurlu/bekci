@@ -48,6 +48,7 @@ func newEnv(t *testing.T, opts ...func(*Server)) *env {
 	}
 	static := fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Uptime</title>")}}
 	s := New(st, eng, hub, disp, log, static, "test")
+	s.relaxTimeoutRule = true // aralıklar milisaniye: zaman aşımı kuralı anlamsız (bkz. strictEnv)
 	for _, o := range opts {
 		o(s)
 	}

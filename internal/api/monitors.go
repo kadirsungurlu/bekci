@@ -367,8 +367,12 @@ type monitorInput struct {
 
 func between(v, lo, hi int) bool { return v >= lo && v <= hi }
 
-// toMonitor girdiyi doğrular; hata mesajı kullanıcıya gösterilir.
-func (in *monitorInput) toMonitor() (store.Monitor, error) {
+// toMonitor girdiyi doğrular; hata mesajı kullanıcıya gösterilir. strict:
+// zaman aşımı kontrol (ve tekrar deneme) aralığından kısa olmalı — kontrol
+// bir sonrakine kadar bitsin. İçe aktarmada kapalıdır (eski kayıtlar
+// düşürülerek alınır; bkz. backup.go) ve testlerde kapatılır (aralıklar
+// milisaniye biriminde; bkz. Server.relaxTimeoutRule).
+func (in *monitorInput) toMonitor(strict bool) (store.Monitor, error) {
 	in.Name = strings.TrimSpace(in.Name)
 	in.Description = strings.TrimSpace(in.Description)
 	if in.Name == "" || utf8.RuneCountInString(in.Name) > 100 {
@@ -387,8 +391,13 @@ func (in *monitorInput) toMonitor() (store.Monitor, error) {
 	if in.RetryInterval == 0 {
 		in.RetryInterval = in.Interval
 	}
+	// Zaman aşımı kullanan tipler (push sinyal bekler, grup alt monitörleri
+	// okur; ikisi de zaman aşımı ve ters mod kullanmaz).
+	usesTimeout := in.Type != check.TypePush && in.Type != check.TypeGroup
 	if in.Timeout == 0 {
-		in.Timeout = 30
+		// Varsayılan: 30 sn ama aralığın yarısını geçmez (kontrol bir
+		// sonraki kontrole kadar bitmeli).
+		in.Timeout = min(30, max(1, in.Interval/2))
 	}
 	switch {
 	case !between(in.Interval, 20, 86400):
@@ -399,8 +408,12 @@ func (in *monitorInput) toMonitor() (store.Monitor, error) {
 		return store.Monitor{}, errors.New("Tekrar deneme sayısı 0-20 olmalı")
 	case !between(in.Timeout, 1, 300):
 		return store.Monitor{}, errors.New("Zaman aşımı 1-300 saniye olmalı")
+	case strict && usesTimeout && in.Timeout >= min(in.Interval, in.RetryInterval):
+		return store.Monitor{}, errors.New("Zaman aşımı kontrol aralığından (ve tekrar deneme aralığından) kısa olmalı")
 	case !between(in.ResendEvery, 0, 10000):
 		return store.Monitor{}, errors.New("Hatırlatma sıklığı 0-10000 olmalı")
+	case in.UpsideDown && in.Type == check.TypePush:
+		return store.Monitor{}, errors.New("Push monitöründe ters mod kullanılamaz")
 	}
 	cfg, err := checker.Normalize(in.Config)
 	if err != nil {
@@ -435,7 +448,7 @@ func (s *Server) createMonitor(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &in) {
 		return
 	}
-	m, err := in.toMonitor()
+	m, err := in.toMonitor(!s.relaxTimeoutRule)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -499,7 +512,7 @@ func (s *Server) updateMonitor(w http.ResponseWriter, r *http.Request) {
 		}
 		in.Config = merged
 	}
-	m, err := in.toMonitor()
+	m, err := in.toMonitor(!s.relaxTimeoutRule)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

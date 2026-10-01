@@ -1015,6 +1015,7 @@ export const MONITOR_TYPES: MonitorTypeDef[] = [
     category: 'system',
     keywords: 'heartbeat cron sinyal',
     timeout: false,
+    upsideDown: false, // sinyal gelmemesi zaten kesintidir; ters mod anlamsız
     remote: false,
   },
   {

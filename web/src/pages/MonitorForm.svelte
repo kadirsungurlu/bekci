@@ -80,8 +80,12 @@
   let intervalPreset = $state('60');
   let customInterval = $state<number | null>(60);
   let retryInterval = $state<number | null>(null);
-  let maxRetries = $state<number | null>(0);
+  // Yeni monitör varsayılanları: 1 tekrar deneme (tek anlık hata alarm
+  // üretmesin) ve aralığın yarısını geçmeyen zaman aşımı (kullanıcı elle
+  // değiştirmediği sürece aralıkla birlikte güncellenir).
+  let maxRetries = $state<number | null>(1);
   let timeout = $state<number | null>(30);
+  let timeoutAuto = $state(true);
   let resendEvery = $state<number | null>(0);
   let upsideDown = $state(false);
 
@@ -163,6 +167,12 @@
   ];
 
   const interval = $derived(intervalPreset === 'custom' ? (customInterval ?? 0) : Number(intervalPreset));
+  /** Zaman aşımının kısa kalması gereken aralık (tekrar deneme aralığı daha kısaysa o). */
+  const timeoutLimit = $derived(Math.min(interval || 0, retryInterval ?? interval ?? 0));
+  const timeoutTooLong = $derived(hasTimeout(type) && timeout !== null && timeoutLimit >= 20 && timeout >= timeoutLimit);
+  $effect(() => {
+    if (timeoutAuto && hasTimeout(type) && interval >= 20) timeout = Math.min(30, Math.max(1, Math.floor(interval / 2)));
+  });
 
   const str = (c: Record<string, unknown>, k: string, d = '') => (typeof c[k] === 'string' ? (c[k] as string) : d);
   const num = (c: Record<string, unknown>, k: string, d: number) => (typeof c[k] === 'number' ? (c[k] as number) : d);
@@ -180,6 +190,7 @@
     retryInterval = m.retry_interval === m.interval ? null : m.retry_interval;
     maxRetries = m.max_retries;
     timeout = m.timeout;
+    timeoutAuto = false;
     resendEvery = m.resend_every;
     upsideDown = m.upside_down;
     notifIds = [...m.notification_ids];
@@ -400,7 +411,9 @@
       () =>
         hasTimeout(type) && !inRange(timeout, 1, 300)
           ? { msg: t('monitors.form.v.timeoutRange'), advanced: true, field: 'to' }
-          : null,
+          : timeoutTooLong
+            ? { msg: t('monitors.form.v.timeoutInterval'), advanced: true, field: 'to' }
+            : null,
       () => (!inRange(resendEvery, 0, 10000) ? { msg: t('monitors.form.v.resendRange'), advanced: true, field: 're' } : null),
       () =>
         description.trim().length > 500 ? { msg: t('monitors.form.v.descTooLong'), advanced: true, field: 'desc' } : null,
@@ -1129,8 +1142,12 @@
             {#if hasTimeout(type)}
               <div class="field">
                 <label for="to">{t('monitors.form.timeout')}</label>
-                <input id="to" class="input" type="number" min="1" max="300" bind:value={timeout} />
-                <span class="help">{t('monitors.form.timeoutHelp')}</span>
+                <input id="to" class="input" type="number" min="1" max="300" bind:value={timeout} oninput={() => (timeoutAuto = false)} />
+                {#if timeoutTooLong}
+                  <span class="help tp-warn">{t('monitors.form.timeoutTooLong', { n: timeoutLimit })}</span>
+                {:else}
+                  <span class="help">{t('monitors.form.timeoutHelp')}</span>
+                {/if}
               </div>
             {/if}
             <div class="field">
