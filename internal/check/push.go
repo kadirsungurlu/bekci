@@ -28,7 +28,7 @@ func (pushChecker) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 		return nil, err
 	}
 	if c.GraceSec < 0 || c.GraceSec > PushGraceMax {
-		return nil, invalid("Tolerans 0-%d saniye arasında olmalı", PushGraceMax)
+		return nil, invalid("Tolerans 0-86400 saniye arasında olmalı")
 	}
 	b, _ := json.Marshal(c)
 	return b, nil

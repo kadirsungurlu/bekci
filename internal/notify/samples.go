@@ -76,7 +76,7 @@ func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	cpuOK := srv(KindServerResolved, "cpu", 41, 90, 10)
 	offlineOK := srv(KindServerResolved, "offline", 0, 0, 3)
 	probeOff := Event{Kind: KindProbeOffline, Sample: true, Lang: lang, ProbeID: max(n.ServerID, 1), MonitorName: i18n.T(lang, "notify.sample.probe"),
-		MonitorType: "probe", Metric: "offline", Time: now, LastSeen: now.Add(-2 * time.Minute)}
+		MonitorType: "probe", Target: "203.0.113.10", Metric: "offline", Time: now, LastSeen: now.Add(-2 * time.Minute)}
 	probeOn := probeOff
 	probeOn.Kind, probeOn.LastSeen, probeOn.Downtime = KindProbeOnline, time.Time{}, 7*time.Minute
 

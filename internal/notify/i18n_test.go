@@ -32,14 +32,18 @@ func TestEnglishEvents(t *testing.T) {
 		0:  "🔴 Example Site is down",
 		1:  "🔴 Example Site is still down",
 		2:  "🟢 Example Site is up again",
-		3:  "🟡 Example Site: location outage",
-		4:  "🟢 Example Site: all locations up",
-		5:  "⚠️ Example Site: SSL certificate expires in 7 days",
-		6:  "🔴 Example Server: CPU 94% (10 min average, threshold 90%)",
-		8:  "🔴 Example Server: Disk (/home) 91% (1 min average, threshold 85%)",
-		9:  "🔴 Example Server: server unreachable",
-		10: "🟢 Example Server: CPU back to normal",
-		11: "🟢 Example Server: sending data again",
+		3:  "🟡 Example Site is responding slowly",
+		4:  "🟢 Example Site response time back to normal",
+		5:  "🟡 Example Site: location outage",
+		6:  "🟢 Example Site: all locations up",
+		7:  "⚠️ Example Site: SSL certificate expires in 7 days",
+		8:  "🔴 Example Server: CPU 94% (10 min average, threshold 90%)",
+		10: "🔴 Example Server: Disk (/home) 91% (1 min average, threshold 85%)",
+		11: "🔴 Example Server: server unreachable",
+		12: "🟢 Example Server: CPU back to normal",
+		13: "🟢 Example Server: sending data again",
+		14: "🔴 Frankfurt: check location unreachable",
+		15: "🟢 Frankfurt: check location back online",
 	}
 	for i, w := range want {
 		if got := evs[i].Title(); got != w {
@@ -49,8 +53,14 @@ func TestEnglishEvents(t *testing.T) {
 	if txt := evs[2].Text(); !strings.Contains(txt, "Downtime: 1h 12m") {
 		t.Errorf("kesinti süresi:\n%s", txt)
 	}
-	if txt := evs[9].Text(); !strings.Contains(txt, "Info: Last data: 2026-09-28") || !strings.Contains(txt, "Server: server01") {
+	if txt := evs[3].Text(); !strings.Contains(txt, "Average response: 2840 ms (last 3 checks)") || !strings.Contains(txt, "Threshold: 2000 ms") {
+		t.Errorf("yavaş yanıt ayrıntısı:\n%s", txt)
+	}
+	if txt := evs[11].Text(); !strings.Contains(txt, "Info: Last data: 2026-09-28") || !strings.Contains(txt, "Server: server01") {
 		t.Errorf("çevrimdışı ayrıntısı:\n%s", txt)
+	}
+	if txt := evs[14].Text(); !strings.Contains(txt, "Check location: ") || !strings.Contains(txt, "Info: Last data: 2026-09-28") {
+		t.Errorf("kontrol noktası ayrıntısı:\n%s", txt)
 	}
 
 	test := Event{Kind: KindTest, MonitorName: "Test", Time: now, Lang: "en"}
