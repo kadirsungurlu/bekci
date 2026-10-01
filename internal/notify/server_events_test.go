@@ -28,7 +28,7 @@ func TestServerEventTexts(t *testing.T) {
 	cases := map[string]Event{
 		"🔴 CP Server İstanbul: CPU %94 (10 dk ortalama, eşik %90)":                   serverAlert,
 		"🟢 CP Server İstanbul: CPU normale döndü":                                    resolved,
-		"🔴 CP Server İstanbul: sunucudan veri gelmiyor":                              offline,
+		"🔴 CP Server İstanbul: sunucuya ulaşılamıyor":                                offline,
 		"🟢 CP Server İstanbul: tekrar veri gönderiyor":                               back,
 		"🔴 CP Server İstanbul: Yük 2,35 (5 dk ortalama, çekirdek başına, eşik 1,50)": load,
 		"🔴 CP Server İstanbul: Sıcaklık 82 °C (10 dk ortalama, eşik 80 °C)":          temp,

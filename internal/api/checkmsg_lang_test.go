@@ -167,9 +167,9 @@ func TestCheckMessageLocalization(t *testing.T) {
 	// mesaj parça parça çevrilir; ana sunucunun konum adı da çevrilir.
 	p := e.newProbe("Paris")
 	e.setLocations(mon.ID, map[string]any{"include_local": true, "probe_ids": []int64{p.Probe.ID}, "down_when": "any"}, 200)
-	const trMulti = "Ana sunucu: Bağlantı reddedildi (sonuç gelmeyen: Paris)"
+	const trMulti = "Ana sunucu: Bağlantı reddedildi (ulaşılamayan: Paris)"
 	waitFor(t, "çok konumlu mesaj", func() bool { return get("").LastMessage == trMulti })
-	if m := get("en"); m.LastMessage != "Main server: Connection refused (no results from: Paris)" {
+	if m := get("en"); m.LastMessage != "Main server: Connection refused (unreachable: Paris)" {
 		t.Errorf("çok konumlu en: %q", m.LastMessage)
 	}
 	var locs locationsView

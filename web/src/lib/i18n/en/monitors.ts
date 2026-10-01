@@ -175,7 +175,7 @@ export default {
     r7d: '7 days',
     r30d: '30 days',
     r90d: '90 days',
-    noResult: 'No result',
+    noResult: 'Unreachable',
     waitingFirst: 'Waiting for first result',
     pausedSub: 'Checks are paused',
     maintSub: 'Maintenance window in progress; notifications muted',
@@ -279,7 +279,7 @@ export default {
     dwMajority: 'If most locations are down',
     dwAll: 'If all locations are down',
     downRuleHelp:
-      'A location counts as down if it still fails after using its retries. Locations that send no results for 3 check intervals are ignored.',
+      'A location counts as down if it still fails after using its retries. Unreachable locations (no results for 3 check intervals, or disconnected) are ignored.',
     advanced: 'Advanced settings',
     retries: 'Retries',
     retriesHelp: 'How many more times to try before marking it down. 0 = notify on the first failure.',

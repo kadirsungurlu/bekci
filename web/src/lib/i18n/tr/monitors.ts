@@ -175,7 +175,7 @@ export default {
     r7d: '7 gün',
     r30d: '30 gün',
     r90d: '90 gün',
-    noResult: 'Sonuç yok',
+    noResult: 'Ulaşılamıyor',
     waitingFirst: 'İlk sonuç bekleniyor',
     pausedSub: 'Kontroller durduruldu',
     maintSub: 'Bakım penceresi sürüyor; bildirim gönderilmez',
@@ -279,7 +279,7 @@ export default {
     dwMajority: 'Konumların çoğunluğu çalışmıyorsa',
     dwAll: 'Tüm konumlar çalışmıyorsa',
     downRuleHelp:
-      'Bir konum, tekrar deneme hakkını kullandıktan sonra da başarısızsa çalışmıyor sayılır. 3 kontrol aralığı boyunca sonuç göndermeyen konum hesaba katılmaz.',
+      'Bir konum, tekrar deneme hakkını kullandıktan sonra da başarısızsa çalışmıyor sayılır. Ulaşılamayan konum (3 kontrol aralığı boyunca sonuç göndermeyen ya da bağlantısı kopan) hesaba katılmaz.',
     advanced: 'Gelişmiş ayarlar',
     retries: 'Tekrar deneme sayısı',
     retriesHelp: 'Çalışmıyor saymadan önce kaç kez daha denensin. 0 = ilk hatada bildir.',

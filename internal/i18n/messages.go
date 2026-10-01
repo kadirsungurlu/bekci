@@ -41,7 +41,7 @@ var messages = map[string]Msg{
 	"notify.field.link":           {"Detay", "Details"},
 
 	// Sunucu uyarıları (%s: sunucu adı)
-	"notify.server.offline":      {"🔴 %s: sunucudan veri gelmiyor", "🔴 %s: no data from the server"},
+	"notify.server.offline":      {"🔴 %s: sunucuya ulaşılamıyor", "🔴 %s: server unreachable"},
 	"notify.server.online":       {"🟢 %s: tekrar veri gönderiyor", "🟢 %s: sending data again"},
 	"notify.server.alert":        {"🔴 %s: %s %s (%d dk %s, eşik %s)", "🔴 %s: %s %s (%d min %s, threshold %s)"},
 	"notify.server.avg":          {"ortalama", "average"},
@@ -53,7 +53,7 @@ var messages = map[string]Msg{
 	"notify.opsgenie.close_note": {"%s: sorun giderildi", "%s: resolved"},
 
 	// Sunucu olaylarının nedeni (%s: metrik adı, değer, %d: dakika, %s: eşik)
-	"incident.server.offline":        {"Sunucudan veri gelmiyor", "No data from the server"},
+	"incident.server.offline":        {"Sunucuya ulaşılamıyor", "Server unreachable"},
 	"incident.server.alert":          {"%s %s (%d dk ortalama, eşik %s)", "%s %s (%d min average, threshold %s)"},
 	"incident.server.alert_per_core": {"%s %s (%d dk ortalama, çekirdek başına, eşik %s)", "%s %s (%d min average, per core, threshold %s)"},
 

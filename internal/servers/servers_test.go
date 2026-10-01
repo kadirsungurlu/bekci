@@ -355,7 +355,7 @@ func TestAlerts(t *testing.T) {
 	e.svc.CheckOffline(ctx)
 	evs = e.notif.take()
 	if len(evs) != 1 || evs[0].Metric != "offline" || evs[0].Kind != notify.KindServerAlert ||
-		evs[0].Title() != "🔴 CP Server İstanbul: sunucudan veri gelmiyor" {
+		evs[0].Title() != "🔴 CP Server İstanbul: sunucuya ulaşılamıyor" {
 		t.Fatalf("çevrimdışı: %+v", evs)
 	}
 	if v := e.hub.last(); v.State != StateOffline || len(v.Firing) != 1 || v.Firing[0] != "offline" {

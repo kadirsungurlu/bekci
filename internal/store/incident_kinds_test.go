@@ -211,7 +211,7 @@ func TestServerIncidents(t *testing.T) {
 		t.Fatal("disk tetiklenmedi")
 	}
 	list, _ = s.ListIncidents(ctx, IncidentFilter{ServerID: p.ID, Kind: KindGroupServer})
-	if len(list) != 3 || list[1].Kind != IncidentServerOffline || list[1].Cause != "Sunucudan veri gelmiyor" ||
+	if len(list) != 3 || list[1].Kind != IncidentServerOffline || list[1].Cause != "Sunucuya ulaşılamıyor" ||
 		!strings.Contains(string(list[1].Data), `"last_seen":1700`) || !strings.Contains(list[0].Cause, "Disk (/home) %91") {
 		t.Fatalf("olaylar: %+v", list)
 	}

@@ -49,7 +49,7 @@ func TestAggregateWaiting(t *testing.T) {
 			want{up: true, msg: "200 OK"}},
 		{"süresi dolan konum sonuç gelmeyen olur", store.DownWhenAny,
 			[]*location{loc("Ana sunucu", now, true, 0, "200 OK"), waitingLoc("CP", now.Add(-rules.grace-time.Second))},
-			want{up: true, msg: "200 OK (sonuç gelmeyen: CP)"}},
+			want{up: true, msg: "200 OK (ulaşılamayan: CP)"}},
 		{"yalnızca bekleyen konumlar → PENDING", store.DownWhenAny,
 			[]*location{waitingLoc("A", now), waitingLoc("B", now)},
 			want{pending: true, msg: NoLocationData}},
@@ -105,8 +105,8 @@ func TestLocationWaitingThenUp(t *testing.T) {
 	if !r.locationTick(ctx) || r.m.Status != store.StatusUp || r.m.LastMessage != "200 OK" {
 		t.Fatalf("UP ve temiz mesaj bekleniyordu: %d %q", r.m.Status, r.m.LastMessage)
 	}
-	if strings.Contains(r.m.LastMessage, "sonuç gelmeyen") {
-		t.Fatalf("bekleyen konum sonuç gelmeyen sayılmamalı: %q", r.m.LastMessage)
+	if strings.Contains(r.m.LastMessage, "ulaşılamayan") {
+		t.Fatalf("bekleyen konum ulaşılamayan sayılmamalı: %q", r.m.LastMessage)
 	}
 	if st := snapStatus(r, cp.ID); st != locWaiting {
 		t.Fatalf("ilk kontrolden sonra uzak konum %q", st)
@@ -146,7 +146,7 @@ func TestLocationWaitingExpires(t *testing.T) {
 	if st := snapStatus(r, cp.ID); st != locUnknown {
 		t.Fatalf("süre dolunca bilinmiyor olmalı: %q", st)
 	}
-	if r.m.LastMessage != "200 OK (sonuç gelmeyen: CP Server İstanbul)" {
+	if r.m.LastMessage != "200 OK (ulaşılamayan: CP Server İstanbul)" {
 		t.Fatalf("mesaj %q", r.m.LastMessage)
 	}
 }

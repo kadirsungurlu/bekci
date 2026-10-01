@@ -277,7 +277,7 @@ func (r *runner) locationChanges(now time.Time, prevp *map[int64]locMark, learn 
 			out = append(out, store.IncidentEvent{Time: now.Unix(), Kind: store.EventChange, Location: s.Name, Message: s.Message})
 			continue
 		}
-		msg := "Sonuç gelmiyor"
+		msg := "Kontrol noktasına ulaşılamıyor"
 		switch s.Status {
 		case locUp:
 			msg = "Çalışıyor"

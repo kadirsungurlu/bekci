@@ -62,10 +62,10 @@ func TestAggregateLocations(t *testing.T) {
 			want{msg: "A: 503; B: Bağlantı reddedildi"}},
 		{"eski sonuç kurala katılmaz", store.DownWhenAll,
 			[]*location{loc("A", now, false, 2, "503"), loc("B", old, true, 0, "OK")},
-			want{msg: "A: 503 (sonuç gelmeyen: B)"}},
+			want{msg: "A: 503 (ulaşılamayan: B)"}},
 		{"eski DOWN sonucu DOWN sayılmaz", store.DownWhenAny,
 			[]*location{loc("A", old, false, 9, "503"), loc("B", now, true, 0, "200 OK")},
-			want{up: true, msg: "200 OK (sonuç gelmeyen: A)"}},
+			want{up: true, msg: "200 OK (ulaşılamayan: A)"}},
 		{"hiç güncel sonuç yok → PENDING", store.DownWhenAny,
 			[]*location{loc("A", old, true, 0, "OK"), {name: "B"}},
 			want{pending: true, msg: NoLocationData}},
@@ -211,7 +211,7 @@ func TestRemoteOnlyStaleAndNoData(t *testing.T) {
 	f.clock = f.clock.Add(stale/2 + time.Millisecond)
 	r.remote(a, f.clock, down("HTTP 503"))
 	r.locationTick(ctx)
-	if r.m.Status != store.StatusDown || r.m.LastMessage != "A: HTTP 503 (sonuç gelmeyen: B)" {
+	if r.m.Status != store.StatusDown || r.m.LastMessage != "A: HTTP 503 (ulaşılamayan: B)" {
 		t.Fatalf("durum %d mesaj %q", r.m.Status, r.m.LastMessage)
 	}
 	// Hiçbir konumdan güncel sonuç yok: PENDING.

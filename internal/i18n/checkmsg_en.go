@@ -190,6 +190,9 @@ var checkEN = map[string]string{
 	"Ters mod: hedef erişilemiyor (%s)":    "Upside down mode: target is unreachable (%s)",
 	"Ters mod: hedef erişilemiyor":         "Upside down mode: target is unreachable",
 	"Ana sunucu":                           "Main server",
+	"Kontrol noktalarına ulaşılamıyor":     "Check locations unreachable",
+	"%s (ulaşılamayan: %s)":                "%s (unreachable: %s)",
+	"Kontrol noktasına ulaşılamıyor":       "Check location unreachable",
 	"Kontrol noktalarından sonuç gelmiyor": "No results from check locations",
 	"%s (sonuç gelmeyen: %s)":              "%s (no results from: %s)",
 	"%d/%d konum çalışıyor — %s":           "%d/%d locations up — %s",
@@ -207,6 +210,7 @@ var checkEN = map[string]string{
 	"Konum kesintisinden dönüştü":            "Escalated from a location outage",
 	"Konum ayarı kaldırıldı; olay kapatıldı": "Location settings removed; incident closed",
 	// Sunucu olayları (store/incident_kinds.go)
+	"Sunucuya ulaşılamıyor":   "Server unreachable",
 	"Sunucudan veri gelmiyor": "No data from the server",
 	"Uyarı kuralı kaldırıldı veya kapatıldı; olay kapatıldı":                    "Alert rule removed or disabled; incident closed",
 	"Sunucu devre dışı bırakıldı veya metrik toplama kapatıldı; olay kapatıldı": "Server disabled or metric collection turned off; incident closed",

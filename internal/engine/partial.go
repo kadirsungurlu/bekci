@@ -93,7 +93,7 @@ func partialResolvedMessage(st []LocationStatus) string {
 	}
 	msg := "Tüm konumlar çalışıyor"
 	if len(stale) > 0 {
-		msg += " (sonuç gelmeyen: " + nameList(stale) + ")"
+		msg += " (ulaşılamayan: " + nameList(stale) + ")"
 	}
 	return msg
 }

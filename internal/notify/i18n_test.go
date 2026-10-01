@@ -35,7 +35,7 @@ func TestEnglishEvents(t *testing.T) {
 		3: "⚠️ Example Site: SSL certificate expires in 7 days",
 		4: "🔴 Example Server: CPU 94% (10 min average, threshold 90%)",
 		6: "🔴 Example Server: Disk (/home) 91% (1 min average, threshold 85%)",
-		7: "🔴 Example Server: no data from the server",
+		7: "🔴 Example Server: server unreachable",
 		8: "🟢 Example Server: CPU back to normal",
 		9: "🟢 Example Server: sending data again",
 	}
@@ -87,7 +87,7 @@ func TestTurkishUnchanged(t *testing.T) {
 // gövdesi başlıkla başlamaz.
 func TestLocationLinesAndBody(t *testing.T) {
 	ev := Event{Kind: KindDown, Lang: "tr", MonitorName: "Ayder", Target: "https://a.example",
-		Message:   "Ana sunucu: HTTP 403 Forbidden (sonuç gelmeyen: CP Server IST)",
+		Message:   "Ana sunucu: HTTP 403 Forbidden (ulaşılamayan: CP Server IST)",
 		Time:      time.Date(2026, 10, 1, 10, 58, 1, 0, time.Local),
 		Locations: []LocationNote{{Name: "Ana sunucu", Message: "HTTP 403 Forbidden"}, {Name: "CP Server IST", NoData: true}}}
 	body := ev.Body()

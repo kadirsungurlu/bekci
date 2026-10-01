@@ -51,7 +51,7 @@ const LocalProbeID = 0
 const LocalName = "Ana sunucu"
 
 // NoLocationData hiçbir konumdan güncel sonuç yokken kaydedilen mesaj.
-const NoLocationData = "Kontrol noktalarından sonuç gelmiyor"
+const NoLocationData = "Kontrol noktalarına ulaşılamıyor"
 
 // maxInbox runner'ın işlemediği uzak sonuç kuyruğunun sınırı.
 const maxInbox = 256
@@ -549,7 +549,7 @@ func aggregateLocations(locs []*location, downWhen string, now time.Time, rules 
 	}
 	suffix := ""
 	if len(stale) > 0 {
-		suffix = " (sonuç gelmeyen: " + nameList(stale) + ")"
+		suffix = " (ulaşılamayan: " + nameList(stale) + ")"
 	}
 	quorum := func(d, of int) bool {
 		switch downWhen {

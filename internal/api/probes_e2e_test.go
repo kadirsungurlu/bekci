@@ -111,9 +111,9 @@ func TestProbeEndToEnd(t *testing.T) {
 	// Yeniden başlar; sonra yönetici devre dışı bırakır: kontroller hemen durur.
 	client, stop = startProbe()
 	waitFor(t, "yeniden UP", func() bool { return get().Status == store.StatusUp })
-	if len(client.Jobs()) != 1 {
-		t.Fatalf("işler: %v", client.Jobs())
-	}
+	// Yeniden bağlanınca eskimemiş son sonuç hemen geçerli olur; UP, ajan iş
+	// listesini almadan da gelebilir.
+	waitFor(t, "işler geldi", func() bool { return len(client.Jobs()) == 1 })
 	admin.mustDo("PUT", fmt.Sprintf("/api/probes/%d", cp.Probe.ID), map[string]any{"name": "Frankfurt", "active": false}, nil, 200)
 	waitFor(t, "işler durdu", func() bool { return len(client.Jobs()) == 0 })
 	waitFor(t, "devre dışı → PENDING", func() bool {
