@@ -160,7 +160,7 @@ func TestOtherHTTPProviders(t *testing.T) {
 		{"discord", map[string]any{"webhook_url": srv.URL + "/d"}, func() bool { return c.path == "/d" && strings.Contains(c.body, "ha.kadir.app çalışmıyor") }},
 		{"slack", map[string]any{"webhook_url": srv.URL + "/s"}, func() bool { return c.path == "/s" && strings.Contains(c.body, `"text"`) }},
 		{"ntfy", map[string]any{"server": srv.URL, "topic": "uyari", "token": "tk"}, func() bool {
-			return c.path == "/uyari" && c.headers.Get("Priority") == "4" && c.headers.Get("Authorization") == "Bearer tk" && decodeHeader(c.headers.Get("Title")) == "ha.kadir.app çalışmıyor"
+			return c.path == "/uyari" && c.headers.Get("Priority") == "4" && c.headers.Get("Authorization") == "Bearer tk" && decodeHeader(c.headers.Get("Title")) == "🔴 ha.kadir.app çalışmıyor" && c.headers.Get("Tags") == ""
 		}},
 		{"gotify", map[string]any{"server": srv.URL, "app_token": "g"}, func() bool { return c.path == "/message" && c.headers.Get("X-Gotify-Key") == "g" }},
 		{"pushover", map[string]any{"user_key": "u", "app_token": "a", "priority": 1}, func() bool { return c.path == "/po" && strings.Contains(c.body, "priority=1") }},
