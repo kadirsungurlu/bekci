@@ -430,7 +430,8 @@ func (e Event) Rows() []Row {
 		add("avg_response", i18n.T(l, "notify.slow.window", int(e.Value), e.Checks))
 		add("threshold", fmt.Sprintf("%d ms", int(e.Threshold)))
 	case KindSlowResolved:
-		add("downtime", i18n.Duration(l, e.Downtime))
+		// Yavaşlık kesinti değildir: etiket "Süre".
+		add("duration", i18n.Duration(l, e.Downtime))
 		add("avg_response", i18n.T(l, "notify.slow.window", int(e.Value), e.Checks))
 	case KindAcked:
 		add("acked_by", e.AckedBy)

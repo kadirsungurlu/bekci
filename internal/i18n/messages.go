@@ -63,6 +63,7 @@ var messages = map[string]Msg{
 	"notify.mail.footer":          {"Bu e-posta %s tarafından gönderildi.", "This email was sent by %s."},
 	"notify.loc.no_data":          {"Kontrol noktasına ulaşılamıyor", "Check location unreachable"},
 	"notify.field.downtime":       {"Kesinti süresi", "Downtime"},
+	"notify.field.duration":       {"Süre", "Duration"},
 	"notify.field.expires":        {"Bitiş", "Expires"},
 	"notify.field.issuer":         {"Veren", "Issuer"},
 	"notify.field.last_avg":       {"Son ortalama", "Last average"},

@@ -253,6 +253,14 @@ type WebhookPayload struct {
 	ElapsedSeconds int64 `json:"elapsed_seconds,omitempty"`
 	// Ack yalnızca "acked" olayında: onaylayan kullanıcı ve notu.
 	Ack *WebhookAck `json:"ack,omitempty"`
+	// Slow yalnızca slow / slow_resolved olaylarında: pencere ortalaması ve eşik.
+	Slow *WebhookSlow `json:"slow,omitempty"`
+}
+
+type WebhookSlow struct {
+	AvgMs       int `json:"avg_ms"`
+	ThresholdMs int `json:"threshold_ms"`
+	Checks      int `json:"checks"`
 }
 
 type WebhookAck struct {
@@ -312,6 +320,9 @@ func (webhook) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	}
 	if ev.Kind == KindAcked {
 		p.Ack = &WebhookAck{By: ev.AckedBy, Note: ev.AckNote}
+	}
+	if ev.Kind == KindSlow || ev.Kind == KindSlowResolved {
+		p.Slow = &WebhookSlow{AvgMs: int(ev.Value), ThresholdMs: int(ev.Threshold), Checks: ev.Checks}
 	}
 	if ev.ProbeID != 0 {
 		p.Server = &WebhookServer{ID: ev.ProbeID, Name: ev.MonitorName, Metric: ev.Metric,

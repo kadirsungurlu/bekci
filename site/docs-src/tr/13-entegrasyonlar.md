@@ -27,7 +27,7 @@ Bekci'yi kendi sistemlerinize bağlamanın dört yolu: genel **webhook** kanalı
 }
 ```
 
-`event` değerleri: `down`, `up`, `reminder`, `cert`, `slow`, `slow_resolved`, `location_down`, `location_up`, `server_alert`, `server_resolved`, `server_reboot`, `probe_offline`, `probe_online`, `acked` (yalnızca bu türü seçen kanallara; `ack: { by, note }` nesnesiyle), `test`. Sunucu uyarılarında ek `server` nesnesi (`metric`, `value`, `threshold`, `minutes`), çok konumlu monitörlerde `locations` dizisi gelir. [Bildirim kuralları](/docs/ilk-adimlar/#bildirim-kurallari) devredeyse `escalated: true` (eskalasyon kanalına N dakikadır süren olay), `delayed: true` (gecikme kuralı ya da sessiz saat sonrası gönderildi) ve `elapsed_seconds` (o ana kadar geçen süre) alanları eklenir.
+`event` değerleri: `down`, `up`, `reminder`, `cert`, `slow`, `slow_resolved`, `location_down`, `location_up`, `server_alert`, `server_resolved`, `server_reboot`, `probe_offline`, `probe_online`, `acked` (yalnızca bu türü seçen kanallara; `ack: { by, note }` nesnesiyle), `test`. Sunucu uyarılarında ek `server` nesnesi (`metric`, `value`, `threshold`, `minutes`), yavaş yanıt olaylarında `slow` nesnesi (`avg_ms`, `threshold_ms`, `checks`), çok konumlu monitörlerde `locations` dizisi gelir. [Bildirim kuralları](/docs/ilk-adimlar/#bildirim-kurallari) devredeyse `escalated: true` (eskalasyon kanalına N dakikadır süren olay), `delayed: true` (gecikme kuralı ya da sessiz saat sonrası gönderildi) ve `elapsed_seconds` (o ana kadar geçen süre) alanları eklenir.
 
 ### HMAC imzası {#webhook-imza}
 
