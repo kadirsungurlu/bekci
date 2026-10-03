@@ -1035,6 +1035,8 @@ export interface PublicMonitor {
   target?: string;
   /** Sayfada birden fazla uptime penceresi seçiliyse pencere → yüzde (veri yoksa null). */
   uptimes?: Record<string, number | null>;
+  /** Çalışıyor ama yanıt süresi eşiği aşıyor (açık yavaş yanıt olayı); yalnızca true gelir. */
+  slow?: boolean;
 }
 
 /** Durum sayfasındaki uptime pencereleri (sabit sıra). */

@@ -417,13 +417,20 @@
   {/if}
 {/snippet}
 
+{#snippet slowBadge()}
+  <!-- Yavaş yanıt: monitör çalışıyor, yalnızca bilgi rozeti. Durum rozeti, grup ve genel durum değişmez. -->
+  <span class="slow" data-tip={t('pub.slowTip')} role="img" aria-label="{t('pub.slow')}: {t('pub.slowTip')}">
+    <span class="slow-dot" aria-hidden="true"></span><span aria-hidden="true">{t('pub.slow')}</span>
+  </span>
+{/snippet}
+
 {#snippet barMonitor(m: PublicMonitor, key: string)}
   {@const st = MON[m.status] ?? MON.pending}
   {@const bars = shown(m.bars, m.status === 'paused')}
   <div class="mon">
     <div class="m-top">
       <div class="m-name">
-        <span class="m-t">{m.name}</span>
+        <span class="m-tt"><span class="m-t">{m.name}</span>{#if m.slow}{@render slowBadge()}{/if}</span>
         {#if m.target}<span class="m-target" title={m.target}>{targetLabel(m.target)}</span>{/if}
       </div>
       <div class="m-right">
@@ -469,6 +476,7 @@
     <span class="c-dot {st.c}" aria-hidden="true"></span>
     <span class="c-name">
       <span class="m-t">{m.name}</span>
+      {#if m.slow}{@render slowBadge()}{/if}
       {#if m.target}<span class="m-target" title={m.target}>{targetLabel(m.target)}</span>{/if}
     </span>
     {#if showUptime && multiWins.length}
@@ -493,7 +501,7 @@
     <!-- Durum ışığı: metin rozeti yerine; durum ekran okuyucuya ve ipucuna yazılır. -->
     <span class="light {st.c}" role="img" aria-label={t('pub.statusLight', { status: st.l })} data-tip={st.l}></span>
     <div class="r-name">
-      <span class="m-t">{m.name}</span>
+      <span class="m-tt"><span class="m-t">{m.name}</span>{#if m.slow}{@render slowBadge()}{/if}</span>
       {#if m.target}<span class="m-target" title={m.target}>{targetLabel(m.target)}</span>{/if}
     </div>
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
@@ -1065,6 +1073,43 @@
     font-size: 0.84rem;
     color: var(--muted);
     overflow-wrap: anywhere;
+  }
+  /* Ad + yavaş yanıt rozeti aynı satırda (dar alanda alta kayar). */
+  .m-tt {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    min-width: 0;
+  }
+  /* Yavaş yanıt rozeti: küçük, sarı, durum rozetinden belirgin biçimde sade.
+     Monitör "Çalışıyor" kalır; bu yalnızca bilgi notudur. */
+  .slow {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 20px;
+    padding: 0 8px 0 7px;
+    border-radius: 999px;
+    border: 1px solid var(--pending-border);
+    background: var(--pending-soft);
+    color: var(--pending);
+    font-size: 0.72rem;
+    font-weight: 650;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
+    cursor: help;
+  }
+  .slow-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--pending);
+    flex-shrink: 0;
+  }
+  .pub-light .slow {
+    color: var(--pending-text);
   }
   .m-right {
     display: flex;

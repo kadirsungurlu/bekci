@@ -36,6 +36,8 @@ export default {
   },
   /** Screen reader text of the status light in the single-row layout. */
   statusLight: 'Status: {status}',
+  slow: 'Slow',
+  slowTip: 'Response time is high',
   groupDown: 'Outage in {count} service|Outage in {count} services',
   groupUp: 'Operational',
   noChecksYet: 'No checks yet',

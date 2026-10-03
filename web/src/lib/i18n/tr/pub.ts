@@ -34,6 +34,9 @@ export default {
   },
   /** Tek satır yerleşimindeki durum ışığının ekran okuyucu metni. */
   statusLight: 'Durum: {status}',
+  /** Çalışan ama yanıt süresi eşiği aşan monitörün küçük sarı rozeti ve ipucu. */
+  slow: 'Yavaş',
+  slowTip: 'Yanıt süresi yüksek',
   groupDown: '{count} serviste kesinti',
   groupUp: 'Çalışıyor',
   noChecksYet: 'Henüz kontrol yok',

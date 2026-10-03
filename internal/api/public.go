@@ -61,6 +61,11 @@ type publicMonitor struct {
 	// Uptimes sayfada birden fazla uptime penceresi seçiliyse (uptime_windows)
 	// pencere → yüzde (veri yoksa null). Eski istemciler yok sayar.
 	Uptimes map[string]*float64 `json:"uptimes,omitempty"`
+	// Slow monitör çalışıyor ama yanıt süresi eşiği aşıyor (açık yavaş yanıt
+	// olayı). Yalnızca durum "up" iken ve yalnızca true olarak gönderilir;
+	// eşik, ortalama ve olay kimliği gibi iç ayrıntılar verilmez. Genel durum,
+	// grup durumu ve uptime yüzdeleri yavaşlıktan etkilenmez.
+	Slow bool `json:"slow,omitempty"`
 }
 
 type publicSection struct {
@@ -248,6 +253,7 @@ func (s *Server) publicMonitorData(ctx context.Context, ids []int64, barRange st
 			continue // sayfaya eklendikten sonra silinmiş
 		}
 		pub := publicMonitor{Name: m.Name, Status: monitorStatus(m), Bars: []publicBar{}}
+		pub.Slow = pub.Status == "up" && m.Slow
 		var up, down int64
 		for _, b := range buckets[m.ID] {
 			up += b.Up
