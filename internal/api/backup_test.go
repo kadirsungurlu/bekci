@@ -178,7 +178,7 @@ func TestBackupRoundTrip(t *testing.T) {
 	// Yeni kuruluma geri yükleme (birleştir).
 	b := setupAdmin(t)
 	sum = b.importDoc("/api/import", doc, 200)
-	if sum.Created != (importCounts{3, 1, 1, 1}) || sum.Skipped != (importCounts{}) || sum.SettingsApplied || sum.Mode != "merge" {
+	if sum.Created != (importCounts{3, 1, 1, 1, 0}) || sum.Skipped != (importCounts{}) || sum.SettingsApplied || sum.Mode != "merge" {
 		t.Fatalf("geri yükleme özeti: %+v", sum)
 	}
 	if itemResults(sum)["settings:Uygulama ayarları"] != "skipped" {
@@ -234,11 +234,11 @@ func TestBackupRoundTrip(t *testing.T) {
 	b.mustDo("POST", "/api/monitors", map[string]any{"name": "Fazla", "type": "push", "interval": 86400, "config": map[string]any{}}, nil, 201)
 	b.importDoc("/api/import?mode=replace", doc, 400)
 	sum = b.importDoc("/api/import?mode=replace&dry_run=1", doc, 200)
-	if !sum.DryRun || sum.Deleted == nil || *sum.Deleted != (importCounts{4, 1, 1, 1}) || len(b.monitors()) != 4 {
+	if !sum.DryRun || sum.Deleted == nil || *sum.Deleted != (importCounts{4, 1, 1, 1, 0}) || len(b.monitors()) != 4 {
 		t.Fatalf("deneme modu: %+v", sum)
 	}
 	sum = b.importDoc("/api/import?mode=replace&confirm=yes", doc, 200)
-	if sum.Created != (importCounts{3, 1, 1, 1}) || !sum.SettingsApplied {
+	if sum.Created != (importCounts{3, 1, 1, 1, 0}) || !sum.SettingsApplied {
 		t.Errorf("değiştir özeti: %+v", sum)
 	}
 	after := b.monitors()
@@ -448,7 +448,7 @@ func TestImportUptimeKuma(t *testing.T) {
 	}
 	code, data, _ = e.send("POST", "/api/import/uptime-kuma", "application/json", strings.NewReader(body))
 	json.Unmarshal(data, &sum)
-	if code != 200 || sum.Source != "uptime-kuma" || sum.Created != (importCounts{2, 1, 1, 0}) || sum.Skipped.Monitors != 1 || sum.Skipped.Notifications != 1 {
+	if code != 200 || sum.Source != "uptime-kuma" || sum.Created != (importCounts{2, 1, 1, 0, 0}) || sum.Skipped.Monitors != 1 || sum.Skipped.Notifications != 1 {
 		t.Fatalf("Kuma JSON: %d %s", code, data)
 	}
 	mons := e.monitors()

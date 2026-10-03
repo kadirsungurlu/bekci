@@ -21,8 +21,39 @@
     total: number;
   }
 
+  // Yedeği indir: seçenekler (kullanıcılar, 2FA sırları, dosya şifresi).
+  let xUsers = $state(false);
+  let xTwoFactor = $state(false);
+  let xEncrypt = $state(false);
+  let xPassword = $state('');
+  let xBusy = $state(false);
+  let xError = $state('');
+  async function download() {
+    xError = '';
+    if (xEncrypt && xPassword.length < 8) return (xError = t('backup.download.errPassword'));
+    xBusy = true;
+    try {
+      const { name, blob } = await api.exportBackup({ users: xUsers, two_factor: xUsers && xTwoFactor, password: xEncrypt ? xPassword : '' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (e) {
+      xError = errorMessage(e);
+    } finally {
+      xBusy = false;
+    }
+  }
+
   // Geri yükle ----------------------------------------------------------------------
   let rFile = $state<File | null>(null);
+  // Şifreli yedek için parola (sunucu "backup_password" koduyla isterse alan vurgulanır).
+  let rPassword = $state('');
+  let rNeedsPassword = $state(false);
   let rMode = $state<'merge' | 'replace'>('merge');
   let rResult = $state.raw<ImportSummary | null>(null);
   let rError = $state('');
@@ -54,7 +85,7 @@
         let preview = rResult?.dry_run ? rResult : null;
         if (!preview) {
           rProg = { loaded: 0, total: file.size };
-          preview = await api.importBackup(file, mode, true, (loaded, total) => (rProg = { loaded, total }));
+          preview = await api.importBackup(file, mode, true, (loaded, total) => (rProg = { loaded, total }), rPassword);
           rResult = preview;
         }
         rProg = null;
@@ -73,10 +104,11 @@
         if (!ok) return;
       }
       rProg = { loaded: 0, total: file.size };
-      const res = await api.importBackup(file, mode, dry, (loaded, total) => (rProg = { loaded, total }));
+      const res = await api.importBackup(file, mode, dry, (loaded, total) => (rProg = { loaded, total }), rPassword);
       rResult = res;
       if (!dry) done(res, t('backup.restore.done'));
     } catch (e) {
+      if (e instanceof ApiError && e.code === 'backup_password') rNeedsPassword = true;
       rError = errorMessage(e);
     } finally {
       busy = '';
@@ -188,7 +220,38 @@
         <p class="text-2 small sub">{t('backup.download.text')}</p>
       </div>
     </div>
-    <a class="btn primary" href="/api/export" download><Icon name="download" size={16} /> {t('backup.download.title')}</a>
+    <div class="stack opts">
+      <label class="check">
+        <input type="checkbox" bind:checked={xUsers} />
+        <span>{t('backup.download.users')}<small>{t('backup.download.usersHelp')}</small></span>
+      </label>
+      {#if xUsers}
+        <label class="check sub">
+          <input type="checkbox" bind:checked={xTwoFactor} />
+          <span>{t('backup.download.twoFactor')}<small>{t('backup.download.twoFactorHelp')}</small></span>
+        </label>
+      {/if}
+      <label class="check">
+        <input type="checkbox" bind:checked={xEncrypt} />
+        <span>{t('backup.download.encrypt')}<small>{t('backup.download.encryptHelp')}</small></span>
+      </label>
+      {#if xEncrypt}
+        <div class="field pwf">
+          <label for="x-pw">{t('backup.download.password')}</label>
+          <input id="x-pw" class="input" type="password" bind:value={xPassword} autocomplete="new-password" minlength="8" />
+          <span class="help">{t('backup.download.passwordHelp')}</span>
+        </div>
+      {:else}
+        <div class="alert warning small">{t('backup.download.plainWarning')}</div>
+      {/if}
+      {#if xError}<div class="alert error" role="alert">{xError}</div>{/if}
+      <div>
+        <button type="button" class="btn primary" onclick={download} disabled={xBusy}>
+          {#if xBusy}<span class="spinner"></span>{:else}<Icon name="download" size={16} />{/if}
+          {t('backup.download.title')}
+        </button>
+      </div>
+    </div>
   </section>
 
   <section class="card">
@@ -213,6 +276,11 @@
             <small>{t('backup.restore.replaceHelp')}</small>
           </span>
         </label>
+      </div>
+      <div class="field pwf" class:needs={rNeedsPassword}>
+        <label for="r-pw">{t('backup.restore.password')}</label>
+        <input id="r-pw" class="input" type="password" bind:value={rPassword} autocomplete="off" placeholder={t('backup.restore.passwordPh')} />
+        <span class="help">{t('backup.restore.passwordHelp')}</span>
       </div>
       {#if rProg}{@render progress(rProg, t('backup.backupShort'))}{/if}
       {#if rError}<div class="alert error" role="alert">{rError}</div>{/if}
@@ -340,6 +408,18 @@
   .sub {
     margin: 0;
     max-width: 780px;
+  }
+  .opts {
+    gap: 12px;
+  }
+  .check.sub {
+    margin-left: 26px;
+  }
+  .pwf {
+    max-width: 420px;
+  }
+  .pwf.needs .input {
+    border-color: var(--pending);
   }
   .modes {
     display: grid;

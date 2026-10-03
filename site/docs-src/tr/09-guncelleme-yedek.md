@@ -185,7 +185,14 @@ docker compose start bekci
 
 ### Ayarların JSON yedeği {#json-yedek}
 
-**Ayarlar → Yedekle / Geri yükle → Yedeği indir**, monitörleri, bildirim kanallarını, etiketleri, durum sayfalarını ve ayarları tek bir JSON dosyasına aktarır. Kullanıcılar, kontrol geçmişi ve işlem kaydı dahil değildir. Bu dosyayı başka bir Bekci kurulumuna (SQLite ya da PostgreSQL fark etmez) aynı bölümdeki **Geri yükle** ile aktarabilirsiniz. Dosya şifreleri ve token'ları açık hâlde içerir; güvenli bir yerde saklayın.
+**Ayarlar → Yedekle / Geri yükle → Yedeği indir**, monitörleri, bildirim kanallarını, etiketleri, durum sayfalarını ve ayarları tek bir JSON dosyasına aktarır. Kontrol geçmişi ve işlem kaydı dahil değildir. Bu dosyayı başka bir Bekci kurulumuna (SQLite ya da PostgreSQL fark etmez) aynı bölümdeki **Geri yükle** ile aktarabilirsiniz.
+
+İki seçenek vardır:
+
+- **Kullanıcıları dahil et:** hesaplar rolleri, e-postaları, müşteri kısıtları (monitörler ve etiket kuralları) ve **şifre özetleriyle** (bcrypt; şifrenin kendisi değil) dosyaya girer. Geri yüklemede kullanıcılar her zaman birleştirilir: var olan kullanıcı adı atlanır, yenisi eklenir ve eski şifresiyle giriş yapar. **2FA sırlarını da dahil et** seçilirse TOTP sırrı ve kurtarma kodu özetleri de taşınır; seçilmezse aktarılan kullanıcılar iki adımlı doğrulaması kapalı gelir. Değiştir modu kullanıcıları silmez. Oturumlar ve API anahtarları yedeğe girmez.
+- **Dosyayı şifrele:** dosya parola ile şifrelenir (Argon2id ile türetilen anahtar, AES-256-GCM). Şifreli dosya yine JSON'dur ama içerik okunamaz; geri yüklerken **Yedek şifresi** alanına aynı parolayı yazarsınız. Parolayı kaybederseniz yedek kullanılamaz. Şifrelenmemiş yedek bildirim token'larını, SMTP şifrelerini ve (seçtiyseniz) şifre özetlerini açık hâlde içerir; güvenli bir yerde saklayın.
+
+Komut satırından aynı yedek `curl -H "Authorization: Bearer upk_…" -X POST -d '{"users":true,"password":"…"}' https://⟦bekci.ornek.com⟧/api/export` ile alınabilir (`GET /api/export` kullanıcısız düz yedeği verir).
 
 ## Eski sürüme dönme {#geri-donus}
 

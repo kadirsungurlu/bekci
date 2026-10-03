@@ -9,6 +9,7 @@
   import { guardUnsaved } from '../../lib/forms';
   import ApiKeys from './ApiKeys.svelte';
   import PushDevices from '../../components/PushDevices.svelte';
+  import Sessions from '../../components/Sessions.svelte';
   import { theme, type ThemePref } from '../../lib/theme.svelte';
 
   // Tema tercihi: hesapta saklanır (her cihazda geçerli) ve bu cihaza da yazılır.
@@ -202,6 +203,7 @@
 </form>
 
 <div class="push-wrap"><PushDevices /></div>
+<div class="push-wrap"><Sessions /></div>
 
 <ApiKeys />
 

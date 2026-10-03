@@ -185,7 +185,14 @@ docker compose start bekci
 
 ### JSON backup of your configuration {#json-backup}
 
-**Settings → Backup / Restore → Download backup** exports monitors, notification channels, tags, status pages and settings into a single JSON file. Users, check history and the audit log aren't included. You can import this file into another Bekci install (SQLite or PostgreSQL, it doesn't matter) with **Restore** in the same section. The file contains passwords and tokens in plain text; keep it somewhere safe.
+**Settings → Backup / Restore → Download backup** exports monitors, notification channels, tags, status pages and settings into a single JSON file. Check history and the audit log aren't included. You can import this file into another Bekci install (SQLite or PostgreSQL, it doesn't matter) with **Restore** in the same section.
+
+Two options:
+
+- **Include users:** accounts with their roles, emails, customer restrictions (monitors and tag rules) and **password hashes** (bcrypt; not the passwords). On restore users are always merged: an existing username is skipped, a new one is added and signs in with its old password. With **Also include 2FA secrets** the TOTP secret and recovery code hashes travel too; otherwise imported users arrive with two-factor authentication turned off. Replace mode never deletes users. Sessions and API keys are not part of the backup.
+- **Encrypt the file:** the file is encrypted with a password (key derived with Argon2id, AES-256-GCM). The encrypted file is still JSON but its content is unreadable; when restoring, enter the same password in the **Backup password** field. If you lose the password the backup is unusable. An unencrypted backup contains notification tokens, SMTP passwords and (if selected) password hashes in plain text; keep it somewhere safe.
+
+The same backup is available from the command line with `curl -H "Authorization: Bearer upk_…" -X POST -d '{"users":true,"password":"…"}' https://⟦bekci.example.com⟧/api/export` (`GET /api/export` returns the plain backup without users).
 
 ## Going back to an older version {#rollback}
 

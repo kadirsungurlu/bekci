@@ -106,6 +106,24 @@ func (s *Server) importBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := []byte(buf.String())
+	if backup.IsEncrypted(data) {
+		// Şifreli zarf: parola X-Backup-Password başlığında (gövde dosyadır).
+		pw := r.Header.Get("X-Backup-Password")
+		if pw == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Bu yedek şifreli; yedek şifresini girin", "code": "backup_password"})
+			return
+		}
+		plain, err := backup.Decrypt(data, pw)
+		if err != nil {
+			if errors.Is(err, backup.ErrWrongPassword) {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Yedek şifresi hatalı", "code": "backup_password"})
+				return
+			}
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		data = plain
+	}
 	var probe struct {
 		Format      string          `json:"format"`
 		MonitorList json.RawMessage `json:"monitorList"`
@@ -282,6 +300,9 @@ func (s *Server) runImport(w http.ResponseWriter, r *http.Request, source string
 	detail := fmt.Sprintf("kaynak=%s mod=%s eklenen: %d monitör, %d bildirim, %d etiket, %d durum sayfası; atlanan: %d",
 		source, sum.Mode, sum.Created.Monitors, sum.Created.Notifications, sum.Created.Tags, sum.Created.StatusPages,
 		sum.Skipped.Monitors+sum.Skipped.Notifications+sum.Skipped.Tags+sum.Skipped.StatusPages)
+	if sum.Created.Users > 0 {
+		detail += fmt.Sprintf("; %d kullanıcı", sum.Created.Users)
+	}
 	s.audit(r, store.User{}, "backup.import", "backup", 0, source, detail)
 	s.log.Info("içe aktarma tamamlandı", "kaynak", source, "mod", sum.Mode, "monitör", sum.Created.Monitors)
 	writeJSON(w, http.StatusOK, sum.localized(responseLang(w)))

@@ -374,14 +374,36 @@ export interface ProbeEvent {
 
 // Yedekleme ve içe aktarma ---------------------------------------------------------------
 
+/** Açık oturum (Hesabım › Oturumlar). */
+export interface SessionInfo {
+  id: string;
+  user_id: number;
+  ip: string;
+  user_agent: string;
+  via: 'password' | 'oidc';
+  created_at: number;
+  last_seen_at: number;
+  expires_at: number;
+  current: boolean;
+}
+
+/** Yedek dışa aktarma seçenekleri (POST /api/export). */
+export interface ExportOptions {
+  users: boolean;
+  two_factor: boolean;
+  password: string;
+}
+
 export interface ImportCounts {
   monitors: number;
   notifications: number;
   tags: number;
   status_pages: number;
+  /** Kullanıcılı yedeklerde (eski sunucuda gelmez). */
+  users?: number;
 }
 
-export type ImportKind = 'monitor' | 'notification' | 'tag' | 'status_page' | 'settings';
+export type ImportKind = 'monitor' | 'notification' | 'tag' | 'status_page' | 'settings' | 'user';
 export type ImportResultKind = 'created' | 'existing' | 'skipped';
 
 export interface ImportItem {
@@ -1396,7 +1418,12 @@ function failure(path: string, status: number, data: unknown, retryAfter: string
  * ilerlemesi bildirmediği için XMLHttpRequest kullanılır. Content-Type'ı
  * tarayıcı (sınır değeriyle) kendisi koyar; CSRF başlığı burada da gönderilir.
  */
-export function upload<T>(path: string, file: File, onProgress?: (loaded: number, total: number) => void): Promise<T> {
+export function upload<T>(
+  path: string,
+  file: File,
+  onProgress?: (loaded: number, total: number) => void,
+  headers?: Record<string, string>,
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
     form.append('file', file, file.name);
@@ -1406,6 +1433,7 @@ export function upload<T>(path: string, file: File, onProgress?: (loaded: number
     xhr.setRequestHeader('Accept', 'application/json');
     xhr.setRequestHeader('X-Uptime', '1');
     xhr.setRequestHeader('X-Uptime-Lang', i18n.locale);
+    for (const [k, v] of Object.entries(headers ?? {})) if (v) xhr.setRequestHeader(k, v);
     if (onProgress) xhr.upload.onprogress = (e) => onProgress(e.loaded, e.lengthComputable ? e.total : file.size);
     xhr.onerror = () => reject(new ApiError(0, t('common.errors.unreachable')));
     xhr.onabort = () => reject(new ApiError(0, t('common.errors.uploadAborted')));
@@ -1638,12 +1666,37 @@ export const api = {
     }),
 
   // Yedekle / geri yükle ve içe aktarma (yönetici)
-  importBackup: (file: File, mode: 'merge' | 'replace', dryRun: boolean, onProgress?: (l: number, t: number) => void) =>
+  importBackup: (file: File, mode: 'merge' | 'replace', dryRun: boolean, onProgress?: (l: number, t: number) => void, password = '') =>
     upload<ImportSummary>(
       `/api/import?mode=${mode}${dryRun ? '&dry_run=1' : mode === 'replace' ? '&confirm=yes' : ''}`,
       file,
       onProgress,
+      password ? { 'X-Backup-Password': password } : undefined,
     ),
+  /** Seçenekli yedek: dosya adı ve içerik (indirme istemcide yapılır). */
+  exportBackup: async (opt: ExportOptions): Promise<{ name: string; blob: Blob }> => {
+    const res = await fetch('/api/export', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Uptime': '1', 'X-Uptime-Lang': i18n.locale },
+      body: JSON.stringify(opt),
+    });
+    if (!res.ok) {
+      let data: unknown = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
+      throw failure('/api/export', res.status, data, res.headers.get('Retry-After'));
+    }
+    const m = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '');
+    return { name: m?.[1] ?? 'uptime-yedek.json', blob: await res.blob() };
+  },
+  // Oturumlar (Hesabım)
+  sessions: () => get<SessionInfo[]>('/api/auth/sessions'),
+  revokeSession: (id: string) => del<{ ok: boolean }>(`/api/auth/sessions/${id}`),
+  revokeOtherSessions: () => del<{ revoked: number }>('/api/auth/sessions'),
   importKuma: (file: File, dryRun: boolean, onProgress?: (l: number, t: number) => void) =>
     upload<ImportSummary>(`/api/import/uptime-kuma${dryRun ? '?dry_run=1' : ''}`, file, onProgress),
   importUptimeRobot: (apiKey: string, dryRun: boolean) =>

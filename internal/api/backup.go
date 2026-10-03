@@ -38,6 +38,7 @@ const (
 	maxImportSections    = 20
 	maxImportLogoBytes   = 512 << 10
 	maxImportAnnounces   = 200
+	maxImportUsers       = 500
 	importUploadDeadline = 15 * time.Minute
 )
 
@@ -54,6 +55,7 @@ var importMu sync.Mutex
 func init() {
 	RegisterRoutes(func(s *Server, mux *http.ServeMux) {
 		mux.Handle("GET /api/export", s.admin(s.exportBackup))
+		mux.Handle("POST /api/export", s.admin(s.exportBackupWith))
 		mux.Handle("POST /api/import", s.admin(s.importBackup))
 		mux.Handle("POST /api/import/uptime-kuma", s.admin(s.importKuma))
 		mux.Handle("POST /api/import/uptimerobot", s.admin(s.importUptimeRobot))
@@ -62,7 +64,19 @@ func init() {
 
 // Dışa aktarma --------------------------------------------------------------------
 
+// exportOptions POST /api/export gövdesi: kullanıcılar (şifre özetleriyle),
+// 2FA sırları ve dosya şifresi (boş: düz JSON).
+type exportOptions struct {
+	Users     bool   `json:"users"`
+	TwoFactor bool   `json:"two_factor"`
+	Password  string `json:"password"`
+}
+
 func (s *Server) buildExport(ctx context.Context) (*backup.Doc, error) {
+	return s.buildExportWith(ctx, exportOptions{})
+}
+
+func (s *Server) buildExportWith(ctx context.Context, opt exportOptions) (*backup.Doc, error) {
 	doc := &backup.Doc{
 		Format: backup.Format, Version: backup.Version, ExportedAt: s.now().Unix(), AppVersion: s.version,
 		Warning: backup.SecretsWarning, Tags: []backup.Tag{}, Notifications: []backup.Notification{},
@@ -191,7 +205,86 @@ func (s *Server) buildExport(ctx context.Context) (*backup.Doc, error) {
 		}
 		doc.StatusPages = append(doc.StatusPages, bp)
 	}
+	if opt.Users {
+		users, err := s.store.UsersForBackup(ctx, opt.TwoFactor)
+		if err != nil {
+			return nil, err
+		}
+		doc.Users = []backup.User{}
+		for _, ub := range users {
+			u := ub.User
+			bu := backup.User{Username: u.Username, DisplayName: u.DisplayName, Email: u.Email, Role: u.Role, Disabled: u.Disabled,
+				MustChangePassword: u.MustChangePassword, AllMonitors: u.AllMonitors || u.Role != store.RoleViewer, Lang: u.Lang, Theme: u.Theme,
+				PasswordHash: u.PasswordHash, TwoFactorEnabled: u.TwoFactorEnabled, TOTPSecret: ub.TOTPSecret, RecoveryCodes: ub.RecoveryCodes}
+			if !bu.AllMonitors {
+				bu.MonitorIDs = u.PickedMonitorIDs
+				for _, r := range u.TagRules {
+					bu.TagRules = append(bu.TagRules, backup.TagRule{Name: r.Name, Value: r.Value})
+				}
+			}
+			doc.Users = append(doc.Users, bu)
+		}
+	}
 	return doc, nil
+}
+
+// exportBackupWith: POST /api/export — seçeneklerle (kullanıcılar, 2FA
+// sırları, dosya şifresi) yedek. Şifre verilirse dosya Argon2id + AES-256-GCM
+// zarfıdır; geri yüklemede aynı şifre istenir.
+func (s *Server) exportBackupWith(w http.ResponseWriter, r *http.Request) {
+	if userFrom(r).APIKeyName != "" {
+		writeError(w, http.StatusForbidden, "Bu işlem API anahtarıyla yapılamaz")
+		return
+	}
+	var opt exportOptions
+	if !readJSON(w, r, &opt) {
+		return
+	}
+	if opt.Password != "" && utf8.RuneCountInString(opt.Password) < backup.MinPasswordLen {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("Yedek şifresi en az %d karakter olmalı", backup.MinPasswordLen))
+		return
+	}
+	doc, err := s.buildExportWith(r.Context(), opt)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(doc); err != nil {
+		s.dbError(w, err)
+		return
+	}
+	data := buf.Bytes()
+	name := "uptime-yedek-" + s.now().Format("20060102") + ".json"
+	var notes []string
+	if opt.Users {
+		notes = append(notes, fmt.Sprintf("%d kullanıcı", len(doc.Users)))
+		if opt.TwoFactor {
+			notes = append(notes, "2FA sırları dahil")
+		}
+	}
+	if opt.Password != "" {
+		if data, err = backup.Encrypt(data, opt.Password); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		name = "uptime-yedek-" + s.now().Format("20060102") + "-sifreli.json"
+		notes = append(notes, "dosya şifreli")
+	}
+	detail := fmt.Sprintf("%d monitör, %d bildirim, %d etiket, %d durum sayfası", len(doc.Monitors), len(doc.Notifications), len(doc.Tags), len(doc.StatusPages))
+	if len(notes) > 0 {
+		detail += "; " + strings.Join(notes, ", ")
+	}
+	s.audit(r, store.User{}, "backup.export", "backup", 0, name, detail)
+	s.log.Info("yedek dışa aktarıldı", "kullanıcı", userFrom(r).Username, "monitör", len(doc.Monitors), "kullanıcılar", opt.Users, "şifreli", opt.Password != "")
+	h := w.Header()
+	h.Set("Content-Type", "application/json; charset=utf-8")
+	h.Set("Content-Disposition", `attachment; filename="`+name+`"`)
+	h.Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
 }
 
 // exportBackup: GET /api/export — gizli bilgiler dahil tam yedek (dosya olarak indirilir).
@@ -227,6 +320,7 @@ type importCounts struct {
 	Notifications int `json:"notifications"`
 	Tags          int `json:"tags"`
 	StatusPages   int `json:"status_pages"`
+	Users         int `json:"users,omitempty"`
 }
 
 func (c *importCounts) add(kind string) {
@@ -239,6 +333,8 @@ func (c *importCounts) add(kind string) {
 		c.Tags++
 	case "status_page":
 		c.StatusPages++
+	case "user":
+		c.Users++
 	}
 }
 
@@ -609,6 +705,67 @@ func (s *Server) planImport(ctx context.Context, conv *backup.Result, replace bo
 			pl.data.Pages = append(pl.data.Pages, ip)
 		}
 		pl.sum.item(it)
+	}
+
+	// Kullanıcılar: var olan ad atlanır, yenisi şifre özetiyle eklenir
+	// (değiştir modunda da kullanıcılar silinmez).
+	if len(doc.Users) > maxImportUsers {
+		return nil, importInputError(fmt.Sprintf("Dosyada en fazla %d kullanıcı olabilir", maxImportUsers))
+	}
+	if len(doc.Users) > 0 {
+		existingUsers, err := s.store.ListUsers(ctx)
+		if err != nil {
+			return nil, err
+		}
+		taken := map[string]bool{}
+		for _, u := range existingUsers {
+			taken[strings.ToLower(u.Username)] = true
+		}
+		for _, bu := range doc.Users {
+			it := importItem{Kind: "user", Name: bu.Username}
+			switch {
+			case !usernameRe.MatchString(bu.Username):
+				it.Result, it.Messages = "skipped", []string{"Kullanıcı adı geçersiz"}
+			case store.RoleRank(bu.Role) == 0:
+				it.Result, it.Messages = "skipped", []string{"Rol geçersiz"}
+			case !strings.HasPrefix(bu.PasswordHash, "$2") || len(bu.PasswordHash) < 59 || len(bu.PasswordHash) > 72:
+				it.Result, it.Messages = "skipped", []string{"Şifre özeti okunamadı"}
+			case taken[strings.ToLower(bu.Username)]:
+				it.Result, it.Messages = "existing", []string{"Aynı adda bir kullanıcı zaten var; dokunulmadı"}
+			default:
+				iu := store.ImportUserData{Backup: store.UserBackup{User: store.User{Username: bu.Username, DisplayName: bu.DisplayName,
+					Email: bu.Email, Role: bu.Role, Disabled: bu.Disabled, MustChangePassword: bu.MustChangePassword,
+					AllMonitors: bu.AllMonitors || bu.Role != store.RoleViewer, Lang: bu.Lang, Theme: bu.Theme, PasswordHash: bu.PasswordHash}}}
+				if email, err := normalizeEmail(bu.Email); err != nil {
+					iu.Backup.User.Email = ""
+					it.Messages = append(it.Messages, "E-posta geçersiz; alınmadı")
+				} else {
+					iu.Backup.User.Email = email
+				}
+				if bu.TOTPSecret != "" {
+					iu.Backup.TOTPSecret, iu.Backup.RecoveryCodes = bu.TOTPSecret, bu.RecoveryCodes
+					it.Messages = append(it.Messages, "İki adımlı doğrulama sırrıyla birlikte aktarıldı")
+				} else if bu.TwoFactorEnabled {
+					it.Messages = append(it.Messages, "Yedekte 2FA sırrı yok; iki adımlı doğrulama kapalı aktarıldı")
+				}
+				if !iu.Backup.User.AllMonitors {
+					for _, fid := range bu.MonitorIDs {
+						if known[fid] {
+							iu.MonitorIDs = append(iu.MonitorIDs, fid)
+						}
+					}
+					for _, tr := range bu.TagRules {
+						if ref, err := tagRef(tr.Name, tr.Value); err == nil {
+							iu.TagRules = append(iu.TagRules, ref)
+						}
+					}
+				}
+				taken[strings.ToLower(bu.Username)] = true
+				pl.data.Users = append(pl.data.Users, iu)
+				it.Result = "created"
+			}
+			pl.sum.item(it)
+		}
 	}
 
 	// Ayarlar

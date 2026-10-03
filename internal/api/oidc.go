@@ -490,7 +490,7 @@ func (s *Server) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	clearOIDCCookie(w, r)
-	if err := s.startSession(w, r, u); err != nil {
+	if err := s.startSessionVia(w, r, u, store.SessionViaOIDC); err != nil {
 		s.dbError(w, err)
 		return
 	}

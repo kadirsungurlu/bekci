@@ -49,6 +49,7 @@ export default {
       '2fa_reset': '2FA reset',
       email_change: 'Changed their email',
       push_subscribe: 'Browser notification device added',
+      session_revoke: 'Session signed out',
       push_unsubscribe: 'Browser notification device removed',
       password_reset_self: 'Reset their password via link',
       oidc_provision: 'Account created via SSO',

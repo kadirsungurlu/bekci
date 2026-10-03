@@ -63,9 +63,14 @@ func isHTTPS(r *http.Request) bool {
 }
 
 func (s *Server) startSession(w http.ResponseWriter, r *http.Request, u store.User) error {
+	return s.startSessionVia(w, r, u, store.SessionViaPassword)
+}
+
+// startSessionVia oturumu cihaz bilgisi ve giriş yoluyla (password | oidc) açar.
+func (s *Server) startSessionVia(w http.ResponseWriter, r *http.Request, u store.User, via string) error {
 	token := randomToken(32)
 	exp := s.now().Add(sessionLifetime)
-	if err := s.store.CreateSession(r.Context(), hashToken(token), u.ID, exp); err != nil {
+	if err := s.store.CreateSessionWith(r.Context(), hashToken(token), u.ID, exp, sessionInfo(r, via)); err != nil {
 		return err
 	}
 	http.SetCookie(w, &http.Cookie{
@@ -157,6 +162,7 @@ func (s *Server) role(min string, h http.HandlerFunc) http.Handler {
 			writeError(w, http.StatusForbidden, "Bu işlem için yetkiniz yok")
 			return
 		}
+		s.touchSession(r, sess) // son görülme (seyrek; sessions.go)
 		ctx := context.WithValue(r.Context(), userKey, u)
 		ctx = context.WithValue(ctx, sessionKey, sess)
 		h(w, r.WithContext(ctx))
@@ -375,6 +381,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie(sessionCookie); err == nil && c.Value != "" {
 		s.store.DeleteSession(r.Context(), hashToken(c.Value))
+		s.sessTouch.forget(hashToken(c.Value))
 	}
 	clearSessionCookie(w, r)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})

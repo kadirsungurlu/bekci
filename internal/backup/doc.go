@@ -38,6 +38,31 @@ type Doc struct {
 	Notifications []Notification     `json:"notifications"`
 	Monitors      []Monitor          `json:"monitors"`
 	StatusPages   []Page             `json:"status_pages"`
+	// Users yalnızca istenirse (POST /api/export {"users": true}); eski
+	// yedeklerde yok. Geri yüklemede her zaman birleştirilir: var olan
+	// kullanıcı adı atlanır, yenisi şifre özetiyle eklenir.
+	Users []User `json:"users,omitempty"`
+}
+
+// User yedekteki kullanıcı. PasswordHash bcrypt özetidir (şifre değil);
+// TOTPSecret ve RecoveryCodes (özetler) yalnızca "2FA sırları dahil"
+// seçilirse yazılır. MonitorIDs dosya içi monitör kimlikleridir.
+type User struct {
+	Username           string    `json:"username"`
+	DisplayName        string    `json:"display_name,omitempty"`
+	Email              string    `json:"email,omitempty"`
+	Role               string    `json:"role"`
+	Disabled           bool      `json:"disabled,omitempty"`
+	MustChangePassword bool      `json:"must_change_password,omitempty"`
+	AllMonitors        bool      `json:"all_monitors"`
+	MonitorIDs         []int64   `json:"monitor_ids,omitempty"`
+	TagRules           []TagRule `json:"tag_rules,omitempty"`
+	Lang               string    `json:"lang,omitempty"`
+	Theme              string    `json:"theme,omitempty"`
+	PasswordHash       string    `json:"password_hash"`
+	TOTPSecret         string    `json:"totp_secret,omitempty"`
+	RecoveryCodes      []string  `json:"recovery_codes,omitempty"`
+	TwoFactorEnabled   bool      `json:"two_factor_enabled,omitempty"`
 }
 
 type Tag struct {

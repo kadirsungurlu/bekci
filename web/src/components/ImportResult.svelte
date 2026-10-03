@@ -13,9 +13,10 @@
     { k: 'notifications', kind: 'notification' },
     { k: 'tags', kind: 'tag' },
     { k: 'status_pages', kind: 'status_page' },
+    { k: 'users', kind: 'user' },
   ];
 
-  const KIND_KEYS: ImportKind[] = ['monitor', 'notification', 'tag', 'status_page', 'settings'];
+  const KIND_KEYS: ImportKind[] = ['monitor', 'notification', 'tag', 'status_page', 'settings', 'user'];
   const kindLabel = (k: ImportKind) => (KIND_KEYS.includes(k) ? t(`backup.result.kind.${k}`) : k);
 
   const dry = $derived(result.dry_run);
@@ -32,7 +33,7 @@
   const rows = $derived(
     KINDS.filter(
       (k) =>
-        result.created[k.k] + result.existing[k.k] + result.skipped[k.k] + (result.deleted?.[k.k] ?? 0) > 0 ||
+        (result.created[k.k] ?? 0) + (result.existing[k.k] ?? 0) + (result.skipped[k.k] ?? 0) + (result.deleted?.[k.k] ?? 0) > 0 ||
         k.k === 'monitors',
     ),
   );
@@ -85,10 +86,10 @@
         {#each rows as r (r.k)}
           <tr>
             <th scope="row">{t(`backup.result.kinds.${r.k}`)}</th>
-            <td class:c-up={result.created[r.k] > 0}>{result.created[r.k]}</td>
-            <td>{result.existing[r.k]}</td>
-            <td class:c-pending={result.skipped[r.k] > 0}>{result.skipped[r.k]}</td>
-            {#if result.deleted}<td class:c-down={result.deleted[r.k] > 0}>{result.deleted[r.k]}</td>{/if}
+            <td class:c-up={(result.created[r.k] ?? 0) > 0}>{result.created[r.k] ?? 0}</td>
+            <td>{result.existing[r.k] ?? 0}</td>
+            <td class:c-pending={(result.skipped[r.k] ?? 0) > 0}>{result.skipped[r.k] ?? 0}</td>
+            {#if result.deleted}<td class:c-down={(result.deleted[r.k] ?? 0) > 0}>{result.deleted[r.k] ?? 0}</td>{/if}
           </tr>
         {/each}
       </tbody>

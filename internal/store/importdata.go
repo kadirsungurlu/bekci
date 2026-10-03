@@ -65,12 +65,16 @@ type ImportData struct {
 	// RemapConfig başka monitörlere başvuran ayarları (ör. grup) yeni
 	// kimliklere çevirir; değişiklik yoksa false döner.
 	RemapConfig func(typ string, cfg json.RawMessage, ids map[int64]int64) (json.RawMessage, bool)
+	// Users eklenecek kullanıcılar (var olanlar planlamada ayıklanır; Replace
+	// kullanıcıları SİLMEZ).
+	Users []ImportUserData
 }
 
 type ImportResult struct {
 	MonitorIDs []int64         // oluşturulan monitörler (Monitors ile aynı sırada)
 	IDMap      map[int64]int64 // dosya kimliği → veritabanı kimliği
 	PageIDs    []int64
+	UserIDs    []int64 // oluşturulan kullanıcılar (Users ile aynı sırada)
 }
 
 // ImportCounts mevcut kayıt sayıları (değiştir modunda silinecekler).
@@ -248,6 +252,13 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 					return err
 				}
 			}
+		}
+		if len(d.Users) > 0 {
+			ids, err := importUsersTx(ctx, tx, d.Users, res.IDMap, tagIDs, now)
+			if err != nil {
+				return err
+			}
+			res.UserIDs = ids
 		}
 		return nil
 	})

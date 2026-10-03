@@ -14,6 +14,16 @@ export default {
   addedMonitors: '{msg}: {count} monitor added|{msg}: {count} monitors added',
   download: {
     title: 'Download backup',
+    users: 'Include users',
+    usersHelp: 'Accounts with roles, emails, customer restrictions and password hashes (bcrypt; not the passwords). On restore an existing username is skipped and a new one is added with the same password.',
+    twoFactor: 'Also include 2FA secrets',
+    twoFactorHelp: 'TOTP secret and recovery code hashes. Without this, imported users arrive with two-factor authentication turned off.',
+    encrypt: 'Encrypt the file',
+    encryptHelp: 'Argon2id + AES-256-GCM. The file cannot be opened without this password; if you lose it the backup is unusable.',
+    password: 'Backup password',
+    passwordHelp: 'At least 8 characters. The same password is required when restoring.',
+    errPassword: 'The backup password must be at least 8 characters.',
+    plainWarning: 'An unencrypted backup contains notification tokens, SMTP passwords and (if selected) user password hashes in plain text; keep it somewhere safe.',
     text: 'Monitors, notification channels, tags, status pages and settings are exported to a single JSON file. The file contains passwords, tokens and API keys in plain text; keep it somewhere safe. Users, check history and the audit log aren’t included.',
   },
   restore: {
@@ -26,6 +36,9 @@ export default {
     replace: 'Replace',
     replaceHelp: 'All existing monitors, notification channels, tags and status pages are deleted; settings are restored too.',
     noFile: 'Choose a backup file first.',
+    password: 'Backup password (for encrypted backups)',
+    passwordPh: 'Leave empty for unencrypted backups',
+    passwordHelp: 'The password chosen under “Encrypt the file” when the backup was downloaded.',
     confirmTitle: 'Existing records will be deleted',
     confirmMsg:
       '{monitors} existing monitors, {notifications} notification channels, {tags} tags and {pages} status pages will be permanently deleted, along with their check history. Monitor assignments of restricted viewers are removed too.',
@@ -59,6 +72,7 @@ export default {
       notifications: 'Notification channels',
       tags: 'Tags',
       status_pages: 'Status pages',
+      users: 'Users',
     },
     kind: {
       monitor: 'Monitor',
@@ -66,6 +80,7 @@ export default {
       tag: 'Tag',
       status_page: 'Status page',
       settings: 'Settings',
+      user: 'User',
     },
     willCreate: 'To add',
     created: 'Added',

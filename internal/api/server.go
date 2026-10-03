@@ -61,6 +61,8 @@ type Server struct {
 	// giden HTTP istemcisi (nil: varsayılan; webpush.go).
 	vapidKeys  vapidState
 	pushClient *http.Client
+	// sessTouch oturum son görülme yazımını seyrekleştirir (sessions.go).
+	sessTouch *sessionTouches
 
 	// BaseURL uygulamanın dış adresi (BASE_URL); durum sayfası özel alan adı
 	// bu adresin sunucu adıyla aynı olamaz. Boş olabilir.
@@ -91,6 +93,7 @@ func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatche
 		AgentDir:      DefaultAgentDir,
 		mailer:        notify.SendMail,
 		oidcProviders: &oidcProviders{},
+		sessTouch:     newSessionTouches(),
 	}
 	var (
 		pub servers.Publisher
