@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -132,6 +133,19 @@ func (s *Server) buildExportWith(ctx context.Context, opt exportOptions) (*backu
 	if err != nil {
 		return nil, err
 	}
+	locations, err := s.store.AllMonitorLocations(ctx)
+	if err != nil {
+		return nil, err
+	}
+	probeName := map[int64]string{}
+	if probes, err := s.store.ListProbesOfKind(ctx, store.ProbeKindLocation); err == nil {
+		for _, p := range probes {
+			probeName[p.ID] = p.Name
+		}
+	}
+	if n, ok := notifName[settings.SystemMailChannelID]; ok {
+		doc.SystemMailChannel = n
+	}
 	for _, m := range monitors {
 		bm := backup.Monitor{
 			ID: m.ID, Name: m.Name, Type: m.Type, Description: m.Description, Active: m.Active,
@@ -151,6 +165,15 @@ func (s *Server) buildExportWith(ctx context.Context, opt exportOptions) (*backu
 		}
 		for _, t := range mtags[m.ID] {
 			bm.Tags = append(bm.Tags, backup.MonitorTag{Name: t.Name, Value: t.Value})
+		}
+		if l, ok := locations[m.ID]; ok && l.Configured() {
+			ml := &backup.MonitorLocations{IncludeLocal: l.IncludeLocal, Probes: []string{}, DownWhen: l.DownWhen, NotifyPartial: l.NotifyPartial}
+			for _, pid := range l.ProbeIDs {
+				if n, ok := probeName[pid]; ok {
+					ml.Probes = append(ml.Probes, n)
+				}
+			}
+			bm.Locations = ml
 		}
 		doc.Monitors = append(doc.Monitors, bm)
 	}
@@ -541,6 +564,15 @@ func (s *Server) planImport(ctx context.Context, conv *backup.Result, replace bo
 	}
 
 	// Monitörler
+	// Konum ayarı: kontrol noktaları adla çözülür (büyük/küçük harf duyarsız).
+	probeByName := map[string]int64{}
+	if probes, err := s.store.ListProbesOfKind(ctx, store.ProbeKindLocation); err == nil {
+		for _, p := range probes {
+			if _, dup := probeByName[strings.ToLower(p.Name)]; !dup {
+				probeByName[strings.ToLower(p.Name)] = p.ID
+			}
+		}
+	}
 	existingMon := map[string]int64{}
 	usedTokens := map[string]bool{}
 	for _, m := range monitors {
@@ -654,6 +686,32 @@ func (s *Server) planImport(ctx context.Context, conv *backup.Result, replace bo
 			if !seenTag[tr] && len(im.Tags) < maxTagsPerMonitor {
 				seenTag[tr] = true
 				im.Tags = append(im.Tags, tr)
+			}
+		}
+		if bl := bm.Locations; bl != nil && m.Type != check.TypeGroup && m.Type != check.TypePush {
+			l := store.LocationSetup{IncludeLocal: bl.IncludeLocal, ProbeIDs: []int64{}, DownWhen: bl.DownWhen, NotifyPartial: bl.NotifyPartial}
+			if !store.ValidDownWhen(l.DownWhen) {
+				l.DownWhen = store.DownWhenAny
+			}
+			var missing []string
+			for _, name := range bl.Probes {
+				if pid, ok := probeByName[strings.ToLower(strings.TrimSpace(name))]; ok {
+					if !slices.Contains(l.ProbeIDs, pid) {
+						l.ProbeIDs = append(l.ProbeIDs, pid)
+					}
+				} else {
+					missing = append(missing, name)
+				}
+			}
+			if len(missing) > 0 {
+				it.Messages = append(it.Messages, fmt.Sprintf("Kontrol noktası bulunamadı: %s; bu konum(lar) atlandı", strings.Join(missing, ", ")))
+			}
+			if !l.IncludeLocal && len(l.ProbeIDs) == 0 {
+				l.IncludeLocal = true
+				it.Messages = append(it.Messages, "Hiçbir kontrol noktası eşleşmedi; monitör ana sunucudan kontrol edilecek")
+			}
+			if l.Configured() {
+				im.Locations = &l
 			}
 		}
 		pl.data.Monitors = append(pl.data.Monitors, im)
@@ -784,6 +842,7 @@ func (s *Server) planImport(ctx context.Context, conv *backup.Result, replace bo
 		}
 		pl.sum.Items = append(pl.sum.Items, it)
 	}
+	pl.data.SystemMailChannel = doc.SystemMailChannel
 	return pl, nil
 }
 

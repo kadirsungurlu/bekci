@@ -411,30 +411,35 @@ func (s *Store) monitorLocations(ctx context.Context, monitorID int64) (map[int6
 // SetMonitorLocations monitörün konum ayarını yazar. Varsayılan ayar (yalnızca
 // ana sunucu) satır bırakmaz.
 func (s *Store) SetMonitorLocations(ctx context.Context, monitorID int64, l LocationSetup) error {
-	return s.tx(ctx, func(tx *Tx) error {
-		if _, err := tx.ExecContext(ctx, "DELETE FROM monitor_locations WHERE monitor_id = ?", monitorID); err != nil {
+	return s.tx(ctx, func(tx *Tx) error { return setMonitorLocationsTx(ctx, tx, monitorID, l) })
+}
+
+func setMonitorLocationsTx(ctx context.Context, tx *Tx, monitorID int64, l LocationSetup) error {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM monitor_locations WHERE monitor_id = ?", monitorID); err != nil {
+		return err
+	}
+	if !l.Configured() {
+		_, err := tx.ExecContext(ctx, "DELETE FROM monitor_location_settings WHERE monitor_id = ?", monitorID)
+		return err
+	}
+	if l.DownWhen == "" {
+		l.DownWhen = DownWhenAny
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO monitor_location_settings (monitor_id, include_local, down_when, notify_partial) VALUES (?, ?, ?, ?)
+		ON CONFLICT (monitor_id) DO UPDATE SET include_local = excluded.include_local, down_when = excluded.down_when,
+			notify_partial = excluded.notify_partial`,
+		monitorID, boolInt(l.IncludeLocal), l.DownWhen, boolInt(l.NotifyPartial)); err != nil {
+		return err
+	}
+	for _, pid := range l.ProbeIDs {
+		if _, err := tx.ExecContext(ctx,
+			"INSERT INTO monitor_locations (monitor_id, probe_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+			monitorID, pid); err != nil {
 			return err
 		}
-		if !l.Configured() {
-			_, err := tx.ExecContext(ctx, "DELETE FROM monitor_location_settings WHERE monitor_id = ?", monitorID)
-			return err
-		}
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO monitor_location_settings (monitor_id, include_local, down_when, notify_partial) VALUES (?, ?, ?, ?)
-			ON CONFLICT (monitor_id) DO UPDATE SET include_local = excluded.include_local, down_when = excluded.down_when,
-				notify_partial = excluded.notify_partial`,
-			monitorID, boolInt(l.IncludeLocal), l.DownWhen, boolInt(l.NotifyPartial)); err != nil {
-			return err
-		}
-		for _, pid := range l.ProbeIDs {
-			if _, err := tx.ExecContext(ctx,
-				"INSERT INTO monitor_locations (monitor_id, probe_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
-				monitorID, pid); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	}
+	return nil
 }
 
 // ProbesByIDs verilen kimliklerdeki kontrol noktaları (olmayanlar atlanır).

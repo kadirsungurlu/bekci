@@ -32,6 +32,10 @@ type ImportMonitor struct {
 	Monitor       Monitor
 	Notifications []ImportRef
 	Tags          []ImportTagRef
+	// Locations dosyadan gelen konum ayarı (kontrol noktaları kimliğe
+	// çevrilmiş); nil ise yalnızca ana sunucu (değiştir modunda eski ayar
+	// ada göre korunur, bkz. import_replace.go).
+	Locations *LocationSetup
 }
 
 // ImportNotification kanal ve etiket kuralları (etiketler ImportRef ile).
@@ -68,6 +72,10 @@ type ImportData struct {
 	// Users eklenecek kullanıcılar (var olanlar planlamada ayıklanır; Replace
 	// kullanıcıları SİLMEZ).
 	Users []ImportUserData
+	// SystemMailChannel sistem e-postası kanalının adı (dosyadaki
+	// settings.system_mail_channel_id başka kurulumun kimliğidir; ad ile
+	// yeniden çözülür). Boşsa ve Settings geliyorsa kanal 0 olur.
+	SystemMailChannel string
 }
 
 type ImportResult struct {
@@ -99,7 +107,12 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 	res := ImportResult{IDMap: map[int64]int64{}}
 	now := time.Now().Unix()
 	err := s.tx(ctx, func(tx *Tx) error {
+		var snap *replaceSnapshot
 		if d.Replace {
+			var err error
+			if snap, err = snapshotForReplace(ctx, tx); err != nil {
+				return err
+			}
 			// Sıra önemli değil (ON DELETE CASCADE), ama sayfalar monitörlere
 			// JSON içinde başvurduğu için önce silinir.
 			for _, q := range []string{"DELETE FROM status_pages", "DELETE FROM monitors", "DELETE FROM notifications", "DELETE FROM tags"} {
@@ -108,18 +121,15 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 				}
 			}
 		}
-		if d.Settings != nil {
-			b, err := json.Marshal(d.Settings)
-			if err != nil {
-				return err
-			}
-			if _, err := tx.ExecContext(ctx,
-				"INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
-				appSettingsKey, string(b)); err != nil {
-				return err
+
+		// Ad → yeni kimlik (aynı addan birkaç kayıt varsa ilki): değiştir
+		// modunda korunan bağlar ve sistem e-posta kanalı bununla çözülür.
+		tagByName, notifByName, monByName := map[string]int64{}, map[string]int64{}, map[string]int64{}
+		first := func(m map[string]int64, name string, id int64) {
+			if _, ok := m[name]; !ok {
+				m[name] = id
 			}
 		}
-
 		tagIDs := make([]int64, len(d.Tags))
 		for i, t := range d.Tags {
 			id, err := insertID(ctx, tx,
@@ -129,6 +139,7 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 				return err
 			}
 			tagIDs[i] = id
+			first(tagByName, t.Name, id)
 		}
 		notifIDs := make([]int64, len(d.Notifications))
 		for i, n := range d.Notifications {
@@ -142,6 +153,31 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 				return err
 			}
 			notifIDs[i] = id
+			first(notifByName, n.Name, id)
+		}
+		// Sistem e-posta kanalı: dosyadaki ad, yoksa (aynı kurulumda değiştir)
+		// silinmeden önceki ad; hiçbiri çözülmezse 0 (sarkık kimlik kalmaz).
+		var mailID int64
+		if id, ok := notifByName[d.SystemMailChannel]; ok && d.SystemMailChannel != "" {
+			mailID = id
+		} else if snap != nil && snap.systemMail != "" {
+			mailID = notifByName[snap.systemMail]
+		}
+		if d.Settings != nil {
+			d.Settings.SystemMailChannelID = mailID
+			b, err := json.Marshal(d.Settings)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx,
+				"INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+				appSettingsKey, string(b)); err != nil {
+				return err
+			}
+		} else if snap != nil {
+			if err := setSystemMailTx(ctx, tx, mailID); err != nil {
+				return err
+			}
 		}
 		resolve := func(r ImportRef, ids []int64) int64 {
 			if r.New >= 0 {
@@ -180,8 +216,14 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 				return err
 			}
 			res.MonitorIDs[i] = id
+			first(monByName, m.Name, id)
 			if im.FileID != 0 {
 				res.IDMap[im.FileID] = id
+			}
+			if im.Locations != nil {
+				if err := setMonitorLocationsTx(ctx, tx, id, *im.Locations); err != nil {
+					return err
+				}
 			}
 			links := make([]int64, 0, len(im.Notifications))
 			for _, r := range im.Notifications {
@@ -259,6 +301,11 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 				return err
 			}
 			res.UserIDs = ids
+		}
+		if snap != nil {
+			if err := snap.restore(ctx, tx, monByName, tagByName, notifByName); err != nil {
+				return err
+			}
 		}
 		return nil
 	})

@@ -47,6 +47,17 @@ type Doc struct {
 	// yedeklerde yok. Geri yüklemede her zaman birleştirilir: var olan
 	// kullanıcı adı atlanır, yenisi şifre özetiyle eklenir.
 	Users []User `json:"users,omitempty"`
+	// SystemMailChannel sistem e-postası (şifre sıfırlama) kanalının adı;
+	// settings.system_mail_channel_id bu kurulumun kimliğidir, taşınmaz.
+	SystemMailChannel string `json:"system_mail_channel,omitempty"`
+}
+
+// MonitorLocations monitörün konum ayarı (bkz. store.LocationSetup).
+type MonitorLocations struct {
+	IncludeLocal  bool     `json:"include_local"`
+	Probes        []string `json:"probes"` // kontrol noktası adları
+	DownWhen      string   `json:"down_when"`
+	NotifyPartial bool     `json:"notify_partial,omitempty"`
 }
 
 // User yedekteki kullanıcı. PasswordHash bcrypt özetidir (şifre değil);
@@ -122,7 +133,10 @@ type Monitor struct {
 	DomainExpiry  *bool           `json:"domain_expiry,omitempty"` // alan adı bitiş uyarısı (yoksa açık)
 	Notifications []string        `json:"notifications"`           // bildirim kanalı adları
 	Tags          []MonitorTag    `json:"tags"`
-	Notes         []string        `json:"-"`
+	// Locations çok konumlu kontrol ayarı; kontrol noktaları adlarıyla (geri
+	// yüklemede aynı adlı kontrol noktası aranır). Yoksa yalnızca ana sunucu.
+	Locations *MonitorLocations `json:"locations,omitempty"`
+	Notes     []string          `json:"-"`
 }
 
 type PageMonitor struct {

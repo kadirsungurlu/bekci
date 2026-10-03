@@ -783,17 +783,19 @@
           {#if incidents.length}
             <ul class="mini">
               {#each incidents as inc (inc.id)}
-                {@const partial = inc.kind === 'partial'}
+                {@const degraded = inc.kind === 'degraded'}
+                {@const partial = inc.kind === 'partial' || degraded}
+                {@const manual = inc.kind === 'manual'}
                 {@const srv = isServerIncident(inc.kind)}
                 <li>
                   <span class="mdot" class:down={!inc.resolved_at && !partial} class:pend={!inc.resolved_at && partial} aria-hidden="true"></span>
-                  <a class="mname" href="#/incidents/{inc.id}">{srv ? inc.server_name : inc.monitor_name}</a>
+                  <a class="mname" href="#/incidents/{inc.id}">{srv ? inc.server_name : manual ? inc.title : inc.monitor_name}</a>
                   <span class="mval" class:c-down={!inc.resolved_at && !partial} class:c-pending={!inc.resolved_at && partial}>
                     {inc.resolved_at ? t('overview.side.lasted', { d: fmtDuration(inc.resolved_at - inc.started_at) }) : t('overview.side.ongoingFor', { d: fmtDuration(clock.now - inc.started_at) })}
                   </span>
                   <span class="msub" title={fmtDate(inc.started_at)}>
-                    {#if partial}<span class="badge pending mk">{t('incidents.kind.partial')}</span>{:else if srv}<span class="badge accent mk">{t(inc.kind === 'probe_offline' ? 'incidents.kind.probe' : 'incidents.kind.server')}</span>{/if}
-                    {fmtRelative(inc.started_at, clock.now)}{#if inc.cause}{' · '}{inc.cause}{/if}
+                    {#if degraded}<span class="badge pending mk">{t('incidents.kind.degraded')}</span>{:else if partial}<span class="badge pending mk">{t('incidents.kind.partial')}</span>{:else if manual}<span class="badge accent mk">{t('incidents.kind.manual')}</span>{:else if srv}<span class="badge accent mk">{t(inc.kind === 'probe_offline' ? 'incidents.kind.probe' : 'incidents.kind.server')}</span>{/if}
+                    {fmtRelative(inc.started_at, clock.now)}{#if inc.cause && !manual}{' · '}{inc.cause}{/if}
                   </span>
                 </li>
               {/each}

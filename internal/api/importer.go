@@ -290,6 +290,8 @@ func (s *Server) runImport(w http.ResponseWriter, r *http.Request, source string
 	}
 	if pl.data.Settings != nil {
 		s.engine.SetSettings(*pl.data.Settings)
+	} else if st, err := s.store.LoadSettings(ctx); err == nil {
+		s.engine.SetSettings(st) // değiştir modunda sistem e-posta kanalı yeniden çözülmüş olabilir
 	}
 	// Durum sayfası önbelleği/özel alan adları ve bakım dizini (değiştir modunda
 	// silinen monitörler) yeni verilere göre yenilenir.
