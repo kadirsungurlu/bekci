@@ -157,6 +157,17 @@ You can add Bekci to your phone like an app; there's nothing to download from a 
 
 Opened from the home screen icon, it runs full screen and updates live. On Android the **Install app** option only appears when the panel is opened over HTTPS; it doesn't appear for an address such as `http://SERVER-IP:8080`.
 
+### Browser notifications (Web Push) {#web-push}
+
+You can receive outage notifications on your phone or computer without installing a third-party app:
+
+1. Create a channel with **Notifications → New channel → Browser notification (Web Push)** and attach it to monitors. With an empty **Users** field it goes to everyone who registered a device; comma-separated usernames restrict it to those users. [Notification rules](#notification-rules) (event filter, quiet hours, delay, escalation) apply here like for any other channel.
+2. Each user goes to **Settings → My account → Browser notifications → Turn on for this device** and accepts the browser's permission prompt; **Send test** checks it. Several devices can be registered (up to 10) and removed from the list.
+
+Notifications arrive even when the app is closed; a tap opens the related incident page. Customer (restricted) accounts only receive notifications for monitors they can see. The server generates the VAPID key pair on first use and stores it in the database; devices that the push service reports as gone (404/410) drop off the list automatically. The content is encrypted for the push service (RFC 8291); Google/Apple/Mozilla servers cannot read it.
+
+Limitations: the panel must be opened over **HTTPS**. On **iPhone and iPad** (iOS 16.4+) notifications work only in the app added to the home screen, not in a Safari tab — **Add to Home Screen** first, then open the app and turn notifications on. Android Chrome, desktop Chrome/Edge/Firefox and macOS Safari 16+ are supported directly. Notifications may be delayed when the browser is in do-not-disturb mode or battery saving cuts the background connection.
+
 ## What next? {#next}
 
 - **Watch your servers:** [install the server agent](/en/docs/server-agent/) for CPU, RAM, disk and network metrics.

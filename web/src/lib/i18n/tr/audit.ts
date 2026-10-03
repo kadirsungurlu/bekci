@@ -46,6 +46,8 @@ export default {
       '2fa_recovery_codes': 'Kurtarma kodları yenilendi',
       '2fa_reset': '2FA sıfırlandı',
       email_change: 'E-postasını değiştirdi',
+      push_subscribe: 'Tarayıcı bildirimi cihazı eklendi',
+      push_unsubscribe: 'Tarayıcı bildirimi cihazı kaldırıldı',
       password_reset_self: 'Şifresini bağlantıyla sıfırladı',
       oidc_provision: 'SSO ile hesap açıldı',
       oidc_link: 'Hesap SSO kimliğine bağlandı',

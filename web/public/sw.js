@@ -47,6 +47,67 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
+// Web Push: sunucu şifreli JSON gönderir ({title, body, url, tag, kind});
+// bildirim gösterilir, tıklanınca açık sekme odaklanıp adrese gider, yoksa yeni açılır.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { title: event.data ? event.data.text() : '' };
+  }
+  const title = data.title || 'Bekci';
+  const opts = {
+    body: data.body || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    tag: data.tag || undefined,
+    renotify: !!data.tag,
+    data: { url: data.url || '/#/' },
+  };
+  event.waitUntil(self.registration.showNotification(title, opts));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = new URL((event.notification.data && event.notification.data.url) || '/#/', self.location.origin).href;
+  event.waitUntil(
+    (async () => {
+      const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const c of all) {
+        if (new URL(c.url).origin === self.location.origin && 'focus' in c) {
+          await c.focus();
+          if ('navigate' in c) {
+            try {
+              await c.navigate(url);
+            } catch {
+              /* bazı tarayıcılar navigate'i desteklemez */
+            }
+          }
+          return;
+        }
+      }
+      await self.clients.openWindow(url);
+    })(),
+  );
+});
+
+// Push servisi aboneliği yenilediğinde yeni abonelik sunucuya yazılır.
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil(
+    (async () => {
+      const key = event.oldSubscription && event.oldSubscription.options ? event.oldSubscription.options.applicationServerKey : null;
+      const sub = await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+      await fetch('/api/webpush/subscriptions', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-Uptime': '1' },
+        body: JSON.stringify(sub.toJSON()),
+      });
+    })(),
+  );
+});
+
 /** Bu istek hiç yakalanmamalı mı? */
 function bypass(url, req) {
   if (req.method !== 'GET') return true;

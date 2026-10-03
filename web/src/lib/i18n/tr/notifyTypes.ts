@@ -253,6 +253,13 @@ export default {
       },
     },
   },
+  webpush: {
+    label: 'Tarayıcı bildirimi (Web Push)',
+    help: 'Panele giriş yapan kullanıcıların tarayıcılarına ve ana ekrana eklenmiş uygulamaya doğrudan bildirim gönderir. Kullanıcılar Ayarlar → Hesabım → Tarayıcı bildirimleri’nden cihazlarını kaydeder; müşteri hesapları yalnızca görebildikleri monitörlerin bildirimini alır.',
+    fields: {
+      users: { label: 'Kullanıcılar', help: 'Virgülle ayrılmış kullanıcı adları. Boş bırakılırsa cihaz kaydetmiş herkese gider.' },
+    },
+  },
   apprise: {
     help: 'Kendi Apprise API sunucunuz üzerinden 100’den fazla servise gönderir.',
     fields: {

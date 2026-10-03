@@ -99,6 +99,7 @@
   --ch-bark: #ff7a45;
   --ch-line: #06c755;
   --ch-apprise: #94a3b8;
+  --ch-webpush: #f472b6;
 
   /* Etiket rozeti: zemin etiketin kendi rengi; yazı bu iki tondan kontrastı
      yüksek olanı (bkz. lib/tags.ts). */

@@ -8,6 +8,7 @@
   import { onMount } from 'svelte';
   import { guardUnsaved } from '../../lib/forms';
   import ApiKeys from './ApiKeys.svelte';
+  import PushDevices from '../../components/PushDevices.svelte';
   import Modal from '../../components/Modal.svelte';
   import Icon from '../../components/Icon.svelte';
 
@@ -171,6 +172,8 @@
   {#if pwError}<div class="alert error" role="alert">{pwError}</div>{/if}
 </form>
 
+<div class="push-wrap"><PushDevices /></div>
+
 <ApiKeys />
 
 <Modal bind:open={emailOpen} title={t('account.email.modalTitle')} width={460}>
@@ -217,7 +220,8 @@
     height: 100%;
     margin: 0;
   }
-  .pw {
+  .pw,
+  .push-wrap {
     margin-bottom: 16px;
   }
   .pw-row {

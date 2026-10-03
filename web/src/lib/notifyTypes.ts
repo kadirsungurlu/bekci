@@ -39,6 +39,9 @@ export const NOTIFY_LABELS: Record<NotificationType, string> = {
   bark: 'Bark (iOS)',
   line: 'LINE',
   apprise: 'Apprise',
+  get webpush() {
+    return t('notifyTypes.webpush.label');
+  },
 };
 
 export type NotifyGroupId = 'messaging' | 'emailSms' | 'mobile' | 'incident' | 'general';
@@ -47,7 +50,7 @@ export type NotifyGroupId = 'messaging' | 'emailSms' | 'mobile' | 'incident' | '
 export const NOTIFY_GROUPS: { id: NotifyGroupId; types: NotificationType[] }[] = [
   { id: 'messaging', types: ['whatsapp', 'telegram', 'discord', 'slack', 'teams', 'googlechat', 'mattermost', 'rocketchat', 'matrix', 'signal', 'line'] },
   { id: 'emailSms', types: ['email', 'netgsm', 'twilio'] },
-  { id: 'mobile', types: ['ntfy', 'gotify', 'pushover', 'pushbullet', 'bark', 'homeassistant'] },
+  { id: 'mobile', types: ['webpush', 'ntfy', 'gotify', 'pushover', 'pushbullet', 'bark', 'homeassistant'] },
   { id: 'incident', types: ['pagerduty', 'opsgenie'] },
   { id: 'general', types: ['webhook', 'apprise'] },
 ];
@@ -78,6 +81,7 @@ export const NOTIFY_STYLE: Record<NotificationType, { color: string; icon: IconN
   bark: { color: 'var(--ch-bark)', icon: 'bell-ring' },
   line: { color: 'var(--ch-line)', icon: 'message-dots' },
   apprise: { color: 'var(--ch-apprise)', icon: 'share' },
+  webpush: { color: 'var(--ch-webpush)', icon: 'bell-ring' },
 };
 
 export type FieldKind = 'text' | 'secret' | 'number' | 'select' | 'textarea' | 'url' | 'bool';
@@ -1159,6 +1163,26 @@ export const NOTIFY_SCHEMAS: Record<NotificationType, NotifySchema> = {
         },
         required: true,
         wide: true,
+      },
+    ],
+  },
+  webpush: {
+    get help() {
+      return t('notifyTypes.webpush.help');
+    },
+    fields: [
+      {
+        key: 'users',
+        get label() {
+          return t('notifyTypes.webpush.fields.users.label');
+        },
+        kind: 'text',
+        optional: true,
+        wide: true,
+        placeholder: 'ali, ayse',
+        get help() {
+          return t('notifyTypes.webpush.fields.users.help');
+        },
       },
     ],
   },

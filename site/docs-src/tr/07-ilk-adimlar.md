@@ -154,6 +154,17 @@ Bekci'yi telefonunuza bir uygulama gibi ekleyebilirsiniz; mağazadan bir şey in
 
 Ana ekrandaki simgeden açıldığında tam ekran çalışır ve canlı güncellenir. Android'de **Uygulamayı yükle** seçeneği yalnızca panel HTTPS ile açıldığında görünür; `http://SUNUCU-IP:8080` gibi bir adreste görünmez.
 
+### Tarayıcı bildirimleri (Web Push) {#web-push}
+
+Üçüncü bir uygulama kurmadan telefonunuza ya da bilgisayarınıza kesinti bildirimi alabilirsiniz:
+
+1. **Bildirimler → Yeni kanal → Tarayıcı bildirimi (Web Push)** ile bir kanal açın ve monitörlerine bağlayın. **Kullanıcılar** alanı boşsa cihaz kaydetmiş herkese gider; virgülle ayrılmış kullanıcı adları yazarsanız yalnızca onlara. Diğer kanallar gibi [bildirim kuralları](#bildirim-kurallari) (olay süzgeci, sessiz saatler, gecikme, eskalasyon) burada da geçerlidir.
+2. Her kullanıcı **Ayarlar → Hesabım → Tarayıcı bildirimleri → Bu cihazda aç** der ve tarayıcının izin sorusunu onaylar; **Test gönder** ile dener. Birden çok cihaz kaydedilebilir (en fazla 10); listeden kaldırılır.
+
+Bildirim, uygulama kapalıyken de gelir; tıklanınca ilgili olay sayfası açılır. Müşteri (kısıtlı) hesaplar yalnızca görebildikleri monitörlerin bildirimini alır. Sunucu, VAPID anahtar çiftini ilk ihtiyaçta üretip veritabanında saklar; push servisinin "abonelik yok" (404/410) dediği cihazlar listeden kendiliğinden düşer. İçerik push servisine şifreli gider (RFC 8291); Google/Apple/Mozilla sunucuları metni okuyamaz.
+
+Sınırlamalar: panel **HTTPS** ile açılmalı. **iPhone ve iPad**'de (iOS 16.4+) bildirimler yalnızca ana ekrana eklenen uygulamada çalışır; Safari sekmesinde çalışmaz — önce **Ana Ekrana Ekle**, sonra uygulamayı açıp bildirimleri açın. Android Chrome, masaüstü Chrome/Edge/Firefox ve macOS Safari 16+ doğrudan destekler. Tarayıcı "rahatsız etme" kipindeyse ya da pil tasarrufu arka plan bağlantısını kesiyorsa bildirim gecikebilir.
+
 ## Sonra ne yapabilirsiniz? {#sonra}
 
 - **Sunucularınızı izleyin:** CPU, RAM, disk ve ağ ölçümleri için [sunucu ajanını kurun](/docs/sunucu-ajani/).

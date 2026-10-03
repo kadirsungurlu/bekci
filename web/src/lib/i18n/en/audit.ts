@@ -48,6 +48,8 @@ export default {
       '2fa_recovery_codes': 'Recovery codes regenerated',
       '2fa_reset': '2FA reset',
       email_change: 'Changed their email',
+      push_subscribe: 'Browser notification device added',
+      push_unsubscribe: 'Browser notification device removed',
       password_reset_self: 'Reset their password via link',
       oidc_provision: 'Account created via SSO',
       oidc_link: 'Account linked to SSO identity',

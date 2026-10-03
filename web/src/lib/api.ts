@@ -740,7 +740,19 @@ export type NotificationType =
   | 'pushbullet'
   | 'bark'
   | 'line'
-  | 'apprise';
+  | 'apprise'
+  | 'webpush';
+
+/** Web Push cihazı (kullanıcının kendi aboneliği). */
+export interface PushDevice {
+  id: number;
+  user_id: number;
+  endpoint: string;
+  user_agent: string;
+  created_at: number;
+  last_used_at: number;
+  fail_count: number;
+}
 
 /** Bildirim türleri (kanal süzgeci için; test hariç). */
 export type NotifyKind =
@@ -1435,6 +1447,12 @@ export const api = {
     post<{ ok: boolean }>('/api/auth/password', { current, new: next }),
   /** Kendi arayüz dili tercihi; "" = tarayıcı dili. */
   setPreferences: (p: { lang?: '' | Locale; theme?: '' | 'light' | 'dark' }) => put<{ user: User }>('/api/auth/preferences', p),
+  // Web Push (bu hesabın cihazları)
+  webpushVapid: () => get<{ public_key: string }>('/api/webpush/vapid'),
+  webpushDevices: () => get<PushDevice[]>('/api/webpush/subscriptions'),
+  webpushSubscribe: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) => post<{ id: number }>('/api/webpush/subscriptions', sub),
+  webpushUnsubscribe: (id: number) => del<{ ok: boolean }>(`/api/webpush/subscriptions/${id}`),
+  webpushTest: () => post<{ sent: number; failed: number }>('/api/webpush/test', {}),
   changeEmail: (password: string, email: string) => post<{ user: User }>('/api/auth/email', { password, email }),
   forgotPassword: (login: string) => post<{ ok: boolean }>('/api/auth/forgot', { login }),
   resetPassword: (token: string, password: string) => post<{ ok: boolean; username: string }>('/api/auth/reset', { token, password }),

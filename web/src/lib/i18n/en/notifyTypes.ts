@@ -250,6 +250,13 @@ export default {
       },
     },
   },
+  webpush: {
+    label: 'Browser notification (Web Push)',
+    help: 'Sends notifications straight to the browsers and installed home-screen apps of users signed into the panel. Users register their devices under Settings → My account → Browser notifications; customer accounts only receive notifications for monitors they can see.',
+    fields: {
+      users: { label: 'Users', help: 'Comma-separated usernames. Leave empty to notify everyone who registered a device.' },
+    },
+  },
   apprise: {
     help: 'Sends to 100+ services through your own Apprise API server.',
     fields: {

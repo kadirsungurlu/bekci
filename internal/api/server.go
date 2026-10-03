@@ -57,6 +57,10 @@ type Server struct {
 	mailer Mailer
 	// oidcProviders OIDC sağlayıcı keşif önbelleği (oidc.go).
 	oidcProviders *oidcProviders
+	// vapidKeys Web Push anahtar çifti önbelleği; pushClient push servisine
+	// giden HTTP istemcisi (nil: varsayılan; webpush.go).
+	vapidKeys  vapidState
+	pushClient *http.Client
 
 	// BaseURL uygulamanın dış adresi (BASE_URL); durum sayfası özel alan adı
 	// bu adresin sunucu adıyla aynı olamaz. Boş olabilir.
@@ -99,6 +103,8 @@ func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatche
 		not = n
 	}
 	s.servers = servers.New(st, pub, not, log)
+	// Web Push kanalı bu sunucunun aboneliklerine gönderir (notify/webpush.go).
+	notify.SetWebPushSender(&pushSender{s})
 	// Sunucu takibi API'nin saatini kullanır (testler s.now'ı değiştirir).
 	s.servers.SetClock(func() time.Time { return s.now() })
 	return s
