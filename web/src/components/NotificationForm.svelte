@@ -8,6 +8,7 @@
     type NotificationInput,
     type NotificationType,
     type NotifyKind,
+    type TagRule,
   } from '../lib/api';
   import { confirmDialog } from '../lib/ui.svelte';
   import { changedDestinations, destinationPhrase, guardUnsaved, snapshot } from '../lib/forms';
@@ -24,6 +25,7 @@
   import { LOCALES, t, tParts, type Locale } from '../lib/i18n';
   import Modal from './Modal.svelte';
   import Icon from './Icon.svelte';
+  import TagRulePicker from './TagRulePicker.svelte';
 
   let {
     open = $bindable(false),
@@ -63,6 +65,8 @@
   let isDefault = $state(orig?.is_default ?? true);
   let active = $state(orig?.active ?? true);
   let applyExisting = $state(false);
+  // Etiket kuralları: bu etiketi taşıyan monitörlere açık bağlantıya ek olarak gönderir.
+  let tagRules = $state<TagRule[]>((orig?.tag_rules ?? []).map((r) => ({ ...r })));
 
   // Kurallar: olay süzgeci (boş liste = hepsi), sessiz saatler, gecikme, eskalasyon, dil.
   const origEvents = orig?.events ?? [];
@@ -105,7 +109,8 @@
 
   // Kaydedilmemiş değişiklik: pencere kapatılırken (Vazgeç, ×, Esc, arka plan) ve
   // sayfadan ayrılırken sorulur.
-  const formSnap = () => snapshot({ type, name: name.trim(), values, isDefault, active, applyExisting, rules: rulesBody() });
+  const formSnap = () =>
+    snapshot({ type, name: name.trim(), values, isDefault, active, applyExisting, rules: rulesBody(), tags: tagRules.map((r) => [r.tag_id, r.value]) });
   const baseline = untrack(formSnap);
   const dirty = () => !saving && formSnap() !== baseline;
   async function canClose() {
@@ -244,6 +249,7 @@
       active,
       apply_existing: applyExisting,
       ...rulesBody(),
+      tag_rules: tagRules.map((r) => ({ tag_id: r.tag_id, value: r.value })),
     };
     saving = true;
     try {
@@ -537,6 +543,8 @@
       <span>{t('notifications.form.applyExisting')}<small>{t('notifications.form.applyExistingHelp')}</small></span>
     </label>
 
+    <TagRulePicker bind:rules={tagRules} id="nf-tags" label={t('notifications.form.tagRules')} help={t('notifications.form.tagRulesHelp')} />
+
     {#if testResult}
       <div class="alert {testResult.ok ? 'success' : 'error'}" role="status">{testResult.msg}</div>
     {/if}
@@ -691,7 +699,7 @@
     .spacer {
       display: none;
     }
-    :global(dialog footer) > .btn.primary {
+    :global(dialog footer > .btn.primary) {
       flex: 1 1 100%;
     }
   }

@@ -347,8 +347,31 @@ func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.St
 		if runes(sec.Title) > 100 {
 			return p, badInput("Grup adı en fazla 100 karakter olabilir")
 		}
+		// Etikete bağlı grup: etiket var olmalı; etiketle gelen (auto)
+		// monitörler saklanmaz, okunurken yeniden hesaplanır.
+		if sec.TagID < 0 {
+			sec.TagID = 0
+		}
+		if sec.TagID > 0 {
+			if _, err := s.store.GetTag(ctx, sec.TagID); err != nil {
+				if errors.Is(err, store.ErrNotFound) {
+					return p, badInput(tagNotFoundMessage)
+				}
+				return p, err
+			}
+			v, err := normalizeTagValue(sec.TagValue)
+			if err != nil {
+				return p, badInput(err.Error())
+			}
+			sec.TagValue = v
+		} else {
+			sec.TagValue = ""
+		}
 		mons := make([]store.PageMonitor, 0, len(sec.Monitors))
 		for _, m := range sec.Monitors {
+			if m.Auto {
+				continue
+			}
 			m.Name = strings.TrimSpace(m.Name)
 			if runes(m.Name) > 100 {
 				return p, badInput("Görünen ad en fazla 100 karakter olabilir")
@@ -524,7 +547,7 @@ func (s *Server) pageViewsWith(ctx context.Context, pages []store.StatusPage) ([
 					mons = append(mons, m)
 				}
 			}
-			sections[j] = store.PageSection{Title: sec.Title, Monitors: mons}
+			sections[j] = store.PageSection{Title: sec.Title, Monitors: mons, TagID: sec.TagID, TagValue: sec.TagValue}
 		}
 		pages[i].Sections = sections
 	}

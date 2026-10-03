@@ -124,6 +124,7 @@ var auditEN = map[string]string{
 	"kaynak: %s":                      "source: %s",
 	"toplu işlem":                     "bulk action",
 	"etiket eklendi: %s":              "tag added: %s",
+	"etiket kuralı: %s":               "tag rule: %s",
 	"etiket kaldırıldı: %s":           "tag removed: %s",
 	"kanal eklendi: %s":               "channel added: %s",
 	"kanal çıkarıldı: %s":             "channel removed: %s",

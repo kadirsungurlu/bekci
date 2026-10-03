@@ -99,6 +99,8 @@
   // Bildirimler
   let channels = $state.raw<NotificationChannel[]>([]);
   let notifIds = $state<number[]>([]);
+  // Etiket kuralıyla bağlı kanallar (yalnızca gösterim; kanalın kurallarından yönetilir).
+  let tagNotifIds = $state<number[]>([]);
   let channelsLoaded = $state(false);
   let channelsOk = false;
 
@@ -235,6 +237,7 @@
     domainExpiry = m.domain_expiry ?? true;
     upsideDown = m.upside_down;
     notifIds = [...m.notification_ids];
+    tagNotifIds = [...(m.tag_notification_ids ?? [])];
     mtags = (m.tags ?? []).map((t) => ({ id: t.id, value: t.value }));
     origTags = mtags.map((t) => ({ ...t }));
     if (m.locations) {
@@ -1072,14 +1075,19 @@
         <p class="help nomargin sp">{t('monitors.form.notifyHelp')}</p>
         <div class="channels">
           {#each channels as ch (ch.id)}
-            <label class="check ch">
-              <input type="checkbox" value={ch.id} bind:group={notifIds} />
+            {@const viaTag = tagNotifIds.includes(ch.id) && !notifIds.includes(ch.id)}
+            <label class="check ch" class:via-tag={viaTag} title={viaTag ? t('monitors.form.viaTagHelp') : undefined}>
+              {#if viaTag}
+                <input type="checkbox" checked disabled />
+              {:else}
+                <input type="checkbox" value={ch.id} bind:group={notifIds} />
+              {/if}
               <span>
                 {ch.name}
                 <small
                   >{NOTIFY_LABELS[ch.type] ?? ch.type}{ch.active ? '' : ` · ${t('monitors.inactive')}`}{ch.is_default
                     ? ` · ${t('monitors.form.isDefault')}`
-                    : ''}</small
+                    : ''}{viaTag ? ` · ${t('monitors.form.viaTag')}` : ''}</small
                 >
               </span>
             </label>
@@ -1748,6 +1756,10 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--input);
+  }
+  .ch.via-tag {
+    border-style: dashed;
+    cursor: default;
   }
   .adv {
     padding: 0;

@@ -57,7 +57,15 @@ type Notification struct {
 	DelayMin    int               `json:"delay_min,omitempty"`
 	EscalateMin int               `json:"escalate_min,omitempty"`
 	Lang        string            `json:"lang,omitempty"`
-	Notes       []string          `json:"-"` // dönüştürmede oluşan uyarılar
+	// TagRules etiket kuralları (etiket adıyla; eski yedeklerde yok).
+	TagRules []TagRule `json:"tag_rules,omitempty"`
+	Notes    []string  `json:"-"` // dönüştürmede oluşan uyarılar
+}
+
+// TagRule "etiket (= değer)" kuralı; etiket adıyla başvurur.
+type TagRule struct {
+	Name  string `json:"name"`
+	Value string `json:"value,omitempty"`
 }
 
 type MonitorTag struct {
@@ -95,6 +103,9 @@ type PageMonitor struct {
 type PageSection struct {
 	Title    string        `json:"title"`
 	Monitors []PageMonitor `json:"monitors"`
+	// Tag etikete bağlı grup: etiketi taşıyan monitörler okunurken eklenir
+	// (Monitors yalnızca açıkça eklenenleri taşır).
+	Tag *TagRule `json:"tag,omitempty"`
 }
 
 type Announcement struct {

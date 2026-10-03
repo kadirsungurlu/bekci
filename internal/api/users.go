@@ -137,8 +137,11 @@ type userInput struct {
 	Password    string  `json:"password"` // sadece eklemede
 	Disabled    bool    `json:"disabled"`
 	AllMonitors *bool   `json:"all_monitors"`
-	MonitorIDs  []int64 `json:"monitor_ids"`
-	ServerIDs   []int64 `json:"server_ids"` // kısıtlı izleyicinin görebileceği sunucular
+	MonitorIDs  []int64 `json:"monitor_ids"` // kısıtlı izleyicinin AÇIK monitör seçimi
+	ServerIDs   []int64 `json:"server_ids"`  // kısıtlı izleyicinin görebileceği sunucular
+	// TagRules kısıtlı izleyicinin etikete göre gördüğü monitörler (açık
+	// seçime ek; yok/null = kural yok).
+	TagRules []store.TagRule `json:"tag_rules"`
 }
 
 // normalize ortak alanları doğrular ve store.User'a çevirir.
@@ -176,6 +179,11 @@ func (s *Server) normalizeUser(r *http.Request, in *userInput) (store.User, erro
 		if in.ServerIDs != nil {
 			u.ServerIDs = in.ServerIDs
 		}
+		rules, err := s.normalizeTagRules(r.Context(), in.TagRules)
+		if err != nil {
+			return u, err
+		}
+		u.TagRules = rules
 	}
 	return u, nil
 }

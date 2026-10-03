@@ -29,4 +29,15 @@ export default {
     errColor: 'Renk #rrggbb biçiminde olmalı (ör. #2563eb).',
   },
   removeTag: '“{name}” etiketini kaldır',
+  /** Etiket kuralı seçici (TagRulePicker). */
+  rule: {
+    tag: 'Etiket',
+    pickTag: 'Etiket seçin…',
+    value: 'Değer',
+    valuePh: 'Değer (boş: her değer)',
+    withValue: 'bu değerle',
+    anyValue: 'her değerle',
+    matches: '{count} monitör',
+    noTags: 'Henüz etiket yok; Ayarlar → Etiketler’den ekleyin.',
+  },
 };

@@ -32,6 +32,9 @@ export default {
     isDefault: 'Yeni monitörlere varsayılan olarak ekle',
     applyExisting: 'Mevcut tüm monitörlere ekle',
     applyExistingHelp: 'Kaydettiğinizde bu kanal şu anki tüm monitörlere bağlanır.',
+    tagRules: 'Etikete göre bağla',
+    tagRulesHelp:
+      'Bu etiketi taşıyan her monitör (sonradan etiketlenenler dahil) bu kanalı kendiliğinden kullanır. Monitör formundaki açık seçimlere ek olarak uygulanır; açık bağlantılar silinmez.',
     test: 'Test gönder',
     testSent: 'Test bildirimi gönderildi. Kanalınızı kontrol edin.',
     samples: 'Örnek bildirimleri gönder',

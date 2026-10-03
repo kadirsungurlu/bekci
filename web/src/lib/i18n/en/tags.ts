@@ -31,4 +31,14 @@ export default {
     errColor: 'Color must be in #rrggbb format (e.g. #2563eb).',
   },
   removeTag: 'Remove tag “{name}”',
+  rule: {
+    tag: 'Tag',
+    pickTag: 'Pick a tag…',
+    value: 'Value',
+    valuePh: 'Value (empty: any value)',
+    withValue: 'with this value',
+    anyValue: 'any value',
+    matches: '{count} monitor|{count} monitors',
+    noTags: 'No tags yet; add some under Settings → Tags.',
+  },
 } satisfies Shape<typeof tr>;

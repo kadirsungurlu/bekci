@@ -293,6 +293,8 @@ export default {
     noChannels:
       'Henüz bildirim kanalı yok. {link} sayfasından WhatsApp, Telegram, e-posta gibi bir kanal ekleyebilirsiniz.',
     notifyHelp: 'Bu monitör çalışmadığında ve düzeldiğinde seçili kanallara bildirim gönderilir.',
+    viaTag: 'etiketle bağlı',
+    viaTagHelp: 'Bu kanal monitörün etiketine göre bağlı; kanalın kurallarından yönetilir.',
     isDefault: 'varsayılan',
     tagValuePh: 'ör. canlı',
     tagValueAria: '{name} değeri (isteğe bağlı)',

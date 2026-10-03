@@ -33,6 +33,9 @@ export default {
     isDefault: 'Add to new monitors by default',
     applyExisting: 'Add to all existing monitors',
     applyExistingHelp: 'When you save, this channel is attached to all current monitors.',
+    tagRules: 'Attach by tag',
+    tagRulesHelp:
+      'Every monitor carrying this tag (including ones tagged later) uses this channel automatically. Applies in addition to the explicit selection in the monitor form; explicit links are never removed.',
     test: 'Send test notification',
     testSent: 'Test notification sent. Check your channel.',
     samples: 'Send sample notifications',

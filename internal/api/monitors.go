@@ -82,12 +82,15 @@ func mergeMonitorSecrets(typ string, newCfg, oldCfg json.RawMessage) (json.RawMe
 
 type monitorView struct {
 	store.Monitor
-	Target          string             `json:"target"`
-	NotificationIDs []int64            `json:"notification_ids"`
-	Tags            []store.MonitorTag `json:"tags"`
-	Uptime24h       *float64           `json:"uptime_24h"`
-	Bars            []store.Bucket     `json:"bars"`
-	InMaintenance   bool               `json:"in_maintenance"` // şu an etkin bir bakım penceresinde (durdurulmuşsa false)
+	Target          string  `json:"target"`
+	NotificationIDs []int64 `json:"notification_ids"`
+	// TagNotificationIDs etiket kuralıyla bağlanan kanallar (açık bağlantılara
+	// ek; yalnızca gösterim, kaydetmede gönderilmez).
+	TagNotificationIDs []int64            `json:"tag_notification_ids"`
+	Tags               []store.MonitorTag `json:"tags"`
+	Uptime24h          *float64           `json:"uptime_24h"`
+	Bars               []store.Bucket     `json:"bars"`
+	InMaintenance      bool               `json:"in_maintenance"` // şu an etkin bir bakım penceresinde (durdurulmuşsa false)
 	// Locations kontrol konumları (probes.go); varsayılan: yalnızca ana sunucu.
 	Locations store.LocationSetup `json:"locations"`
 	// OpenIncidentID süren olayın kimliği (listede "Olayı gör"); yoksa null.
@@ -153,6 +156,10 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 	if err != nil {
 		return nil, err
 	}
+	tagLinks, err := s.store.TagNotificationIDs(r.Context())
+	if err != nil {
+		return nil, err
+	}
 	locs, err := s.store.AllMonitorLocations(r.Context())
 	if err != nil {
 		return nil, err
@@ -212,12 +219,16 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 		if ids == nil {
 			ids = []int64{}
 		}
+		tagIDs := tagLinks[m.ID]
+		if tagIDs == nil {
+			tagIDs = []int64{}
+		}
 		if !full {
 			// İzleyici: adrese gömülü kullanıcı adı/şifre ve sorgu (token olabilir),
 			// ayarlar, push token'ı ve bildirim bağlantıları gizli.
 			target = publicTarget(target)
 			m.LastMessage = viewerMessage(u, m.Type, m.Status, m.LastMessage)
-			m.Config, m.PushToken, ids = json.RawMessage("{}"), "", []int64{}
+			m.Config, m.PushToken, ids, tagIDs = json.RawMessage("{}"), "", []int64{}, []int64{}
 		}
 		m.LastMessage = i18n.Message(lang, m.LastMessage)
 		if m.Type == check.TypeGroup {
@@ -246,7 +257,7 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 		if p == nil {
 			p = []int64{}
 		}
-		v := monitorView{Monitor: m, Target: target, NotificationIDs: ids, Tags: mt, Uptime24h: up, Bars: bars,
+		v := monitorView{Monitor: m, Target: target, NotificationIDs: ids, TagNotificationIDs: tagIDs, Tags: mt, Uptime24h: up, Bars: bars,
 			InMaintenance: m.Active && s.engine.InMaintenance(m.ID, now), Locations: loc, OpenIncidentID: incident,
 			OpenPartialIncidentID: partial, OpenDegradedIncidentID: degraded, Pings: p}
 		if w := windows[m.ID]; w != nil {

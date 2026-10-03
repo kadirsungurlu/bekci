@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { api, errorMessage, type Role, type UserRecord } from '../../lib/api';
+  import { api, errorMessage, type Role, type TagRule, type UserRecord } from '../../lib/api';
   import { ROLE_DESCS, ROLE_LABELS, session } from '../../lib/session.svelte';
   import { randomPassword } from '../../lib/format';
   import Modal from '../../components/Modal.svelte';
   import MonitorPicker from '../../components/MonitorPicker.svelte';
   import ServerPicker from '../../components/ServerPicker.svelte';
+  import TagRulePicker from '../../components/TagRulePicker.svelte';
   import Icon from '../../components/Icon.svelte';
   import CopyButton from '../../components/CopyButton.svelte';
   import { t } from '../../lib/i18n';
@@ -26,7 +27,9 @@
   let password = $state('');
   let disabled = $state(orig?.disabled ?? false);
   let restricted = $state(orig ? orig.role === 'viewer' && !orig.all_monitors : false);
-  let monitorIds = $state<number[]>(orig?.monitor_ids ? [...orig.monitor_ids] : []);
+  // Açık seçim (etiketle görünenler hariç); eski sunucuda picked_monitor_ids yok → monitor_ids.
+  let monitorIds = $state<number[]>([...(orig?.picked_monitor_ids ?? orig?.monitor_ids ?? [])]);
+  let tagRules = $state<TagRule[]>((orig?.tag_rules ?? []).map((r) => ({ ...r })));
   let serverIds = $state<number[]>(orig?.server_ids ? [...orig.server_ids] : []);
   let showPw = $state(true);
 
@@ -48,7 +51,7 @@
     if (!orig && password.length < 8) return (error = t('users.errTempPassword'));
     const onlySelected = role === 'viewer' && restricted;
     // Yalnızca sunucu görecek müşteri de olabilir: en az bir monitör veya sunucu yeterli.
-    if (onlySelected && monitorIds.length === 0 && serverIds.length === 0)
+    if (onlySelected && monitorIds.length === 0 && serverIds.length === 0 && tagRules.length === 0)
       return (error = t('users.form.errScope'));
     const body = {
       display_name: displayName.trim(),
@@ -57,6 +60,7 @@
       all_monitors: !onlySelected,
       monitor_ids: onlySelected ? monitorIds : [],
       server_ids: onlySelected ? serverIds : [],
+      tag_rules: onlySelected ? tagRules.map((r) => ({ tag_id: r.tag_id, value: r.value })) : [],
     };
     busy = true;
     try {
@@ -127,6 +131,7 @@
         </label>
         {#if restricted}
           <MonitorPicker bind:selected={monitorIds} label={t('users.form.monitors')} id="uf-mp" />
+          <TagRulePicker bind:rules={tagRules} id="uf-tr" label={t('users.form.tagRules')} help={t('users.form.tagRulesHelp')} />
           <ServerPicker bind:selected={serverIds} label={t('users.form.servers')} id="uf-sp" />
         {/if}
       </div>

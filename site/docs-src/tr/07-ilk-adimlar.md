@@ -123,6 +123,18 @@ Sayfayı `durum.ornek.com` gibi ayrı bir alan adından yayınlamak için sayfan
 
 **Duyurular:** Sayfa düzenleyicisinin altındaki **Duyurular** kartından planlı bakım ya da bilgi notu ekleyin. Duyuru eklerken **Diğer sayfalara da ekle** ile aynı duyurunun kopyasını seçtiğiniz sayfalara ya da tüm sayfalara tek seferde bırakabilirsiniz; kopyalar sonradan her sayfada ayrı düzenlenir.
 
+### Etiket tabanlı kurallar {#etiket-kurallari}
+
+Yüzlerce monitörde "müşteri = X" olanlar aynı kanala gitsin, aynı durum sayfasında görünsün ve o müşterinin hesabına düşsün istiyorsanız monitörleri **etiketleyin** (Ayarlar → Etiketler; monitör formunda etiket ve isteğe bağlı değer) ve etiketi kural olarak kullanın. Üç yerde çalışır:
+
+| Nerede | Nasıl | Ne olur |
+|---|---|---|
+| **Bildirim kanalı** | Kanal penceresinde **Etikete göre bağla**: etiket ve isteğe bağlı değer (boş = etiketin her değeri) | O etiketi taşıyan her monitör (sonradan etiketlenenler dahil) kanalı kendiliğinden kullanır. Monitör formunda bu kanal "etiketle bağlı" olarak işaretli ve kilitli görünür. |
+| **Durum sayfası grubu** | Grup başlığının altındaki **Etikete bağla** | Grup, etiketi taşıyan monitörlerle ada göre dolar (açıkça eklediğiniz monitörler önce, kendi adlarıyla). Sayfanın başka bir grubunda açıkça listelenen monitör etiketle ikinci kez eklenmez. |
+| **Müşteri (kısıtlı izleyici)** | Kullanıcı formunda **Etikete göre görebileceği monitörler** | Kullanıcı, seçtiğiniz monitörlere ek olarak o etiketi taşıyan monitörleri görür; etiketi alan yeni monitör anında hesabına düşer. |
+
+**Öncelik kuralı:** etiket kuralları her zaman **birleşim** olarak uygulanır. Açık seçimler (monitör formundaki kanallar, kullanıcıya seçilen monitörler, gruba eklenen monitörler) hiçbir zaman etiketle silinmez ya da daraltılmaz; etiket yalnızca ekler. Etiket silinirse ona bağlı kurallar da silinir, açık seçimler kalır. Kurallar yedek dosyasında etiket adıyla saklanır ve geri yüklemede yeniden bağlanır.
+
 ## 5. Dil ayarları {#dil}
 
 Bekci'nin arayüzü Türkçe ve İngilizcedir. Üç ayrı dil ayarı vardır:

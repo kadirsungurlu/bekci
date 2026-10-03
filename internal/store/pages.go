@@ -9,15 +9,22 @@ import (
 	"time"
 )
 
-// PageMonitor durum sayfasındaki bir monitör; Name boşsa monitörün kendi adı gösterilir.
+// PageMonitor durum sayfasındaki bir monitör; Name boşsa monitörün kendi adı
+// gösterilir. Auto: etiket kuralıyla geldi (saklanmaz, okunurken hesaplanır).
 type PageMonitor struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
+	Auto bool   `json:"auto,omitempty"`
 }
 
+// PageSection sayfadaki bir grup. TagID > 0 ise grup etikete bağlıdır: o
+// etiketi (TagValue boş değilse o değerle) taşıyan monitörler açıkça
+// eklenenlerin ardına kendiliğinden eklenir (migration 30; tag_rules.go).
 type PageSection struct {
 	Title    string        `json:"title"`
 	Monitors []PageMonitor `json:"monitors"`
+	TagID    int64         `json:"tag_id,omitempty"`
+	TagValue string        `json:"tag_value,omitempty"`
 }
 
 type StatusPage struct {
@@ -99,7 +106,10 @@ func (s *Store) getPage(ctx context.Context, where string, arg any) (StatusPage,
 	if errors.Is(err, sql.ErrNoRows) {
 		return p, ErrNotFound
 	}
-	return p, err
+	if err != nil {
+		return p, err
+	}
+	return p, s.resolveTagSections(ctx, &p)
 }
 
 func (s *Store) GetPage(ctx context.Context, id int64) (StatusPage, error) {
@@ -128,7 +138,16 @@ func (s *Store) ListPages(ctx context.Context) ([]StatusPage, error) {
 		}
 		out = append(out, p)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	for i := range out {
+		if err := s.resolveTagSections(ctx, &out[i]); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 // CustomDomains özel alan adı → sayfa kimliği eşlemesi (istek yönlendirmesi için).
@@ -154,7 +173,7 @@ func (s *Store) CreatePage(ctx context.Context, p *StatusPage) error {
 	now := time.Now().Unix()
 	p.CreatedAt, p.UpdatedAt = now, now
 	p.Layout = NormalizeLayout(p.Layout, p.ShowIncidents)
-	sections, _ := json.Marshal(p.Sections)
+	sections, _ := json.Marshal(ExplicitSections(p.Sections))
 	return s.db.QueryRowContext(ctx, `
 		INSERT INTO status_pages (slug, title, description, footer, sections, custom_domain,
 			password_hash, show_targets, published, created_at, updated_at, bar_range, show_incidents, collapsible, lang, layout,
@@ -171,7 +190,7 @@ func (s *Store) CreatePage(ctx context.Context, p *StatusPage) error {
 func (s *Store) UpdatePage(ctx context.Context, p *StatusPage) error {
 	p.UpdatedAt = time.Now().Unix()
 	p.Layout = NormalizeLayout(p.Layout, p.ShowIncidents)
-	sections, _ := json.Marshal(p.Sections)
+	sections, _ := json.Marshal(ExplicitSections(p.Sections))
 	res, err := s.db.ExecContext(ctx, `
 		UPDATE status_pages SET slug = ?, title = ?, description = ?, footer = ?, sections = ?,
 			custom_domain = ?, password_hash = ?, show_targets = ?, published = ?, updated_at = ?,

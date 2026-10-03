@@ -66,8 +66,9 @@
         role: u.role,
         disabled: !u.disabled,
         all_monitors: u.all_monitors,
-        monitor_ids: u.monitor_ids ?? [],
+        monitor_ids: u.picked_monitor_ids ?? u.monitor_ids ?? [],
         server_ids: u.server_ids ?? [],
+        tag_rules: (u.tag_rules ?? []).map((r) => ({ tag_id: r.tag_id, value: r.value })),
       });
       users = users.map((x) => (x.id === u.id ? res : x));
       toast.success(res.disabled ? t('users.toast.disabled') : t('users.toast.enabled'));

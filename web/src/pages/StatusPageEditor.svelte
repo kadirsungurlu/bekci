@@ -14,16 +14,19 @@
     type PageStyle,
     type PageWidth,
     type StatusPage,
+    type Tag,
   } from '../lib/api';
   import { live } from '../lib/live.svelte';
   import { navigate } from '../lib/router.svelte';
   import { confirmDialog, toast } from '../lib/ui.svelte';
-  import { monitorKind } from '../lib/format';
+  import { collator, monitorKind } from '../lib/format';
   import { session } from '../lib/session.svelte';
   import { guardUnsaved, markInvalid, snapshot } from '../lib/forms';
   import Modal from '../components/Modal.svelte';
   import MonitorPicker from '../components/MonitorPicker.svelte';
   import StatusIcon from '../components/StatusIcon.svelte';
+  import TagRulePicker from '../components/TagRulePicker.svelte';
+  import TagChip from '../components/TagChip.svelte';
   import Icon from '../components/Icon.svelte';
   import CopyButton from '../components/CopyButton.svelte';
   import Announcements from './Announcements.svelte';
@@ -43,7 +46,11 @@
     key: number;
     title: string;
     monitors: EdMonitor[];
+    /** Etikete bağlı grup (0: değil); etiketi taşıyan monitörler kendiliğinden eklenir. */
+    tagId: number;
+    tagValue: string;
   }
+  const newSection = (title = ''): EdSection => ({ key: ++seq, title, monitors: [], tagId: 0, tagValue: '' });
 
   let loading = $state(isEdit);
   let loadError = $state('');
@@ -75,7 +82,7 @@
   let password = $state('');
 
   let seq = 0;
-  let sections = $state<EdSection[]>([{ key: ++seq, title: t('pages.editor.defaultSection'), monitors: [] }]);
+  let sections = $state<EdSection[]>([newSection(t('pages.editor.defaultSection'))]);
 
   const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/;
   const TR: Record<string, string> = { ç: 'c', ğ: 'g', ı: 'i', İ: 'i', ö: 'o', ş: 's', ü: 'u' };
@@ -112,8 +119,15 @@
     published = p.published;
     pwMode = 'keep';
     password = '';
-    sections = p.sections.map((s) => ({ key: ++seq, title: s.title, monitors: s.monitors.map((m) => ({ ...m })) }));
-    if (sections.length === 0) sections = [{ key: ++seq, title: '', monitors: [] }];
+    // Etiketle gelen (auto) monitörler saklanmaz; canlı listeden yeniden hesaplanır.
+    sections = p.sections.map((s) => ({
+      key: ++seq,
+      title: s.title,
+      monitors: s.monitors.filter((m) => !m.auto).map((m) => ({ id: m.id, name: m.name })),
+      tagId: s.tag_id ?? 0,
+      tagValue: s.tag_value ?? '',
+    }));
+    if (sections.length === 0) sections = [newSection()];
   }
 
   onMount(async () => {
@@ -149,17 +163,46 @@
     published,
     pwMode,
     password,
-    sections: sections.map((s) => [s.title.trim(), s.monitors.map((m) => [m.id, m.name.trim()])]),
+    sections: sections.map((s) => [s.title.trim(), s.tagId, s.tagValue, s.monitors.map((m) => [m.id, m.name.trim()])]),
   });
   const resetBaseline = () => (baseline = snapshot(formState()));
   onMount(() => guardUnsaved(() => !saved && !!baseline && !loading && !loadError && snapshot(formState()) !== baseline));
 
   // Gruplar ve monitörler -----------------------------------------------------------------
-  const onPage = $derived(new Set(sections.flatMap((s) => s.monitors.map((m) => m.id))));
+  // Açıkça eklenen monitörler; etikete bağlı gruplara etiketi taşıyanlar (açıkça
+  // listelenmeyenler) ada göre eklenir (sunucudaki resolveTagSections ile aynı kural).
+  const explicit = $derived(new Set(sections.flatMap((s) => s.monitors.map((m) => m.id))));
+  const autoByKey = $derived.by(() => {
+    const out = new Map<number, EdMonitor[]>();
+    const taken = new Set(explicit);
+    for (const s of sections) {
+      if (!s.tagId) continue;
+      const list = live.monitors
+        .filter((m) => !taken.has(m.id) && (m.tags ?? []).some((tg) => tg.id === s.tagId && (!s.tagValue || tg.value === s.tagValue)))
+        .sort((a, b) => collator.compare(a.name, b.name))
+        .map((m) => ({ id: m.id, name: '' }));
+      for (const m of list) taken.add(m.id);
+      out.set(s.key, list);
+    }
+    return out;
+  });
+  const autoOf = (s: EdSection) => autoByKey.get(s.key) ?? [];
+  // Etiket bağı düzenlenen grubun anahtarı (0: yok); etiket adları için liste.
+  let tagEditing = $state(0);
+  let allTags = $state.raw<Tag[]>([]);
+  const tagById = $derived(new Map(allTags.map((x) => [x.id, x])));
+  onMount(() => {
+    api.tags().then((list) => (allTags = list)).catch(() => (allTags = []));
+  });
+  const onPage = $derived(new Set([...explicit, ...[...autoByKey.values()].flat().map((m) => m.id)]));
   const total = $derived(onPage.size);
+  function setSectionTag(si: number, rules: { tag_id: number; value: string }[]) {
+    const r = rules[0];
+    sections = sections.map((s, i) => (i === si ? { ...s, tagId: r?.tag_id ?? 0, tagValue: r?.value ?? '' } : s));
+  }
 
   function addSection() {
-    sections = [...sections, { key: ++seq, title: '', monitors: [] }];
+    sections = [...sections, newSection()];
     tick().then(() => document.getElementById(`sec-${sections[sections.length - 1].key}`)?.focus());
   }
 
@@ -387,8 +430,12 @@
       description: description.trim(),
       footer: footer.trim(),
       sections: sections
-        .filter((s) => s.title.trim() || s.monitors.length)
-        .map((s) => ({ title: s.title.trim(), monitors: s.monitors.map((m) => ({ id: m.id, name: m.name.trim() })) })),
+        .filter((s) => s.title.trim() || s.monitors.length || s.tagId)
+        .map((s) => ({
+          title: s.title.trim(),
+          monitors: s.monitors.map((m) => ({ id: m.id, name: m.name.trim() })),
+          ...(s.tagId ? { tag_id: s.tagId, tag_value: s.tagValue } : {}),
+        })),
       custom_domain: customDomain.trim().toLowerCase(),
       show_targets: showTargets,
       show_incidents: showIncidents,
@@ -497,7 +544,7 @@
     title,
     description,
     footer,
-    sections: sections.map((s) => ({ title: s.title, monitors: s.monitors.map((m) => ({ id: m.id, name: m.name })) })),
+    sections: sections.map((s) => ({ title: s.title, monitors: [...s.monitors, ...autoOf(s)].map((m) => ({ id: m.id, name: m.name })) })),
     layout: {
       style: layout.style,
       width: layout.width,
@@ -655,7 +702,22 @@
             </div>
           </div>
 
-          {#if s.monitors.length === 0}
+          <div class="g-tag">
+            {#if s.tagId}
+              {@const tg = tagById.get(s.tagId)}
+              <span class="g-tag-on">
+                <Icon name="tag" size={14} />
+                <TagChip name={tg?.name ?? `#${s.tagId}`} color={tg?.color ?? ''} value={s.tagValue} onremove={() => setSectionTag(si, [])} />
+                <span class="muted small">{t('pages.editor.tagBound')}</span>
+              </span>
+            {:else if tagEditing === s.key}
+              <TagRulePicker single id="sec-tag-{s.key}" rules={[]} onchange={(r) => { setSectionTag(si, r); tagEditing = 0; }} />
+            {:else}
+              <button type="button" class="btn sm ghost" onclick={() => (tagEditing = s.key)}><Icon name="tag" size={14} /> {t('pages.editor.tagBind')}</button>
+            {/if}
+          </div>
+
+          {#if s.monitors.length === 0 && !s.tagId}
             <div class="g-empty muted small" class:drop-empty={drop?.kind === 'empty' && drop.si === si}>
               {dragging?.kind === 'mon' ? t('pages.layout.dropEmpty') : t('pages.editor.groupEmpty')}
             </div>
@@ -718,6 +780,23 @@
                 </li>
               {/each}
             </ol>
+          {/if}
+          {#if s.tagId}
+            {@const autos = autoOf(s)}
+            {#if autos.length === 0}
+              <div class="g-empty muted small">{t('pages.editor.tagNone')}</div>
+            {:else}
+              <ol class="mons auto">
+                {#each autos as m (m.id)}
+                  {@const mon = live.byId(m.id)}
+                  <li class="mon auto">
+                    {#if mon}<StatusIcon kind={monitorKind(mon)} size={20} />{:else}<span class="ph"></span>{/if}
+                    <span class="m-orig">{mon?.name ?? `#${m.id}`}</span>
+                    <span class="badge">{t('pages.editor.tagAuto')}</span>
+                  </li>
+                {/each}
+              </ol>
+            {/if}
           {/if}
           <button type="button" class="btn sm add" onclick={() => openAdd(si)}><Icon name="plus" size={14} /> {t('pages.editor.addMonitor')}</button>
         </div>
@@ -1366,6 +1445,26 @@
   }
   .g-empty {
     padding: 6px 2px;
+  }
+  .g-tag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .g-tag-on {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    color: var(--muted);
+  }
+  .mon.auto {
+    border-style: dashed;
+    padding-right: 12px;
+  }
+  .mon.auto .m-orig {
+    flex: 1;
   }
   .mons {
     list-style: none;

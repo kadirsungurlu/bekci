@@ -293,6 +293,8 @@ export default {
     noChannels:
       'No notification channels yet. You can add one (WhatsApp, Telegram, email and more) on the {link} page.',
     notifyHelp: 'When this monitor goes down and recovers, the selected channels are notified.',
+    viaTag: 'attached by tag',
+    viaTagHelp: 'This channel is attached through the monitor’s tag; manage it in the channel’s rules.',
     isDefault: 'default',
     tagValuePh: 'e.g. production',
     tagValueAria: '{name} value (optional)',

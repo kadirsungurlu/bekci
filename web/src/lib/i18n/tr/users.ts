@@ -66,7 +66,7 @@ export default {
     addTitle: 'Kullanıcı ekle',
     errUsername: 'Kullanıcı adı 3-32 karakter olmalı; harf, rakam, nokta, tire ve alt çizgi kullanılabilir.',
     errDisplayName: 'Görünen ad en fazla 100 karakter olabilir.',
-    errScope: 'Müşteri erişimi için en az bir monitör veya sunucu seçin.',
+    errScope: 'Müşteri erişimi için en az bir monitör, sunucu ya da etiket kuralı seçin.',
     usernameFixed: 'Kullanıcı adı değiştirilemez.',
     usernamePlaceholder: 'ör. ayse.yilmaz',
     usernameHelp: '3-32 karakter: harf, rakam, nokta, tire, alt çizgi.',
@@ -80,6 +80,8 @@ export default {
       'Kapalıysa tüm monitörleri ve sunucuları görebilir. Açıksa listede, olaylarda ve canlı akışta yalnızca seçtikleriniz görünür; sunucu seçilmezse Sunucular sekmesi gizlenir.',
     monitors: 'Görebileceği monitörler',
     servers: 'Görebileceği sunucular',
+    tagRules: 'Etikete göre görebileceği monitörler',
+    tagRulesHelp: 'Bu etiketi taşıyan monitörler (sonradan etiketlenenler dahil) yukarıdaki seçime ek olarak görünür.',
     generate: 'Rastgele oluştur',
     passwordHelp:
       'En az 8 karakter. Kullanıcı ilk girişte bu şifreyi değiştirmek zorunda kalır; şifreyi ona güvenli bir yoldan iletin.',

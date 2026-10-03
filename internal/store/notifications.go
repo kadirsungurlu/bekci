@@ -27,6 +27,11 @@ type Notification struct {
 	EscalateMin int         `json:"escalate_min"`
 	Lang        string      `json:"lang"`
 
+	// TagRules etiket kuralları (migration 30; bkz. tag_rules.go): bu
+	// etiketi (= değeri) taşıyan her monitör için kanal, açık bağlantıya ek
+	// olarak gönderir. Boş liste = yok.
+	TagRules []TagRule `json:"tag_rules"`
+
 	// BindLevel sunucu bağında kanalın alacağı uyarı seviyesi ("" = hepsi,
 	// warning, critical); yalnızca NotificationsForProbe doldurur, saklanmaz.
 	BindLevel string `json:"-"`
@@ -59,19 +64,25 @@ func (s *Store) queryNotifications(ctx context.Context, q string, args ...any) (
 		}
 		out = append(out, n)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	return out, s.attachNotificationTags(ctx, out)
 }
 
 func (s *Store) ListNotifications(ctx context.Context) ([]Notification, error) {
 	return s.queryNotifications(ctx, "SELECT "+notificationCols+" FROM notifications ORDER BY LOWER(name), id")
 }
 
-// NotificationsForMonitor monitöre bağlı ve etkin bildirim kanalları.
+// NotificationsForMonitor monitöre bağlı ve etkin bildirim kanalları: açık
+// bağlantılar ile monitörün etiketlerine uyan etiket kurallarının birleşimi.
 func (s *Store) NotificationsForMonitor(ctx context.Context, monitorID int64) ([]Notification, error) {
 	return s.queryNotifications(ctx, `
 		SELECT `+notificationCols+` FROM notifications
-		WHERE active = 1 AND id IN (SELECT notification_id FROM monitor_notifications WHERE monitor_id = ?)
-		ORDER BY id`, monitorID)
+		WHERE active = 1 AND (id IN (SELECT notification_id FROM monitor_notifications WHERE monitor_id = ?)
+			OR id IN (SELECT r.notification_id FROM notification_tags r JOIN monitor_tags mt ON `+tagRuleCond+` WHERE mt.monitor_id = ?))
+		ORDER BY id`, monitorID, monitorID)
 }
 
 func (s *Store) GetNotification(ctx context.Context, id int64) (Notification, error) {
@@ -80,7 +91,14 @@ func (s *Store) GetNotification(ctx context.Context, id int64) (Notification, er
 	if errors.Is(err, sql.ErrNoRows) {
 		return n, ErrNotFound
 	}
-	return n, err
+	if err != nil {
+		return n, err
+	}
+	list := []Notification{n}
+	if err := s.attachNotificationTags(ctx, list); err != nil {
+		return n, err
+	}
+	return list[0], nil
 }
 
 // CreateNotification kanalı ekler; applyToAll ise mevcut tüm monitörlere bağlar.
@@ -96,6 +114,9 @@ func (s *Store) CreateNotification(ctx context.Context, n *Notification, applyTo
 			n.Name, n.Type, string(n.Config), boolInt(n.IsDefault), boolInt(n.Active), n.CreatedAt, n.UpdatedAt,
 			encodeEvents(n.Events), encodeQuiet(n.Quiet), n.DelayMin, n.EscalateMin, n.Lang)
 		if err != nil {
+			return err
+		}
+		if err := setTagRulesTx(ctx, tx, "notification_tags", "notification_id", n.ID, n.TagRules); err != nil {
 			return err
 		}
 		return applyNotificationToAll(ctx, tx, n.ID, applyToAll)
@@ -116,6 +137,9 @@ func (s *Store) UpdateNotification(ctx context.Context, n *Notification, applyTo
 		}
 		if c, _ := res.RowsAffected(); c == 0 {
 			return ErrNotFound
+		}
+		if err := setTagRulesTx(ctx, tx, "notification_tags", "notification_id", n.ID, n.TagRules); err != nil {
+			return err
 		}
 		return applyNotificationToAll(ctx, tx, n.ID, applyToAll)
 	})

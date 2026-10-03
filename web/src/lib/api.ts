@@ -49,7 +49,11 @@ export interface User {
 /** Kullanıcılar sayfasındaki kayıt (yalnızca yönetici). */
 export interface UserRecord extends User {
   disabled: boolean;
+  /** Görebildiği monitörler (açık seçim + etiket kuralları). */
   monitor_ids: number[] | null;
+  /** Açık seçim ve etiket kuralları (eski sunucuda gelmez → monitor_ids / yok). */
+  picked_monitor_ids?: number[] | null;
+  tag_rules?: TagRule[] | null;
   server_ids?: number[] | null;
   last_login_at: number;
   created_at: number;
@@ -62,6 +66,8 @@ export interface UserInput {
   all_monitors: boolean;
   monitor_ids: number[];
   server_ids: number[];
+  /** Etiket kuralları (açık seçime ek). */
+  tag_rules?: TagRule[];
 }
 
 export interface UserCreateInput extends UserInput {
@@ -181,6 +187,8 @@ export interface MonitorView {
   updated_at: number;
   target: string;
   notification_ids: number[];
+  /** Etiket kuralıyla bağlanan kanallar (gösterim; eski sunucuda gelmez). */
+  tag_notification_ids?: number[];
   uptime_24h: number | null;
   bars: Bucket[];
   in_maintenance?: boolean;
@@ -241,6 +249,15 @@ export interface Tag {
   created_at: number;
   updated_at: number;
   monitor_count: number;
+}
+
+/** Etiket kuralı: "bu etiketi (= değeri) taşıyan monitörler". name/color yalnızca okumada. */
+export interface TagRule {
+  tag_id: number;
+  /** Boş: etiketin her değeri. */
+  value: string;
+  name?: string;
+  color?: string;
 }
 
 /** Monitöre bağlı etiket (id etiketin kimliğidir). */
@@ -733,6 +750,8 @@ export interface NotificationRules {
   escalate_min?: number;
   /** Kanalın bildirim dili; "" = ayarlardaki. */
   lang?: '' | Locale;
+  /** Etiket kuralları: bu etiketi taşıyan monitörlere açık bağlantıya ek olarak gönderir. */
+  tag_rules?: TagRule[] | null;
 }
 
 export interface NotificationChannel extends NotificationRules {
@@ -791,11 +810,16 @@ export interface BeatEvent {
 export interface PageMonitorRef {
   id: number;
   name: string;
+  /** Etiket kuralıyla geldi (saklanmaz; kaydetmede atlanır). */
+  auto?: boolean;
 }
 
 export interface PageSection {
   title: string;
   monitors: PageMonitorRef[];
+  /** Etikete bağlı grup: etiketi (tag_value boş değilse o değerle) taşıyan monitörler kendiliğinden eklenir. */
+  tag_id?: number;
+  tag_value?: string;
 }
 
 export interface StatusPage {

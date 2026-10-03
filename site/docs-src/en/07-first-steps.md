@@ -126,6 +126,18 @@ To publish the page on a separate domain such as `status.example.com`, use the p
 
 **Announcements:** add planned-maintenance or information notes from the **Announcements** card below the page editor. When adding one, **Also add to other pages** drops a copy of the same announcement onto the selected pages or all pages at once; copies are edited separately per page afterwards.
 
+### Tag-based rules {#tag-rules}
+
+With hundreds of monitors you want everything tagged "customer = X" to notify the same channel, appear on the same status page and show up in that customer's account. **Tag** the monitors (Settings → Tags; tag plus optional value in the monitor form) and use the tag as a rule. It works in three places:
+
+| Where | How | Effect |
+|---|---|---|
+| **Notification channel** | **Attach by tag** in the channel dialog: tag and optional value (empty = any value of the tag) | Every monitor carrying the tag (including ones tagged later) uses the channel automatically. The monitor form shows the channel as "attached by tag" and locked. |
+| **Status page group** | **Bind to tag** under the group title | The group fills with the monitors carrying the tag, sorted by name (monitors you added explicitly come first, with their custom names). A monitor listed explicitly in another group of the page is not added a second time. |
+| **Customer (restricted viewer)** | **Visible monitors by tag** in the user form | The user sees the monitors you picked plus every monitor carrying the tag; a newly tagged monitor appears in the account immediately. |
+
+**Precedence:** tag rules are always applied as a **union**. Explicit selections (channels in the monitor form, monitors picked for a user, monitors added to a group) are never removed or narrowed by a tag; a tag only adds. Deleting a tag deletes the rules bound to it while explicit selections stay. Rules are stored in the backup file by tag name and re-bound on restore.
+
 ## 5. Language settings {#language}
 
 Bekci's interface is available in English and Turkish. There are three separate language settings:

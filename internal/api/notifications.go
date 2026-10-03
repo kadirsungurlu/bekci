@@ -84,6 +84,9 @@ type notificationInput struct {
 	DelayMin    int               `json:"delay_min"`
 	EscalateMin int               `json:"escalate_min"`
 	Lang        string            `json:"lang"`
+	// TagRules etiket kuralları: bu etiketi (= değeri) taşıyan her monitöre
+	// açık bağlantıya ek olarak gönderir (yok/null = kural yok; tag_rules.go).
+	TagRules []store.TagRule `json:"tag_rules"`
 }
 
 // Kural sınırları (dakika).
@@ -189,11 +192,16 @@ func (s *Server) createNotification(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if n.TagRules, err = s.normalizeTagRules(r.Context(), in.TagRules); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err := s.store.CreateNotification(r.Context(), &n, in.ApplyExisting); err != nil {
 		s.dbError(w, err)
 		return
 	}
-	s.audit(r, store.User{}, "notification.create", "notification", n.ID, n.Name, n.Type)
+	n, _ = s.store.GetNotification(r.Context(), n.ID) // etiket adlarıyla
+	s.audit(r, store.User{}, "notification.create", "notification", n.ID, n.Name, joinDetail(n.Type, tagRulesDetail(n.TagRules)))
 	writeJSON(w, http.StatusCreated, masked(n))
 }
 
@@ -225,11 +233,18 @@ func (s *Server) updateNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	n.ID, n.CreatedAt = id, old.CreatedAt
+	if in.TagRules == nil {
+		n.TagRules = old.TagRules // eski istemci: kurallar değişmez
+	} else if n.TagRules, err = s.normalizeTagRules(r.Context(), in.TagRules); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err := s.store.UpdateNotification(r.Context(), &n, in.ApplyExisting); err != nil {
 		s.dbError(w, err)
 		return
 	}
-	s.audit(r, store.User{}, "notification.update", "notification", n.ID, n.Name, n.Type)
+	n, _ = s.store.GetNotification(r.Context(), n.ID)
+	s.audit(r, store.User{}, "notification.update", "notification", n.ID, n.Name, joinDetail(n.Type, tagRulesDetail(n.TagRules)))
 	writeJSON(w, http.StatusOK, masked(n))
 }
 

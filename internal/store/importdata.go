@@ -34,12 +34,20 @@ type ImportMonitor struct {
 	Tags          []ImportTagRef
 }
 
+// ImportNotification kanal ve etiket kuralları (etiketler ImportRef ile).
+type ImportNotification struct {
+	Notification Notification
+	TagRules     []ImportTagRef
+}
+
 // ImportPage bölümlerindeki monitör kimlikleri dosya kimlikleridir.
+// SectionTags: bölüm sırası → etiket kuralı (etikete bağlı gruplar).
 type ImportPage struct {
 	Page          StatusPage
 	Logo          []byte
 	LogoType      string
 	Announcements []Announcement
+	SectionTags   map[int]ImportTagRef
 }
 
 type ImportData struct {
@@ -47,8 +55,10 @@ type ImportData struct {
 	Settings      *AppSettings // nil değilse kaydedilir
 	Tags          []Tag
 	Notifications []Notification
-	Monitors      []ImportMonitor
-	Pages         []ImportPage
+	// NotificationTags Notifications ile aynı sırada etiket kuralları (yoksa nil).
+	NotificationTags [][]ImportTagRef
+	Monitors         []ImportMonitor
+	Pages            []ImportPage
 	// KnownMonitors dosya kimliği → zaten var olan monitör (birleştirmede
 	// kopya olduğu için eklenmeyenler); durum sayfaları ve gruplar bunlara bağlanır.
 	KnownMonitors map[int64]int64
@@ -135,6 +145,18 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 			}
 			return r.ID
 		}
+		for i, rules := range d.NotificationTags {
+			if i >= len(notifIDs) || len(rules) == 0 {
+				continue
+			}
+			tr := make([]TagRule, 0, len(rules))
+			for _, r := range rules {
+				tr = append(tr, TagRule{TagID: resolve(r.Tag, tagIDs), Value: r.Value})
+			}
+			if err := setTagRulesTx(ctx, tx, "notification_tags", "notification_id", notifIDs[i], tr); err != nil {
+				return err
+			}
+		}
 
 		for fileID, id := range d.KnownMonitors {
 			res.IDMap[fileID] = id
@@ -187,14 +209,18 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 		for _, ip := range d.Pages {
 			p := ip.Page
 			sections := make([]PageSection, 0, len(p.Sections))
-			for _, sec := range p.Sections {
+			for si, sec := range p.Sections {
 				ms := make([]PageMonitor, 0, len(sec.Monitors))
 				for _, pm := range sec.Monitors {
 					if id, ok := res.IDMap[pm.ID]; ok {
 						ms = append(ms, PageMonitor{ID: id, Name: pm.Name})
 					}
 				}
-				sections = append(sections, PageSection{Title: sec.Title, Monitors: ms})
+				ns := PageSection{Title: sec.Title, Monitors: ms}
+				if ref, ok := ip.SectionTags[si]; ok {
+					ns.TagID, ns.TagValue = resolve(ref.Tag, tagIDs), ref.Value
+				}
+				sections = append(sections, ns)
 			}
 			sj, _ := json.Marshal(sections)
 			var logo any

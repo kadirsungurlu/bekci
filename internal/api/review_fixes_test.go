@@ -328,7 +328,7 @@ func TestImportDropsSelfCustomDomain(t *testing.T) {
 	e.mustDo("GET", "/api/monitors", nil, nil, 200)
 
 	// İsteğin geldiği adres de (BASE_URL boşken) reddedilir.
-	_, it := planPage(backup.Page{Slug: "x", Title: "X", CustomDomain: "panel.ornek.com"}, nil, map[string]bool{}, map[string]bool{}, map[string]bool{"panel.ornek.com": true})
+	_, it := planPage(backup.Page{Slug: "x", Title: "X", CustomDomain: "panel.ornek.com"}, nil, map[string]bool{}, map[string]bool{}, map[string]bool{"panel.ornek.com": true}, nil)
 	if !strings.Contains(strings.Join(it.Messages, " "), "kendi adresi olamaz") {
 		t.Errorf("istek adresi: %+v", it)
 	}

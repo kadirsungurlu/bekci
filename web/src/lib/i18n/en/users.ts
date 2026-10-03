@@ -67,7 +67,7 @@ export default {
     addTitle: 'Add user',
     errUsername: 'Username must be 3-32 characters; letters, digits, dots, hyphens and underscores are allowed.',
     errDisplayName: 'Display name can be at most 100 characters.',
-    errScope: 'Select at least one monitor or server for customer access.',
+    errScope: 'Pick at least one monitor, server or tag rule for customer access.',
     usernameFixed: "Username can't be changed.",
     usernamePlaceholder: 'e.g. jane.doe',
     usernameHelp: '3-32 characters: letters, digits, dots, hyphens, underscores.',
@@ -81,6 +81,8 @@ export default {
       'When off, the user can see all monitors and servers. When on, only your selections appear in lists, incidents and the live feed; if no server is selected, the Servers tab is hidden.',
     monitors: 'Visible monitors',
     servers: 'Visible servers',
+    tagRules: 'Visible monitors by tag',
+    tagRulesHelp: 'Monitors carrying this tag (including ones tagged later) are visible in addition to the selection above.',
     generate: 'Generate',
     passwordHelp:
       'At least 8 characters. The user must change this password at first sign-in; share it with them through a secure channel.',

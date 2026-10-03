@@ -92,10 +92,18 @@ func (s *Server) buildExport(ctx context.Context) (*backup.Doc, error) {
 	for _, n := range notifs {
 		name := backup.UniqueName(n.Name, used)
 		notifName[n.ID] = name
-		doc.Notifications = append(doc.Notifications, backup.Notification{
+		bn := backup.Notification{
 			Name: name, Type: n.Type, Config: n.Config, IsDefault: n.IsDefault, Active: n.Active,
 			Events: n.Events, QuietHours: n.Quiet, DelayMin: n.DelayMin, EscalateMin: n.EscalateMin, Lang: n.Lang,
-		})
+		}
+		for _, r := range n.TagRules {
+			bn.TagRules = append(bn.TagRules, backup.TagRule{Name: r.Name, Value: r.Value})
+		}
+		doc.Notifications = append(doc.Notifications, bn)
+	}
+	tagName := map[int64]string{}
+	for _, t := range tags {
+		tagName[t.ID] = t.Name
 	}
 
 	links, err := s.store.MonitorNotificationIDs(ctx)
@@ -152,7 +160,15 @@ func (s *Server) buildExport(ctx context.Context) (*backup.Doc, error) {
 		bp.Layout = &bl
 		for _, sec := range p.Sections {
 			bs := backup.PageSection{Title: sec.Title, Monitors: []backup.PageMonitor{}}
+			if sec.TagID > 0 {
+				if name, ok := tagName[sec.TagID]; ok {
+					bs.Tag = &backup.TagRule{Name: name, Value: sec.TagValue}
+				}
+			}
 			for _, pm := range sec.Monitors {
+				if pm.Auto {
+					continue // etiketle gelen; geri yüklenirken yeniden hesaplanır
+				}
 				bs.Monitors = append(bs.Monitors, backup.PageMonitor{MonitorID: pm.ID, Name: pm.Name})
 			}
 			bp.Sections = append(bp.Sections, bs)
@@ -401,7 +417,22 @@ func (s *Server) planImport(ctx context.Context, conv *backup.Result, replace bo
 			ref = store.Existing(id)
 			it.Result, it.Messages = "existing", append(it.Messages, "Aynı ad ve türde bir kanal zaten var; o kullanıldı")
 		} else {
+			var rules []store.ImportTagRef
+			for _, tr := range bn.TagRules {
+				tref, err := addTag(tr.Name, "", false)
+				if err != nil {
+					it.Messages = append(it.Messages, fmt.Sprintf("Etiket kuralı “%s” eklenemedi: %v", tr.Name, err))
+					continue
+				}
+				v, err := normalizeTagValue(tr.Value)
+				if err != nil {
+					it.Messages = append(it.Messages, fmt.Sprintf("Etiket kuralı “%s”: %v", tr.Name, err))
+					continue
+				}
+				rules = append(rules, store.ImportTagRef{Tag: tref, Value: v})
+			}
 			pl.data.Notifications = append(pl.data.Notifications, n)
+			pl.data.NotificationTags = append(pl.data.NotificationTags, rules)
 			ref = store.NewRef(len(pl.data.Notifications) - 1)
 			it.Result = "created"
 		}
@@ -561,8 +592,19 @@ func (s *Server) planImport(ctx context.Context, conv *backup.Result, replace bo
 	if b := s.baseHost(); b != "" {
 		selfHosts[b] = true
 	}
+	tagRef := func(name, value string) (store.ImportTagRef, error) {
+		ref, err := addTag(name, "", false)
+		if err != nil {
+			return store.ImportTagRef{}, err
+		}
+		v, err := normalizeTagValue(value)
+		if err != nil {
+			return store.ImportTagRef{}, err
+		}
+		return store.ImportTagRef{Tag: ref, Value: v}, nil
+	}
 	for _, bp := range doc.StatusPages {
-		ip, it := planPage(bp, known, slugs, domains, selfHosts)
+		ip, it := planPage(bp, known, slugs, domains, selfHosts, tagRef)
 		if it.Result == "created" {
 			pl.data.Pages = append(pl.data.Pages, ip)
 		}
@@ -648,7 +690,8 @@ func importHostnameOK(h string) bool {
 
 // planPage durum sayfasını doğrular; çakışmaları ve bulunamayan monitörleri not eder.
 // known: içe aktarılan veya zaten var olan monitörlerin dosya kimlikleri.
-func planPage(bp backup.Page, known map[int64]bool, slugs, domains, selfHosts map[string]bool) (store.ImportPage, importItem) {
+func planPage(bp backup.Page, known map[int64]bool, slugs, domains, selfHosts map[string]bool,
+	tagRef func(name, value string) (store.ImportTagRef, error)) (store.ImportPage, importItem) {
 	it := importItem{Kind: "status_page", Name: strings.TrimSpace(bp.Title)}
 	skip := func(msg string) (store.ImportPage, importItem) {
 		it.Result, it.Messages = "skipped", append(it.Messages, msg)
@@ -708,12 +751,20 @@ func planPage(bp backup.Page, known map[int64]bool, slugs, domains, selfHosts ma
 	}
 	missing, total := 0, 0
 	seen := map[int64]bool{}
+	sectionTags := map[int]store.ImportTagRef{}
 	for i, sec := range bp.Sections {
 		if i >= maxImportSections {
 			it.Messages = append(it.Messages, fmt.Sprintf("En fazla %d grup aktarıldı", maxImportSections))
 			break
 		}
 		ps := store.PageSection{Title: strings.TrimSpace(sec.Title), Monitors: []store.PageMonitor{}}
+		if sec.Tag != nil && tagRef != nil {
+			if ref, err := tagRef(sec.Tag.Name, sec.Tag.Value); err == nil {
+				sectionTags[len(p.Sections)] = ref
+			} else {
+				it.Messages = append(it.Messages, fmt.Sprintf("Grup etiketi “%s” eklenemedi: %v", sec.Tag.Name, err))
+			}
+		}
 		if runeLen(ps.Title) > 100 {
 			ps.Title = string([]rune(ps.Title)[:100])
 		}
@@ -738,7 +789,7 @@ func planPage(bp backup.Page, known map[int64]bool, slugs, domains, selfHosts ma
 	if missing > 0 {
 		it.Messages = append(it.Messages, fmt.Sprintf("%d monitör içe aktarılmadığı için sayfadan çıkarıldı", missing))
 	}
-	ip := store.ImportPage{Page: p}
+	ip := store.ImportPage{Page: p, SectionTags: sectionTags}
 	if len(bp.Logo) > 0 {
 		if importLogoTypes[bp.LogoType] && len(bp.Logo) <= maxImportLogoBytes {
 			ip.Logo, ip.LogoType = bp.Logo, bp.LogoType

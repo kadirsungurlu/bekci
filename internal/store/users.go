@@ -31,20 +31,25 @@ func RoleRank(role string) int {
 var ErrLastAdmin = errors.New("son aktif yönetici")
 
 type User struct {
-	ID                 int64   `json:"id"`
-	Username           string  `json:"username"`
-	DisplayName        string  `json:"display_name"`
-	Role               string  `json:"role"`
-	Disabled           bool    `json:"disabled"`
-	MustChangePassword bool    `json:"must_change_password"`
-	AllMonitors        bool    `json:"all_monitors"` // false: sadece MonitorIDs (izleyici/müşteri)
-	MonitorIDs         []int64 `json:"monitor_ids"`
-	ServerIDs          []int64 `json:"server_ids"` // kısıtlıysa görebileceği sunucular (user_servers.go)
-	LastLoginAt        int64   `json:"last_login_at"`
-	CreatedAt          int64   `json:"created_at"`
-	TwoFactorEnabled   bool    `json:"two_factor_enabled"` // TOTP (migration 6, twofactor.go)
-	Lang               string  `json:"lang"`               // arayüz dili; "" = tarayıcı dili (migration 16)
-	PasswordHash       string  `json:"-"`
+	ID                 int64  `json:"id"`
+	Username           string `json:"username"`
+	DisplayName        string `json:"display_name"`
+	Role               string `json:"role"`
+	Disabled           bool   `json:"disabled"`
+	MustChangePassword bool   `json:"must_change_password"`
+	AllMonitors        bool   `json:"all_monitors"` // false: sadece MonitorIDs (izleyici/müşteri)
+	// MonitorIDs kısıtlı kullanıcının GÖREBİLDİĞİ monitörler: açık seçim
+	// (PickedMonitorIDs) ile etiket kurallarına (TagRules) uyan monitörlerin
+	// birleşimi. Düzenlemede açık seçim ve kurallar ayrı gönderilir.
+	MonitorIDs       []int64   `json:"monitor_ids"`
+	PickedMonitorIDs []int64   `json:"picked_monitor_ids"`
+	TagRules         []TagRule `json:"tag_rules"`
+	ServerIDs        []int64   `json:"server_ids"` // kısıtlıysa görebileceği sunucular (user_servers.go)
+	LastLoginAt      int64     `json:"last_login_at"`
+	CreatedAt        int64     `json:"created_at"`
+	TwoFactorEnabled bool      `json:"two_factor_enabled"` // TOTP (migration 6, twofactor.go)
+	Lang             string    `json:"lang"`               // arayüz dili; "" = tarayıcı dili (migration 16)
+	PasswordHash     string    `json:"-"`
 	// APIKeyName istek bir API anahtarıyla yetkilendirildiyse anahtarın adı
 	// (yalnızca istek süresince; işlem kaydına yazılır). Saklanmaz.
 	APIKeyName string `json:"-"`
@@ -63,8 +68,25 @@ func scanUserRow(sc scanner) (User, error) {
 	err := sc.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role, &u.Disabled,
 		&u.MustChangePassword, &u.AllMonitors, &lastLogin, &u.CreatedAt, &u.PasswordHash, &u.TwoFactorEnabled, &u.Lang)
 	u.LastLoginAt = lastLogin.Int64
-	u.MonitorIDs, u.ServerIDs = []int64{}, []int64{}
+	u.MonitorIDs, u.PickedMonitorIDs, u.ServerIDs, u.TagRules = []int64{}, []int64{}, []int64{}, []TagRule{}
 	return u, err
+}
+
+// loadRestriction kısıtlı kullanıcının açık monitör seçimini, etiket
+// kurallarını, bunların birleşimini ve sunucularını doldurur.
+func (s *Store) loadRestriction(ctx context.Context, u *User) error {
+	var err error
+	if u.PickedMonitorIDs, err = s.userMonitorIDs(ctx, u.ID); err != nil {
+		return err
+	}
+	if u.TagRules, err = s.userTagRules(ctx, u.ID); err != nil {
+		return err
+	}
+	if u.MonitorIDs, err = s.effectiveMonitorIDs(ctx, u.PickedMonitorIDs, u.TagRules); err != nil {
+		return err
+	}
+	u.ServerIDs, err = s.userServerIDs(ctx, u.ID)
+	return err
 }
 
 func (s *Store) scanUser(ctx context.Context, row *sql.Row) (User, error) {
@@ -76,10 +98,7 @@ func (s *Store) scanUser(ctx context.Context, row *sql.Row) (User, error) {
 		return u, err
 	}
 	if u.Restricted() {
-		if u.MonitorIDs, err = s.userMonitorIDs(ctx, u.ID); err != nil {
-			return u, err
-		}
-		u.ServerIDs, err = s.userServerIDs(ctx, u.ID)
+		err = s.loadRestriction(ctx, &u)
 	}
 	return u, err
 }
@@ -157,10 +176,7 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 	rows.Close()
 	for i := range out {
 		if out[i].Restricted() {
-			if out[i].MonitorIDs, err = s.userMonitorIDs(ctx, out[i].ID); err != nil {
-				return nil, err
-			}
-			if out[i].ServerIDs, err = s.userServerIDs(ctx, out[i].ID); err != nil {
+			if err := s.loadRestriction(ctx, &out[i]); err != nil {
 				return nil, err
 			}
 		}
@@ -185,11 +201,15 @@ func (s *Store) CreateUser(ctx context.Context, u *User, hash string) error {
 		if err := setUserMonitors(ctx, tx, u.ID, u.MonitorIDs); err != nil {
 			return err
 		}
+		if err := setTagRulesTx(ctx, tx, "user_tags", "user_id", u.ID, u.TagRules); err != nil {
+			return err
+		}
 		return setUserServers(ctx, tx, u.ID, u.ServerIDs)
 	})
 }
 
-// UpdateUser ad, rol, durum ve monitör kısıtını günceller. Değişiklik sonunda
+// UpdateUser ad, rol, durum ve monitör kısıtını günceller. MonitorIDs burada
+// AÇIK seçimdir (etiketle gelenler yazılmaz; TagRules ayrı saklanır). Değişiklik sonunda
 // hiç aktif yönetici kalmayacaksa ErrLastAdmin döner ve hiçbir şey yazılmaz.
 // Devre dışı bırakılan kullanıcının oturumları aynı işlemde kapanır.
 func (s *Store) UpdateUser(ctx context.Context, u *User) error {
@@ -212,6 +232,9 @@ func (s *Store) UpdateUser(ctx context.Context, u *User) error {
 			}
 		}
 		if err := setUserMonitors(ctx, tx, u.ID, u.MonitorIDs); err != nil {
+			return err
+		}
+		if err := setTagRulesTx(ctx, tx, "user_tags", "user_id", u.ID, u.TagRules); err != nil {
 			return err
 		}
 		return setUserServers(ctx, tx, u.ID, u.ServerIDs)
