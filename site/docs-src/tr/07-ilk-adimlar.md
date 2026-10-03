@@ -145,6 +145,8 @@ Bekci'nin arayüzü Türkçe ve İngilizcedir. Üç ayrı dil ayarı vardır:
 | Durum sayfası dili | Durum sayfası düzenleyicisinde **Sayfa dili** | O sayfanın ziyaretçilerini (durum metinleri, tarihler, süreler) |
 | Bildirim dili | **Ayarlar → Genel → Bildirim dili** | Tüm kanallara giden bildirim mesajlarını |
 
+**Tema:** panel varsayılan olarak cihazınızın açık/koyu ayarını izler. **Ayarlar → Hesabım → Tema** ile açık ya da koyu temayı sabitleyebilir, kenar çubuğundaki (telefonda **Daha fazla** menüsündeki) güneş/ay düğmesiyle anında değiştirebilirsiniz; tercih hesabınızda saklanır. Herkese açık durum sayfaları ziyaretçinin cihaz ayarını izler, panel temasından etkilenmez.
+
 ## 6. Telefonunuza ekleyin {#telefon}
 
 Bekci'yi telefonunuza bir uygulama gibi ekleyebilirsiniz; mağazadan bir şey indirmeniz gerekmez:

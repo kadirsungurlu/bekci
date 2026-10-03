@@ -52,6 +52,16 @@ export default {
     unknownDevice: 'Cihaz',
     channelHint: 'Hangi monitörlerin ve olay türlerinin geleceği kanalın monitör bağlantıları ve kurallarıyla belirlenir; sessiz saatler ve gecikme kuralları burada da geçerlidir.',
   },
+  theme: {
+    title: 'Tema',
+    system: 'Sistem (cihazın ayarı)',
+    light: 'Açık',
+    dark: 'Koyu',
+    help: 'Hesabınızla giriş yaptığınız her cihazda geçerlidir; kenar çubuğundaki düğmeyle de hızlıca değiştirebilirsiniz.',
+    saved: 'Tema kaydedildi',
+    toLight: 'Açık temaya geç',
+    toDark: 'Koyu temaya geç',
+  },
   language: {
     title: 'Dil',
     label: 'Arayüz dili',

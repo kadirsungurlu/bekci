@@ -148,6 +148,8 @@ Bekci's interface is available in English and Turkish. There are three separate 
 | Status page language | **Page language** in the status page editor | Visitors of that page (status texts, dates, durations) |
 | Notification language | **Settings → General → Notification language** | All notification messages sent to every channel |
 
+**Theme:** by default the panel follows your device's light/dark setting. **Settings → My account → Theme** pins the light or dark theme, and the sun/moon button in the sidebar (in the **More** menu on a phone) switches it instantly; the preference is stored with your account. Public status pages follow the visitor's device setting and are not affected by the panel theme.
+
 ## 6. Add it to your phone {#phone}
 
 You can add Bekci to your phone like an app; there's nothing to download from a store:

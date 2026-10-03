@@ -54,6 +54,16 @@ export default {
     unknownDevice: 'Device',
     channelHint: 'Which monitors and event types arrive is decided by the channel’s monitor links and rules; quiet hours and delay rules apply here too.',
   },
+  theme: {
+    title: 'Theme',
+    system: 'System (device setting)',
+    light: 'Light',
+    dark: 'Dark',
+    help: 'Applies on every device you sign in with; the button in the sidebar switches it quickly too.',
+    saved: 'Theme saved',
+    toLight: 'Switch to light theme',
+    toDark: 'Switch to dark theme',
+  },
   language: {
     title: 'Language',
     label: 'Interface language',

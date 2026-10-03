@@ -1,5 +1,6 @@
-/* Tema renkleri. Açık tema eklemek için yalnızca bu değişkenleri
-   [data-theme="light"] altında yeniden tanımlamak yeterli. */
+/* Tema renkleri. Koyu tema :root'ta; açık tema :root[data-theme="light"]
+   altında (herkese açık sayfanın .pub-light paletiyle ortak blok, aşağıda).
+   Tercih lib/theme.svelte.ts tarafından kök öğeye yazılır. */
 :root {
   --bg: #0c1017;
   --bg-elev: #0e1219;
@@ -70,6 +71,8 @@
   --tabbar-bg: rgba(14, 18, 25, 0.96);
   --overlay: rgba(3, 5, 9, 0.72);
   --tip-bg: #0a0d13; /* ipucu ve toast zemini */
+  --tip-text: #f1f5fa; /* ipucu metni (açık temada da koyu zemin) */
+  --tip-text-2: #aab4c4;
   --spinner-track: rgba(255, 255, 255, 0.25);
   --auth-glow-1: rgba(16, 185, 129, 0.08);
   --auth-glow-2: rgba(34, 211, 238, 0.06);
@@ -1005,7 +1008,7 @@ input[type='search'].input::-webkit-search-decoration {
   pointer-events: none;
   background: var(--tip-bg);
   border: 1px solid var(--border-strong);
-  color: var(--text);
+  color: var(--tip-text);
   font-size: 0.8rem;
   line-height: 1.4;
   padding: 7px 10px;
@@ -1041,6 +1044,37 @@ input[type='search'].input::-webkit-search-decoration {
   }
 }
 
+/* Açık tema (panel): aynı zümrüt vurgu, açık zeminler; AA kontrast (metin
+   ≥ 4,5:1, büyük/ikincil ≥ 3:1). Paletin durum/vurgu bölümü herkese açık
+   sayfanın .pub-light bloğuyla ortaktır (aşağıda); burada yalnızca panele
+   özgü yüzeyler (kenar çubuğu, üst çubuk, kaplamalar) var. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #e3e8ef;
+  --sidebar-active: rgba(5, 150, 105, 0.1);
+  --sidebar-active-border: rgba(5, 150, 105, 0.3);
+  --sidebar-hover: rgba(15, 27, 45, 0.05);
+  --topbar-bg: #ffffff;
+  --tabbar-bg: rgba(255, 255, 255, 0.96);
+  --overlay: rgba(15, 27, 45, 0.45);
+  --spinner-track: rgba(15, 27, 45, 0.15);
+  --auth-glow-1: rgba(5, 150, 105, 0.1);
+  --auth-glow-2: rgba(8, 145, 178, 0.08);
+  --tag-swatch-ring: rgba(15, 27, 45, 0.55);
+  --tag-x-hover: rgba(0, 0, 0, 0.12);
+  --progress-track: #e6ebf2;
+  --up-ring: rgba(5, 150, 105, 0.18);
+  --on-up: #ffffff;
+  --on-down: #ffffff;
+  --on-pending: #2b2200;
+  --on-paused: #ffffff;
+  --on-maint: #ffffff;
+  --paused-text: #4b5563;
+  --warn: #ea580c;
+  --warn-text: #c2410c;
+}
+
 /* Herkese açık durum sayfası: müşteriye dönük olduğu için sistem temasını izler
    (PublicStatus sayfanın köküne .pub-light koyar; düzenleyicideki canlı önizleme
    temayı kendisi seçer). Koyu temada yönetim panelinin lacivert tonları ve
@@ -1055,7 +1089,8 @@ input[type='search'].input::-webkit-search-decoration {
   --pub-hero-sub: rgba(243, 246, 251, 0.78);
   --pub-hero-ic: rgba(255, 255, 255, 0.16);
 }
-.pub-light {
+.pub-light,
+:root[data-theme="light"] {
   color-scheme: light;
   --bg: #f4f6fa;
   --bg-elev: #ffffff;

@@ -4,6 +4,7 @@
   import { tOr } from '../lib/i18n';
   import Icon from '../components/Icon.svelte';
   import LangSwitch from '../components/LangSwitch.svelte';
+  import ThemeToggle from '../components/ThemeToggle.svelte';
   import { t } from '../lib/i18n';
   import { APP_NAME } from '../lib/brand';
 
@@ -330,10 +331,16 @@
       {/if}
     </form>
   {/if}
-  <LangSwitch />
+  <div class="tools"><ThemeToggle /><LangSwitch /></div>
 </div>
 
 <style>
+  .tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+  }
   .wrap {
     min-height: 100vh;
     min-height: 100dvh;

@@ -9,6 +9,26 @@
   import { guardUnsaved } from '../../lib/forms';
   import ApiKeys from './ApiKeys.svelte';
   import PushDevices from '../../components/PushDevices.svelte';
+  import { theme, type ThemePref } from '../../lib/theme.svelte';
+
+  // Tema tercihi: hesapta saklanır (her cihazda geçerli) ve bu cihaza da yazılır.
+  let themeBusy = $state(false);
+  async function changeTheme(e: Event) {
+    const v = (e.currentTarget as HTMLSelectElement).value as ThemePref;
+    const prev = theme.pref;
+    theme.set(v);
+    themeBusy = true;
+    try {
+      const res = await api.setPreferences({ theme: v });
+      session.set(res.user);
+      toast.success(t('account.theme.saved'));
+    } catch (err) {
+      theme.set(prev);
+      toast.error(errorMessage(err));
+    } finally {
+      themeBusy = false;
+    }
+  }
   import Modal from '../../components/Modal.svelte';
   import Icon from '../../components/Icon.svelte';
 
@@ -140,6 +160,15 @@
         {/each}
       </select>
       <span class="help">{t('account.language.help')}</span>
+    </div>
+    <div class="field">
+      <label for="ui-theme">{t('account.theme.title')}</label>
+      <select id="ui-theme" class="input" value={theme.pref} onchange={changeTheme} disabled={themeBusy}>
+        <option value="">{t('account.theme.system')}</option>
+        <option value="light">{t('account.theme.light')}</option>
+        <option value="dark">{t('account.theme.dark')}</option>
+      </select>
+      <span class="help">{t('account.theme.help')}</span>
     </div>
   </div>
   <TwoFactor />

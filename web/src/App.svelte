@@ -8,6 +8,8 @@
   import { ROLE_LABELS, session } from './lib/session.svelte';
   import { toast } from './lib/ui.svelte';
   import { pwa, stripAppManifest } from './lib/pwa.svelte';
+  import { isThemePref, theme } from './lib/theme.svelte';
+  import ThemeToggle from './components/ThemeToggle.svelte';
   import { deviceLocale, isLocale, setLocale, t } from './lib/i18n';
   import { APP_NAME } from './lib/brand';
   import Icon, { type IconName } from './components/Icon.svelte';
@@ -48,6 +50,7 @@
     if (fromPath !== null) {
       publicSlug = fromPath;
       phase = 'public';
+      theme.suspend(true); // herkese açık sayfa kendi (sistem) temasını kullanır
       stripAppManifest();
       return;
     }
@@ -56,12 +59,14 @@
       if (r.slug) {
         publicSlug = r.slug;
         phase = 'public';
+        theme.suspend(true);
         stripAppManifest();
         return;
       }
     } catch {
       /* eski sunucu veya ağ hatası: yönetim paneliyle devam */
     }
+    theme.suspend(false);
     // Yönetim paneli: ana ekran uygulaması için servis çalışanı (yalnızca derlenmiş sürüm).
     pwa.register();
     try {
@@ -79,8 +84,9 @@
 
   function enter(u: User) {
     // Hesapta dil tercihi varsa o (bu cihazda hatırlanmaz); yoksa cihazın dili
-    // (giriş ekranında seçilen veya tarayıcı dili).
+    // (giriş ekranında seçilen veya tarayıcı dili). Tema da aynı kural.
     setLocale(isLocale(u.lang) ? u.lang : deviceLocale(), false);
+    if (isThemePref(u.theme) && u.theme) theme.set(u.theme, false);
     session.set(u);
     if (u.must_change_password) {
       live.stop();
@@ -363,7 +369,7 @@
         </a>
         <div class="foot-row">
           <button class="logout" onclick={logout}><Icon name="logout" size={16} /> {t('common.logout')}</button>
-          <LangSwitch />
+          <span class="foot-tools"><ThemeToggle /><LangSwitch /></span>
         </div>
       </div>
     </aside>
@@ -568,6 +574,11 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+  }
+  .foot-tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
   .side-foot {
     margin-top: auto;

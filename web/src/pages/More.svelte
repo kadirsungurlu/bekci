@@ -1,5 +1,6 @@
 <script lang="ts">
   import LangSwitch from '../components/LangSwitch.svelte';
+  import ThemeToggle from '../components/ThemeToggle.svelte';
   // Mobil "Daha fazla" menüsü: sekme çubuğuna sığmayan bölümler.
   import { ROLE_LABELS, session } from '../lib/session.svelte';
   import Icon, { type IconName } from '../components/Icon.svelte';
@@ -60,6 +61,10 @@
 <div class="card lang-card">
   <span class="l">{t('account.language.label')}</span>
   <LangSwitch />
+</div>
+<div class="card lang-card">
+  <span class="l">{t('account.theme.title')}</span>
+  <ThemeToggle size={18} />
 </div>
 
 <style>
