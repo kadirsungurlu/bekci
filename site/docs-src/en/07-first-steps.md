@@ -94,6 +94,12 @@ The **Rules** section of the channel dialog decides when the channel is notified
 
 Skipped and deferred notifications are written to the incident's **timeline** with their reason ("the channel does not receive this event type", "quiet hours", "delay rule"…). Deferred notifications wait in the database and survive a restart. **Send test notification** and **Send sample notifications** ignore the rules.
 
+### Acknowledging and snoozing an incident {#incident-ack}
+
+You no longer need to pause a monitor to stop reminders during an outage. **Acknowledge** on the incident page ("I know, I'm on it"; optional note) acknowledges the incident: **no reminders or escalations** are sent for it, while the 🟢 recovery notification is still sent when it resolves. **Snooze** does the same for a chosen duration (30 minutes – 7 days); reminders and escalations resume automatically afterwards. Both can be withdrawn with the same buttons. Who acknowledged, when and the note appear in the incident list, on the incident page and in the timeline; they are written to the audit log too. A **first** alert still waiting in the queue because of a delay rule or quiet hours is not affected (acknowledging means "don't nag me again", not "mute the first alert").
+
+If a channel should also receive acknowledgements (e.g. so your on-call tool knows someone is looking), select the **👀 Incident acknowledged** event in the channel rules; this event goes only to channels that select it explicitly, never to unfiltered channels. Webhooks receive it as `event: "acked"` with an `ack: { by, note }` object.
+
 > [!CHECK]
 > The test notification reached your channel and the channel shows up in the **Notifications** list. You can also change a monitor's channels on the monitor's edit page.
 

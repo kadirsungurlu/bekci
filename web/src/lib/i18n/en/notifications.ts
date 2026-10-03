@@ -27,7 +27,7 @@ export default {
     nameRequired: 'Channel name is required.',
     exampleSummary: 'Example JSON payload',
     exampleHelp:
-      '{event}: {down}, {up}, {reminder}, {location_down}, {location_up}, {cert}, {domain}, {server_alert}, {server_resolved} or {test}. {downtime_seconds} comes with recovery notifications, {cert_days} with SSL alerts, {domain} and {domain_days} with domain alerts, {incident} (id and page) with incident-bound notifications, {locations} with the failing locations of a multi-location monitor, and {server} only with server alerts.',
+      '{event}: {down}, {up}, {reminder}, {location_down}, {location_up}, {cert}, {domain}, {server_alert}, {server_resolved}, {acked} (only when selected) or {test}. {downtime_seconds} comes with recovery notifications, {cert_days} with SSL alerts, {domain} and {domain_days} with domain alerts, {incident} (id and page) with incident-bound notifications, {locations} with the failing locations of a multi-location monitor, {server} only with server alerts, and {ack} (who and note) with the acknowledgement notification.',
     active: 'Enabled',
     activeHelp: 'Disabled channels don’t send notifications.',
     isDefault: 'Add to new monitors by default',
@@ -61,6 +61,7 @@ export default {
       location: '🟡 Location outage (started / ended)',
       server: '🖥 Server alerts (started / ended)',
       probe: '📍 Check location (offline / online)',
+      acked: '👀 Incident acknowledged (only when selected)',
     },
     quietTitle: 'Quiet hours',
     quietEnable: 'Enable quiet hours',

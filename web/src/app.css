@@ -773,6 +773,10 @@ input[type='search'].input::-webkit-search-decoration {
   background: var(--maint-soft);
   color: var(--maint);
 }
+.pill.accent {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
 
 /* Tablolar ------------------------------------------------------------------ */
 .table {

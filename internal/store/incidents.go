@@ -31,12 +31,20 @@ type Incident struct {
 	Severity  string `json:"severity,omitempty"`
 	State     string `json:"state,omitempty"`
 	CreatedBy string `json:"created_by,omitempty"`
+
+	// Onay ve susturma (migration 29; bkz. incident_ack.go). AckedAt 0 =
+	// onaysız; SnoozedUntil 0 = susturulmamış (geçmişse süresi dolmuş).
+	AckedAt      int64  `json:"acked_at"`
+	AckedBy      string `json:"acked_by,omitempty"`
+	AckNote      string `json:"ack_note,omitempty"`
+	SnoozedUntil int64  `json:"snoozed_until"`
 }
 
 // incidentCols olay listesi sütunları (incidents i, monitors m, probes p, status_pages sp).
 const incidentCols = `i.id, i.kind, COALESCE(i.monitor_id, 0), COALESCE(m.name, ''), COALESCE(i.server_id, 0),
 	COALESCE(p.name, ''), i.started_at, i.resolved_at, i.cause, i.data,
-	COALESCE(i.page_id, 0), COALESCE(sp.title, ''), i.title, i.severity, i.state, i.created_by`
+	COALESCE(i.page_id, 0), COALESCE(sp.title, ''), i.title, i.severity, i.state, i.created_by,
+	i.acked_at, i.acked_by, i.ack_note, i.snoozed_until`
 
 const incidentFrom = ` FROM incidents i LEFT JOIN monitors m ON m.id = i.monitor_id
 	LEFT JOIN probes p ON p.id = i.server_id LEFT JOIN status_pages sp ON sp.id = i.page_id`
@@ -45,12 +53,13 @@ type rowScanner interface{ Scan(...any) error }
 
 func scanIncident(r rowScanner) (Incident, error) {
 	var in Incident
-	var resolved sql.NullInt64
+	var resolved, acked, snoozed sql.NullInt64
 	var data string
 	err := r.Scan(&in.ID, &in.Kind, &in.MonitorID, &in.MonitorName, &in.ServerID, &in.ServerName,
 		&in.StartedAt, &resolved, &in.Cause, &data,
-		&in.PageID, &in.PageTitle, &in.Title, &in.Severity, &in.State, &in.CreatedBy)
-	in.ResolvedAt = resolved.Int64
+		&in.PageID, &in.PageTitle, &in.Title, &in.Severity, &in.State, &in.CreatedBy,
+		&acked, &in.AckedBy, &in.AckNote, &snoozed)
+	in.ResolvedAt, in.AckedAt, in.SnoozedUntil = resolved.Int64, acked.Int64, snoozed.Int64
 	if data != "" {
 		in.Data = json.RawMessage(data)
 	}

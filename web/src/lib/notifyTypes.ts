@@ -1171,8 +1171,8 @@ export const EMAIL_PORTS: Record<string, number> = { starttls: 587, tls: 465, no
  * toplar (🔴 ile 🟢 çifti aynı grupta değildir: "düzelme istemeyen kanal"
  * kurulabilsin). Etiket: t(`notifications.rules.events.${id}`).
  */
-export type NotifyEventGroupId = 'down' | 'up' | 'reminder' | 'cert' | 'domain' | 'slow' | 'location' | 'server' | 'probe';
-export const NOTIFY_EVENT_GROUPS: { id: NotifyEventGroupId; kinds: NotifyKind[] }[] = [
+export type NotifyEventGroupId = 'down' | 'up' | 'reminder' | 'cert' | 'domain' | 'slow' | 'location' | 'server' | 'probe' | 'acked';
+export const NOTIFY_EVENT_GROUPS: { id: NotifyEventGroupId; kinds: NotifyKind[]; optIn?: boolean }[] = [
   { id: 'down', kinds: ['down'] },
   { id: 'up', kinds: ['up'] },
   { id: 'reminder', kinds: ['reminder'] },
@@ -1180,10 +1180,13 @@ export const NOTIFY_EVENT_GROUPS: { id: NotifyEventGroupId; kinds: NotifyKind[] 
   { id: 'domain', kinds: ['domain'] },
   { id: 'slow', kinds: ['slow', 'slow_resolved'] },
   { id: 'location', kinds: ['location_down', 'location_up'] },
-  { id: 'server', kinds: ['server_alert', 'server_resolved'] },
+  { id: 'server', kinds: ['server_alert', 'server_resolved', 'server_reboot'] },
   { id: 'probe', kinds: ['probe_offline', 'probe_online'] },
+  // optIn: süzgeçsiz kanal bu türü ALMAZ; yalnızca açıkça seçilince gider (olay onayı).
+  { id: 'acked', kinds: ['acked'], optIn: true },
 ];
-export const ALL_NOTIFY_KINDS: NotifyKind[] = NOTIFY_EVENT_GROUPS.flatMap((g) => g.kinds);
+/** Süzgeçsiz kanalın aldığı türler (opt-in türler hariç). */
+export const ALL_NOTIFY_KINDS: NotifyKind[] = NOTIFY_EVENT_GROUPS.filter((g) => !g.optIn).flatMap((g) => g.kinds);
 
 /** Webhook kanalının gönderdiği JSON örneği (monitör adı örnek veridir, dile göre). */
 export const webhookExample = (d = t('notifyTypes.exampleDomain')) => `{

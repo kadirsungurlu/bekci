@@ -93,6 +93,11 @@
           <td data-label={t('incidents.table.status')} class="st">
             {#if ongoing}
               <span class="badge {partial ? 'pending' : 'down'}">{t('incidents.table.ongoing')}</span>
+              {#if (inc.acked_at ?? 0) > 0}
+                <span class="badge accent ack" title={t('incidents.ack.ackedBy', { user: inc.acked_by ?? '', date: fmtDate(inc.acked_at ?? 0) })}><Icon name="eye" size={12} /> {t('incidents.ack.acked')}</span>
+              {:else if (inc.snoozed_until ?? 0) > now}
+                <span class="badge pending ack" title={t('incidents.ack.snoozedUntil', { until: fmtDate(inc.snoozed_until ?? 0) })}><Icon name="bell-off" size={12} /> {t('incidents.ack.snoozed')}</span>
+              {/if}
             {:else}
               <span class="badge up" title={t('incidents.table.resolvedAt', { date: fmtDate(inc.resolved_at) })}>{t('incidents.table.resolved')}</span>
             {/if}
@@ -116,6 +121,10 @@
   .mon a {
     color: var(--text);
     font-weight: 600;
+  }
+  .badge.ack {
+    gap: 4px;
+    margin-left: 4px;
   }
   .mon a :global(svg) {
     display: inline-block;

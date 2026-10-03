@@ -121,8 +121,8 @@ func (in *notificationInput) toNotification() (store.Notification, error) {
 			events = append(events, k)
 		}
 	}
-	if len(events) == len(notify.Kinds) {
-		events = []string{} // hepsi seçiliyse süzgeç yok (yeni türler de gelsin)
+	if sameKindSet(events, notify.DefaultKinds()) {
+		events = []string{} // varsayılan küme seçiliyse süzgeç yok (yeni türler de gelsin)
 	}
 	if in.QuietHours != nil {
 		q := *in.QuietHours
@@ -143,6 +143,23 @@ func (in *notificationInput) toNotification() (store.Notification, error) {
 	}
 	return store.Notification{Name: in.Name, Type: in.Type, Config: cfg, IsDefault: in.IsDefault, Active: active,
 		Events: events, Quiet: in.QuietHours, DelayMin: in.DelayMin, EscalateMin: in.EscalateMin, Lang: in.Lang}, nil
+}
+
+// sameKindSet iki tür listesi aynı kümeyi mi anlatıyor (sıra önemsiz)?
+func sameKindSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	set := make(map[string]bool, len(a))
+	for _, k := range a {
+		set[k] = true
+	}
+	for _, k := range b {
+		if !set[k] {
+			return false
+		}
+	}
+	return true
 }
 
 func masked(n store.Notification) store.Notification {

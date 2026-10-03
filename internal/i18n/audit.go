@@ -111,6 +111,7 @@ var auditEN = map[string]string{
 	"kanallar: %s":             "channels: %s",
 	"kural yok":                "no rules",
 	"%s/%d dk":                 "%s/%d min",
+	"%d dk":                    "%d min",
 	"%s %d dk":                 "%s %d min",
 	"%s (devre dışı)":          "%s (disabled)",
 	"%s (kapalı)":              "%s (disabled)",

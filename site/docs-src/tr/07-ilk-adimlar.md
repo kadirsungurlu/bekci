@@ -91,6 +91,12 @@ Kanal penceresinin **Kurallar** bölümü kanalın ne zaman ve neyi alacağını
 
 Atlanan ve ertelenen bildirimler nedeniyle birlikte olayın **işlem geçmişine** yazılır ("kanal bu olay türünü almıyor", "sessiz saatler", "gecikme kuralı"…). Ertelenmiş bildirimler veritabanında bekler; uygulama yeniden başlasa da kaybolmaz. **Test gönder** ve **Örnek bildirimleri gönder** kurallardan etkilenmez.
 
+### Olayı onaylama ve susturma {#olay-onay}
+
+Kesinti sürerken hatırlatmaları kesmek için monitörü durdurmanız gerekmez. Olay sayfasındaki **Onayla** düğmesi ("haberim var, üzerinde çalışıyorum"; isteğe bağlı not) olayı onaylar: o olay için **hatırlatma bildirimi ve eskalasyon gitmez**, olay kapanınca 🟢 düzelme bildirimi yine gider. **Sustur** aynı şeyi seçtiğiniz süre için yapar (30 dakika – 7 gün); süre dolunca hatırlatma ve eskalasyon kendiliğinden devam eder. Onayı ve susturmayı aynı düğmelerle geri alabilirsiniz. Onaylayan, saat ve not olay listesinde, olay sayfasında ve işlem geçmişinde görünür; işlem kaydına da yazılır. Gecikme kuralı ya da sessiz saat yüzünden kuyrukta bekleyen **ilk** sorun bildirimi onaydan etkilenmez (onay "beni tekrar rahatsız etme" demektir, ilk uyarıyı susturmak değil).
+
+Bir kanalın onayları da almasını istiyorsanız (ör. nöbet aracına "biri baktı" bilgisi gitsin) kanal kurallarında **👀 Olay onayı** türünü seçin; bu tür yalnızca açıkça seçilen kanallara gider, süzgeçsiz kanallar almaz. Webhook'ta `event: "acked"` ve `ack: { by, note }` alanlarıyla gelir.
+
 > [!CHECK]
 > Test bildirimi kanalınıza ulaştı ve kanal **Bildirimler** listesinde görünüyor. Bir monitörün kanallarını monitörün düzenleme sayfasından da değiştirebilirsiniz.
 

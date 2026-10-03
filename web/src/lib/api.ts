@@ -461,6 +461,11 @@ export interface Incident {
   severity?: IncidentSeverity;
   state?: IncidentState;
   created_by?: string;
+  /** Onay (0 = onaysız) ve susturma bitişi (0 = yok; geçmişse süresi dolmuş). Eski sunucuda gelmez. */
+  acked_at?: number;
+  acked_by?: string;
+  ack_note?: string;
+  snoozed_until?: number;
 }
 
 /** İnsan eliyle yazılan olay güncellemesi. */
@@ -529,7 +534,11 @@ export type IncidentEventKind =
   | 'limit'
   | 'escalated'
   | 'from_partial'
-  | 'resumed';
+  | 'resumed'
+  | 'ack'
+  | 'unack'
+  | 'snooze'
+  | 'unsnooze';
 
 export interface IncidentEvent {
   id: number;
@@ -699,7 +708,9 @@ export type NotifyKind =
   | 'server_alert'
   | 'server_resolved'
   | 'probe_offline'
-  | 'probe_online';
+  | 'probe_online'
+  | 'server_reboot'
+  | 'acked';
 
 /** Sessiz saatler: start/end "SS:DD" (tz diliminde; end <= start gece yarısını aşar). */
 export interface QuietHours {
@@ -1411,6 +1422,11 @@ export const api = {
   deleteIncident: (id: number) => del<{ ok: boolean }>(`/api/incidents/${id}`),
   addIncidentUpdate: (id: number, u: { state: IncidentState; body: string }) => post<IncidentUpdate>(`/api/incidents/${id}/updates`, u),
   deleteIncidentUpdate: (id: number, uid: number) => del<{ ok: boolean }>(`/api/incidents/${id}/updates/${uid}`),
+  // Onay ve susturma (editör+); yanıt güncel olay satırı.
+  ackIncident: (id: number, note: string) => post<Incident>(`/api/incidents/${id}/ack`, { note }),
+  unackIncident: (id: number) => del<Incident>(`/api/incidents/${id}/ack`),
+  snoozeIncident: (id: number, minutes: number) => post<Incident>(`/api/incidents/${id}/snooze`, { minutes }),
+  unsnoozeIncident: (id: number) => del<Incident>(`/api/incidents/${id}/snooze`),
 
   notifications: () => get<NotificationChannel[]>('/api/notifications'),
   createNotification: (n: NotificationInput) => post<NotificationChannel>('/api/notifications', n),

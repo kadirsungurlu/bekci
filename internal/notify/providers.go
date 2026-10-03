@@ -251,6 +251,13 @@ type WebhookPayload struct {
 	Escalated      bool  `json:"escalated,omitempty"`
 	Delayed        bool  `json:"delayed,omitempty"`
 	ElapsedSeconds int64 `json:"elapsed_seconds,omitempty"`
+	// Ack yalnızca "acked" olayında: onaylayan kullanıcı ve notu.
+	Ack *WebhookAck `json:"ack,omitempty"`
+}
+
+type WebhookAck struct {
+	By   string `json:"by"`
+	Note string `json:"note,omitempty"`
 }
 
 type WebhookIncident struct {
@@ -302,6 +309,9 @@ func (webhook) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	}
 	if ev.IncidentID != 0 {
 		p.Incident = &WebhookIncident{ID: ev.IncidentID, URL: ev.IncidentURL}
+	}
+	if ev.Kind == KindAcked {
+		p.Ack = &WebhookAck{By: ev.AckedBy, Note: ev.AckNote}
 	}
 	if ev.ProbeID != 0 {
 		p.Server = &WebhookServer{ID: ev.ProbeID, Name: ev.MonitorName, Metric: ev.Metric,

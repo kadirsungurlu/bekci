@@ -26,7 +26,7 @@ export default {
     exampleSummary: 'Gönderilen JSON örneği',
     /** {event}, {down} … yer tutucuları <code> olarak çizilir (adları olduğu gibi). */
     exampleHelp:
-      '{event}: {down}, {up}, {reminder}, {location_down}, {location_up}, {cert}, {domain}, {server_alert}, {server_resolved} veya {test}. {downtime_seconds} düzelme bildirimlerinde, {cert_days} SSL uyarısında, {domain} ve {domain_days} alan adı uyarısında, {incident} (kimlik ve sayfa) olaya bağlı bildirimlerde, {locations} çok konumlu monitörde çalışmayan konumlarla, {server} yalnızca sunucu uyarılarında gelir.',
+      '{event}: {down}, {up}, {reminder}, {location_down}, {location_up}, {cert}, {domain}, {server_alert}, {server_resolved}, {acked} (yalnızca seçilirse) veya {test}. {downtime_seconds} düzelme bildirimlerinde, {cert_days} SSL uyarısında, {domain} ve {domain_days} alan adı uyarısında, {incident} (kimlik ve sayfa) olaya bağlı bildirimlerde, {locations} çok konumlu monitörde çalışmayan konumlarla, {server} yalnızca sunucu uyarılarında, {ack} (onaylayan ve not) onay bildiriminde gelir.',
     active: 'Etkin',
     activeHelp: 'Devre dışı kanallara bildirim gönderilmez.',
     isDefault: 'Yeni monitörlere varsayılan olarak ekle',
@@ -61,6 +61,7 @@ export default {
       location: '🟡 Konum kesintisi (başladı / bitti)',
       server: '🖥 Sunucu uyarıları (başladı / bitti)',
       probe: '📍 Kontrol noktası (çevrimdışı / çevrimiçi)',
+      acked: '👀 Olay onayı (yalnızca seçilirse gider)',
     },
     quietTitle: 'Sessiz saatler',
     quietEnable: 'Sessiz saatleri aç',

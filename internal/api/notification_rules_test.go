@@ -10,7 +10,8 @@ import (
 
 func itoa(id int64) string { return strconv.FormatInt(id, 10) }
 
-func allKinds() []string { return notify.Kinds }
+// allKinds süzgeçsiz kanalın aldığı türler (opt-in "acked" hariç).
+func allKinds() []string { return notify.DefaultKinds() }
 
 // Kanal kuralları API'de gidiş-dönüş yapar; eski istemcinin kuralsız
 // gövdesi tüm türleri alan, kuralsız kanal üretir; geçersiz değerler 400.
@@ -57,6 +58,13 @@ func TestNotificationRulesAPI(t *testing.T) {
 	if len(ch.Events) != 0 {
 		t.Fatalf("tüm türler seçiliyken süzgeç boş olmalı: %v", ch.Events)
 	}
+	// Opt-in tür (acked) de seçiliyse liste açık kalır: boş liste onu düşürürdü.
+	body["events"] = append(append([]string{}, all...), notify.KindAcked)
+	e.mustDo("PUT", "/api/notifications/"+itoa(ch.ID), body, &ch, 200)
+	if len(ch.Events) != len(all)+1 || !ch.Accepts(notify.KindAcked) {
+		t.Fatalf("acked seçiliyken süzgeç açık kalmalı: %v", ch.Events)
+	}
+	body["events"] = all
 	// Geçersizler.
 	bad := []map[string]any{
 		{"events": []string{"yok"}},

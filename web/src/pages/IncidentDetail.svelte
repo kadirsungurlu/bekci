@@ -6,6 +6,7 @@
     errorMessage,
     type CheckDetail,
     type HttpHeader,
+    type Incident,
     type IncidentCapture,
     type IncidentDetail,
     type IncidentEvent,
@@ -28,6 +29,7 @@
   import ConnectionDetails from '../components/ConnectionDetails.svelte';
   import IncidentUpdates from '../components/IncidentUpdates.svelte';
   import IncidentEditModal from '../components/IncidentEditModal.svelte';
+  import IncidentAck from '../components/IncidentAck.svelte';
   import { session } from '../lib/session.svelte';
   import { confirmDialog, toast } from '../lib/ui.svelte';
   import { navigate } from '../lib/router.svelte';
@@ -142,6 +144,13 @@
   // Süren olayın monitörü bakım penceresinde: kontroller sürer, bildirim gitmez;
   // olay bakım bitip monitör düzelince kapanır (D-16).
   const inMaint = $derived(ongoing && !server && !!data?.monitor.in_maintenance);
+  // Onay ve susturma (E-11): süren olayda hatırlatma ve eskalasyon susturulmuş mu.
+  const acked = $derived(ongoing && (inc?.acked_at ?? 0) > 0);
+  const snoozed = $derived(ongoing && (inc?.snoozed_until ?? 0) > now);
+  function ackChanged(updated: Incident) {
+    if (data) data = { ...data, incident: { ...data.incident, ...updated } };
+    load();
+  }
   const duration = $derived(inc ? (ongoing ? Math.max(now, inc.started_at) : inc.resolved_at) - inc.started_at : 0);
   const isHttp = $derived(data?.monitor.type === 'http');
   // Yakalanan konumlar: çok konumlu olayda çalışmayan her konumun kaydı (ilki
@@ -364,6 +373,27 @@
         r.tone = 'muted';
         r.title = t('incidents.ev.limit');
         break;
+      case 'ack':
+        r.icon = 'eye';
+        r.tone = 'accent';
+        r.title = t('incidents.ev.ack', { user: str(d.user) });
+        r.sub = str(d.note) ? t('incidents.ev.ackNote', { note: str(d.note) }) : '';
+        break;
+      case 'unack':
+        r.icon = 'eye-off';
+        r.tone = 'muted';
+        r.title = t('incidents.ev.unack', { user: str(d.user) });
+        break;
+      case 'snooze':
+        r.icon = 'bell-off';
+        r.tone = 'pending';
+        r.title = t('incidents.ev.snooze', { user: str(d.user), until: fmtDate(num(d.until)) });
+        break;
+      case 'unsnooze':
+        r.icon = 'bell';
+        r.tone = 'muted';
+        r.title = t('incidents.ev.unsnooze', { user: str(d.user) });
+        break;
     }
     return r;
   }
@@ -562,6 +592,9 @@
             {t('incidents.detail.downloadDetails')}
           </button>
         {/if}
+        {#if ongoing && !manual && session.canEdit}
+          <IncidentAck incident={inc} onchanged={ackChanged} />
+        {/if}
       </div>
     </div>
 
@@ -585,8 +618,22 @@
               {#if inMaint}
                 <span class="pill maintenance" title={t('incidents.detail.maintNote')}>{t('incidents.detail.inMaint')}</span>
               {/if}
+              {#if acked}
+                <span class="pill accent" title={t('incidents.ack.mutedHint')}>{t('incidents.ack.acked')}</span>
+              {/if}
+              {#if snoozed}
+                <span class="pill pending" title={t('incidents.ack.mutedHint')}>{t('incidents.ack.snoozed')}</span>
+              {/if}
             </div>
             <div class="sub">{t('incidents.detail.started', { date: fmtDateSec(inc.started_at) })}</div>
+            {#if acked}
+              <div class="sub ackline">
+                {t('incidents.ack.ackedBy', { user: inc.acked_by ?? '', date: fmtDate(inc.acked_at ?? 0) })}{#if inc.ack_note}<span class="acknote">{inc.ack_note}</span>{/if}
+              </div>
+            {/if}
+            {#if snoozed}
+              <div class="sub">{t('incidents.ack.snoozedUntil', { until: fmtDate(inc.snoozed_until ?? 0) })}</div>
+            {/if}
           </div>
           <div class="card stat">
             <div class="label">{t('incidents.detail.duration')}</div>
@@ -1063,6 +1110,16 @@
     font-size: 0.84rem;
     color: var(--text-2);
     font-variant-numeric: tabular-nums;
+  }
+  .ackline {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .acknote {
+    color: var(--text);
+    font-style: italic;
+    word-break: break-word;
   }
 
   .card-head {

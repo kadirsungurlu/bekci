@@ -95,6 +95,10 @@ export default {
       delete: 'Incident deleted',
       update_post: 'Incident update posted',
       update_delete: 'Incident update deleted',
+      ack: 'Incident acknowledged',
+      unack: 'Acknowledgement withdrawn',
+      snooze: 'Incident snoozed',
+      unsnooze: 'Snooze ended',
     },
     maintenance: {
       create: 'Maintenance added',

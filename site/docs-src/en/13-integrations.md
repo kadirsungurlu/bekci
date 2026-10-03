@@ -27,7 +27,7 @@ Choose **Notifications → New channel → Webhook**. On every event a JSON body
 }
 ```
 
-`event` values: `down`, `up`, `reminder`, `cert`, `slow`, `slow_resolved`, `location_down`, `location_up`, `server_alert`, `server_resolved`, `probe_offline`, `probe_online`, `test`. Server alerts add a `server` object (`metric`, `value`, `threshold`, `minutes`); multi-location monitors add a `locations` array. When [notification rules](/en/docs/first-steps/#notification-rules) apply, `escalated: true` (sent to an escalation channel for an incident open for N minutes), `delayed: true` (sent after the delay rule or quiet hours) and `elapsed_seconds` (time elapsed so far) are added.
+`event` values: `down`, `up`, `reminder`, `cert`, `slow`, `slow_resolved`, `location_down`, `location_up`, `server_alert`, `server_resolved`, `server_reboot`, `probe_offline`, `probe_online`, `acked` (only to channels that select this event; carries an `ack: { by, note }` object), `test`. Server alerts add a `server` object (`metric`, `value`, `threshold`, `minutes`); multi-location monitors add a `locations` array. When [notification rules](/en/docs/first-steps/#notification-rules) apply, `escalated: true` (sent to an escalation channel for an incident open for N minutes), `delayed: true` (sent after the delay rule or quiet hours) and `elapsed_seconds` (time elapsed so far) are added.
 
 ### HMAC signature {#webhook-signature}
 

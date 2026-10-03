@@ -138,11 +138,34 @@ func (d *Dispatcher) Notify(ev Event) {
 		if ev.Lang == "" {
 			ev.Lang = d.Lang(ctx)
 		}
+		// Onaylı ya da susturulmuş olayın hatırlatması hiçbir kanala gitmez
+		// (motor zaten üretmez; başka bir yoldan gelirse burada da durur).
+		if ev.Kind == KindReminder && ev.IncidentID != 0 {
+			if why := d.mutedReason(ctx, ev.IncidentID, d.now()); why != "" {
+				d.incidentEvent(ev, deliveryData{Event: ev.Kind, Skipped: why})
+				return
+			}
+		}
 		if problem := ProblemOf(ev.Kind); problem != "" && ev.IncidentID != 0 && ev.Kind != KindReminder {
 			// Olay kapandı: gönderilmeyi bekleyen sorun bildirimleri iptal edilir;
 			// sorun bildirimini eskalasyonla almış (bağlı olmayan) kanallar düzelmeyi de alır.
 			d.cancelQueued(ctx, ev, problem)
 			channels = d.withDelivered(ctx, channels, ev.IncidentID, problem)
+		}
+		if ev.Kind == KindAcked {
+			// Onay bildirimi yalnızca bu türü açıkça seçen kanallara gider;
+			// almayan kanallar için işlem geçmişine "atlandı" satırı yazılmaz
+			// (her onayda kanal sayısı kadar gürültü olurdu).
+			var opted []store.Notification
+			for _, ch := range channels {
+				if ch.Accepts(KindAcked) {
+					opted = append(opted, ch)
+				}
+			}
+			channels = opted
+			if len(channels) == 0 {
+				return
+			}
 		}
 		// Monitör ve sunucu olaylarında gönderim sonucu olayın işlem geçmişine yazılır.
 		if ev.IncidentID != 0 && len(channels) == 0 {
@@ -223,7 +246,28 @@ const (
 	SkipCancelled = "cancelled" // ertelenmiş sorun bildirimi, olay kapandığı için iptal
 	SkipDuplicate = "duplicate" // aynı kanala bu olay için zaten gönderilmiş (eskalasyon/gecikme çakışması)
 	SkipLevel     = "level"     // kanal bu sunucuda yalnızca başka seviyeyi alıyor
+	SkipAcked     = "acked"     // olay onaylandı: hatırlatma / eskalasyon gitmez
+	SkipSnoozed   = "snoozed"   // olay susturuldu: süre dolunca devam eder
 )
+
+// mutedReason olayın hatırlatma/eskalasyonu susturulmuşsa nedeni (SkipAcked
+// | SkipSnoozed), değilse "".
+func (d *Dispatcher) mutedReason(ctx context.Context, incidentID int64, now time.Time) string {
+	if incidentID == 0 {
+		return ""
+	}
+	inc, err := d.store.GetIncident(ctx, incidentID)
+	if err != nil || inc.ResolvedAt != 0 {
+		return ""
+	}
+	switch {
+	case inc.AckedAt > 0:
+		return SkipAcked
+	case inc.SnoozedUntil > now.Unix():
+		return SkipSnoozed
+	}
+	return ""
+}
 
 // deliver kural hattını uygular ve gerekirse gönderir. queueID 0 değilse olay
 // kuyruktan geliyor (gecikme yeniden uygulanmaz; erteleme kaydı yerinde güncellenir).
@@ -438,6 +482,11 @@ func (d *Dispatcher) escalate(ctx context.Context, now time.Time) {
 			done := d.escDone[key]
 			d.escMu.Unlock()
 			if done {
+				continue
+			}
+			// Onaylı / susturulmuş olay eskalasyona gitmez; işaretlenmez ki
+			// onay geri alınınca ya da susturma bitince eskalasyon yapılsın.
+			if inc.Muted(now.Unix()) {
 				continue
 			}
 			ev, ok := d.eventFromIncident(ctx, inc)

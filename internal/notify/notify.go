@@ -18,6 +18,7 @@ import (
 
 	"github.com/kadirsungurlu/bekci/internal/brand"
 	"github.com/kadirsungurlu/bekci/internal/i18n"
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // Olay türleri.
@@ -52,6 +53,11 @@ const (
 	// BootTime yeni açılış). Olaya bağlı değildir; yalnızca "reboot" kuralı
 	// açık sunucularda gider.
 	KindServerReboot = "server_reboot"
+
+	// Olay bir kullanıcı tarafından onaylandı (AckedBy, AckNote). Olayın
+	// kanallarına gider ama yalnızca bu türü AÇIKÇA seçen kanallara
+	// (store.OptInEvents): süzgeçsiz eski kanallar onay mesajı almaz.
+	KindAcked = "acked"
 )
 
 // Uyarı seviyeleri (sunucu kuralları; boş = kritik).
@@ -127,6 +133,10 @@ type Event struct {
 	// bildirim dilini (AppSettings.NotifyLang) doldurur; yine boşsa tr.
 	Lang string
 
+	// Onay bildirimi (KindAcked): onaylayan kullanıcı ve notu.
+	AckedBy string
+	AckNote string
+
 	// Kural hattı (dispatcher): Escalated eskalasyon bildirimi (olay kanala
 	// bağlı olmasa da N dakikadır sürdüğü için gidiyor); Delayed gecikme
 	// kuralıyla ya da sessiz saatlerin bitiminde gönderilen ertelenmiş
@@ -141,7 +151,19 @@ type Event struct {
 var Kinds = []string{
 	KindDown, KindUp, KindReminder, KindCert, KindLocationDown, KindLocationUp,
 	KindSlow, KindSlowResolved, KindServerAlert, KindServerResolved, KindProbeOffline, KindProbeOnline,
-	KindServerReboot, KindDomain,
+	KindServerReboot, KindDomain, KindAcked,
+}
+
+// DefaultKinds süzgeçsiz (events boş) kanalın aldığı türler: Kinds eksi
+// yalnızca açıkça seçilince giden türler (store.OptInEvents).
+func DefaultKinds() []string {
+	out := make([]string, 0, len(Kinds))
+	for _, k := range Kinds {
+		if !store.OptInEvents[k] {
+			out = append(out, k)
+		}
+	}
+	return out
 }
 
 // DomainIsCritical alan adı uyarısı 🔴 mü (kalan gün kritik eşiğin altında ya da süresi dolmuş)?
@@ -273,6 +295,8 @@ func (e Event) Title() string {
 		return i18n.T(l, "notify.probe.offline", e.MonitorName)
 	case KindProbeOnline:
 		return i18n.T(l, "notify.probe.online", e.MonitorName)
+	case KindAcked:
+		return i18n.T(l, "notify.acked.title", e.MonitorName, e.AckedBy)
 	}
 	return e.MonitorName
 }
@@ -408,6 +432,10 @@ func (e Event) Rows() []Row {
 	case KindSlowResolved:
 		add("downtime", i18n.Duration(l, e.Downtime))
 		add("avg_response", i18n.T(l, "notify.slow.window", int(e.Value), e.Checks))
+	case KindAcked:
+		add("acked_by", e.AckedBy)
+		add("note", e.AckNote)
+		add("downtime", i18n.Duration(l, e.Downtime))
 	}
 	add("time", i18n.DateTime(l, e.Time.Local()))
 	add("link", e.DetailURL())

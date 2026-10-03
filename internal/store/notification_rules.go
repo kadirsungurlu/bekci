@@ -148,10 +148,15 @@ func (q QuietHours) Active(now time.Time) (bool, time.Time) {
 // gönderilmişse gider.
 func (n Notification) HasRules() bool { return n.DelayMin > 0 || n.Quiet != nil }
 
-// Accepts kanal bu türü alır mı (events boşsa hepsi).
+// OptInEvents yalnızca kanal açıkça seçtiyse giden olay türleri: süzgeçsiz
+// (events boş) kanallar bunları ALMAZ. Olay onayı (acked) böyledir; aksi
+// halde var olan her kanal bir anda onay mesajları almaya başlardı.
+var OptInEvents = map[string]bool{"acked": true}
+
+// Accepts kanal bu türü alır mı (events boşsa opt-in olmayan hepsi).
 func (n Notification) Accepts(kind string) bool {
 	if len(n.Events) == 0 {
-		return true
+		return !OptInEvents[kind]
 	}
 	for _, k := range n.Events {
 		if k == kind {

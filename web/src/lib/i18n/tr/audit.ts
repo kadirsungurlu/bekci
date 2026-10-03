@@ -93,6 +93,10 @@ export default {
       delete: 'Olay silindi',
       update_post: 'Olay güncellemesi yazıldı',
       update_delete: 'Olay güncellemesi silindi',
+      ack: 'Olay onaylandı',
+      unack: 'Olay onayı geri alındı',
+      snooze: 'Olay susturuldu',
+      unsnooze: 'Olay susturması kaldırıldı',
     },
     maintenance: {
       create: 'Bakım eklendi',

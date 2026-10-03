@@ -367,6 +367,12 @@ func (r *runner) process(res check.Result) {
 	case status == store.StatusDown:
 		r.downBeats++
 		if r.m.ResendEvery > 0 && r.downBeats%r.m.ResendEvery == 0 {
+			// Onaylanmış ya da susturulmuş olayda hatırlatma üretilmez
+			// (incident_ack.go); sayaç yine ilerler, susturma bitince sıradaki
+			// hatırlatma normal aralığında gider.
+			if muted, _ := r.e.store.IncidentMuted(ctx, r.incidentID, now.Unix()); muted {
+				break
+			}
 			started, _ := r.e.store.OpenIncidentStart(ctx, r.m.ID)
 			var downtime time.Duration
 			if started > 0 {
