@@ -114,6 +114,19 @@ Two more lists are available with the same authentication:
 - `GET /api/monitors/<id>/beats?limit=50` returns the monitor's most recent checks, newest first (`limit` at most 200). Each row has `time` (unix), `status` (0 down, 1 up, 2 retrying, 3 maintenance), `ping_ms` (−1: no measurement), `message` (in the request language) and, for multi-location monitors, `location`.
 - `GET /api/audit` (admins only) returns the audit log; filters: `user` (username), `action` (a full code such as `monitor.delete` or an area prefix such as `monitor.`), `from`/`to` (unix), `q` (search in target, details, user and IP), `before` (paging: entries older than this id) and `limit` (at most 500). `GET /api/audit/facets` lists the usernames and action codes present in the log for filter boxes.
 
+## OpenAPI document {#openapi}
+
+The whole API (monitors, notification channels, incidents, status pages, server/check-location read endpoints, Web Push, backup, authentication) is documented in OpenAPI 3.1: `GET https://⟦bekci.example.com⟧/api/openapi.json` (no authentication needed). The source lives in the repository as [`docs/openapi.yaml`](https://github.com/kadirsungurlu/bekci/blob/main/docs/openapi.yaml) and is compared against the registered routes in every build (an undocumented route fails the test).
+
+Load the document into a viewer such as [Swagger Editor](https://editor.swagger.io/) or [Redocly](https://redocly.github.io/redoc/) by URL, or generate a client:
+
+```bash title="Client generation (openapi-generator example)"
+curl -fsS https://⟦bekci.example.com⟧/api/openapi.json -o bekci-openapi.json
+npx @openapitools/openapi-generator-cli generate -i bekci-openapi.json -g python -o ./bekci-client
+```
+
+Authentication is by API key (`Authorization: Bearer upk_…`); write requests made with a browser session need the `X-Uptime: 1` header. The only group left out of the document is the check-location / server-agent protocol (`/api/probe/*`): an internal contract between agent and server that may change between versions.
+
 ## Prometheus metrics {#prometheus}
 
 `GET /metrics` serves data in the Prometheus text format (0.0.4). Create a key under **Settings → API keys** and call the endpoint with the `Authorization: Bearer upk_…` header or Basic auth (user `metrics`, password the key). Viewer permission is enough; a restricted user's key only sees the monitors and servers assigned to them.

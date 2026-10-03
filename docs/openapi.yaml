@@ -1,0 +1,1176 @@
+openapi: 3.1.0
+info:
+  title: Bekci API
+  version: "1"
+  description: |
+    Bekci'nin (kendi sunucunuzda çalışan uptime ve sunucu izleme) REST API'si.
+    Arayüzün kullandığı API ile aynıdır; betikler ve Terraform/Ansible gibi
+    araçlar **API anahtarı** ile kullanır.
+
+    **Kimlik doğrulama:** `Authorization: Bearer upk_…` (Ayarlar → Hesabım →
+    API anahtarları). Tarayıcı oturumu (çerez) ile çağrılan yazma istekleri
+    `X-Uptime: 1` başlığı ister (CSRF); API anahtarıyla gerek yoktur.
+    Hesap güvenliği uçları (`/api/auth/*`, kullanıcı yönetimi) API anahtarıyla
+    kullanılamaz.
+
+    **Roller:** izleyici (viewer) okur; editör (editor) monitör, kanal, durum
+    sayfası ve bakım yönetir; yönetici (admin) her şeyi. Yanıt dili
+    `X-Uptime-Lang: tr|en` ya da `Accept-Language` ile seçilir.
+
+    **Zamanlar** Unix saniyedir (`started_at`, `created_at` …); `0` "yok" demektir.
+    Hatalar `{"error": "…", "code": "…"}` gövdesiyle döner (code isteğe bağlı).
+  license:
+    name: AGPL-3.0
+    url: https://github.com/kadirsungurlu/bekci/blob/main/LICENSE
+servers:
+  - url: /
+security:
+  - apiKey: []
+  - session: []
+tags:
+  - name: auth
+    description: Oturum, kurulum, şifre, 2FA, SSO, oturumlar
+  - name: monitors
+  - name: incidents
+  - name: notifications
+  - name: status-pages
+  - name: public
+    description: Giriş gerektirmeyen uçlar (durum sayfaları, push, rozet)
+  - name: servers
+    description: Sunucu ajanı (okuma) ve kontrol noktaları
+  - name: maintenance
+  - name: tags
+  - name: users
+  - name: settings
+  - name: backup
+  - name: webpush
+  - name: metrics
+components:
+  requestBodies:
+    Credentials:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              username: { type: string }
+              password: { type: string }
+            required: [username, password]
+  securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer
+      description: API anahtarı (`upk_…`); rolü anahtarın rolü ile sahibinin rolünün küçüğüdür.
+    session:
+      type: apiKey
+      in: cookie
+      name: uptime_oturum
+      description: "Tarayıcı oturumu; yazma isteklerinde `X-Uptime: 1` başlığı gerekir."
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    uid:
+      name: uid
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    slug:
+      name: slug
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$" }
+  responses:
+    Error:
+      description: Hata
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    OK:
+      description: Başarılı
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/OK" }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        code: { type: string, description: "İsteğe bağlı makine kodu (ör. password_change_required, backup_password, reset_invalid)" }
+      required: [error]
+    OK:
+      type: object
+      properties:
+        ok: { type: boolean }
+    Role:
+      type: string
+      enum: [admin, editor, viewer]
+    Lang:
+      type: string
+      enum: [tr, en]
+    Theme:
+      type: string
+      enum: ["", light, dark]
+    User:
+      type: object
+      description: Oturumdaki kullanıcının görünümü (`/api/auth/*`).
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        display_name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        must_change_password: { type: boolean }
+        all_monitors: { type: boolean }
+        two_factor_enabled: { type: boolean }
+        servers: { type: boolean, description: Sunucular ekranı açık mı }
+        lang: { type: string }
+        email: { type: string }
+        oidc: { type: boolean, description: Bir SSO sağlayıcısına bağlı }
+        theme: { $ref: "#/components/schemas/Theme" }
+    TagRule:
+      type: object
+      description: "Etiket kuralı: bu etiketi (= değeri) taşıyan monitörler. Boş değer = her değer."
+      properties:
+        tag_id: { type: integer, format: int64 }
+        value: { type: string }
+        name: { type: string, readOnly: true }
+        color: { type: string, readOnly: true }
+      required: [tag_id]
+    UserRecord:
+      type: object
+      description: Kullanıcı yönetimi kaydı (yönetici).
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        display_name: { type: string }
+        email: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        disabled: { type: boolean }
+        must_change_password: { type: boolean }
+        all_monitors: { type: boolean }
+        monitor_ids: { type: array, items: { type: integer, format: int64 }, description: Görebildiği monitörler (açık seçim + etiket kuralları) }
+        picked_monitor_ids: { type: array, items: { type: integer, format: int64 }, description: Açık seçim }
+        tag_rules: { type: array, items: { $ref: "#/components/schemas/TagRule" } }
+        server_ids: { type: array, items: { type: integer, format: int64 } }
+        last_login_at: { type: integer, format: int64 }
+        created_at: { type: integer, format: int64 }
+        two_factor_enabled: { type: boolean }
+        oidc: { type: boolean }
+        lang: { type: string }
+        theme: { $ref: "#/components/schemas/Theme" }
+    UserInput:
+      type: object
+      properties:
+        username: { type: string, description: Yalnızca eklemede; 3-32 karakter }
+        password: { type: string, description: Yalnızca eklemede (geçici şifre; ilk girişte değiştirilir) }
+        display_name: { type: string }
+        email: { type: string, description: 'Yok = değişmez; "" = kaldır' }
+        role: { $ref: "#/components/schemas/Role" }
+        disabled: { type: boolean }
+        all_monitors: { type: boolean }
+        monitor_ids: { type: array, items: { type: integer, format: int64 } }
+        server_ids: { type: array, items: { type: integer, format: int64 } }
+        tag_rules: { type: array, items: { $ref: "#/components/schemas/TagRule" } }
+      required: [role]
+    Bucket:
+      type: object
+      description: Saatlik/günlük özet kovası.
+      properties:
+        t: { type: integer, format: int64 }
+        up: { type: integer }
+        down: { type: integer }
+        ping: { type: number, description: "Ortalama yanıt (ms); -1 yok" }
+        ping_min: { type: number }
+        ping_max: { type: number }
+    Monitor:
+      type: object
+      description: Monitör ayarları ve son durumu (liste görünümü ek alanlar taşır).
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        type:
+          type: string
+          enum: [http, tcp, ping, dns, tlscert, smtp, websocket, grpc, mqtt, snmp, mysql, postgres, mssql, redis, mongodb, docker, push, group]
+        description: { type: string }
+        active: { type: boolean }
+        interval: { type: integer, description: Kontrol aralığı (sn) }
+        retry_interval: { type: integer }
+        max_retries: { type: integer }
+        timeout: { type: integer }
+        resend_every: { type: integer, description: "Hatırlatma: her N başarısız kontrolde (0 kapalı)" }
+        upside_down: { type: boolean }
+        config: { type: object, additionalProperties: true, description: Tipe özgü ayarlar (gizli alanlar maskeli) }
+        push_token: { type: string, description: Yalnızca push tipinde (editör+) }
+        slow_ms: { type: integer }
+        slow_checks: { type: integer }
+        slow: { type: boolean }
+        status: { type: integer, description: "0 çalışmıyor, 1 çalışıyor, 2 bekliyor, 3 bakımda" }
+        last_check_at: { type: integer, format: int64 }
+        last_change_at: { type: integer, format: int64 }
+        last_ping_ms: { type: integer, format: int64 }
+        last_message: { type: string }
+        cert_expires_at: { type: integer, format: int64 }
+        cert_issuer: { type: string }
+        domain_expiry: { type: boolean }
+        domain_name: { type: string }
+        domain_expires_at: { type: integer, format: int64 }
+        domain_registrar: { type: string }
+        domain_status: { type: string }
+        created_at: { type: integer, format: int64 }
+        updated_at: { type: integer, format: int64 }
+        target: { type: string, description: Okunur hedef (adres/host) }
+        notification_ids: { type: array, items: { type: integer, format: int64 } }
+        tag_notification_ids: { type: array, items: { type: integer, format: int64 }, description: Etiket kuralıyla bağlı kanallar }
+        tags: { type: array, items: { $ref: "#/components/schemas/MonitorTag" } }
+        uptime_24h: { type: [number, "null"] }
+        uptime_7d: { type: [number, "null"] }
+        uptime_30d: { type: [number, "null"] }
+        bars: { type: array, items: { $ref: "#/components/schemas/Bucket" } }
+        pings: { type: array, items: { type: integer } }
+        in_maintenance: { type: boolean }
+        locations: { type: object, additionalProperties: true, description: Kontrol konumları (include_local, probe_ids, down_when, notify_partial) }
+        open_incident_id: { type: [integer, "null"] }
+        open_partial_incident_id: { type: [integer, "null"] }
+        open_degraded_incident_id: { type: [integer, "null"] }
+    MonitorInput:
+      type: object
+      properties:
+        name: { type: string }
+        type: { type: string }
+        description: { type: string }
+        interval: { type: integer, minimum: 20 }
+        retry_interval: { type: integer }
+        max_retries: { type: integer }
+        timeout: { type: integer, description: Kontrol aralığından kısa olmalı }
+        resend_every: { type: integer }
+        upside_down: { type: boolean }
+        config: { type: object, additionalProperties: true }
+        notification_ids: { type: [array, "null"], items: { type: integer, format: int64 }, description: null = varsayılan kanallar }
+        slow_ms: { type: integer }
+        slow_checks: { type: integer }
+        domain_expiry: { type: boolean }
+      required: [name, type, interval, config]
+    MonitorTag:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        color: { type: string }
+        value: { type: string }
+    Beat:
+      type: object
+      properties:
+        time: { type: integer, format: int64 }
+        status: { type: integer }
+        ping_ms: { type: integer, description: -1 ölçüm yok }
+        message: { type: string }
+        location: { type: string }
+    Incident:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        kind: { type: string, enum: [monitor, degraded, partial, server_offline, server_alert, probe_offline, manual] }
+        monitor_id: { type: integer, format: int64 }
+        monitor_name: { type: string }
+        server_id: { type: integer, format: int64 }
+        server_name: { type: string }
+        started_at: { type: integer, format: int64 }
+        resolved_at: { type: integer, format: int64, description: 0 sürüyor }
+        cause: { type: string }
+        data: { type: [object, "null"], additionalProperties: true }
+        page_id: { type: integer, format: int64 }
+        page_title: { type: string }
+        title: { type: string }
+        severity: { type: string, enum: [minor, major, critical] }
+        state: { type: string, enum: [investigating, identified, monitoring, resolved] }
+        created_by: { type: string }
+        acked_at: { type: integer, format: int64, description: 0 onaysız }
+        acked_by: { type: string }
+        ack_note: { type: string }
+        snoozed_until: { type: integer, format: int64, description: 0 susturulmamış }
+    IncidentEvent:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        time: { type: integer, format: int64 }
+        kind:
+          type: string
+          enum: [retry, down, change, location, reminder, maint_start, maint_end, notify, edited, paused, up, limit, escalated, from_partial, resumed, ack, unack, snooze, unsnooze]
+        location: { type: string }
+        message: { type: string }
+        data: { type: [object, "null"], additionalProperties: true }
+    IncidentUpdate:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        incident_id: { type: integer, format: int64 }
+        time: { type: integer, format: int64 }
+        state: { type: string }
+        body: { type: string }
+        user_id: { type: integer, format: int64 }
+        username: { type: string }
+    IncidentDetail:
+      type: object
+      properties:
+        incident: { $ref: "#/components/schemas/Incident" }
+        monitor: { type: object, additionalProperties: true }
+        server: { type: object, additionalProperties: true }
+        location: { type: string }
+        locations: { type: array, items: { type: object, additionalProperties: true } }
+        events: { type: array, items: { $ref: "#/components/schemas/IncidentEvent" } }
+        capture: { type: [object, "null"], additionalProperties: true, description: Yalnızca yönetici }
+        details: { type: boolean }
+        updates: { type: array, items: { $ref: "#/components/schemas/IncidentUpdate" } }
+        affected: { type: array, items: { type: object, additionalProperties: true } }
+    QuietHours:
+      type: object
+      properties:
+        start: { type: string, example: "22:00" }
+        end: { type: string, example: "07:00" }
+        tz: { type: string }
+        mode: { type: string, enum: [critical, none] }
+    Notification:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        type: { type: string, description: Kanal türü (whatsapp, telegram, email, discord, slack, webhook, ntfy, gotify, pushover, teams, googlechat, mattermost, rocketchat, matrix, signal, pagerduty, opsgenie, homeassistant, netgsm, twilio, pushbullet, bark, line, apprise, webpush) }
+        config: { type: object, additionalProperties: true, description: Gizli alanlar "••••••" ile maskeli; maskeli gönderilirse korunur }
+        is_default: { type: boolean }
+        active: { type: boolean }
+        created_at: { type: integer, format: int64 }
+        updated_at: { type: integer, format: int64 }
+        events: { type: array, items: { type: string }, description: Alınacak olay türleri; boş = varsayılan hepsi (acked hariç) }
+        quiet_hours: { oneOf: [{ $ref: "#/components/schemas/QuietHours" }, { type: "null" }] }
+        delay_min: { type: integer }
+        escalate_min: { type: integer }
+        lang: { type: string }
+        tag_rules: { type: array, items: { $ref: "#/components/schemas/TagRule" } }
+    NotificationInput:
+      allOf:
+        - $ref: "#/components/schemas/Notification"
+        - type: object
+          properties:
+            apply_existing: { type: boolean, description: Mevcut tüm monitörlere bağla }
+    PageMonitor:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string, description: Görünen ad (boş = monitörün adı) }
+        auto: { type: boolean, readOnly: true, description: Etiket kuralıyla geldi }
+    PageSection:
+      type: object
+      properties:
+        title: { type: string }
+        monitors: { type: array, items: { $ref: "#/components/schemas/PageMonitor" } }
+        tag_id: { type: integer, format: int64, description: Etikete bağlı grup }
+        tag_value: { type: string }
+    StatusPage:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        slug: { type: string }
+        title: { type: string }
+        description: { type: string }
+        footer: { type: string }
+        sections: { type: array, items: { $ref: "#/components/schemas/PageSection" } }
+        custom_domain: { type: string }
+        has_password: { type: boolean }
+        password: { type: string, writeOnly: true, description: "Yazmada: yeni şifre; \"\" kaldırır; yok = değişmez" }
+        show_targets: { type: boolean }
+        bar_range: { type: string, enum: [recent, 24h, 90d] }
+        show_incidents: { type: boolean }
+        collapsible: { type: boolean }
+        lang: { $ref: "#/components/schemas/Lang" }
+        layout: { type: object, additionalProperties: true }
+        incident_days: { type: integer, enum: [7, 14, 30, 90] }
+        uptime_windows: { type: array, items: { type: string, enum: [24h, 7d, 30d, 90d] } }
+        published: { type: boolean }
+        has_logo: { type: boolean }
+        created_at: { type: integer, format: int64 }
+        updated_at: { type: integer, format: int64 }
+    Announcement:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        page_id: { type: integer, format: int64 }
+        title: { type: string }
+        body: { type: string }
+        severity: { type: string, enum: [info, warning, danger, success] }
+        starts_at: { type: integer, format: int64 }
+        ends_at: { type: integer, format: int64 }
+        page_ids: { type: array, items: { type: integer, format: int64 }, writeOnly: true, description: Eklemede kopyalanacak sayfalar }
+        all_pages: { type: boolean, writeOnly: true }
+    PublicPage:
+      type: object
+      description: Herkese açık durum sayfası (kimlik gerektirmez; şifreli sayfada çerez).
+      properties:
+        slug: { type: string }
+        title: { type: string }
+        description: { type: string }
+        footer: { type: string }
+        status: { type: string, enum: [up, partial, down, unknown] }
+        sections: { type: array, items: { type: object, additionalProperties: true } }
+        announcements: { type: array, items: { $ref: "#/components/schemas/Announcement" } }
+        incidents: { type: array, items: { type: object, additionalProperties: true } }
+        maintenance: { type: array, items: { type: object, additionalProperties: true } }
+        layout: { type: object, additionalProperties: true }
+        lang: { $ref: "#/components/schemas/Lang" }
+        has_password: { type: boolean }
+        updated_at: { type: integer, format: int64 }
+    Maintenance:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        description: { type: string }
+        active: { type: boolean }
+        strategy: { type: string, enum: [manual, once, weekly, cron] }
+        timezone: { type: string }
+        start: { type: string }
+        end: { type: string }
+        weekdays: { type: array, items: { type: integer } }
+        start_time: { type: string }
+        end_time: { type: string }
+        date_from: { type: string }
+        date_to: { type: string }
+        cron: { type: string }
+        duration_minutes: { type: integer }
+        monitor_ids: { type: array, items: { type: integer, format: int64 } }
+        all_monitors: { type: boolean }
+        server_ids: { type: array, items: { type: integer, format: int64 } }
+        status: { type: string, readOnly: true }
+    Tag:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        color: { type: string, pattern: "^#[0-9a-f]{6}$" }
+        created_at: { type: integer, format: int64 }
+        updated_at: { type: integer, format: int64 }
+        monitor_count: { type: integer, readOnly: true }
+    Probe:
+      type: object
+      description: Kontrol noktası ya da sunucu ajanı.
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        kind: { type: string, enum: [probe, server] }
+        active: { type: boolean }
+        online: { type: boolean }
+        last_seen_at: { type: integer, format: int64 }
+        last_ip: { type: string }
+        version: { type: string }
+        notify_offline: { type: boolean }
+    Server:
+      type: object
+      description: Sunucu ajanı görünümü (son metrikler, uyarılar, konteynerler).
+      additionalProperties: true
+    Settings:
+      type: object
+      properties:
+        retention_raw_days: { type: integer }
+        retention_hourly_days: { type: integer }
+        cert_days: { type: array, items: { type: integer } }
+        domain_days: { type: array, items: { type: integer } }
+        backup_keep: { type: integer }
+        notify_lang: { $ref: "#/components/schemas/Lang" }
+        check_user_agent: { type: string }
+        default_user_agent: { type: string, readOnly: true }
+        retention_incident_days: { type: integer }
+        retention_capture_days: { type: integer }
+        retention_audit_days: { type: integer }
+        system_mail_channel_id: { type: integer, format: int64, description: Şifre sıfırlama e-postası kanalı (0 kapalı) }
+    OIDCSettings:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        name: { type: string }
+        issuer: { type: string }
+        client_id: { type: string }
+        client_secret: { type: string, description: Maskeli gelir; maskeli ya da boş gönderilirse korunur }
+        scopes: { type: string }
+        link_email: { type: boolean }
+        auto_provision: { type: boolean }
+        default_role: { $ref: "#/components/schemas/Role" }
+        username_claim: { type: string }
+        role_claim: { type: string }
+        admin_values: { type: string }
+        editor_values: { type: string }
+        viewer_values: { type: string }
+        local_login: { type: boolean }
+    AuditEntry:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        time: { type: integer, format: int64 }
+        user_id: { type: integer, format: int64 }
+        username: { type: string }
+        action: { type: string, example: monitor.update }
+        target_type: { type: string }
+        target_id: { type: integer, format: int64 }
+        target_name: { type: string }
+        detail: { type: string }
+        ip: { type: string }
+    APIKey:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        user_id: { type: integer, format: int64 }
+        username: { type: string }
+        name: { type: string }
+        prefix: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        created_at: { type: integer, format: int64 }
+        last_used_at: { type: integer, format: int64 }
+        expires_at: { type: integer, format: int64 }
+        revoked_at: { type: integer, format: int64 }
+        status: { type: string, enum: [active, expired, revoked] }
+        key: { type: string, readOnly: true, description: Yalnızca oluşturma yanıtında, bir kez }
+    Session:
+      type: object
+      properties:
+        id: { type: string }
+        ip: { type: string }
+        user_agent: { type: string }
+        via: { type: string, enum: [password, oidc] }
+        created_at: { type: integer, format: int64 }
+        last_seen_at: { type: integer, format: int64 }
+        expires_at: { type: integer, format: int64 }
+        current: { type: boolean }
+    PushSubscription:
+      type: object
+      description: Tarayıcının PushSubscription.toJSON() çıktısı.
+      properties:
+        endpoint: { type: string, format: uri }
+        keys:
+          type: object
+          properties:
+            p256dh: { type: string }
+            auth: { type: string }
+      required: [endpoint, keys]
+    PushDevice:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        user_id: { type: integer, format: int64 }
+        endpoint: { type: string }
+        user_agent: { type: string }
+        created_at: { type: integer, format: int64 }
+        last_used_at: { type: integer, format: int64 }
+        fail_count: { type: integer }
+    ImportSummary:
+      type: object
+      properties:
+        source: { type: string, enum: [uptime-kadir, uptime-kuma, uptimerobot] }
+        mode: { type: string, enum: [merge, replace] }
+        dry_run: { type: boolean }
+        created: { type: object, additionalProperties: { type: integer } }
+        existing: { type: object, additionalProperties: { type: integer } }
+        skipped: { type: object, additionalProperties: { type: integer } }
+        deleted: { type: object, additionalProperties: { type: integer } }
+        settings_applied: { type: boolean }
+        warnings: { type: array, items: { type: string } }
+        items: { type: array, items: { type: object, additionalProperties: true } }
+    BackupDoc:
+      type: object
+      description: "Yedek dosyası (`format: uptime-kadir`); şifreli zarfta `format: uptime-kadir-encrypted`."
+      additionalProperties: true
+paths:
+  /api/auth/state:
+    get:
+      tags: [auth]
+      summary: Kurulum / oturum durumu
+      security: []
+      responses:
+        "200":
+          description: Durum
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  setup_needed: { type: boolean }
+                  user: { oneOf: [{ $ref: "#/components/schemas/User" }, { type: "null" }] }
+                  version: { type: string }
+                  password_reset: { type: boolean, description: Şifremi unuttum kullanılabilir }
+                  oidc:
+                    type: object
+                    properties:
+                      enabled: { type: boolean }
+                      name: { type: string }
+                      local_login: { type: boolean }
+  /api/auth/setup:
+    post:
+      tags: [auth]
+      summary: İlk yönetici hesabı (yalnızca hiç kullanıcı yokken)
+      security: []
+      requestBody: { $ref: "#/components/requestBodies/Credentials" }
+      responses:
+        "200": { description: Oturum açıldı, content: { application/json: { schema: { type: object, properties: { user: { $ref: "#/components/schemas/User" } } } } } }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Şifreyle giriş
+      description: "2FA açıksa `{\"two_factor_required\": true, \"challenge\": \"…\"}` döner; `/api/auth/login/2fa` ile tamamlanır. IP başına 15 dk'da 5, hesap başına 50 hatalı deneme sınırı."
+      security: []
+      requestBody: { $ref: "#/components/requestBodies/Credentials" }
+      responses:
+        "200": { description: Oturum ya da 2FA adımı }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /api/auth/login/2fa:
+    post:
+      tags: [auth]
+      summary: İkinci adım (TOTP ya da kurtarma kodu)
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { challenge: { type: string }, code: { type: string } }, required: [challenge, code] }
+      responses:
+        "200": { description: Oturum açıldı }
+        "401": { $ref: "#/components/responses/Error" }
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: Oturumu kapat
+      responses: { "200": { $ref: "#/components/responses/OK" } }
+  /api/auth/password:
+    post:
+      tags: [auth]
+      summary: Kendi şifresini değiştir (diğer oturumlar kapanır)
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { current: { type: string }, new: { type: string, minLength: 8 } }, required: [current, new] }
+      responses: { "200": { $ref: "#/components/responses/OK" }, "400": { $ref: "#/components/responses/Error" } }
+  /api/auth/preferences:
+    put:
+      tags: [auth]
+      summary: Arayüz dili ve tema tercihi
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { lang: { type: string, enum: ["", tr, en] }, theme: { $ref: "#/components/schemas/Theme" } } }
+      responses: { "200": { description: Güncel kullanıcı, content: { application/json: { schema: { type: object, properties: { user: { $ref: "#/components/schemas/User" } } } } } } }
+  /api/auth/email:
+    post:
+      tags: [auth]
+      summary: Kendi e-postasını değiştir (şifre onayıyla; "" kaldırır)
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { password: { type: string }, email: { type: string } }, required: [email] }
+      responses: { "200": { description: Güncel kullanıcı }, "400": { $ref: "#/components/responses/Error" }, "409": { $ref: "#/components/responses/Error" } }
+  /api/auth/forgot:
+    post:
+      tags: [auth]
+      summary: Şifre sıfırlama bağlantısı iste
+      description: Her durumda 200 döner (hesabın varlığı sızmaz). Sistem e-postası ayarlı değilse ve/veya hesapta e-posta yoksa posta gitmez. IP başına 15 dk'da 10, hesap başına 3 istek.
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { login: { type: string, description: Kullanıcı adı ya da e-posta } }, required: [login] }
+      responses: { "200": { $ref: "#/components/responses/OK" }, "429": { $ref: "#/components/responses/Error" } }
+  /api/auth/reset:
+    post:
+      tags: [auth]
+      summary: Bağlantıdaki token ile yeni şifre (30 dk, tek kullanımlık; tüm oturumlar kapanır)
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { token: { type: string }, password: { type: string, minLength: 8 } }, required: [token, password] }
+      responses:
+        "200": { description: "{ok, username}" }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/auth/sessions:
+    get:
+      tags: [auth]
+      summary: Açık oturumlar (cihaz, IP, son görülme)
+      responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Session" } } } } } }
+    delete:
+      tags: [auth]
+      summary: Bu oturum dışındaki tüm oturumları kapat
+      responses: { "200": { description: "{revoked}" } }
+  /api/auth/sessions/{id}:
+    delete:
+      tags: [auth]
+      summary: Tek oturumu kapat
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { $ref: "#/components/responses/OK" }, "404": { $ref: "#/components/responses/Error" } }
+  /api/auth/2fa:
+    get:
+      tags: [auth]
+      summary: 2FA durumu
+      responses: { "200": { description: "{enabled, recovery_codes_left}" } }
+  /api/auth/2fa/setup:
+    post:
+      tags: [auth]
+      summary: 2FA kurulumu başlat (şifreyle); sır, otpauth URL ve QR döner
+      requestBody: { content: { application/json: { schema: { type: object, properties: { password: { type: string } } } } } }
+      responses: { "200": { description: "{secret, otpauth_url, qr_png}" } }
+  /api/auth/2fa/enable:
+    post:
+      tags: [auth]
+      summary: İlk kodla onayla; kurtarma kodlarını bir kez döner
+      requestBody: { content: { application/json: { schema: { type: object, properties: { code: { type: string } } } } } }
+      responses: { "200": { description: "{recovery_codes[]}" } }
+  /api/auth/2fa/disable:
+    post:
+      tags: [auth]
+      summary: 2FA kapat (şifre + kod)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { password: { type: string }, code: { type: string } } } } } }
+      responses: { "200": { $ref: "#/components/responses/OK" } }
+  /api/auth/2fa/recovery-codes:
+    post:
+      tags: [auth]
+      summary: Kurtarma kodlarını yenile (şifre + kod)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { password: { type: string }, code: { type: string } } } } } }
+      responses: { "200": { description: "{recovery_codes[]}" } }
+  /api/auth/oidc/start:
+    get:
+      tags: [auth]
+      summary: SSO girişini başlat (sağlayıcıya 302)
+      security: []
+      parameters: [{ name: next, in: query, schema: { type: string }, description: "Girişten sonra gidilecek yol (/#/… ile başlar)" }]
+      responses: { "302": { description: Sağlayıcının yetkilendirme adresi }, "303": { description: "Hata: /#/login?sso_error=…" } }
+  /api/auth/oidc/callback:
+    get:
+      tags: [auth]
+      summary: Sağlayıcıdan dönüş (code + state); oturum açar ve yönlendirir
+      security: []
+      parameters:
+        - { name: code, in: query, schema: { type: string } }
+        - { name: state, in: query, schema: { type: string } }
+      responses: { "303": { description: "Başarılı: / ; hata: /#/login?sso_error=<kod>" } }
+  /api/summary:
+    get:
+      tags: [monitors]
+      summary: Özet sayılar (durum, 24 saatlik uptime, olay sayısı)
+      responses: { "200": { description: "{total, up, down, pending, paused, maintenance, uptime_24h, incidents_24h}" } }
+  /api/monitors:
+    get:
+      tags: [monitors]
+      summary: Monitörler (kısıtlı kullanıcıda yalnızca izinliler)
+      responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Monitor" } } } } } }
+    post:
+      tags: [monitors]
+      summary: Monitör ekle (editör+)
+      requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/MonitorInput" } } } }
+      responses: { "201": { description: Monitör, content: { application/json: { schema: { $ref: "#/components/schemas/Monitor" } } } }, "400": { $ref: "#/components/responses/Error" } }
+  /api/monitors/bulk:
+    post:
+      tags: [monitors]
+      summary: Toplu işlem (pause, resume, delete, tags, notifications…) (editör+)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { action: { type: string }, ids: { type: array, items: { type: integer, format: int64 } } }, additionalProperties: true } } } }
+      responses: { "200": { description: Sonuç } }
+  /api/monitors/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get:
+      tags: [monitors]
+      summary: Monitör ayrıntısı
+      responses: { "200": { description: "{monitor, uptime{24h,7d,30d,90d}, avg_ping_24h, open_incident_since, open_incident_id}" }, "404": { $ref: "#/components/responses/Error" } }
+    put:
+      tags: [monitors]
+      summary: Monitörü güncelle (editör+)
+      requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/MonitorInput" } } } }
+      responses: { "200": { description: Monitör }, "400": { $ref: "#/components/responses/Error" } }
+    delete:
+      tags: [monitors]
+      summary: Monitörü sil (editör+)
+      responses: { "200": { $ref: "#/components/responses/OK" } }
+  /api/monitors/{id}/pause:
+    post: { tags: [monitors], summary: Durdur (editör+), parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/monitors/{id}/resume:
+    post: { tags: [monitors], summary: Başlat (editör+), parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/monitors/{id}/clone:
+    post: { tags: [monitors], summary: Kopyala (editör+), parameters: [{ $ref: "#/components/parameters/id" }], responses: { "201": { description: Yeni monitör } } }
+  /api/monitors/{id}/reset-stats:
+    post: { tags: [monitors], summary: İstatistikleri sıfırla (editör+), parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/monitors/{id}/push-token:
+    post: { tags: [monitors], summary: Push adresini yenile (editör+), parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: "{push_token}" } } }
+  /api/monitors/{id}/series:
+    get:
+      tags: [monitors]
+      summary: Grafik serisi
+      parameters: [{ $ref: "#/components/parameters/id" }, { name: range, in: query, schema: { type: string, enum: [24h, 7d, 30d, 90d] } }]
+      responses: { "200": { description: Kovalar, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Bucket" } } } } } }
+  /api/monitors/{id}/beats:
+    get:
+      tags: [monitors]
+      summary: Son kontroller (yeniden eskiye)
+      parameters: [{ $ref: "#/components/parameters/id" }, { name: limit, in: query, schema: { type: integer, maximum: 200, default: 50 } }]
+      responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Beat" } } } } } }
+  /api/monitors/{id}/incidents:
+    get: { tags: [monitors], summary: Monitörün olayları, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Incident" } } } } } } }
+  /api/monitors/{id}/locations:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get: { tags: [monitors], summary: Kontrol konumları ve canlı durumları, responses: { "200": { description: "{include_local, probe_ids, down_when, notify_partial, states[]}" } } }
+    put:
+      tags: [monitors]
+      summary: Kontrol konumlarını ayarla (editör+)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { include_local: { type: boolean }, probe_ids: { type: array, items: { type: integer, format: int64 } }, down_when: { type: string, enum: [any, majority, all] }, notify_partial: { type: boolean } } } } } }
+      responses: { "200": { description: Ayar } }
+  /api/monitors/{id}/notifications:
+    put:
+      tags: [monitors]
+      summary: Bildirim kanallarını ayarla (editör+)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { notification_ids: { type: array, items: { type: integer, format: int64 } } } } } } }
+      responses: { "200": { description: "{notification_ids}" } }
+  /api/monitors/{id}/tags:
+    put:
+      tags: [monitors, tags]
+      summary: Etiketleri ayarla (editör+)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody: { content: { application/json: { schema: { type: array, items: { type: object, properties: { tag_id: { type: integer, format: int64 }, value: { type: string } } } } } } }
+      responses: { "200": { description: Etiketler, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/MonitorTag" } } } } } }
+  /api/incidents:
+    get:
+      tags: [incidents]
+      summary: Olaylar (süzgeçler ve sayfalama; format=csv ile CSV)
+      parameters:
+        - { name: kind, in: query, schema: { type: string, enum: ["", monitor, partial, server, degraded, manual] } }
+        - { name: open, in: query, schema: { type: string, enum: ["", "1"] }, description: Yalnızca sürenler }
+        - { name: monitor_id, in: query, schema: { type: integer } }
+        - { name: server_id, in: query, schema: { type: integer } }
+        - { name: from, in: query, schema: { type: integer }, description: Başlangıç ≥ (unix) }
+        - { name: to, in: query, schema: { type: integer } }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: before, in: query, schema: { type: integer }, description: "Sayfalama: bu kimlikten küçükler" }
+        - { name: limit, in: query, schema: { type: integer, maximum: 500 } }
+        - { name: format, in: query, schema: { type: string, enum: [csv] } }
+      responses:
+        "200":
+          description: Liste ya da CSV
+          content:
+            application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Incident" } } }
+            text/csv: { schema: { type: string } }
+    post:
+      tags: [incidents]
+      summary: Elle olay aç (durum sayfası iletişimi; editör+)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                page_id: { type: integer, format: int64 }
+                title: { type: string }
+                severity: { type: string, enum: [minor, major, critical] }
+                monitor_ids: { type: array, items: { type: integer, format: int64 } }
+                started_at: { type: integer, format: int64 }
+                state: { type: string }
+                body: { type: string }
+              required: [page_id, title]
+      responses: { "201": { description: Olay, content: { application/json: { schema: { $ref: "#/components/schemas/Incident" } } } } }
+  /api/incidents/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get: { tags: [incidents], summary: Olay ayrıntısı (işlem geçmişi, güncellemeler), responses: { "200": { description: Ayrıntı, content: { application/json: { schema: { $ref: "#/components/schemas/IncidentDetail" } } } }, "404": { $ref: "#/components/responses/Error" } } }
+    put:
+      tags: [incidents]
+      summary: Elle açılan olayı düzenle (editör+)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { title: { type: string }, severity: { type: string }, monitor_ids: { type: array, items: { type: integer, format: int64 } } } } } } }
+      responses: { "200": { description: Olay } }
+    delete: { tags: [incidents], summary: Elle açılan olayı sil (editör+), responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/incidents/{id}/updates:
+    post:
+      tags: [incidents]
+      summary: Güncelleme yaz (aşama + metin; editör+)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { state: { type: string, enum: [investigating, identified, monitoring, resolved] }, body: { type: string } } } } } }
+      responses: { "201": { description: Güncelleme, content: { application/json: { schema: { $ref: "#/components/schemas/IncidentUpdate" } } } } }
+  /api/incidents/{id}/updates/{uid}:
+    delete: { tags: [incidents], summary: Güncellemeyi sil (editör+), parameters: [{ $ref: "#/components/parameters/id" }, { $ref: "#/components/parameters/uid" }], responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/incidents/{id}/ack:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    post:
+      tags: [incidents]
+      summary: Olayı onayla (hatırlatma ve eskalasyon durur; editör+)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { note: { type: string, maxLength: 500 } } } } } }
+      responses: { "200": { description: Olay, content: { application/json: { schema: { $ref: "#/components/schemas/Incident" } } } }, "409": { $ref: "#/components/responses/Error" } }
+    delete: { tags: [incidents], summary: Onayı geri al, responses: { "200": { description: Olay } } }
+  /api/incidents/{id}/snooze:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    post:
+      tags: [incidents]
+      summary: N dakika sustur (1-10080; editör+)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { minutes: { type: integer, minimum: 1, maximum: 10080 } }, required: [minutes] } } } }
+      responses: { "200": { description: Olay }, "409": { $ref: "#/components/responses/Error" } }
+    delete: { tags: [incidents], summary: Susturmayı kaldır, responses: { "200": { description: Olay } } }
+  /api/notifications:
+    get: { tags: [notifications], summary: Bildirim kanalları (editör+; gizli alanlar maskeli), responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Notification" } } } } } } }
+    post:
+      tags: [notifications]
+      summary: Kanal ekle (editör+)
+      requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/NotificationInput" } } } }
+      responses: { "201": { description: Kanal }, "400": { $ref: "#/components/responses/Error" } }
+  /api/notifications/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    put:
+      tags: [notifications]
+      summary: Kanalı güncelle (editör+)
+      requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/NotificationInput" } } } }
+      responses: { "200": { description: Kanal } }
+    delete: { tags: [notifications], summary: Kanalı sil (editör+), responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/notifications/test:
+    post:
+      tags: [notifications]
+      summary: Formdaki ayarla test bildirimi (editör+; dakikada 10)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { id: { type: integer, format: int64 }, type: { type: string }, config: { type: object, additionalProperties: true }, lang: { type: string } } } } } }
+      responses: { "200": { $ref: "#/components/responses/OK" }, "422": { $ref: "#/components/responses/Error" } }
+  /api/notifications/{id}/samples:
+    post: { tags: [notifications], summary: Her türden örnek bildirim gönder (editör+; dakikada bir), parameters: [{ $ref: "#/components/parameters/id" }], responses: { "202": { description: "{count}" } } }
+  /api/status-pages:
+    get: { tags: [status-pages], summary: Durum sayfaları (editör+), responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/StatusPage" } } } } } } }
+    post:
+      tags: [status-pages]
+      summary: Sayfa oluştur (editör+; özel alan adı yalnızca yönetici)
+      requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/StatusPage" } } } }
+      responses: { "201": { description: Sayfa }, "409": { $ref: "#/components/responses/Error" } }
+  /api/status-pages/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get: { tags: [status-pages], summary: Sayfa, responses: { "200": { description: Sayfa, content: { application/json: { schema: { $ref: "#/components/schemas/StatusPage" } } } } } }
+    put:
+      tags: [status-pages]
+      summary: Sayfayı güncelle (editör+)
+      requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/StatusPage" } } } }
+      responses: { "200": { description: Sayfa } }
+    delete: { tags: [status-pages], summary: Sayfayı sil (editör+), responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/status-pages/{id}/monitors:
+    post:
+      tags: [status-pages]
+      summary: Sayfaya monitör ekle (hızlı işlem; editör+)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { monitor_id: { type: integer, format: int64 }, section: { type: integer } } } } } }
+      responses: { "200": { description: Sayfa } }
+  /api/status-pages/{id}/logo:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get: { tags: [status-pages], summary: Logo (editör+), responses: { "200": { description: Görsel, content: { image/png: {}, image/jpeg: {}, image/webp: {} } } } }
+    put: { tags: [status-pages], summary: Logo yükle (≤512 KB; png/jpeg/webp), requestBody: { content: { image/png: {}, image/jpeg: {}, image/webp: {} } }, responses: { "200": { $ref: "#/components/responses/OK" } } }
+    delete: { tags: [status-pages], summary: Logoyu kaldır, responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/status-pages/{id}/announcements:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get: { tags: [status-pages], summary: Duyurular, responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Announcement" } } } } } } }
+    post:
+      tags: [status-pages]
+      summary: Duyuru ekle (page_ids / all_pages ile kopyalanabilir)
+      requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/Announcement" } } } }
+      responses: { "201": { description: Duyuru } }
+  /api/announcements/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    put: { tags: [status-pages], summary: Duyuruyu güncelle, requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/Announcement" } } } }, responses: { "200": { description: Duyuru } } }
+    delete: { tags: [status-pages], summary: Duyuruyu sil, responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/public/pages/{slug}:
+    get:
+      tags: [public]
+      summary: Herkese açık durum sayfası verisi
+      security: []
+      parameters: [{ $ref: "#/components/parameters/slug" }]
+      responses:
+        "200": { description: Sayfa, content: { application/json: { schema: { $ref: "#/components/schemas/PublicPage" } } } }
+        "401": { description: Şifreli sayfa (unlock gerekir) }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/public/pages/{slug}/unlock:
+    post:
+      tags: [public]
+      summary: Şifreli sayfanın kilidini aç (çerez)
+      security: []
+      parameters: [{ $ref: "#/components/parameters/slug" }]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { password: { type: string } } } } } }
+      responses: { "200": { $ref: "#/components/responses/OK" }, "401": { $ref: "#/components/responses/Error" } }
+  /api/public/pages/{slug}/logo:
+    get: { tags: [public], summary: Sayfa logosu, security: [], parameters: [{ $ref: "#/components/parameters/slug" }], responses: { "200": { description: Görsel } } }
+  /api/public/pages/{slug}/feed.xml:
+    get: { tags: [public], summary: RSS akışı (olaylar, duyurular, planlı bakım), security: [], parameters: [{ $ref: "#/components/parameters/slug" }], responses: { "200": { description: RSS 2.0, content: { application/rss+xml: {} } } } }
+  /api/badge/{id}/{kind}:
+    get:
+      tags: [public]
+      summary: SVG rozet (status | uptime | ping); sayfa yayındaysa anonim
+      security: []
+      parameters:
+        - { $ref: "#/components/parameters/id" }
+        - { name: kind, in: path, required: true, schema: { type: string, enum: [status, uptime, ping] } }
+      responses: { "200": { description: SVG, content: { image/svg+xml: {} } } }
+  /api/push/{token}:
+    get:
+      tags: [public]
+      summary: Push monitörü sinyali (cron / betik)
+      security: []
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [up, down] } }
+        - { name: msg, in: query, schema: { type: string, maxLength: 250 } }
+        - { name: ping, in: query, schema: { type: integer } }
+      responses: { "200": { $ref: "#/components/responses/OK" }, "404": { $ref: "#/components/responses/Error" }, "409": { description: Monitör durdurulmuş }, "429": { $ref: "#/components/responses/Error" } }
+    post:
+      tags: [public]
+      summary: Push sinyali (POST)
+      security: []
+      parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { $ref: "#/components/responses/OK" } }
+  /api/servers:
+    get: { tags: [servers], summary: Sunucu ajanları (son metriklerle), responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Server" } } } } } } }
+    post: { tags: [servers], summary: Sunucu ekle (yönetici); kurulum komutu ve token döner, requestBody: { content: { application/json: { schema: { type: object, properties: { name: { type: string } } } } } }, responses: { "201": { description: Sunucu + token } } }
+  /api/servers/{id}:
+    get: { tags: [servers], summary: Sunucu ayrıntısı (host bilgisi, son örnek, uyarılar, konteynerler), parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: Sunucu, content: { application/json: { schema: { $ref: "#/components/schemas/Server" } } } } } }
+  /api/servers/{id}/stats:
+    get:
+      tags: [servers]
+      summary: Metrik serisi
+      parameters: [{ $ref: "#/components/parameters/id" }, { name: range, in: query, schema: { type: string, enum: [1h, 24h, 7d, 30d] } }]
+      responses: { "200": { description: "{range, res, from, to, interval, points[]}" } }
+  /api/servers/{id}/events:
+    get: { tags: [servers], summary: Uyarı olayları, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: "{events[]}" } } }
+  /api/servers/{id}/incidents:
+    get: { tags: [servers], summary: Sunucunun olayları, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Incident" } } } } } } }
+  /api/servers/{id}/alerts:
+    put:
+      tags: [servers]
+      summary: Uyarı kurallarını ayarla (yönetici)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { alerts: { type: array, items: { type: object, additionalProperties: true } } } } } } }
+      responses: { "200": { description: "{alerts[]}" } }
+  /api/servers/{id}/notifications:
+    put:
+      tags: [servers]
+      summary: Sunucunun bildirim kanalları (yönetici)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { notification_ids: { type: array, items: { type: integer, format: int64 } }, notification_bindings: { type: array, items: { type: object, additionalProperties: true } } } } } } }
+      responses: { "200": { description: Bağlantılar } }
+  /api/probes:
+    get: { tags: [servers], summary: Kontrol noktaları ve sunucu ajanları, responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Probe" } } } } } } }
+    post: { tags: [servers], summary: Kontrol noktası ekle (yönetici), requestBody: { content: { application/json: { schema: { type: object, properties: { name: { type: string } } } } } }, responses: { "201": { description: Kontrol noktası + token } } }
+  /api/probes/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    put: { tags: [servers], summary: Kontrol noktasını güncelle (yönetici), requestBody: { content: { application/json: { schema: { type: object, additionalProperties: true } } } }, responses: { "200": { description: Kontrol noktası } } }
+    delete: { tags: [servers], summary: Kontrol noktasını sil (yönetici), responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/probes/{id}/token:
+    post: { tags: [servers], summary: Token'ı yenile (yönetici), parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: "{token, command}" } } }
+  /api/maintenance:
+    get: { tags: [maintenance], summary: Bakım pencereleri, responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Maintenance" } } } } } } }
+    post: { tags: [maintenance], summary: Bakım ekle (editör+), requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/Maintenance" } } } }, responses: { "201": { description: Bakım } } }
+  /api/maintenance/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get: { tags: [maintenance], summary: Bakım, responses: { "200": { description: Bakım } } }
+    put: { tags: [maintenance], summary: Güncelle (editör+), requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/Maintenance" } } } }, responses: { "200": { description: Bakım } } }
+    delete: { tags: [maintenance], summary: Sil (editör+), responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/maintenance/{id}/pause:
+    post: { tags: [maintenance], summary: Devre dışı bırak, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: Bakım } } }
+  /api/maintenance/{id}/resume:
+    post: { tags: [maintenance], summary: Etkinleştir, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: Bakım } } }
+  /api/maintenance/{id}/end:
+    post: { tags: [maintenance], summary: Süren pencereyi şimdi bitir, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: Bakım } } }
+  /api/tags:
+    get: { tags: [tags], summary: Etiketler (monitör sayısıyla), responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Tag" } } } } } } }
+    post: { tags: [tags], summary: Etiket ekle (editör+), requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/Tag" } } } }, responses: { "201": { description: Etiket }, "409": { $ref: "#/components/responses/Error" } } }
+  /api/tags/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    put: { tags: [tags], summary: Etiketi güncelle (editör+), requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/Tag" } } } }, responses: { "200": { description: Etiket } } }
+    delete: { tags: [tags], summary: Etiketi sil (bağlı kurallar da silinir), responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/users:
+    get: { tags: [users], summary: Kullanıcılar (yönetici), responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/UserRecord" } } } } } } }
+    post: { tags: [users], summary: Kullanıcı ekle (yönetici), requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/UserInput" } } } }, responses: { "201": { description: Kullanıcı }, "409": { $ref: "#/components/responses/Error" } } }
+  /api/users/{id}:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    put: { tags: [users], summary: Kullanıcıyı güncelle (yönetici), requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/UserInput" } } } }, responses: { "200": { description: Kullanıcı } } }
+    delete: { tags: [users], summary: Kullanıcıyı sil (yönetici), responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/users/{id}/password:
+    post: { tags: [users], summary: Geçici şifre ver (oturumları kapatır; yönetici), parameters: [{ $ref: "#/components/parameters/id" }], requestBody: { content: { application/json: { schema: { type: object, properties: { password: { type: string } } } } } }, responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/users/{id}/2fa/reset:
+    post: { tags: [users], summary: Kullanıcının 2FA'sını sıfırla (yönetici), parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/api-keys:
+    get: { tags: [auth], summary: API anahtarları (kendininkiler; yönetici hepsini), responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/APIKey" } } } } } } }
+    post:
+      tags: [auth]
+      summary: API anahtarı oluştur (anahtar bir kez döner)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { name: { type: string }, role: { $ref: "#/components/schemas/Role" }, expires_in_days: { type: integer } } } } } }
+      responses: { "201": { description: Anahtar, content: { application/json: { schema: { $ref: "#/components/schemas/APIKey" } } } } }
+  /api/api-keys/{id}:
+    delete: { tags: [auth], summary: Anahtarı iptal et, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/settings:
+    get: { tags: [settings], summary: Uygulama ayarları (yönetici), responses: { "200": { description: Ayarlar, content: { application/json: { schema: { $ref: "#/components/schemas/Settings" } } } } } }
+    put: { tags: [settings], summary: Ayarları kaydet (GET yanıtı aynen gönderilebilir), requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/Settings" } } } }, responses: { "200": { description: Ayarlar }, "400": { $ref: "#/components/responses/Error" } } }
+  /api/settings/oidc:
+    get: { tags: [settings], summary: SSO ayarları (yönetici), responses: { "200": { description: "{settings, redirect_uri}" } } }
+    put: { tags: [settings], summary: SSO ayarlarını kaydet, requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/OIDCSettings" } } } }, responses: { "200": { description: "{settings, redirect_uri}" }, "400": { $ref: "#/components/responses/Error" } } }
+  /api/settings/oidc/test:
+    post: { tags: [settings], summary: Issuer keşfini dene, requestBody: { content: { application/json: { schema: { type: object, properties: { issuer: { type: string } } } } } }, responses: { "200": { description: "{ok, authorization_endpoint, token_endpoint, scopes_supported}" }, "422": { $ref: "#/components/responses/Error" } } }
+  /api/audit:
+    get:
+      tags: [settings]
+      summary: İşlem kaydı (yönetici)
+      parameters:
+        - { name: user, in: query, schema: { type: string } }
+        - { name: action, in: query, schema: { type: string }, description: "Tam kod (monitor.delete) ya da alan öneki (monitor.)" }
+        - { name: from, in: query, schema: { type: integer } }
+        - { name: to, in: query, schema: { type: integer } }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: before, in: query, schema: { type: integer } }
+        - { name: limit, in: query, schema: { type: integer, maximum: 500 } }
+      responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AuditEntry" } } } } } }
+  /api/audit/facets:
+    get: { tags: [settings], summary: Süzgeç değerleri (kullanıcılar, eylemler), responses: { "200": { description: "{users[], actions[]}" } } }
+  /api/export:
+    get: { tags: [backup], summary: Düz JSON yedek (kullanıcısız; yönetici), responses: { "200": { description: Yedek dosyası, content: { application/json: { schema: { $ref: "#/components/schemas/BackupDoc" } } } } } }
+    post:
+      tags: [backup]
+      summary: Seçenekli yedek (kullanıcılar, 2FA sırları, dosya şifresi)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { users: { type: boolean }, two_factor: { type: boolean }, password: { type: string, minLength: 8 } } } } } }
+      responses: { "200": { description: Yedek (düz ya da şifreli zarf) } }
+  /api/import:
+    post:
+      tags: [backup]
+      summary: Yedeği geri yükle (dosya gövdede ya da multipart "file"; şifreli zarfta X-Backup-Password başlığı)
+      parameters:
+        - { name: mode, in: query, schema: { type: string, enum: [merge, replace], default: merge } }
+        - { name: dry_run, in: query, schema: { type: string, enum: ["1"] } }
+        - { name: confirm, in: query, schema: { type: string, enum: [yes] }, description: replace için zorunlu }
+        - { name: X-Backup-Password, in: header, schema: { type: string } }
+      requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/BackupDoc" } }, multipart/form-data: {} } }
+      responses: { "200": { description: Özet, content: { application/json: { schema: { $ref: "#/components/schemas/ImportSummary" } } } }, "400": { $ref: "#/components/responses/Error" }, "409": { $ref: "#/components/responses/Error" } }
+  /api/import/uptime-kuma:
+    post: { tags: [backup], summary: Uptime Kuma yedeği (JSON ya da kuma.db) içe aktar, parameters: [{ name: dry_run, in: query, schema: { type: string } }], requestBody: { content: { multipart/form-data: {}, application/octet-stream: {} } }, responses: { "200": { description: Özet, content: { application/json: { schema: { $ref: "#/components/schemas/ImportSummary" } } } } } }
+  /api/import/uptimerobot:
+    post: { tags: [backup], summary: UptimeRobot'tan içe aktar (salt okunur API anahtarı), parameters: [{ name: dry_run, in: query, schema: { type: string } }], requestBody: { content: { application/json: { schema: { type: object, properties: { api_key: { type: string } } } } } }, responses: { "200": { description: Özet } } }
+  /api/webpush/vapid:
+    get: { tags: [webpush], summary: Uygulama açık anahtarı (applicationServerKey), responses: { "200": { description: "{public_key}" } } }
+  /api/webpush/subscriptions:
+    get: { tags: [webpush], summary: Bu hesabın cihazları, responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/PushDevice" } } } } } } }
+    post: { tags: [webpush], summary: Bu tarayıcının aboneliğini kaydet, requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/PushSubscription" } } } }, responses: { "200": { description: "{id}" }, "400": { $ref: "#/components/responses/Error" } } }
+  /api/webpush/subscriptions/{id}:
+    delete: { tags: [webpush], summary: Cihazı kaldır, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/webpush/test:
+    post: { tags: [webpush], summary: Cihazlara deneme bildirimi, responses: { "200": { description: "{sent, failed}" }, "400": { $ref: "#/components/responses/Error" } } }
+  /api/events:
+    get:
+      tags: [monitors]
+      summary: Canlı olay akışı (Server-Sent Events)
+      description: "`text/event-stream`: beat, incident, maintenance, server olayları; kısıtlı kullanıcıda yalnızca izinli monitörler."
+      parameters: [{ name: lang, in: query, schema: { $ref: "#/components/schemas/Lang" } }]
+      responses: { "200": { description: Akış, content: { text/event-stream: {} } }, "429": { $ref: "#/components/responses/Error" } }
+  /api/openapi.json:
+    get:
+      tags: [metrics]
+      summary: Bu belge (JSON)
+      security: []
+      responses: { "200": { description: OpenAPI 3.1 belgesi } }
+  /metrics:
+    get:
+      tags: [metrics]
+      summary: Prometheus metrikleri (API anahtarı; basic auth ya da bearer)
+      responses: { "200": { description: Prometheus metin biçimi, content: { text/plain: {} } } }
+  /healthz:
+    get:
+      tags: [metrics]
+      summary: Sağlık kontrolü
+      security: []
+      responses: { "200": { description: ok }, "503": { description: Veritabanına erişilemiyor } }
+  /durum/{slug}/feed.xml:
+    get: { tags: [public], summary: RSS akışı (sayfa adresi altındaki eş yol), security: [], parameters: [{ $ref: "#/components/parameters/slug" }], responses: { "200": { description: RSS 2.0 } } }

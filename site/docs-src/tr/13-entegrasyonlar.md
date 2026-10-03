@@ -114,6 +114,19 @@ Aynı kimlik doğrulamayla iki liste daha alınabilir:
 - `GET /api/monitors/<id>/beats?limit=50` monitörün en son kontrollerini yeniden eskiye döner (`limit` en fazla 200). Her satırda `time` (unix), `status` (0 çalışmıyor, 1 çalışıyor, 2 tekrar deneniyor, 3 bakım), `ping_ms` (−1: ölçüm yok), `message` (istek dilinde) ve çok konumlu monitörde `location` bulunur.
 - `GET /api/audit` (yalnızca yönetici) işlem kaydını döner; süzgeçler: `user` (kullanıcı adı), `action` (`monitor.delete` gibi tam kod ya da `monitor.` gibi alan öneki), `from`/`to` (unix), `q` (hedef, ayrıntı, kullanıcı ve IP'de arama), `before` (sayfalama: bu kimlikten eskiler) ve `limit` (en fazla 500). `GET /api/audit/facets` süzgeç kutuları için kayıtlarda geçen kullanıcı adlarını ve eylem kodlarını verir.
 
+## OpenAPI belgesi {#openapi}
+
+API'nin tamamı (monitörler, bildirim kanalları, olaylar, durum sayfaları, sunucu/kontrol noktası okuma uçları, Web Push, yedek, kimlik doğrulama) OpenAPI 3.1 biçiminde belgelidir: `GET https://⟦bekci.ornek.com⟧/api/openapi.json` (kimlik gerekmez). Kaynak dosya depoda [`docs/openapi.yaml`](https://github.com/kadirsungurlu/bekci/blob/main/docs/openapi.yaml) olarak durur; her sürümde kayıtlı rotalarla karşılaştırılır (belgede olmayan rota derleme testini kırar).
+
+Belgeyi [Swagger Editor](https://editor.swagger.io/) ya da [Redocly](https://redocly.github.io/redoc/) gibi bir görüntüleyiciye adresle yükleyebilir, istemci kodu üretebilirsiniz:
+
+```bash title="İstemci üretimi (openapi-generator örneği)"
+curl -fsS https://⟦bekci.ornek.com⟧/api/openapi.json -o bekci-openapi.json
+npx @openapitools/openapi-generator-cli generate -i bekci-openapi.json -g python -o ./bekci-client
+```
+
+Kimlik doğrulama API anahtarıyladır (`Authorization: Bearer upk_…`); tarayıcı oturumuyla yapılan yazma istekleri `X-Uptime: 1` başlığı ister. Belgede yer almayan tek grup kontrol noktası / sunucu ajanı protokolüdür (`/api/probe/*`): ajan ile sunucu arasındaki iç sözleşme olup sürümden sürüme değişebilir.
+
 ## Prometheus metrikleri {#prometheus}
 
 `GET /metrics` ucu Prometheus metin biçiminde (0.0.4) veri verir. **Ayarlar → API anahtarları** bölümünden bir anahtar alın; `Authorization: Bearer upk_…` başlığıyla ya da Basic kimlikle (kullanıcı `metrics`, şifre anahtar) çağırın. İzleyici yetkisi yeter; kısıtlı bir kullanıcının anahtarı yalnızca ona atanmış monitör ve sunucuları görür.
