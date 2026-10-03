@@ -9,7 +9,7 @@ import (
 // sayfaları silinip yeniden oluşturulur. Silinmeyen ama bunlara kimlikle bağlı
 // kayıtlar (kısıtlı kullanıcıların monitör/etiket seçimi, konum ayarları,
 // sunucu ve kontrol noktası bildirim bağları, bakım pencerelerinin monitörleri,
-// sistem e-posta kanalı) ON DELETE CASCADE ile sessizce kaybolurdu. Bu dosya
+// elle açılan olayların durum sayfası, sistem e-posta kanalı) ON DELETE CASCADE ile sessizce kaybolurdu. Bu dosya
 // silmeden önce bu bağları ADA göre saklar ve aynı adlı kayıtlar yeniden
 // oluşturulunca geri yazar.
 
@@ -19,6 +19,7 @@ type replaceSnapshot struct {
 	locations    map[string]locSnap    // monitör adı → konum ayarı
 	probeNotifs  map[int64][]namedRule // ajan → (kanal adı, seviye)
 	maintMons    map[int64][]string    // bakım → monitör adları
+	incidentPage map[int64]string      // elle açılan olay → durum sayfası adresi (slug)
 	systemMail   string                // sistem e-posta kanalının adı
 }
 
@@ -37,6 +38,7 @@ func snapshotForReplace(ctx context.Context, tx *Tx) (*replaceSnapshot, error) {
 	rs := &replaceSnapshot{
 		userMonitors: map[int64][]string{}, userTags: map[int64][]namedRule{},
 		locations: map[string]locSnap{}, probeNotifs: map[int64][]namedRule{}, maintMons: map[int64][]string{},
+		incidentPage: map[int64]string{},
 	}
 	collect := func(query string, fn func(scan func(dest ...any) error) error) error {
 		rows, err := tx.QueryContext(ctx, query)
@@ -132,6 +134,18 @@ func snapshotForReplace(ctx context.Context, tx *Tx) (*replaceSnapshot, error) {
 		}); err != nil {
 		return nil, err
 	}
+	if err := collect(`SELECT i.id, p.slug FROM incidents i JOIN status_pages p ON p.id = i.page_id`,
+		func(scan func(...any) error) error {
+			var id int64
+			var slug string
+			if err := scan(&id, &slug); err != nil {
+				return err
+			}
+			rs.incidentPage[id] = slug
+			return nil
+		}); err != nil {
+		return nil, err
+	}
 	var raw string
 	if err := tx.QueryRowContext(ctx, "SELECT value FROM settings WHERE key = ?", appSettingsKey).Scan(&raw); err == nil {
 		var a AppSettings
@@ -145,7 +159,14 @@ func snapshotForReplace(ctx context.Context, tx *Tx) (*replaceSnapshot, error) {
 // restore bağları yeni kimliklere yazar. monIDs / tagIDs / notifIDs ad → yeni
 // kimlik (aynı addan birkaç kayıt varsa ilki). Dosyadan konum ayarı gelen
 // monitörlere (zaten satırı olanlara) dokunulmaz.
-func (rs *replaceSnapshot) restore(ctx context.Context, tx *Tx, monIDs, tagIDs, notifIDs map[string]int64) error {
+func (rs *replaceSnapshot) restore(ctx context.Context, tx *Tx, monIDs, tagIDs, notifIDs, pageIDs map[string]int64) error {
+	for incID, slug := range rs.incidentPage {
+		if id, ok := pageIDs[slug]; ok {
+			if _, err := tx.ExecContext(ctx, "UPDATE incidents SET page_id = ? WHERE id = ?", id, incID); err != nil {
+				return err
+			}
+		}
+	}
 	for uid, names := range rs.userMonitors {
 		for _, n := range names {
 			if id, ok := monIDs[n]; ok {

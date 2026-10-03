@@ -47,6 +47,11 @@ func TestReplaceRestoreKeepsLinks(t *testing.T) {
 	a.mustDo("GET", "/api/settings", nil, &st, 200)
 	st.SystemMailChannelID = mailID
 	a.mustDo("PUT", "/api/settings", st, nil, 200)
+	// Durum sayfasına bağlı elle açılan olay.
+	var page, inc map[string]any
+	a.mustDo("POST", "/api/status-pages", map[string]any{"slug": "durum", "title": "Durum"}, &page, 201)
+	a.mustDo("POST", "/api/incidents", map[string]any{"title": "Sağlayıcı kesintisi", "severity": "major", "page_id": int64(page["id"].(float64)), "body": "İnceliyoruz"}, &inc, 201)
+	incID := int64(inc["id"].(float64))
 
 	doc, raw := a.exportDoc()
 	if doc.SystemMailChannel != "Posta" {
@@ -152,6 +157,27 @@ func TestReplaceRestoreKeepsLinks(t *testing.T) {
 	a.mustDo("GET", "/api/settings", nil, &st, 200)
 	if st.SystemMailChannelID != newMail {
 		t.Errorf("sistem e-posta kanalı: %d, %d bekleniyordu", st.SystemMailChannelID, newMail)
+	}
+	// Elle açılan olay yeniden oluşturulan sayfaya (aynı adres) bağlı kaldı.
+	var pages []struct {
+		ID   int64  `json:"id"`
+		Slug string `json:"slug"`
+	}
+	a.mustDo("GET", "/api/status-pages", nil, &pages, 200)
+	var newPage int64
+	for _, p := range pages {
+		if p.Slug == "durum" {
+			newPage = p.ID
+		}
+	}
+	var incAfter struct {
+		Incident struct {
+			PageID int64 `json:"page_id"`
+		} `json:"incident"`
+	}
+	a.mustDo("GET", fmt.Sprintf("/api/incidents/%d", incID), nil, &incAfter, 200)
+	if newPage == 0 || incAfter.Incident.PageID != newPage {
+		t.Errorf("elle açılan olayın sayfası: %d, %d bekleniyordu", incAfter.Incident.PageID, newPage)
 	}
 }
 

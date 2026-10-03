@@ -124,7 +124,7 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 
 		// Ad → yeni kimlik (aynı addan birkaç kayıt varsa ilki): değiştir
 		// modunda korunan bağlar ve sistem e-posta kanalı bununla çözülür.
-		tagByName, notifByName, monByName := map[string]int64{}, map[string]int64{}, map[string]int64{}
+		tagByName, notifByName, monByName, pageBySlug := map[string]int64{}, map[string]int64{}, map[string]int64{}, map[string]int64{}
 		first := func(m map[string]int64, name string, id int64) {
 			if _, ok := m[name]; !ok {
 				m[name] = id
@@ -286,6 +286,7 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 				return err
 			}
 			res.PageIDs = append(res.PageIDs, id)
+			first(pageBySlug, p.Slug, id)
 			for _, a := range ip.Announcements {
 				if _, err := tx.ExecContext(ctx, `
 					INSERT INTO announcements (page_id, title, body, severity, starts_at, ends_at, created_at, updated_at)
@@ -303,7 +304,7 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 			res.UserIDs = ids
 		}
 		if snap != nil {
-			if err := snap.restore(ctx, tx, monByName, tagByName, notifByName); err != nil {
+			if err := snap.restore(ctx, tx, monByName, tagByName, notifByName, pageBySlug); err != nil {
 				return err
 			}
 		}
