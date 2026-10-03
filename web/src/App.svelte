@@ -628,6 +628,7 @@
     cursor: pointer;
     text-align: left;
     border-radius: 6px;
+    white-space: nowrap; /* "Sign out" tema/dil düğmelerinin yanında iki satıra bölünmesin */
   }
   .offline {
     display: inline-flex;
