@@ -116,7 +116,7 @@ Aynı kimlik doğrulamayla iki liste daha alınabilir:
 
 ## OpenAPI belgesi {#openapi}
 
-API'nin tamamı (monitörler, bildirim kanalları, olaylar, durum sayfaları, sunucu/kontrol noktası okuma uçları, Web Push, yedek, kimlik doğrulama) OpenAPI 3.1 biçiminde belgelidir: `GET https://⟦bekci.ornek.com⟧/api/openapi.json` (kimlik gerekmez). Kaynak dosya depoda [`docs/openapi.yaml`](https://github.com/kadirsungurlu/bekci/blob/main/docs/openapi.yaml) olarak durur; her sürümde kayıtlı rotalarla karşılaştırılır (belgede olmayan rota derleme testini kırar).
+API'nin tamamı (monitörler, bildirim kanalları, olaylar, durum sayfaları, sunucu/kontrol noktası okuma uçları, Web Push, yedek, kimlik doğrulama) OpenAPI 3.1 biçiminde belgelidir: `GET https://⟦bekci.ornek.com⟧/api/openapi.json` (kimlik gerekmez). Kaynak dosya depoda [`internal/apidocs/openapi.yaml`](https://github.com/kadirsungurlu/bekci/blob/main/internal/apidocs/openapi.yaml) olarak durur; her sürümde kayıtlı rotalarla karşılaştırılır (belgede olmayan rota derleme testini kırar).
 
 Belgeyi [Swagger Editor](https://editor.swagger.io/) ya da [Redocly](https://redocly.github.io/redoc/) gibi bir görüntüleyiciye adresle yükleyebilir, istemci kodu üretebilirsiniz:
 

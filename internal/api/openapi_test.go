@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kadirsungurlu/bekci/docs"
+	"github.com/kadirsungurlu/bekci/internal/apidocs"
 	"gopkg.in/yaml.v3"
 )
 
@@ -89,7 +89,7 @@ func TestOpenAPICoversRoutes(t *testing.T) {
 		OpenAPI string                    `yaml:"openapi"`
 		Paths   map[string]map[string]any `yaml:"paths"`
 	}
-	if err := yaml.Unmarshal(docs.OpenAPI, &spec); err != nil {
+	if err := yaml.Unmarshal(apidocs.OpenAPI, &spec); err != nil {
 		t.Fatalf("openapi.yaml: %v", err)
 	}
 	if !strings.HasPrefix(spec.OpenAPI, "3.") || len(spec.Paths) == 0 {
@@ -112,7 +112,7 @@ func TestOpenAPICoversRoutes(t *testing.T) {
 			continue
 		}
 		if !documented[r] {
-			t.Errorf("belgede yok: %s (docs/openapi.yaml'a ekleyin ya da internalRoutes'a gerekçesiyle yazın)", r)
+			t.Errorf("belgede yok: %s (internal/apidocs/openapi.yaml'a ekleyin ya da internalRoutes'a gerekçesiyle yazın)", r)
 		}
 	}
 	src := map[string]bool{}
@@ -132,7 +132,7 @@ func TestOpenAPICoversRoutes(t *testing.T) {
 		}
 	}
 	// JSON'a çevrilebilir ve sunulur.
-	b, err := yamlToJSON(docs.OpenAPI)
+	b, err := yamlToJSON(apidocs.OpenAPI)
 	if err != nil {
 		t.Fatal(err)
 	}

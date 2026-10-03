@@ -1,6 +1,6 @@
 package api
 
-// OpenAPI belgesi: docs/openapi.yaml gömülüdür ve GET /api/openapi.json ile
+// OpenAPI belgesi: internal/apidocs/openapi.yaml gömülüdür ve GET /api/openapi.json ile
 // JSON olarak sunulur (kimlik gerekmez; belge gizli bilgi içermez). YAML → JSON
 // dönüşümü ilk istekte bir kez yapılır.
 
@@ -10,11 +10,11 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/kadirsungurlu/bekci/docs"
+	"github.com/kadirsungurlu/bekci/internal/apidocs"
 	"gopkg.in/yaml.v3"
 )
 
-var openAPIJSON = sync.OnceValues(func() ([]byte, error) { return yamlToJSON(docs.OpenAPI) })
+var openAPIJSON = sync.OnceValues(func() ([]byte, error) { return yamlToJSON(apidocs.OpenAPI) })
 
 // yamlToJSON YAML belgesini JSON'a çevirir (anahtarlar dize olmalı).
 func yamlToJSON(src []byte) ([]byte, error) {

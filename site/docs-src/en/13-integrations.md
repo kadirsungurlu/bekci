@@ -116,7 +116,7 @@ Two more lists are available with the same authentication:
 
 ## OpenAPI document {#openapi}
 
-The whole API (monitors, notification channels, incidents, status pages, server/check-location read endpoints, Web Push, backup, authentication) is documented in OpenAPI 3.1: `GET https://⟦bekci.example.com⟧/api/openapi.json` (no authentication needed). The source lives in the repository as [`docs/openapi.yaml`](https://github.com/kadirsungurlu/bekci/blob/main/docs/openapi.yaml) and is compared against the registered routes in every build (an undocumented route fails the test).
+The whole API (monitors, notification channels, incidents, status pages, server/check-location read endpoints, Web Push, backup, authentication) is documented in OpenAPI 3.1: `GET https://⟦bekci.example.com⟧/api/openapi.json` (no authentication needed). The source lives in the repository as [`internal/apidocs/openapi.yaml`](https://github.com/kadirsungurlu/bekci/blob/main/internal/apidocs/openapi.yaml) and is compared against the registered routes in every build (an undocumented route fails the test).
 
 Load the document into a viewer such as [Swagger Editor](https://editor.swagger.io/) or [Redocly](https://redocly.github.io/redoc/) by URL, or generate a client:
 
