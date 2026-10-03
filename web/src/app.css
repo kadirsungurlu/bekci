@@ -1106,7 +1106,10 @@ input[type='search'].input::-webkit-search-decoration {
   --muted: #5f6b7e;
   --placeholder: #8a95a8;
 
-  --up: #059669;
+  /* Metin olarak da kullanılan durum renkleri (rozet, hap, kök neden) açık
+     zeminde AA'yı tutsun: --up beyazda 5,4:1 / yumuşak zeminde 4,9:1,
+     --pending 5,2:1 / 4,7:1 (#059669 ve #ca8a04 3,3:1 ve 2,9:1 kalıyordu). */
+  --up: #047857;
   --up-soft: rgba(5, 150, 105, 0.1);
   --up-text: #065f46;
   --up-border: rgba(5, 150, 105, 0.35);
@@ -1116,7 +1119,7 @@ input[type='search'].input::-webkit-search-decoration {
   --down-text-2: #b91c1c;
   --down-border: rgba(220, 38, 38, 0.35);
   --down-solid: #b91c1c;
-  --pending: #ca8a04;
+  --pending: #996000;
   --pending-soft: rgba(202, 138, 4, 0.1);
   --pending-text: #854d0e;
   --pending-border: rgba(202, 138, 4, 0.35);
