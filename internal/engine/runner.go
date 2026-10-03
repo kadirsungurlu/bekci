@@ -301,7 +301,7 @@ func (r *runner) process(res check.Result) {
 	}
 
 	err := r.e.store.RecordBeat(ctx, store.BeatUpdate{
-		Beat:         store.Beat{MonitorID: r.m.ID, Time: now.Unix(), Status: status, PingMs: res.PingMs, Message: res.Message},
+		Beat:         store.Beat{MonitorID: r.m.ID, Time: now.Unix(), Status: status, PingMs: res.PingMs, Message: res.Message, Location: r.beatLocation(now)},
 		LastChangeAt: lastChange,
 	})
 	if err != nil {

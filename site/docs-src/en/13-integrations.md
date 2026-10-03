@@ -107,6 +107,13 @@ The `kind` filter: `monitor` (outages), `partial` (location outages), `server` (
 
 The file is UTF-8 and starts with a BOM so that Excel opens Turkish characters correctly.
 
+### Recent checks and the audit log {#json-lists}
+
+Two more lists are available with the same authentication:
+
+- `GET /api/monitors/<id>/beats?limit=50` returns the monitor's most recent checks, newest first (`limit` at most 200). Each row has `time` (unix), `status` (0 down, 1 up, 2 retrying, 3 maintenance), `ping_ms` (−1: no measurement), `message` (in the request language) and, for multi-location monitors, `location`.
+- `GET /api/audit` (admins only) returns the audit log; filters: `user` (username), `action` (a full code such as `monitor.delete` or an area prefix such as `monitor.`), `from`/`to` (unix), `q` (search in target, details, user and IP), `before` (paging: entries older than this id) and `limit` (at most 500). `GET /api/audit/facets` lists the usernames and action codes present in the log for filter boxes.
+
 ## Prometheus metrics {#prometheus}
 
 `GET /metrics` serves data in the Prometheus text format (0.0.4). Create a key under **Settings → API keys** and call the endpoint with the `Authorization: Bearer upk_…` header or Basic auth (user `metrics`, password the key). Viewer permission is enough; a restricted user's key only sees the monitors and servers assigned to them.

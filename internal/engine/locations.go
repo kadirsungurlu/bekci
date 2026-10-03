@@ -625,6 +625,23 @@ func aggregateLocations(locs []*location, downWhen string, now time.Time, rules 
 	return check.Result{Up: true, PingMs: ping, Message: msg + suffix, Cert: cert}
 }
 
+// beatLocation kaydedilen sonucu üreten konumların adı: çok konumlu
+// monitörde oy vermiş (çalışıyor/çalışmıyor/tekrar deneniyor) konumlar;
+// yalnızca ana sunucudan kontrol edilen monitörde boş.
+func (r *runner) beatLocation(now time.Time) string {
+	if r.locs == nil {
+		return ""
+	}
+	var names []string
+	for _, s := range r.locs.statuses(now, r.rules()) {
+		switch s.Status {
+		case locUp, locDown, locRetrying:
+			names = append(names, s.Name)
+		}
+	}
+	return nameList(names)
+}
+
 // nameList en fazla 10 adı virgülle birleştirir.
 func nameList(names []string) string {
 	const max = 10

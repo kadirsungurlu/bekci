@@ -130,6 +130,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/monitors/{id}/pause", s.editor(s.pauseMonitor))
 	mux.Handle("POST /api/monitors/{id}/resume", s.editor(s.resumeMonitor))
 	mux.Handle("GET /api/monitors/{id}/series", s.auth(s.monitorSeries))
+	mux.Handle("GET /api/monitors/{id}/beats", s.auth(s.monitorBeats))
 	mux.Handle("GET /api/monitors/{id}/incidents", s.auth(s.monitorIncidents))
 	mux.Handle("GET /api/incidents", s.auth(s.listIncidents))
 
@@ -150,6 +151,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/users/{id}", s.admin(s.deleteUser))
 	mux.Handle("POST /api/users/{id}/password", s.admin(s.resetUserPassword))
 	mux.Handle("GET /api/audit", s.admin(s.listAudit))
+	mux.Handle("GET /api/audit/facets", s.admin(s.auditFacets))
 
 	// Özellik dosyalarının kendi rotaları (RegisterRoutes).
 	for _, f := range extraRoutes {

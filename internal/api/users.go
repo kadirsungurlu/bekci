@@ -39,9 +39,12 @@ func (s *Server) audit(r *http.Request, actor store.User, action, targetType str
 
 func (s *Server) listAudit(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	before, _ := strconv.ParseInt(q.Get("before"), 10, 64)
-	limit, _ := strconv.Atoi(q.Get("limit"))
-	list, err := s.store.ListAudit(r.Context(), before, limit)
+	f := store.AuditFilter{User: q.Get("user"), Action: q.Get("action"), Query: q.Get("q")}
+	f.Before, _ = strconv.ParseInt(q.Get("before"), 10, 64)
+	f.Limit, _ = strconv.Atoi(q.Get("limit"))
+	f.From, _ = strconv.ParseInt(q.Get("from"), 10, 64)
+	f.To, _ = strconv.ParseInt(q.Get("to"), 10, 64)
+	list, err := s.store.ListAuditFiltered(r.Context(), f)
 	if err != nil {
 		s.dbError(w, err)
 		return
@@ -52,6 +55,16 @@ func (s *Server) listAudit(w http.ResponseWriter, r *http.Request) {
 		list[i].Detail = i18n.AuditDetail(lang, list[i].Detail)
 	}
 	writeJSON(w, http.StatusOK, list)
+}
+
+// auditFacets süzgeç kutuları için kayıtlarda geçen kullanıcılar ve eylemler.
+func (s *Server) auditFacets(w http.ResponseWriter, r *http.Request) {
+	users, actions, err := s.store.AuditFacets(r.Context())
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"users": users, "actions": actions})
 }
 
 // Müşteri kısıtı --------------------------------------------------------------------

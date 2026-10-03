@@ -69,6 +69,23 @@ export interface UserCreateInput extends UserInput {
   password: string;
 }
 
+/** İşlem kaydı süzgeçleri (boş alanlar süzmez). */
+export interface AuditQuery {
+  before?: number;
+  limit?: number;
+  user?: string;
+  /** Tam eylem kodu ("monitor.delete") ya da nokta ile biten alan öneki ("monitor."). */
+  action?: string;
+  from?: number;
+  to?: number;
+  q?: string;
+}
+
+export interface AuditFacets {
+  users: string[];
+  actions: string[];
+}
+
 export interface AuditEntry {
   id: number;
   time: number;
@@ -377,6 +394,17 @@ export interface RawPoint {
   s: number;
   p: number;
   m?: string;
+}
+
+/** Monitör ayrıntısındaki "son kontroller" satırı (yeniden eskiye). */
+export interface BeatRow {
+  time: number;
+  status: number;
+  /** -1: ölçüm yok. */
+  ping_ms: number;
+  message: string;
+  /** Çok konumlu monitörde sonucu üreten konumlar; tek konumda yok. */
+  location?: string;
 }
 
 export type SeriesRange = '24h' | '7d' | '30d' | '90d';
@@ -1387,7 +1415,8 @@ export const api = {
   deleteUser: (id: number) => del<{ ok: boolean }>(`/api/users/${id}`),
   resetUserPassword: (id: number, password: string) => post<{ ok: boolean }>(`/api/users/${id}/password`, { password }),
   resetUser2fa: (id: number) => post<{ ok: boolean }>(`/api/users/${id}/2fa/reset`),
-  audit: (before: number, limit: number) => get<AuditEntry[]>(`/api/audit${qs({ before, limit })}`),
+  audit: (q: AuditQuery) => get<AuditEntry[]>(`/api/audit${qs({ ...q })}`),
+  auditFacets: () => get<AuditFacets>('/api/audit/facets'),
 
   // İki adımlı doğrulama
   twoFactor: () => get<TwoFactorStatus>('/api/auth/2fa'),
@@ -1477,6 +1506,7 @@ export const api = {
   deleteProbe: (id: number) => del<{ ok: boolean }>(`/api/probes/${id}`),
   regenerateProbeToken: (id: number) => post<ProbeSetup>(`/api/probes/${id}/token`),
   monitorLocations: (id: number) => get<MonitorLocations>(`/api/monitors/${id}/locations`),
+  beats: (id: number, limit = 50) => get<BeatRow[]>(`/api/monitors/${id}/beats${qs({ limit })}`),
   setMonitorLocations: (id: number, l: LocationSetup) => put<MonitorLocations>(`/api/monitors/${id}/locations`, l),
 
   // Sunucu takibi (sunucular kontrol noktalarından ayrıdır; ekleme createServer ile)

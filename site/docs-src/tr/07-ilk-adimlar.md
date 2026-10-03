@@ -35,6 +35,9 @@ Paneli ilk açtığınızda **Hoş geldiniz** ekranı yönetici hesabını oluş
 > [!CHECK]
 > Monitör listede görünür ve birkaç saniye içinde ilk kontrol yapılır. Site çalışıyorsa durumu yeşile döner; yanıt süresi ve durum çubukları her kontrolde sayfayı yenilemeden güncellenir.
 
+> [!TIP] Son kontroller
+> Monitörün ayrıntı sayfasındaki **Son kontroller** bölümü en son 50 kontrolü tek tek listeler: zaman, sonuç, yanıt süresi, mesaj (ör. `200 OK`, `zaman aşımı`) ve çok konumlu monitörde sonucu üreten konumlar. “Neden kesinti sayıldı?” sorusuna grafikten daha hızlı yanıt verir; yeni sonuçlar geldikçe kendiliğinden güncellenir.
+
 > [!TIP] Yavaş yanıt uyarısı
 > Site açık ama yavaşsa haberiniz olsun diye **Gelişmiş ayarlar → Yanıt süresi eşiği (ms)** alanını doldurun (ör. 2000). Son N başarılı kontrolün (**Ortalama penceresi**, varsayılan 3) ortalama yanıt süresi eşiği aşınca monitöre **Yavaş** rozeti gelir, bağlı kanallara 🟡 “yavaş yanıt veriyor” bildirimi gider ve **Olaylar** sayfasında “Yavaş yanıt” türünde bir olay açılır; ortalama eşiğin %90 altına inince 🟢 ile kapanır. Durum “Çalışıyor” kalır, uptime etkilenmez; monitör çalışmaz olursa yavaş yanıt olayı sessizce kapanıp normal kesinti olayı açılır.
 

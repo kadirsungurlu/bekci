@@ -221,6 +221,17 @@ export default {
     incidentDetails: 'Incident details',
     noIncidents: 'No incidents recorded for this monitor yet. Great!',
     badges: 'Badges',
+    lastChecks: 'Recent checks',
+    lastChecksHelp: 'The last {n} checks; updates as new results arrive.',
+    lastChecksEmpty: 'No check results yet.',
+    chk: {
+      time: 'Time',
+      result: 'Result',
+      ms: 'Duration',
+      message: 'Message',
+      location: 'Location',
+      local: 'Main server',
+    },
   },
   form: {
     backToMonitor: 'Back to monitor',

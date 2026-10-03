@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -745,6 +746,44 @@ func (s *Server) monitorSeries(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeError(w, http.StatusBadRequest, "Geçersiz aralık")
 	}
+}
+
+// monitorBeats son kontroller tablosu: en yeni limit (varsayılan 50, en fazla
+// 200) kontrol; zaman, sonuç, süre, mesaj ve konum. Mesajlar yanıt diline
+// çevrilir, kısıtlı kullanıcıya hata ayrıntısı gösterilmez.
+func (s *Server) monitorBeats(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	mon, err := s.store.GetMonitor(r.Context(), id)
+	if err != nil || !visibleTo(userFrom(r)).can(id) {
+		if err == nil {
+			err = store.ErrNotFound
+		}
+		s.dbError(w, err)
+		return
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	beats, err := s.store.LastBeats(r.Context(), id, limit)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	type row struct {
+		Time     int64  `json:"time"`
+		Status   int    `json:"status"`
+		PingMs   int64  `json:"ping_ms"` // -1: ölçüm yok
+		Message  string `json:"message"`
+		Location string `json:"location,omitempty"`
+	}
+	u, lang := userFrom(r), responseLang(w)
+	out := make([]row, len(beats))
+	for i, b := range beats {
+		out[i] = row{Time: b.Time, Status: b.Status, PingMs: b.PingMs, Location: b.Location,
+			Message: displayMessage(u, lang, mon.Type, b.Status, b.Message)}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (s *Server) monitorIncidents(w http.ResponseWriter, r *http.Request) {

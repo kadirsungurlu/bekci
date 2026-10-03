@@ -221,6 +221,17 @@ export default {
     incidentDetails: 'Olay ayrıntıları',
     noIncidents: 'Bu monitörde henüz olay kaydı yok. Harika!',
     badges: 'Rozetler',
+    lastChecks: 'Son kontroller',
+    lastChecksHelp: 'En son {n} kontrol; yeni sonuçlar geldikçe güncellenir.',
+    lastChecksEmpty: 'Henüz kontrol sonucu yok.',
+    chk: {
+      time: 'Zaman',
+      result: 'Sonuç',
+      ms: 'Süre',
+      message: 'Mesaj',
+      location: 'Konum',
+      local: 'Ana sunucu',
+    },
   },
   form: {
     backToMonitor: 'Monitöre dön',

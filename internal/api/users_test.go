@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -253,6 +254,41 @@ func TestAuditLog(t *testing.T) {
 	if log[1].Action != "monitor.delete" || log[1].Username != "kadir" || log[1].TargetName != "Kayıtlı" {
 		t.Errorf("kayıt içeriği yanlış: %+v", log[1])
 	}
+	// Süzgeçler: eylem alanı, tam eylem, kullanıcı, arama, tarih.
+	admin.mustDo("GET", "/api/audit?action=monitor.", nil, &log, 200)
+	if len(log) != 2 || log[0].Action != "monitor.delete" || log[1].Action != "monitor.create" {
+		t.Errorf("alan süzgeci: %+v", log)
+	}
+	admin.mustDo("GET", "/api/audit?action=login.fail", nil, &log, 200)
+	if len(log) != 1 {
+		t.Errorf("tam eylem süzgeci: %+v", log)
+	}
+	admin.mustDo("GET", "/api/audit?action=monitor.&user=kadir", nil, &log, 200)
+	if len(log) != 2 {
+		t.Errorf("eylem+kullanıcı süzgeci: %+v", log)
+	}
+	admin.mustDo("GET", "/api/audit?user=yok", nil, &log, 200)
+	if len(log) != 0 {
+		t.Errorf("olmayan kullanıcı: %+v", log)
+	}
+	admin.mustDo("GET", "/api/audit?q=kay%C4%B1tl", nil, &log, 200)
+	if len(log) != 2 {
+		t.Errorf("hedef araması: %+v", log)
+	}
+	admin.mustDo("GET", fmt.Sprintf("/api/audit?from=%d", time.Now().Unix()+3600), nil, &log, 200)
+	if len(log) != 0 {
+		t.Errorf("gelecek tarih süzgeci boş dönmeli: %+v", log)
+	}
+	var facets struct {
+		Users   []string `json:"users"`
+		Actions []string `json:"actions"`
+	}
+	admin.mustDo("GET", "/api/audit/facets", nil, &facets, 200)
+	if len(facets.Users) != 1 || facets.Users[0] != "kadir" || !slices.Contains(facets.Actions, "monitor.delete") {
+		t.Errorf("yüzler: %+v", facets)
+	}
+	viewer, _ := admin.newUser("izleyici", store.RoleViewer, nil)
+	viewer.mustDo("GET", "/api/audit/facets", nil, nil, 403)
 }
 
 // Güvenlik: editör, maskeli gizli bilgiyi hedefini değiştirerek dışarı sızdıramaz.

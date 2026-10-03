@@ -9,6 +9,7 @@
     type LocationState,
     type MonitorDetail,
     type MonitorLocations,
+    type BeatRow,
     type RawPoint,
     type Series,
     type SeriesRange,
@@ -27,8 +28,11 @@
     fmtPct,
     uptimeTone,
     fmtRelative,
+    fmtTimeSec,
     monitorKind,
     nowSec,
+    pointStatusClass,
+    pointStatusLabel,
   } from '../lib/format';
   import { session } from '../lib/session.svelte';
   import { GROUP_MODES, displayTarget, groupTarget, isWebTarget, typeName } from '../lib/monitorTypes';
@@ -105,6 +109,30 @@
     locTimer = setTimeout(loadLocations, 800);
   };
   const pushUrl = $derived(monitor?.push_token ? `${location.origin}/api/push/${monitor.push_token}` : '');
+
+  // Son kontroller tablosu (en yeni 50); yeni sonuç gelince kısa gecikmeyle yenilenir.
+  const BEATS_LIMIT = 50;
+  let beats = $state.raw<BeatRow[] | null>(null);
+  let beatsOpen = $state(false);
+  async function loadBeats() {
+    if (!ready || notFound || !beatsOpen) return;
+    try {
+      beats = await api.beats(id, BEATS_LIMIT);
+    } catch {
+      /* tablo isteğe bağlı; grafik ve olaylar etkilenmez */
+    }
+  }
+  let beatsTimer: ReturnType<typeof setTimeout> | undefined;
+  const loadBeatsSoon = () => {
+    clearTimeout(beatsTimer);
+    beatsTimer = setTimeout(loadBeats, 600);
+  };
+  function toggleBeats() {
+    beatsOpen = !beatsOpen;
+    if (beatsOpen && !beats) loadBeats();
+  }
+  // Konum sütunu yalnızca çok konumlu monitörde (ya da eski kayıtta konum varsa) gösterilir.
+  const showBeatLocation = $derived(!!(locations?.locations.length || beats?.some((b) => b.location)));
 
   // İlk yüklemede önce monitörün kendisi istenir: yoksa (404) grafik, konum ve
   // olay istekleri hiç gönderilmez ve "bulunamadı" kartının yanında ayrıca hata
@@ -194,6 +222,7 @@
     unsub = live.onBeat((b) => {
       if (b.monitor_id !== id) return;
       if (locations?.locations.length) loadLocationsSoon();
+      if (beatsOpen) loadBeatsSoon();
       if (series && series.kind === 'raw') {
         const p: RawPoint = { t: b.time, s: b.status, p: b.ping };
         if (b.status !== STATUS_UP && b.message) p.m = b.message;
@@ -219,6 +248,7 @@
     unsubReset?.();
     unsubResume?.();
     clearTimeout(locTimer);
+    clearTimeout(beatsTimer);
     clearTimeout(reloadTimer);
     clearInterval(refreshTimer);
   });
@@ -501,6 +531,46 @@
     </div>
   </div>
   {/if}
+
+  <div class="card block checks">
+    <button type="button" class="bb-toggle" aria-expanded={beatsOpen} onclick={toggleBeats}>
+      <span class="bb-t"><Icon name="list" size={17} /> {t('monitors.detail.lastChecks')}</span>
+      <span class="chev" class:open={beatsOpen}><Icon name="chevron-down" /></span>
+    </button>
+    {#if beatsOpen}
+      <p class="help chk-help">{t('monitors.detail.lastChecksHelp', { n: BEATS_LIMIT })}</p>
+      {#if !beats}
+        <div class="skeleton" style="height:160px"></div>
+      {:else if beats.length === 0}
+        <div class="none">{t('monitors.detail.lastChecksEmpty')}</div>
+      {:else}
+        <div class="chk-wrap">
+          <table class="table chk">
+            <thead>
+              <tr>
+                <th>{t('monitors.detail.chk.time')}</th>
+                <th>{t('monitors.detail.chk.result')}</th>
+                <th class="num">{t('monitors.detail.chk.ms')}</th>
+                <th>{t('monitors.detail.chk.message')}</th>
+                {#if showBeatLocation}<th>{t('monitors.detail.chk.location')}</th>{/if}
+              </tr>
+            </thead>
+            <tbody>
+              {#each beats as b (b.time)}
+                <tr>
+                  <td class="nowrap tm" title={fmtDate(b.time)}>{fmtTimeSec(b.time)}</td>
+                  <td><span class="badge {pointStatusClass(b.status)}">{pointStatusLabel(b.status)}</span></td>
+                  <td class="num mono">{b.ping_ms >= 0 ? fmtMs(b.ping_ms) : '—'}</td>
+                  <td class="msg">{b.message || '—'}</td>
+                  {#if showBeatLocation}<td class="loc">{b.location || t('monitors.detail.chk.local')}</td>{/if}
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
+    {/if}
+  </div>
 
   {#if monitor.type === 'group' && children.length}
     <div class="card block">
@@ -899,8 +969,46 @@
   .kids-help {
     margin: 12px 0 0;
   }
-  .badges {
+  .badges,
+  .checks {
     padding: 0;
+  }
+  .chk-help {
+    margin: -6px 20px 10px;
+    font-size: 0.85rem;
+  }
+  .chk-wrap {
+    overflow-x: auto;
+    padding: 0 8px 8px;
+  }
+  .chk {
+    width: 100%;
+    font-size: 0.86rem;
+  }
+  .chk .num {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .chk .tm {
+    color: var(--text-2);
+  }
+  .chk .msg {
+    color: var(--text-2);
+    overflow-wrap: anywhere;
+    min-width: 200px;
+  }
+  .chk .loc {
+    white-space: nowrap;
+    color: var(--text-2);
+  }
+  .chk .badge {
+    font-size: 0.72rem;
+    height: 21px;
+  }
+  .checks .none {
+    color: var(--muted);
+    text-align: center;
+    padding: 0 20px 20px;
   }
   .bb-toggle {
     width: 100%;

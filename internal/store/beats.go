@@ -14,6 +14,8 @@ type Beat struct {
 	Status    int
 	PingMs    int64
 	Message   string
+	// Location çok konumlu monitörde sonucu üreten konumların adı ("" = ana sunucu).
+	Location string
 }
 
 // BeatUpdate kontrol sonucunu ve monitörün yeni durumunu tek işlemde yazar:
@@ -48,8 +50,8 @@ func (s *Store) RecordBeat(ctx context.Context, u BeatUpdate) error {
 
 	return s.tx(ctx, func(tx *Tx) error {
 		if _, err := tx.ExecContext(ctx,
-			"INSERT INTO heartbeats (monitor_id, time, status, ping_ms, message) VALUES (?, ?, ?, ?, ?)",
-			b.MonitorID, b.Time, b.Status, ping, b.Message); err != nil {
+			"INSERT INTO heartbeats (monitor_id, time, status, ping_ms, message, location) VALUES (?, ?, ?, ?, ?, ?)",
+			b.MonitorID, b.Time, b.Status, ping, b.Message, b.Location); err != nil {
 			return err
 		}
 		for _, t := range []struct {

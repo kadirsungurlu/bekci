@@ -107,6 +107,13 @@ curl -H "Authorization: Bearer upk_…" "https://⟦bekci.ornek.com⟧/api/incid
 
 Dosya UTF-8'dir ve Excel'in Türkçe karakterleri doğru açması için BOM ile başlar.
 
+### Son kontroller ve işlem kaydı {#json-listeler}
+
+Aynı kimlik doğrulamayla iki liste daha alınabilir:
+
+- `GET /api/monitors/<id>/beats?limit=50` monitörün en son kontrollerini yeniden eskiye döner (`limit` en fazla 200). Her satırda `time` (unix), `status` (0 çalışmıyor, 1 çalışıyor, 2 tekrar deneniyor, 3 bakım), `ping_ms` (−1: ölçüm yok), `message` (istek dilinde) ve çok konumlu monitörde `location` bulunur.
+- `GET /api/audit` (yalnızca yönetici) işlem kaydını döner; süzgeçler: `user` (kullanıcı adı), `action` (`monitor.delete` gibi tam kod ya da `monitor.` gibi alan öneki), `from`/`to` (unix), `q` (hedef, ayrıntı, kullanıcı ve IP'de arama), `before` (sayfalama: bu kimlikten eskiler) ve `limit` (en fazla 500). `GET /api/audit/facets` süzgeç kutuları için kayıtlarda geçen kullanıcı adlarını ve eylem kodlarını verir.
+
 ## Prometheus metrikleri {#prometheus}
 
 `GET /metrics` ucu Prometheus metin biçiminde (0.0.4) veri verir. **Ayarlar → API anahtarları** bölümünden bir anahtar alın; `Authorization: Bearer upk_…` başlığıyla ya da Basic kimlikle (kullanıcı `metrics`, şifre anahtar) çağırın. İzleyici yetkisi yeter; kısıtlı bir kullanıcının anahtarı yalnızca ona atanmış monitör ve sunucuları görür.
