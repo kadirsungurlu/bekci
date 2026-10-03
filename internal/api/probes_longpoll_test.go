@@ -338,6 +338,11 @@ func TestProbeLongPollEndToEnd(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+	if gotJob == 0 && gotUp > 0 {
+		// Ajanın sonucu geldiyse işi almıştır: hızlı makinede iş, döngü
+		// c.Jobs()'u okumadan başlayıp sonuç göndermiş olabilir.
+		gotJob = gotUp
+	}
 	if gotJob == 0 || gotJob > 2*time.Second || gotUp == 0 || gotUp > 3*time.Second {
 		t.Fatalf("iş %v, ilk sonuç %v sonra (iş en fazla 2 sn, sonuç 3 sn bekleniyordu)", gotJob, gotUp)
 	}
