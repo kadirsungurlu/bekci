@@ -38,7 +38,7 @@ Bekci works with any **OpenID Connect** provider: Google Workspace, Microsoft En
 1. Copy the **redirect URI** shown under **Settings → Sign-in & SSO → Single sign-on**: `https://⟦bekci.example.com⟧/api/auth/oidc/callback`. For it to be correct the `BASE_URL` environment variable must be the panel's public address and the reverse proxy must send `X-Forwarded-Proto: https`.
 2. Create a **web application** client at your provider, register the redirect URI and obtain the **client ID** and **client secret**.
 3. In Bekci enter the **Issuer URL**, client ID and secret; **Test discovery** confirms that `/.well-known/openid-configuration` can be read. Scopes default to `openid profile email`.
-4. Choose the account mapping and tick **SSO sign-in enabled**. The sign-in screen now has a **"Sign in with …"** button. Optionally hide the password form (it stays reachable through a link, so admins are never locked out).
+4. Choose the account mapping and tick **SSO sign-in enabled**. On save Bekci reads the issuer's discovery document (10 s at most): if the address cannot be reached, is not an OpenID Connect provider, or the issuer it reports does not match the one entered, the settings are not saved and the reason is shown (no discovery while SSO is disabled or when the issuer is unchanged). The sign-in screen now has a **"Sign in with …"** button. Optionally hide the password form (it stays reachable through a link, so admins are never locked out).
 
 ### Account mapping and roles {#sso-accounts}
 

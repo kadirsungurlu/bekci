@@ -38,7 +38,7 @@ Bekci her **OpenID Connect** sağlayıcısıyla çalışır: Google Workspace, M
 1. **Ayarlar → Giriş ve SSO → Tek oturum açma** bölümündeki **yönlendirme adresini** kopyalayın: `https://⟦bekci.ornek.com⟧/api/auth/oidc/callback`. Bu adresin doğru olması için `BASE_URL` ortam değişkeni panelin dış adresi olmalı; ters vekil `X-Forwarded-Proto: https` göndermeli.
 2. Sağlayıcınızda bir **web uygulaması** istemcisi (client) oluşturun, yönlendirme adresini kaydedin, **client ID** ve **client secret** alın.
 3. Bekci'de **Issuer adresi**, client ID ve secret'ı girin; **Keşfi dene** ile `/.well-known/openid-configuration` okunduğunu görün. Kapsamlar varsayılan `openid profile email`.
-4. Hesap eşlemesini seçin ve **SSO girişi açık** kutusunu işaretleyin. Giriş ekranında artık **"… ile giriş"** düğmesi var. İsterseniz şifre formunu gizleyin (bir bağlantıyla yine açılır; yöneticiler kilitli kalmaz).
+4. Hesap eşlemesini seçin ve **SSO girişi açık** kutusunu işaretleyin. Kaydederken Bekci issuer'ın keşif belgesini okur (en fazla 10 sn): adrese ulaşılamıyorsa, adres bir OpenID Connect sağlayıcısı değilse ya da sağlayıcının bildirdiği issuer girilenle uyuşmuyorsa ayar kaydedilmez ve nedeni yazılır (SSO kapalıyken ya da issuer değişmeden yapılan düzenlemelerde keşif yapılmaz). Giriş ekranında artık **"… ile giriş"** düğmesi var. İsterseniz şifre formunu gizleyin (bir bağlantıyla yine açılır; yöneticiler kilitli kalmaz).
 
 ### Hesap eşlemesi ve roller {#sso-hesap}
 

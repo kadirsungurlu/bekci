@@ -30,6 +30,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/netip"
 	"net/url"
@@ -51,6 +52,10 @@ const (
 	oidcCookie      = "uptime_oidc"
 	oidcStateTTL    = 10 * time.Minute
 	oidcHTTPTimeout = 15 * time.Second
+	// oidcDiscoveryTimeout ayar kaydı ve "keşfi dene" için issuer keşfinin süresi
+	// (yönetici isteği bekler; kısa tutulur).
+	oidcDiscoveryTimeout = 10 * time.Second
+	oidcDiscoveryMaxBody = 1 << 20
 )
 
 // OIDCSettings sağlayıcı ayarları (settings.oidc anahtarında JSON).
@@ -243,6 +248,21 @@ func (s *Server) putOIDCSettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	// Açık yapılandırma kaydedilirken issuer keşifle doğrulanır: SSO yeni
+	// açılıyorsa ya da issuer değiştiyse. Yanlış issuer kaydedilip giriş
+	// ekranında çalışmayan bir SSO düğmesi çıkmasın. Kapalı yapılandırma keşif
+	// olmadan kaydedilir; aynı issuer'la diğer alanlar değiştirilirken de
+	// sağlayıcıya gidilmez (sağlayıcı o an erişilmezse rol eşlemesi düzenlenebilsin).
+	if in.Enabled && (!old.Enabled || strings.TrimRight(old.Issuer, "/") != in.Issuer) {
+		meta, err := oidcDiscover(r.Context(), in.Issuer)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		in.Issuer = meta.Issuer // sağlayıcının yazımı (sondaki "/" dahil): go-oidc birebir eşleşme ister
+	} else if in.Enabled {
+		in.Issuer = old.Issuer
+	}
 	if err := s.saveOIDC(r.Context(), in); err != nil {
 		s.dbError(w, err)
 		return
@@ -266,20 +286,72 @@ func (s *Server) testOIDCSettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), oidcHTTPTimeout)
-	defer cancel()
-	p, err := oidc.NewProvider(ctx, strings.TrimRight(strings.TrimSpace(in.Issuer), "/"))
+	meta, err := oidcDiscover(r.Context(), strings.TrimRight(strings.TrimSpace(in.Issuer), "/"))
 	if err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "Issuer keşfi başarısız: "+err.Error())
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
-	var meta struct {
-		Authorization string   `json:"authorization_endpoint"`
-		Token         string   `json:"token_endpoint"`
-		Scopes        []string `json:"scopes_supported"`
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "issuer": meta.Issuer, "authorization_endpoint": meta.Authorization, "token_endpoint": meta.Token, "scopes_supported": meta.Scopes})
+}
+
+// Issuer keşfi -----------------------------------------------------------------------
+
+// oidcMeta keşif belgesinin (/.well-known/openid-configuration) kullanılan alanları.
+type oidcMeta struct {
+	Issuer        string   `json:"issuer"`
+	Authorization string   `json:"authorization_endpoint"`
+	Token         string   `json:"token_endpoint"`
+	JWKS          string   `json:"jwks_uri"`
+	Scopes        []string `json:"scopes_supported"`
+}
+
+// oidcDiscover issuer'ın keşif belgesini okur ve doğrular. Hata mesajları
+// yöneticiye yöneliktir (Türkçe; writeError isteğin diline çevirir) ve üç
+// durumu ayırır: adrese ulaşılamadı, adres bir OIDC sağlayıcısı değil,
+// sağlayıcının bildirdiği issuer girilenle uyuşmuyor. Dönen meta.Issuer
+// sağlayıcının kendi yazımıdır (sondaki "/" dahil); go-oidc girişte bu değerle
+// birebir eşleşme ister, çağıran onu saklamalıdır.
+func oidcDiscover(ctx context.Context, issuer string) (oidcMeta, error) {
+	ctx, cancel := context.WithTimeout(ctx, oidcDiscoveryTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(issuer, "/")+"/.well-known/openid-configuration", nil)
+	if err != nil {
+		return oidcMeta{}, errors.New("Issuer geçerli bir https adresi olmalı (ör. https://accounts.google.com)")
 	}
-	p.Claims(&meta)
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "authorization_endpoint": meta.Authorization, "token_endpoint": meta.Token, "scopes_supported": meta.Scopes})
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "Bekci")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return oidcMeta{}, fmt.Errorf("Issuer adresine ulaşılamadı: %s", oidcNetError(err))
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, oidcDiscoveryMaxBody))
+	if err != nil {
+		return oidcMeta{}, fmt.Errorf("Issuer adresine ulaşılamadı: %s", oidcNetError(err))
+	}
+	if resp.StatusCode != http.StatusOK {
+		return oidcMeta{}, fmt.Errorf("Bu adres bir OpenID Connect sağlayıcısı değil (keşif belgesi %d döndü)", resp.StatusCode)
+	}
+	var meta oidcMeta
+	if json.Unmarshal(body, &meta) != nil || meta.Issuer == "" || meta.Authorization == "" || meta.Token == "" || meta.JWKS == "" {
+		return oidcMeta{}, errors.New("Bu adres bir OpenID Connect sağlayıcısı değil (keşif belgesi okunamadı)")
+	}
+	if strings.TrimRight(meta.Issuer, "/") != strings.TrimRight(issuer, "/") {
+		return oidcMeta{}, fmt.Errorf("Issuer uyuşmuyor: sağlayıcı kendini %s olarak tanıtıyor", meta.Issuer)
+	}
+	return meta, nil
+}
+
+// oidcNetError ağ hatasını kısa, adres tekrarı olmayan bir metne indirger.
+func oidcNetError(err error) string {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Sprintf("%d sn içinde yanıt gelmedi", int(oidcDiscoveryTimeout.Seconds()))
+	}
+	var ue *url.Error
+	if errors.As(err, &ue) && ue.Err != nil {
+		return ue.Err.Error()
+	}
+	return err.Error()
 }
 
 // oidcRedirectURL sağlayıcıya bildirilecek dönüş adresi.
