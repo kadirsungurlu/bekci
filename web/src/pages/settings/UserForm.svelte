@@ -23,6 +23,7 @@
 
   let username = $state(orig?.username ?? '');
   let displayName = $state(orig?.display_name ?? '');
+  let email = $state(orig?.email ?? '');
   let role = $state<Role>(orig?.role ?? 'viewer');
   let password = $state('');
   let disabled = $state(orig?.disabled ?? false);
@@ -48,6 +49,7 @@
     if (!orig && !USERNAME_RE.test(username.trim()))
       return (error = t('users.form.errUsername'));
     if (displayName.trim().length > 100) return (error = t('users.form.errDisplayName'));
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return (error = t('users.form.errEmail'));
     if (!orig && password.length < 8) return (error = t('users.errTempPassword'));
     const onlySelected = role === 'viewer' && restricted;
     // Yalnızca sunucu görecek müşteri de olabilir: en az bir monitör veya sunucu yeterli.
@@ -55,6 +57,7 @@
       return (error = t('users.form.errScope'));
     const body = {
       display_name: displayName.trim(),
+      email: email.trim().toLowerCase(),
       role,
       disabled,
       all_monitors: !onlySelected,
@@ -102,6 +105,11 @@
         <label for="uf-d">{t('users.form.displayName')} <span class="muted">{t('users.form.optional')}</span></label>
         <input id="uf-d" class="input" bind:value={displayName} maxlength="100" placeholder={t('users.form.displayNamePlaceholder')} />
       </div>
+    </div>
+    <div class="field">
+      <label for="uf-e">{t('users.form.email')} <span class="muted">{t('users.form.optional')}</span></label>
+      <input id="uf-e" class="input" type="email" bind:value={email} maxlength="254" autocomplete="off" spellcheck="false" placeholder="ad@ornek.com" />
+      <span class="help">{t('users.form.emailHelp')}</span>
     </div>
 
     <fieldset class="roles">

@@ -77,6 +77,19 @@ func plainTitle(s string) string {
 	return strings.TrimSpace(strings.TrimLeft(s, "🔴🟢🟡⚠️✅🔄⏫⏳🌙👀 "))
 }
 
+// RenderMail genel HTML e-posta (sistem iletileri: şifre sıfırlama).
+// heading başlık, status rozet metni, notes paragraflar, rows etiket/değer
+// satırları, link düğmenin adresi (boş: düğme yok), open düğme metni.
+func RenderMail(lang, status, heading string, notes []string, rows []Row, link, open string) string {
+	v := mailView{Lang: i18n.Or(lang), Brand: brand.Name, Status: status, Heading: heading, Link: link, Open: open,
+		Footer: i18n.T(lang, "notify.mail.footer", brand.Name), Tone: toneInfo, Notes: notes, Rows: rows}
+	var b bytes.Buffer
+	if err := mailTmpl.Execute(&b, v); err != nil {
+		return ""
+	}
+	return b.String()
+}
+
 // HTML e-posta gövdesi.
 func (e Event) HTML() string {
 	status, tone := e.mailStatus()

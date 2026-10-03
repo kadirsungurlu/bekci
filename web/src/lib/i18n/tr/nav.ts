@@ -50,6 +50,8 @@ export default {
     generalDesc: 'Veri saklama, SSL uyarıları, yedekler',
     probes: 'Kontrol noktaları',
     probesDesc: 'Farklı konumlardan kontrol',
+    login: 'Giriş ve SSO',
+    loginDesc: 'Şifre sıfırlama e-postası, OpenID Connect ile tek oturum açma',
     backup: 'Yedekle / Geri yükle',
     backupDesc: 'Yedek al, geri yükle; UptimeRobot veya Uptime Kuma’dan taşı',
     audit: 'İşlem kaydı',

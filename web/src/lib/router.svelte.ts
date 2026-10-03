@@ -5,7 +5,7 @@
 // Herkese açık durum sayfası hash değil gerçek yol kullanır (/durum/<kısa-ad>);
 // bkz. publicSlugFromPath.
 
-export type SettingsTab = 'account' | 'users' | 'general' | 'tags' | 'probes' | 'backup' | 'audit';
+export type SettingsTab = 'account' | 'users' | 'general' | 'login' | 'tags' | 'probes' | 'backup' | 'audit';
 
 export type Route =
   | { name: 'list' }
@@ -37,6 +37,7 @@ const SETTINGS_TABS: Record<string, SettingsTab> = {
   probes: 'probes',
   backup: 'backup',
   audit: 'audit',
+  login: 'login',
 };
 
 function currentPath(): string {

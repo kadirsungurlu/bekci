@@ -49,6 +49,9 @@ type User struct {
 	CreatedAt        int64     `json:"created_at"`
 	TwoFactorEnabled bool      `json:"two_factor_enabled"` // TOTP (migration 6, twofactor.go)
 	Lang             string    `json:"lang"`               // arayüz dili; "" = tarayıcı dili (migration 16)
+	Email            string    `json:"email"`              // isteğe bağlı (migration 31; şifre sıfırlama)
+	OIDC             bool      `json:"oidc"`               // bir OIDC sağlayıcısına bağlı (auth_ext.go)
+	Theme            string    `json:"theme"`              // arayüz teması: "" (sistem) | light | dark (migration 33)
 	PasswordHash     string    `json:"-"`
 	// APIKeyName istek bir API anahtarıyla yetkilendirildiyse anahtarın adı
 	// (yalnızca istek süresince; işlem kaydına yazılır). Saklanmaz.
@@ -60,13 +63,15 @@ type User struct {
 func (u User) Restricted() bool { return u.Role == RoleViewer && !u.AllMonitors }
 
 const userCols = `id, username, display_name, role, disabled, must_change_password,
-	all_monitors, last_login_at, created_at, password_hash, totp_enabled, lang`
+	all_monitors, last_login_at, created_at, password_hash, totp_enabled, lang, email,
+	EXISTS (SELECT 1 FROM oidc_identities o WHERE o.user_id = users.id), theme`
 
 func scanUserRow(sc scanner) (User, error) {
 	var u User
 	var lastLogin sql.NullInt64
 	err := sc.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role, &u.Disabled,
-		&u.MustChangePassword, &u.AllMonitors, &lastLogin, &u.CreatedAt, &u.PasswordHash, &u.TwoFactorEnabled, &u.Lang)
+		&u.MustChangePassword, &u.AllMonitors, &lastLogin, &u.CreatedAt, &u.PasswordHash, &u.TwoFactorEnabled, &u.Lang,
+		&u.Email, &u.OIDC, &u.Theme)
 	u.LastLoginAt = lastLogin.Int64
 	u.MonitorIDs, u.PickedMonitorIDs, u.ServerIDs, u.TagRules = []int64{}, []int64{}, []int64{}, []TagRule{}
 	return u, err
@@ -192,9 +197,14 @@ func (s *Store) CreateUser(ctx context.Context, u *User, hash string) error {
 		var err error
 		u.ID, err = insertID(ctx, tx, `
 			INSERT INTO users (username, display_name, role, disabled, must_change_password,
-				all_monitors, password_hash, created_at)
-			VALUES (?, ?, ?, ?, 1, ?, ?, ?)`,
-			u.Username, u.DisplayName, u.Role, boolInt(u.Disabled), boolInt(u.AllMonitors), hash, u.CreatedAt)
+				all_monitors, password_hash, created_at, email)
+			VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+			u.Username, u.DisplayName, u.Role, boolInt(u.Disabled), boolInt(u.AllMonitors), hash, u.CreatedAt, NormalizeEmail(u.Email))
+		if IsUniqueViolation(err) && u.Email != "" {
+			if taken, _ := s.emailTakenTx(ctx, tx, u.Email, 0); taken {
+				return ErrEmailTaken
+			}
+		}
 		if err != nil {
 			return err
 		}
@@ -215,8 +225,11 @@ func (s *Store) CreateUser(ctx context.Context, u *User, hash string) error {
 func (s *Store) UpdateUser(ctx context.Context, u *User) error {
 	return s.tx(ctx, func(tx *Tx) error {
 		res, err := tx.ExecContext(ctx, `
-			UPDATE users SET display_name = ?, role = ?, disabled = ?, all_monitors = ? WHERE id = ?`,
-			u.DisplayName, u.Role, boolInt(u.Disabled), boolInt(u.AllMonitors), u.ID)
+			UPDATE users SET display_name = ?, role = ?, disabled = ?, all_monitors = ?, email = ? WHERE id = ?`,
+			u.DisplayName, u.Role, boolInt(u.Disabled), boolInt(u.AllMonitors), NormalizeEmail(u.Email), u.ID)
+		if IsUniqueViolation(err) {
+			return ErrEmailTaken
+		}
 		if err != nil {
 			return err
 		}
@@ -254,6 +267,13 @@ func (s *Store) DeleteUser(ctx context.Context, id int64) error {
 		}
 		return ensureAdminLeft(ctx, tx)
 	})
+}
+
+// emailTakenTx e-posta başka bir kullanıcıda mı (except hariç)?
+func (s *Store) emailTakenTx(ctx context.Context, tx *Tx, email string, except int64) (bool, error) {
+	var n int
+	err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM users WHERE email = ? AND id <> ?", NormalizeEmail(email), except).Scan(&n)
+	return n > 0, err
 }
 
 func ensureAdminLeft(ctx context.Context, tx *Tx) error {
@@ -318,7 +338,8 @@ func (s *Store) CreateSession(ctx context.Context, tokenHash string, userID int6
 func (s *Store) SessionUser(ctx context.Context, tokenHash string) (User, error) {
 	return s.scanUser(ctx, s.db.QueryRowContext(ctx, `
 		SELECT u.id, u.username, u.display_name, u.role, u.disabled, u.must_change_password,
-			u.all_monitors, u.last_login_at, u.created_at, u.password_hash, u.totp_enabled, u.lang
+			u.all_monitors, u.last_login_at, u.created_at, u.password_hash, u.totp_enabled, u.lang, u.email,
+			EXISTS (SELECT 1 FROM oidc_identities o WHERE o.user_id = u.id), u.theme
 		FROM sessions s JOIN users u ON u.id = s.user_id
 		WHERE s.token_hash = ? AND s.expires_at > ? AND u.disabled = 0`, tokenHash, time.Now().Unix()))
 }

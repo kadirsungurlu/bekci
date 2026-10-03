@@ -51,6 +51,8 @@ export default {
     generalDesc: 'Data retention, SSL alerts, backups',
     probes: 'Check locations',
     probesDesc: 'Checks from different locations',
+    login: 'Sign-in & SSO',
+    loginDesc: 'Password reset email, single sign-on with OpenID Connect',
     backup: 'Backup / Restore',
     backupDesc: 'Back up, restore; migrate from UptimeRobot or Uptime Kuma',
     audit: 'Audit log',

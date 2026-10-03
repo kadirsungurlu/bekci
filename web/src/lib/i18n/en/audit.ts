@@ -33,6 +33,8 @@ export default {
       success: 'Signed in',
       fail: 'Failed sign-in attempt',
       '2fa_fail': 'Invalid 2FA code',
+      oidc: 'Signed in with SSO',
+      reset_request: 'Password reset requested',
     },
     user: {
       setup: 'Initial setup',
@@ -45,6 +47,11 @@ export default {
       '2fa_disable': '2FA disabled',
       '2fa_recovery_codes': 'Recovery codes regenerated',
       '2fa_reset': '2FA reset',
+      email_change: 'Changed their email',
+      password_reset_self: 'Reset their password via link',
+      oidc_provision: 'Account created via SSO',
+      oidc_link: 'Account linked to SSO identity',
+      oidc_role: 'Role changed by SSO mapping',
     },
     monitor: {
       create: 'Monitor added',
@@ -72,6 +79,7 @@ export default {
     },
     settings: {
       update: 'Settings updated',
+      oidc: 'SSO settings changed',
     },
     apikey: {
       create: 'API key created',

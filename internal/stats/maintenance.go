@@ -91,6 +91,9 @@ func (m *Maintenance) Tick(ctx context.Context) {
 	if err := m.store.DeleteExpiredSessions(ctx); err != nil {
 		m.log.Error("süresi dolan oturumlar silinemedi", "hata", err)
 	}
+	if err := m.store.DeleteExpiredAuthTokens(ctx, now.Unix()); err != nil {
+		m.log.Error("süresi dolan sıfırlama / SSO kayıtları silinemedi", "hata", err)
+	}
 
 	local := now.In(m.loc)
 	if settings.BackupKeep > 0 && local.Hour() >= BackupHour {

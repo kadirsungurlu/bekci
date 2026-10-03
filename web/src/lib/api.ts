@@ -44,6 +44,12 @@ export interface User {
   servers?: boolean;
   /** Arayüz dili tercihi; "" = tarayıcı dili. Eski sunucuda gelmez. */
   lang?: '' | Locale;
+  /** İsteğe bağlı e-posta (şifre sıfırlama); eski sunucuda gelmez. */
+  email?: string;
+  /** Hesap bir OIDC/SSO sağlayıcısına bağlı. */
+  oidc?: boolean;
+  /** Arayüz teması tercihi: "" (sistem) | light | dark. */
+  theme?: '' | 'light' | 'dark';
 }
 
 /** Kullanıcılar sayfasındaki kayıt (yalnızca yönetici). */
@@ -61,6 +67,8 @@ export interface UserRecord extends User {
 
 export interface UserInput {
   display_name: string;
+  /** Yok = değişmez; "" = kaldır. */
+  email?: string;
   role: Role;
   disabled: boolean;
   all_monitors: boolean;
@@ -138,6 +146,29 @@ export interface AuthState {
   setup_needed: boolean;
   user: User | null;
   version: string;
+  /** "Şifremi unuttum" kullanılabilir (sistem e-postası ayarlı). Eski sunucuda gelmez. */
+  password_reset?: boolean;
+  /** SSO düğmesi; local_login false ise şifre formu bağlantıyla açılır. */
+  oidc?: { enabled: boolean; name: string; local_login: boolean };
+}
+
+/** OIDC/SSO ayarları (yönetici; client_secret maskeli gelir, maskeli gönderilirse korunur). */
+export interface OIDCSettings {
+  enabled: boolean;
+  name: string;
+  issuer: string;
+  client_id: string;
+  client_secret: string;
+  scopes: string;
+  link_email: boolean;
+  auto_provision: boolean;
+  default_role: Role;
+  username_claim: string;
+  role_claim: string;
+  admin_values: string;
+  editor_values: string;
+  viewer_values: string;
+  local_login: boolean;
 }
 
 export interface Bucket {
@@ -791,6 +822,8 @@ export interface AppSettings {
   retention_incident_days?: number;
   retention_capture_days?: number;
   retention_audit_days?: number;
+  /** Sistem e-postası (şifre sıfırlama) için e-posta kanalı; 0 = kapalı. */
+  system_mail_channel_id?: number;
 }
 
 export interface BeatEvent {
@@ -1296,7 +1329,7 @@ export function onPasswordChangeRequired(fn: () => void) {
 }
 
 // Bu yollarda 401 oturumun düştüğü anlamına gelmez (hatalı şifre/kod, şifreli durum sayfası).
-const NO_SESSION_401 = ['/api/auth/login', '/api/auth/login/2fa', '/api/auth/setup'];
+const NO_SESSION_401 = ['/api/auth/login', '/api/auth/login/2fa', '/api/auth/setup', '/api/auth/forgot', '/api/auth/reset'];
 const noSession401 = (path: string) => NO_SESSION_401.includes(path) || path.startsWith('/api/public/');
 
 async function request<T>(method: string, path: string, body?: unknown, raw?: { type: string; data: Blob }): Promise<T> {
@@ -1401,7 +1434,14 @@ export const api = {
   changePassword: (current: string, next: string) =>
     post<{ ok: boolean }>('/api/auth/password', { current, new: next }),
   /** Kendi arayüz dili tercihi; "" = tarayıcı dili. */
-  setPreferences: (p: { lang: '' | Locale }) => put<{ user: User }>('/api/auth/preferences', p),
+  setPreferences: (p: { lang?: '' | Locale; theme?: '' | 'light' | 'dark' }) => put<{ user: User }>('/api/auth/preferences', p),
+  changeEmail: (password: string, email: string) => post<{ user: User }>('/api/auth/email', { password, email }),
+  forgotPassword: (login: string) => post<{ ok: boolean }>('/api/auth/forgot', { login }),
+  resetPassword: (token: string, password: string) => post<{ ok: boolean; username: string }>('/api/auth/reset', { token, password }),
+  oidcSettings: () => get<{ settings: OIDCSettings; redirect_uri: string }>('/api/settings/oidc'),
+  saveOidcSettings: (s: OIDCSettings) => put<{ settings: OIDCSettings; redirect_uri: string }>('/api/settings/oidc', s),
+  testOidc: (issuer: string) =>
+    post<{ ok: boolean; authorization_endpoint: string; token_endpoint: string; scopes_supported: string[] | null }>('/api/settings/oidc/test', { issuer }),
 
   summary: () => get<Summary>('/api/summary'),
   monitors: () => get<MonitorView[]>('/api/monitors'),

@@ -71,11 +71,31 @@ func (email) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 func (email) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	var c emailConfig
 	json.Unmarshal(raw, &c)
+	return sendMail(ctx, c, c.To, func(from, to string) []byte { return buildMail(from, to, ev) })
+}
+
+// SendMail bir e-posta kanalının SMTP ayarıyla (cfg) tek alıcıya serbest
+// içerikli ileti gönderir (sistem e-postaları: şifre sıfırlama). html boşsa
+// yalnızca düz metin gider.
+func SendMail(ctx context.Context, cfg json.RawMessage, to, subject, text, html string) error {
+	var c emailConfig
+	if err := json.Unmarshal(cfg, &c); err != nil {
+		return err
+	}
+	if _, err := mail.ParseAddress(to); err != nil {
+		return fmt.Errorf("alıcı adresi geçersiz: %w", err)
+	}
+	return sendMail(ctx, c, to, func(from, toHdr string) []byte { return buildRawMail(from, toHdr, subject, text, html) })
+}
+
+// sendMail SMTP bağlantısını kurar ve body'nin ürettiği iletiyi toList
+// (virgülle ayrılmış) alıcılarına gönderir.
+func sendMail(ctx context.Context, c emailConfig, toList string, body func(from, to string) []byte) error {
 	from, err := mail.ParseAddress(c.From)
 	if err != nil {
 		return err
 	}
-	to, err := mail.ParseAddressList(c.To)
+	to, err := mail.ParseAddressList(toList)
 	if err != nil {
 		return err
 	}
@@ -128,7 +148,7 @@ func (email) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	if err != nil {
 		return err
 	}
-	if _, err := w.Write(buildMail(from.String(), strings.Join(toHeader, ", "), ev)); err != nil {
+	if _, err := w.Write(body(from.String(), strings.Join(toHeader, ", "))); err != nil {
 		return err
 	}
 	if err := w.Close(); err != nil {
@@ -151,11 +171,16 @@ func messageID(from string) string {
 }
 
 func buildMail(from, to string, ev Event) []byte {
+	return buildRawMail(from, to, ev.Title(), ev.Text(), ev.HTML())
+}
+
+// buildRawMail düz metin + (varsa) HTML gövdeli MIME iletisi.
+func buildRawMail(from, to, subject, text, html string) []byte {
 	var b bytes.Buffer
 	h := func(k, v string) { fmt.Fprintf(&b, "%s: %s\r\n", k, v) }
 	h("From", from)
 	h("To", to)
-	h("Subject", mime.QEncoding.Encode("utf-8", ev.Title()))
+	h("Subject", mime.QEncoding.Encode("utf-8", subject))
 	h("Date", time.Now().Format(time.RFC1123Z)) // gönderim anı; olay zamanı gövdede
 	h("Message-ID", messageID(from))
 	h("MIME-Version", "1.0")
@@ -172,8 +197,8 @@ func buildMail(from, to string, ev Event) []byte {
 		qp.Close()
 		b.WriteString("\r\n")
 	}
-	part("text/plain", ev.Text())
-	if html := ev.HTML(); html != "" {
+	part("text/plain", text)
+	if html != "" {
 		part("text/html", html)
 	}
 	fmt.Fprintf(&b, "--%s--\r\n", boundary)

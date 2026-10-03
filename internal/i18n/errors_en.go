@@ -34,6 +34,22 @@ var errorsEN = map[string]string{
 	"Çok fazla eşzamanlı canlı bağlantı; açık sekmelerden birini kapatın": "Too many concurrent live connections; close one of your open tabs",
 	"%s gerekli":       "%s is required",
 	"kayıt bulunamadı": "record not found",
+	// E-posta, şifre sıfırlama, OIDC, tema
+	"E-posta adresi geçersiz":                                                       "Invalid email address",
+	"Bu e-posta adresi başka bir kullanıcıda kayıtlı":                               "This email address belongs to another user",
+	"Kullanıcı adı veya e-posta gerekli":                                            "Username or email is required",
+	"Çok fazla sıfırlama isteği; biraz sonra tekrar deneyin":                        "Too many reset requests; try again shortly",
+	"Sıfırlama bağlantısı geçersiz ya da süresi dolmuş; yeniden isteyin":            "The reset link is invalid or has expired; request a new one",
+	"Sistem e-postası için bir e-posta (SMTP) kanalı seçin":                         "Pick an email (SMTP) channel for system email",
+	"Bu işlem API anahtarıyla yapılamaz":                                            "This action cannot be performed with an API key",
+	"SSO adı en fazla 60 karakter olabilir":                                         "The SSO name can be at most 60 characters",
+	"Kapsamlar (scopes) openid içermeli":                                            "Scopes must include openid",
+	"Issuer geçerli bir https adresi olmalı (ör. https://accounts.google.com)":      "Issuer must be a valid https URL (e.g. https://accounts.google.com)",
+	"Issuer için http yalnızca yerel ağ adreslerinde kullanılabilir; https gerekir": "http issuers are only allowed on local network addresses; https is required",
+	"Client ID gerekli":                          "Client ID is required",
+	"Client secret gerekli":                      "Client secret is required",
+	"Issuer keşfi başarısız: %s":                 "Issuer discovery failed: %s",
+	"Tema light, dark ya da boş (sistem) olmalı": "Theme must be light, dark or empty (system)",
 
 	// ---------------------------------------------------------------------
 	// Oturum, kurulum, şifre, iki adımlı doğrulama

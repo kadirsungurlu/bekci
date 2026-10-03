@@ -1,7 +1,7 @@
 <script lang="ts">
   import LangSwitch from './components/LangSwitch.svelte';
   import { onMount, untrack } from 'svelte';
-  import { api, errorMessage, onPasswordChangeRequired, onUnauthorized, type User } from './lib/api';
+  import { api, errorMessage, onPasswordChangeRequired, onUnauthorized, type AuthState, type User } from './lib/api';
   import { live } from './lib/live.svelte';
   import { servers } from './lib/servers.svelte';
   import { publicSlugFromPath, router } from './lib/router.svelte';
@@ -35,6 +35,8 @@
   type Phase = 'loading' | 'public' | 'setup' | 'login' | 'password' | 'app' | 'error';
 
   let phase = $state<Phase>('loading');
+  // Giriş ekranı için: şifremi unuttum kullanılabilir mi, SSO düğmesi.
+  let authInfo = $state<Pick<AuthState, 'password_reset' | 'oidc'>>({});
   let loadError = $state('');
   let publicSlug = $state('');
 
@@ -65,6 +67,7 @@
     try {
       const s = await api.authState();
       session.version = s.version;
+      authInfo = { password_reset: s.password_reset, oidc: s.oidc };
       if (s.setup_needed) phase = 'setup';
       else if (!s.user) phase = 'login';
       else enter(s.user);
@@ -327,7 +330,7 @@
   </div>
 {:else if phase === 'setup' || phase === 'login'}
   {#key phase}
-    <Auth mode={phase} onDone={enter} />
+    <Auth mode={phase} info={authInfo} onDone={enter} />
   {/key}
 {:else if phase === 'password'}
   <ForcePassword onDone={init} onLogout={logout} />

@@ -53,6 +53,10 @@ type Server struct {
 	// relaxTimeoutRule "zaman aşımı < kontrol aralığı" kuralını kapatır:
 	// yalnızca testler için (aralıklar milisaniye biriminde çalışır).
 	relaxTimeoutRule bool
+	// mailer sistem e-postası (şifre sıfırlama; password_reset.go); testler sahteyle değiştirir.
+	mailer Mailer
+	// oidcProviders OIDC sağlayıcı keşif önbelleği (oidc.go).
+	oidcProviders *oidcProviders
 
 	// BaseURL uygulamanın dış adresi (BASE_URL); durum sayfası özel alan adı
 	// bu adresin sunucu adıyla aynı olamaz. Boş olabilir.
@@ -73,14 +77,16 @@ func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatche
 	s := &Server{
 		store: st, engine: e, hub: hub, notifier: n, log: log, static: static, version: version,
 		limiter: newLoginLimiter(), now: time.Now, pages: newPagesState(), probeRL: newProbeLimiter(),
-		badges:      newBadgeState(),
-		notifyRL:    newNotifyLimiter(),
-		pushRL:      newIPLimiter(pushPerMinute),
-		probeAuthRL: newProbeAuthLimiter(),
-		probePolls:  newProbePolls(),
-		probeConns:  newProbeConns(),
-		sseRecheck:  25 * time.Second,
-		AgentDir:    DefaultAgentDir,
+		badges:        newBadgeState(),
+		notifyRL:      newNotifyLimiter(),
+		pushRL:        newIPLimiter(pushPerMinute),
+		probeAuthRL:   newProbeAuthLimiter(),
+		probePolls:    newProbePolls(),
+		probeConns:    newProbeConns(),
+		sseRecheck:    25 * time.Second,
+		AgentDir:      DefaultAgentDir,
+		mailer:        notify.SendMail,
+		oidcProviders: &oidcProviders{},
 	}
 	var (
 		pub servers.Publisher

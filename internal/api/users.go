@@ -133,6 +133,7 @@ func canSeeCapture(u store.User) bool {
 type userInput struct {
 	Username    string  `json:"username"`
 	DisplayName string  `json:"display_name"`
+	Email       *string `json:"email"` // isteğe bağlı; yok = değişmez
 	Role        string  `json:"role"`
 	Password    string  `json:"password"` // sadece eklemede
 	Disabled    bool    `json:"disabled"`
@@ -154,6 +155,13 @@ func (s *Server) normalizeUser(r *http.Request, in *userInput) (store.User, erro
 		return store.User{}, errors.New("Rol yönetici (admin), editör (editor) veya izleyici (viewer) olmalı")
 	}
 	u := store.User{DisplayName: in.DisplayName, Role: in.Role, Disabled: in.Disabled, AllMonitors: true, MonitorIDs: []int64{}, ServerIDs: []int64{}}
+	if in.Email != nil {
+		email, err := normalizeEmail(*in.Email)
+		if err != nil {
+			return u, err
+		}
+		u.Email = email
+	}
 	// Monitör kısıtı sadece izleyicide anlamlı; diğer roller her şeyi görür.
 	if in.Role == store.RoleViewer && in.AllMonitors != nil && !*in.AllMonitors {
 		u.AllMonitors = false
@@ -227,6 +235,10 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.store.CreateUser(r.Context(), &u, string(hash)); err != nil {
+		if errors.Is(err, store.ErrEmailTaken) {
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
 		if store.IsUniqueViolation(err) {
 			writeError(w, http.StatusConflict, "Bu kullanıcı adı zaten kullanılıyor")
 			return
@@ -272,9 +284,16 @@ func (s *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u.ID, u.Username = id, old.Username
+	if in.Email == nil {
+		u.Email = old.Email // eski istemci: e-posta değişmez
+	}
 	if err := s.store.UpdateUser(r.Context(), &u); err != nil {
 		if errors.Is(err, store.ErrLastAdmin) {
 			writeError(w, http.StatusBadRequest, "En az bir aktif yönetici kalmalı")
+			return
+		}
+		if errors.Is(err, store.ErrEmailTaken) {
+			writeError(w, http.StatusConflict, err.Error())
 			return
 		}
 		s.dbError(w, err)

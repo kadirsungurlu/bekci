@@ -31,6 +31,8 @@ export default {
       success: 'Giriş yaptı',
       fail: 'Hatalı giriş denemesi',
       '2fa_fail': 'Hatalı 2FA kodu',
+      oidc: 'SSO ile giriş yaptı',
+      reset_request: 'Şifre sıfırlama istendi',
     },
     user: {
       setup: 'İlk kurulum',
@@ -43,6 +45,11 @@ export default {
       '2fa_disable': '2FA kapatıldı',
       '2fa_recovery_codes': 'Kurtarma kodları yenilendi',
       '2fa_reset': '2FA sıfırlandı',
+      email_change: 'E-postasını değiştirdi',
+      password_reset_self: 'Şifresini bağlantıyla sıfırladı',
+      oidc_provision: 'SSO ile hesap açıldı',
+      oidc_link: 'Hesap SSO kimliğine bağlandı',
+      oidc_role: 'Rol SSO eşlemesiyle değişti',
     },
     monitor: {
       create: 'Monitör eklendi',
@@ -70,6 +77,7 @@ export default {
     },
     settings: {
       update: 'Ayarlar güncellendi',
+      oidc: 'SSO ayarları değişti',
     },
     apikey: {
       create: 'API anahtarı oluşturuldu',

@@ -1,17 +1,73 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { api, ApiError, errorMessage, type User } from '../lib/api';
+  import { api, ApiError, errorMessage, type AuthState, type User } from '../lib/api';
+  import { tOr } from '../lib/i18n';
   import Icon from '../components/Icon.svelte';
   import LangSwitch from '../components/LangSwitch.svelte';
   import { t } from '../lib/i18n';
   import { APP_NAME } from '../lib/brand';
 
-  let { mode, onDone }: { mode: 'setup' | 'login'; onDone: (u: User) => void } = $props();
+  let {
+    mode,
+    info = {},
+    onDone,
+  }: { mode: 'setup' | 'login'; info?: Pick<AuthState, 'password_reset' | 'oidc'>; onDone: (u: User) => void } = $props();
+
+  // Şifremi unuttum / sıfırlama / SSO (E-13). Sıfırlama bağlantısı #/reset/<token>;
+  // SSO hatası #/login?sso_error=<kod> ile gelir.
+  type View = 'login' | 'forgot' | 'sent' | 'reset' | 'resetDone';
+  const hashReset = location.hash.match(/^#\/reset\/([A-Za-z0-9_-]+)/);
+  const ssoErr = location.hash.match(/[?&]sso_error=([a-z_]+)/)?.[1] ?? '';
+  // svelte-ignore state_referenced_locally
+  let view = $state<View>(mode === 'login' && hashReset ? 'reset' : 'login');
+  let resetToken = hashReset?.[1] ?? '';
+  let forgotLogin = $state('');
+  let newPw = $state('');
+  let newPw2 = $state('');
+  if (hashReset || ssoErr) history.replaceState(null, '', '#/');
+  const sso = $derived(info.oidc?.enabled ? info.oidc : null);
+  // SSO açık ve şifre formu gizliyse form bağlantıyla açılır.
+  // svelte-ignore state_referenced_locally
+  let showLocal = $state(!(info.oidc?.enabled && info.oidc.local_login === false));
+  const ssoHref = '/api/auth/oidc/start';
+
+  async function submitForgot(e: SubmitEvent) {
+    e.preventDefault();
+    error = '';
+    if (!forgotLogin.trim()) return (error = t('auth.errCredentialsRequired'));
+    busy = true;
+    try {
+      await api.forgotPassword(forgotLogin.trim());
+      view = 'sent';
+    } catch (err) {
+      error = errorMessage(err);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function submitReset(e: SubmitEvent) {
+    e.preventDefault();
+    error = '';
+    if (newPw.length < 8) return (error = t('auth.errPasswordLength'));
+    if (newPw !== newPw2) return (error = t('auth.errPasswordMismatch'));
+    busy = true;
+    try {
+      const r = await api.resetPassword(resetToken, newPw);
+      username = r.username;
+      newPw = newPw2 = '';
+      view = 'resetDone';
+    } catch (err) {
+      error = err instanceof ApiError && err.code === 'reset_invalid' ? t('auth.resetInvalid') : errorMessage(err);
+    } finally {
+      busy = false;
+    }
+  }
 
   let username = $state('');
   let password = $state('');
   let password2 = $state('');
-  let error = $state('');
+  let error = $state(ssoErr ? tOr(`auth.ssoError.${ssoErr}`, t('auth.ssoError.unknown')) : '');
   let busy = $state(false);
 
   // İki adımlı doğrulama adımı
@@ -160,6 +216,54 @@
       </button>
       <button type="button" class="linkbtn backlink" onclick={back}><Icon name="chevron-left" size={15} /> {t('auth.otherAccount')}</button>
     </form>
+  {:else if view === 'forgot' || view === 'sent'}
+    <form class="card auth" onsubmit={submitForgot} novalidate>
+      <div class="shield"><Icon name="key" size={26} /></div>
+      <h1>{t('auth.forgotTitle')}<span class="dot">.</span></h1>
+      {#if view === 'sent'}
+        <div class="alert success" role="status">{t('auth.forgotSent')}</div>
+      {:else}
+        <p class="muted intro">{t('auth.forgotIntro')}</p>
+        <div class="field">
+          <label for="fl">{t('auth.forgotLogin')}</label>
+          <!-- svelte-ignore a11y_autofocus -->
+          <input id="fl" class="input" bind:value={forgotLogin} autocomplete="username" autocapitalize="none" spellcheck="false" autofocus maxlength="254" />
+        </div>
+        {#if error}<div class="alert error" role="alert">{error}</div>{/if}
+        <button class="btn primary big" type="submit" disabled={busy}>
+          {#if busy}<span class="spinner"></span>{/if}
+          {t('auth.forgotSend')}
+        </button>
+      {/if}
+      <button type="button" class="linkbtn backlink" onclick={() => { view = 'login'; error = ''; }}><Icon name="chevron-left" size={15} /> {t('auth.backToLogin')}</button>
+    </form>
+  {:else if view === 'reset' || view === 'resetDone'}
+    <form class="card auth" onsubmit={submitReset} novalidate>
+      <div class="shield"><Icon name="key" size={26} /></div>
+      <h1>{t('auth.resetTitle')}<span class="dot">.</span></h1>
+      {#if view === 'resetDone'}
+        <div class="alert success" role="status">{t('auth.resetDone')}</div>
+        <button type="button" class="btn primary big" onclick={() => { view = 'login'; error = ''; }}>{t('auth.login')}</button>
+      {:else}
+        <p class="muted intro">{t('auth.resetIntro')}</p>
+        <div class="field">
+          <label for="np">{t('auth.force.newPassword')}</label>
+          <!-- svelte-ignore a11y_autofocus -->
+          <input id="np" class="input" type="password" bind:value={newPw} autocomplete="new-password" autofocus />
+          <span class="help">{t('common.minChars', { n: 8 })}</span>
+        </div>
+        <div class="field">
+          <label for="np2">{t('auth.force.newPasswordAgain')}</label>
+          <input id="np2" class="input" type="password" bind:value={newPw2} autocomplete="new-password" />
+        </div>
+        {#if error}<div class="alert error" role="alert">{error}</div>{/if}
+        <button class="btn primary big" type="submit" disabled={busy}>
+          {#if busy}<span class="spinner"></span>{/if}
+          {t('auth.resetSubmit')}
+        </button>
+        <button type="button" class="linkbtn backlink" onclick={() => { view = 'login'; error = ''; }}><Icon name="chevron-left" size={15} /> {t('auth.backToLogin')}</button>
+      {/if}
+    </form>
   {:else}
     <form class="card auth" onsubmit={submit} novalidate>
       {#if mode === 'setup'}
@@ -170,6 +274,17 @@
         <p class="muted intro">{t('auth.loginIntro')}</p>
       {/if}
 
+      {#if mode === 'login' && sso}
+        <a class="btn big sso" href={ssoHref} data-sveltekit-reload><Icon name="log-in" size={17} /> {t('auth.sso', { name: sso.name })}</a>
+        {#if !showLocal}
+          {#if error}<div class="alert error" role="alert">{error}</div>{/if}
+          <button type="button" class="linkbtn toggle local" onclick={() => (showLocal = true)}>{t('auth.ssoLocal')}</button>
+        {:else}
+          <div class="or"><span>{t('auth.ssoOr')}</span></div>
+        {/if}
+      {/if}
+
+      {#if mode === 'setup' || showLocal}
       <div class="field">
         <label for="u">{t('common.username')}</label>
         <!-- svelte-ignore a11y_autofocus -->
@@ -209,6 +324,10 @@
         {#if busy}<span class="spinner"></span>{/if}
         {mode === 'setup' ? t('auth.createAccount') : t('auth.login')}
       </button>
+      {#if mode === 'login' && info.password_reset}
+        <button type="button" class="linkbtn backlink" onclick={() => { view = 'forgot'; error = ''; }}>{t('auth.forgot')}</button>
+      {/if}
+      {/if}
     </form>
   {/if}
   <LangSwitch />
@@ -283,6 +402,29 @@
     align-self: center;
     font-size: 0.88rem;
     min-height: 44px;
+  }
+  .sso {
+    height: 44px;
+    gap: 10px;
+  }
+  .or {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin: -4px 0;
+  }
+  .or::before,
+  .or::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .toggle.local {
+    align-self: center;
+    margin: 0;
   }
   .toggle {
     align-self: flex-start;

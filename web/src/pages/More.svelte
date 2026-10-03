@@ -19,6 +19,7 @@
     if (session.isAdmin) {
       out.push({ href: '#/settings/users', label: t('nav.moreItems.users'), desc: t('nav.moreItems.usersDesc'), icon: 'users' });
       out.push({ href: '#/settings/general', label: t('nav.moreItems.general'), desc: t('nav.moreItems.generalDesc'), icon: 'settings' });
+      out.push({ href: '#/settings/login', label: t('nav.moreItems.login'), desc: t('nav.moreItems.loginDesc'), icon: 'log-in' });
       out.push({ href: '#/settings/probes', label: t('nav.moreItems.probes'), desc: t('nav.moreItems.probesDesc'), icon: 'map-pin' });
       out.push({ href: '#/settings/backup', label: t('nav.moreItems.backup'), desc: t('nav.moreItems.backupDesc'), icon: 'archive' });
       out.push({ href: '#/settings/audit', label: t('nav.moreItems.audit'), desc: t('nav.moreItems.auditDesc'), icon: 'list' });

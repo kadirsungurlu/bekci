@@ -247,6 +247,10 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if err := s.validateSystemMail(r.Context(), in.SystemMailChannelID); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	old, _ := s.store.LoadSettings(r.Context())
 	if err := s.store.SaveSettings(r.Context(), in); err != nil {
 		s.dbError(w, err)
@@ -274,6 +278,7 @@ func settingsChanges(old, in store.AppSettings) string {
 	add(old.IncidentKeep() != in.IncidentKeep(), "olay saklama")
 	add(old.CaptureKeep() != in.CaptureKeep(), "istek/yanıt saklama")
 	add(old.AuditKeep() != in.AuditKeep(), "işlem kaydı saklama")
+	add(old.SystemMailChannelID != in.SystemMailChannelID, "sistem e-postası")
 	if len(changed) == 0 {
 		return "değişiklik yok"
 	}

@@ -204,7 +204,11 @@
                 <span class="uname">{u.username}{#if u.id === session.user?.id}<span class="you">{t('users.list.you')}</span>{/if}</span>
               </span>
             </td>
-            <td data-label={t('users.list.displayName')} class="dn">{u.display_name || '—'}</td>
+            <td data-label={t('users.list.displayName')} class="dn">
+              {u.display_name || '—'}
+              {#if u.email}<span class="email">{u.email}</span>{/if}
+              {#if u.oidc}<span class="badge accent sso" title={t('users.list.sso')}><Icon name="log-in" size={11} /> SSO</span>{/if}
+            </td>
             <td data-label={t('users.list.role')}>
               <span class="badge {u.role === 'admin' ? 'accent' : ''}">{ROLE_LABELS[u.role]}</span>
               {#if u.role === 'viewer' && !u.all_monitors}
@@ -305,6 +309,16 @@
   }
   .uname {
     word-break: break-all;
+  }
+  .email {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--muted);
+    word-break: break-all;
+  }
+  .sso {
+    margin-top: 2px;
+    gap: 4px;
   }
   .av {
     width: 30px;

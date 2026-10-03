@@ -32,6 +32,11 @@ type AppSettings struct {
 	RetentionIncidentDays *int `json:"retention_incident_days"` // çözülmüş olaylar (işlem geçmişiyle)
 	RetentionCaptureDays  *int `json:"retention_capture_days"`  // olayı açan istek/yanıt kaydı
 	RetentionAuditDays    *int `json:"retention_audit_days"`    // işlem kaydı
+
+	// SystemMailChannelID sistem e-postalarının (şifre sıfırlama) gönderileceği
+	// e-posta bildirim kanalı; 0 = kapalı (şifremi unuttum bağlantısı görünmez).
+	// Kanalın SMTP ayarı kullanılır, alıcı kullanıcının kendi e-postasıdır.
+	SystemMailChannelID int64 `json:"system_mail_channel_id"`
 }
 
 // Saklama varsayılanları (gün).

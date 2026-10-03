@@ -176,22 +176,42 @@ type userView struct {
 	Servers bool `json:"servers"`
 	// Lang arayüz dili tercihi (tr | en); "" = tarayıcı dili.
 	Lang string `json:"lang"`
+	// Email isteğe bağlı e-posta; OIDC hesap bir SSO sağlayıcısına bağlı;
+	// Theme arayüz teması ("" sistem | light | dark).
+	Email string `json:"email"`
+	OIDC  bool   `json:"oidc"`
+	Theme string `json:"theme"`
 }
 
 func viewOf(u store.User) userView {
 	return userView{u.ID, u.Username, u.DisplayName, u.Role, u.MustChangePassword, u.AllMonitors || u.Role != store.RoleViewer,
-		u.TwoFactorEnabled, !u.Restricted() || len(u.ServerIDs) > 0, u.Lang}
+		u.TwoFactorEnabled, !u.Restricted() || len(u.ServerIDs) > 0, u.Lang, u.Email, u.OIDC, u.Theme}
 }
+
+// validThemes arayüz teması tercihleri.
+var validThemes = map[string]bool{"": true, "light": true, "dark": true}
 
 // updatePreferences: PUT /api/auth/preferences {"lang": "tr" | "en" | ""}.
 // Kullanıcının kendi arayüz dili; "" tarayıcı diline döner.
 func (s *Server) updatePreferences(w http.ResponseWriter, r *http.Request) {
 	u := userFrom(r)
 	var in struct {
-		Lang *string `json:"lang"`
+		Lang  *string `json:"lang"`
+		Theme *string `json:"theme"`
 	}
 	if !readJSON(w, r, &in) {
 		return
+	}
+	if in.Theme != nil {
+		if !validThemes[*in.Theme] {
+			writeError(w, http.StatusBadRequest, "Tema light, dark ya da boş (sistem) olmalı")
+			return
+		}
+		if err := s.store.SetUserTheme(r.Context(), u.ID, *in.Theme); err != nil {
+			s.dbError(w, err)
+			return
+		}
+		u.Theme = *in.Theme
 	}
 	if in.Lang != nil {
 		lang := *in.Lang
@@ -216,6 +236,10 @@ func (s *Server) authState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := map[string]any{"setup_needed": n == 0, "user": nil, "version": s.version}
+	// Giriş ekranı: şifre sıfırlama bağlantısı (sistem e-postası ayarlıysa) ve SSO düğmesi.
+	_, mailOK := s.systemMailer(r.Context())
+	resp["password_reset"] = mailOK
+	resp["oidc"] = s.oidcPublic(r.Context())
 	if u, _, ok := s.currentUser(r); ok {
 		resp["user"] = viewOf(u)
 		setResponseLang(w, u.Lang)

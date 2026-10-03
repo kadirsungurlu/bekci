@@ -10,6 +10,7 @@
   import Tags from './settings/Tags.svelte';
   import Probes from './settings/Probes.svelte';
   import Backup from './settings/Backup.svelte';
+  import Login from './settings/Login.svelte';
 
   let { tab }: { tab: SettingsTab } = $props();
 
@@ -19,6 +20,7 @@
     { key: 'account', href: '#/settings', icon: 'user', need: 'viewer' },
     { key: 'users', href: '#/settings/users', icon: 'users', need: 'admin' },
     { key: 'general', href: '#/settings/general', icon: 'settings', need: 'admin' },
+    { key: 'login', href: '#/settings/login', icon: 'log-in', need: 'admin' },
     { key: 'tags', href: '#/settings/tags', icon: 'tag', need: 'editor' },
     { key: 'probes', href: '#/settings/probes', icon: 'map-pin', need: 'admin' },
     { key: 'backup', href: '#/settings/backup', icon: 'archive', need: 'admin' },
@@ -68,6 +70,8 @@
   <Users />
 {:else if tab === 'general'}
   <General />
+{:else if tab === 'login'}
+  <Login />
 {:else if tab === 'tags'}
   <Tags />
 {:else if tab === 'probes'}

@@ -8,6 +8,39 @@
   import { onMount } from 'svelte';
   import { guardUnsaved } from '../../lib/forms';
   import ApiKeys from './ApiKeys.svelte';
+  import Modal from '../../components/Modal.svelte';
+  import Icon from '../../components/Icon.svelte';
+
+  // E-posta (şifre sıfırlama adresi): şifre onayıyla değiştirilir.
+  let emailOpen = $state(false);
+  let emailNew = $state('');
+  let emailPw = $state('');
+  let emailBusy = $state(false);
+  let emailError = $state('');
+  function openEmail() {
+    emailNew = session.user?.email ?? '';
+    emailPw = '';
+    emailError = '';
+    emailOpen = true;
+  }
+  async function saveEmail(e: SubmitEvent | null, remove = false) {
+    e?.preventDefault();
+    emailError = '';
+    const v = remove ? '' : emailNew.trim();
+    if (!remove && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return (emailError = t('users.form.errEmail'));
+    if (!session.user?.oidc && !emailPw) return (emailError = t('account.twoFactor.errPassword'));
+    emailBusy = true;
+    try {
+      const res = await api.changeEmail(emailPw, v);
+      session.set(res.user);
+      emailOpen = false;
+      toast.success(v ? t('account.email.saved') : t('account.email.removed'));
+    } catch (err) {
+      emailError = errorMessage(err);
+    } finally {
+      emailBusy = false;
+    }
+  }
 
   let current = $state('');
   let next = $state('');
@@ -82,6 +115,15 @@
             : t('account.onlySelectedMonitors')
           : ''}
       </dd>
+      <dt>{t('account.email.title')}</dt>
+      <dd class="email-dd">
+        <span class:muted={!session.user?.email}>{session.user?.email || t('account.email.none')}</span>
+        <button type="button" class="linkbtn" onclick={openEmail}>{session.user?.email ? t('account.email.change') : t('account.email.add')}</button>
+      </dd>
+      {#if session.user?.oidc}
+        <dt></dt>
+        <dd><span class="badge accent"><Icon name="log-in" size={12} /> {t('account.email.sso')}</span></dd>
+      {/if}
       <dt>{t('common.version')}</dt>
       <dd class="mono">{session.version || '—'}</dd>
     </dl>
@@ -131,6 +173,35 @@
 
 <ApiKeys />
 
+<Modal bind:open={emailOpen} title={t('account.email.modalTitle')} width={460}>
+  <form id="email-form" class="stack" onsubmit={(e) => saveEmail(e)} novalidate>
+    <p class="help nomargin">{t('account.email.help')}</p>
+    <div class="field">
+      <label for="em-new">{t('account.email.label')}</label>
+      <input id="em-new" class="input" type="email" bind:value={emailNew} autocomplete="email" maxlength="254" spellcheck="false" />
+    </div>
+    {#if !session.user?.oidc}
+      <div class="field">
+        <label for="em-pw">{t('account.currentPassword')}</label>
+        <input id="em-pw" class="input" type="password" bind:value={emailPw} autocomplete="current-password" />
+        <span class="help">{t('account.email.passwordHelp')}</span>
+      </div>
+    {/if}
+    {#if emailError}<div class="alert error" role="alert">{emailError}</div>{/if}
+  </form>
+  {#snippet footer()}
+    {#if session.user?.email}
+      <button type="button" class="btn danger" onclick={() => saveEmail(null, true)} disabled={emailBusy}>{t('account.email.remove')}</button>
+    {/if}
+    <span class="spacer"></span>
+    <button type="button" class="btn" onclick={() => (emailOpen = false)}>{t('common.cancel')}</button>
+    <button type="submit" form="email-form" class="btn primary" disabled={emailBusy}>
+      {#if emailBusy}<span class="spinner"></span>{/if}
+      {t('common.save')}
+    </button>
+  {/snippet}
+</Modal>
+
 <style>
   .top3 {
     display: grid;
@@ -177,6 +248,15 @@
   dd {
     margin: 0;
     word-break: break-word;
+  }
+  .email-dd {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    flex-wrap: wrap;
+  }
+  .spacer {
+    flex: 1;
   }
   @media (max-width: 1100px) {
     .top3 {
