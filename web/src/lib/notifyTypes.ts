@@ -1171,12 +1171,13 @@ export const EMAIL_PORTS: Record<string, number> = { starttls: 587, tls: 465, no
  * toplar (🔴 ile 🟢 çifti aynı grupta değildir: "düzelme istemeyen kanal"
  * kurulabilsin). Etiket: t(`notifications.rules.events.${id}`).
  */
-export type NotifyEventGroupId = 'down' | 'up' | 'reminder' | 'cert' | 'slow' | 'location' | 'server' | 'probe';
+export type NotifyEventGroupId = 'down' | 'up' | 'reminder' | 'cert' | 'domain' | 'slow' | 'location' | 'server' | 'probe';
 export const NOTIFY_EVENT_GROUPS: { id: NotifyEventGroupId; kinds: NotifyKind[] }[] = [
   { id: 'down', kinds: ['down'] },
   { id: 'up', kinds: ['up'] },
   { id: 'reminder', kinds: ['reminder'] },
   { id: 'cert', kinds: ['cert'] },
+  { id: 'domain', kinds: ['domain'] },
   { id: 'slow', kinds: ['slow', 'slow_resolved'] },
   { id: 'location', kinds: ['location_down', 'location_up'] },
   { id: 'server', kinds: ['server_alert', 'server_resolved'] },

@@ -40,6 +40,11 @@ func (e Event) mailStatus() (string, mailTone) {
 		key, tone = "reminder", toneDown
 	case KindCert:
 		key, tone = "cert", toneWarn
+	case KindDomain:
+		key, tone = "domain", toneWarn
+		if e.DomainIsCritical() {
+			tone = toneDown
+		}
 	case KindServerAlert:
 		key, tone = "alert", toneDown
 		if e.IsWarning() {

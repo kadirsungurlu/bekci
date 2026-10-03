@@ -26,6 +26,7 @@ const (
 	KindUp       = "up"
 	KindReminder = "reminder"
 	KindCert     = "cert"
+	KindDomain   = "domain" // alan adı bitiş uyarısı (RDAP)
 	KindTest     = "test"
 
 	// Sunucu takibi: eşik uyarısı başladı / bitti (ProbeID dolu, MonitorID 0).
@@ -72,7 +73,14 @@ type Event struct {
 	CertDays    int           // cert: kalan gün
 	CertExpires time.Time     // cert: bitiş tarihi
 	CertIssuer  string
-	URL         string // monitörün arayüzdeki adresi (varsa)
+	// domain: alan adı, kalan gün, bitiş ve kayıt operatörü. DomainCritical
+	// 🔴 eşiği (kalan gün DomainCritical ve altındaysa kritik, üstü 🟡).
+	Domain          string
+	DomainDays      int
+	DomainExpires   time.Time
+	DomainRegistrar string
+	DomainCritical  int
+	URL             string // monitörün arayüzdeki adresi (varsa)
 
 	// IncidentID doluysa her kanalın gönderim sonucu olayın işlem geçmişine
 	// yazılır (docs/PLAN.md §13): monitör olayları (down/up/reminder) ve sunucu
@@ -133,8 +141,11 @@ type Event struct {
 var Kinds = []string{
 	KindDown, KindUp, KindReminder, KindCert, KindLocationDown, KindLocationUp,
 	KindSlow, KindSlowResolved, KindServerAlert, KindServerResolved, KindProbeOffline, KindProbeOnline,
-	KindServerReboot,
+	KindServerReboot, KindDomain,
 }
+
+// DomainIsCritical alan adı uyarısı 🔴 mü (kalan gün kritik eşiğin altında ya da süresi dolmuş)?
+func (e Event) DomainIsCritical() bool { return e.DomainDays <= e.DomainCritical }
 
 // IsWarning sunucu uyarısı uyarı seviyesinde mi (🟡)?
 func (e Event) IsWarning() bool { return e.Level == LevelWarning }
@@ -238,6 +249,14 @@ func (e Event) Title() string {
 			return i18n.T(l, "notify.cert.expired", e.MonitorName)
 		}
 		return i18n.TN(l, "notify.cert.expiring", e.CertDays, e.MonitorName, e.CertDays)
+	case KindDomain:
+		switch {
+		case e.DomainDays <= 0:
+			return i18n.T(l, "notify.domain.expired", e.MonitorName, e.Domain)
+		case e.DomainIsCritical():
+			return i18n.TN(l, "notify.domain.critical", e.DomainDays, e.MonitorName, e.Domain, e.DomainDays)
+		}
+		return i18n.TN(l, "notify.domain.expiring", e.DomainDays, e.MonitorName, e.Domain, e.DomainDays)
 	case KindTest:
 		return i18n.T(l, "notify.test.title")
 	case KindLocationDown:
@@ -356,6 +375,10 @@ func (e Event) Rows() []Row {
 	case KindCert:
 		add("expires", i18n.DateTimeMin(l, e.CertExpires.Local()))
 		add("issuer", e.CertIssuer)
+	case KindDomain:
+		add("domain", e.Domain)
+		add("expires", i18n.DateTimeMin(l, e.DomainExpires.Local()))
+		add("registrar", e.DomainRegistrar)
 	case KindServerAlert, KindServerResolved:
 		if e.Metric == "container" {
 			add("container", e.Mount)
@@ -432,7 +455,7 @@ func (e Event) DetailURL() string {
 // IsProblem olayın kötü haber olup olmadığı (öncelik/renk seçimi için).
 func (e Event) IsProblem() bool {
 	return e.Kind == KindDown || e.Kind == KindReminder || e.Kind == KindCert || e.Kind == KindServerAlert || e.Kind == KindLocationDown ||
-		e.Kind == KindProbeOffline || e.Kind == KindSlow || e.Kind == KindServerReboot
+		e.Kind == KindProbeOffline || e.Kind == KindSlow || e.Kind == KindServerReboot || e.Kind == KindDomain
 }
 
 // IsRecovery sorunun bittiğini bildiren olay mı (monitör tekrar çalışıyor,
@@ -464,6 +487,8 @@ func (e Event) AlertKey() string {
 		return fmt.Sprintf("%sserver-%d-%s", prefix, e.ProbeID, e.Metric)
 	case e.Kind == KindCert:
 		return fmt.Sprintf("%smonitor-%d-cert", prefix, e.MonitorID)
+	case e.Kind == KindDomain:
+		return fmt.Sprintf("%smonitor-%d-domain", prefix, e.MonitorID)
 	case e.Kind == KindLocationDown || e.Kind == KindLocationUp:
 		return fmt.Sprintf("%smonitor-%d-locations", prefix, e.MonitorID)
 	case e.Kind == KindSlow || e.Kind == KindSlowResolved:

@@ -17,7 +17,10 @@ type AppSettings struct {
 	RetentionRawDays    int   `json:"retention_raw_days"`    // ham kontrol kayıtları
 	RetentionHourlyDays int   `json:"retention_hourly_days"` // saatlik özetler (günlükler süresiz)
 	CertDays            []int `json:"cert_days"`             // SSL uyarı eşikleri (gün)
-	BackupKeep          int   `json:"backup_keep"`           // saklanacak gece yedeği sayısı
+	// DomainDays alan adı bitiş uyarı eşikleri (gün; boş liste = uyarı yok;
+	// eski kayıtta alan yoksa varsayılan). 7 gün ve altı 🔴, üstü 🟡.
+	DomainDays []int `json:"domain_days"`
+	BackupKeep int   `json:"backup_keep"` // saklanacak gece yedeği sayısı
 	// NotifyLang bildirim metinlerinin dili (tr | en). Boş (eski kayıt) tr sayılır.
 	NotifyLang string `json:"notify_lang"`
 	// CheckUserAgent kontrol isteklerinin User-Agent'ı; boş: varsayılan
@@ -40,8 +43,13 @@ const (
 
 func intPtr(n int) *int { return &n }
 
+// DefaultDomainDays alan adı uyarı eşikleri; DomainCriticalDays ve altı 🔴.
+var DefaultDomainDays = []int{30, 14, 7, 1}
+
+const DomainCriticalDays = 7
+
 func DefaultSettings() AppSettings {
-	return AppSettings{RetentionRawDays: 14, RetentionHourlyDays: 365, CertDays: []int{21, 14, 7, 3, 1}, BackupKeep: 7, NotifyLang: i18n.Default,
+	return AppSettings{RetentionRawDays: 14, RetentionHourlyDays: 365, CertDays: []int{21, 14, 7, 3, 1}, DomainDays: append([]int(nil), DefaultDomainDays...), BackupKeep: 7, NotifyLang: i18n.Default,
 		RetentionIncidentDays: intPtr(DefaultIncidentKeepDays), RetentionCaptureDays: intPtr(DefaultCaptureKeepDays), RetentionAuditDays: intPtr(DefaultAuditKeepDays)}
 }
 
@@ -100,6 +108,25 @@ func (a *AppSettings) Validate() error {
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(days)))
 	a.CertDays = days
+	// Alan adı eşikleri: gönderilmezse (eski arayüz) varsayılan; [] = kapalı.
+	if a.DomainDays == nil {
+		a.DomainDays = append([]int(nil), DefaultDomainDays...)
+	}
+	if len(a.DomainDays) > 10 {
+		return fmt.Errorf("En fazla 10 alan adı uyarı eşiği girilebilir")
+	}
+	seenD, daysD := map[int]bool{}, []int{}
+	for _, d := range a.DomainDays {
+		if d < 0 || d > 365 {
+			return fmt.Errorf("Alan adı uyarı eşikleri 0-365 gün olmalı")
+		}
+		if !seenD[d] {
+			seenD[d] = true
+			daysD = append(daysD, d)
+		}
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(daysD)))
+	a.DomainDays = daysD
 	if a.BackupKeep < 0 || a.BackupKeep > 60 {
 		return fmt.Errorf("Saklanacak yedek sayısı 0-60 olmalı (0: yedek alma)")
 	}

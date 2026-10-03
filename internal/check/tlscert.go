@@ -109,3 +109,10 @@ func certInfoFromState(state tls.ConnectionState) *CertInfo {
 	leaf := state.PeerCertificates[0]
 	return &CertInfo{NotAfter: leaf.NotAfter, Issuer: issuerName(leaf.Issuer.Organization, leaf.Issuer.CommonName), Subject: leaf.Subject.CommonName}
 }
+
+// TLSCertConfigOf kayıtlı ayarı çözer (alan adı bitiş sorgusu için).
+func TLSCertConfigOf(raw json.RawMessage) TLSCertConfig {
+	var c TLSCertConfig
+	json.Unmarshal(raw, &c)
+	return c
+}

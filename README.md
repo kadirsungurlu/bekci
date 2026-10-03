@@ -131,7 +131,8 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
   DNS, Push, Docker konteyneri, WebSocket, gRPC, veritabanları (PostgreSQL,
   MySQL/MariaDB, MSSQL, MongoDB, Redis), MQTT, SNMP ve diğerleri — tam liste
   "Yeni monitör" formunda
-- SSL sertifika bitiş uyarıları, tekrar deneme, kesinti hatırlatması, ters mod
+- SSL sertifika ve alan adı (RDAP) bitiş uyarıları, tekrar deneme, kesinti
+  hatırlatması, ters mod
 - Monitör grupları, etiketler, bakım pencereleri
 - Olay geçmişi ve ayrıntısı (kesinti anındaki istek/yanıt yakalaması — yalnızca
   yöneticiler görür), 24 saat / 7 / 30 / 90 gün uptime ve yanıt süresi grafikleri

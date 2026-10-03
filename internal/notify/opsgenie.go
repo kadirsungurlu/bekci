@@ -80,7 +80,7 @@ func (opsgenie) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 		return doRequest(ctx, http.MethodPost, u, bytes.NewReader(encode(map[string]string{"note": i18n.T(ev.Lang, "notify.opsgenie.close_note", brand.Name)})), mergeHeaders(headers, map[string]string{"Content-Type": "application/json"}))
 	}
 	priority := c.Priority
-	if ev.Kind == KindCert {
+	if ev.Kind == KindCert || (ev.Kind == KindDomain && !ev.DomainIsCritical()) {
 		priority = "P3"
 	}
 	payload := map[string]any{

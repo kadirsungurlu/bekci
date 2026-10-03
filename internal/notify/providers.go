@@ -227,14 +227,17 @@ func (webhook) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 
 // WebhookPayload genel webhook'un gönderdiği JSON gövde.
 type WebhookPayload struct {
-	Event           string         `json:"event"`
-	Title           string         `json:"title"`
-	Text            string         `json:"text"`
-	Message         string         `json:"message"`
-	Time            string         `json:"time"`
-	DowntimeSeconds int64          `json:"downtime_seconds,omitempty"`
-	CertDays        *int           `json:"cert_days,omitempty"`
-	Monitor         WebhookMonitor `json:"monitor"`
+	Event           string `json:"event"`
+	Title           string `json:"title"`
+	Text            string `json:"text"`
+	Message         string `json:"message"`
+	Time            string `json:"time"`
+	DowntimeSeconds int64  `json:"downtime_seconds,omitempty"`
+	CertDays        *int   `json:"cert_days,omitempty"`
+	// Alan adı uyarısında: kayıt adı ve kalan gün.
+	Domain     string         `json:"domain,omitempty"`
+	DomainDays *int           `json:"domain_days,omitempty"`
+	Monitor    WebhookMonitor `json:"monitor"`
 	// Locations çok konumlu monitörde çalışmayan / sonuç gelmeyen konumlar.
 	Locations []LocationNote `json:"locations,omitempty"`
 	// Server yalnızca sunucu uyarılarında (server_alert, server_resolved)
@@ -292,6 +295,10 @@ func (webhook) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	if ev.Kind == KindCert {
 		d := ev.CertDays
 		p.CertDays = &d
+	}
+	if ev.Kind == KindDomain {
+		d := ev.DomainDays
+		p.Domain, p.DomainDays = ev.Domain, &d
 	}
 	if ev.IncidentID != 0 {
 		p.Incident = &WebhookIncident{ID: ev.IncidentID, URL: ev.IncidentURL}

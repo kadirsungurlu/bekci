@@ -137,6 +137,7 @@ var auditEN = map[string]string{
 	"açıklama":              "description",
 	"kontrol aralığı":       "check interval",
 	"tekrar deneme aralığı": "retry interval",
+	"alan adı uyarısı":      "domain expiry alert",
 	"tekrar deneme sayısı":  "retries",
 	"zaman aşımı":           "timeout",
 	"hatırlatma sıklığı":    "reminder frequency",

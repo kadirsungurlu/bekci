@@ -324,6 +324,8 @@ var errorsEN = map[string]string{
 	"Saatlik özetler ham kayıtlardan daha kısa saklanamaz": "Hourly summaries can't be kept shorter than raw data",
 	"En fazla 10 SSL uyarı eşiği girilebilir":              "You can enter at most 10 SSL warning thresholds",
 	"SSL uyarı eşikleri 0-90 gün olmalı":                   "SSL warning thresholds must be 0-90 days",
+	"En fazla 10 alan adı uyarı eşiği girilebilir":         "You can enter at most 10 domain warning thresholds",
+	"Alan adı uyarı eşikleri 0-365 gün olmalı":             "Domain warning thresholds must be 0-365 days",
 	"Saklanacak yedek sayısı 0-60 olmalı (0: yedek alma)":  "Number of backups to keep must be 0-60 (0: no backups)",
 	"Bildirim dili tr veya en olmalı":                      "Notification language must be tr or en",
 	"Dil tr veya en olmalı":                                "Language must be tr or en",

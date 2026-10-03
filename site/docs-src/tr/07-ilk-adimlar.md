@@ -38,6 +38,9 @@ Paneli ilk açtığınızda **Hoş geldiniz** ekranı yönetici hesabını oluş
 > [!TIP] Son kontroller
 > Monitörün ayrıntı sayfasındaki **Son kontroller** bölümü en son 50 kontrolü tek tek listeler: zaman, sonuç, yanıt süresi, mesaj (ör. `200 OK`, `zaman aşımı`) ve çok konumlu monitörde sonucu üreten konumlar. “Neden kesinti sayıldı?” sorusuna grafikten daha hızlı yanıt verir; yeni sonuçlar geldikçe kendiliğinden güncellenir.
 
+> [!TIP] Alan adı bitiş uyarısı
+> HTTP(S), DNS ve TLS sertifikası monitörlerinde Bekci alan adı kaydının bitişini de izler: hedefin kayıt adını (ör. `www.ornek.com.tr` → `ornek.com.tr`) günde bir kez RDAP ile sorgular ve sonucu ayrıntı sayfasındaki **Alan adı** kartında gösterir (kalan gün, bitiş, kayıt operatörü). **Ayarlar → Genel → Alan adı uyarı günleri** eşiklerine (varsayılan 30, 14, 7, 1) girince bağlı kanallara bildirim gider: 7 gün ve altı 🔴, üstü 🟡; her eşik için bir kez. Sorgu yalnızca ana sunucudan yapılır, aynı alan adını paylaşan monitörler tek sorguyla güncellenir. RDAP sunmayan uzantılarda (bazı ülke kodları) kart “RDAP sorgusu yapılamıyor” der ve bildirim gitmez; ağ hatasında eski bilgi korunur, yanlış uyarı üretilmez. Uyarıyı monitör formundaki **Alan adı bitiş uyarısı** kutusuyla monitör başına kapatabilirsiniz.
+
 > [!TIP] Yavaş yanıt uyarısı
 > Site açık ama yavaşsa haberiniz olsun diye **Gelişmiş ayarlar → Yanıt süresi eşiği (ms)** alanını doldurun (ör. 2000). Son N başarılı kontrolün (**Ortalama penceresi**, varsayılan 3) ortalama yanıt süresi eşiği aşınca monitöre **Yavaş** rozeti gelir, bağlı kanallara 🟡 “yavaş yanıt veriyor” bildirimi gider ve **Olaylar** sayfasında “Yavaş yanıt” türünde bir olay açılır; ortalama eşiğin %90 altına inince 🟢 ile kapanır. Durum “Çalışıyor” kalır, uptime etkilenmez; monitör çalışmaz olursa yavaş yanıt olayı sessizce kapanıp normal kesinti olayı açılır.
 
@@ -47,7 +50,7 @@ Paneli ilk açtığınızda **Hoş geldiniz** ekranı yönetici hesabını oluş
 
 | Grup | Tipler | Ne için |
 |---|---|---|
-| Web | HTTP(S) | Web siteleri ve API'ler; başlık, gövde, kimlik doğrulama, kelime ve JSON sorgusu kontrolü, SSL bitiş uyarısı |
+| Web | HTTP(S) | Web siteleri ve API'ler; başlık, gövde, kimlik doğrulama, kelime ve JSON sorgusu kontrolü, SSL ve alan adı bitiş uyarısı |
 | Ağ ve protokoller | TCP Port, Ping, DNS, TLS sertifikası, SMTP, WebSocket, gRPC, MQTT, SNMP | Sunucular, portlar, alan adları, posta sunucuları ve ağ cihazları |
 | Veritabanı | MySQL / MariaDB, PostgreSQL, Microsoft SQL Server, Redis, MongoDB | Veritabanına bağlanıp basit bir sorgu çalıştırır |
 | Sistem ve sinyaller | Docker konteyner, Push, Grup | Konteyner sağlığı; cron işlerinin düzenli sinyal göndermesi; birden çok monitörün tek durumda toplanması (grup "biri bile", "hepsi" ya da "%N'den fazlası çalışmıyorsa" kurallarıyla) |
@@ -70,9 +73,9 @@ Bir monitör çalışmadığında haberiniz olsun diye en az bir kanal ekleyin. 
 4. Yeni monitörlerde bu kanal otomatik seçili gelsin diye **Yeni monitörlere varsayılan olarak ekle** kutusunu işaretleyin. Mevcut monitörlerinize de eklemek için **Mevcut tüm monitörlere ekle** kutusunu işaretleyin.
 5. **Kaydet** düğmesine basın.
 
-Bildirimler kısa bir başlıkla gelir: 🔴 kesinti, 🟢 düzelme (hâlâ çalışmayan konumlar varsa listelenir), 🟡 konum kesintisi, ⚠️ SSL uyarısı; e-posta hem HTML hem düz metin içerir. Kayıtlı bir kanala **Örnek bildirimleri gönder** ile her türden birer örnek gönderebilirsiniz. Geçici bir hata (ağ, HTTP 5xx/429) olursa gönderim 5 ve 20 saniye sonra yeniden denenir; sonuç olayın işlem geçmişine yazılır.
+Bildirimler kısa bir başlıkla gelir: 🔴 kesinti, 🟢 düzelme (hâlâ çalışmayan konumlar varsa listelenir), 🟡 konum kesintisi, ⚠️ SSL uyarısı, 🟡/🔴 alan adı bitişi; e-posta hem HTML hem düz metin içerir. Kayıtlı bir kanala **Örnek bildirimleri gönder** ile her türden birer örnek gönderebilirsiniz. Geçici bir hata (ağ, HTTP 5xx/429) olursa gönderim 5 ve 20 saniye sonra yeniden denenir; sonuç olayın işlem geçmişine yazılır.
 
-**Webhook** kanalı JSON gönderir: `event` (`down`, `up`, `reminder`, `location_down`, `location_up`, `cert`, `server_alert`, `server_resolved`, `test`), `title`, `text`, `message`, `time`, `downtime_seconds` (düzelmede), `cert_days` (SSL uyarısında), `monitor` (`id`, `name`, `type`, `target`, `url`), `incident` (`id`, `url`; olaya bağlı bildirimlerde), `locations` (çok konumlu monitörde çalışmayan konumlar: `name`, `message`) ve `server` (yalnızca sunucu uyarılarında: `id`, `name`, `metric`, `value`, `threshold`, `minutes`). Örnek gövde kanal penceresinde görünür.
+**Webhook** kanalı JSON gönderir: `event` (`down`, `up`, `reminder`, `location_down`, `location_up`, `cert`, `domain`, `server_alert`, `server_resolved`, `test`), `title`, `text`, `message`, `time`, `downtime_seconds` (düzelmede), `cert_days` (SSL uyarısında), `domain` ve `domain_days` (alan adı uyarısında), `monitor` (`id`, `name`, `type`, `target`, `url`), `incident` (`id`, `url`; olaya bağlı bildirimlerde), `locations` (çok konumlu monitörde çalışmayan konumlar: `name`, `message`) ve `server` (yalnızca sunucu uyarılarında: `id`, `name`, `metric`, `value`, `threshold`, `minutes`). Örnek gövde kanal penceresinde görünür.
 
 ### Bildirim kuralları {#bildirim-kurallari}
 

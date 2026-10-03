@@ -169,6 +169,14 @@ export interface MonitorView {
   last_message: string;
   cert_expires_at: number;
   cert_issuer: string;
+  /** Alan adı bitiş uyarısı (RDAP; eski sunucuda gelmez → açık). */
+  domain_expiry?: boolean;
+  /** Günlük RDAP sorgusunun sonucu (yalnızca ana sunucu). */
+  domain_name?: string;
+  domain_expires_at?: number;
+  domain_registrar?: string;
+  domain_status?: DomainStatus;
+  domain_checked_at?: number;
   created_at: number;
   updated_at: number;
   target: string;
@@ -365,7 +373,12 @@ export interface MonitorInput {
   /** Yavaş yanıt eşiği (ms; 0 = kapalı) ve penceresi (kontrol sayısı; 0 = varsayılan 3). */
   slow_ms?: number;
   slow_checks?: number;
+  /** Alan adı bitiş uyarısı (gönderilmezse açık). */
+  domain_expiry?: boolean;
 }
+
+/** Alan adı sorgusunun durumu: ok | unsupported (RDAP yok) | not_found | no_expiry | error (geçici hata). */
+export type DomainStatus = 'ok' | 'unsupported' | 'not_found' | 'no_expiry' | 'error' | '';
 
 export type UptimeKey = '24h' | '7d' | '30d' | '90d';
 
@@ -678,6 +691,7 @@ export type NotifyKind =
   | 'up'
   | 'reminder'
   | 'cert'
+  | 'domain'
   | 'location_down'
   | 'location_up'
   | 'slow'
@@ -734,6 +748,8 @@ export interface AppSettings {
   retention_raw_days: number;
   retention_hourly_days: number;
   cert_days: number[];
+  /** Alan adı bitiş uyarı eşikleri (gün; [] = kapalı; eski sunucuda gelmez). */
+  domain_days?: number[];
   backup_keep: number;
   /** Bildirim metinlerinin dili (eski sunucuda gelmez → tr). */
   notify_lang?: Locale;

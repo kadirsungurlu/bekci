@@ -171,3 +171,10 @@ func rrValue(rr dns.RR) string {
 	parts := strings.SplitN(rr.String(), "\t", 5)
 	return parts[len(parts)-1]
 }
+
+// DNSConfigOf kayıtlı ayarı çözer (alan adı bitiş sorgusu için).
+func DNSConfigOf(raw json.RawMessage) DNSConfig {
+	var c DNSConfig
+	json.Unmarshal(raw, &c)
+	return c
+}

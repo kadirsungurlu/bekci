@@ -53,8 +53,10 @@ type Engine struct {
 
 	jobs *jobsSignal // kontrol noktası iş listesi sürümü (jobs.go)
 
-	bg              sync.WaitGroup // arka plan işleri (watchProbes)
+	bg              sync.WaitGroup // arka plan işleri (watchProbes, domainLoop)
 	probeWatchEvery time.Duration  // kontrol noktası durum taraması; testlerde kısaltılır
+
+	domain DomainLookup // alan adı bitiş sorgusu (nil = kapalı; bkz. domain.go)
 }
 
 func New(st *store.Store, n Notifier, hub *Hub, log *slog.Logger, cfg Config) *Engine {
@@ -99,6 +101,10 @@ func (e *Engine) Start(ctx context.Context) error {
 	e.mu.Unlock()
 	e.bg.Add(1)
 	go e.watchProbes(ctx) // kontrol noktalarının çevrimiçi/çevrimdışı değişimleri (probes.go)
+	if e.domain != nil {
+		e.bg.Add(1)
+		go e.domainLoop(ctx) // alan adı bitiş sorguları (domain.go)
+	}
 	n := 0
 	for _, m := range monitors {
 		if m.Active {

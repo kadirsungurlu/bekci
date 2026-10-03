@@ -12,6 +12,7 @@
   let rawDays = $state<number | null>(14);
   let hourlyDays = $state<number | null>(365);
   let certDays = $state('21, 14, 7, 3, 1');
+  let domainDays = $state('30, 14, 7, 1');
   let backupKeep = $state<number | null>(7);
   let notifyLang = $state<Locale>('tr');
   let userAgent = $state('');
@@ -27,6 +28,7 @@
     rawDays = s.retention_raw_days;
     hourlyDays = s.retention_hourly_days;
     certDays = (s.cert_days ?? []).join(', ');
+    domainDays = (s.domain_days ?? [30, 14, 7, 1]).join(', ');
     backupKeep = s.backup_keep;
     notifyLang = s.notify_lang ?? 'tr';
     userAgent = s.check_user_agent ?? '';
@@ -40,7 +42,18 @@
   // Kaydedilmemiş değişiklik koruması (sayfadan ayrılırken sorulur).
   let baseline = '';
   const current = () =>
-    snapshot({ rawDays, hourlyDays, certDays: certDays.trim(), backupKeep, notifyLang, userAgent: userAgent.trim(), incidentDays, captureDays, auditDays });
+    snapshot({
+      rawDays,
+      hourlyDays,
+      certDays: certDays.trim(),
+      domainDays: domainDays.trim(),
+      backupKeep,
+      notifyLang,
+      userAgent: userAgent.trim(),
+      incidentDays,
+      captureDays,
+      auditDays,
+    });
   onMount(() => guardUnsaved(() => loaded && !stBusy && !!baseline && current() !== baseline));
 
   async function load() {
@@ -70,6 +83,13 @@
     if (days.some((d) => !Number.isInteger(d) || d < 0 || d > 90))
       return (stError = t('settings.general.errCertDays'));
     if (days.length > 10) return (stError = t('settings.general.errCertCount'));
+    const dparts = domainDays
+      .split(/[,\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const ddays = dparts.map(Number);
+    if (ddays.some((d) => !Number.isInteger(d) || d < 0 || d > 365)) return (stError = t('settings.general.errDomainDays'));
+    if (ddays.length > 10) return (stError = t('settings.general.errDomainCount'));
     if (!isInt(backupKeep, 0, 60)) return (stError = t('settings.general.errBackup'));
     // Saklama: 0 (süresiz) ya da aralık.
     const keepOk = (v: number | null, lo: number) => v === 0 || isInt(v, lo, 3650);
@@ -84,6 +104,7 @@
         retention_raw_days: rawDays!,
         retention_hourly_days: hourlyDays!,
         cert_days: days,
+        domain_days: ddays,
         backup_keep: backupKeep!,
         notify_lang: notifyLang,
         check_user_agent: ua,
@@ -153,10 +174,17 @@
         </div>
       </div>
       <p class="help nomargin">{t('settings.general.foreverHint')}</p>
-      <div class="field">
-        <label for="cert">{t('settings.general.certDays')}</label>
-        <input id="cert" class="input" bind:value={certDays} placeholder={t('settings.general.certDaysPlaceholder')} />
-        <span class="help">{t('settings.general.certDaysHelp')}</span>
+      <div class="grid-2">
+        <div class="field">
+          <label for="cert">{t('settings.general.certDays')}</label>
+          <input id="cert" class="input" bind:value={certDays} placeholder={t('settings.general.certDaysPlaceholder')} />
+          <span class="help">{t('settings.general.certDaysHelp')}</span>
+        </div>
+        <div class="field">
+          <label for="domd">{t('settings.general.domainDays')}</label>
+          <input id="domd" class="input" bind:value={domainDays} placeholder={t('settings.general.domainDaysPlaceholder')} />
+          <span class="help">{t('settings.general.domainDaysHelp')}</span>
+        </div>
       </div>
       <div class="grid-2">
         <div class="field">

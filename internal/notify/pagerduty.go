@@ -62,7 +62,7 @@ func (pagerduty) Send(ctx context.Context, raw json.RawMessage, ev Event) error 
 	}
 	if action == "trigger" {
 		severity := c.Severity
-		if ev.Kind == KindCert || ev.Kind == KindLocationDown {
+		if ev.Kind == KindCert || ev.Kind == KindLocationDown || (ev.Kind == KindDomain && !ev.DomainIsCritical()) {
 			severity = "warning"
 		}
 		source := ev.Target

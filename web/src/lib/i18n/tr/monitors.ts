@@ -202,6 +202,17 @@ export default {
     daysLeft: '{count} gün kaldı',
     expiresOn: '{date} bitiyor',
     noInfo: 'Henüz bilgi yok',
+    domain: 'Alan adı',
+    domainExpiresOn: '{date} bitiyor',
+    domainChecked: 'Son sorgu: {date}',
+    domainOff: 'Uyarı kapalı',
+    domainSt: {
+      unsupported: 'Bu uzantı için RDAP sorgusu yapılamıyor',
+      not_found: 'RDAP kaydı bulunamadı',
+      no_expiry: 'Kayıt bitiş tarihi vermiyor',
+      error: 'Son sorgu başarısız; yeniden denenecek',
+      pending: 'İlk sorgu bekleniyor (en geç 10 dk)',
+    },
     lastRange: 'Son {range}',
     pushTitle: 'Push adresi',
     pushIntro:
@@ -343,6 +354,9 @@ export default {
     maxRedirects: 'En fazla yönlendirme',
     maxRedirectsHelp: '0 = yönlendirmeleri takip etme.',
     ignoreTls: 'TLS/SSL hatalarını yok say',
+    domainExpiry: 'Alan adı bitiş uyarısı',
+    domainExpiryHelp:
+      'Alan adı kaydının (RDAP) bitişi günde bir sorgulanır; Ayarlar → Genel’deki eşiklere girince bildirim gider. RDAP sunmayan uzantılarda sessiz kalır.',
     certExpiry: 'SSL bitiş uyarısı',
     certExpiryHelp: 'Sertifikanın süresi dolmak üzereyken bildirim gönder.',
     content: 'İçerik kontrolü',

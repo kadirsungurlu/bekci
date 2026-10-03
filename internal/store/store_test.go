@@ -50,7 +50,7 @@ func openTest(t *testing.T) *Store {
 func newMonitor(t *testing.T, s *Store, name string) Monitor {
 	t.Helper()
 	m := Monitor{Name: name, Type: "http", Active: true, Interval: 60, RetryInterval: 60,
-		Timeout: 30, Config: json.RawMessage(`{"url":"https://example.com"}`)}
+		Timeout: 30, Config: json.RawMessage(`{"url":"https://example.com"}`), DomainExpiry: true}
 	if err := s.CreateMonitor(context.Background(), &m, nil); err != nil {
 		t.Fatal(err)
 	}

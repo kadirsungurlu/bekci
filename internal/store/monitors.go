@@ -41,6 +41,15 @@ type Monitor struct {
 	CertExpiresAt int64  `json:"cert_expires_at"`
 	CertIssuer    string `json:"cert_issuer"`
 
+	// Alan adı bitiş uyarısı (migration 28; RDAP). DomainExpiry kapalıysa
+	// sorgulanmaz. Diğer alanlar ana sunucudaki günlük sorgunun sonucudur.
+	DomainExpiry    bool   `json:"domain_expiry"`
+	DomainName      string `json:"domain_name,omitempty"`
+	DomainExpiresAt int64  `json:"domain_expires_at,omitempty"`
+	DomainRegistrar string `json:"domain_registrar,omitempty"`
+	DomainStatus    string `json:"domain_status,omitempty"`
+	DomainCheckedAt int64  `json:"domain_checked_at,omitempty"`
+
 	CreatedAt int64 `json:"created_at"`
 	UpdatedAt int64 `json:"updated_at"`
 }
@@ -48,7 +57,8 @@ type Monitor struct {
 const monitorCols = `id, name, type, description, active, interval_sec, retry_interval_sec,
 	max_retries, timeout_sec, resend_every, upside_down, config, push_token, status,
 	last_check_at, last_change_at, last_ping_ms, last_message, cert_expires_at, cert_issuer,
-	created_at, updated_at, slow_ms, slow_checks, slow`
+	created_at, updated_at, slow_ms, slow_checks, slow,
+	domain_expiry, domain_name, domain_expires_at, domain_registrar, domain_status, domain_checked_at`
 
 func init() {
 	// 22: yavaş yanıt uyarısı (monitör başına eşik ve pencere; varsayılan kapalı).
@@ -76,14 +86,17 @@ func scanMonitor(sc scanner) (Monitor, error) {
 		cfg                                          string
 		pushToken                                    sql.NullString
 		lastCheck, lastChange, lastPing, certExpires sql.NullInt64
+		domainExpires                                sql.NullInt64
 	)
 	err := sc.Scan(&m.ID, &m.Name, &m.Type, &m.Description, &m.Active, &m.Interval,
 		&m.RetryInterval, &m.MaxRetries, &m.Timeout, &m.ResendEvery, &m.UpsideDown, &cfg,
 		&pushToken, &m.Status, &lastCheck, &lastChange, &lastPing, &m.LastMessage,
-		&certExpires, &m.CertIssuer, &m.CreatedAt, &m.UpdatedAt, &m.SlowMs, &m.SlowChecks, &m.Slow)
+		&certExpires, &m.CertIssuer, &m.CreatedAt, &m.UpdatedAt, &m.SlowMs, &m.SlowChecks, &m.Slow,
+		&m.DomainExpiry, &m.DomainName, &domainExpires, &m.DomainRegistrar, &m.DomainStatus, &m.DomainCheckedAt)
 	if err != nil {
 		return m, err
 	}
+	m.DomainExpiresAt = domainExpires.Int64
 	m.Config = json.RawMessage(cfg)
 	m.PushToken = pushToken.String
 	m.LastCheckAt = lastCheck.Int64
@@ -148,11 +161,11 @@ func (s *Store) CreateMonitor(ctx context.Context, m *Monitor, notificationIDs [
 		m.ID, err = insertID(ctx, tx, `
 			INSERT INTO monitors (name, type, description, active, interval_sec, retry_interval_sec,
 				max_retries, timeout_sec, resend_every, upside_down, config, push_token, status,
-				created_at, updated_at, slow_ms, slow_checks)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				created_at, updated_at, slow_ms, slow_checks, domain_expiry)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			m.Name, m.Type, m.Description, boolInt(m.Active), m.Interval, m.RetryInterval,
 			m.MaxRetries, m.Timeout, m.ResendEvery, boolInt(m.UpsideDown), string(m.Config),
-			nullStr(m.PushToken), m.Status, m.CreatedAt, m.UpdatedAt, m.SlowMs, slowChecksOr(m.SlowChecks))
+			nullStr(m.PushToken), m.Status, m.CreatedAt, m.UpdatedAt, m.SlowMs, slowChecksOr(m.SlowChecks), boolInt(m.DomainExpiry))
 		if err != nil {
 			return err
 		}
@@ -169,11 +182,12 @@ func (s *Store) UpdateMonitor(ctx context.Context, m *Monitor, notificationIDs [
 		res, err := tx.ExecContext(ctx, `
 			UPDATE monitors SET name = ?, type = ?, description = ?, interval_sec = ?,
 				retry_interval_sec = ?, max_retries = ?, timeout_sec = ?, resend_every = ?,
-				upside_down = ?, config = ?, push_token = ?, updated_at = ?, slow_ms = ?, slow_checks = ?
+				upside_down = ?, config = ?, push_token = ?, updated_at = ?, slow_ms = ?, slow_checks = ?,
+				domain_expiry = ?
 			WHERE id = ?`,
 			m.Name, m.Type, m.Description, m.Interval, m.RetryInterval, m.MaxRetries,
 			m.Timeout, m.ResendEvery, boolInt(m.UpsideDown), string(m.Config),
-			nullStr(m.PushToken), m.UpdatedAt, m.SlowMs, slowChecksOr(m.SlowChecks), m.ID)
+			nullStr(m.PushToken), m.UpdatedAt, m.SlowMs, slowChecksOr(m.SlowChecks), boolInt(m.DomainExpiry), m.ID)
 		if err != nil {
 			return err
 		}
@@ -183,7 +197,8 @@ func (s *Store) UpdateMonitor(ctx context.Context, m *Monitor, notificationIDs [
 		if resetState {
 			if _, err := tx.ExecContext(ctx, `
 				UPDATE monitors SET status = ?, last_message = '', last_ping_ms = NULL,
-					last_change_at = NULL, cert_expires_at = NULL, cert_issuer = ''
+					last_change_at = NULL, cert_expires_at = NULL, cert_issuer = '',
+					domain_name = '', domain_expires_at = NULL, domain_registrar = '', domain_status = '', domain_checked_at = 0
 				WHERE id = ?`, StatusPending, m.ID); err != nil {
 				return err
 			}

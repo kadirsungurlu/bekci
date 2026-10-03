@@ -1,6 +1,7 @@
 package notify
 
 import (
+	"strings"
 	"time"
 
 	"github.com/kadirsungurlu/bekci/internal/i18n"
@@ -66,6 +67,9 @@ func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	cert := mon(KindCert)
 	cert.IncidentURL = ""
 	cert.CertDays, cert.CertExpires, cert.CertIssuer = 7, now.AddDate(0, 0, 7), n.CertIssuer
+	dom := mon(KindDomain)
+	dom.IncidentURL = ""
+	dom.Domain, dom.DomainDays, dom.DomainExpires, dom.DomainRegistrar, dom.DomainCritical = sampleDomain(n.Target), 14, now.AddDate(0, 0, 14), "Example Registrar Inc.", 7
 
 	cpu := srv(KindServerAlert, "cpu", 94, 90, 10)
 	cpu.Level = LevelCritical
@@ -87,5 +91,21 @@ func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	probeOn := probeOff
 	probeOn.Kind, probeOn.LastSeen, probeOn.Downtime = KindProbeOnline, time.Time{}, 7*time.Minute
 
-	return []Event{down, reminder, up, slow, slowOK, locDown, locUp, cert, cpuWarn, cpu, mem, disk, cont, reboot, offline, cpuOK, offlineOK, probeOff, probeOn}
+	return []Event{down, reminder, up, slow, slowOK, locDown, locUp, cert, dom, cpuWarn, cpu, mem, disk, cont, reboot, offline, cpuOK, offlineOK, probeOff, probeOn}
+}
+
+// sampleDomain örnek hedefin ana makine adı (URL ise host'u; boşsa ornek.com).
+func sampleDomain(target string) string {
+	host := target
+	if i := strings.Index(host, "://"); i >= 0 {
+		host = host[i+3:]
+	}
+	if i := strings.IndexAny(host, "/:"); i >= 0 {
+		host = host[:i]
+	}
+	host = strings.TrimPrefix(host, "www.")
+	if host == "" {
+		return "ornek.com"
+	}
+	return host
 }

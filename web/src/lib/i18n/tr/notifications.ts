@@ -26,7 +26,7 @@ export default {
     exampleSummary: 'Gönderilen JSON örneği',
     /** {event}, {down} … yer tutucuları <code> olarak çizilir (adları olduğu gibi). */
     exampleHelp:
-      '{event}: {down}, {up}, {reminder}, {location_down}, {location_up}, {cert}, {server_alert}, {server_resolved} veya {test}. {downtime_seconds} düzelme bildirimlerinde, {cert_days} SSL uyarısında, {incident} (kimlik ve sayfa) olaya bağlı bildirimlerde, {locations} çok konumlu monitörde çalışmayan konumlarla, {server} yalnızca sunucu uyarılarında gelir.',
+      '{event}: {down}, {up}, {reminder}, {location_down}, {location_up}, {cert}, {domain}, {server_alert}, {server_resolved} veya {test}. {downtime_seconds} düzelme bildirimlerinde, {cert_days} SSL uyarısında, {domain} ve {domain_days} alan adı uyarısında, {incident} (kimlik ve sayfa) olaya bağlı bildirimlerde, {locations} çok konumlu monitörde çalışmayan konumlarla, {server} yalnızca sunucu uyarılarında gelir.',
     active: 'Etkin',
     activeHelp: 'Devre dışı kanallara bildirim gönderilmez.',
     isDefault: 'Yeni monitörlere varsayılan olarak ekle',
@@ -56,6 +56,7 @@ export default {
       up: '🟢 Düzelme',
       reminder: '🔔 Hatırlatma (hâlâ çalışmıyor)',
       cert: '⚠️ SSL sertifikası',
+      domain: '🟡 Alan adı bitişi (🔴 son 7 gün)',
       slow: '🟡 Yavaş yanıt (başladı / normale döndü)',
       location: '🟡 Konum kesintisi (başladı / bitti)',
       server: '🖥 Sunucu uyarıları (başladı / bitti)',

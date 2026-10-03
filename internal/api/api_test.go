@@ -371,6 +371,57 @@ func TestSettings(t *testing.T) {
 	if s.RetentionRawDays != 30 || fmt.Sprint(s.CertDays) != "[30 7 3]" {
 		t.Fatalf("ayarlar kaydedilmedi: %+v", s)
 	}
+	// Alan adı eşikleri: eski istemci göndermezse varsayılan kalır; [] kapatır; sınır 365.
+	if fmt.Sprint(s.DomainDays) != fmt.Sprint(store.DefaultDomainDays) {
+		t.Fatalf("alan adı eşikleri varsayılan kalmalı: %v", s.DomainDays)
+	}
+	e.mustDo("PUT", "/api/settings", map[string]any{"retention_raw_days": 30, "retention_hourly_days": 365, "cert_days": []int{7}, "backup_keep": 3, "domain_days": []int{400}}, nil, 400)
+	e.mustDo("PUT", "/api/settings", map[string]any{"retention_raw_days": 30, "retention_hourly_days": 365, "cert_days": []int{7}, "backup_keep": 3, "domain_days": []int{7, 60, 7}}, &s, 200)
+	if fmt.Sprint(s.DomainDays) != "[60 7]" {
+		t.Fatalf("alan adı eşikleri: %v", s.DomainDays)
+	}
+	e.mustDo("PUT", "/api/settings", map[string]any{"retention_raw_days": 30, "retention_hourly_days": 365, "cert_days": []int{7}, "backup_keep": 3, "domain_days": []int{}}, &s, 200)
+	if len(s.DomainDays) != 0 {
+		t.Fatalf("boş liste kapatmalı: %v", s.DomainDays)
+	}
+}
+
+// TestMonitorDomainExpiryField domain_expiry alanı: varsayılan açık, kapatılıp
+// açılabilir, GET→PUT turunda korunur; yedekte taşınır.
+func TestMonitorDomainExpiryField(t *testing.T) {
+	admin := setupAdmin(t)
+	var m monitorView
+	admin.mustDo("POST", "/api/monitors", map[string]any{"name": "Site", "type": "http", "config": map[string]any{"url": "https://ornek.com"}}, &m, 201)
+	if !m.DomainExpiry {
+		t.Fatalf("varsayılan açık olmalı: %+v", m)
+	}
+	admin.mustDo("PUT", fmt.Sprintf("/api/monitors/%d", m.ID), map[string]any{"name": "Site", "type": "http", "config": map[string]any{"url": "https://ornek.com"}, "domain_expiry": false}, &m, 200)
+	if m.DomainExpiry {
+		t.Fatalf("kapatılmalı: %+v", m)
+	}
+	var audit []store.AuditEntry
+	admin.mustDo("GET", "/api/audit?action=monitor.update", nil, &audit, 200)
+	if len(audit) == 0 || !strings.Contains(audit[0].Detail, "alan adı uyarısı") {
+		t.Fatalf("işlem kaydı: %+v", audit)
+	}
+	// Yedek: kapalı alan taşınır, açıkta alan yazılmaz (eski sürüm okur).
+	var doc map[string]json.RawMessage
+	admin.mustDo("GET", "/api/export", nil, &doc, 200)
+	var mons []map[string]json.RawMessage
+	json.Unmarshal(doc["monitors"], &mons)
+	if len(mons) != 1 || string(mons[0]["domain_expiry"]) != "false" {
+		t.Fatalf("yedekte domain_expiry: %s", mons[0]["domain_expiry"])
+	}
+	admin.mustDo("PUT", fmt.Sprintf("/api/monitors/%d", m.ID), map[string]any{"name": "Site", "type": "http", "config": map[string]any{"url": "https://ornek.com"}}, &m, 200)
+	if !m.DomainExpiry {
+		t.Fatalf("alan gönderilmezse açık: %+v", m)
+	}
+	admin.mustDo("GET", "/api/export", nil, &doc, 200)
+	mons = nil
+	json.Unmarshal(doc["monitors"], &mons)
+	if _, ok := mons[0]["domain_expiry"]; ok {
+		t.Fatalf("açıkken yedeğe yazılmamalı: %s", mons[0]["domain_expiry"])
+	}
 }
 
 func TestEventsStream(t *testing.T) {

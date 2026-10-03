@@ -378,6 +378,8 @@ type monitorInput struct {
 	// 0 = varsayılan 3). Eski arayüz göndermezse kapalı kalır / varsayılan.
 	SlowMs     int `json:"slow_ms"`
 	SlowChecks int `json:"slow_checks"`
+	// DomainExpiry alan adı bitiş uyarısı (RDAP); gönderilmezse açık.
+	DomainExpiry *bool `json:"domain_expiry"`
 }
 
 func between(v, lo, hi int) bool { return v >= lo && v <= hi }
@@ -448,6 +450,7 @@ func (in *monitorInput) toMonitor(strict bool) (store.Monitor, error) {
 		Interval: in.Interval, RetryInterval: in.RetryInterval, MaxRetries: in.MaxRetries,
 		Timeout: in.Timeout, ResendEvery: in.ResendEvery, UpsideDown: in.UpsideDown, Config: cfg,
 		SlowMs: in.SlowMs, SlowChecks: in.SlowChecks,
+		DomainExpiry: in.DomainExpiry == nil || *in.DomainExpiry,
 	}, nil
 }
 
@@ -607,6 +610,7 @@ func monitorChanges(old, m store.Monitor, oldIDs, newIDs []int64) string {
 	add(old.ResendEvery != m.ResendEvery, "hatırlatma sıklığı")
 	add(old.UpsideDown != m.UpsideDown, "ters mod")
 	add(old.SlowMs != m.SlowMs || old.SlowChecks != m.SlowChecks, "yanıt süresi eşiği")
+	add(old.DomainExpiry != m.DomainExpiry, "alan adı uyarısı")
 	add(!bytes.Equal(old.Config, m.Config), "ayarlar")
 	add(!sameIDs(oldIDs, newIDs), "bildirim kanalları")
 	if len(changed) == 0 {

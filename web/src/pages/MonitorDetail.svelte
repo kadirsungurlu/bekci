@@ -85,6 +85,24 @@
   const showCert = $derived(
     !!monitor && (isHttps || monitor.type === 'tlscert' || !!monitor.cert_expires_at),
   );
+  // Alan adı bitişi (RDAP): http/dns/tlscert monitörlerinde gösterilir.
+  const showDomain = $derived(!!monitor && (monitor.type === 'http' || monitor.type === 'dns' || monitor.type === 'tlscert'));
+  const domain = $derived.by(() => {
+    if (!monitor || !showDomain) return null;
+    if (monitor.domain_expiry === false) return { kind: 'off' as const };
+    if (monitor.domain_status === 'ok' && monitor.domain_expires_at) {
+      const days = certDaysLeft(monitor.domain_expires_at, now) ?? 0;
+      return { kind: 'ok' as const, days, cls: days < 0 ? 'c-down' : days <= 7 ? 'c-down' : days <= 30 ? 'c-warn' : 'c-up' };
+    }
+    const st = monitor.domain_status;
+    if (st === 'error' && monitor.domain_expires_at) {
+      // Son sorgu başarısız ama eski bitiş biliniyor: bitişi göster, notu ekle.
+      const days = certDaysLeft(monitor.domain_expires_at, now) ?? 0;
+      return { kind: 'ok' as const, days, cls: days <= 7 ? 'c-down' : days <= 30 ? 'c-warn' : 'c-up', stale: true };
+    }
+    if (st === 'unsupported' || st === 'not_found' || st === 'no_expiry' || st === 'error') return { kind: 'st' as const, st };
+    return { kind: 'st' as const, st: 'pending' as const };
+  });
 
   // Konumlar: yalnızca çok konumlu monitörde dolu gelir.
   let locations = $state.raw<MonitorLocations | null>(null);
@@ -418,6 +436,23 @@
         <div class="sub">
           {t('monitors.detail.lastMeasure', { v: monitor.last_check_at && kind === 'up' ? fmtMs(monitor.last_ping_ms) : '—' })}
         </div>
+      </div>
+    {/if}
+    {#if showDomain && domain}
+      <div class="card stat">
+        <div class="label"><Icon name="globe" size={13} /> {t('monitors.detail.domain')}{monitor.domain_name ? ` · ${monitor.domain_name}` : ''}</div>
+        {#if domain.kind === 'ok'}
+          <div class="value {domain.cls}">{domain.days < 0 ? t('monitors.detail.expired') : t('monitors.detail.daysLeft', { count: domain.days })}</div>
+          <div class="sub">
+            {t('monitors.detail.domainExpiresOn', { date: fmtDay(monitor.domain_expires_at ?? 0) })}{monitor.domain_registrar ? ` · ${monitor.domain_registrar}` : ''}{domain.stale ? ` · ${t('monitors.detail.domainSt.error')}` : ''}
+          </div>
+        {:else if domain.kind === 'off'}
+          <div class="value muted">—</div>
+          <div class="sub">{t('monitors.detail.domainOff')}</div>
+        {:else}
+          <div class="value muted">—</div>
+          <div class="sub">{t(`monitors.detail.domainSt.${domain.st}`)}</div>
+        {/if}
       </div>
     {/if}
     {#if showCert}

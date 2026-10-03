@@ -113,6 +113,12 @@ func (s *Server) metrics(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(&b, "uptime_monitor_response_time_ms{%s} %d\n", labels(m), m.LastPingMs)
 		}
 	}
+	family("uptime_monitor_domain_days_remaining", "gauge", "Alan adının bitmesine kalan gün (geçmişse negatif)")
+	for _, m := range visible {
+		if m.DomainExpiresAt > 0 {
+			fmt.Fprintf(&b, "uptime_monitor_domain_days_remaining{%s} %s\n", labels(m), promFloat(float64(m.DomainExpiresAt-now)/86400))
+		}
+	}
 	family("uptime_monitor_cert_days_remaining", "gauge", "SSL sertifikasının bitmesine kalan gün (geçmişse negatif)")
 	for _, m := range visible {
 		if m.CertExpiresAt > 0 {

@@ -202,6 +202,17 @@ export default {
     daysLeft: '{count} day left|{count} days left',
     expiresOn: 'Expires {date}',
     noInfo: 'No information yet',
+    domain: 'Domain',
+    domainExpiresOn: 'Expires {date}',
+    domainChecked: 'Last lookup: {date}',
+    domainOff: 'Alert disabled',
+    domainSt: {
+      unsupported: 'RDAP lookup is not available for this TLD',
+      not_found: 'No RDAP record found',
+      no_expiry: 'The record has no expiry date',
+      error: 'Last lookup failed; will retry',
+      pending: 'Waiting for the first lookup (within 10 min)',
+    },
     lastRange: 'Last {range}',
     pushTitle: 'Push URL',
     pushIntro:
@@ -343,6 +354,9 @@ export default {
     maxRedirects: 'Max redirects',
     maxRedirectsHelp: '0 = don’t follow redirects.',
     ignoreTls: 'Ignore TLS/SSL errors',
+    domainExpiry: 'Domain expiry alert',
+    domainExpiryHelp:
+      'The domain registration (RDAP) expiry is looked up once a day; a notification is sent when it reaches the thresholds in Settings → General. Stays silent for TLDs without RDAP.',
     certExpiry: 'SSL expiry alert',
     certExpiryHelp: 'Send a notification when the certificate is about to expire.',
     content: 'Content check',

@@ -113,6 +113,9 @@
   let maxRedirects = $state<number | null>(10);
   let ignoreTls = $state(false);
   let certExpiry = $state(true);
+  // Alan adı bitiş uyarısı (RDAP; monitör düzeyinde, http/dns/tlscert).
+  let domainExpiry = $state(true);
+  const hasDomainExpiry = (ty: string) => ty === 'http' || ty === 'dns' || ty === 'tlscert';
   let contentMode = $state<'none' | 'keyword' | 'json'>('none');
   let keyword = $state('');
   let keywordInvert = $state(false);
@@ -229,6 +232,7 @@
     resendEvery = m.resend_every;
     slowMs = m.slow_ms ?? 0;
     slowChecks = m.slow_checks || 3;
+    domainExpiry = m.domain_expiry ?? true;
     upsideDown = m.upside_down;
     notifIds = [...m.notification_ids];
     mtags = (m.tags ?? []).map((t) => ({ id: t.id, value: t.value }));
@@ -617,6 +621,7 @@
       upside_down: hasUpsideDown(type) ? upsideDown : false,
       slow_ms: slowMs ?? 0,
       slow_checks: slowChecks ?? 3,
+      domain_expiry: hasDomainExpiry(type) ? domainExpiry : true,
       config: buildConfig(),
       // Kanal listesi alınamadıysa null: yeni monitörde varsayılanlar, düzenlemede mevcut bağlantılar korunur.
       notification_ids: channelsOk ? notifIds.filter((nid) => channels.some((c) => c.id === nid)) : null,
@@ -1253,6 +1258,13 @@
                 </div>
               {/if}
             </div>
+          {/if}
+
+          {#if hasDomainExpiry(type)}
+            <label class="check">
+              <input type="checkbox" bind:checked={domainExpiry} />
+              <span>{t('monitors.form.domainExpiry')}<small>{t('monitors.form.domainExpiryHelp')}</small></span>
+            </label>
           {/if}
 
           {#if hasUpsideDown(type)}

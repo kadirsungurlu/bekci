@@ -118,6 +118,10 @@ func (s *Server) buildExport(ctx context.Context) (*backup.Doc, error) {
 			SlowMs: m.SlowMs, SlowChecks: m.SlowChecks,
 			Notifications: []string{}, Tags: []backup.MonitorTag{},
 		}
+		if !m.DomainExpiry {
+			off := false
+			bm.DomainExpiry = &off
+		}
 		for _, nid := range links[m.ID] {
 			if n, ok := notifName[nid]; ok {
 				bm.Notifications = append(bm.Notifications, n)
@@ -438,7 +442,7 @@ func (s *Server) planImport(ctx context.Context, conv *backup.Result, replace bo
 			Name: bm.Name, Type: bm.Type, Description: bm.Description, Interval: bm.Interval,
 			RetryInterval: bm.RetryInterval, MaxRetries: bm.MaxRetries, Timeout: bm.Timeout,
 			ResendEvery: bm.ResendEvery, UpsideDown: bm.UpsideDown, Config: bm.Config,
-			SlowMs: bm.SlowMs, SlowChecks: bm.SlowChecks,
+			SlowMs: bm.SlowMs, SlowChecks: bm.SlowChecks, DomainExpiry: bm.DomainExpiry,
 		}
 		if in.Type != check.TypePush && in.Type != check.TypeGroup && in.Timeout > 0 {
 			// Eski sürümler zaman aşımının aralığı aşmasına izin veriyordu;

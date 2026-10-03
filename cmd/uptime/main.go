@@ -54,6 +54,7 @@ import (
 	"github.com/kadirsungurlu/bekci/internal/check"
 	"github.com/kadirsungurlu/bekci/internal/engine"
 	"github.com/kadirsungurlu/bekci/internal/notify"
+	"github.com/kadirsungurlu/bekci/internal/rdap"
 	"github.com/kadirsungurlu/bekci/internal/stats"
 	"github.com/kadirsungurlu/bekci/internal/store"
 	"github.com/kadirsungurlu/bekci/web"
@@ -148,6 +149,7 @@ func run() error {
 	dispatcher := notify.NewDispatcher(st, log)
 	dispatcher.SetBaseURL(baseURL)
 	eng := engine.New(st, dispatcher, hub, log, engine.Config{MaxConcurrent: maxChecks, BaseURL: baseURL})
+	eng.SetDomainLookup(rdap.New()) // alan adı bitiş uyarısı (günde bir RDAP sorgusu; yalnızca ana sunucu)
 	if err := eng.Start(ctx); err != nil {
 		return fmt.Errorf("kontrol motoru başlatılamadı: %w", err)
 	}

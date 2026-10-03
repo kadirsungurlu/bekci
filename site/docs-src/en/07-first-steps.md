@@ -41,6 +41,9 @@ Click **Create account** and you're taken straight into the panel. This screen a
 > [!TIP] Recent checks
 > The **Recent checks** section on a monitor's detail page lists the last 50 checks one by one: time, result, response time, message (e.g. `200 OK`, `timeout`) and, for multi-location monitors, the locations that produced the result. It answers "why did this count as an outage?" faster than the chart and refreshes itself as new results arrive.
 
+> [!TIP] Domain expiry alert
+> For HTTP(S), DNS and TLS certificate monitors Bekci also watches the domain registration: it resolves the target's registrable name (e.g. `www.example.co.uk` → `example.co.uk`), queries it over RDAP once a day and shows the result in the **Domain** card on the detail page (days left, expiry date, registrar). When it reaches the thresholds in **Settings → General → Domain alert days** (default 30, 14, 7, 1) the attached channels are notified: 7 days or less is 🔴, more is 🟡; once per threshold. Only the main server queries, and monitors sharing a domain are updated with a single lookup. For TLDs without RDAP (some country codes) the card says "RDAP lookup is not available" and nothing is sent; on a network error the previous information is kept and no false alert is produced. You can turn the alert off per monitor with the **Domain expiry alert** checkbox in the monitor form.
+
 > [!TIP] Slow response alert
 > To hear about a site that is up but slow, fill in **Advanced settings → Response-time threshold (ms)** (e.g. 2000). When the average response time of the last N successful checks (**Averaging window**, default 3) exceeds the threshold, the monitor gets a **Slow** badge, a 🟡 “responding slowly” notification goes to its channels and an incident of type “Slow response” opens on the **Incidents** page; it closes with 🟢 once the average drops below 90% of the threshold. The status stays “Up” and uptime is not affected; if the monitor goes down, the slow-response incident closes quietly and a normal outage incident opens.
 
@@ -50,7 +53,7 @@ The **Monitor type** picker offers 18 types in four groups:
 
 | Group | Types | What for |
 |---|---|---|
-| Web | HTTP(S) | Websites and APIs; headers, body, authentication, keyword and JSON query checks, SSL expiry alerts |
+| Web | HTTP(S) | Websites and APIs; headers, body, authentication, keyword and JSON query checks, SSL and domain expiry alerts |
 | Network and protocols | TCP Port, Ping, DNS, TLS certificate, SMTP, WebSocket, gRPC, MQTT, SNMP | Servers, ports, domains, mail servers and network devices |
 | Database | MySQL / MariaDB, PostgreSQL, Microsoft SQL Server, Redis, MongoDB | Connects to the database and runs a simple query |
 | System and signals | Docker container, Push, Group | Container health; cron jobs sending regular signals; combining several monitors into one status (group rules: "any", "all" or "more than N% down") |
@@ -73,9 +76,9 @@ Add at least one channel so you hear about it when a monitor goes down. There ar
 4. Tick **Add to new monitors by default** so new monitors get this channel automatically. To add it to your existing monitors as well, tick **Add to all existing monitors**.
 5. Click **Save**.
 
-Notifications arrive with a short title: 🔴 outage, 🟢 recovery (locations that are still down are listed), 🟡 location outage, ⚠️ SSL warning; emails contain both HTML and plain text. For a saved channel, **Send sample notifications** sends one sample of every type. On a temporary failure (network, HTTP 5xx/429) delivery is retried after 5 and 20 seconds; the result is written to the incident's timeline.
+Notifications arrive with a short title: 🔴 outage, 🟢 recovery (locations that are still down are listed), 🟡 location outage, ⚠️ SSL warning, 🟡/🔴 domain expiry; emails contain both HTML and plain text. For a saved channel, **Send sample notifications** sends one sample of every type. On a temporary failure (network, HTTP 5xx/429) delivery is retried after 5 and 20 seconds; the result is written to the incident's timeline.
 
-The **Webhook** channel sends JSON: `event` (`down`, `up`, `reminder`, `location_down`, `location_up`, `cert`, `server_alert`, `server_resolved`, `test`), `title`, `text`, `message`, `time`, `downtime_seconds` (on recovery), `cert_days` (on SSL warnings), `monitor` (`id`, `name`, `type`, `target`, `url`), `incident` (`id`, `url`; on incident-bound notifications), `locations` (failing locations of a multi-location monitor: `name`, `message`) and `server` (server alerts only: `id`, `name`, `metric`, `value`, `threshold`, `minutes`). An example payload is shown in the channel dialog.
+The **Webhook** channel sends JSON: `event` (`down`, `up`, `reminder`, `location_down`, `location_up`, `cert`, `domain`, `server_alert`, `server_resolved`, `test`), `title`, `text`, `message`, `time`, `downtime_seconds` (on recovery), `cert_days` (on SSL warnings), `domain` and `domain_days` (on domain alerts), `monitor` (`id`, `name`, `type`, `target`, `url`), `incident` (`id`, `url`; on incident-bound notifications), `locations` (failing locations of a multi-location monitor: `name`, `message`) and `server` (server alerts only: `id`, `name`, `metric`, `value`, `threshold`, `minutes`). An example payload is shown in the channel dialog.
 
 ### Notification rules {#notification-rules}
 
