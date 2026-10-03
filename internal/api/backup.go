@@ -257,7 +257,7 @@ func (s *Server) exportBackupWith(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := buf.Bytes()
-	name := "uptime-yedek-" + s.now().Format("20060102") + ".json"
+	name := "bekci-yedek-" + s.now().Format("20060102") + ".json"
 	var notes []string
 	if opt.Users {
 		notes = append(notes, fmt.Sprintf("%d kullanıcı", len(doc.Users)))
@@ -270,7 +270,7 @@ func (s *Server) exportBackupWith(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		name = "uptime-yedek-" + s.now().Format("20060102") + "-sifreli.json"
+		name = "bekci-yedek-" + s.now().Format("20060102") + "-sifreli.json"
 		notes = append(notes, "dosya şifreli")
 	}
 	detail := fmt.Sprintf("%d monitör, %d bildirim, %d etiket, %d durum sayfası", len(doc.Monitors), len(doc.Notifications), len(doc.Tags), len(doc.StatusPages))
@@ -301,7 +301,7 @@ func (s *Server) exportBackup(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
-	name := "uptime-yedek-" + s.now().Format("20060102") + ".json"
+	name := "bekci-yedek-" + s.now().Format("20060102") + ".json"
 	s.audit(r, store.User{}, "backup.export", "backup", 0, name, fmt.Sprintf("%d monitör, %d bildirim, %d etiket, %d durum sayfası",
 		len(doc.Monitors), len(doc.Notifications), len(doc.Tags), len(doc.StatusPages)))
 	s.log.Info("yedek dışa aktarıldı", "kullanıcı", userFrom(r).Username, "monitör", len(doc.Monitors))
@@ -350,7 +350,7 @@ type importItem struct {
 }
 
 type importSummary struct {
-	Source          string        `json:"source"` // uptime-kadir | uptime-kuma | uptimerobot
+	Source          string        `json:"source"` // bekci | uptime-kuma | uptimerobot
 	Mode            string        `json:"mode"`   // merge | replace
 	DryRun          bool          `json:"dry_run"`
 	Created         importCounts  `json:"created"`

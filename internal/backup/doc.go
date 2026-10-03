@@ -15,11 +15,16 @@ import (
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
-// Yedek dosyası biçimi.
+// Yedek dosyası biçimi. LegacyFormat ürünün eski adıyla yazılmış yedekler
+// (v1.2.x ve öncesi) içindir; okunur, yeni dosyalar Format ile yazılır.
 const (
-	Format  = "uptime-kadir"
-	Version = 1
+	Format       = "bekci"
+	LegacyFormat = "uptime-kadir"
+	Version      = 1
 )
+
+// IsFormat dosyanın "format" alanı bu uygulamanın (yeni ya da eski adlı) yedeği mi?
+func IsFormat(f string) bool { return f == Format || f == LegacyFormat }
 
 // SecretsWarning dışa aktarılan dosyanın başına yazılan uyarı.
 const SecretsWarning = "Bu dosya bildirim token'ları, şifreler ve API anahtarları gibi gizli bilgileri açık halde içerir; güvenli bir yerde saklayın ve kimseyle paylaşmayın."

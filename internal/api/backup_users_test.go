@@ -35,7 +35,7 @@ func TestBackupUsersAndEncryption(t *testing.T) {
 	}
 	// POST: kullanıcılar, şifre özetleriyle; 2FA sırları istenmedi.
 	code, data, h := a.send("POST", "/api/export", "application/json", strings.NewReader(`{"users":true}`))
-	if code != 200 || !strings.Contains(h.Get("Content-Disposition"), "uptime-yedek-") {
+	if code != 200 || !strings.Contains(h.Get("Content-Disposition"), "bekci-yedek-") {
 		t.Fatalf("POST /api/export: %d %s", code, data)
 	}
 	var full backup.Doc

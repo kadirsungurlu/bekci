@@ -564,7 +564,7 @@ components:
     ImportSummary:
       type: object
       properties:
-        source: { type: string, enum: [uptime-kadir, uptime-kuma, uptimerobot] }
+        source: { type: string, enum: [bekci, uptime-kuma, uptimerobot] }
         mode: { type: string, enum: [merge, replace] }
         dry_run: { type: boolean }
         created: { type: object, additionalProperties: { type: integer } }
@@ -576,7 +576,7 @@ components:
         items: { type: array, items: { type: object, additionalProperties: true } }
     BackupDoc:
       type: object
-      description: "Yedek dosyası (`format: uptime-kadir`); şifreli zarfta `format: uptime-kadir-encrypted`."
+      description: "Yedek dosyası (`format: bekci`); şifreli zarfta `format: bekci-encrypted`. Eski adla yazılmış dosyalar (`uptime-kadir`, `uptime-kadir-encrypted`) geri yüklemede kabul edilir."
       additionalProperties: true
 paths:
   /api/auth/state:

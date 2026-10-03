@@ -15,7 +15,12 @@ import (
 // taşınır) ama içerik AES-256-GCM ile şifrelidir; anahtar parolanın
 // Argon2id ile türetilmiş halidir. Parola olmadan içerik (ve içindeki
 // bildirim token'ları, şifre özetleri, 2FA sırları) okunamaz.
-const EncryptedFormat = "uptime-kadir-encrypted"
+const EncryptedFormat = "bekci-encrypted"
+
+// LegacyEncryptedFormat ürünün eski adıyla yazılmış şifreli zarf; okunur.
+const LegacyEncryptedFormat = "uptime-kadir-encrypted"
+
+func isEncryptedFormat(f string) bool { return f == EncryptedFormat || f == LegacyEncryptedFormat }
 
 // Argon2id parametreleri (OWASP önerisinin üstünde; 64 MiB bellek, 3 tur).
 const (
@@ -48,6 +53,12 @@ const MinPasswordLen = 8
 
 // Encrypt düz yedek JSON'unu parolayla şifreler.
 func Encrypt(plain []byte, password string) ([]byte, error) {
+	return encryptAs(plain, password, EncryptedFormat)
+}
+
+// encryptAs zarfı verilen biçim adıyla yazar; biçim adı AEAD ek verisidir
+// (eski adlı dosyalar kendi adlarıyla açılır).
+func encryptAs(plain []byte, password, format string) ([]byte, error) {
 	if len(password) < MinPasswordLen {
 		return nil, fmt.Errorf("yedek şifresi en az %d karakter olmalı", MinPasswordLen)
 	}
@@ -64,8 +75,8 @@ func Encrypt(plain []byte, password string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	env := Envelope{Format: EncryptedFormat, Version: 1, KDF: "argon2id", Time: argonTime, Memory: argonMemory, Threads: argonThreads,
-		Salt: salt, Nonce: nonce, Ciphertext: gcm.Seal(nil, nonce, plain, []byte(EncryptedFormat)),
+	env := Envelope{Format: format, Version: 1, KDF: "argon2id", Time: argonTime, Memory: argonMemory, Threads: argonThreads,
+		Salt: salt, Nonce: nonce, Ciphertext: gcm.Seal(nil, nonce, plain, []byte(format)),
 		Note: "Bu dosya şifreli bir Bekci yedeğidir; geri yüklemek için Ayarlar → Yedekle / Geri yükle bölümünde yedek şifresini girin."}
 	return json.MarshalIndent(env, "", "  ")
 }
@@ -75,13 +86,13 @@ func IsEncrypted(data []byte) bool {
 	var probe struct {
 		Format string `json:"format"`
 	}
-	return json.Unmarshal(data, &probe) == nil && probe.Format == EncryptedFormat
+	return json.Unmarshal(data, &probe) == nil && isEncryptedFormat(probe.Format)
 }
 
 // Decrypt zarfı parolayla açar; parola yanlışsa ErrWrongPassword.
 func Decrypt(data []byte, password string) ([]byte, error) {
 	var env Envelope
-	if err := json.Unmarshal(data, &env); err != nil || env.Format != EncryptedFormat {
+	if err := json.Unmarshal(data, &env); err != nil || !isEncryptedFormat(env.Format) {
 		return nil, errors.New("şifreli yedek dosyası okunamadı")
 	}
 	if env.Version != 1 || env.KDF != "argon2id" || len(env.Salt) < 8 || len(env.Nonce) != 12 {
@@ -96,7 +107,7 @@ func Decrypt(data []byte, password string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	plain, err := gcm.Open(nil, env.Nonce, env.Ciphertext, []byte(EncryptedFormat))
+	plain, err := gcm.Open(nil, env.Nonce, env.Ciphertext, []byte(env.Format))
 	if err != nil {
 		return nil, ErrWrongPassword
 	}

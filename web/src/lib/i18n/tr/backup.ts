@@ -88,6 +88,7 @@ export default {
     willDelete: 'Silinecek',
     deleted: 'Silindi',
     sources: {
+      bekci: 'Yedek dosyası',
       'uptime-kadir': 'Yedek dosyası',
       'uptime-kuma': 'Uptime Kuma',
       uptimerobot: 'UptimeRobot',

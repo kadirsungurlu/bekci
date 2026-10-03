@@ -132,7 +132,7 @@ func (s *Server) importBackup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Yedek dosyası okunamadı: geçerli bir JSON nesnesi değil")
 		return
 	}
-	if probe.Format != backup.Format {
+	if !backup.IsFormat(probe.Format) {
 		msg := "Bu dosya bir " + brand.Name + " yedeği değil"
 		if probe.MonitorList != nil {
 			msg += "; Uptime Kuma yedeği için “Uptime Kuma'dan içe aktar”ı kullanın"
@@ -149,7 +149,7 @@ func (s *Server) importBackup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("Yedek sürümü (%d) desteklenmiyor; uygulamayı güncelleyin", doc.Version))
 		return
 	}
-	s.runImport(w, r, "uptime-kadir", &backup.Result{Doc: &doc}, mode == "replace")
+	s.runImport(w, r, backup.Format, &backup.Result{Doc: &doc}, mode == "replace")
 }
 
 // importKuma: POST /api/import/uptime-kuma[?dry_run=1] — Uptime Kuma JSON

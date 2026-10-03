@@ -61,12 +61,15 @@ func (e *env) exportDoc() (backup.Doc, []byte) {
 	if code != 200 {
 		e.t.Fatalf("dışa aktarma: %d %s", code, data)
 	}
-	if cd := h.Get("Content-Disposition"); !regexp.MustCompile(`^attachment; filename="uptime-yedek-\d{8}\.json"$`).MatchString(cd) {
+	if cd := h.Get("Content-Disposition"); !regexp.MustCompile(`^attachment; filename="bekci-yedek-\d{8}\.json"$`).MatchString(cd) {
 		e.t.Errorf("Content-Disposition: %q", cd)
 	}
 	var d backup.Doc
 	if err := json.Unmarshal(data, &d); err != nil {
 		e.t.Fatal(err)
+	}
+	if d.Format != backup.Format {
+		e.t.Errorf("yedek biçimi %q, %q bekleniyordu", d.Format, backup.Format)
 	}
 	return d, data
 }
@@ -259,7 +262,7 @@ func TestBackupRoundTrip(t *testing.T) {
 		switch e.Action {
 		case "backup.import":
 			imports++
-			if !strings.Contains(e.Detail, "kaynak=uptime-kadir") {
+			if !strings.Contains(e.Detail, "kaynak=bekci") {
 				t.Errorf("işlem kaydı ayrıntısı: %q", e.Detail)
 			}
 		case "backup.export":
@@ -307,6 +310,7 @@ func TestImportValidation(t *testing.T) {
 		{"/api/import", `{"format":"baska","version":1}`, 400, brand.Name + " yedeği değil"},
 		{"/api/import", `{"version":"1.23","monitorList":[]}`, 400, "Uptime Kuma"},
 		{"/api/import", `{"format":"uptime-kadir","version":2}`, 400, "sürümü"},
+		{"/api/import", `{"format":"bekci","version":2}`, 400, "sürümü"},
 		{"/api/import?mode=hepsi", `{}`, 400, "Mod"},
 		{"/api/import", ``, 400, "boş"},
 	} {

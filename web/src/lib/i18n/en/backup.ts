@@ -90,6 +90,7 @@ export default {
     willDelete: 'To delete',
     deleted: 'Deleted',
     sources: {
+      bekci: 'Backup file',
       'uptime-kadir': 'Backup file',
       'uptime-kuma': 'Uptime Kuma',
       uptimerobot: 'UptimeRobot',

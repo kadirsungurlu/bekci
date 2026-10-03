@@ -95,7 +95,7 @@ func (mqttChecker) Check(ctx context.Context, raw json.RawMessage) (res Result) 
 
 	opts := mqtt.NewClientOptions().
 		AddBroker(c.BrokerURL).
-		SetClientID(fmt.Sprintf("uptime-kadir-%d", time.Now().UnixNano())).
+		SetClientID(fmt.Sprintf("bekci-%d", time.Now().UnixNano())).
 		SetConnectTimeout(timeout).
 		SetAutoReconnect(false).
 		SetCleanSession(true)

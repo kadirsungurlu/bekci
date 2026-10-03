@@ -416,7 +416,7 @@ export interface ImportItem {
 }
 
 export interface ImportSummary {
-  source: 'uptime-kadir' | 'uptime-kuma' | 'uptimerobot';
+  source: 'bekci' | 'uptime-kadir' | 'uptime-kuma' | 'uptimerobot';
   mode: 'merge' | 'replace';
   dry_run: boolean;
   created: ImportCounts;
