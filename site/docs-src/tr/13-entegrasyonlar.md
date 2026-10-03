@@ -150,7 +150,7 @@ https://⟦bekci.ornek.com⟧/durum/⟦kisa-ad⟧/feed.xml
 https://⟦bekci.ornek.com⟧/api/public/pages/⟦kisa-ad⟧/feed.xml
 ```
 
-Akışta sayfanın olay penceresindeki (varsayılan son 14 gün; düzenleyicide 7/14/30/90) olaylar (sayfada **Olayları göster** açıksa; başlangıç, çözülme ve süre — neden yazılmaz) ve yayına girmiş duyurular (süresi bitmişler dahil, ileri tarihliler hariç) sayfanın dilinde yer alır; süren bir olay çözülünce ayrı bir kayıt olarak eklenir. Slack, Teams ya da herhangi bir RSS okuyucusu bu adrese abone olabilir.
+Akışta sayfanın olay penceresindeki (varsayılan son 14 gün; düzenleyicide 7/14/30/90) olaylar (sayfada **Olayları göster** açıksa; başlangıç, çözülme ve süre — neden yazılmaz) ve yayına girmiş duyurular (süresi bitmişler dahil, ileri tarihliler hariç) sayfanın dilinde yer alır; süren bir olay çözülünce ayrı bir kayıt olarak eklenir. Elle açılan olaylar başlık ve önemiyle, her olay güncellemesi ("Olay güncellemesi" kategorisinde) ve sayfanın **Planlı bakım** bölümü görünürse süren/yaklaşan bakım pencereleri ("Planlı bakım" kategorisinde) de akışa düşer. Slack, Teams ya da herhangi bir RSS okuyucusu bu adrese abone olabilir.
 
 > [!NOTE]
 > Şifre korumalı sayfaların akışı yalnızca şifreyi girmiş tarayıcıya verilir; RSS okuyucularının kullanabileceği bir token yoktur. Bu yüzden şifreli sayfada RSS bağlantısı gösterilmez.

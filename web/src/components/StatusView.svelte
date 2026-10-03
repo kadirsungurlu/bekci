@@ -2,7 +2,7 @@
   import type { PageBlockId, PageLayout } from '../lib/api';
 
   /** Önceki sabit görünümün sırası (sunucudaki store.DefaultBlockOrder ile aynı). */
-  export const BLOCK_ORDER: PageBlockId[] = ['overall', 'announcements', 'groups', 'incidents'];
+  export const BLOCK_ORDER: PageBlockId[] = ['overall', 'announcements', 'maintenance', 'groups', 'incidents'];
 
   /**
    * Dizilimi sunucudaki NormalizeLayout kuralıyla tamamlar: bilinmeyen değerler
@@ -320,6 +320,7 @@
   }
 
   const incidents = $derived(page.incidents ?? []);
+  const maintenance = $derived(page.maintenance ?? []);
   const totalMonitors = $derived(page.sections.reduce((n, s) => n + s.monitors.length, 0));
   const issues = (ms: PublicMonitor[]) => ms.filter((m) => m.status === 'down').length;
   const inMaint = (ms: PublicMonitor[]) => ms.some((m) => m.status === 'maintenance');
@@ -358,6 +359,8 @@
           {@render overall()}
         {:else if b.id === 'announcements'}
           {@render announcements()}
+        {:else if b.id === 'maintenance'}
+          {@render maintenanceList()}
         {:else if b.id === 'groups'}
           {@render groups()}
         {:else if b.id === 'incidents'}
@@ -594,6 +597,35 @@
           </section>
 {/snippet}
 
+{#snippet maintenanceList()}
+  {#each maintenance as m (m.id)}
+    <article class="panel mw" class:ongoing={m.ongoing}>
+      <span class="mw-ic"><Icon name="wrench" size={18} /></span>
+      <div class="mw-b">
+        <div class="mw-t">
+          <h2>{m.title}</h2>
+          <span class="sb {m.ongoing ? 'maint' : 'sched'} mw-badge"><span class="sb-dot" aria-hidden="true"></span>{m.ongoing ? t('pub.maint.ongoing') : t('pub.maint.scheduled')}</span>
+        </div>
+        {#if m.description}<p>{m.description}</p>{/if}
+        <div class="mw-w">
+          {#if m.ends_at}
+            {fmtDate(m.starts_at)} – {fmtDate(m.ends_at)}
+          {:else if m.starts_at}
+            {t('pub.since', { time: fmtDate(m.starts_at) })}
+          {:else}
+            {t('pub.maint.manual')}
+          {/if}
+          {#if m.all_monitors}
+            <span class="mw-m">· {t('pub.maint.allServices')}</span>
+          {:else if m.monitors.length}
+            <span class="mw-m">· {m.monitors.join(', ')}</span>
+          {/if}
+        </div>
+      </div>
+    </article>
+  {/each}
+{/snippet}
+
 {#snippet incidentList()}
   <section class="panel inc">
     <div class="inc-h">
@@ -606,10 +638,30 @@
       <ul>
         {#each incidents as inc, i (i)}
           {@const ongoing = inc.resolved_at === 0}
+          {@const manual = inc.kind === 'manual'}
+          {@const upd = inc.updates ?? []}
           <li class:ongoing>
             <span class="i-ic" aria-hidden="true"><Icon name={ongoing ? 'alert-circle' : 'check-circle'} size={18} /></span>
             <div class="i-b">
-              <div class="i-t">{inc.monitor}</div>
+              <div class="i-t">
+                {manual ? inc.title : inc.monitor}
+                {#if manual && inc.severity}<span class="sev sev-{inc.severity}">{t(`pub.severity.${inc.severity}` as TKey)}</span>{/if}
+                {#if inc.state && (manual || upd.length)}<span class="st-badge st-{inc.state}">{t(`pub.state.${inc.state}` as TKey)}</span>{/if}
+              </div>
+              {#if manual && inc.monitors?.length}
+                <div class="i-aff">{t('pub.affected', { names: inc.monitors.join(', ') })}</div>
+              {/if}
+              {#if upd.length}
+                <ol class="i-upd">
+                  {#each upd as u, ui (ui)}
+                    <li>
+                      <span class="u-st st-{u.state}">{t(`pub.state.${u.state}` as TKey)}</span>
+                      <span class="u-time">{fmtDate(u.time)}</span>
+                      {#if u.body}<span class="u-body">{u.body}</span>{/if}
+                    </li>
+                  {/each}
+                </ol>
+              {/if}
               <div class="i-w">
                 <span>{t('pub.startedAt', { time: fmtDate(inc.started_at) })}</span>
                 {#if ongoing}
@@ -1512,6 +1564,124 @@
   }
   .ongoing .i-d {
     color: var(--down-text-2);
+  }
+  /* Elle açılan olay: önem ve aşama rozetleri, etkilenen servisler, güncellemeler. */
+  .i-t {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+  }
+  .sev,
+  .st-badge,
+  .u-st {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 650;
+    border: 1px solid var(--border);
+    color: var(--text-2);
+    white-space: nowrap;
+  }
+  .sev-major,
+  .sev-critical {
+    color: var(--down-text-2);
+    border-color: color-mix(in srgb, var(--down) 45%, transparent);
+  }
+  .sev-critical {
+    background: color-mix(in srgb, var(--down) 14%, transparent);
+  }
+  .st-investigating {
+    color: var(--down-text-2);
+  }
+  .st-identified,
+  .st-monitoring {
+    color: var(--warn-text);
+  }
+  .st-resolved {
+    color: var(--up-text);
+  }
+  .i-aff {
+    margin-top: 4px;
+    font-size: 0.86rem;
+    color: var(--text-2);
+    overflow-wrap: anywhere;
+  }
+  .i-upd {
+    list-style: none;
+    margin: 8px 0 2px;
+    padding: 0 0 0 10px;
+    border-left: 2px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .i-upd li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    align-items: baseline;
+    padding: 0;
+    border: none;
+    font-size: 0.88rem;
+  }
+  .u-time {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+  .u-body {
+    flex-basis: 100%;
+    color: var(--text-2);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+  /* Planlı bakım bloğu. */
+  .mw {
+    display: flex;
+    gap: 14px;
+    padding: 16px 20px;
+    margin-bottom: 14px;
+    border-left: 3px solid var(--maint, var(--accent));
+  }
+  .mw-ic {
+    display: inline-flex;
+    margin-top: 2px;
+    color: var(--maint, var(--accent));
+    flex-shrink: 0;
+  }
+  .mw-b {
+    flex: 1;
+    min-width: 0;
+  }
+  .mw-t {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+  .mw h2 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+  }
+  .mw p {
+    margin: 6px 0 0;
+    color: var(--text-2);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+  .mw-w {
+    margin-top: 6px;
+    font-size: 0.86rem;
+    color: var(--text-2);
+  }
+  .mw-m {
+    overflow-wrap: anywhere;
+  }
+  .sb.sched {
+    color: var(--text-2);
   }
 
   .foot {

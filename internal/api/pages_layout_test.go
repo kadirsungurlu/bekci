@@ -36,7 +36,7 @@ func TestStatusPageLayout(t *testing.T) {
 	var p pageResp
 	pe.mustDo("POST", "/api/status-pages", map[string]any{"slug": "dizi", "title": "Dizi",
 		"sections": []map[string]any{{"title": "Web", "monitors": []map[string]any{{"id": a.ID}}}}}, &p, 201)
-	if p.Layout.Style != "list" || p.Layout.Width != "narrow" || layoutIDs(p.Layout) != "overall,announcements,groups,incidents" {
+	if p.Layout.Style != "list" || p.Layout.Width != "narrow" || layoutIDs(p.Layout) != "overall,announcements,maintenance,groups,incidents" {
 		t.Fatalf("yeni sayfa varsayılan dizilim almalı: %+v", p.Layout)
 	}
 	url := fmt.Sprintf("/api/status-pages/%d", p.ID)
@@ -57,30 +57,30 @@ func TestStatusPageLayout(t *testing.T) {
 	pe.mustDo("PUT", url, with(map[string]any{"layout": map[string]any{"style": "grid", "width": "wide", "fazla": 1, "blocks": []map[string]any{
 		{"id": "groups"}, {"id": "overall", "visible": false}, {"id": "bilinmeyen"}, {"id": "groups", "visible": false}, {"id": "incidents", "visible": false},
 	}}}), &p, 200)
-	if p.Layout.Style != "grid" || p.Layout.Width != "wide" || layoutIDs(p.Layout) != "groups,-overall,-incidents,announcements" || p.ShowIncidents {
+	if p.Layout.Style != "grid" || p.Layout.Width != "wide" || layoutIDs(p.Layout) != "groups,-overall,-incidents,announcements,maintenance" || p.ShowIncidents {
 		t.Fatalf("dizilim: %+v show_incidents=%v", p.Layout, p.ShowIncidents)
 	}
 	// Dizilim gönderilmezse değişmez; show_incidents olaylar bölümünü açar.
 	pe.mustDo("PUT", url, with(map[string]any{"show_incidents": true}), &p, 200)
-	if p.Layout.Style != "grid" || layoutIDs(p.Layout) != "groups,-overall,incidents,announcements" || !p.ShowIncidents {
+	if p.Layout.Style != "grid" || layoutIDs(p.Layout) != "groups,-overall,incidents,announcements,maintenance" || !p.ShowIncidents {
 		t.Fatalf("dizilim korunmalı, olaylar açılmalı: %+v", p.Layout)
 	}
 	// İkisi birden: show_incidents geçerli.
 	pe.mustDo("PUT", url, with(map[string]any{"show_incidents": false, "layout": map[string]any{"style": "compact", "blocks": []map[string]any{{"id": "incidents", "visible": true}}}}), &p, 200)
 	if p.ShowIncidents || p.Layout.Visible(store.BlockIncidents) || p.Layout.Style != "compact" || p.Layout.Width != "narrow" ||
-		layoutIDs(p.Layout) != "-incidents,overall,announcements,groups" {
+		layoutIDs(p.Layout) != "-incidents,overall,announcements,maintenance,groups" {
 		t.Fatalf("show_incidents öncelikli olmalı: %+v %v", p.Layout, p.ShowIncidents)
 	}
 	// Bilinmeyen değerler varsayılana çekilir (hata değil); nesne olmayan dizilim 400.
 	pe.mustDo("PUT", url, with(map[string]any{"layout": map[string]any{"style": "masonry", "width": 5000}}), nil, 400) // tip hatası
 	pe.mustDo("PUT", url, with(map[string]any{"layout": map[string]any{"style": "masonry", "width": "dev"}}), &p, 200)
 	// Dizilim bütün olarak değişir: bölüm verilmezse varsayılan sıra.
-	if p.Layout.Style != "list" || p.Layout.Width != "narrow" || layoutIDs(p.Layout) != "overall,announcements,groups,-incidents" {
+	if p.Layout.Style != "list" || p.Layout.Width != "narrow" || layoutIDs(p.Layout) != "overall,announcements,maintenance,groups,-incidents" {
 		t.Fatalf("bilinmeyen değerler: %+v", p.Layout)
 	}
 	pe.mustDo("PUT", url, with(map[string]any{"layout": "grid"}), nil, 400)
 	pe.mustDo("PUT", url, with(map[string]any{"layout": nil}), &p, 200)
-	if layoutIDs(p.Layout) != "overall,announcements,groups,-incidents" {
+	if layoutIDs(p.Layout) != "overall,announcements,maintenance,groups,-incidents" {
 		t.Fatalf("null dizilim değiştirmemeli: %+v", p.Layout)
 	}
 
@@ -98,12 +98,12 @@ func TestStatusPageLayout(t *testing.T) {
 	}
 	pe.anon().mustDo("GET", "/api/public/pages/dizi", nil, &pub, 200)
 	if pub.Status != "up" || len(pub.Sections) != 0 || len(pub.Announcements) != 0 || !pub.ShowIncidents ||
-		pub.Layout.Style != "grid" || pub.Layout.Width != "wide" || layoutIDs(pub.Layout) != "-announcements,-groups,overall,incidents" {
+		pub.Layout.Style != "grid" || pub.Layout.Width != "wide" || layoutIDs(pub.Layout) != "-announcements,-groups,overall,maintenance,incidents" {
 		t.Fatalf("herkese açık dizilim: %+v", pub)
 	}
 	pe.mustDo("PUT", url, with(map[string]any{"layout": map[string]any{"style": "grid"}}), &p, 200)
 	pe.anon().mustDo("GET", "/api/public/pages/dizi", nil, &pub, 200)
-	if len(pub.Sections) != 1 || len(pub.Announcements) != 1 || layoutIDs(pub.Layout) != "overall,announcements,groups,incidents" {
+	if len(pub.Sections) != 1 || len(pub.Announcements) != 1 || layoutIDs(pub.Layout) != "overall,announcements,maintenance,groups,incidents" {
 		t.Fatalf("görünür bölümler: %+v", pub)
 	}
 
@@ -243,7 +243,7 @@ func TestBackupPageLayout(t *testing.T) {
 		t.Fatalf("yedekte dizilim yok: %+v", doc.StatusPages)
 	}
 	want := backup.PageLayout{Style: "compact", Width: "wide", Blocks: []backup.PageBlock{
-		{ID: "groups", Visible: true}, {ID: "overall", Visible: false}, {ID: "announcements", Visible: true}, {ID: "incidents", Visible: false}},
+		{ID: "groups", Visible: true}, {ID: "overall", Visible: false}, {ID: "announcements", Visible: true}, {ID: "maintenance", Visible: true}, {ID: "incidents", Visible: false}},
 		ShowUptime: new(bool)}
 	if !reflect.DeepEqual(*doc.StatusPages[0].Layout, want) {
 		t.Fatalf("yedekteki dizilim: %+v", *doc.StatusPages[0].Layout)
@@ -276,11 +276,11 @@ func TestBackupPageLayout(t *testing.T) {
 	for _, p := range list {
 		got[p.Slug] = p
 	}
-	if e := got["eski"]; e.Layout.Style != "list" || layoutIDs(e.Layout) != "overall,announcements,groups,incidents" || !e.ShowIncidents || !e.Layout.UptimeShown() {
+	if e := got["eski"]; e.Layout.Style != "list" || layoutIDs(e.Layout) != "overall,announcements,maintenance,groups,incidents" || !e.ShowIncidents || !e.Layout.UptimeShown() {
 		t.Errorf("eski yedek: %+v", e)
 	}
 	// show_uptime'sız yedek: uptime gösterilir.
-	if e := got["elle"]; e.Layout.Style != "rows" || e.ShowIncidents || layoutIDs(e.Layout) != "-incidents,overall,announcements,groups" || !e.Layout.UptimeShown() {
+	if e := got["elle"]; e.Layout.Style != "rows" || e.ShowIncidents || layoutIDs(e.Layout) != "-incidents,overall,announcements,maintenance,groups" || !e.Layout.UptimeShown() {
 		t.Errorf("elle yazılmış yedek: %+v", e)
 	}
 }

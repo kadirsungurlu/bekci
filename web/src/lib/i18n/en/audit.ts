@@ -75,6 +75,13 @@ export default {
       update: 'Announcement updated',
       delete: 'Announcement deleted',
     },
+    incident: {
+      create: 'Incident opened manually',
+      update: 'Incident edited',
+      delete: 'Incident deleted',
+      update_post: 'Incident update posted',
+      update_delete: 'Incident update deleted',
+    },
     maintenance: {
       create: 'Maintenance added',
       update: 'Maintenance updated',
@@ -107,6 +114,7 @@ export default {
     apikey: 'API key',
     status_page: 'Status page',
     announcement: 'Announcement',
+    incident: 'Incident',
     maintenance: 'Maintenance',
     tag: 'Tag',
     probe: 'Check location',

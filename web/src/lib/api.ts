@@ -390,9 +390,15 @@ export type Series =
  * monitör çalışıyor; bildirim yok), server_offline / server_alert (sunucu takibi).
  * Eski sunucular türü göndermez (monitor sayılır).
  */
-export type IncidentKind = 'monitor' | 'partial' | 'server_offline' | 'server_alert' | 'probe_offline' | 'degraded';
+export type IncidentKind = 'monitor' | 'partial' | 'server_offline' | 'server_alert' | 'probe_offline' | 'degraded' | 'manual';
 /** Olay listesi süzgeci (sunucu: sunucu ve kontrol noktası türleri birlikte). */
-export type IncidentFilterKind = '' | 'monitor' | 'server' | 'partial' | 'degraded';
+export type IncidentFilterKind = '' | 'monitor' | 'server' | 'partial' | 'degraded' | 'manual';
+
+/** Olay güncellemesi aşamaları (sırayla) ve manuel olay önem dereceleri. */
+export type IncidentState = 'investigating' | 'identified' | 'monitoring' | 'resolved';
+export const INCIDENT_STATES: IncidentState[] = ['investigating', 'identified', 'monitoring', 'resolved'];
+export type IncidentSeverity = 'minor' | 'major' | 'critical';
+export const INCIDENT_SEVERITIES: IncidentSeverity[] = ['minor', 'major', 'critical'];
 
 export interface Incident {
   id: number;
@@ -407,6 +413,46 @@ export interface Incident {
   cause: string;
   /** Türe özgü veri: kısmi → { locations: string[] }; sunucu → ServerIncidentData. */
   data?: Record<string, unknown> | null;
+  /** Manuel olay: durum sayfası, başlık, önem; state son güncellemenin aşaması (otomatik olayda da). */
+  page_id?: number;
+  page_title?: string;
+  title?: string;
+  severity?: IncidentSeverity;
+  state?: IncidentState;
+  created_by?: string;
+}
+
+/** İnsan eliyle yazılan olay güncellemesi. */
+export interface IncidentUpdate {
+  id: number;
+  incident_id: number;
+  time: number;
+  state: IncidentState;
+  body: string;
+  user_id?: number;
+  username?: string;
+}
+
+export interface ManualIncidentInput {
+  page_id: number;
+  title: string;
+  severity: IncidentSeverity;
+  monitor_ids: number[];
+  started_at?: number;
+  /** Yalnızca eklemede: ilk güncelleme. */
+  state?: IncidentState;
+  body?: string;
+}
+
+/** Olay listesi süzgeçleri. */
+export interface IncidentQuery {
+  kind?: IncidentFilterKind;
+  open?: boolean;
+  monitor_id?: number;
+  server_id?: number;
+  from?: number;
+  to?: number;
+  q?: string;
 }
 
 /** Sunucu olayının verisi (store.ServerIncidentData). */
@@ -566,6 +612,10 @@ export interface IncidentDetail {
   /** Çok konumlu olayda çalışmayan her konumun kaydı (ilki = capture); eski sunucuda yok. */
   captures?: IncidentCapture[];
   details: boolean;
+  /** Güncellemeler (yeniden eskiye; eski sunucuda yok). */
+  updates?: IncidentUpdate[];
+  /** Manuel olayın etkilediği monitörler. */
+  affected?: { id: number; name: string }[];
 }
 
 export type NotificationType =
@@ -795,7 +845,7 @@ export interface AnnouncementInput {
 export type PageStyle = 'list' | 'grid' | 'compact' | 'rows';
 export type PageWidth = 'narrow' | 'wide';
 /** Herkese açık sayfanın sıralanabilir bölümleri. */
-export type PageBlockId = 'overall' | 'announcements' | 'groups' | 'incidents';
+export type PageBlockId = 'overall' | 'announcements' | 'maintenance' | 'groups' | 'incidents';
 
 export interface PageLayout {
   style: PageStyle;
@@ -847,6 +897,33 @@ export const UPTIME_WINDOWS: UptimeWindow[] = ['24h', '7d', '30d', '90d'];
 /** Olay bölümünün penceresi (gün). */
 export const INCIDENT_DAY_OPTIONS = [7, 14, 30, 90] as const;
 
+/** Herkese açık sayfadaki olay: monitör kesintisi ya da elle açılan olay (title/severity dolu). */
+export interface PublicIncident {
+  id?: number;
+  kind?: 'monitor' | 'manual';
+  monitor: string;
+  monitors?: string[];
+  title?: string;
+  severity?: IncidentSeverity;
+  state?: IncidentState;
+  started_at: number;
+  resolved_at: number;
+  updates?: { time: number; state: IncidentState; body: string }[];
+}
+
+/** Herkese açık sayfadaki planlı bakım. */
+export interface PublicMaintenance {
+  id: number;
+  title: string;
+  description: string;
+  starts_at: number;
+  /** 0: bitiş belirsiz (elle açılan pencere). */
+  ends_at: number;
+  ongoing: boolean;
+  monitors: string[];
+  all_monitors: boolean;
+}
+
 export interface PublicAnnouncement {
   id: number;
   title: string;
@@ -870,7 +947,9 @@ export interface PublicPage {
   status: OverallStatus;
   sections: { title: string; monitors: PublicMonitor[] }[];
   announcements: PublicAnnouncement[];
-  incidents: { monitor: string; started_at: number; resolved_at: number }[];
+  incidents: PublicIncident[];
+  /** Sayfadaki monitörleri etkileyen süren ve 7 gün içindeki planlı bakımlar (eski sunucuda yok). */
+  maintenance?: PublicMaintenance[];
   /** false ise olay bölümü gösterilmez (eski sunucuda gelmez: gösterilir). */
   show_incidents?: boolean;
   /** true ise gruplar açılıp kapanabilir. */
@@ -1205,9 +1284,9 @@ const post = <T>(p: string, b?: unknown) => request<T>('POST', p, b);
 const put = <T>(p: string, b?: unknown) => request<T>('PUT', p, b);
 const del = <T>(p: string) => request<T>('DELETE', p);
 
-const qs = (params: Record<string, string | number>) => {
+const qs = (params: Record<string, string | number | undefined>) => {
   const u = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (v !== '' && v !== 0) u.set(k, String(v));
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== '' && v !== 0) u.set(k, String(v));
   const s = u.toString();
   return s ? `?${s}` : '';
 };
@@ -1243,13 +1322,29 @@ export const api = {
     post<StatusPage>(`/api/status-pages/${pageId}/monitors`, body),
   series: (id: number, range: SeriesRange) => get<Series>(`/api/monitors/${id}/series?range=${range}`),
   monitorIncidents: (id: number) => get<Incident[]>(`/api/monitors/${id}/incidents`),
-  /** open: yalnızca süren (çözülmemiş) olaylar. */
-  incidents: (before: number, limit: number, kind: IncidentFilterKind = '', open = false) =>
+  /** open: yalnızca süren (çözülmemiş) olaylar; diğer süzgeçler isteğe bağlı. */
+  incidents: (before: number, limit: number, kind: IncidentFilterKind = '', open = false, f: IncidentQuery = {}) =>
     get<Incident[]>(
-      `/api/incidents?limit=${limit}${before > 0 ? `&before=${before}` : ''}${kind ? `&kind=${kind}` : ''}${open ? '&open=1' : ''}`,
+      `/api/incidents${qs({
+        limit,
+        before: before > 0 ? before : undefined,
+        kind: kind || undefined,
+        open: open ? 1 : undefined,
+        monitor_id: f.monitor_id || undefined,
+        server_id: f.server_id || undefined,
+        from: f.from || undefined,
+        to: f.to || undefined,
+        q: f.q?.trim() || undefined,
+      })}`,
     ),
   serverIncidents: (id: number) => get<Incident[]>(`/api/servers/${id}/incidents`),
   incident: (id: number) => get<IncidentDetail>(`/api/incidents/${id}`),
+  // Manuel olaylar ve güncellemeler (editör+)
+  createIncident: (m: ManualIncidentInput) => post<Incident>('/api/incidents', m),
+  updateIncident: (id: number, m: Pick<ManualIncidentInput, 'title' | 'severity' | 'monitor_ids'>) => put<Incident>(`/api/incidents/${id}`, m),
+  deleteIncident: (id: number) => del<{ ok: boolean }>(`/api/incidents/${id}`),
+  addIncidentUpdate: (id: number, u: { state: IncidentState; body: string }) => post<IncidentUpdate>(`/api/incidents/${id}/updates`, u),
+  deleteIncidentUpdate: (id: number, uid: number) => del<{ ok: boolean }>(`/api/incidents/${id}/updates/${uid}`),
 
   notifications: () => get<NotificationChannel[]>('/api/notifications'),
   createNotification: (n: NotificationInput) => post<NotificationChannel>('/api/notifications', n),

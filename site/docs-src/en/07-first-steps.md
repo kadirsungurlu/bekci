@@ -108,6 +108,10 @@ To publish the page on a separate domain such as `status.example.com`, use the p
 
 **Windows:** **Uptime windows** picks which percentages each monitor row shows (24 hours, 7, 30, 90 days; several are shown side by side, none means a single window following the bar view). **Incident window** (7/14/30/90 days) sets how much history the "Recent incidents" section and the RSS feed show.
 
+**Manual incidents and updates:** announce a problem that is not detected automatically (e.g. a slowdown at your payment provider) with **Incidents → Open incident**: status page, title, severity (minor/major/critical), affected monitors and a first description. The incident appears on the page with its title, severity and state; **Post update** adds a state (Investigating → Identified → Monitoring → Resolved) and text, each update is a separate entry on the page and in the RSS feed; the **Resolved** state closes the incident. Automatic incidents can receive updates too ("cause found, fixing"); their closure is decided by the monitor. Viewer and customer accounts can only read incidents.
+
+**Planned maintenance block:** active maintenance windows affecting the page's monitors (or all monitors) — ongoing ones and those starting within 7 days — appear in the page's **Planned maintenance** section and in the RSS feed. Its position and visibility are set in **Layout → Sections**; the section is not drawn when there is no window.
+
 **Announcements:** add planned-maintenance or information notes from the **Announcements** card below the page editor. When adding one, **Also add to other pages** drops a copy of the same announcement onto the selected pages or all pages at once; copies are edited separately per page afterwards.
 
 ## 5. Language settings {#language}

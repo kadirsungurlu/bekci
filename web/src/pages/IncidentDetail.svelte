@@ -26,8 +26,34 @@
   import Icon, { type IconName } from '../components/Icon.svelte';
   import CopyButton from '../components/CopyButton.svelte';
   import ConnectionDetails from '../components/ConnectionDetails.svelte';
+  import IncidentUpdates from '../components/IncidentUpdates.svelte';
+  import IncidentEditModal from '../components/IncidentEditModal.svelte';
+  import { session } from '../lib/session.svelte';
+  import { confirmDialog, toast } from '../lib/ui.svelte';
+  import { navigate } from '../lib/router.svelte';
 
   let { id }: { id: number } = $props();
+
+  // Elle açılan olay: düzenleme penceresi ve silme.
+  let editOpen = $state(false);
+  let editKey = $state(0);
+  async function removeManual() {
+    if (!data) return;
+    const ok = await confirmDialog({
+      title: t('incidents.manual.deleteTitle'),
+      message: t('incidents.manual.deleteMsg', { name: data.incident.title ?? '' }),
+      confirmText: t('common.delete'),
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.deleteIncident(id);
+      toast.success(t('incidents.manual.deleted'));
+      navigate('/incidents');
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  }
 
   let data = $state.raw<IncidentDetail | null>(null);
   let notFound = $state(false);
@@ -79,7 +105,12 @@
     poll = setInterval(() => {
       if (data && !data.incident.resolved_at && !document.hidden) load();
     }, 30000);
+    // Başka bir kullanıcı güncelleme yazdı / manuel olayı değiştirdi.
+    unsubInc = live.onIncident((iid) => {
+      if (iid === id) load();
+    });
   });
+  let unsubInc: (() => void) | undefined;
   onDestroy(() => {
     clearInterval(tick);
     clearInterval(poll);
@@ -88,10 +119,12 @@
     unsubLoc?.();
     unsubSrv?.();
     unsubResume?.();
+    unsubInc?.();
   });
 
   const inc = $derived(data?.incident);
   const ongoing = $derived(!!inc && inc.resolved_at === 0);
+  const manual = $derived(inc?.kind === 'manual');
   // Olay türü: kısmi kesinti (sarı) ve sunucu olayları ayrı gösterilir.
   // Yavaş yanıt (degraded) da kısmi kesinti gibi sarı tonda, "çalışıyor" kalır.
   const degraded = $derived(inc?.kind === 'degraded');
@@ -458,7 +491,9 @@
               class:c-pending={ongoing && partial}
               class:c-up={!ongoing}
               title={degraded ? t('incidents.kind.degradedHint') : partial ? t('incidents.kind.partialHint') : undefined}
-              >{degraded
+              >{manual
+                ? t('incidents.manual.pre')
+                : degraded
                 ? t('incidents.detail.degradedPre')
                 : partial
                   ? t('incidents.detail.partialPre')
@@ -466,10 +501,15 @@
                     ? t('incidents.detail.ongoingPre')
                     : t('incidents.detail.resolvedPre')}</span
             >
-            {data.server ? data.server.name : data.monitor.name}
+            {manual ? inc.title : data.server ? data.server.name : data.monitor.name}
           </h1>
           <div class="target">
-            {#if data.server}
+            {#if manual}
+              {#if inc.severity}<span class="badge {inc.severity === 'minor' ? '' : 'down'}">{t(`incidents.severity.${inc.severity}`)}</span>{/if}
+              {#if inc.state}<span class="badge {inc.state === 'resolved' ? 'up' : inc.state === 'investigating' ? 'down' : 'pending'}">{t(`incidents.state.${inc.state}`)}</span>{/if}
+              {#if inc.page_title}<span class="text-2">{t('incidents.manual.onPage', { page: inc.page_title })}</span>{/if}
+              {#if inc.created_by && session.canEdit}<span class="muted small">· {t('incidents.manual.openedBy', { user: inc.created_by })}</span>{/if}
+            {:else if data.server}
               <span class="badge accent">{t(probe ? 'incidents.kind.probeOffline' : offline ? 'incidents.kind.serverOffline' : 'incidents.kind.serverAlert')}</span>
               {#if data.server.hostname}<span class="text-2"
                   >{#each tParts('incidents.detail.hostname') as p, i (i)}{#if p.slot === 'name'}<span class="mono">{data.server.hostname}</span
@@ -503,7 +543,13 @@
         </div>
       </div>
       <div class="actions">
-        {#if probe}
+        {#if manual}
+          {#if inc.page_id}<a class="btn" href="#/status-pages/{inc.page_id}"><Icon name="layers" size={15} /> {t('incidents.manual.page')}</a>{/if}
+          {#if session.canEdit}
+            <button class="btn" onclick={() => { editKey++; editOpen = true; }}><Icon name="edit" size={15} /> {t('common.edit')}</button>
+            <button class="btn danger" onclick={removeManual}><Icon name="trash" size={15} /> {t('common.delete')}</button>
+          {/if}
+        {:else if probe}
           <a class="btn" href="#/settings/probes"><Icon name="map-pin" size={15} /> {t('incidents.detail.goToProbes')}</a>
         {:else if data.server}
           <a class="btn" href="#/servers/{data.server.id}"><Icon name="server" size={15} /> {t('incidents.detail.goToServer')}</a>
@@ -521,13 +567,15 @@
 
     <div class="layout" class:single={!showSide}>
       <div class="col">
-        <div class="card cause" class:resolved={!ongoing} class:partial={ongoing && partial}>
-          <div class="label">{t('incidents.detail.rootCause')}</div>
-          <div class="cause-t">{causeTitle(rootCause)}</div>
-          {#if data.location}
-            <div class="cause-w"><Icon name="map-pin" size={14} /> {locName(data.location)}</div>
-          {/if}
-        </div>
+        {#if !manual}
+          <div class="card cause" class:resolved={!ongoing} class:partial={ongoing && partial}>
+            <div class="label">{t('incidents.detail.rootCause')}</div>
+            <div class="cause-t">{causeTitle(rootCause)}</div>
+            {#if data.location}
+              <div class="cause-w"><Icon name="map-pin" size={14} /> {locName(data.location)}</div>
+            {/if}
+          </div>
+        {/if}
 
         <div class="pair">
           <div class="card stat">
@@ -549,6 +597,32 @@
 
         {#if inMaint}
           <div class="alert warning small" role="status"><Icon name="wrench" size={14} /> {t('incidents.detail.maintNote')}</div>
+        {/if}
+
+        {#if manual}
+          <div class="card">
+            <div class="card-head">
+              <h2 class="card-title">{t('incidents.manual.affectedCard')}<span class="dot">.</span></h2>
+            </div>
+            {#if data.affected?.length}
+              <div class="aff">
+                {#each data.affected as m (m.id)}
+                  <a class="aff-i" href="#/monitors/{m.id}"><Icon name="activity" size={13} /> {m.name}</a>
+                {/each}
+              </div>
+            {:else}
+              <p class="muted small nomargin">{t('incidents.manual.noAffected')}</p>
+            {/if}
+          </div>
+        {/if}
+
+        <IncidentUpdates incidentId={inc.id} updates={data.updates ?? []} {manual} {ongoing} onchanged={load} />
+        {#if session.canEdit && manual}
+          {#key editKey}
+            {#if editKey > 0}
+              <IncidentEditModal bind:open={editOpen} incident={inc} affected={(data.affected ?? []).map((m) => m.id)} onsaved={() => { load(); toast.success(t('incidents.manual.saved')); }} />
+            {/if}
+          {/key}
         {/if}
 
         {#if partial && !degraded}
@@ -898,6 +972,13 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+  }
+  .nomargin {
+    margin: 0;
+  }
+  a.aff-i {
+    color: var(--text);
+    text-decoration: none;
   }
   .aff-i {
     display: inline-flex;

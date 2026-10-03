@@ -68,6 +68,26 @@ export default {
     '90d': 'son 90 gün',
   },
   incidentsTitleN: 'Son {count} günün olayları',
+  /** Elle açılan olaylar ve güncellemeler. */
+  affected: 'Etkilenen: {names}',
+  severity: {
+    minor: 'Küçük',
+    major: 'Büyük',
+    critical: 'Kritik',
+  },
+  state: {
+    investigating: 'İnceleniyor',
+    identified: 'Neden bulundu',
+    monitoring: 'İzleniyor',
+    resolved: 'Çözüldü',
+  },
+  /** Planlı bakım bloğu. */
+  maint: {
+    ongoing: 'Bakım sürüyor',
+    scheduled: 'Planlı bakım',
+    manual: 'Bakım elle açıldı; bitiş saati belirtilmedi',
+    allServices: 'Tüm servisler',
+  },
   startedAt: 'Başlangıç: {time}',
   duration: 'Süre: {d}',
   resolvedAt: 'Çözüldü: {time}',

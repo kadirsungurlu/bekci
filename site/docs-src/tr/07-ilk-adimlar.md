@@ -105,6 +105,10 @@ Sayfayı `durum.ornek.com` gibi ayrı bir alan adından yayınlamak için sayfan
 
 **Pencereler:** **Uptime pencereleri** ile her monitör satırında hangi yüzdelerin yazılacağını seçin (24 saat, 7, 30, 90 gün; birden fazlası seçilirse yan yana gösterilir, hiçbiri seçili değilse çubuk görünümüne göre tek pencere). **Olay penceresi** (7/14/30/90 gün) "Son olaylar" bölümünün ve RSS akışının kaç günlük geçmişi göstereceğini belirler.
 
+**Elle açılan olaylar ve güncellemeler:** Otomatik tespit edilmeyen bir sorunu (ör. ödeme sağlayıcısında yavaşlama) **Olaylar → Olay aç** ile duyurabilirsiniz: durum sayfası, başlık, önem (küçük/büyük/kritik), etkilenen monitörler ve ilk açıklama. Olay sayfada başlığı, önemi ve aşamasıyla görünür; **Güncelleme yaz** ile aşama (İnceleniyor → Neden bulundu → İzleniyor → Çözüldü) ve metin eklersiniz, her güncelleme sayfada ve RSS akışında ayrı kayıt olur; **Çözüldü** aşaması olayı kapatır. Otomatik açılan olaylara da güncelleme yazabilirsiniz ("nedeni bulduk, düzeltiyoruz"); onların kapanışını monitör belirler. İzleyici ve müşteri hesapları olayları yalnızca okur.
+
+**Planlı bakım bloğu:** Sayfadaki monitörleri etkileyen (ya da tüm monitörleri kapsayan) etkin bakım pencereleri — süren ve 7 gün içinde başlayacak olanlar — sayfanın **Planlı bakım** bölümünde ve RSS akışında görünür. Bölümün yeri ve görünürlüğü **Dizilim → Bölümler** listesinden ayarlanır; pencere yoksa bölüm çizilmez.
+
 **Duyurular:** Sayfa düzenleyicisinin altındaki **Duyurular** kartından planlı bakım ya da bilgi notu ekleyin. Duyuru eklerken **Diğer sayfalara da ekle** ile aynı duyurunun kopyasını seçtiğiniz sayfalara ya da tüm sayfalara tek seferde bırakabilirsiniz; kopyalar sonradan her sayfada ayrı düzenlenir.
 
 ## 5. Dil ayarları {#dil}

@@ -59,6 +59,25 @@ var messages = map[string]Msg{
 	"feed.incident.ongoing_body":  {"Başlangıç: %s. Kesinti devam ediyor.", "Started: %s. The outage is ongoing."},
 	"feed.incident.resolved":      {"🟢 %s: kesinti giderildi", "🟢 %s: outage resolved"},
 	"feed.incident.resolved_body": {"Başlangıç: %s. Çözüldü: %s. Süre: %s.", "Started: %s. Resolved: %s. Duration: %s."},
+	"feed.incident.severity":      {"Önem: %s.", "Severity: %s."},
+	"feed.incident.affected":      {"Etkilenen: %s.", "Affected: %s."},
+	"feed.category.update":        {"Olay güncellemesi", "Incident update"},
+	"feed.update.title":           {"📝 %s: %s", "📝 %s: %s"},
+	"feed.category.maintenance":   {"Planlı bakım", "Planned maintenance"},
+	"feed.maintenance.scheduled":  {"🔧 Planlı bakım: %s", "🔧 Planned maintenance: %s"},
+	"feed.maintenance.ongoing":    {"🔧 Bakım sürüyor: %s", "🔧 Maintenance in progress: %s"},
+	"feed.maintenance.body":       {"Başlangıç: %s. Bitiş: %s.", "Start: %s. End: %s."},
+	"feed.maintenance.body_open":  {"Başlangıç: %s.", "Start: %s."},
+	"feed.maintenance.manual":     {"Bakım elle açıldı; bitiş saati belirtilmedi.", "Maintenance was opened manually; no end time set."},
+
+	// Olay güncelleme aşamaları ve manuel olay önem dereceleri
+	"incident.state.investigating": {"İnceleniyor", "Investigating"},
+	"incident.state.identified":    {"Neden bulundu", "Identified"},
+	"incident.state.monitoring":    {"İzleniyor", "Monitoring"},
+	"incident.state.resolved":      {"Çözüldü", "Resolved"},
+	"incident.severity.minor":      {"Küçük", "Minor"},
+	"incident.severity.major":      {"Büyük", "Major"},
+	"incident.severity.critical":   {"Kritik", "Critical"},
 
 	// Yavaş yanıt (%s: monitör adı; %d: ms / kontrol sayısı)
 	"notify.slow.title":          {"🟡 %s yavaş yanıt veriyor", "🟡 %s is responding slowly"},

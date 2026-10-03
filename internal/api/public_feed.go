@@ -157,37 +157,103 @@ func (s *Server) feedItems(r *http.Request, p store.StatusPage, lang, pageURL st
 			PubDate: rfc1123(at), Description: a.Body, Category: i18n.T(lang, "feed.category.announcement"), at: at,
 		})
 	}
-	if p.ShowIncidents {
-		names := map[int64]string{}
-		for _, sec := range p.Sections {
-			for _, pm := range sec.Monitors {
-				names[pm.ID] = pm.Name
+	// Sayfadaki görünen adlar (boşsa monitörün kendi adı).
+	names := map[int64]string{}
+	mons, err := s.store.MonitorsByIDs(ctx, p.MonitorIDs())
+	if err != nil {
+		return nil, err
+	}
+	for _, sec := range p.Sections {
+		for _, pm := range sec.Monitors {
+			name := pm.Name
+			if name == "" {
+				if m, ok := mons[pm.ID]; ok {
+					name = m.Name
+				}
 			}
+			names[pm.ID] = name
 		}
-		incs, err := s.store.IncidentsFor(ctx, p.MonitorIDs(), now-incidentWindow(p), publicIncidentLimit)
+	}
+	fmtAt := func(t int64) string { return i18n.DateTime(lang, time.Unix(t, 0).In(s.store.Location())) }
+	if p.ShowIncidents {
+		incs, err := s.publicIncidents(ctx, p, names, now)
 		if err != nil {
 			return nil, err
 		}
 		for _, in := range incs {
-			name := names[in.MonitorID]
-			if name == "" {
-				name = in.MonitorName
+			name := in.Monitor
+			if in.Kind == store.IncidentManual {
+				name = in.Title
 			}
-			started := i18n.DateTime(lang, time.Unix(in.StartedAt, 0).In(s.store.Location()))
+			started := fmtAt(in.StartedAt)
 			it := feedItem{Link: pageURL, Category: i18n.T(lang, "feed.category.incident"), at: in.StartedAt}
 			if in.ResolvedAt > 0 {
 				it.at = in.ResolvedAt
 				it.Title = i18n.T(lang, "feed.incident.resolved", name)
-				it.Description = i18n.T(lang, "feed.incident.resolved_body", started,
-					i18n.DateTime(lang, time.Unix(in.ResolvedAt, 0).In(s.store.Location())),
+				it.Description = i18n.T(lang, "feed.incident.resolved_body", started, fmtAt(in.ResolvedAt),
 					i18n.Duration(lang, time.Duration(in.ResolvedAt-in.StartedAt)*time.Second))
 			} else {
 				it.Title = i18n.T(lang, "feed.incident.ongoing", name)
 				it.Description = i18n.T(lang, "feed.incident.ongoing_body", started)
 			}
+			if in.Kind == store.IncidentManual {
+				it.Description += " " + i18n.T(lang, "feed.incident.severity", i18n.T(lang, "incident.severity."+in.Severity))
+				if len(in.Monitors) > 0 {
+					it.Description += " " + i18n.T(lang, "feed.incident.affected", strings.Join(in.Monitors, ", "))
+				}
+			}
 			// Aynı olayın "sürüyor" ve "çözüldü" halleri ayrı kayıttır: okuyucu
 			// çözülmeyi de yeni kayıt olarak gösterir.
 			it.GUID = feedGUID{Value: "incident-" + strconv.FormatInt(in.ID, 10) + "-" + strconv.FormatInt(in.ResolvedAt, 10) + "@" + p.Slug}
+			it.PubDate = rfc1123(it.at)
+			items = append(items, it)
+			// Güncellemeler (aşama + metin) ayrı kayıtlardır; ilk güncelleme
+			// olayın açılışıyla aynı anda yazıldığı için tekrar edilmez.
+			for i := len(in.Updates) - 1; i >= 0; i-- {
+				u := in.Updates[i]
+				if u.Time == in.StartedAt && i == len(in.Updates)-1 && in.Kind == store.IncidentManual {
+					continue
+				}
+				ui := feedItem{Link: pageURL, Category: i18n.T(lang, "feed.category.update"), at: u.Time,
+					Title:       i18n.T(lang, "feed.update.title", name, i18n.T(lang, "incident.state."+u.State)),
+					Description: u.Body}
+				if ui.Description == "" {
+					ui.Description = i18n.T(lang, "incident.state."+u.State)
+				}
+				ui.GUID = feedGUID{Value: "incident-" + strconv.FormatInt(in.ID, 10) + "-update-" + strconv.FormatInt(u.Time, 10) + "@" + p.Slug}
+				ui.PubDate = rfc1123(u.Time)
+				items = append(items, ui)
+			}
+		}
+	}
+	if p.Layout.Visible(store.BlockMaintenance) {
+		mw, err := s.publicMaintenance(ctx, p, names, time.Unix(now, 0))
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range mw {
+			it := feedItem{Link: pageURL, Category: i18n.T(lang, "feed.category.maintenance"), at: m.StartsAt}
+			key := "feed.maintenance.scheduled"
+			if m.Ongoing {
+				key = "feed.maintenance.ongoing"
+				it.at = min(m.StartsAt, now)
+			}
+			it.Title = i18n.T(lang, key, m.Title)
+			switch {
+			case m.EndsAt > 0:
+				it.Description = i18n.T(lang, "feed.maintenance.body", fmtAt(m.StartsAt), fmtAt(m.EndsAt))
+			case m.StartsAt > 0:
+				it.Description = i18n.T(lang, "feed.maintenance.body_open", fmtAt(m.StartsAt))
+			default:
+				it.Description = i18n.T(lang, "feed.maintenance.manual")
+			}
+			if m.Description != "" {
+				it.Description += " " + m.Description
+			}
+			if len(m.Monitors) > 0 {
+				it.Description += " " + i18n.T(lang, "feed.incident.affected", strings.Join(m.Monitors, ", "))
+			}
+			it.GUID = feedGUID{Value: "maintenance-" + strconv.FormatInt(m.ID, 10) + "-" + strconv.FormatInt(m.StartsAt, 10) + "@" + p.Slug}
 			it.PubDate = rfc1123(it.at)
 			items = append(items, it)
 		}

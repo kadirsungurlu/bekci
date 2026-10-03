@@ -75,7 +75,7 @@ func (groupChecker) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 		c.Percent = 0
 	case GroupPercentDown:
 		if c.Percent < 0 || c.Percent > 99 {
-			return nil, invalid("Grup eşiği %%0-99 arasında olmalı")
+			return nil, invalid("Grup eşiği yüzde 0-99 arasında olmalı")
 		}
 	default:
 		return nil, invalid("Grup modu any_down, all_down veya percent_down olmalı")

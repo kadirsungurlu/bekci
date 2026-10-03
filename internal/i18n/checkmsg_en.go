@@ -220,6 +220,8 @@ var checkEN = map[string]string{
 	// notify.Dispatcher (bildirim gönderim kaydı)
 	"Bildirim gönderildi":             "Notification sent",
 	"Bildirim gönderilemedi":          "Notification could not be sent",
+	"Bildirim gönderilmedi":           "Notification was not sent",
+	"Bildirim ertelendi":              "Notification deferred",
 	"Bağlı etkin bildirim kanalı yok": "No active notification channel attached",
 	// api.incidentNote (kullanıcı işlemi)
 	"Monitör ayarları değiştirildi":                 "Monitor settings changed",

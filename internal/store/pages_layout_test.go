@@ -63,7 +63,7 @@ func TestNormalizeLayout(t *testing.T) {
 	if l.Style != LayoutList || l.Width != WidthNarrow {
 		t.Errorf("geçersiz değerler varsayılana çekilmeli: %+v", l)
 	}
-	if want := []string{"groups", "overall", "incidents", "announcements"}; !reflect.DeepEqual(blockIDs(l), want) {
+	if want := []string{"groups", "overall", "incidents", "announcements", "maintenance"}; !reflect.DeepEqual(blockIDs(l), want) {
 		t.Errorf("sıra %v, %v bekleniyordu", blockIDs(l), want)
 	}
 	if !l.Visible(BlockGroups) || l.Visible(BlockOverall) || !l.Visible(BlockIncidents) || !l.Visible(BlockAnnouncements) {
@@ -77,7 +77,7 @@ func TestNormalizeLayout(t *testing.T) {
 	custom := NormalizeLayout(PageLayout{Style: LayoutCompact, Width: WidthWide, Blocks: []PageBlock{
 		{ID: "incidents", Visible: false}, {ID: "announcements", Visible: false}}}, false)
 	enc := encodeLayout(custom)
-	if enc != `{"style":"compact","width":"wide","order":["incidents","announcements","overall","groups"],"hidden":["announcements"]}` {
+	if enc != `{"style":"compact","width":"wide","order":["incidents","announcements","overall","maintenance","groups"],"hidden":["announcements"]}` {
 		t.Errorf("saklanan biçim: %s", enc)
 	}
 	if got := decodeLayout(enc, false); !reflect.DeepEqual(got, custom) {
@@ -103,7 +103,7 @@ func TestPageLayoutStore(t *testing.T) {
 	}
 	got, err := s.GetPage(ctx, p.ID)
 	if err != nil || got.Layout.Style != LayoutGrid || got.Layout.Width != WidthWide ||
-		!reflect.DeepEqual(blockIDs(got.Layout), []string{"groups", "overall", "announcements", "incidents"}) || got.Layout.Visible(BlockOverall) {
+		!reflect.DeepEqual(blockIDs(got.Layout), []string{"groups", "overall", "announcements", "maintenance", "incidents"}) || got.Layout.Visible(BlockOverall) {
 		t.Fatalf("dizilim saklanmadı: %+v %v", got.Layout, err)
 	}
 	// Olaylar kapatılınca dizilimde de kapalı görünür (tek kaynak).
@@ -187,7 +187,7 @@ func TestPageLayoutRowsAndUptime(t *testing.T) {
 		t.Fatal("normalize edilmiş dizilim girdinin işaretçisini paylaşmamalı")
 	}
 	enc := encodeLayout(l)
-	if enc != `{"style":"rows","width":"wide","order":["overall","announcements","groups","incidents"],"hide_uptime":true}` {
+	if enc != `{"style":"rows","width":"wide","order":["overall","announcements","maintenance","groups","incidents"],"hide_uptime":true}` {
 		t.Errorf("saklanan biçim: %s", enc)
 	}
 	if got := decodeLayout(enc, true); !reflect.DeepEqual(got, l) {

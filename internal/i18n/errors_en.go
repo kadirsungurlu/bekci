@@ -148,6 +148,8 @@ var errorsEN = map[string]string{
 	"bilinmeyen endpoint biçimi (unix://, tcp:// veya http(s):// olmalı)": "unknown endpoint format (must be unix://, tcp:// or http(s)://)",
 	"Konteyner adı veya id gerekli":                                       "Container name or ID is required",
 	"Grup modu any_down veya all_down olmalı":                             "Group mode must be any_down or all_down",
+	"Grup modu any_down, all_down veya percent_down olmalı":               "Group mode must be any_down, all_down or percent_down",
+	"Grup eşiği yüzde 0-99 arasında olmalı":                               "Group threshold must be between 0 and 99 percent",
 	"Geçersiz alt monitör":                                                "Invalid child monitor",
 	"En az bir alt monitör seçin":                                         "Select at least one child monitor",
 	"Bir grupta en fazla %d alt monitör olabilir":                         "A group can have at most %d child monitors",

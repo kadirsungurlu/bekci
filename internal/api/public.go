@@ -77,12 +77,6 @@ type publicAnnouncement struct {
 	EndsAt   int64  `json:"ends_at"`
 }
 
-type publicIncident struct {
-	Monitor    string `json:"monitor"`
-	StartedAt  int64  `json:"started_at"`
-	ResolvedAt int64  `json:"resolved_at"`
-}
-
 type publicPageView struct {
 	Slug          string               `json:"slug"`
 	Title         string               `json:"title"`
@@ -97,6 +91,9 @@ type publicPageView struct {
 	Sections      []publicSection      `json:"sections"`
 	Announcements []publicAnnouncement `json:"announcements"`
 	Incidents     []publicIncident     `json:"incidents"`
+	// Maintenance sayfadaki monitörleri etkileyen süren ve 7 gün içindeki
+	// planlı bakımlar (bakım bloğu görünürse; eski istemciler yok sayar).
+	Maintenance []publicMaintenance `json:"maintenance"`
 	// ShowIncidents false ise olay bölümü sayfada hiç gösterilmez (Incidents boş gelir).
 	ShowIncidents bool `json:"show_incidents"`
 	// Collapsible true ise ziyaretçi grupları açıp kapatabilir.
@@ -336,7 +333,7 @@ func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byt
 	view := publicPageView{
 		Slug: p.Slug, Title: p.Title, Description: p.Description, Footer: p.Footer,
 		HasLogo: p.HasLogo, LogoURL: logoURL(p), UpdatedAt: now, Range: data.barRange, UptimeWindow: data.window,
-		Sections: []publicSection{}, Announcements: []publicAnnouncement{}, Incidents: []publicIncident{},
+		Sections: []publicSection{}, Announcements: []publicAnnouncement{}, Incidents: []publicIncident{}, Maintenance: []publicMaintenance{},
 		Layout: layout, IncidentDays: p.IncidentDays, UptimeWindows: store.NormalizeUptimeWindows(p.UptimeWindows),
 	}
 	names := map[int64]string{}
@@ -371,20 +368,24 @@ func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byt
 		}
 		view.Announcements = toPublicAnnouncements(anns)
 	}
+	if layout.Visible(store.BlockMaintenance) {
+		mw, err := s.publicMaintenance(ctx, p, names, s.now())
+		if err != nil {
+			return nil, err
+		}
+		view.Maintenance = mw
+	}
 	view.ShowIncidents, view.Collapsible, view.Lang, view.HasPassword = p.ShowIncidents, p.Collapsible, i18n.Or(p.Lang), p.HasPassword
 	if !p.ShowIncidents {
 		return json.Marshal(view)
 	}
-	// Olay nedeni bilerek yok: iç IP ve hata ayrıntısı içerebilir.
-	incs, err := s.store.IncidentsFor(ctx, ids, now-incidentWindow(p), publicIncidentLimit)
+	// Olay nedeni bilerek yok: iç IP ve hata ayrıntısı içerebilir. Elle açılan
+	// olaylar başlık, önem ve güncellemeleriyle gelir.
+	incs, err := s.publicIncidents(ctx, p, names, now)
 	if err != nil {
 		return nil, err
 	}
-	for _, in := range incs {
-		if name, ok := names[in.MonitorID]; ok {
-			view.Incidents = append(view.Incidents, publicIncident{Monitor: name, StartedAt: in.StartedAt, ResolvedAt: in.ResolvedAt})
-		}
-	}
+	view.Incidents = incs
 	return json.Marshal(view)
 }
 

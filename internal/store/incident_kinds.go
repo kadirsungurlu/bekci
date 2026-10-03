@@ -106,7 +106,7 @@ const (
 )
 
 // IncidentKinds tüm olay türleri (sabit sırayla; /metrics sayaçları için).
-var IncidentKinds = []string{IncidentMonitor, IncidentDegraded, IncidentPartial, IncidentServerOffline, IncidentServerAlert, IncidentProbeOffline}
+var IncidentKinds = []string{IncidentMonitor, IncidentDegraded, IncidentPartial, IncidentServerOffline, IncidentServerAlert, IncidentProbeOffline, IncidentManual}
 
 // İşlem geçmişinin olay türlerine özgü kayıtları.
 const (
@@ -171,6 +171,7 @@ const (
 	KindGroupPartial  = "partial"
 	KindGroupServer   = "server"
 	KindGroupDegraded = "degraded"
+	KindGroupManual   = "manual"
 )
 
 // kindsOf süzgeç grubunun olay türleri; bilinmeyen grup nil (süzgeç yok).
@@ -182,6 +183,8 @@ func kindsOf(group string) []string {
 		return []string{IncidentPartial}
 	case KindGroupDegraded:
 		return []string{IncidentDegraded}
+	case KindGroupManual:
+		return []string{IncidentManual}
 	case KindGroupServer:
 		return []string{IncidentServerOffline, IncidentServerAlert, IncidentProbeOffline}
 	}

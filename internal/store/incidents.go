@@ -20,14 +20,26 @@ type Incident struct {
 	ResolvedAt  int64           `json:"resolved_at"` // 0: devam ediyor
 	Cause       string          `json:"cause"`
 	Data        json.RawMessage `json:"data,omitempty"` // türe özgü (bkz. incident_kinds.go)
+
+	// Manuel olay ve güncellemeler (migration 25; bkz. incident_manual.go).
+	// PageID/PageTitle manuel olayın durum sayfası; Title başlık; Severity
+	// önem; State son güncellemenin aşaması (otomatik olayda güncelleme
+	// yazılmışsa); CreatedBy açan kullanıcı.
+	PageID    int64  `json:"page_id,omitempty"`
+	PageTitle string `json:"page_title,omitempty"`
+	Title     string `json:"title,omitempty"`
+	Severity  string `json:"severity,omitempty"`
+	State     string `json:"state,omitempty"`
+	CreatedBy string `json:"created_by,omitempty"`
 }
 
-// incidentCols olay listesi sütunları (incidents i, monitors m, probes p).
+// incidentCols olay listesi sütunları (incidents i, monitors m, probes p, status_pages sp).
 const incidentCols = `i.id, i.kind, COALESCE(i.monitor_id, 0), COALESCE(m.name, ''), COALESCE(i.server_id, 0),
-	COALESCE(p.name, ''), i.started_at, i.resolved_at, i.cause, i.data`
+	COALESCE(p.name, ''), i.started_at, i.resolved_at, i.cause, i.data,
+	COALESCE(i.page_id, 0), COALESCE(sp.title, ''), i.title, i.severity, i.state, i.created_by`
 
 const incidentFrom = ` FROM incidents i LEFT JOIN monitors m ON m.id = i.monitor_id
-	LEFT JOIN probes p ON p.id = i.server_id`
+	LEFT JOIN probes p ON p.id = i.server_id LEFT JOIN status_pages sp ON sp.id = i.page_id`
 
 type rowScanner interface{ Scan(...any) error }
 
@@ -36,7 +48,8 @@ func scanIncident(r rowScanner) (Incident, error) {
 	var resolved sql.NullInt64
 	var data string
 	err := r.Scan(&in.ID, &in.Kind, &in.MonitorID, &in.MonitorName, &in.ServerID, &in.ServerName,
-		&in.StartedAt, &resolved, &in.Cause, &data)
+		&in.StartedAt, &resolved, &in.Cause, &data,
+		&in.PageID, &in.PageTitle, &in.Title, &in.Severity, &in.State, &in.CreatedBy)
 	in.ResolvedAt = resolved.Int64
 	if data != "" {
 		in.Data = json.RawMessage(data)
@@ -76,11 +89,15 @@ type IncidentFilter struct {
 	ServerID   int64
 	MonitorIDs []int64 // müşteri kısıtı: görebileceği monitörler
 	ServerIDs  []int64 // müşteri kısıtı: görebileceği sunucular
-	Kind       string  // süzgeç grubu: monitor | partial | server ("" = hepsi)
+	Kind       string  // süzgeç grubu: monitor | partial | server | degraded | manual ("" = hepsi)
 	Before     int64   // sayfalama: bu id'den küçükler
 	Since      int64
 	Open       bool // yalnızca süren (çözülmemiş) olaylar
 	Limit      int
+	// Süzgeçler (olay listesi): From/To başlangıç zamanı aralığı (unix; 0 = yok),
+	// Query başlık, neden, monitör/sunucu adında (büyük/küçük harf duyarsız) arama.
+	From, To int64
+	Query    string
 }
 
 func (s *Store) ListIncidents(ctx context.Context, f IncidentFilter) ([]Incident, error) {
@@ -98,7 +115,8 @@ func (s *Store) ListIncidents(ctx context.Context, f IncidentFilter) ([]Incident
 		args = append(args, f.ServerID)
 	}
 	if f.MonitorIDs != nil || f.ServerIDs != nil {
-		var or []string
+		// Manuel olaylar (durum sayfası iletişimi) herkese görünür.
+		or := []string{"i.kind = '" + IncidentManual + "'"}
 		if len(f.MonitorIDs) > 0 {
 			in, a := inClause(f.MonitorIDs)
 			or = append(or, "i.monitor_id IN ("+in+")")
@@ -109,14 +127,20 @@ func (s *Store) ListIncidents(ctx context.Context, f IncidentFilter) ([]Incident
 			or = append(or, "i.server_id IN ("+in+")")
 			args = append(args, a...)
 		}
-		switch len(or) {
-		case 0:
-			return []Incident{}, nil
-		case 1:
-			q += " AND " + or[0]
-		default:
-			q += " AND (" + or[0] + " OR " + or[1] + ")"
-		}
+		q += " AND (" + strings.Join(or, " OR ") + ")"
+	}
+	if f.From > 0 {
+		q += " AND i.started_at >= ?"
+		args = append(args, f.From)
+	}
+	if f.To > 0 {
+		q += " AND i.started_at <= ?"
+		args = append(args, f.To)
+	}
+	if s := strings.TrimSpace(f.Query); s != "" {
+		like := "%" + strings.ToLower(s) + "%"
+		q += " AND (LOWER(i.cause) LIKE ? OR LOWER(i.title) LIKE ? OR LOWER(COALESCE(m.name, '')) LIKE ? OR LOWER(COALESCE(p.name, '')) LIKE ?)"
+		args = append(args, like, like, like, like)
 	}
 	if kinds := kindsOf(f.Kind); kinds != nil {
 		q += " AND i.kind IN (" + placeholders(len(kinds)) + ")"

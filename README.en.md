@@ -169,7 +169,10 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
 
 **Status pages**
 - Groups (collapsible), target address display (domain only), recent
-  incidents (can be hidden), password protection, custom domain, badges
+  incidents (can be hidden; 7/14/30/90 days), multiple uptime windows,
+  password protection, custom domain, badges
+- Manual incidents and incident updates (investigating → identified →
+  monitoring → resolved), planned-maintenance block; all in the RSS feed
 
 **Users**
 - Roles (admin / editor / viewer), **customer accounts** that only see the

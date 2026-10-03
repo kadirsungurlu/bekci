@@ -30,11 +30,15 @@ const (
 	BlockOverall       = "overall"       // "Tüm sistemler çalışıyor" genel durum kutusu
 	BlockAnnouncements = "announcements" // yayındaki duyurular
 	BlockGroups        = "groups"        // monitör grupları
-	BlockIncidents     = "incidents"     // son 14 günün olayları
+	BlockIncidents     = "incidents"     // son N günün olayları (sayfanın olay penceresi)
+	// BlockMaintenance sayfadaki monitörleri etkileyen süren ve yaklaşan
+	// (7 gün) planlı bakım pencereleri (migration 25 ile gelen özellik; eski
+	// sayfalarda görünür olarak sona eklenir, pencere yoksa çizilmez).
+	BlockMaintenance = "maintenance"
 )
 
-// DefaultBlockOrder önceki sabit sıra.
-var DefaultBlockOrder = []string{BlockOverall, BlockAnnouncements, BlockGroups, BlockIncidents}
+// DefaultBlockOrder varsayılan sıra (bakım bloğu duyurulardan sonra).
+var DefaultBlockOrder = []string{BlockOverall, BlockAnnouncements, BlockMaintenance, BlockGroups, BlockIncidents}
 
 func validBlock(id string) bool {
 	for _, b := range DefaultBlockOrder {

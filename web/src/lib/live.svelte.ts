@@ -248,8 +248,19 @@ class Live {
         const id = (msg.data as { monitor_id?: number })?.monitor_id ?? 0;
         this.emit(this.statsResetListeners, id);
         this.refreshSoon();
+      } else if (msg.type === 'incident') {
+        // Manuel olay açıldı/değişti ya da bir olaya güncelleme yazıldı.
+        this.emit(this.incidentListeners, (msg.data as { incident_id?: number })?.incident_id ?? 0);
       }
     };
+  }
+
+  private incidentListeners = new Set<(id: number) => void>();
+
+  /** Manuel olay / olay güncellemesi değiştiğinde çağrılır (olay kimliğiyle). */
+  onIncident(fn: (id: number) => void): () => void {
+    this.incidentListeners.add(fn);
+    return () => this.incidentListeners.delete(fn);
   }
 
   /** Listeyi kısa bir gecikmeyle (art arda gelen olayları birleştirerek) yeniler. */

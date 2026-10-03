@@ -199,14 +199,16 @@ export default {
     blockNames: {
       overall: 'Overall status',
       announcements: 'Announcements',
+      maintenance: 'Planned maintenance',
       groups: 'Groups and monitors',
       incidents: 'Recent incidents',
     },
     blockDesc: {
       overall: 'The “All systems operational” banner',
       announcements: 'Active announcements (if any)',
+      maintenance: 'Ongoing and upcoming (7 days) maintenance windows affecting the page’s monitors (if any)',
       groups: 'Monitor status',
-      incidents: 'List of past outages',
+      incidents: 'Past outages and manually opened incidents',
     },
     blockUp: 'Move section “{name}” up',
     blockDown: 'Move section “{name}” down',

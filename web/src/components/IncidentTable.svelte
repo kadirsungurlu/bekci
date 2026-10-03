@@ -3,7 +3,7 @@
   import { fmtDate, fmtDuration } from '../lib/format';
   import { navigate } from '../lib/router.svelte';
   import Icon from './Icon.svelte';
-  import { t } from '../lib/i18n';
+  import { t, tOr } from '../lib/i18n';
 
   let {
     incidents,
@@ -52,12 +52,16 @@
         {@const partial = inc.kind === 'partial' || degraded}
         {@const server = isServerIncident(inc.kind)}
         {@const probe = isProbeIncident(inc.kind)}
+        {@const manual = inc.kind === 'manual'}
         <!-- Klavyeyle erişim satır sonundaki bağlantıyla; satır tıklaması fare/dokunma kolaylığı. -->
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
         <tr class="inc-row" class:partial onclick={(e) => open(e, inc.id)}>
           {#if showMonitor}
             <td data-label={t('incidents.table.monitor')} class="mon">
-              {#if probe}
+              {#if manual}
+                <a href="#/incidents/{inc.id}"><Icon name="megaphone" size={13} /> {inc.title}</a>
+                {#if inc.page_title}<span class="muted small page">{inc.page_title}</span>{/if}
+              {:else if probe}
                 <a href="#/settings/probes"><Icon name="map-pin" size={13} /> {inc.server_name}</a>
               {:else if server}
                 <a href="#/servers/{inc.server_id}"><Icon name="server" size={13} /> {inc.server_name}</a>
@@ -71,7 +75,10 @@
             {fmtDuration((ongoing ? now : inc.resolved_at) - inc.started_at)}
           </td>
           <td data-label={t('incidents.table.cause')} class="cause">
-            {#if degraded}
+            {#if manual}
+              <span class="badge {inc.severity === 'minor' ? '' : 'down'} kind">{t('incidents.kind.manual')} · {tOr(`incidents.severity.${inc.severity}`, inc.severity ?? '')}</span>
+              {#if inc.state}<span class="badge {inc.state === 'resolved' ? 'up' : 'pending'} kind">{tOr(`incidents.state.${inc.state}`, inc.state)}</span>{/if}
+            {:else if degraded}
               <span class="badge pending kind" title={t('incidents.kind.degradedHint')}>{t('incidents.kind.degraded')}</span>
             {:else if partial}
               <span class="badge pending kind" title={t('incidents.kind.partialHint')}>{t('incidents.kind.partial')}</span>
@@ -80,7 +87,8 @@
             {:else if server && serverBadge}
               <span class="badge accent kind">{t('incidents.kind.server')}</span>
             {/if}
-            {inc.cause || '—'}
+            {#if !manual}{inc.cause || '—'}{/if}
+            {#if !manual && inc.state}<span class="badge {inc.state === 'resolved' ? 'up' : 'pending'} kind upd">{tOr(`incidents.state.${inc.state}`, inc.state)}</span>{/if}
           </td>
           <td data-label={t('incidents.table.status')} class="st">
             {#if ongoing}
@@ -116,6 +124,14 @@
   }
   .kind {
     margin-right: 6px;
+  }
+  .kind.upd {
+    margin-left: 6px;
+    margin-right: 0;
+  }
+  .mon .page {
+    display: block;
+    font-weight: 500;
   }
   .cause {
     max-width: 420px;

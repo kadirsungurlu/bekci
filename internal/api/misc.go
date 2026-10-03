@@ -95,7 +95,15 @@ func (s *Server) listIncidents(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Geçersiz olay türü")
 		return
 	}
-	f := store.IncidentFilter{Before: before, Limit: limit, Kind: kind, Open: q.Get("open") == "1"}
+	f := store.IncidentFilter{Before: before, Limit: limit, Kind: kind, Open: q.Get("open") == "1", Query: q.Get("q")}
+	// Süzgeçler: monitör / sunucu, başlangıç tarihi aralığı (unix), metin.
+	f.MonitorID, _ = strconv.ParseInt(q.Get("monitor_id"), 10, 64)
+	f.ServerID, _ = strconv.ParseInt(q.Get("server_id"), 10, 64)
+	f.From, _ = strconv.ParseInt(q.Get("from"), 10, 64)
+	f.To, _ = strconv.ParseInt(q.Get("to"), 10, 64)
+	if len(f.Query) > 200 {
+		f.Query = f.Query[:200]
+	}
 	if vis := visibleTo(userFrom(r)); !vis.all {
 		// Müşteri kısıtlı izleyici: izinli monitörlerin ve atanmış sunucuların olayları.
 		f.MonitorIDs, f.ServerIDs = vis.list(), vis.serverList()
@@ -180,8 +188,11 @@ func (s *Server) writeIncidentsCSV(w http.ResponseWriter, lang string, list []st
 	cw.Write([]string{"id", "kind", "source", "started_at", "resolved_at", "duration_seconds", "cause"})
 	for _, in := range list {
 		source := in.MonitorName
-		if store.IsServerIncident(in.Kind) {
+		switch {
+		case store.IsServerIncident(in.Kind):
 			source = in.ServerName
+		case in.Kind == store.IncidentManual:
+			source = in.Title
 		}
 		started := time.Unix(in.StartedAt, 0).Local().Format(time.RFC3339)
 		resolved, end := "", now.Unix()
@@ -420,6 +431,11 @@ func eventVisible(msg []byte, vis visibility) bool {
 	// Bakım değişikliği olayı yalnızca bakım kimliği taşır (içerik yok); kısıtlı
 	// izleyicinin ekranı da "Bakımda" durumunu hemen yenileyebilsin.
 	if ev.Type == "maintenance" {
+		return true
+	}
+	// Olay güncellemesi (manuel olay / güncelleme yazıldı) yalnızca kimlik taşır;
+	// manuel olaylar herkese görünür, otomatik olayın ayrıntısını API süzer.
+	if ev.Type == "incident" {
 		return true
 	}
 	// Sunucu olayı yalnızca kendisine atanmış sunucu için gider.

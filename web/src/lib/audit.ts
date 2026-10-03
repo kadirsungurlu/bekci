@@ -37,6 +37,8 @@ export function auditHref(type: string, id: number): string {
       return `#/status-pages/${id}`;
     case 'maintenance':
       return `#/maintenance/${id}`;
+    case 'incident':
+      return `#/incidents/${id}`;
     case 'probe':
       return '#/settings/probes';
     case 'tag':

@@ -73,6 +73,13 @@ export default {
       update: 'Duyuru güncellendi',
       delete: 'Duyuru silindi',
     },
+    incident: {
+      create: 'Olay elle açıldı',
+      update: 'Olay düzenlendi',
+      delete: 'Olay silindi',
+      update_post: 'Olay güncellemesi yazıldı',
+      update_delete: 'Olay güncellemesi silindi',
+    },
     maintenance: {
       create: 'Bakım eklendi',
       update: 'Bakım güncellendi',
@@ -105,6 +112,7 @@ export default {
     apikey: 'API anahtarı',
     status_page: 'Durum sayfası',
     announcement: 'Duyuru',
+    incident: 'Olay',
     maintenance: 'Bakım',
     tag: 'Etiket',
     probe: 'Kontrol noktası',

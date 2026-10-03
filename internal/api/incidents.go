@@ -42,6 +42,9 @@ type incidentServer struct {
 // kısmi) izinli monitörler için görünür.
 func canSeeIncident(u store.User, inc store.Incident) bool {
 	vis := visibleTo(u)
+	if inc.Kind == store.IncidentManual {
+		return true // durum sayfası iletişimi: herkese açık
+	}
 	if store.IsServerIncident(inc.Kind) {
 		return inc.ServerID > 0 && vis.canServer(inc.ServerID)
 	}
@@ -90,7 +93,7 @@ func (s *Server) serverIncidents(w http.ResponseWriter, r *http.Request) {
 
 // serverIncident sunucu olayının ayrıntısı: sunucu, metrik verisi (olay
 // satırının data'sı) ve işlem geçmişi. İstek/yanıt yakalaması yoktur.
-func (s *Server) serverIncident(w http.ResponseWriter, r *http.Request, u store.User, inc store.Incident) {
+func (s *Server) serverIncident(w http.ResponseWriter, r *http.Request, u store.User, inc store.Incident, updates []store.IncidentUpdate) {
 	p, err := s.store.GetProbe(r.Context(), inc.ServerID)
 	if err != nil {
 		s.dbError(w, err)
@@ -109,7 +112,7 @@ func (s *Server) serverIncident(w http.ResponseWriter, r *http.Request, u store.
 		srv.Hostname = h.Hostname
 	}
 	out := incidentDetailView{Incident: inc, Server: srv, Locations: []incidentLocationView{},
-		Events: make([]store.IncidentEvent, 0, len(events))}
+		Events: make([]store.IncidentEvent, 0, len(events)), Updates: updates}
 	out.Incident.Cause = incidentCause(lang, inc)
 	for _, ev := range events {
 		if ev.Kind == store.EventNotify && !canSeeConfig(u) {
@@ -162,6 +165,59 @@ type incidentDetailView struct {
 	Capture   *store.IncidentCapture  `json:"capture"`            // yalnızca yönetici
 	Captures  []store.IncidentCapture `json:"captures,omitempty"` // yalnızca yönetici: Capture + diğer çalışmayan konumlarınki
 	Details   bool                    `json:"details"`            // kullanıcı istek/yanıtı görebilir mi
+	// Updates insan eliyle yazılan güncellemeler (yeniden eskiye; manuel ve
+	// otomatik olaylarda). Affected manuel olayın etkilediği monitörler.
+	Updates  []store.IncidentUpdate `json:"updates"`
+	Affected []incidentAffected     `json:"affected,omitempty"`
+}
+
+// incidentAffected manuel olayın etkilediği bir monitör.
+type incidentAffected struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+// manualIncidentDetail elle açılan olayın ayrıntısı: sayfa, etkilenen
+// monitörler, güncellemeler ve işlem geçmişi (kök neden / konum yok).
+func (s *Server) manualIncidentDetail(w http.ResponseWriter, r *http.Request, u store.User, inc store.Incident) {
+	events, err := s.store.IncidentEvents(r.Context(), inc.ID)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	updates, err := s.store.IncidentUpdates(r.Context(), inc.ID)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	ids, err := s.store.IncidentMonitorIDs(r.Context(), inc.ID)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	mons, err := s.store.MonitorsByIDs(r.Context(), ids)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	out := incidentDetailView{Incident: inc, Locations: []incidentLocationView{}, Events: []store.IncidentEvent{}, Updates: updates, Affected: []incidentAffected{}}
+	for _, id := range ids {
+		if m, ok := mons[id]; ok {
+			out.Affected = append(out.Affected, incidentAffected{ID: m.ID, Name: m.Name})
+		}
+	}
+	for _, ev := range events {
+		if ev.Kind == store.EventNotify && !canSeeConfig(u) {
+			continue
+		}
+		out.Events = append(out.Events, ev)
+	}
+	if !canSeeConfig(u) {
+		for i := range out.Updates {
+			out.Updates[i].Username, out.Updates[i].UserID = "", 0
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
@@ -178,8 +234,22 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
+	if inc.Kind == store.IncidentManual {
+		s.manualIncidentDetail(w, r, u, inc)
+		return
+	}
+	updates, err := s.store.IncidentUpdates(r.Context(), id)
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	if !canSeeConfig(u) {
+		for i := range updates {
+			updates[i].Username, updates[i].UserID = "", 0
+		}
+	}
 	if store.IsServerIncident(inc.Kind) {
-		s.serverIncident(w, r, u, inc)
+		s.serverIncident(w, r, u, inc, updates)
 		return
 	}
 	m, err := s.store.GetMonitor(r.Context(), inc.MonitorID)
@@ -200,6 +270,7 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 			Active: m.Active, Status: m.Status},
 		Locations: []incidentLocationView{},
 		Details:   capture,
+		Updates:   updates,
 	}
 	if setup, err := s.store.MonitorLocations(r.Context(), m.ID); err == nil {
 		out.Monitor.NotifyPartial = setup.NotifyPartial

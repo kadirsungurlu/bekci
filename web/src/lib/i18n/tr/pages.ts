@@ -197,14 +197,16 @@ export default {
     blockNames: {
       overall: 'Genel durum',
       announcements: 'Duyurular',
+      maintenance: 'Planlı bakım',
       groups: 'Gruplar ve monitörler',
       incidents: 'Son olaylar',
     },
     blockDesc: {
       overall: '“Tüm sistemler çalışıyor” kutusu',
       announcements: 'Yayındaki duyurular (varsa)',
+      maintenance: 'Sayfadaki monitörleri etkileyen süren ve 7 gün içindeki bakım pencereleri (varsa)',
       groups: 'Monitörlerin durumu',
-      incidents: 'Geçmiş kesintilerin listesi',
+      incidents: 'Geçmiş kesintiler ve elle açılan olaylar',
     },
     blockUp: '“{name}” bölümünü yukarı taşı',
     blockDown: '“{name}” bölümünü aşağı taşı',

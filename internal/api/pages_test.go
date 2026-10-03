@@ -438,9 +438,10 @@ func TestPublicStatusPage(t *testing.T) {
 		keysOf(pub.Announcements[0]) != "body,ends_at,id,severity,starts_at,title" {
 		t.Errorf("duyurular yanlış: %+v", pub.Announcements)
 	}
-	// Olaylar: sadece sayfadaki monitörler, son 14 gün; görünen adla, nedensiz.
+	// Olaylar: sadece sayfadaki monitörler, son 14 gün; görünen adla, nedensiz
+	// (kimlik ve tür var; güncelleme yoksa updates alanı yok).
 	if len(pub.Incidents) != 1 || pub.Incidents[0]["monitor"] != "API" || pub.Incidents[0]["resolved_at"].(float64) != 0 ||
-		keysOf(pub.Incidents[0]) != "monitor,resolved_at,started_at" {
+		keysOf(pub.Incidents[0]) != "id,kind,monitor,resolved_at,started_at" {
 		t.Errorf("olaylar yanlış: %+v", pub.Incidents)
 	}
 
