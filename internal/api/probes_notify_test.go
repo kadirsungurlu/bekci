@@ -39,6 +39,16 @@ func TestProbeNotifySettings(t *testing.T) {
 	if !p.NotifyOffline {
 		t.Error("veritabanında notify_offline açık olmalı")
 	}
+	// Kısmi güncelleme: ad gönderilmezse değişmez (API istemcisi yalnızca
+	// bildirim ayarını değiştirebilmeli).
+	admin.mustDo("PUT", fmt.Sprintf("/api/probes/%d", cp.Probe.ID), map[string]any{"notify_offline": false}, &out, 200)
+	if out.Name != "Frankfurt" || out.NotifyOffline || len(out.NotificationIDs) != 1 {
+		t.Fatalf("adsız kısmi güncelleme: %+v", out)
+	}
+	admin.mustDo("PUT", fmt.Sprintf("/api/probes/%d", cp.Probe.ID), map[string]any{"notify_offline": true}, &out, 200)
+	if !out.NotifyOffline {
+		t.Error("kısmi güncelleme notify_offline açmalı")
+	}
 	// Alanlar gönderilmezse değişmez (eski arayüz).
 	admin.mustDo("PUT", fmt.Sprintf("/api/probes/%d", cp.Probe.ID), map[string]any{"name": "Frankfurt", "active": true}, &out, 200)
 	if !out.NotifyOffline || len(out.NotificationIDs) != 1 {

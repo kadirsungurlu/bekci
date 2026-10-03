@@ -533,6 +533,10 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	in.Name = strings.TrimSpace(in.Name)
+	if in.Name == "" {
+		// Kısmi güncelleme (ör. yalnızca notify_offline): ad değişmez.
+		in.Name = old.Name
+	}
 	if !s.validateProbeName(w, r, in.Name, old.Kind, id) {
 		return
 	}
