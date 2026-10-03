@@ -220,7 +220,7 @@ Coolify and Compose setups, image tags and environment variables.
 ### Coolify
 
 - Recommended: Build Pack **Docker Image**, image `kadirsungurlu/bekci:latest`
-  (or a pinned version, e.g. `kadirsungurlu/bekci:1.2.1`); use Build Pack
+  (or a pinned version, e.g. `kadirsungurlu/bekci:1.3.0`); use Build Pack
   **Dockerfile** if you want to build from source. Port **8080**, health check
   `/healthz`
 - Persistent storage: **/data** (database and the `backups/` folder). Add it

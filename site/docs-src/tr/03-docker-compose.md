@@ -164,7 +164,7 @@ docker compose up -d
 `pull` yeni imajı indirir, `up -d` konteyneri yeni imajla yeniden oluşturur; verileriniz birimde kalır. Güncellemeden önce yedek alın ve sürüm sabitlemeyi öğrenin: [Güncelleme, yedek ve geri dönüş](/docs/guncelleme-yedek/).
 
 > [!CHECK]
-> `docker compose logs bekci | grep "Bekci başladı"` komutunun son satırındaki `sürüm=` değeri (çalışan sürüm, ör. `1.2.1`; GHCR commit imajlarında kısa kod) güncellemeden önceki değerden farklı olmalı.
+> `docker compose logs bekci | grep "Bekci başladı"` komutunun son satırındaki `sürüm=` değeri (çalışan sürüm, ör. `1.3.0`; GHCR commit imajlarında kısa kod) güncellemeden önceki değerden farklı olmalı.
 
 ## Ayarı değiştirmek {#ayar-degistirmek}
 

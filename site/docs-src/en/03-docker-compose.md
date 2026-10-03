@@ -164,7 +164,7 @@ docker compose up -d
 `pull` downloads the new image and `up -d` recreates the container with it; your data stays in the volume. Back up before updating and learn how to pin versions: [Updates, backups and rollback](/en/docs/updates-backups/).
 
 > [!CHECK]
-> The last line of `docker compose logs bekci | grep "Bekci başladı"` should show a different `sürüm=` (version) value than before the update (the running version, e.g. `1.2.1`; the short commit code on GHCR commit images).
+> The last line of `docker compose logs bekci | grep "Bekci başladı"` should show a different `sürüm=` (version) value than before the update (the running version, e.g. `1.3.0`; the short commit code on GHCR commit images).
 
 ## Changing a setting {#change-setting}
 

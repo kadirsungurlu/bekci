@@ -213,7 +213,7 @@ ortam değişkenleri var.
 ### Coolify
 
 - Önerilen: Build Pack **Docker Image**, imaj `kadirsungurlu/bekci:latest` (ya
-  da sabit bir sürüm, ör. `kadirsungurlu/bekci:1.2.1`); kaynaktan derlemek
+  da sabit bir sürüm, ör. `kadirsungurlu/bekci:1.3.0`); kaynaktan derlemek
   isterseniz Build Pack **Dockerfile**. Port **8080**, health check `/healthz`
 - Kalıcı depolama: **/data** (veritabanı ve `backups/` klasörü). Coolify'da
   **Volume** türünde ekleyin. Sunucudaki bir klasörü bağlamak (Directory Mount)

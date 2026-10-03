@@ -53,7 +53,7 @@ Uygulamanın sayfasında **Redeploy** (ya da **Deploy**) düğmesine basın. Sab
 :::
 
 > [!CHECK]
-> Günlükte yeni bir başlama satırı görmelisiniz (`docker compose logs bekci | grep "Bekci başladı"`). `sürüm=` alanı çalışan sürümdür (ör. `1.2.1`; GHCR commit imajlarında kısa kod, ör. `2718268`); güncellemeden sonra değişmiş olmalı:
+> Günlükte yeni bir başlama satırı görmelisiniz (`docker compose logs bekci | grep "Bekci başladı"`). `sürüm=` alanı çalışan sürümdür (ör. `1.3.0`; GHCR commit imajlarında kısa kod, ör. `2718268`); güncellemeden sonra değişmiş olmalı:
 >
 > ```text
 > level=INFO msg="Bekci başladı" sürüm=… adres=:8080 veri=/data

@@ -53,7 +53,7 @@ Click **Redeploy** (or **Deploy**) on the application's page. If you use a fixed
 :::
 
 > [!CHECK]
-> The log should show a new start line (`docker compose logs bekci | grep "Bekci başladı"`). The `sürüm=` (version) field is the running version (e.g. `1.2.1`; the short commit code on GHCR commit images, e.g. `2718268`); it should have changed after the update:
+> The log should show a new start line (`docker compose logs bekci | grep "Bekci başladı"`). The `sürüm=` (version) field is the running version (e.g. `1.3.0`; the short commit code on GHCR commit images, e.g. `2718268`); it should have changed after the update:
 >
 > ```text
 > level=INFO msg="Bekci başladı" sürüm=… adres=:8080 veri=/data
