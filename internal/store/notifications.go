@@ -26,6 +26,10 @@ type Notification struct {
 	DelayMin    int         `json:"delay_min"`
 	EscalateMin int         `json:"escalate_min"`
 	Lang        string      `json:"lang"`
+
+	// BindLevel sunucu bağında kanalın alacağı uyarı seviyesi ("" = hepsi,
+	// warning, critical); yalnızca NotificationsForProbe doldurur, saklanmaz.
+	BindLevel string `json:"-"`
 }
 
 const notificationCols = "id, name, type, config, is_default, active, created_at, updated_at, events, quiet_hours, delay_min, escalate_min, lang"

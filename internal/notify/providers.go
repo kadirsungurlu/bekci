@@ -262,6 +262,12 @@ type WebhookServer struct {
 	Value     float64 `json:"value"`
 	Threshold float64 `json:"threshold"`
 	Minutes   int     `json:"minutes"`
+	// Level uyarı seviyesi (warning | critical; eski kurallarda boş = kritik);
+	// Container "container" metriğinde konteyner adı; BootTime yeniden
+	// başlatma bildiriminde yeni açılış (unix).
+	Level     string `json:"level,omitempty"`
+	Container string `json:"container,omitempty"`
+	BootTime  int64  `json:"boot_time,omitempty"`
 }
 
 type WebhookMonitor struct {
@@ -292,7 +298,13 @@ func (webhook) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	}
 	if ev.ProbeID != 0 {
 		p.Server = &WebhookServer{ID: ev.ProbeID, Name: ev.MonitorName, Metric: ev.Metric,
-			Value: ev.Value, Threshold: ev.Threshold, Minutes: ev.Minutes}
+			Value: ev.Value, Threshold: ev.Threshold, Minutes: ev.Minutes, Level: ev.Level}
+		if ev.Metric == "container" {
+			p.Server.Container = ev.Mount
+		}
+		if !ev.BootTime.IsZero() {
+			p.Server.BootTime = ev.BootTime.Unix()
+		}
 	}
 	b, _ := json.Marshal(p)
 	headers := map[string]string{"Content-Type": "application/json"}

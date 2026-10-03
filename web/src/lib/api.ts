@@ -997,6 +997,9 @@ export interface MaintenanceInput {
   duration_minutes: number;
   all_monitors: boolean;
   monitor_ids: number[];
+  /** Sunucular (eski sunucuda gelmez / gönderilmez: kapsanmaz). */
+  all_servers?: boolean;
+  server_ids?: number[];
 }
 
 export interface Maintenance extends MaintenanceInput {
@@ -1048,6 +1051,8 @@ export interface ContainerInfo {
   mem_limit?: number;
   net_rx_bps: number;
   net_tx_bps: number;
+  /** running | restarting | exited | paused | dead | created (eski ajan: yok = çalışıyor). */
+  state?: string;
 }
 
 export interface ServerStats {
@@ -1074,7 +1079,9 @@ export interface ServerStats {
 /** online | offline | unavailable (ajan toplayamıyor) | waiting (hiç örnek yok) | disabled */
 export type ServerState = 'online' | 'offline' | 'unavailable' | 'waiting' | 'disabled';
 
-export type ServerMetric = 'cpu' | 'mem' | 'swap' | 'disk' | 'load' | 'temp' | 'net' | 'offline';
+export type ServerMetric = 'cpu' | 'mem' | 'swap' | 'disk' | 'load' | 'temp' | 'net' | 'offline' | 'container' | 'reboot';
+/** Sunucu uyarı seviyesi (eski kurallarda boş = kritik). */
+export type AlertLevel = 'warning' | 'critical';
 
 export interface ServerView {
   id: number;
@@ -1101,25 +1108,40 @@ export interface ServerView {
   ip?: string;
   /** Liste biçiminde son bir saatin dakikalık CPU değerleri (eskiden yeniye). */
   cpu_hist?: number[];
+  /** Sunucu şu an bakım penceresinde (uyarı ve çevrimdışı bildirimi gitmez). */
+  in_maintenance?: boolean;
 }
 
 export interface AlertRule {
   id: number;
   metric: ServerMetric;
-  /** Disk: bölüm ("" = en dolu bölüm); diğer metriklerde boş. */
+  /** Disk: bölüm ("" = en dolu bölüm); container: konteyner adı ("" = herhangi biri); diğerlerinde boş. */
   mount?: string;
+  /** Kritik eşik. */
   threshold: number;
   minutes: number;
   active: boolean;
   firing: boolean;
   fired_at: number;
+  /** İsteğe bağlı uyarı eşiği (0 = yok; eski sunucuda gelmez). */
+  warn_threshold?: number;
+  /** Tetiklenmiş kuralın seviyesi. */
+  level?: AlertLevel | '';
 }
 
-export type AlertRuleInput = Pick<AlertRule, 'metric' | 'mount' | 'threshold' | 'minutes' | 'active'>;
+export type AlertRuleInput = Pick<AlertRule, 'metric' | 'mount' | 'threshold' | 'minutes' | 'active' | 'warn_threshold'>;
+
+/** Sunucuya bağlı kanal ve alacağı seviye ("" = hepsi). */
+export interface NotificationBinding {
+  notification_id: number;
+  level: AlertLevel | '';
+}
 
 export interface ServerDetail extends ServerView {
   alerts: AlertRule[] | null;
   notification_ids: number[] | null;
+  /** Kanal + seviye (eski sunucuda gelmez → hepsi). */
+  notification_bindings?: NotificationBinding[] | null;
 }
 
 export type StatsRange = '1h' | '24h' | '7d' | '30d';
@@ -1465,8 +1487,11 @@ export const api = {
     get<{ events: ServerEvent[] | null }>(`/api/servers/${id}/events`).then((r) => r.events ?? []),
   putServerAlerts: (id: number, alerts: AlertRuleInput[]) =>
     put<{ alerts: AlertRule[] | null }>(`/api/servers/${id}/alerts`, { alerts }).then((r) => r.alerts ?? []),
-  putServerNotifications: (id: number, ids: number[]) =>
-    put<{ notification_ids?: number[] | null }>(`/api/servers/${id}/notifications`, { notification_ids: ids }),
+  putServerNotifications: (id: number, ids: number[], bindings?: NotificationBinding[]) =>
+    put<{ notification_ids?: number[] | null; notification_bindings?: NotificationBinding[] | null }>(`/api/servers/${id}/notifications`, {
+      notification_ids: ids,
+      ...(bindings ? { notification_bindings: bindings } : {}),
+    }),
 
   // Yedekle / geri yükle ve içe aktarma (yönetici)
   importBackup: (file: File, mode: 'merge' | 'replace', dryRun: boolean, onProgress?: (l: number, t: number) => void) =>

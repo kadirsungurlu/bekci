@@ -84,7 +84,10 @@ type Temp struct {
 	C    float64 `json:"c"`
 }
 
-// Container çalışan bir Docker konteyneri.
+// Container bir Docker konteyneri. Eski ajanlar yalnızca çalışanları, State
+// olmadan gönderir; yeni ajanlar durmuş/yeniden başlayan konteynerleri de
+// State ile (running | restarting | exited | paused | dead | created) bildirir;
+// çalışmayan konteynerde ölçüm alanları sıfırdır.
 type Container struct {
 	ID       string  `json:"id"`   // kısa (12 karakter)
 	Name     string  `json:"name"` // baştaki "/" olmadan
@@ -93,7 +96,11 @@ type Container struct {
 	MemLimit uint64  `json:"mem_limit,omitempty"`
 	NetRxBps float64 `json:"net_rx_bps"`
 	NetTxBps float64 `json:"net_tx_bps"`
+	State    string  `json:"state,omitempty"`
 }
+
+// Running konteyner çalışıyor mu (State boşsa eski ajan: listede olan çalışır).
+func (c Container) Running() bool { return c.State == "" || c.State == "running" }
 
 // MemPct RAM kullanım yüzdesi.
 func (s *Stats) MemPct() float64 { return pct(s.MemUsed, s.MemTotal) }
@@ -173,7 +180,7 @@ func (s *Sample) Sanitize() {
 	}
 	for i := range st.Containers {
 		c := &st.Containers[i]
-		c.ID, c.Name = clip(c.ID), clip(c.Name)
+		c.ID, c.Name, c.State = clip(c.ID), clip(c.Name), clip(c.State)
 		c.CPU = pctVal(c.CPU)
 		c.NetRxBps, c.NetTxBps = nonNeg(c.NetRxBps), nonNeg(c.NetTxBps)
 	}

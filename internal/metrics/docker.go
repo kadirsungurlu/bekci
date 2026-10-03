@@ -69,6 +69,7 @@ func newDockerClient(endpoint string) *dockerClient {
 type dockerListItem struct {
 	ID    string   `json:"Id"`
 	Names []string `json:"Names"`
+	State string   `json:"State"` // running | restarting | exited | paused | dead | created
 }
 
 type dockerStats struct {
@@ -129,8 +130,11 @@ func (c *Collector) containers(ctx context.Context, threads int, hostMem uint64)
 	}
 	ctx, cancel := context.WithTimeout(ctx, c.opts.DockerTimeout)
 	defer cancel()
+	// Tüm konteynerler (durmuş ve yeniden başlayanlar dahil): durum bilgisi
+	// sunucudaki "konteyner durdu" kuralı için gider; istatistik yalnızca
+	// çalışanlardan okunur.
 	var list []dockerListItem
-	if err := d.get(ctx, "/containers/json", &list); err != nil {
+	if err := d.get(ctx, "/containers/json?all=1", &list); err != nil {
 		if msg := err.Error(); msg != c.dockerErr {
 			c.dockerErr = msg
 			c.opts.Log.Warn("Docker API'sine ulaşılamıyor, konteyner istatistikleri alınamadı", "hata", err)
@@ -151,6 +155,17 @@ func (c *Collector) containers(ctx context.Context, threads int, hostMem uint64)
 		}
 	}
 	slices.SortFunc(list, func(a, b dockerListItem) int { return cmp.Compare(a.Names[0], b.Names[0]) })
+	// Çalışmayanlar yalnızca ad ve durumla gönderilir (istatistik istenmez).
+	var stopped []Container
+	list = slices.DeleteFunc(list, func(it dockerListItem) bool {
+		if it.State == "" || it.State == "running" {
+			return false
+		}
+		if len(stopped) < MaxContainers {
+			stopped = append(stopped, Container{ID: shortID(it.ID), Name: it.Names[0], State: it.State})
+		}
+		return true
+	})
 	if len(list) > MaxContainers {
 		list = list[:MaxContainers]
 	}
@@ -176,7 +191,7 @@ func (c *Collector) containers(ctx context.Context, threads int, hostMem uint64)
 	cur := make(map[string]contCounters, len(list))
 	out := make([]Container, 0, len(list))
 	for i, it := range list {
-		ct := Container{ID: shortID(it.ID), Name: it.Names[0]}
+		ct := Container{ID: shortID(it.ID), Name: it.Names[0], State: "running"}
 		prev, hasPrev := c.prevCont[it.ID]
 		s := stats[i]
 		if s == nil {
@@ -213,6 +228,9 @@ func (c *Collector) containers(ctx context.Context, threads int, hostMem uint64)
 		out = append(out, ct)
 	}
 	c.prevCont = cur
+	if n := MaxContainers - len(out); n > 0 && len(stopped) > 0 {
+		out = append(out, stopped[:min(n, len(stopped))]...)
+	}
 	return out, true
 }
 

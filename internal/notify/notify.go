@@ -46,6 +46,17 @@ const (
 	// noktasının kimliği, Metric "offline", LastSeen son isteğin zamanı).
 	KindProbeOffline = "probe_offline"
 	KindProbeOnline  = "probe_online"
+
+	// Sunucu yeniden başlatıldı (ajanın bildirdiği açılış zamanı değişti;
+	// BootTime yeni açılış). Olaya bağlı değildir; yalnızca "reboot" kuralı
+	// açık sunucularda gider.
+	KindServerReboot = "server_reboot"
+)
+
+// Uyarı seviyeleri (sunucu kuralları; boş = kritik).
+const (
+	LevelWarning  = "warning"
+	LevelCritical = "critical"
 )
 
 // Event gönderilecek bildirimin içeriği.
@@ -88,6 +99,15 @@ type Event struct {
 	LastSeen    time.Time
 	GoneMinutes int
 
+	// Level sunucu uyarısının seviyesi (warning | critical; boş = kritik);
+	// PeakLevel düzelme bildiriminde olay boyunca ulaşılan en yüksek seviye;
+	// Downgraded kritikten uyarıya iniş bildirimi. BootTime yeniden başlatma
+	// bildiriminde yeni açılış zamanı.
+	Level      string
+	PeakLevel  string
+	Downgraded bool
+	BootTime   time.Time
+
 	// Sample örnek bildirim (gerçek bir olay değil); metne not düşülür.
 	Sample bool
 
@@ -113,7 +133,11 @@ type Event struct {
 var Kinds = []string{
 	KindDown, KindUp, KindReminder, KindCert, KindLocationDown, KindLocationUp,
 	KindSlow, KindSlowResolved, KindServerAlert, KindServerResolved, KindProbeOffline, KindProbeOnline,
+	KindServerReboot,
 }
+
+// IsWarning sunucu uyarısı uyarı seviyesinde mi (🟡)?
+func (e Event) IsWarning() bool { return e.Level == LevelWarning }
 
 // ValidKind tür bilinen bir bildirim türü mü (test hariç)?
 func ValidKind(k string) bool { return slices.Contains(Kinds, k) }
@@ -169,6 +193,12 @@ func (e Event) serverTitle() string {
 		return i18n.T(l, "notify.server.offline", e.MonitorName)
 	case e.Metric == "offline":
 		return i18n.T(l, "notify.server.online", e.MonitorName)
+	case e.Metric == "container" && e.Kind == KindServerAlert:
+		return i18n.T(l, "notify.server.container_down", e.MonitorName, e.Mount)
+	case e.Metric == "container":
+		return i18n.T(l, "notify.server.container_up", e.MonitorName, e.Mount)
+	case e.Kind == KindServerReboot:
+		return i18n.T(l, "notify.server.reboot", e.MonitorName)
 	case e.Kind == KindServerAlert:
 		detail := i18n.T(l, "notify.server.avg")
 		if e.Metric == "load" {
@@ -177,7 +207,14 @@ func (e Event) serverTitle() string {
 		if e.Mount != "" {
 			name += " (" + e.Mount + ")"
 		}
-		return i18n.T(l, "notify.server.alert", e.MonitorName, name,
+		key := "notify.server.alert"
+		switch {
+		case e.Downgraded:
+			key = "notify.server.downgraded"
+		case e.IsWarning():
+			key = "notify.server.warning"
+		}
+		return i18n.T(l, key, e.MonitorName, name,
 			FormatMetric(l, e.Metric, e.Value), e.Minutes, detail, FormatMetric(l, e.Metric, e.Threshold))
 	}
 	if e.Mount != "" {
@@ -207,7 +244,7 @@ func (e Event) Title() string {
 		return i18n.T(l, "notify.location_down.title", e.MonitorName)
 	case KindLocationUp:
 		return i18n.T(l, "notify.location_up.title", e.MonitorName)
-	case KindServerAlert, KindServerResolved:
+	case KindServerAlert, KindServerResolved, KindServerReboot:
 		return e.serverTitle()
 	case KindSlow:
 		return i18n.T(l, "notify.slow.title", e.MonitorName)
@@ -320,10 +357,24 @@ func (e Event) Rows() []Row {
 		add("expires", i18n.DateTimeMin(l, e.CertExpires.Local()))
 		add("issuer", e.CertIssuer)
 	case KindServerAlert, KindServerResolved:
+		if e.Metric == "container" {
+			add("container", e.Mount)
+			if e.Kind == KindServerAlert {
+				add("info", e.LocalMessage())
+			}
+			break
+		}
 		if e.Metric != "offline" && e.Kind == KindServerResolved {
 			add("last_avg", FormatMetric(l, e.Metric, e.Value))
 		}
+		if e.Level != "" && e.Metric != "offline" {
+			add("level", i18n.T(l, "notify.level."+e.Level))
+		}
 		add("info", e.info())
+	case KindServerReboot:
+		if !e.BootTime.IsZero() {
+			add("boot_time", i18n.DateTime(l, e.BootTime.Local()))
+		}
 	case KindProbeOffline:
 		add("info", e.info())
 	case KindProbeOnline:
@@ -381,7 +432,7 @@ func (e Event) DetailURL() string {
 // IsProblem olayın kötü haber olup olmadığı (öncelik/renk seçimi için).
 func (e Event) IsProblem() bool {
 	return e.Kind == KindDown || e.Kind == KindReminder || e.Kind == KindCert || e.Kind == KindServerAlert || e.Kind == KindLocationDown ||
-		e.Kind == KindProbeOffline || e.Kind == KindSlow
+		e.Kind == KindProbeOffline || e.Kind == KindSlow || e.Kind == KindServerReboot
 }
 
 // IsRecovery sorunun bittiğini bildiren olay mı (monitör tekrar çalışıyor,
@@ -405,6 +456,10 @@ func (e Event) AlertKey() string {
 	switch {
 	case e.Kind == KindProbeOffline || e.Kind == KindProbeOnline:
 		return fmt.Sprintf("%sprobe-%d-offline", prefix, e.ProbeID)
+	case e.Kind == KindServerReboot:
+		return fmt.Sprintf("%sserver-%d-reboot-%d", prefix, e.ProbeID, e.BootTime.Unix())
+	case e.ProbeID != 0 && e.Metric == "container":
+		return fmt.Sprintf("%sserver-%d-container-%s", prefix, e.ProbeID, e.Mount)
 	case e.ProbeID != 0:
 		return fmt.Sprintf("%sserver-%d-%s", prefix, e.ProbeID, e.Metric)
 	case e.Kind == KindCert:

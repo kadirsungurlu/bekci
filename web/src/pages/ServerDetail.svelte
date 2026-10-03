@@ -4,7 +4,9 @@
     api,
     ApiError,
     errorMessage,
+    type AlertLevel,
     type AlertRule,
+    type NotificationBinding,
     type NotificationChannel,
     type ServerDetail,
     type ServerEvent,
@@ -63,9 +65,10 @@
   let loadError = $state('');
   let events = $state.raw<ServerEvent[]>([]);
   let incidents = $state.raw<Incident[] | null>(null);
-  // Olay kaydı tutulmadan (migration 18) önceki uyarılar: karşılığı olan olay yok.
+  // Olay kaydı tutulmadan (migration 18) önceki uyarılar (karşılığı olan olay yok)
+  // ve olay açmayan anlık kayıtlar (yeniden başlatma).
   const legacyEvents = $derived(
-    incidents ? events.filter((ev) => !incidents!.some((i) => i.started_at === ev.started_at)) : [],
+    incidents ? events.filter((ev) => ev.metric === 'reboot' || !incidents!.some((i) => i.started_at === ev.started_at)) : [],
   );
   let channels = $state.raw<NotificationChannel[] | null>(null);
 
@@ -278,20 +281,30 @@
     if (detail) detail = { ...detail, alerts: rules };
   }
 
-  // Bildirim kanalları --------------------------------------------------------------------
+  // Bildirim kanalları (kanal + seviye) --------------------------------------------------
   let selected = $state<number[]>([]);
+  let levels = $state<Record<number, AlertLevel | ''>>({});
   let chSaving = $state(false);
   let chSynced = -1;
+  const bindingsOf = (d: ServerDetail): NotificationBinding[] =>
+    d.notification_bindings ?? (d.notification_ids ?? []).map((nid) => ({ notification_id: nid, level: '' as const }));
   $effect(() => {
     // Detay ilk geldiğinde (ve kayıttan sonra) seçimi sunucudakiyle eşitle.
     if (detail && chSynced !== detail.id) {
       chSynced = detail.id;
-      selected = (detail.notification_ids ?? []).slice();
+      const b = bindingsOf(detail);
+      selected = b.map((x) => x.notification_id);
+      levels = Object.fromEntries(b.map((x) => [x.notification_id, x.level]));
     }
   });
-  const chDirty = $derived(
-    !!detail && [...selected].sort((a, b) => a - b).join(',') !== [...(detail.notification_ids ?? [])].sort((a, b) => a - b).join(','),
-  );
+  const sig = (b: NotificationBinding[]) =>
+    b
+      .slice()
+      .sort((a, c) => a.notification_id - c.notification_id)
+      .map((x) => `${x.notification_id}:${x.level}`)
+      .join(',');
+  const current = $derived<NotificationBinding[]>(selected.map((nid) => ({ notification_id: nid, level: levels[nid] ?? '' })));
+  const chDirty = $derived(!!detail && sig(current) !== sig(bindingsOf(detail)));
   // Kaydedilmemiş kanal seçimi varken sayfadan ayrılırken sorulur.
   onMount(() => guardUnsaved(() => session.canEdit && !chSaving && chDirty));
   function toggleCh(cid: number, on: boolean) {
@@ -301,8 +314,8 @@
     if (!detail) return;
     chSaving = true;
     try {
-      await api.putServerNotifications(id, selected);
-      detail = { ...detail, notification_ids: selected.slice() };
+      await api.putServerNotifications(id, selected, current);
+      detail = { ...detail, notification_ids: selected.slice(), notification_bindings: current.slice() };
       toast.success(t('servers.detail.channels.saved'));
     } catch (e) {
       toast.error(errorMessage(e));
@@ -348,6 +361,9 @@
         <h1>{view.name}</h1>
         <div class="hsub">
           <span class="pill {PILL[tone]}">{view.state === 'online' && view.firing?.length ? t('servers.detail.alerting') : STATE_LABELS[view.state]}</span>
+          {#if view.in_maintenance}
+            <span class="pill maintenance maint-pill" title={t('servers.inMaintenanceHint')}><Icon name="wrench" size={12} /> {t('servers.inMaintenance')}</span>
+          {/if}
           {#if view.metrics_at}
             <span class="muted small" title={fmtDate(view.metrics_at)}>{t('servers.detail.lastMetric', { ago: fmtRelative(view.metrics_at, now) })}</span>
           {/if}
@@ -657,6 +673,7 @@
           rules={detail.alerts ?? []}
           canEdit={session.canEdit}
           mounts={(detail.latest?.disks ?? []).map((d) => d.mount)}
+          containers={(detail.latest?.containers ?? []).map((c) => c.name)}
           onsaved={onAlertsSaved}
         />
       {:else}
@@ -677,15 +694,25 @@
         {:else}
           <div class="chs">
             {#each channels as c (c.id)}
-              <label class="check ch-item">
-                <input type="checkbox" checked={selected.includes(c.id)} onchange={(e) => toggleCh(c.id, (e.currentTarget as HTMLInputElement).checked)} />
-                <span>
-                  {c.name}
-                  <small>{NOTIFY_LABELS[c.type] ?? c.type}{c.active ? '' : t('servers.detail.channels.off')}</small>
-                </span>
-              </label>
+              <div class="ch-row">
+                <label class="check ch-item">
+                  <input type="checkbox" checked={selected.includes(c.id)} onchange={(e) => toggleCh(c.id, (e.currentTarget as HTMLInputElement).checked)} />
+                  <span>
+                    {c.name}
+                    <small>{NOTIFY_LABELS[c.type] ?? c.type}{c.active ? '' : t('servers.detail.channels.off')}</small>
+                  </span>
+                </label>
+                {#if selected.includes(c.id)}
+                  <select class="input lvl" aria-label={t('servers.detail.channels.levelAria', { name: c.name })} bind:value={levels[c.id]}>
+                    <option value="">{t('servers.levels.all')}</option>
+                    <option value="warning">{t('servers.levels.warning')}</option>
+                    <option value="critical">{t('servers.levels.critical')}</option>
+                  </select>
+                {/if}
+              </div>
             {/each}
           </div>
+          <p class="help lvl-help">{t('servers.detail.channels.levelHelp')}</p>
           <div class="bar">
             <a class="small" href="#/notifications">{t('servers.detail.channels.manage')}</a>
             <div class="spacer"></div>
@@ -720,13 +747,19 @@
               <b>{metricLabel(ev.metric)}{ev.mount ? ` (${ev.mount})` : ''}</b>
               {#if ev.metric === 'offline'}
                 <span class="text-2">{t('servers.detail.events.noData')}</span>
+              {:else if ev.metric === 'reboot'}
+                <span class="text-2">{t('servers.detail.events.rebooted')}{ev.value ? ` · ${t('servers.detail.events.bootAt', { time: fmtDate(ev.value) })}` : ''}</span>
+              {:else if ev.metric === 'container'}
+                <span class="text-2">{t('servers.detail.events.containerDown')}</span>
               {:else}
                 {fmtMetric(ev.metric, ev.value)} <span class="muted">{t('servers.detail.events.threshold', { v: fmtMetric(ev.metric, ev.threshold) })}</span>
               {/if}
             </span>
             <span class="e2">
               <span title={t('servers.detail.events.started')}>{fmtDate(ev.started_at)}</span>
-              {#if ev.ended_at}
+              {#if ev.metric === 'reboot'}
+                <!-- anlık kayıt: süre yok -->
+              {:else if ev.ended_at}
                 <span class="muted">{t('servers.detail.events.lasted', { d: fmtDuration(ev.ended_at - ev.started_at) })}</span>
               {:else}
                 <span class="c-pending">{t('servers.detail.events.ongoing', { d: fmtDuration(now - ev.started_at) })}</span>
@@ -1019,9 +1052,33 @@
     flex-direction: column;
     gap: 10px;
   }
+  .ch-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .ch-row .ch-item {
+    flex: 1;
+    min-width: 0;
+  }
+  .lvl {
+    width: auto;
+    min-width: 130px;
+    height: 32px;
+    padding: 0 8px;
+    font-size: 0.85rem;
+  }
+  .lvl-help {
+    margin: 8px 0 0;
+  }
   .ch-item span {
     min-width: 0;
     word-break: break-word;
+  }
+  .maint-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
   }
   .bar {
     display: flex;

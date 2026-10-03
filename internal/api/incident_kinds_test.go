@@ -251,10 +251,10 @@ func TestValidateAlertsMessageListsNet(t *testing.T) {
 		t.Fatalf("net geçerli: %v", err)
 	}
 	_, err := validateAlerts([]alertInput{{Metric: "bogus", Minutes: 1}})
-	if err == nil || !strings.Contains(err.Error(), "temp, net veya offline") {
+	if err == nil || !strings.Contains(err.Error(), "temp, net, offline, container veya reboot") {
 		t.Fatalf("hata mesajı: %v", err)
 	}
-	if en := i18n.Error(i18n.EN, err.Error()); !strings.Contains(en, "temp, net or offline") {
+	if en := i18n.Error(i18n.EN, err.Error()); !strings.Contains(en, "temp, net, offline, container or reboot") {
 		t.Fatalf("İngilizce hata: %q", en)
 	}
 }

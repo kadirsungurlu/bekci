@@ -8,6 +8,8 @@
   import { guardUnsaved, markInvalid, snapshot } from '../lib/forms';
   import { DEFAULT_TZ, MAINT_STATUS, STRATEGY_DESCS, STRATEGY_LABELS, WEEKDAYS, nextText } from '../lib/maintenance';
   import MonitorPicker from '../components/MonitorPicker.svelte';
+  import ServerPicker from '../components/ServerPicker.svelte';
+  import { session } from '../lib/session.svelte';
   import Icon from '../components/Icon.svelte';
   import { t, tParts } from '../lib/i18n';
 
@@ -43,6 +45,9 @@
   let duration = $state<number | null>(60);
   let allMonitors = $state(false);
   let monitorIds = $state<number[]>([]);
+  // Sunucular: pencere içinde sunucu uyarısı ve çevrimdışı bildirimi gitmez.
+  let allServers = $state(false);
+  let serverIds = $state<number[]>([]);
 
   const timezones: string[] = (() => {
     try {
@@ -70,6 +75,8 @@
     if (m.duration_minutes) duration = m.duration_minutes;
     allMonitors = m.all_monitors;
     monitorIds = [...m.monitor_ids];
+    allServers = m.all_servers ?? false;
+    serverIds = [...(m.server_ids ?? [])];
   }
 
   onMount(async () => {
@@ -114,6 +121,8 @@
     duration,
     allMonitors,
     monitorIds: [...monitorIds].sort((a, b) => a - b),
+    allServers,
+    serverIds: [...serverIds].sort((a, b) => a - b),
   });
   onMount(() => guardUnsaved(() => !saved && !!baseline && !loading && !loadError && snapshot(formState()) !== baseline));
 
@@ -136,7 +145,7 @@
         return { msg: t('maintenance.form.errDuration'), field: 'mt-dur' };
     }
     if (dateFrom && dateTo && dateTo < dateFrom) return { msg: t('maintenance.form.errDateRange'), field: 'mt-dt' };
-    if (!allMonitors && monitorIds.length === 0) return { msg: t('maintenance.form.errMonitors') };
+    if (!allMonitors && monitorIds.length === 0 && !allServers && serverIds.length === 0) return { msg: t('maintenance.form.errMonitors') };
     return null;
   }
 
@@ -171,6 +180,8 @@
       duration_minutes: duration ?? 0,
       all_monitors: allMonitors,
       monitor_ids: allMonitors ? [] : monitorIds,
+      all_servers: allServers,
+      server_ids: allServers ? [] : serverIds,
     };
     saving = true;
     try {
@@ -381,6 +392,20 @@
       {/if}
     </section>
 
+    {#if session.canSeeServers}
+      <section class="card stack">
+        <h2 class="card-title">{t('maintenance.form.affectedServers')}</h2>
+        <p class="help srvhelp">{t('maintenance.form.affectedServersHelp')}</p>
+        <label class="check">
+          <input type="checkbox" bind:checked={allServers} />
+          <span>{t('maintenance.form.allServers')}<small>{t('maintenance.form.allServersHelp')}</small></span>
+        </label>
+        {#if !allServers}
+          <ServerPicker bind:selected={serverIds} label={t('maintenance.form.affectedServers')} id="mt-sp" />
+        {/if}
+      </section>
+    {/if}
+
     {#if error}
       <div class="alert error" role="alert" id="mt-error" bind:this={errorEl}>{error}</div>
     {/if}
@@ -503,6 +528,11 @@
     max-width: 360px;
   }
   .help code {
+    color: var(--text-2);
+  }
+  .srvhelp {
+    margin: -6px 0 0;
+    font-size: 0.85rem;
     color: var(--text-2);
   }
   .actions {

@@ -93,11 +93,12 @@ func (s *Server) listServers(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"servers": out})
 }
 
-// serverDetail sunucu detayı: görünüm + kurallar + kanallar.
+// serverDetail sunucu detayı: görünüm + kurallar + kanallar (seviyeleriyle).
 type serverDetail struct {
 	servers.View
-	Alerts          []store.ServerAlert `json:"alerts"`
-	NotificationIDs []int64             `json:"notification_ids"`
+	Alerts          []store.ServerAlert              `json:"alerts"`
+	NotificationIDs []int64                          `json:"notification_ids"`
+	Bindings        []store.ProbeNotificationBinding `json:"notification_bindings"`
 }
 
 func (s *Server) getServer(w http.ResponseWriter, r *http.Request) {
@@ -116,11 +117,15 @@ func (s *Server) getServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ids := []int64{}
+	bindings := []store.ProbeNotificationBinding{}
 	// Bildirim bağlantıları monitörlerde olduğu gibi yalnızca editör ve yöneticiye.
 	if canSeeConfig(userFrom(r)) {
-		if ids, err = s.store.ProbeNotificationIDs(r.Context(), id); err != nil {
+		if bindings, err = s.store.ProbeNotificationBindings(r.Context(), id); err != nil {
 			s.dbError(w, err)
 			return
+		}
+		for _, b := range bindings {
+			ids = append(ids, b.NotificationID)
 		}
 	}
 	v := s.servers.View(r.Context(), p, rules, true)
@@ -128,7 +133,7 @@ func (s *Server) getServer(w http.ResponseWriter, r *http.Request) {
 	if !isPageAdmin(userFrom(r)) {
 		v.HideIPLock() // sabitlenmiş IP yalnızca yöneticiye
 	}
-	writeJSON(w, http.StatusOK, serverDetail{View: v, Alerts: rules, NotificationIDs: ids})
+	writeJSON(w, http.StatusOK, serverDetail{View: v, Alerts: rules, NotificationIDs: ids, Bindings: bindings})
 }
 
 func (s *Server) serverStats(w http.ResponseWriter, r *http.Request) {
@@ -194,15 +199,20 @@ func (s *Server) serverEvents(w http.ResponseWriter, r *http.Request) {
 
 type alertInput struct {
 	Metric    string  `json:"metric"`
-	Mount     string  `json:"mount"` // yalnızca disk: bölüm ("" = en dolu bölüm)
+	Mount     string  `json:"mount"` // disk: bölüm ("" = en dolu bölüm); container: konteyner adı ("" = herhangi biri)
 	Threshold float64 `json:"threshold"`
 	Minutes   int     `json:"minutes"`
 	Active    *bool   `json:"active"`
+	// WarnThreshold isteğe bağlı uyarı eşiği (0 = yok; kritik eşikten küçük olmalı).
+	WarnThreshold float64 `json:"warn_threshold"`
 }
 
 // diskMountRe disk kuralındaki bölüm: Linux bağlama noktası (/home) veya
 // Windows sürücüsü/klasöre bağlı birim (D:, C:\Veri); denetim karakteri yok.
 var diskMountRe = regexp.MustCompile(`^(/|[A-Za-z]:(\\|$))[^\x00-\x1f]*$`)
+
+// containerNameRe Docker konteyner adı (harf, rakam, _ . -).
+var containerNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
 
 // maxAlertRules bir sunucudaki en fazla kural (disk kuralları bölüm başına ayrıdır).
 const maxAlertRules = 40
@@ -217,33 +227,46 @@ func validateAlerts(in []alertInput) ([]store.ServerAlert, error) {
 	for _, a := range in {
 		a.Metric = strings.TrimSpace(a.Metric)
 		if !servers.ValidMetric(a.Metric) {
-			return nil, errors.New("Metrik cpu, mem, swap, disk, load, temp, net veya offline olmalı")
+			return nil, errors.New("Metrik cpu, mem, swap, disk, load, temp, net, offline, container veya reboot olmalı")
 		}
 		a.Mount = strings.TrimSpace(a.Mount)
 		switch {
+		case a.Metric == servers.MetricContainer:
+			if a.Mount != "" && !containerNameRe.MatchString(a.Mount) {
+				return nil, errors.New("Konteyner adı harf, rakam, alt çizgi, nokta ve tireden oluşmalı")
+			}
 		case a.Metric != servers.MetricDisk:
-			a.Mount = "" // bölüm yalnızca disk kuralında anlamlı
+			a.Mount = "" // bölüm yalnızca disk (ve konteyner adı) kuralında anlamlı
 		case a.Mount != "" && (!diskMountRe.MatchString(a.Mount) || len([]rune(a.Mount)) > metrics.MaxText):
 			return nil, errors.New("Disk bölümü / ile ya da sürücü harfiyle başlamalı, ör. /home veya D:")
 		}
 		if key := a.Metric + "\x00" + a.Mount; seen[key] {
-			if a.Mount != "" {
+			switch {
+			case a.Metric == servers.MetricContainer && a.Mount != "":
+				return nil, fmt.Errorf("%s konteyneri için birden fazla kural olamaz", a.Mount)
+			case a.Mount != "":
 				return nil, fmt.Errorf("%s bölümü için birden fazla disk kuralı olamaz", a.Mount)
 			}
 			return nil, fmt.Errorf("%s için birden fazla kural olamaz", a.Metric)
 		} else {
 			seen[key] = true
 		}
+		if a.Metric == servers.MetricReboot {
+			a.Minutes = 1 // kullanılmaz
+		}
 		if a.Minutes < 1 || a.Minutes > 60 {
 			return nil, errors.New("Süre 1-60 dakika olmalı")
 		}
-		if a.Metric == servers.MetricOffline {
-			a.Threshold = 0 // kullanılmaz
+		if servers.Thresholdless(a.Metric) {
+			a.Threshold, a.WarnThreshold = 0, 0 // kullanılmaz
 		} else if lo, hi := servers.ThresholdRange(a.Metric); a.Threshold != a.Threshold || a.Threshold < lo || a.Threshold > hi {
 			return nil, fmt.Errorf("%s eşiği %s ile %s arasında olmalı", a.Metric,
 				strconv.FormatFloat(lo, 'f', -1, 64), strconv.FormatFloat(hi, 'f', -1, 64))
+		} else if a.WarnThreshold != 0 && (a.WarnThreshold != a.WarnThreshold || a.WarnThreshold < lo || a.WarnThreshold >= a.Threshold) {
+			return nil, fmt.Errorf("%s uyarı eşiği %s ile kritik eşik arasında olmalı", a.Metric, strconv.FormatFloat(lo, 'f', -1, 64))
 		}
-		out = append(out, store.ServerAlert{Metric: a.Metric, Mount: a.Mount, Threshold: a.Threshold, Minutes: a.Minutes, Active: a.Active == nil || *a.Active})
+		out = append(out, store.ServerAlert{Metric: a.Metric, Mount: a.Mount, Threshold: a.Threshold, Minutes: a.Minutes,
+			Active: a.Active == nil || *a.Active, WarnThreshold: a.WarnThreshold})
 	}
 	return out, nil
 }
@@ -259,7 +282,10 @@ func alertSummary(rules []store.ServerAlert) string {
 		if a.Mount != "" {
 			p += a.Mount + " "
 		}
-		if a.Metric != servers.MetricOffline {
+		if !servers.Thresholdless(a.Metric) {
+			if a.WarnThreshold > 0 {
+				p += notify.FormatMetric("tr", a.Metric, a.WarnThreshold) + "→"
+			}
 			p += notify.FormatMetric("tr", a.Metric, a.Threshold) + "/"
 		}
 		p += strconv.Itoa(a.Minutes) + " dk"
@@ -312,16 +338,36 @@ func (s *Server) putServerNotifications(w http.ResponseWriter, r *http.Request) 
 		s.dbError(w, err)
 		return
 	}
+	// notification_ids (eski istemci: hepsi tüm seviyeleri alır) ya da
+	// notification_bindings (kanal + seviye: "" hepsi, warning, critical).
 	var in struct {
-		NotificationIDs []int64 `json:"notification_ids"`
+		NotificationIDs []int64                          `json:"notification_ids"`
+		Bindings        []store.ProbeNotificationBinding `json:"notification_bindings"`
 	}
 	if !readJSON(w, r, &in) {
 		return
 	}
+	levels := map[int64]string{}
 	ids := []int64{}
-	for _, nid := range in.NotificationIDs {
+	add := func(nid int64, level string) error {
+		if !store.ValidLevel(level) {
+			return errors.New("Kanal seviyesi boş, warning veya critical olmalı")
+		}
 		if !slices.Contains(ids, nid) {
 			ids = append(ids, nid)
+		}
+		levels[nid] = level
+		return nil
+	}
+	for _, b := range in.Bindings {
+		if err := add(b.NotificationID, b.Level); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+	if len(in.Bindings) == 0 {
+		for _, nid := range in.NotificationIDs {
+			add(nid, "")
 		}
 	}
 	slices.Sort(ids)
@@ -331,15 +377,20 @@ func (s *Server) putServerNotifications(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	list := make([]string, 0, len(ids))
+	bindings := make([]store.ProbeNotificationBinding, 0, len(ids))
 	for _, nid := range ids {
 		name, ok := names[nid]
 		if !ok {
 			writeError(w, http.StatusBadRequest, "Seçilen bildirim kanalı bulunamadı")
 			return
 		}
+		if lvl := levels[nid]; lvl != "" {
+			name += " (" + lvl + ")"
+		}
 		list = append(list, name)
+		bindings = append(bindings, store.ProbeNotificationBinding{NotificationID: nid, Level: levels[nid]})
 	}
-	if err := s.store.SetProbeNotifications(r.Context(), id, ids); err != nil {
+	if err := s.store.SetProbeNotificationBindings(r.Context(), id, bindings); err != nil {
 		s.dbError(w, err)
 		return
 	}
@@ -348,7 +399,7 @@ func (s *Server) putServerNotifications(w http.ResponseWriter, r *http.Request) 
 		detail = "kanallar: " + strings.Join(list, ", ")
 	}
 	s.audit(r, store.User{}, "server.notifications", "probe", id, p.Name, detail)
-	writeJSON(w, http.StatusOK, map[string]any{"notification_ids": ids})
+	writeJSON(w, http.StatusOK, map[string]any{"notification_ids": ids, "notification_bindings": bindings})
 }
 
 // probeMetrics ajanın metrik örneği. Bilinmeyen alanlar kabul edilir (yeni

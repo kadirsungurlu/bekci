@@ -86,18 +86,22 @@ type Maintenance struct {
 	UpdatedAt       int64   `json:"updated_at"`
 	// EndedAt süren tekrarın "şimdi bitir" ile bitirildiği an (unix; 0: yok).
 	EndedAt int64 `json:"ended_at"`
+	// Sunucular (migration 26): pencere içinde sunucu uyarısı ve çevrimdışı
+	// bildirimi gitmez. AllServers tüm sunucular; ServerIDs seçili ajanlar.
+	AllServers bool    `json:"all_servers"`
+	ServerIDs  []int64 `json:"server_ids"`
 }
 
 const maintCols = `id, title, description, active, strategy, timezone, start_local, end_local,
 	weekdays, start_time, end_time, date_from, date_to, cron, duration_min, all_monitors,
-	created_at, updated_at, ended_at`
+	created_at, updated_at, ended_at, all_servers`
 
 func scanMaintenance(sc scanner) (Maintenance, error) {
 	var m Maintenance
 	var weekdays string
 	err := sc.Scan(&m.ID, &m.Title, &m.Description, &m.Active, &m.Strategy, &m.Timezone,
 		&m.Start, &m.End, &weekdays, &m.StartTime, &m.EndTime, &m.DateFrom, &m.DateTo,
-		&m.Cron, &m.DurationMinutes, &m.AllMonitors, &m.CreatedAt, &m.UpdatedAt, &m.EndedAt)
+		&m.Cron, &m.DurationMinutes, &m.AllMonitors, &m.CreatedAt, &m.UpdatedAt, &m.EndedAt, &m.AllServers)
 	if err != nil {
 		return m, err
 	}
@@ -105,6 +109,7 @@ func scanMaintenance(sc scanner) (Maintenance, error) {
 		m.Weekdays = []int{}
 	}
 	m.MonitorIDs = []int64{}
+	m.ServerIDs = []int64{}
 	return m, nil
 }
 
@@ -143,7 +148,19 @@ func (s *Store) ListMaintenance(ctx context.Context) ([]Maintenance, error) {
 			out[i].MonitorIDs = append(out[i].MonitorIDs, mid)
 		}
 	}
-	return out, links.Err()
+	if err := links.Err(); err != nil {
+		return nil, err
+	}
+	srv, err := s.serverMaintenanceLinks(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for wid, ids := range srv {
+		if i, ok := idx[wid]; ok {
+			out[i].ServerIDs = ids
+		}
+	}
+	return out, nil
 }
 
 func (s *Store) GetMaintenance(ctx context.Context, id int64) (Maintenance, error) {
@@ -166,7 +183,22 @@ func (s *Store) GetMaintenance(ctx context.Context, id int64) (Maintenance, erro
 		}
 		m.MonitorIDs = append(m.MonitorIDs, mid)
 	}
-	return m, rows.Err()
+	if err := rows.Err(); err != nil {
+		return m, err
+	}
+	srows, err := s.db.QueryContext(ctx, "SELECT probe_id FROM maintenance_servers WHERE maintenance_id = ? ORDER BY probe_id", id)
+	if err != nil {
+		return m, err
+	}
+	defer srows.Close()
+	for srows.Next() {
+		var pid int64
+		if err := srows.Scan(&pid); err != nil {
+			return m, err
+		}
+		m.ServerIDs = append(m.ServerIDs, pid)
+	}
+	return m, srows.Err()
 }
 
 func maintArgs(m *Maintenance) []any {
@@ -176,7 +208,7 @@ func maintArgs(m *Maintenance) []any {
 	}
 	return []any{m.Title, m.Description, boolInt(m.Active), m.Strategy, m.Timezone, m.Start, m.End,
 		string(weekdays), m.StartTime, m.EndTime, m.DateFrom, m.DateTo, m.Cron, m.DurationMinutes,
-		boolInt(m.AllMonitors)}
+		boolInt(m.AllMonitors), boolInt(m.AllServers)}
 }
 
 func (s *Store) CreateMaintenance(ctx context.Context, m *Maintenance) error {
@@ -185,15 +217,18 @@ func (s *Store) CreateMaintenance(ctx context.Context, m *Maintenance) error {
 	return s.tx(ctx, func(tx *Tx) error {
 		err := tx.QueryRowContext(ctx, `
 			INSERT INTO maintenance (title, description, active, strategy, timezone, start_local, end_local,
-				weekdays, start_time, end_time, date_from, date_to, cron, duration_min, all_monitors,
+				weekdays, start_time, end_time, date_from, date_to, cron, duration_min, all_monitors, all_servers,
 				created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			RETURNING id`,
 			append(maintArgs(m), m.CreatedAt, m.UpdatedAt)...).Scan(&m.ID)
 		if err != nil {
 			return err
 		}
-		return setMaintenanceMonitors(ctx, tx, m.ID, m.MonitorIDs)
+		if err := setMaintenanceMonitors(ctx, tx, m.ID, m.MonitorIDs); err != nil {
+			return err
+		}
+		return setMaintenanceServers(ctx, tx, m.ID, m.ServerIDs)
 	})
 }
 
@@ -203,7 +238,7 @@ func (s *Store) UpdateMaintenance(ctx context.Context, m *Maintenance) error {
 		res, err := tx.ExecContext(ctx, `
 			UPDATE maintenance SET title = ?, description = ?, active = ?, strategy = ?, timezone = ?,
 				start_local = ?, end_local = ?, weekdays = ?, start_time = ?, end_time = ?,
-				date_from = ?, date_to = ?, cron = ?, duration_min = ?, all_monitors = ?, updated_at = ?,
+				date_from = ?, date_to = ?, cron = ?, duration_min = ?, all_monitors = ?, all_servers = ?, updated_at = ?,
 				ended_at = 0
 			WHERE id = ?`,
 			append(maintArgs(m), m.UpdatedAt, m.ID)...)
@@ -213,7 +248,10 @@ func (s *Store) UpdateMaintenance(ctx context.Context, m *Maintenance) error {
 		if n, _ := res.RowsAffected(); n == 0 {
 			return ErrNotFound
 		}
-		return setMaintenanceMonitors(ctx, tx, m.ID, m.MonitorIDs)
+		if err := setMaintenanceMonitors(ctx, tx, m.ID, m.MonitorIDs); err != nil {
+			return err
+		}
+		return setMaintenanceServers(ctx, tx, m.ID, m.ServerIDs)
 	})
 }
 

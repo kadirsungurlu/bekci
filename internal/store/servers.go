@@ -200,21 +200,28 @@ type ServerAlert struct {
 	ID        int64   `json:"id"`
 	ProbeID   int64   `json:"-"`
 	Metric    string  `json:"metric"`
-	Threshold float64 `json:"threshold"`
+	Threshold float64 `json:"threshold"` // kritik eşik
 	Minutes   int     `json:"minutes"`
-	Mount     string  `json:"mount"` // disk: bölüm ("" = herhangi bir bölüm, en dolusu)
+	Mount     string  `json:"mount"` // disk: bölüm ("" = herhangi bir bölüm, en dolusu); container: konteyner adı ("" = herhangi biri)
 	Active    bool    `json:"active"`
 	Firing    bool    `json:"firing"`
 	FiredAt   int64   `json:"fired_at"`
+	// WarnThreshold isteğe bağlı uyarı eşiği (0 = yok; migration 26); Level
+	// tetiklenmiş kuralın seviyesi (warning | critical; eski kayıtlarda boş = kritik).
+	WarnThreshold float64 `json:"warn_threshold"`
+	Level         string  `json:"level"`
 }
 
-const serverAlertCols = "id, probe_id, metric, threshold, minutes, active, firing, fired_at, mount"
+const serverAlertCols = "id, probe_id, metric, threshold, minutes, active, firing, fired_at, mount, warn_threshold, level"
 
 func scanServerAlert(sc scanner) (ServerAlert, error) {
 	var a ServerAlert
 	var fired sql.NullInt64
-	err := sc.Scan(&a.ID, &a.ProbeID, &a.Metric, &a.Threshold, &a.Minutes, &a.Active, &a.Firing, &fired, &a.Mount)
+	err := sc.Scan(&a.ID, &a.ProbeID, &a.Metric, &a.Threshold, &a.Minutes, &a.Active, &a.Firing, &fired, &a.Mount, &a.WarnThreshold, &a.Level)
 	a.FiredAt = fired.Int64
+	if a.Firing && a.Level == "" {
+		a.Level = LevelCritical
+	}
 	return a, err
 }
 
@@ -284,15 +291,15 @@ func (s *Store) ReplaceServerAlerts(ctx context.Context, probeID int64, rules []
 					}
 				}
 				if _, err := tx.ExecContext(ctx,
-					"UPDATE server_alerts SET threshold = ?, minutes = ?, active = ? WHERE id = ?",
-					r.Threshold, r.Minutes, boolInt(r.Active), a.ID); err != nil {
+					"UPDATE server_alerts SET threshold = ?, minutes = ?, active = ?, warn_threshold = ? WHERE id = ?",
+					r.Threshold, r.Minutes, boolInt(r.Active), r.WarnThreshold, a.ID); err != nil {
 					return err
 				}
 				continue
 			}
 			if _, err := insertID(ctx, tx, `
-				INSERT INTO server_alerts (probe_id, metric, mount, threshold, minutes, active, firing)
-				VALUES (?, ?, ?, ?, ?, ?, 0)`, probeID, r.Metric, r.Mount, r.Threshold, r.Minutes, boolInt(r.Active)); err != nil {
+				INSERT INTO server_alerts (probe_id, metric, mount, threshold, minutes, active, firing, warn_threshold)
+				VALUES (?, ?, ?, ?, ?, ?, 0, ?)`, probeID, r.Metric, r.Mount, r.Threshold, r.Minutes, boolInt(r.Active), r.WarnThreshold); err != nil {
 				return err
 			}
 		}
@@ -323,12 +330,17 @@ func (s *Store) FireServerAlert(ctx context.Context, a ServerAlert, value float6
 }
 
 // FireServerAlertAt FireServerAlert; lastSeen çevrimdışı uyarısında son
-// verinin zamanıdır (olay verisine yazılır).
+// verinin zamanıdır (olay verisine yazılır). a.Level tetiklenme seviyesi
+// (boş = kritik).
 func (s *Store) FireServerAlertAt(ctx context.Context, a ServerAlert, value float64, mount string, now, lastSeen int64) (bool, error) {
 	fired := false
+	level := a.Level
+	if level == "" {
+		level = LevelCritical
+	}
 	err := s.tx(ctx, func(tx *Tx) error {
 		res, err := tx.ExecContext(ctx,
-			"UPDATE server_alerts SET firing = 1, fired_at = ? WHERE id = ? AND firing = 0", now, a.ID)
+			"UPDATE server_alerts SET firing = 1, fired_at = ?, level = ? WHERE id = ? AND firing = 0", now, level, a.ID)
 		if err != nil {
 			return err
 		}
@@ -359,7 +371,7 @@ func (s *Store) ResolveServerAlertNote(ctx context.Context, alertID, now int64, 
 	resolved := false
 	err := s.tx(ctx, func(tx *Tx) error {
 		res, err := tx.ExecContext(ctx,
-			"UPDATE server_alerts SET firing = 0, fired_at = NULL WHERE id = ? AND firing = 1", alertID)
+			"UPDATE server_alerts SET firing = 0, fired_at = NULL, level = '' WHERE id = ? AND firing = 1", alertID)
 		if err != nil {
 			return err
 		}
@@ -387,7 +399,7 @@ func (s *Store) OpenServerAlertMount(ctx context.Context, alertID int64) (string
 
 func resolveAlertTx(ctx context.Context, tx *Tx, alertID, now int64, note string) error {
 	if _, err := tx.ExecContext(ctx,
-		"UPDATE server_alerts SET firing = 0, fired_at = NULL WHERE id = ?", alertID); err != nil {
+		"UPDATE server_alerts SET firing = 0, fired_at = NULL, level = '' WHERE id = ?", alertID); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx,
@@ -530,12 +542,28 @@ func (s *Store) SetProbeNotifications(ctx context.Context, probeID int64, ids []
 	})
 }
 
-// NotificationsForProbe ajana bağlı ve etkin bildirim kanalları.
+// NotificationsForProbe ajana bağlı ve etkin bildirim kanalları; BindLevel
+// kanalın bu sunucuda alacağı seviye ("" = hepsi).
 func (s *Store) NotificationsForProbe(ctx context.Context, probeID int64) ([]Notification, error) {
-	return s.queryNotifications(ctx, `
+	list, err := s.queryNotifications(ctx, `
 		SELECT `+notificationCols+` FROM notifications
 		WHERE active = 1 AND id IN (SELECT notification_id FROM probe_notifications WHERE probe_id = ?)
 		ORDER BY id`, probeID)
+	if err != nil {
+		return nil, err
+	}
+	bindings, err := s.ProbeNotificationBindings(ctx, probeID)
+	if err != nil {
+		return nil, err
+	}
+	levels := map[int64]string{}
+	for _, b := range bindings {
+		levels[b.NotificationID] = b.Level
+	}
+	for i := range list {
+		list[i].BindLevel = levels[list[i].ID]
+	}
+	return list, nil
 }
 
 // NotificationNames kimlik → ad (işlem kaydı metinleri için).

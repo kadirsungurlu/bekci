@@ -65,6 +65,9 @@ type View struct {
 	// (eskiden yeniye; küçük grafik için). Bellekteki uyarı geçmişinden gelir,
 	// veritabanına gidilmez; ajan açılıştan beri veri göndermediyse boştur.
 	CPUHist []float64 `json:"cpu_hist,omitempty"`
+	// InMaintenance sunucu şu an bir bakım penceresinde (uyarı ve çevrimdışı
+	// bildirimi gitmez, yeni uyarı açılmaz).
+	InMaintenance bool `json:"in_maintenance"`
 }
 
 // HideIPLock yönetici olmayan kullanıcıya gidecek görünümden IP kilidi
@@ -85,8 +88,13 @@ func (s *Service) View(ctx context.Context, p store.Probe, rules []store.ServerA
 		Version: p.Version, Host: hostOf(p), Firing: []string{},
 		IPLock: p.IPLock, LockedIP: p.LockedIP, IP: p.LastIP,
 	}
+	v.InMaintenance = s.InMaintenance(p.ID, s.now())
 	if st := s.Latest(ctx, p); st != nil {
-		v.ContainerCount = len(st.Containers)
+		for _, c := range st.Containers {
+			if c.Running() {
+				v.ContainerCount++
+			}
+		}
 		if t, ok := st.TempMax(); ok {
 			v.TempMax = &t
 		}
@@ -209,7 +217,7 @@ func pointFrom(t int64, st *metrics.Stats) Point {
 		DiskReadBps: math.Round(st.DiskReadBps), DiskWriteBps: math.Round(st.DiskWriteBps),
 		NetRxBps: math.Round(st.NetRxBps), NetTxBps: math.Round(st.NetTxBps),
 		DiskPct: r2(st.DiskPct()), Disks: make([]PointDisk, 0, len(st.Disks)),
-		Containers: make([]PointContainer, len(st.Containers)),
+		Containers: make([]PointContainer, 0, len(st.Containers)),
 	}
 	for _, d := range st.Disks {
 		pct := 0.0
@@ -222,8 +230,11 @@ func pointFrom(t int64, st *metrics.Stats) Point {
 		t = r2(t)
 		p.Temp = &t
 	}
-	for i, c := range st.Containers {
-		p.Containers[i] = PointContainer{Name: c.Name, CPU: r2(c.CPU), Mem: c.Mem}
+	for _, c := range st.Containers {
+		if !c.Running() {
+			continue // durmuş konteynerin grafikte çizgisi olmaz
+		}
+		p.Containers = append(p.Containers, PointContainer{Name: c.Name, CPU: r2(c.CPU), Mem: c.Mem})
 	}
 	return p
 }

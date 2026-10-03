@@ -92,6 +92,20 @@ On Windows the load average is an approximation (derived from the processor queu
 > [!CHECK]
 > Within a minute or two the install window in the panel changes from **Waiting for connection…** to **Connected ✓**. Open the server's page with **Go to server**; the charts start to fill.
 
+## Alert rules {#alert-rules}
+
+The **Alert rules** section on a server's page decides when a notification is sent. A new server gets default rules: offline after 3 min without data, CPU and RAM 10-min average at 90%, fullest disk at 85%, and reboot. Each rule can be enabled or disabled on its own; a server without rules never sends alerts.
+
+**Warning and critical thresholds.** CPU, RAM, swap, load, temperature, network and disk rules take an optional **warning** threshold (it must be below the critical one). When the value crosses the warning threshold a 🟡 *warning* is sent, when it crosses the critical threshold a 🔴 *critical* alert; when the level drops you get a "downgraded from critical to warning" note, and when the value falls below the threshold a 🟢 resolved notification. The incident stays a single record; the **Incidents** page shows level changes on its timeline. In the server's **Notification channels** section you can pick a level per channel: *all*, *warnings only* or *critical only* — for example Slack gets everything while your phone only rings for critical. The resolved notification goes to the channels that received the incident's highest level.
+
+**Container alarm.** The *Container* metric alerts when a Docker container stops running. Leave the name empty and the alarm fires when **any** container previously seen on the server stops; type a name (names seen on the server are suggested) and only that container is watched — the alarm also opens when the name no longer appears at all (the container was removed). The duration is how many minutes the container must be not running; a container that restarts within seconds doesn't trigger it. On servers without Docker data (Windows, an agent without the Docker socket mounted) the rule stays silent and never produces a false alarm. Stopped containers are listed in the server page's container table with a **stopped** badge; the agent shipped with this version reports stopped containers too; older agents only report running ones, and the rule then fires when the name disappears (see [updating](#update)).
+
+**Reboot detection.** The *Reboot* rule sends "🔁 *Name* was rebooted" when the server's boot time moves forward (by at least 60 seconds) and adds a row with the new boot time to the **Events** list on the server page. This is an instant notification: it doesn't open an incident and there is no resolved message. If you want the record but not the notification, disable the rule — reboots are still written to the list.
+
+### Server maintenance {#server-maintenance}
+
+Before a planned reboot or upgrade open a window on the **Maintenance windows** page and pick the servers (or *All servers*) in the **Affected servers** section; selecting monitors in the same window is optional. While the window is active no new alerts open on the selected servers and no offline or reboot notifications are sent; the server list and detail page show a **Maintenance** badge. An alert opened earlier can still resolve during maintenance (the 🟢 notification is sent). When the window ends monitoring resumes where it left off; metrics still above a threshold open an alert after the normal duration.
+
 ## Install a check location {#check-location}
 
 A check location checks your monitors from another city or network too. That way you can tell whether an outage is seen from one place only or from everywhere.

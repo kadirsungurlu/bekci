@@ -37,13 +37,16 @@ func TestEnglishEvents(t *testing.T) {
 		5:  "🟡 Example Site: location outage",
 		6:  "🟢 Example Site: all locations up",
 		7:  "⚠️ Example Site: SSL certificate expires in 7 days",
-		8:  "🔴 Example Server: CPU 94% (10 min average, threshold 90%)",
-		10: "🔴 Example Server: Disk (/home) 91% (1 min average, threshold 85%)",
-		11: "🔴 Example Server: server unreachable",
-		12: "🟢 Example Server: CPU back to normal",
-		13: "🟢 Example Server: sending data again",
-		14: "🔴 Frankfurt: check location unreachable",
-		15: "🟢 Frankfurt: check location back online",
+		8:  "🟡 Example Server: CPU 82% (10 min average, warning threshold 80%)",
+		9:  "🔴 Example Server: CPU 94% (10 min average, threshold 90%)",
+		11: "🔴 Example Server: Disk (/home) 91% (1 min average, threshold 85%)",
+		12: "🔴 Example Server: container nginx is not running",
+		13: "🔄 Example Server was rebooted",
+		14: "🔴 Example Server: server unreachable",
+		15: "🟢 Example Server: CPU back to normal",
+		16: "🟢 Example Server: sending data again",
+		17: "🔴 Frankfurt: check location unreachable",
+		18: "🟢 Frankfurt: check location back online",
 	}
 	for i, w := range want {
 		if got := evs[i].Title(); got != w {
@@ -56,10 +59,16 @@ func TestEnglishEvents(t *testing.T) {
 	if txt := evs[3].Text(); !strings.Contains(txt, "Average response: 2840 ms (last 3 checks)") || !strings.Contains(txt, "Threshold: 2000 ms") {
 		t.Errorf("yavaş yanıt ayrıntısı:\n%s", txt)
 	}
-	if txt := evs[11].Text(); !strings.Contains(txt, "Info: Last data: 2026-09-28") || !strings.Contains(txt, "Server: server01") {
+	if txt := evs[14].Text(); !strings.Contains(txt, "Info: Last data: 2026-09-28") || !strings.Contains(txt, "Server: server01") {
 		t.Errorf("çevrimdışı ayrıntısı:\n%s", txt)
 	}
-	if txt := evs[14].Text(); !strings.Contains(txt, "Check location: ") || !strings.Contains(txt, "Info: Last data: 2026-09-28") {
+	if txt := evs[12].Text(); !strings.Contains(txt, "Container: nginx") || !strings.Contains(txt, "Info: exited") {
+		t.Errorf("konteyner ayrıntısı:\n%s", txt)
+	}
+	if txt := evs[13].Text(); !strings.Contains(txt, "Boot time: 2026-09-28") {
+		t.Errorf("yeniden başlatma ayrıntısı:\n%s", txt)
+	}
+	if txt := evs[17].Text(); !strings.Contains(txt, "Check location: ") || !strings.Contains(txt, "Info: Last data: 2026-09-28") {
 		t.Errorf("kontrol noktası ayrıntısı:\n%s", txt)
 	}
 

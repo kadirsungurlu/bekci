@@ -221,6 +221,7 @@ var checkEN = map[string]string{
 	"Bildirim gönderildi":             "Notification sent",
 	"Bildirim gönderilemedi":          "Notification could not be sent",
 	"Bildirim gönderilmedi":           "Notification was not sent",
+	"Konteyner listede yok":           "Container is not in the list",
 	"Bildirim ertelendi":              "Notification deferred",
 	"Bağlı etkin bildirim kanalı yok": "No active notification channel attached",
 	// api.incidentNote (kullanıcı işlemi)

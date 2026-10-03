@@ -222,6 +222,7 @@ const (
 	SkipQuiet     = "quiet"     // sessiz saatler (hatırlatma)
 	SkipCancelled = "cancelled" // ertelenmiş sorun bildirimi, olay kapandığı için iptal
 	SkipDuplicate = "duplicate" // aynı kanala bu olay için zaten gönderilmiş (eskalasyon/gecikme çakışması)
+	SkipLevel     = "level"     // kanal bu sunucuda yalnızca başka seviyeyi alıyor
 )
 
 // deliver kural hattını uygular ve gerekirse gönderir. queueID 0 değilse olay
@@ -245,10 +246,21 @@ func (d *Dispatcher) deliver(ch store.Notification, ev Event, queueID int64) {
 		d.incidentEvent(ev, dd)
 		finish()
 	}
-	// 1. Olay türü süzgeci.
+	// 1. Olay türü süzgeci; sunucu bağında seviye süzgeci (kanal yalnızca
+	// uyarı ya da yalnızca kritik alıyorsa; düzelmede olayın en yüksek seviyesi de sayılır).
 	if !ch.Accepts(ev.Kind) {
 		skip(SkipFilter)
 		return
+	}
+	if ch.BindLevel != "" && ev.ProbeID != 0 && (ev.Kind == KindServerAlert || ev.Kind == KindServerResolved) {
+		lvl := ev.Level
+		if lvl == "" {
+			lvl = LevelCritical
+		}
+		if ch.BindLevel != lvl && ch.BindLevel != ev.PeakLevel {
+			skip(SkipLevel)
+			return
+		}
 	}
 	// 2. Eşleştirme: kurallı kanalda 🟢 ve hatırlatma yalnızca 🔴 gittiyse.
 	if problem := ProblemOf(ev.Kind); problem != "" && ev.IncidentID != 0 && ch.HasRules() {

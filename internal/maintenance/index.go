@@ -39,7 +39,34 @@ func NewIndex(windows []store.Maintenance, onErr func(store.Maintenance, error))
 	return ix
 }
 
-// InMaintenance monitör t anında bir bakım penceresinde mi?
+// NewServerIndex sunucuları (ajanları) kapsayan etkin pencerelerin dizini:
+// all_servers olanlar ve sunucu bazında seçilenler. Monitör dizininden ayrı
+// kurulur; servers.Service kullanır.
+func NewServerIndex(windows []store.Maintenance, onErr func(store.Maintenance, error)) *Index {
+	ix := &Index{byMonitor: map[int64][]*Schedule{}}
+	for _, w := range windows {
+		if !w.Active || (!w.AllServers && len(w.ServerIDs) == 0) {
+			continue
+		}
+		s, err := Compile(w)
+		if err != nil {
+			if onErr != nil {
+				onErr(w, err)
+			}
+			continue
+		}
+		if w.AllServers {
+			ix.all = append(ix.all, s)
+			continue
+		}
+		for _, id := range w.ServerIDs {
+			ix.byMonitor[id] = append(ix.byMonitor[id], s)
+		}
+	}
+	return ix
+}
+
+// InMaintenance monitör (sunucu dizininde: ajan) t anında bir bakım penceresinde mi?
 func (ix *Index) InMaintenance(monitorID int64, t time.Time) bool {
 	if ix == nil {
 		return false

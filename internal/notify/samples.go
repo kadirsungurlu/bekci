@@ -68,6 +68,13 @@ func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	cert.CertDays, cert.CertExpires, cert.CertIssuer = 7, now.AddDate(0, 0, 7), n.CertIssuer
 
 	cpu := srv(KindServerAlert, "cpu", 94, 90, 10)
+	cpu.Level = LevelCritical
+	cpuWarn := srv(KindServerAlert, "cpu", 82, 80, 10)
+	cpuWarn.Level = LevelWarning
+	cont := srv(KindServerAlert, "container", 0, 0, 1)
+	cont.Mount, cont.Message = "nginx", "exited"
+	reboot := srv(KindServerReboot, "reboot", 0, 0, 0)
+	reboot.BootTime = now.Add(-90 * time.Second)
 	mem := srv(KindServerAlert, "mem", 92, 90, 10)
 	disk := srv(KindServerAlert, "disk", 91, 85, 1)
 	disk.Mount = mount
@@ -80,5 +87,5 @@ func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	probeOn := probeOff
 	probeOn.Kind, probeOn.LastSeen, probeOn.Downtime = KindProbeOnline, time.Time{}, 7*time.Minute
 
-	return []Event{down, reminder, up, slow, slowOK, locDown, locUp, cert, cpu, mem, disk, offline, cpuOK, offlineOK, probeOff, probeOn}
+	return []Event{down, reminder, up, slow, slowOK, locDown, locUp, cert, cpuWarn, cpu, mem, disk, cont, reboot, offline, cpuOK, offlineOK, probeOff, probeOn}
 }

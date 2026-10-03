@@ -177,6 +177,9 @@ func run() error {
 	// Sunucu takibi: çevrimdışı ajan taraması (30 sn'de bir) ve bildirim bağlantıları.
 	serverMon := apiServer.Servers()
 	serverMon.SetBaseURL(baseURL)
+	if err := serverMon.ReloadMaintenance(ctx); err != nil {
+		log.Error("sunucu bakım pencereleri yüklenemedi", "hata", err)
+	}
 	serverMon.Start(ctx)
 	srv := &http.Server{
 		Addr:              env("ADDR", ":8080"),

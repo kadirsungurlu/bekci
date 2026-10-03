@@ -51,9 +51,14 @@ export const METRICS: Record<ServerMetric, MetricInfo> = {
   temp: metric('temp', 'temp', 80, 5, 1, 150, 1),
   net: metric('net', 'net', 100, 10, 0.1, 1000000, 10),
   offline: metric('offline', 'none', 0, 3, 0, 0, 1),
+  container: metric('container', 'none', 0, 2, 0, 0, 1),
+  reboot: metric('reboot', 'none', 0, 1, 0, 0, 1),
 };
 
-export const METRIC_ORDER: ServerMetric[] = ['offline', 'cpu', 'mem', 'disk', 'swap', 'load', 'temp', 'net'];
+export const METRIC_ORDER: ServerMetric[] = ['offline', 'cpu', 'mem', 'disk', 'swap', 'load', 'temp', 'net', 'container', 'reboot'];
+
+/** Eşik kullanmayan metrikler (offline, container, reboot). */
+export const thresholdless = (m: ServerMetric) => m === 'offline' || m === 'container' || m === 'reboot';
 
 export const metricLabel = (m: ServerMetric) => METRICS[m]?.label ?? m;
 

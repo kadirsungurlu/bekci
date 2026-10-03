@@ -15,12 +15,18 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/kadirsungurlu/bekci/internal/maintenance"
 	"github.com/kadirsungurlu/bekci/internal/metrics"
 	"github.com/kadirsungurlu/bekci/internal/notify"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
+
+// rebootGrace açılış zamanındaki bu kadarlık fark yeniden başlatma sayılmaz
+// (saat kayması / ajanın açılış zamanını yuvarlaması).
+const rebootGrace = 60
 
 const (
 	// Interval ajanın örnek aralığı (sn); iş listesinde metrics_interval olarak gider.
@@ -66,7 +72,28 @@ type Service struct {
 	lastRow map[int64]int64    // son 1 dk satırının zamanı (özet sınırı tespiti)
 	loaded  map[int64]struct{} // history veritabanından yüklendi mi
 
+	// maint sunucuları kapsayan etkin bakım pencereleri (ReloadMaintenance).
+	maint atomic.Pointer[maintenance.Index]
+
 	bg sync.WaitGroup
+}
+
+// ReloadMaintenance bakım pencerelerini okuyup sunucu dizinini yeniler
+// (açılışta ve pencere değişince API çağırır).
+func (s *Service) ReloadMaintenance(ctx context.Context) error {
+	windows, err := s.store.ListMaintenance(ctx)
+	if err != nil {
+		return err
+	}
+	s.maint.Store(maintenance.NewServerIndex(windows, func(w store.Maintenance, err error) {
+		s.log.Error("bakım penceresi derlenemedi", "pencere", w.Title, "hata", err)
+	}))
+	return nil
+}
+
+// InMaintenance sunucu t anında bir bakım penceresinde mi?
+func (s *Service) InMaintenance(probeID int64, t time.Time) bool {
+	return s.maint.Load().InMaintenance(probeID, t)
 }
 
 // sample bellekteki son örnek.
@@ -168,6 +195,7 @@ func (s *Service) Ingest(ctx context.Context, p store.Probe, smp metrics.Sample)
 	if p.Kind != store.ProbeKindServer || !p.Metrics {
 		return nil // kontrol noktası veya metriği kapalı sunucu: yok sayılır
 	}
+	prevHost := hostOf(p)
 	hostInfo := ""
 	if smp.Host != nil {
 		b, err := json.Marshal(smp.Host)
@@ -180,6 +208,10 @@ func (s *Service) Ingest(ctx context.Context, p store.Probe, smp metrics.Sample)
 	s.evalMu.Lock()
 	defer s.evalMu.Unlock()
 	now := s.now()
+	// Yeniden başlatma: açılış zamanı öncekinden ileriye kaydı (tolerans payıyla).
+	if smp.Host != nil && prevHost != nil && prevHost.BootTime > 0 && smp.Host.BootTime > prevHost.BootTime+rebootGrace {
+		s.rebooted(ctx, p, smp.Host, now)
+	}
 
 	if smp.Stats == nil {
 		// Ajan çalışıyor ama metrik toplayamıyor (ör. host bağlanmamış konteyner).
@@ -230,6 +262,23 @@ func (s *Service) Ingest(ctx context.Context, p store.Probe, smp metrics.Sample)
 	}
 	s.publish(ctx, p, rules)
 	return nil
+}
+
+// rebooted sunucunun yeniden başlatıldığını uyarı geçmişine yazar ve "reboot"
+// kuralı açıksa (bakımda değilse) bağlı kanallara bildirir. Olay açılmaz:
+// anlık bir durumdur.
+func (s *Service) rebooted(ctx context.Context, p store.Probe, host *metrics.Host, now time.Time) {
+	s.log.Warn("sunucu yeniden başlatıldı", "sunucu", p.Name, "acilis", time.Unix(host.BootTime, 0).Format(time.RFC3339))
+	if err := s.store.RecordServerEvent(ctx, p.ID, MetricReboot, float64(host.BootTime), now.Unix()); err != nil {
+		s.log.Error("yeniden başlatma kaydı yazılamadı", "sunucu", p.Name, "hata", err)
+	}
+	rule, err := s.store.ServerAlertByMetric(ctx, p.ID, MetricReboot)
+	if err != nil || !rule.Active || s.notifier == nil || s.InMaintenance(p.ID, now) {
+		return
+	}
+	ev := notify.Event{Kind: notify.KindServerReboot, ProbeID: p.ID, MonitorName: p.Name, MonitorType: "server",
+		Metric: MetricReboot, Time: now, URL: s.URL(p.ID), BootTime: time.Unix(host.BootTime, 0), Target: host.Hostname}
+	s.notifier.Notify(ev)
 }
 
 // prevRow t'den önceki son 1 dk satırının zamanı: bellekte yoksa (açılıştan

@@ -42,8 +42,13 @@ func (e Event) mailStatus() (string, mailTone) {
 		key, tone = "cert", toneWarn
 	case KindServerAlert:
 		key, tone = "alert", toneDown
+		if e.IsWarning() {
+			key, tone = "warning", toneWarn
+		}
 	case KindServerResolved:
 		key, tone = "resolved", toneUp
+	case KindServerReboot:
+		key, tone = "reboot", toneWarn
 	case KindLocationDown:
 		key, tone = "location", toneWarn
 	case KindLocationUp:
@@ -62,7 +67,7 @@ func (e Event) mailStatus() (string, mailTone) {
 
 // plainTitle başlığın baştaki emojisiz hali (HTML'de durum rozeti var).
 func plainTitle(s string) string {
-	return strings.TrimSpace(strings.TrimLeft(s, "🔴🟢🟡⚠️✅ "))
+	return strings.TrimSpace(strings.TrimLeft(s, "🔴🟢🟡⚠️✅🔄⏫⏳🌙 "))
 }
 
 // HTML e-posta gövdesi.

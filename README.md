@@ -145,7 +145,11 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
   Docker konteynerleri; Linux ve Windows
 - Uyarılar: çevrimdışı, CPU, RAM, disk, swap, yük, sıcaklık, ağ — pencere
   ortalamasıyla ve histerezisle (eşiğe ulaşınca tetiklenir, eşiğin biraz altına
-  inince kapanır)
+  inince kapanır); isteğe bağlı 🟡 uyarı / 🔴 kritik eşikleri ve kanal başına
+  seviye seçimi (ör. telefon yalnızca kritikte)
+- Konteyner alarmı (belirli bir konteyner ya da herhangi biri durunca),
+  yeniden başlatma tespiti (açılış zamanı değişince bildirim + kayıt) ve
+  sunucuları kapsayan bakım pencereleri (planlı yeniden başlatmada sessizlik)
 
 **Bildirimler**
 - WhatsApp (WP API), Telegram, e-posta, Discord, Slack, Teams, Google Chat,

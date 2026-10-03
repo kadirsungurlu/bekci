@@ -92,6 +92,20 @@ Windows'ta yük ortalaması yaklaşık bir değerdir (işlemci kuyruğundan hesa
 > [!CHECK]
 > Paneldeki kurulum penceresi bir iki dakika içinde **Bağlantı bekleniyor…** durumundan **Bağlandı ✓** durumuna geçer. **Sunucuya git** ile sunucunun sayfasını açın; grafikler dolmaya başlar.
 
+## Uyarı kuralları {#uyari-kurallari}
+
+Sunucu sayfasındaki **Uyarı kuralları** bölümünde hangi durumda bildirim gideceğini belirlersiniz. Yeni sunucuya varsayılan kurallar gelir: 3 dk veri gelmezse çevrimdışı, CPU ve RAM 10 dk ortalaması %90, en dolu disk %85 ve yeniden başlatma. Her kural tek başına açılıp kapatılabilir; kuralı olmayan sunucu için hiç uyarı gönderilmez.
+
+**Uyarı ve kritik eşik.** CPU, RAM, swap, yük, sıcaklık, ağ ve disk kurallarına isteğe bağlı bir **uyarı** eşiği ekleyebilirsiniz (kritik eşikten küçük olmalı). Değer uyarı eşiğini aşınca 🟡 *uyarı*, kritik eşiği aşınca 🔴 *kritik* bildirimi gider; seviye düşünce “kritikten uyarıya indi” notu, eşiğin altına inince 🟢 çözüldü bildirimi gelir. Olay tek kayıt olarak sürer; **Olaylar** sayfasında seviye değişimleri zaman çizelgesinde görünür. Sunucunun **Bildirim kanalları** bölümünde her kanala bir seviye seçebilirsiniz: *hepsi*, *yalnızca uyarı* ya da *yalnızca kritik* — ör. Slack her şeyi alsın, telefon yalnızca kritikte çalsın. Çözüldü bildirimi, olayın ulaştığı en yüksek seviyeyi alan kanallara gider.
+
+**Konteyner alarmı.** *Konteyner* metriği bir Docker konteyneri çalışmayı bırakınca bildirir. Ad kutusunu boş bırakırsanız sunucuda daha önce görülen **herhangi bir** konteynerin durması alarmı tetikler; belirli bir ad yazarsanız (sunucudaki adlar listede önerilir) yalnızca o konteyner izlenir ve ad artık hiç görünmüyorsa da (silinmişse) alarm açılır. Süre, konteynerin kaç dakika çalışmıyor sayılacağını belirler; ajan yeniden başlatılan konteyneri saniyeler içinde “çalışıyor” görürse alarm açılmaz. Docker verisi gelmeyen sunucularda (Windows, Docker soketi bağlanmamış ajan) bu kural sessiz kalır, yanlış alarm üretmez. Durmuş konteynerler sunucu sayfasındaki konteyner tablosunda **durdu** rozetiyle listelenir; bu sürümle gelen ajan durmuş konteynerleri de bildirir; eski sürüm ajanlarla yalnızca çalışanlar görünür ve kural, ad kaybolunca tetiklenir (bkz. [güncelleme](#guncelleme)).
+
+**Yeniden başlatma tespiti.** *Yeniden başlatma* kuralı sunucunun açılış zamanı ileri kayınca (en az 60 saniye) “🔁 *Ad* yeniden başlatıldı” bildirimi gönderir ve sunucu sayfasının **Olaylar** listesine açılış zamanıyla birlikte bir satır ekler. Bu anlık bir bildirimdir, açık olay oluşturmaz ve çözüldü mesajı gelmez. Bildirim istemiyor ama kaydı görmek istiyorsanız kuralı kapatın: yeniden başlatma yine listeye yazılır.
+
+### Sunucu bakımı {#sunucu-bakimi}
+
+Planlı bir yeniden başlatma ya da güncelleme öncesinde **Bakım pencereleri** sayfasında bir pencere açıp **Etkilenen sunucular** bölümünden sunucuları (ya da *Tüm sunucular*) seçin; aynı pencerede monitör seçmek zorunlu değildir. Pencere sürerken seçili sunucularda yeni uyarı açılmaz, çevrimdışı ve yeniden başlatma bildirimi gitmez; sunucu listesinde ve ayrıntı sayfasında **Bakımda** rozeti görünür. Daha önce açılmış bir uyarı bakımda da çözülebilir (🟢 bildirimi gider). Pencere bitince izleme kaldığı yerden devam eder; o sırada hâlâ eşiğin üstünde olan metrikler normal süre dolunca uyarı açar.
+
 ## Kontrol noktası kurun {#kontrol-noktasi}
 
 Kontrol noktası, monitörlerinizi başka bir şehirden ya da ağdan da kontrol eder. Böylece bir kesintinin yalnızca bir konumdan mı yoksa her yerden mi görüldüğünü anlarsınız.

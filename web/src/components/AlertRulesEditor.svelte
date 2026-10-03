@@ -4,7 +4,7 @@
   import { onMount, untrack } from 'svelte';
   import { guardUnsaved } from '../lib/forms';
   import { api, errorMessage, type AlertRule, type AlertRuleInput, type ServerMetric } from '../lib/api';
-  import { METRICS, METRIC_ORDER, UNIT_LABELS, fmtMetric, metricLabel } from '../lib/servers.svelte';
+  import { METRICS, METRIC_ORDER, UNIT_LABELS, fmtMetric, metricLabel, thresholdless } from '../lib/servers.svelte';
   import { fmtRelative } from '../lib/format';
   import { intlLocale, t } from '../lib/i18n';
   import { clock, toast } from '../lib/ui.svelte';
@@ -15,20 +15,23 @@
     rules,
     canEdit,
     mounts = [],
+    containers = [],
     onsaved,
   }: {
     serverId: number;
     rules: AlertRule[];
     canEdit: boolean;
     mounts?: string[]; // sunucudaki disk bölümleri (disk kuralının bölüm seçimi için)
+    containers?: string[]; // sunucudaki konteyner adları (konteyner kuralının ad seçimi için)
     onsaved: (rules: AlertRule[]) => void;
   } = $props();
 
   interface Row {
     key: number;
     metric: ServerMetric;
-    mount: string; // disk: bölüm ("" = en dolu bölüm)
+    mount: string; // disk: bölüm ("" = en dolu bölüm); container: konteyner adı ("" = herhangi biri)
     threshold: number;
+    warn: number; // uyarı eşiği (0 = yok)
     minutes: number;
     active: boolean;
   }
@@ -40,6 +43,7 @@
       metric: r.metric,
       mount: r.mount ?? '',
       threshold: r.threshold,
+      warn: r.warn_threshold ?? 0,
       minutes: r.minutes,
       active: r.active,
     }));
@@ -59,7 +63,7 @@
   // kullanıcı düzenlerken gelen yenileme onun değişikliklerini ezmez.
   let lastSig = '';
   $effect(() => {
-    const sig = JSON.stringify(sortRules(rules).map((r) => [r.metric, r.mount ?? '', r.threshold, r.minutes, r.active]));
+    const sig = JSON.stringify(sortRules(rules).map((r) => [r.metric, r.mount ?? '', r.threshold, r.warn_threshold ?? 0, r.minutes, r.active]));
     untrack(() => {
       if (sig !== lastSig && !dirtyNow()) {
         rows = toRows(rules);
@@ -69,8 +73,8 @@
     lastSig = sig;
   });
 
-  const origSig = $derived(JSON.stringify(sortRules(rules).map((r) => [r.metric, r.mount ?? '', +r.threshold, +r.minutes, r.active])));
-  const curSig = $derived(JSON.stringify(sortRules(rows).map((r) => [r.metric, r.mount, +r.threshold, +r.minutes, r.active])));
+  const origSig = $derived(JSON.stringify(sortRules(rules).map((r) => [r.metric, r.mount ?? '', +r.threshold, +(r.warn_threshold ?? 0), +r.minutes, r.active])));
+  const curSig = $derived(JSON.stringify(sortRules(rows).map((r) => [r.metric, r.mount, +r.threshold, +r.warn, +r.minutes, r.active])));
   const dirty = $derived(curSig !== origSig);
   function dirtyNow() {
     return rows.length > 0 && curSig !== origSig;
@@ -84,13 +88,31 @@
   // bölümler ve şu an görünmeyen ama kuralı olan bölümler.
   const mountOptions = $derived(['', ...new Set([...mounts, ...rows.filter((r) => r.metric === 'disk').map((r) => r.mount)].filter(Boolean))]);
   const freeMount = $derived(mountOptions.find((m) => !used.has(ruleKey({ metric: 'disk', mount: m }))));
-  const free = $derived(METRIC_ORDER.filter((m) => (m === 'disk' ? freeMount !== undefined : !used.has(ruleKey({ metric: m, mount: '' })))));
+  // Konteyner kuralı: "herhangi biri" ve sunucudaki konteyner adları (kuralı olanlar dahil).
+  const containerOptions = $derived(['', ...new Set([...containers, ...rows.filter((r) => r.metric === 'container').map((r) => r.mount)].filter(Boolean))]);
+  const freeContainer = $derived(containerOptions.find((m) => !used.has(ruleKey({ metric: 'container', mount: m }))));
+  const free = $derived(
+    METRIC_ORDER.filter((m) =>
+      m === 'disk' ? freeMount !== undefined : m === 'container' ? freeContainer !== undefined : !used.has(ruleKey({ metric: m, mount: '' })),
+    ),
+  );
 
   function add() {
     const m = free[0];
     if (!m) return;
     const info = METRICS[m];
-    rows = [...rows, { key: ++seq, metric: m, mount: m === 'disk' ? (freeMount ?? '') : '', threshold: info.threshold, minutes: info.minutes, active: true }];
+    rows = [
+      ...rows,
+      {
+        key: ++seq,
+        metric: m,
+        mount: m === 'disk' ? (freeMount ?? '') : m === 'container' ? (freeContainer ?? '') : '',
+        threshold: info.threshold,
+        warn: 0,
+        minutes: info.minutes,
+        active: true,
+      },
+    ];
   }
 
   function remove(key: number) {
@@ -102,24 +124,34 @@
     // Birim değişiyorsa (ör. % → °C) önerilen eşiğe geç.
     if (METRICS[r.metric].unit !== info.unit) r.threshold = info.threshold;
     r.metric = m;
-    r.mount = m === 'disk' ? (freeMount ?? '') : '';
-    if (m === 'offline') r.threshold = 0;
+    r.mount = m === 'disk' ? (freeMount ?? '') : m === 'container' ? (freeContainer ?? '') : '';
+    if (thresholdless(m)) r.threshold = 0;
+    r.warn = 0;
+    if (m === 'reboot') r.minutes = 1;
   }
 
   // Hatalı alan (kutuyu kırmızı çizmek için) ve mesajı.
-  type RowError = { field: 'minutes' | 'threshold' | 'dup'; msg: string } | null;
+  type RowError = { field: 'minutes' | 'threshold' | 'warn' | 'dup' | 'name'; msg: string } | null;
   function rowError(r: Row): RowError {
     const info = METRICS[r.metric];
     const min = Number(r.minutes);
-    if (!Number.isInteger(min) || min < 1 || min > 60) return { field: 'minutes', msg: t('alerts.err.minutes') };
+    if (r.metric !== 'reboot' && (!Number.isInteger(min) || min < 1 || min > 60)) return { field: 'minutes', msg: t('alerts.err.minutes') };
     if (rows.some((o) => o !== r && ruleKey(o) === ruleKey(r))) {
       return {
         field: 'dup',
-        msg: r.metric === 'disk' ? t('alerts.err.dupDisk', { mount: mountLabel(r.mount) }) : t('alerts.err.dup'),
+        msg:
+          r.metric === 'disk'
+            ? t('alerts.err.dupDisk', { mount: mountLabel(r.mount) })
+            : r.metric === 'container'
+              ? t('alerts.err.dupContainer', { name: r.mount || t('alerts.anyContainer') })
+              : t('alerts.err.dup'),
       };
     }
-    if (r.metric === 'offline') return null;
+    if (r.metric === 'container' && r.mount && !/^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/.test(r.mount)) return { field: 'name', msg: t('alerts.err.containerName') };
+    if (thresholdless(r.metric)) return null;
     const v = Number(r.threshold);
+    const w = Number(r.warn);
+    if (r.warn !== 0 && r.warn !== null && (!Number.isFinite(w) || w < info.min || w >= v)) return { field: 'warn', msg: t('alerts.err.warn') };
     if (!Number.isFinite(v) || v < info.min || v > info.max) {
       const num = (n: number) => n.toLocaleString(intlLocale());
       return {
@@ -146,9 +178,10 @@
     try {
       const body: AlertRuleInput[] = rows.map((r) => ({
         metric: r.metric,
-        mount: r.metric === 'disk' ? r.mount : '',
-        threshold: r.metric === 'offline' ? 0 : Number(r.threshold),
-        minutes: Number(r.minutes),
+        mount: r.metric === 'disk' || r.metric === 'container' ? r.mount : '',
+        threshold: thresholdless(r.metric) ? 0 : Number(r.threshold),
+        warn_threshold: thresholdless(r.metric) ? 0 : Number(r.warn) || 0,
+        minutes: r.metric === 'reboot' ? 1 : Number(r.minutes),
         active: r.active,
       }));
       const saved = await api.putServerAlerts(serverId, body);
@@ -170,10 +203,14 @@
     showErrors = false;
   }
 
-  function sentence(r: { metric: ServerMetric; threshold: number; minutes: number }): string {
+  function sentence(r: { metric: ServerMetric; threshold: number; minutes: number; warn_threshold?: number; mount?: string }): string {
     if (r.metric === 'offline') return t('alerts.sentOffline', { n: r.minutes });
-    return t('alerts.sentOver', { n: r.minutes, v: fmtMetric(r.metric, r.threshold) });
+    if (r.metric === 'reboot') return t('alerts.sentReboot');
+    if (r.metric === 'container') return t('alerts.sentContainer', { n: r.minutes, name: r.mount || t('alerts.anyContainer') });
+    const s = t('alerts.sentOver', { n: r.minutes, v: fmtMetric(r.metric, r.threshold) });
+    return r.warn_threshold ? `${s} · ${t('alerts.sentWarn', { v: fmtMetric(r.metric, r.warn_threshold) })}` : s;
   }
+  const levelBadge = (r: AlertRule) => (r.level === 'warning' ? t('servers.levels.warning') : r.level === 'critical' && r.warn_threshold ? t('servers.levels.critical') : '');
 </script>
 
 {#if !canEdit}
@@ -183,10 +220,10 @@
     <ul class="ro">
       {#each sortRules(rules) as r (r.id)}
         <li class:firing={r.firing} class:off={!r.active}>
-          <span class="rm">{metricLabel(r.metric)}{#if r.metric === 'disk'}<span class="mnt" class:path={!!r.mount}>{mountLabel(r.mount ?? '')}</span>{/if}</span>
+          <span class="rm">{metricLabel(r.metric)}{#if r.metric === 'disk'}<span class="mnt" class:path={!!r.mount}>{mountLabel(r.mount ?? '')}</span>{:else if r.metric === 'container'}<span class="mnt path">{r.mount || t('alerts.anyContainer')}</span>{/if}</span>
           <span class="rs">{sentence(r)}</span>
           {#if r.firing}
-            <span class="badge pending">{t('alerts.firing')}{r.fired_at ? ` · ${fmtRelative(r.fired_at, clock.now)}` : ''}</span>
+            <span class="badge {r.level === 'warning' ? 'pending' : 'down'}">{t('alerts.firing')}{levelBadge(r) ? ` · ${levelBadge(r)}` : ''}{r.fired_at ? ` · ${fmtRelative(r.fired_at, clock.now)}` : ''}</span>
           {:else if !r.active}
             <span class="badge paused">{t('common.off')}</span>
           {/if}
@@ -220,9 +257,23 @@
                 <option value={mo} disabled={mo !== r.mount && used.has(ruleKey({ metric: 'disk', mount: mo }))}>{mountLabel(mo)}</option>
               {/each}
             </select>
+          {:else if r.metric === 'container'}
+            <input
+              class="input msel mount"
+              class:invalid={err?.field === 'name'}
+              list="ct-names-{serverId}"
+              placeholder={t('alerts.anyContainer')}
+              aria-label={t('alerts.aria.container', { ctx })}
+              bind:value={r.mount}
+              autocapitalize="none"
+              spellcheck="false"
+            />
+            <datalist id="ct-names-{serverId}">
+              {#each containerOptions.filter(Boolean) as co (co)}<option value={co}></option>{/each}
+            </datalist>
           {/if}
 
-          {#if r.metric !== 'offline'}
+          {#if !thresholdless(r.metric)}
             <span class="w" title={t('alerts.geTitle')} aria-hidden="true">≥</span>
             <label class="unitbox" class:wide={info.unit === 'load' || info.unit === 'net'}>
               {#if info.unit === 'pct'}<span class="u pre">%</span>{/if}
@@ -239,9 +290,27 @@
               />
               {#if info.unit !== 'pct'}<span class="u">{UNIT_LABELS[info.unit]}</span>{/if}
             </label>
+            <label class="unitbox warnbox" class:wide={info.unit === 'load' || info.unit === 'net'} title={t('alerts.warnTitle')}>
+              <span class="u pre wl">{t('alerts.warnShort')}</span>
+              {#if info.unit === 'pct'}<span class="u pre">%</span>{/if}
+              <input
+                class="input num"
+                class:invalid={err?.field === 'warn'}
+                type="number"
+                inputmode="decimal"
+                min="0"
+                max={info.max}
+                step={info.step}
+                placeholder="—"
+                bind:value={r.warn}
+                aria-label={t('alerts.aria.warn', { ctx, unit: UNIT_LABELS[info.unit] })}
+              />
+              {#if info.unit !== 'pct'}<span class="u">{UNIT_LABELS[info.unit]}</span>{/if}
+            </label>
             <span class="w sep">·</span>
           {/if}
-          <label class="unitbox">
+          {#if r.metric !== 'reboot'}
+            <label class="unitbox">
               <input
                 class="input num sm"
                 class:invalid={err?.field === 'minutes'}
@@ -253,8 +322,11 @@
                 bind:value={r.minutes}
                 aria-label={t('alerts.aria.minutes', { ctx })}
               />
-              <span class="u">{r.metric === 'offline' ? t('alerts.unitNoData') : t('alerts.unitAvg')}</span>
+              <span class="u">{r.metric === 'offline' ? t('alerts.unitNoData') : r.metric === 'container' ? t('alerts.unitNotRunning') : t('alerts.unitAvg')}</span>
             </label>
+          {:else}
+            <span class="rs reboot-note">{t('alerts.sentReboot')}</span>
+          {/if}
         </div>
         <div class="rr">
           {#if orig?.firing}
@@ -274,6 +346,7 @@
         </div>
         {#if err}<div class="rerr">{err.msg}</div>{:else}<div class="rdesc">
             {r.metric === 'disk' && r.mount ? t('alerts.mountUsage', { mount: r.mount }) : info.desc}
+            {#if !thresholdless(r.metric) && Number(r.warn) > 0}· {t('alerts.warnDesc', { v: fmtMetric(r.metric, Number(r.warn)) })}{/if}
           </div>{/if}
       </div>
     {:else}
@@ -411,6 +484,20 @@
     font-weight: 600;
     color: var(--muted);
     margin-right: -2px;
+  }
+  .u.wl {
+    font-weight: 500;
+    font-size: 0.78rem;
+    text-transform: lowercase;
+    margin-right: 0;
+  }
+  .warnbox {
+    margin-left: 4px;
+    padding-left: 8px;
+    border-left: 1px dashed var(--border);
+  }
+  .reboot-note {
+    font-style: italic;
   }
   .fire {
     gap: 4px;

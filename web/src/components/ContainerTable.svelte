@@ -2,7 +2,7 @@
   // Docker konteynerleri: sütuna göre sıralanır, 10'dan fazlaysa filtre kutusu çıkar.
   import type { ContainerInfo } from '../lib/api';
   import { collator, fmtBytes, fmtRate, lower } from '../lib/format';
-  import { t } from '../lib/i18n';
+  import { t, tOr } from '../lib/i18n';
   import { fmtPct1, metricLabel } from '../lib/servers.svelte';
   import Icon from './Icon.svelte';
 
@@ -71,8 +71,12 @@
     {/each}
   </div>
   {#each shown as c (c.id || c.name)}
-    <div class="crow" role="row">
-      <span class="c-name" role="cell" title={c.name}>{c.name}</span>
+    {@const stopped = !!c.state && c.state !== 'running'}
+    <div class="crow" role="row" class:stopped>
+      <span class="c-name" role="cell" title={c.name}>
+        {c.name}
+        {#if stopped}<span class="badge {c.state === 'restarting' ? 'pending' : 'down'} st">{tOr(`servers.containerStates.${c.state}`, c.state ?? '')}</span>{/if}
+      </span>
       <span class="c-cpu" role="cell"><span class="ml">{metricLabel('cpu')}</span>{fmtPct1(c.cpu)}</span>
       <span class="c-mem" role="cell">
         <span class="ml">{metricLabel('mem')}</span>{fmtBytes(c.mem)}{#if c.mem_limit}<span class="lim">&nbsp;/ {fmtBytes(c.mem_limit)}</span>{/if}
@@ -164,6 +168,14 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .c-name .st {
+    margin-left: 6px;
+    font-size: 0.7rem;
+    vertical-align: middle;
+  }
+  .crow.stopped {
+    opacity: 0.7;
   }
   .c-rx,
   .c-tx,

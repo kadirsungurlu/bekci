@@ -143,6 +143,7 @@
               <div class="n1">
                 <span class="name">{s.name}</span>
                 {#each fl as l (l)}<span class="badge pending fire" title={t('servers.list.firingTitle', { metric: l })}><Icon name="alert" size={11} /> {l}</span>{/each}
+                {#if s.in_maintenance}<span class="badge maintenance fire" title={t('servers.inMaintenanceHint')}><Icon name="wrench" size={11} /> {t('servers.inMaintenance')}</span>{/if}
               </div>
               {#if s.state === 'offline'}
                 <div class="sub c-down">{t('servers.list.offlineSince', { ago: fmtRelative(s.metrics_at, clock.now) })}</div>

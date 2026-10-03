@@ -211,24 +211,36 @@ func Normalize(m *store.Maintenance, now time.Time) error {
 		}
 	}
 
+	uniq := func(in []int64) []int64 {
+		out := make([]int64, 0, len(in))
+		seen := map[int64]bool{}
+		for _, id := range in {
+			if !seen[id] {
+				seen[id] = true
+				out = append(out, id)
+			}
+		}
+		return out
+	}
 	if m.AllMonitors {
 		m.MonitorIDs = []int64{}
 	} else {
-		ids := make([]int64, 0, len(m.MonitorIDs))
-		seen := map[int64]bool{}
-		for _, id := range m.MonitorIDs {
-			if !seen[id] {
-				seen[id] = true
-				ids = append(ids, id)
-			}
-		}
-		if len(ids) == 0 {
-			return invalid("En az bir monitör seçin veya tüm monitörleri seçin")
-		}
-		if len(ids) > maxMonitors {
+		m.MonitorIDs = uniq(m.MonitorIDs)
+		if len(m.MonitorIDs) > maxMonitors {
 			return invalid("En fazla %d monitör seçilebilir", maxMonitors)
 		}
-		m.MonitorIDs = ids
+	}
+	// Sunucular (migration 26): pencere monitörleri, sunucuları ya da ikisini kapsar.
+	if m.AllServers {
+		m.ServerIDs = []int64{}
+	} else {
+		m.ServerIDs = uniq(m.ServerIDs)
+		if len(m.ServerIDs) > maxMonitors {
+			return invalid("En fazla %d sunucu seçilebilir", maxMonitors)
+		}
+	}
+	if !m.AllMonitors && len(m.MonitorIDs) == 0 && !m.AllServers && len(m.ServerIDs) == 0 {
+		return invalid("En az bir monitör ya da sunucu seçin veya tüm monitörleri seçin")
 	}
 	return nil
 }

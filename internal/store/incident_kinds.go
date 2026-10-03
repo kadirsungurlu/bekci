@@ -429,14 +429,20 @@ func (s *Store) OpenMonitorIncidents(ctx context.Context) (map[int64]int64, erro
 
 // ServerIncidentData sunucu olayının verisi.
 type ServerIncidentData struct {
-	Metric    string  `json:"metric"`              // cpu, mem, … veya offline
-	Mount     string  `json:"mount,omitempty"`     // disk uyarısında bölüm
+	Metric    string  `json:"metric"`              // cpu, mem, … , container veya offline
+	Mount     string  `json:"mount,omitempty"`     // disk uyarısında bölüm; container'da konteyner adı
 	Threshold float64 `json:"threshold,omitempty"` // eşik (offline: yok)
 	Minutes   int     `json:"minutes"`             // ortalama penceresi / çevrimdışı süresi
 	Value     float64 `json:"value"`               // başlangıçtaki değer (offline: veri gelmeyen dakika)
 	Peak      float64 `json:"peak"`                // olay boyunca en yüksek ortalama
 	Last      float64 `json:"last"`                // son (kapanışta: kapanış) ortalaması
 	LastSeen  int64   `json:"last_seen,omitempty"` // offline: son verinin zamanı
+	// Level uyarının seviyesi (warning | critical; eski olaylarda boş = kritik);
+	// PeakLevel olay boyunca ulaşılan en yüksek seviye. State: container
+	// metriğinde konteynerin durumu (exited, restarting…; boş: listede yok).
+	Level     string `json:"level,omitempty"`
+	PeakLevel string `json:"peak_level,omitempty"`
+	State     string `json:"state,omitempty"`
 }
 
 // ServerIncidentCause sunucu olayının neden metni (dilde): "Sunucudan veri
@@ -447,6 +453,13 @@ func ServerIncidentCause(lang, kind string, d ServerIncidentData) string {
 	}
 	if kind == IncidentServerOffline || d.Metric == "offline" {
 		return i18n.T(lang, "incident.server.offline")
+	}
+	if d.Metric == "container" {
+		state := d.State
+		if state == "" {
+			state = i18n.T(lang, "incident.server.container_missing")
+		}
+		return i18n.T(lang, "incident.server.container", d.Mount, state)
 	}
 	name := d.Metric
 	if i18n.Has("metric." + d.Metric) {
@@ -483,6 +496,16 @@ func openServerIncidentTx(ctx context.Context, tx *Tx, a ServerAlert, value floa
 	if kind == IncidentServerOffline {
 		d.Threshold, d.Peak, d.Last = 0, 0, 0
 	}
+	if a.Level != "" {
+		d.Level, d.PeakLevel = a.Level, a.Level
+		if a.Level == LevelWarning {
+			d.Threshold = a.WarnThreshold
+		}
+	}
+	if a.Metric == "container" {
+		d.Threshold, d.Peak, d.Last, d.Value = 0, 0, 0, 0
+		d.State = containerStateOf(value)
+	}
 	data := EventData(d)
 	cause := ServerIncidentCause(i18n.TR, kind, d)
 	id, err := insertID(ctx, tx, `
@@ -495,6 +518,72 @@ func openServerIncidentTx(ctx context.Context, tx *Tx, a ServerAlert, value floa
 		"INSERT INTO incident_events (incident_id, time, kind, location, message, data) VALUES (?, ?, ?, '', ?, '')",
 		id, now, EventDown, cause)
 	return err
+}
+
+// Konteyner durumları değer olarak taşınır (FireServerAlertAt sayısal değer alır).
+const (
+	ContainerStateMissing    = 0 // listede yok (silinmiş ya da eski ajan)
+	ContainerStateExited     = 1
+	ContainerStateRestarting = 2
+	ContainerStateOther      = 3 // paused, dead, created…
+)
+
+// ContainerStateCode durum metnini değere çevirir.
+func ContainerStateCode(state string) float64 {
+	switch state {
+	case "":
+		return ContainerStateMissing
+	case "exited":
+		return ContainerStateExited
+	case "restarting":
+		return ContainerStateRestarting
+	}
+	return ContainerStateOther
+}
+
+func containerStateOf(v float64) string {
+	switch int(v) {
+	case ContainerStateExited:
+		return "exited"
+	case ContainerStateRestarting:
+		return "restarting"
+	case ContainerStateOther:
+		return "stopped"
+	}
+	return ""
+}
+
+// EventLevel işlem geçmişi: uyarının seviyesi değişti (data.level, data.value).
+const EventLevel = "level"
+
+// SetServerIncidentLevel tetiklenmiş kuralın açık olayının seviyesini değiştirir
+// (uyarı ↔ kritik) ve işlem geçmişine yazar.
+func (s *Store) SetServerIncidentLevel(ctx context.Context, alertID int64, level string, v float64, now int64) error {
+	var id int64
+	var raw string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, data FROM incidents WHERE alert_id = ? AND kind = ? AND resolved_at IS NULL
+		ORDER BY id DESC LIMIT 1`, alertID, IncidentServerAlert).Scan(&id, &raw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	d := ParseServerIncidentData(json.RawMessage(raw))
+	if d.Level == level {
+		return nil
+	}
+	d.Level, d.Last = level, v
+	d.Peak = max(d.Peak, v)
+	if level == LevelCritical || d.PeakLevel == "" {
+		d.PeakLevel = level
+	}
+	if err := s.SetIncidentData(ctx, id, EventData(d)); err != nil {
+		return err
+	}
+	return s.AddIncidentEvents(ctx, id, IncidentEvent{Time: now, Kind: EventLevel,
+		Message: i18n.T(i18n.TR, "incident.server.level_"+level), Data: EventData(map[string]any{"level": level, "value": v})})
 }
 
 // ServerIncidentResolveRule kural silinince veya kapatılınca yazılan çözülme notu.

@@ -44,11 +44,18 @@
   const activeCount = $derived(list.filter((m) => m.status === 'active').length);
 
   function monitorsText(m: Maintenance): string {
-    if (m.all_monitors) return t('maintenance.list.allMonitors');
-    const names = m.monitor_ids.map((id) => live.byId(id)?.name).filter(Boolean) as string[];
-    if (names.length === 0) return t('maintenance.list.monitorCount', { count: m.monitor_ids.length });
-    if (names.length <= 3) return names.join(', ');
-    return t('maintenance.list.moreMonitors', { names: names.slice(0, 3).join(', '), count: m.monitor_ids.length - 3 });
+    const parts: string[] = [];
+    if (m.all_monitors) parts.push(t('maintenance.list.allMonitors'));
+    else if (m.monitor_ids.length) {
+      const names = m.monitor_ids.map((id) => live.byId(id)?.name).filter(Boolean) as string[];
+      if (names.length === 0) parts.push(t('maintenance.list.monitorCount', { count: m.monitor_ids.length }));
+      else if (names.length <= 3) parts.push(names.join(', '));
+      else parts.push(t('maintenance.list.moreMonitors', { names: names.slice(0, 3).join(', '), count: m.monitor_ids.length - 3 }));
+    }
+    // Sunucular (bakım penceresi ajanları da kapsayabilir).
+    if (m.all_servers) parts.push(t('maintenance.list.allServers'));
+    else if (m.server_ids?.length) parts.push(t('maintenance.list.serverCount', { count: m.server_ids.length }));
+    return parts.length ? parts.join(' · ') : t('maintenance.list.noMonitors');
   }
 
   async function toggle(m: Maintenance) {

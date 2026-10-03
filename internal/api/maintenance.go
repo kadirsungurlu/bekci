@@ -42,6 +42,9 @@ type maintenanceInput struct {
 	DurationMinutes int     `json:"duration_minutes"`
 	AllMonitors     bool    `json:"all_monitors"`
 	MonitorIDs      []int64 `json:"monitor_ids"`
+	// Sunucular (eski istemci göndermezse: sunucu kapsanmaz).
+	AllServers bool    `json:"all_servers"`
+	ServerIDs  []int64 `json:"server_ids"`
 }
 
 type maintenanceView struct {
@@ -70,7 +73,14 @@ func visibleMaintenance(vis visibility, m store.Maintenance) (store.Maintenance,
 		}
 	}
 	m.MonitorIDs = ids
-	return m, m.AllMonitors || len(ids) > 0
+	sids := []int64{}
+	for _, id := range m.ServerIDs {
+		if vis.canServer(id) {
+			sids = append(sids, id)
+		}
+	}
+	m.ServerIDs = sids
+	return m, m.AllMonitors || len(ids) > 0 || m.AllServers || len(sids) > 0
 }
 
 func (s *Server) listMaintenance(w http.ResponseWriter, r *http.Request) {
@@ -115,7 +125,7 @@ func (s *Server) toMaintenance(w http.ResponseWriter, r *http.Request, in mainte
 		Strategy: in.Strategy, Timezone: in.Timezone, Start: in.Start, End: in.End,
 		Weekdays: in.Weekdays, StartTime: in.StartTime, EndTime: in.EndTime,
 		DateFrom: in.DateFrom, DateTo: in.DateTo, Cron: in.Cron, DurationMinutes: in.DurationMinutes,
-		AllMonitors: in.AllMonitors, MonitorIDs: in.MonitorIDs,
+		AllMonitors: in.AllMonitors, MonitorIDs: in.MonitorIDs, AllServers: in.AllServers, ServerIDs: in.ServerIDs,
 	}
 	if err := maintenance.Normalize(&m, s.now()); err != nil {
 		var ve maintenance.ValidationError
@@ -137,15 +147,31 @@ func (s *Server) toMaintenance(w http.ResponseWriter, r *http.Request, in mainte
 			return m, false
 		}
 	}
+	if len(m.ServerIDs) > 0 {
+		probes, err := s.store.ProbesByIDs(r.Context(), m.ServerIDs)
+		if err != nil {
+			s.dbError(w, err)
+			return m, false
+		}
+		for _, id := range m.ServerIDs {
+			if p, ok := probes[id]; !ok || p.Kind != store.ProbeKindServer {
+				writeError(w, http.StatusBadRequest, "Seçilen sunuculardan biri bulunamadı")
+				return m, false
+			}
+		}
+	}
 	return m, true
 }
 
-// maintenanceChanged motorun bellekteki bakım dizinini yeniler ve canlı akışa
-// haber verir (arayüz listeyi ve "bakımda" rozetlerini yeniden yükler).
-// Olay monitöre bağlı olmadığından kısıtlı izleyicilere gitmez.
+// maintenanceChanged motorun ve sunucu takibinin bellekteki bakım dizinini
+// yeniler ve canlı akışa haber verir (arayüz listeyi ve "bakımda" rozetlerini
+// yeniden yükler). Olay monitöre bağlı olmadığından kısıtlı izleyicilere gitmez.
 func (s *Server) maintenanceChanged(r *http.Request, id int64) {
 	if err := s.engine.ReloadMaintenance(r.Context()); err != nil {
 		s.log.Error("bakım pencereleri yenilenemedi", "hata", err)
+	}
+	if err := s.servers.ReloadMaintenance(r.Context()); err != nil {
+		s.log.Error("sunucu bakım pencereleri yenilenemedi", "hata", err)
 	}
 	s.hub.Publish("maintenance", map[string]any{"maintenance_id": id})
 }
