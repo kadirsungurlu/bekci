@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
@@ -103,7 +104,10 @@ func TestPagePasswordLockoutPerIP(t *testing.T) {
 
 // Bulgu (D-8): /api/push/{token} hız sınırsızdı. IP başına dakikalık sınır.
 func TestPushRateLimit(t *testing.T) {
-	e := newEnv(t)
+	// Sabit saat: sayaç takvim dakikasına bağlı; gerçek saatle 300 istek
+	// dakika sınırını aşarsa pencere sıfırlanır ve test rastgele düşer.
+	fixed := time.Date(2026, 1, 1, 12, 0, 10, 0, time.UTC)
+	e := newEnv(t, func(s *Server) { s.now = func() time.Time { return fixed } })
 	hdr := map[string]string{"X-Forwarded-For": "203.0.113.9"}
 	for i := 0; i < pushPerMinute; i++ {
 		if code, _, _ := e.rawReq("GET", "/api/push/gecersiz-token", hdr, nil); code != http.StatusNotFound {
