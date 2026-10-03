@@ -133,7 +133,11 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
   "Yeni monitör" formunda
 - SSL sertifika ve alan adı (RDAP) bitiş uyarıları, tekrar deneme, kesinti
   hatırlatması, ters mod
-- Monitör grupları, etiketler, bakım pencereleri
+- Yavaş yanıt uyarısı: monitör başına eşik ve pencere; site açıkken yavaşlarsa
+  🟡 "yavaş yanıt" olayı, normale dönünce 🟢 (uptime etkilenmez)
+- Push monitöründe tolerans süresi (grace) ve tek tıkla adres yenileme
+- Monitör grupları, etiketler, bakım pencereleri; ayrıntıda son 50 kontrol
+  (zaman, sonuç, süre, mesaj, konum)
 - Olay geçmişi ve ayrıntısı (kesinti anındaki istek/yanıt yakalaması — yalnızca
   yöneticiler görür), 24 saat / 7 / 30 / 90 gün uptime ve yanıt süresi grafikleri
 - Uzak **kontrol noktaları**: monitörler birden çok konumdan aynı anda kontrol
@@ -158,7 +162,15 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
   Opsgenie ve diğerleri; her kanal için "örnek bildirim gönder"
 - Kanal başına kurallar: olay türü süzgeci, sessiz saatler (yalnızca kritik /
   hiçbiri; ertelenen bildirim pencere bitince gider), gecikme ("N dakika
-  sürerse bildir"), eskalasyon kanalı (N dakikadır açık her olay) ve dil
+  sürerse bildir"), eskalasyon kanalı (N dakikadır açık her olay) ve dil;
+  geçici hatada yeniden deneme
+- Etikete göre bağlama: kanal bir etikete bağlanır, o etiketli her monitör
+  (sonradan eklenenler dahil) kendiliğinden bildirir
+- Kontrol noktası çevrimdışı kalınca 🔴 / dönünce 🟢 bildirimi
+- HTML + düz metin e-posta; webhook'ta isteğe bağlı HMAC imzası
+  (`X-Bekci-Signature`); tarayıcı bildirimi (Web Push, PWA)
+- Olay onaylama ve susturma: onaylı ya da susturulmuş olayda hatırlatma ve
+  eskalasyon gitmez; isteğe bağlı "onaylandı" bildirimi
 
 **Durum sayfaları**
 - Gruplar (katlanabilir), hedef adres gösterimi (yalnızca alan adı), son
@@ -169,12 +181,21 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
 
 **Kullanıcılar**
 - Roller (yönetici / editör / izleyici), yalnızca kendisine atanan
-  monitörleri ve sunucuları gören **müşteri hesapları**, iki adımlı doğrulama
-  (2FA), API anahtarları, işlem kaydı
+  monitörleri ve sunucuları (ya da bir etiketin monitörlerini) gören **müşteri
+  hesapları**, iki adımlı doğrulama (2FA), API anahtarları, işlem kaydı
+  (kullanıcı / işlem / tarih / metin süzgeçleri)
+- Kullanıcı e-postası ve "şifremi unuttum" (sistem e-posta kanalıyla), OpenID
+  Connect ile kurumsal giriş (Google, Microsoft, Keycloak, Authentik…; claim →
+  rol eşlemesi), açık oturumlar listesi ve cihaz kapatma
 
 **Diğer**
-- Canlı güncellenen arayüz (SSE), içe/dışa aktarma, gece otomatik yedek
-- Prometheus `/metrics` ucu (monitör düzeyinde durum, yanıt süresi, uptime);
+- Canlı güncellenen arayüz (SSE), koyu / açık tema, içe/dışa aktarma
+  (isteğe bağlı kullanıcılarla ve parolayla şifreli), gece otomatik yedek,
+  saklama süreleri (olay, istek/yanıt yakalaması, işlem kaydı)
+- Olay listesinde süzgeçler ve CSV dışa aktarımı; OpenAPI 3.1 belgesi
+  (`GET /api/openapi.json`)
+- Prometheus `/metrics` ucu (monitör durumu, yanıt süresi, uptime, sunucu
+  metrikleri, kontrol noktası durumu, açık olay sayıları);
   API anahtarıyla erişilir: `Authorization: Bearer upk_…` ya da Basic kimlik
   (kullanıcı `metrics`, şifre anahtar)
 - Kontrol istekleri tanınabilir bir User-Agent ile gider

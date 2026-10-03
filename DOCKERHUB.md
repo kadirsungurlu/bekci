@@ -37,10 +37,10 @@ Open `http://SERVER:8080` and create the first admin account. For HTTPS with Cad
 - **Uptime checks:** HTTP(S) with keyword/JSON, TCP, ping, DNS, push, Docker, PostgreSQL/MySQL/MSSQL/MongoDB/Redis, MQTT, SNMP, gRPC, WebSocket, TLS certificate.
 - **Multi-location checks:** lightweight agents check from other servers; location outages (some locations down while the monitor is up) are recorded separately.
 - **Server monitoring:** CPU, RAM, per-mount disk, swap, load, temperature, network and Docker containers on Linux and Windows, with alert rules.
-- **24 notification channels:** Telegram, WhatsApp, e-mail, Slack, Discord, Teams, ntfy, PagerDuty, Opsgenie, webhooks and more.
-- **Status pages:** several layouts, custom domain, password protection and per-page language.
-- **Incidents:** timeline plus connection diagnostics, maintenance windows, roles, customer accounts, 2FA and API keys.
-- **Other:** installable as a PWA on phones; import from Uptime Kuma and UptimeRobot.
+- **Notification channels (24 + Web Push):** Telegram, WhatsApp, e-mail (HTML), Slack, Discord, Teams, ntfy, PagerDuty, Opsgenie, signed webhooks and more; per-channel rules (event filter, quiet hours, delay, escalation, language), tag-based binding, slow-response and domain-expiry alerts.
+- **Status pages:** several layouts, custom domain, password protection, per-page language, manual incidents with updates, planned-maintenance block and RSS feed.
+- **Incidents:** timeline plus connection diagnostics, acknowledge/snooze, CSV export, maintenance windows, roles, customer accounts, 2FA, OpenID Connect sign-in, API keys and an OpenAPI document.
+- **Other:** dark/light theme; installable as a PWA on phones; encrypted backups; import from Uptime Kuma and UptimeRobot; Prometheus `/metrics`.
 
 ## Data & configuration
 

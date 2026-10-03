@@ -140,8 +140,14 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
   DNS, Push, Docker container, WebSocket, gRPC, databases (PostgreSQL,
   MySQL/MariaDB, MSSQL, MongoDB, Redis), MQTT, SNMP and more — the full list is
   in the "Yeni monitör" (New monitor) form
-- SSL certificate expiry warnings, retries, outage reminders, upside-down mode
-- Monitor groups, tags, maintenance windows
+- SSL certificate and domain (RDAP) expiry warnings, retries, outage
+  reminders, upside-down mode
+- Slow-response alerts: per-monitor threshold and window; a 🟡 "responding
+  slowly" incident while the site stays up, 🟢 when it recovers (uptime is not
+  affected)
+- Push monitors with a grace period and one-click URL regeneration
+- Monitor groups, tags, maintenance windows; the last 50 checks (time, result,
+  duration, message, location) on the detail page
 - Incident history and details (request/response capture at the time of the
   outage — visible to admins only), 24 hour / 7 / 30 / 90 day uptime and
   response time charts
@@ -165,7 +171,14 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
 - Per-channel rules: event-type filter, quiet hours (critical only / nothing;
   deferred notifications go out when the window ends), delay ("notify if it
   lasts N minutes"), escalation channel (every incident open for N minutes)
-  and language
+  and language; retries on transient errors
+- Tag-based binding: attach a channel to a tag and every monitor with that
+  tag (including ones added later) notifies it automatically
+- 🔴 / 🟢 notifications when a check location goes offline / comes back
+- HTML + plain-text email; optional HMAC signature on webhooks
+  (`X-Bekci-Signature`); browser notifications (Web Push, PWA)
+- Incident acknowledge and snooze: no reminders or escalation for acknowledged
+  or snoozed incidents; optional "acknowledged" notification
 
 **Status pages**
 - Groups (collapsible), target address display (domain only), recent
@@ -176,12 +189,21 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
 
 **Users**
 - Roles (admin / editor / viewer), **customer accounts** that only see the
-  monitors and servers assigned to them, two-factor authentication (2FA), API
-  keys, audit log
+  monitors and servers assigned to them (or the monitors of a tag), two-factor
+  authentication (2FA), API keys, audit log (user / action / date / text
+  filters)
+- User email and "forgot password" (via the system mail channel), OpenID
+  Connect sign-in (Google, Microsoft, Keycloak, Authentik…; claim → role
+  mapping), active sessions list and device sign-out
 
 **Other**
-- Live-updating UI (SSE), import/export, automatic nightly backup
-- Prometheus `/metrics` endpoint (monitor-level status, response time, uptime);
+- Live-updating UI (SSE), dark / light theme, import/export (optionally with
+  users and password-encrypted), automatic nightly backup, retention settings
+  (incidents, request/response captures, audit log)
+- Incident list filters and CSV export; OpenAPI 3.1 document
+  (`GET /api/openapi.json`)
+- Prometheus `/metrics` endpoint (monitor status, response time, uptime, server
+  metrics, check-location status, open incident counts);
   accessed with an API key: `Authorization: Bearer upk_…` or Basic auth (user
   `metrics`, password the key)
 - Checks go out with a recognizable User-Agent
