@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bekci — Kendi sunucunuzda uptime ve sunucu izleme</title>
-<meta name="description" content="Web siteleri, servisler ve sunucular için tek Docker imajlık, hafif ve Türkçe izleme sistemi. Uptime kontrolleri, sunucu metrikleri, durum sayfaları ve 24 bildirim kanalı; ~15 MB RAM.">
+<meta name="description" content="Web siteleri, servisler ve sunucular için tek Docker imajlık, hafif ve Türkçe izleme sistemi. Uptime kontrolleri, sunucu metrikleri, durum sayfaları ve 25 bildirim kanalı; ~15 MB RAM.">
 <link rel="canonical" href="https://bekci.app/">
 <link rel="alternate" hreflang="tr" href="https://bekci.app/">
 <link rel="alternate" hreflang="en" href="https://bekci.app/en/">
@@ -165,48 +165,68 @@
         <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
           <h3>18 monitör tipi</h3>
-          <p>HTTP(S) isteklerinde başlık, gövde, kimlik doğrulama, mTLS ve proxy; kelime ve JSON sorgusu kontrolü. SSL bitiş uyarısı, tekrar deneme, bakım pencereleri.</p>
+          <p>HTTP(S) isteklerinde başlık, gövde, kimlik doğrulama, mTLS ve proxy; kelime ve JSON sorgusu kontrolü. Tekrar deneme, ters mod, gruplar, etiketler ve bakım pencereleri.</p>
           <ul class="chips" aria-label="Örnek monitör tipleri">
             <li>HTTP(S)</li><li>TCP</li><li>Ping</li><li>DNS</li><li>gRPC</li><li>WebSocket</li><li>PostgreSQL</li><li>MySQL</li><li>Redis</li><li>Docker</li><li>Push</li><li>+7</li>
           </ul>
         </article>
         <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+          <h3>Yavaş yanıt ve bitiş uyarıları</h3>
+          <p>Site açık ama yavaşlamışsa ayrı bir "yavaş yanıt" olayı açılır, normale dönünce kapanır; uptime etkilenmez. SSL sertifikası ve alan adı (RDAP) bitişi günler önceden bildirilir.</p>
+        </article>
+        <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg></div>
           <h3>Sunucu takibi</h3>
-          <p>CPU, RAM, bağlama noktası başına disk, swap, yük, sıcaklık, ağ ve Docker konteynerleri. Linux ve Windows ajanı; pencere ortalaması ve histerezisle çalışan uyarılar.</p>
+          <p>CPU, RAM, bağlama noktası başına disk, swap, yük, sıcaklık, ağ ve Docker konteynerleri; Linux ve Windows ajanı. Uyarı ve kritik eşikleri, konteyner durunca ve sunucu yeniden başlayınca bildirim.</p>
         </article>
         <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></div>
-          <h3>24 bildirim kanalı</h3>
-          <p>Kesinti anında doğru kişiye ulaşın. Her kanal için tek tıkla örnek bildirim gönderip ayarı hemen deneyin.</p>
+          <h3>25 bildirim kanalı</h3>
+          <p>Kesinti anında doğru kişiye ulaşın; tarayıcı bildirimi (Web Push) dahil. Her kanal için tek tıkla örnek bildirim gönderip ayarı hemen deneyin.</p>
           <ul class="chips" aria-label="Örnek bildirim kanalları">
-            <li>WhatsApp</li><li>Telegram</li><li>E-posta</li><li>Slack</li><li>Discord</li><li>Teams</li><li>ntfy</li><li>PagerDuty</li><li>Webhook</li><li>+15</li>
+            <li>WhatsApp</li><li>Telegram</li><li>E-posta</li><li>Slack</li><li>Discord</li><li>Teams</li><li>ntfy</li><li>PagerDuty</li><li>Webhook</li><li>Web Push</li><li>+15</li>
           </ul>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></div>
+          <h3>Bildirim kuralları</h3>
+          <p>Kanal başına olay türü süzgeci, sessiz saatler, gecikme ("5 dakika sürerse bildir"), eskalasyon ve dil. Etikete bağlı kanallar; olay onaylama ve susturma.</p>
         </article>
         <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
           <h3>Durum sayfaları</h3>
-          <p>Müşterilerinize herkese açık bir durum sayfası: katlanabilir gruplar, 90 günlük geçmiş, son olaylar, şifre koruması, özel alan adı ve rozetler.</p>
+          <p>Müşterilerinize herkese açık durum sayfası: liste, ızgara ya da tek satır yerleşimi, katlanabilir gruplar, 90 günlük geçmiş, elle açılan olaylar ve güncellemeleri, planlı bakım, RSS, şifre koruması, özel alan adı ve rozetler.</p>
         </article>
         <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
           <h3>Uzak kontrol noktaları</h3>
-          <p>Monitörleri birden çok konumdan aynı anda kontrol edin. Kesinti kuralını siz seçin: herhangi biri, çoğunluk ya da hepsi. İsterseniz tek bir konum düştüğünde de ayrı bir bildirim alın.</p>
+          <p>Monitörler birden çok konumdan aynı anda kontrol edilir; kesinti kuralını siz seçin: herhangi biri, çoğunluk ya da hepsi. Tek bir konum düşünce ya da kontrol noktası çevrimdışı kalınca ayrı bildirim.</p>
         </article>
         <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-          <h3>Ekip ve müşteri hesapları</h3>
-          <p>Yönetici, editör ve izleyici rolleri; yalnızca kendisine atanan monitörleri ve sunucuları gören müşteri hesapları. İki adımlı doğrulama, API anahtarları, işlem kaydı.</p>
+          <h3>Ekip, müşteri hesapları ve SSO</h3>
+          <p>Yönetici, editör ve izleyici rolleri; yalnızca kendisine atanan monitörleri ve sunucuları gören müşteri hesapları. OpenID Connect ile kurumsal giriş (Google, Microsoft, Keycloak…), iki adımlı doğrulama, API anahtarları, açık oturumlar ve işlem kaydı.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg></div>
+          <h3>Entegrasyonlar</h3>
+          <p>Prometheus <code>/metrics</code> ucu, OpenAPI 3.1 belgesi, HMAC imzalı webhook (<code>X-Bekci-Signature</code>) ve olayların CSV dışa aktarımı.</p>
         </article>
         <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div>
           <h3>Telefonda uygulama gibi</h3>
-          <p>PWA olarak ana ekrana ekleyin; arayüz canlı güncellenir. Uygulama mağazasına gerek yok.</p>
+          <p>PWA olarak ana ekrana ekleyin; arayüz canlı güncellenir, koyu ve açık tema. Uygulama mağazasına gerek yok.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg></div>
+          <h3>Türkçe ve İngilizce</h3>
+          <p>Kullanıcı başına arayüz dili; durum sayfaları ve bildirim kanalları için ayrı dil seçimi, tarih ve sayı biçimleri dahil.</p>
         </article>
         <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
-          <h3>Kolay geçiş</h3>
-          <p>Uptime Kuma yedeğinden ya da UptimeRobot hesabınızdan içe aktarın. İçe/dışa aktarma ve her gece otomatik yedek dahil.</p>
+          <h3>Kolay geçiş ve yedek</h3>
+          <p>Uptime Kuma yedeğinden ya da UptimeRobot hesabınızdan içe aktarın. Her gece otomatik yedek; dışa aktarma isteğe bağlı parolayla şifreli.</p>
         </article>
       </div>
     </div>

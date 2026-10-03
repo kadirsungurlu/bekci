@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bekci — Self-hosted uptime and server monitoring</title>
-<meta name="description" content="A lightweight, self-hosted monitoring system for websites, services and servers in a single Docker image. Uptime checks, server metrics, status pages and 24 notification channels in ~15 MB of RAM.">
+<meta name="description" content="A lightweight, self-hosted monitoring system for websites, services and servers in a single Docker image. Uptime checks, server metrics, status pages and 25 notification channels in ~15 MB of RAM.">
 <link rel="canonical" href="https://bekci.app/en/">
 <link rel="alternate" hreflang="tr" href="https://bekci.app/">
 <link rel="alternate" hreflang="en" href="https://bekci.app/en/">
@@ -166,48 +166,68 @@
         <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
           <h3>18 monitor types</h3>
-          <p>HTTP(S) with custom headers, body, auth, mTLS and proxies, plus keyword and JSON query checks. SSL expiry warnings, retries and maintenance windows.</p>
+          <p>HTTP(S) with custom headers, body, auth, mTLS and proxies, plus keyword and JSON query checks. Retries, inverted mode, groups, tags and maintenance windows.</p>
           <ul class="chips" aria-label="Example monitor types">
             <li>HTTP(S)</li><li>TCP</li><li>Ping</li><li>DNS</li><li>gRPC</li><li>WebSocket</li><li>PostgreSQL</li><li>MySQL</li><li>Redis</li><li>Docker</li><li>Push</li><li>+7</li>
           </ul>
         </article>
         <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+          <h3>Slow-response and expiry warnings</h3>
+          <p>If a site is up but has slowed down, a separate "slow response" incident opens and closes once it recovers; uptime is unaffected. SSL certificate and domain (RDAP) expiry are announced days ahead.</p>
+        </article>
+        <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg></div>
           <h3>Server monitoring</h3>
-          <p>CPU, RAM, per-mount disk usage, swap, load, temperature, network and Docker containers. Agents for Linux and Windows; alerts use window averages and hysteresis, so they don't flap.</p>
+          <p>CPU, RAM, per-mount disk usage, swap, load, temperature, network and Docker containers; agents for Linux and Windows. Warning and critical thresholds, alerts when a container stops or a server reboots.</p>
         </article>
         <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></div>
-          <h3>24 notification channels</h3>
-          <p>Reach the right people the moment something goes down. Send a test notification to any channel with one click.</p>
+          <h3>25 notification channels</h3>
+          <p>Reach the right people the moment something goes down, browser notifications (Web Push) included. Send a test notification to any channel with one click.</p>
           <ul class="chips" aria-label="Example notification channels">
-            <li>WhatsApp</li><li>Telegram</li><li>Email</li><li>Slack</li><li>Discord</li><li>Teams</li><li>ntfy</li><li>PagerDuty</li><li>Webhook</li><li>+15</li>
+            <li>WhatsApp</li><li>Telegram</li><li>Email</li><li>Slack</li><li>Discord</li><li>Teams</li><li>ntfy</li><li>PagerDuty</li><li>Webhook</li><li>Web Push</li><li>+15</li>
           </ul>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></div>
+          <h3>Notification rules</h3>
+          <p>Per channel: event-type filter, quiet hours, delay ("notify if it lasts 5 minutes"), escalation and language. Tag-bound channels; incident acknowledgement and snoozing.</p>
         </article>
         <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
           <h3>Status pages</h3>
-          <p>Public status pages with collapsible groups, 90-day history, recent incidents, password protection, custom domains and badges.</p>
+          <p>Public status pages for your customers: list, grid or single-row layout, collapsible groups, 90-day history, manual incidents with updates, scheduled maintenance, RSS, password protection, custom domains and badges.</p>
         </article>
         <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
           <h3>Remote check locations</h3>
-          <p>Check monitors from several locations at the same time and pick the outage rule yourself: any, majority or all. Optionally get a separate notification when a single location goes down.</p>
+          <p>Monitors are checked from several locations at the same time; pick the outage rule yourself: any, majority or all. Separate notifications when a single location fails or a check location goes offline.</p>
         </article>
         <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-          <h3>Teams and client accounts</h3>
-          <p>Admin, editor and viewer roles, plus client accounts that only see the monitors and servers assigned to them. Two-factor auth, API keys and an audit log.</p>
+          <h3>Teams, client accounts and SSO</h3>
+          <p>Admin, editor and viewer roles, plus client accounts that only see the monitors and servers assigned to them. Enterprise sign-in with OpenID Connect (Google, Microsoft, Keycloak…), two-factor auth, API keys, active sessions and an audit log.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg></div>
+          <h3>Integrations</h3>
+          <p>Prometheus <code>/metrics</code> endpoint, OpenAPI 3.1 document, HMAC-signed webhooks (<code>X-Bekci-Signature</code>) and CSV export of incidents.</p>
         </article>
         <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div>
           <h3>Feels like a native app</h3>
-          <p>Install it as a PWA and get a live-updating dashboard on your home screen. No app store required.</p>
+          <p>Install it as a PWA and get a live-updating dashboard on your home screen, in light or dark theme. No app store required.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg></div>
+          <h3>English and Turkish</h3>
+          <p>Interface language per user; separate language settings for status pages and notification channels, date and number formats included.</p>
         </article>
         <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
-          <h3>Painless migration</h3>
-          <p>Import from an Uptime Kuma backup or straight from your UptimeRobot account. Export/import and nightly backups included.</p>
+          <h3>Painless migration and backups</h3>
+          <p>Import from an Uptime Kuma backup or straight from your UptimeRobot account. Nightly automatic backups; exports can be encrypted with a password.</p>
         </article>
       </div>
     </div>
