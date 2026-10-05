@@ -1006,13 +1006,13 @@ func (pc *probeConns) forget(id int64) {
 // kopardıysa (durduruldu, silindi, çöktü) konumları hemen "sonuç yok" olur.
 // Sunucu normal yanıt verdiyse ajan ~1 sn içinde yeniden bağlanır;
 // probeReconnectWait içinde gelmezse kopmuş sayılır.
-func (s *Server) probeRequestDone(id int64, ctx context.Context) {
+func (s *Server) probeRequestDone(id int64, kind string, ctx context.Context) {
 	open, gen := s.probeConns.end(id)
 	if open > 0 {
 		return
 	}
 	if ctx.Err() != nil {
-		s.engine.SetProbeConnected(id, false)
+		s.setAgentConnected(id, kind, false)
 		return
 	}
 	wait := s.probeReconnect
@@ -1021,9 +1021,18 @@ func (s *Server) probeRequestDone(id int64, ctx context.Context) {
 	}
 	time.AfterFunc(wait, func() {
 		if s.probeConns.idle(id, gen) {
-			s.engine.SetProbeConnected(id, false)
+			s.setAgentConnected(id, kind, false)
 		}
 	})
+}
+
+// setAgentConnected ajanın bağlantı durumunu motora bildirir; sunucu ajanının
+// durumu değiştiyse sunucu görünümü (çevrimiçi/çevrimdışı) hemen yeniden
+// değerlendirilip canlı akışa yayınlanır.
+func (s *Server) setAgentConnected(id int64, kind string, connected bool) {
+	if s.engine.SetProbeConnected(id, connected) && kind == store.ProbeKindServer && s.servers != nil {
+		go s.servers.CheckOffline(context.Background())
+	}
 }
 
 type probePolls struct {
@@ -1114,12 +1123,13 @@ func (s *Server) holdJobs(w http.ResponseWriter, r *http.Request, p store.Probe,
 
 func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 	p := probeFrom(r)
-	if p.Kind == store.ProbeKindLocation && r.URL.Query().Has("since") {
-		// Uzun yoklama yapan ajan: bağlantısı kopunca konumları beklemeden
-		// "sonuç yok" sayılır (eski ajanlar since göndermez, 3 aralık kuralı).
+	if r.URL.Query().Has("since") {
+		// Uzun yoklama yapan ajan (kontrol noktası ya da sunucu ajanı):
+		// bağlantısı kopunca beklemeden "ulaşılamıyor" / "çevrimdışı" sayılır
+		// (eski ajanlar since göndermez; eski süre kuralları geçerli).
 		s.probeConns.begin(p.ID)
-		s.engine.SetProbeConnected(p.ID, true)
-		defer s.probeRequestDone(p.ID, r.Context())
+		s.setAgentConnected(p.ID, p.Kind, true)
+		defer s.probeRequestDone(p.ID, p.Kind, r.Context())
 	}
 	// Sürüm listeden ÖNCE okunur: okuma sırasında gelen değişiklik kaçmaz.
 	version, changed := s.engine.JobsVersion()

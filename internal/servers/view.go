@@ -20,12 +20,24 @@ const (
 	StateDisabled    = "disabled"    // ajan veya metrik toplama kapalı
 )
 
-// State ajanın sunucu takibindeki durumu.
-func State(p store.Probe, now time.Time) string {
+// State ajanın sunucu takibindeki durumu (bağlantı bilgisi olmadan; bkz. StateOf).
+func State(p store.Probe, now time.Time) string { return stateWith(p, now, false) }
+
+// StateOf ajanın durumu; uzun yoklama bağlantısı koptuysa (yeni ajanlar)
+// OfflineAfter beklenmeden çevrimdışı.
+func (s *Service) StateOf(p store.Probe, now time.Time) string {
+	_, gone := s.goneAt(p.ID)
+	return stateWith(p, now, gone)
+}
+
+func stateWith(p store.Probe, now time.Time, gone bool) string {
 	stale := func(t int64) bool { return now.Sub(time.Unix(t, 0)) > OfflineAfter }
 	switch {
 	case !p.Active || !p.Metrics:
 		return StateDisabled
+	case gone && p.MetricsAt > 0:
+		// Ajan kapandı, silindi ya da ağ koptu: son örneğin yaşı beklenmez.
+		return StateOffline
 	case p.MetricsNote != "" && (p.MetricsAt == 0 || !stale(p.LastSeenAt)):
 		// Ajan kapanırsa (son istek de eski) ve önceden örnek göndermişse çevrimdışı sayılır.
 		return StateUnavailable
@@ -83,7 +95,7 @@ func (v *View) Localize(lang string) { v.Note = i18n.Message(lang, v.Note) }
 // konteyner ve sıcaklık listeleri yer almaz; yerine sayı ve en yüksek değer gelir.
 func (s *Service) View(ctx context.Context, p store.Probe, rules []store.ServerAlert, full bool) View {
 	v := View{
-		ID: p.ID, Name: p.Name, Active: p.Active, Metrics: p.Metrics, State: State(p, s.now()),
+		ID: p.ID, Name: p.Name, Active: p.Active, Metrics: p.Metrics, State: s.StateOf(p, s.now()),
 		Note: p.MetricsNote, Interval: Interval, LastSeenAt: p.LastSeenAt, MetricsAt: p.MetricsAt,
 		Version: p.Version, Host: hostOf(p), Firing: []string{},
 		IPLock: p.IPLock, LockedIP: p.LockedIP, IP: p.LastIP,

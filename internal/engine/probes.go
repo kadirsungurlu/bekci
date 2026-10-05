@@ -143,13 +143,15 @@ func (e *Engine) goneGrace() time.Duration { return probeGoneGrace * e.cfg.Unit 
 // bildirir (API: bağlantı koptu ve ProbeGoneAfter içinde yeniden bağlanmadı).
 // Kopunca konumları hemen "sonuç yok" sayılır; eskime süresi (3 aralık)
 // beklenmez. Durum değişince ilgili monitörler uyandırılır.
-func (e *Engine) SetProbeConnected(probeID int64, connected bool) {
+//
+// Durum gerçekten değiştiyse true döner (çağıran ör. sunucu görünümünü yayınlar).
+func (e *Engine) SetProbeConnected(probeID int64, connected bool) bool {
 	e.mu.Lock()
 	if e.ctx != nil && e.ctx.Err() != nil {
-		// Kapanış: tüm uzun yoklamalar aynı anda kopar; her kontrol noktası
-		// için uyarı yazmanın ve monitörleri uyandırmanın anlamı yok.
+		// Kapanış: tüm uzun yoklamalar aynı anda kopar; her ajan için uyarı
+		// yazmanın ve monitörleri uyandırmanın anlamı yok.
 		e.mu.Unlock()
-		return
+		return false
 	}
 	_, was := e.gone[probeID]
 	if connected {
@@ -167,11 +169,11 @@ func (e *Engine) SetProbeConnected(probeID int64, connected bool) {
 	}
 	e.mu.Unlock()
 	if was != connected {
-		return
+		return false
 	}
 	e.wakeProbe(wake)
 	if !connected {
-		e.log.Warn("kontrol noktasının bağlantısı koptu; konumları sonuç yok sayılıyor", "kontrol_noktasi", probeID)
+		e.log.Warn("ajanın bağlantısı koptu", "ajan", probeID)
 		// Tolerans dolunca monitörler yeniden değerlendirilir.
 		time.AfterFunc(e.goneGrace()+e.goneGrace()/20, func() {
 			if _, ok := e.probeGoneAt(probeID); ok {
@@ -179,7 +181,12 @@ func (e *Engine) SetProbeConnected(probeID int64, connected bool) {
 			}
 		})
 	}
+	return true
 }
+
+// ProbeGoneAt ajanın uzun yoklama bağlantısı ne zaman koptu (ok=false: bağlı
+// ya da bilinmiyor; eski ajanlar izlenmez).
+func (e *Engine) ProbeGoneAt(probeID int64) (time.Time, bool) { return e.probeGoneAt(probeID) }
 
 func (e *Engine) probeRunners(probeID int64) []*locationSet {
 	e.mu.Lock()

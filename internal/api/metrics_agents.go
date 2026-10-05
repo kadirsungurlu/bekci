@@ -59,7 +59,7 @@ func (s *Server) agentMetrics(r *http.Request, b *strings.Builder, family func(n
 	}
 	family("uptime_server_online", "gauge", "Sunucu ajanı veri gönderiyor mu (1 = çevrimiçi, 0 = çevrimdışı/bekliyor/kapalı)")
 	for _, x := range srvs {
-		fmt.Fprintf(b, "uptime_server_online{%s} %d\n", slabels(x.p), boolMetric(servers.State(x.p, now) == servers.StateOnline))
+		fmt.Fprintf(b, "uptime_server_online{%s} %d\n", slabels(x.p), boolMetric(s.servers.StateOf(x.p, now) == servers.StateOnline))
 	}
 	family("uptime_server_last_sample_timestamp_seconds", "gauge", "Sunucudan gelen son örneğin zamanı (unix saniye)")
 	for _, x := range srvs {
