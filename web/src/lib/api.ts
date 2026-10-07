@@ -323,6 +323,38 @@ export interface Probe {
   notify_offline?: boolean;
   /** Çevrimdışı bildiriminin gideceği kanallar (yönetici görünümü). */
   notification_ids?: number[];
+  /** Ajanın bildirdiği os/arch (boş: kendini güncelleyemeyen eski ajan). */
+  platform?: string;
+  /** Ajanın güncelleme durumu (yönetici görünümü; eski sunucuda yok). */
+  update?: AgentUpdate;
+}
+
+/** Ajan (sunucu ajanı / kontrol noktası) güncelleme durumu (internal/agentupdate.Status). */
+export type AgentUpdateState =
+  | 'current'
+  | 'outdated'
+  | 'updating'
+  | 'failed'
+  | 'unsupported'
+  | 'unsigned'
+  | 'unversioned'
+  | 'newer'
+  | 'off'
+  | 'readonly'
+  | 'unknown';
+
+export interface AgentUpdate {
+  state: AgentUpdateState;
+  /** Panelin sürümü (sunulacak sürüm). */
+  panel: string;
+  /** Başarısızlık nedeni ya da ek açıklama. */
+  note?: string;
+  /** Ajan başına ayar; null: genel ayar. */
+  auto: boolean | null;
+  auto_effective: boolean;
+  /** "Şimdi güncelle" istendi, henüz uygulanmadı. */
+  requested: boolean;
+  at?: number;
 }
 
 export interface ProbeSetup {
@@ -858,6 +890,8 @@ export interface AppSettings {
   retention_audit_days?: number;
   /** Sistem e-postası (şifre sıfırlama) için e-posta kanalı; 0 = kapalı. */
   system_mail_channel_id?: number;
+  /** Ajanlar panelin sürümüne kendiliğinden güncellensin (varsayılan açık). */
+  agent_auto_update?: boolean;
 }
 
 export interface BeatEvent {
@@ -1258,6 +1292,8 @@ export interface ServerView {
   cpu_hist?: number[];
   /** Sunucu şu an bakım penceresinde (uyarı ve çevrimdışı bildirimi gitmez). */
   in_maintenance?: boolean;
+  /** Ajanın güncelleme durumu (eski sunucuda yok). */
+  update?: AgentUpdate;
 }
 
 export interface AlertRule {
@@ -1637,7 +1673,7 @@ export const api = {
     name: string,
     active: boolean,
     metrics?: boolean,
-    opts?: { ipLock?: boolean; resetIp?: boolean; notifyOffline?: boolean; notificationIds?: number[] },
+    opts?: { ipLock?: boolean; resetIp?: boolean; notifyOffline?: boolean; notificationIds?: number[]; autoUpdate?: boolean | null },
   ) => {
     const body: Record<string, unknown> = { name, active };
     if (metrics !== undefined) body.metrics = metrics;
@@ -1645,8 +1681,14 @@ export const api = {
     if (opts?.resetIp) body.reset_ip = true;
     if (opts?.notifyOffline !== undefined) body.notify_offline = opts.notifyOffline;
     if (opts?.notificationIds !== undefined) body.notification_ids = opts.notificationIds;
+    // null: genel ayara dön; alan yoksa değişmez.
+    if (opts?.autoUpdate !== undefined) body.auto_update = opts.autoUpdate;
     return put<Probe>(`/api/probes/${id}`, body);
   },
+  /** Ajanı panelin sürümüne şimdi güncelle (otomatik güncelleme kapalı olsa da). */
+  updateAgent: (id: number) => post<Probe>(`/api/probes/${id}/update`),
+  /** Verilen türdeki güncellenebilir tüm ajanlar için güncelleme ister. */
+  updateAllAgents: (kind: 'server' | 'location') => post<{ requested: number }>(`/api/probes/update-all?kind=${kind}`),
   deleteProbe: (id: number) => del<{ ok: boolean }>(`/api/probes/${id}`),
   regenerateProbeToken: (id: number) => post<ProbeSetup>(`/api/probes/${id}/token`),
   monitorLocations: (id: number) => get<MonitorLocations>(`/api/monitors/${id}/locations`),

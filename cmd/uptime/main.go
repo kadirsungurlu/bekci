@@ -49,6 +49,7 @@ import (
 	"time"
 	_ "time/tzdata" // imajda tzdata olmasa da TZ çalışsın
 
+	"github.com/kadirsungurlu/bekci/internal/agentupdate"
 	"github.com/kadirsungurlu/bekci/internal/api"
 	"github.com/kadirsungurlu/bekci/internal/brand"
 	"github.com/kadirsungurlu/bekci/internal/check"
@@ -73,6 +74,11 @@ func env(key, def string) string {
 
 func main() {
 	if err := run(); err != nil {
+		if errors.Is(err, agentupdate.ErrRestart) {
+			// Ajan güncellendi: gözetmen (Docker, systemd) yeni programı başlatır.
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(agentupdate.ExitCode)
+		}
 		fmt.Fprintln(os.Stderr, "hata:", err)
 		os.Exit(1)
 	}

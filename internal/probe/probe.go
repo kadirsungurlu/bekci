@@ -7,9 +7,23 @@
 //
 // Protokol (HTTPS + JSON, Authorization: Bearer upr_…):
 //
-//	GET  /api/probe/jobs?since=N → {"probe": {...}, "poll_after": 1, "version": N, "metrics_interval": 60, "server_time": ms, "jobs": [{..., "phase_ms": N}]}
+//	GET  /api/probe/jobs?since=N → {"probe": {...}, "poll_after": 1, "version": N, "metrics_interval": 60, "server_time": ms, "jobs": [{..., "phase_ms": N}], "update": {...}}
 //	POST /api/probe/results  ← {"sent_at": ms, "results": [{monitor_id, time, up, ping_ms, message, cert_not_after, cert_issuer, detail}]}
 //	POST /api/probe/metrics  ← metrics.Sample: {"time": ms, "host": {...}, "stats": {...}} veya {"time": ms, "unavailable": "neden"}
+//	POST /api/probe/update   ← agentupdate.Report: {"status": "started|failed|rolled_back", "version": "1.3.1", "error": "..."}
+//	GET  /api/probe/binary?os=&arch= → ajan programı (güncelleme; imzalı bildirimle doğrulanır)
+//
+// Her istek X-Probe-Version (çalışan sürüm) ve X-Probe-Platform ("linux/amd64";
+// güncelleme ajan tarafında kapalıysa ";off" ya da ";readonly" sonekiyle)
+// başlıklarını taşır.
+//
+// Kendini güncelleme (internal/agentupdate): iş listesi yanıtındaki "update"
+// teklifi (sürüm, platform, SHA-256 ve projenin anahtarıyla Ed25519 imza)
+// gömülü açık anahtarla doğrulanır; sürüm yeniyse program panelden indirilir,
+// özeti ve imzası denetlenir, çalışan program atomik olarak değiştirilir ve
+// Run agentupdate.ErrRestart ile döner (süreç agentupdate.ExitCode ile çıkar,
+// gözetmen yeni programla başlatır). Panele güvenilmez: imzasız, başka anahtarla
+// imzalı, özeti tutmayan ya da daha eski bir program asla kurulmaz.
 //
 // İş listesi uzun yoklamayla alınır: ajan son aldığı listenin sürümünü
 // (?since=) gönderir; liste değişmediyse sunucu isteği en fazla ~20 sn bekletir
@@ -40,6 +54,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/kadirsungurlu/bekci/internal/agentupdate"
 	"github.com/kadirsungurlu/bekci/internal/check"
 	"github.com/kadirsungurlu/bekci/internal/metrics"
 	"github.com/kadirsungurlu/bekci/internal/schedule"
@@ -61,6 +76,12 @@ type Config struct {
 	Metrics       MetricsCollector // varsayılan metrics.NewCollector
 	HTTPClient    *http.Client
 	Log           *slog.Logger
+	// Updater kendini güncelleme (agentupdate.New); nil: "update" teklifleri yok
+	// sayılır ve platform başlığı gönderilmez (ajan güncelleme desteklemez gibi görünür).
+	Updater *agentupdate.Updater
+	// UpdateReport açılışta Updater.Startup'ın verdiği, panele iletilecek
+	// durum (önceki güncelleme geri alındı vb.); ilk başarılı yoklamadan sonra gönderilir.
+	UpdateReport *agentupdate.Report
 }
 
 // MetricsCollector sunucu ölçümlerini toplar (metrics.Collector; testlerde sahtesi).
@@ -121,6 +142,8 @@ type jobsResponse struct {
 	ServerTime      int64  `json:"server_time"`      // unix ms; 0 veya alan yok (eski sunucu) = saat farkı bilinmez
 	UserAgent       string `json:"user_agent"`       // kontrol isteklerinin User-Agent'ı; boş (eski sunucu) = ajanın varsayılanı
 	Jobs            []Job  `json:"jobs"`
+	// Update imzalı güncelleme teklifi; yok (eski sunucu, güncel ajan, kapalı) = güncelleme yok.
+	Update *agentupdate.Offer `json:"update"`
 }
 
 // jobsTimeout iş listesi isteğinin en kısa HTTP zaman aşımı: sunucu isteği
@@ -158,6 +181,13 @@ type Client struct {
 	flushNow   chan struct{} // yeni işin ilk sonucu: FlushEvery beklenmeden gönder
 	metricsIv  chan int      // iş listesindeki son metrics_interval (yalnızca en yenisi bekler)
 	metricsBad int           // son reddedilen metrik gönderiminin durumu (log tekrarını önler; yalnızca metricsLoop)
+
+	// Kendini güncelleme (yalnızca jobsLoop goroutine'inde):
+	restart       chan struct{}        // program değişti: döngüler durur, Run ErrRestart döner
+	restartOnce   sync.Once            // restart yalnızca bir kez kapanır
+	updateReport  *agentupdate.Report  // panele iletilmeyi bekleyen durum
+	updateRefused map[string]time.Time // sürüm → yeniden denenebileceği zaman (tekrar denemeyi seyreltir)
+	updateFirst   bool                 // ilk başarılı yoklama yapıldı (Confirm çağrıldı)
 }
 
 type task struct {
@@ -241,16 +271,28 @@ func New(cfg Config) (*Client, error) {
 		cfg: cfg, base: u, log: cfg.Log, sem: make(chan struct{}, cfg.MaxConcurrent),
 		tasks: map[int64]*task{}, unknown: map[string]bool{}, reach: map[string]bool{},
 		metricsIv: make(chan int, 1), jobsHTTP: jobsHTTP, flushNow: make(chan struct{}, 1),
+		restart: make(chan struct{}), updateReport: cfg.UpdateReport, updateRefused: map[string]time.Time{},
 	}, nil
 }
 
 // Run ctx iptal edilene kadar çalışır. Kapanışta çalışan kontroller durur,
 // tampondaki sonuçlar kısa bir süre içinde son kez gönderilmeye çalışılır.
+// Program güncellendiyse (bkz. paket açıklaması) agentupdate.ErrRestart döner.
 func (c *Client) Run(ctx context.Context) error {
 	if c.base.Scheme == "http" {
 		c.log.Warn("ana sunucu bağlantısı şifrelenmemiş (http); token ve monitör ayarları açık metin gider, https kullanın")
 	}
 	c.log.Info("kontrol noktası başladı", "sunucu", c.base.String(), "sürüm", c.cfg.Version)
+	// Güncelleme sonrası yeniden başlatma: ctx normal kapanış gibi iptal edilir.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		select {
+		case <-c.restart:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() { defer wg.Done(); c.jobsLoop(ctx) }()
@@ -274,7 +316,12 @@ func (c *Client) Run(ctx context.Context) error {
 		}
 	}
 	c.log.Info("kontrol noktası durdu")
-	return nil
+	select {
+	case <-c.restart: // jobsLoop bitti (wg.Wait): kapanış bu goroutine'den önce gerçekleşti
+		return agentupdate.ErrRestart
+	default:
+		return nil
+	}
 }
 
 // Jobs şu an çalışan işlerin kimlikleri (testler için).
@@ -368,6 +415,7 @@ func (c *Client) pollJobs(ctx context.Context) (time.Duration, error) {
 	} else {
 		c.jobsVersion = 0
 	}
+	c.afterPoll(ctx, resp.Update)
 	poll := resp.PollAfter
 	if poll <= 0 {
 		poll = 30
@@ -828,12 +876,7 @@ func (c *Client) do(ctx context.Context, hc *http.Client, method, path string, i
 	if err != nil {
 		return 0, nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.cfg.Token)
-	req.Header.Set("X-Probe-Version", c.cfg.Version)
-	req.Header.Set("User-Agent", "uptime-probe/"+c.cfg.Version)
-	if in != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	c.setHeaders(req, in != nil)
 	resp, err := hc.Do(req)
 	if err != nil {
 		return 0, nil, err
@@ -849,6 +892,20 @@ func (c *Client) do(ctx context.Context, hc *http.Client, method, path string, i
 		}
 	}
 	return resp.StatusCode, resp.Header, nil
+}
+
+// setHeaders her isteğin ortak başlıkları: token, sürüm, platform (güncelleme
+// desteği), User-Agent.
+func (c *Client) setHeaders(req *http.Request, hasBody bool) {
+	req.Header.Set("Authorization", "Bearer "+c.cfg.Token)
+	req.Header.Set("X-Probe-Version", c.cfg.Version)
+	if p := c.cfg.Updater.Platform(); p != "" {
+		req.Header.Set("X-Probe-Platform", p)
+	}
+	req.Header.Set("User-Agent", "uptime-probe/"+c.cfg.Version)
+	if hasBody {
+		req.Header.Set("Content-Type", "application/json")
+	}
 }
 
 // retryAfter Retry-After başlığındaki saniye; bozuk/negatifse 0, en fazla

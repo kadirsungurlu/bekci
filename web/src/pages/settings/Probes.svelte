@@ -9,6 +9,8 @@
   import RowMenu, { type MenuItem } from '../../components/RowMenu.svelte';
   import Icon from '../../components/Icon.svelte';
   import CopyButton from '../../components/CopyButton.svelte';
+  import AgentVersion from '../../components/AgentVersion.svelte';
+  import AgentAutoUpdate, { autoChoice, autoValue, type AutoChoice } from '../../components/AgentAutoUpdate.svelte';
   import { t, tParts } from '../../lib/i18n';
   import { session } from '../../lib/session.svelte';
 
@@ -44,9 +46,21 @@
 
   const sorted = $derived(probes.slice().sort((a, b) => collator.compare(a.name, b.name)));
 
-  // Ajan sürümü panelden farklıysa güncelleme önerilir: eşzamanlı konum
-  // kontrolü ve yeni User-Agent eski ajanlarda yoktur.
-  const outdated = (p: Probe) => !!p.version && !!session.version && p.version !== session.version;
+  // Panelin sürümüne güncellenebilecek ajanlar ("Tümünü güncelle").
+  const updatable = $derived(probes.filter((p) => p.update?.state === 'outdated' && !p.update.requested).length);
+  let allBusy = $state(false);
+  async function updateAll() {
+    allBusy = true;
+    try {
+      const r = await api.updateAllAgents('location');
+      toast.success(t('probes.update.allToast', { n: r.requested }));
+      load();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      allBusy = false;
+    }
+  }
 
   function probeState(p: Probe): { l: string; c: string } {
     if (!p.active) return { l: t('probes.state.disabled'), c: 'paused' };
@@ -122,6 +136,7 @@
   let editLockedIp = $state('');
   let editNotify = $state(false);
   let editChannels = $state<number[]>([]);
+  let editAuto = $state<AutoChoice>('inherit');
   let editError = $state('');
   let editBusy = $state(false);
   // Bildirim kanalları düzenleme penceresi ilk açıldığında bir kez yüklenir.
@@ -143,6 +158,7 @@
     editLockedIp = p.locked_ip ?? '';
     editNotify = p.notify_offline ?? false;
     editChannels = (p.notification_ids ?? []).slice();
+    editAuto = autoChoice(p.update);
     editError = '';
     editOpen = true;
     loadChannels();
@@ -164,6 +180,7 @@
         ipLock: editIpLock,
         notifyOffline: editNotify,
         notificationIds: editChannels,
+        ...(editing.update ? { autoUpdate: autoValue(editAuto) } : {}),
       });
       toast.success(t('probes.toast.saved'));
       editOpen = false;
@@ -249,7 +266,15 @@
         {/each}
       </p>
     </div>
-    <button class="btn primary" onclick={openNew}><Icon name="plus" size={16} /> {t('probes.newProbe')}</button>
+    <div class="head-actions">
+      {#if updatable > 0}
+        <button class="btn" onclick={updateAll} disabled={allBusy} title={t('probes.update.allTitle', { n: updatable, panel: session.version })}>
+          {#if allBusy}<span class="spinner"></span>{:else}<Icon name="refresh" size={16} />{/if}
+          {t('probes.update.all')} ({updatable})
+        </button>
+      {/if}
+      <button class="btn primary" onclick={openNew}><Icon name="plus" size={16} /> {t('probes.newProbe')}</button>
+    </div>
   </div>
 
   {#if loading}
@@ -296,10 +321,7 @@
               {#if p.ip_lock}<span class="iplock" title={p.locked_ip ? t('probes.lockedTo', { ip: p.locked_ip }) : t('probes.lockPending')}><Icon name="lock" size={12} /></span>{/if}
             </td>
             <td data-label={t('common.version')} class="small">
-              {p.version || '—'}
-              {#if outdated(p)}
-                <span class="badge pending" title={t('probes.outdatedTitle', { v: p.version ?? '', server: session.version })}>{t('probes.outdated')}</span>
-              {/if}
+              <AgentVersion id={p.id} version={p.version} update={p.update} onchange={load} />
             </td>
             <td data-label={t('probes.col.monitors')}>{p.monitor_count ?? 0}</td>
             <td class="act"><RowMenu items={menu(p)} label={t('probes.actionsFor', { name: p.name })} /></td>
@@ -433,6 +455,7 @@
         {/if}
       </div>
     {/if}
+    {#if editing?.update}<AgentAutoUpdate id="pre-auto" bind:value={editAuto} update={editing.update} />{/if}
     {#if editError}<div class="alert error" role="alert">{editError}</div>{/if}
   </form>
   {#snippet footer()}
@@ -453,9 +476,14 @@
     flex-wrap: wrap;
     margin-bottom: 12px;
   }
-  .head > div {
+  .head > div:first-child {
     flex: 1 1 280px;
     min-width: 0;
+  }
+  .head-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
   }
   .card-title {
     margin-bottom: 4px;

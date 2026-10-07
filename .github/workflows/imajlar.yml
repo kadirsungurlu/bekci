@@ -245,6 +245,10 @@ jobs:
           build-args: |
             SOURCE_COMMIT=${{ github.sha }}
             VERSION=${{ steps.etiket.outputs.surum }}
+          # Ajan programlarını imzalayan anahtar (otomatik güncelleme; Dockerfile
+          # yalnızca sürüm derlemesinde kullanır, katmana girmez).
+          secrets: |
+            agent_signing_key=${{ secrets.AGENT_SIGNING_KEY }}
           tags: ${{ steps.etiket.outputs.liste }}
           # Tedarik zinciri kanıtları: SBOM ve SLSA provenance (Docker Hub gösterir).
           provenance: mode=max
@@ -270,6 +274,12 @@ jobs:
             s=$(docker run --rm --pull always --platform "$plat" --entrypoint uptime "$imaj" version)
             echo "$plat: $s"
             [ "$s" = "$beklenen" ] || { echo "::error::$plat sürümü $s (beklenen $beklenen)"; exit 1; }
+            # Sürümde ajan imzaları olmalı: yoksa ajanlar otomatik güncellenemez.
+            if [ -n "$SURUM" ]; then
+              n=$(docker run --rm --platform "$plat" --entrypoint sh "$imaj" -c 'grep -l "\"version\":\"'"$SURUM"'\"" /usr/local/share/uptime/agents/*.sig | wc -l')
+              echo "$plat imza dosyası: $n"
+              [ "$n" -ge 3 ] || { echo "::error::$plat imajında ajan imzaları eksik ($n); AGENT_SIGNING_KEY sırrını denetleyin"; exit 1; }
+            fi
           done
 
   # Docker Hub depo sayfası (Overview + kısa açıklama) DOCKERHUB.md'den güncellenir.

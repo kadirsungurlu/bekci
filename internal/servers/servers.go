@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/kadirsungurlu/bekci/internal/agentupdate"
 	"log/slog"
 	"slices"
 	"strconv"
@@ -78,6 +79,8 @@ type Service struct {
 	// gone ajanın uzun yoklama bağlantısının ne zaman koptuğu (SetConnectionSource;
 	// nil: bilinmiyor, yalnızca son örneğin yaşına bakılır).
 	gone func(id int64) (time.Time, bool)
+	// updateStatus ajan güncelleme durumunu hesaplar (SetUpdateStatus; nil: yok).
+	updateStatus func(store.Probe) *agentupdate.Status
 
 	bg sync.WaitGroup
 }

@@ -6,7 +6,7 @@ import { tOr } from './i18n';
 export type AuditTone = 'bad' | 'warn' | 'good' | '';
 
 export function auditTone(action: string): AuditTone {
-  if (action === 'login.fail' || action === 'login.2fa_fail') return 'bad';
+  if (action === 'login.fail' || action === 'login.2fa_fail' || action === 'agent.update_failed') return 'bad';
   if (
     action.endsWith('.delete') ||
     action.endsWith('.revoke') ||

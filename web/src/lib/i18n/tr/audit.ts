@@ -127,6 +127,12 @@ export default {
       update: 'Kontrol noktası güncellendi',
       delete: 'Kontrol noktası silindi',
       token: 'Kontrol noktası token’ı yenilendi',
+      update_request: 'Ajan güncellemesi istendi',
+      update_all: 'Tüm ajanlar için güncelleme istendi',
+    },
+    agent: {
+      update: 'Ajan sürümü değişti',
+      update_failed: 'Ajan güncellemesi başarısız',
     },
     backup: {
       export: 'Yedek indirildi',

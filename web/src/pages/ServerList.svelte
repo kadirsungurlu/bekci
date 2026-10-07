@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { DiskInfo, ServerView } from '../lib/api';
+  import { api, errorMessage, type DiskInfo, type ServerView } from '../lib/api';
   import { session } from '../lib/session.svelte';
-  import { clock } from '../lib/ui.svelte';
+  import { clock, toast } from '../lib/ui.svelte';
   import { fmtDec, fmtPctInt, fmtRate, fmtRelative, fmtTemp, fmtUptime } from '../lib/format';
   import { t } from '../lib/i18n';
   import {
@@ -42,6 +42,38 @@
     }
     return { online, offline, warn };
   });
+
+  // Ajan güncellemesi: panelin sürümüne geçebilecek ajanlar ve dikkat isteyen durumlar.
+  const updatable = $derived(servers.list.filter((s) => s.update?.state === 'outdated' && !s.update.requested).length);
+  const VER_WARN = new Set(['outdated', 'unsupported', 'failed', 'updating']);
+  function verTitle(s: ServerView): string | undefined {
+    const u = s.update;
+    if (!u || !VER_WARN.has(u.state)) return undefined;
+    const vars = { v: s.version || '—', panel: u.panel || '—', note: u.note || '' };
+    switch (u.state) {
+      case 'outdated':
+        return `${t('probes.update.outdated')}: ${u.auto_effective || u.requested ? t('probes.update.outdatedAuto', vars) : t('probes.update.outdatedManual', vars)}`;
+      case 'unsupported':
+        return `${t('probes.update.unsupported')}: ${t('probes.update.unsupportedTitle', vars)}`;
+      case 'failed':
+        return `${t('probes.update.failed')}: ${t('probes.update.failedTitle', vars)}`;
+      default:
+        return t('probes.update.updatingTitle', vars);
+    }
+  }
+  let allBusy = $state(false);
+  async function updateAll() {
+    allBusy = true;
+    try {
+      const r = await api.updateAllAgents('server');
+      toast.success(t('probes.update.allToast', { n: r.requested }));
+      servers.load();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      allBusy = false;
+    }
+  }
 
   let addOpen = $state(false);
   let renewFor = $state<ServerView | null>(null);
@@ -84,7 +116,15 @@
     {/if}
   </div>
   {#if session.isAdmin && servers.list.length > 0}
-    <button class="btn primary" onclick={openAdd}><Icon name="plus" size={16} /> {t('servers.list.add')}</button>
+    <div class="head-actions">
+      {#if updatable > 0}
+        <button class="btn" onclick={updateAll} disabled={allBusy} title={t('probes.update.allTitle', { n: updatable, panel: session.version })}>
+          {#if allBusy}<span class="spinner"></span>{:else}<Icon name="refresh" size={16} />{/if}
+          {t('probes.update.all')} ({updatable})
+        </button>
+      {/if}
+      <button class="btn primary" onclick={openAdd}><Icon name="plus" size={16} /> {t('servers.list.add')}</button>
+    </div>
   {/if}
 </div>
 
@@ -211,7 +251,10 @@
             </div>
             <div class="up-t a-up">{fmtUptime(st.uptime)}</div>
             <div class="agent a-agent">
-              {#if s.version}<span class="ver">{s.version}</span>{/if}
+              {#if s.version}
+                {@const vt = verTitle(s)}
+                <span class="ver" class:old={!!vt} class:bad={s.update?.state === 'failed'} title={vt}>{#if vt}<Icon name="arrow-up" size={11} />{/if}{s.version}</span>
+              {/if}
               <span class="ago" class:c-down={s.state === 'offline'}>{fmtRelative(s.metrics_at, clock.now)}</span>
             </div>
             <!-- Mobil kartın alt satırı: ağ, yük ve çalışma süresi tek satırda. -->
@@ -625,6 +668,17 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .ver.old {
+    color: var(--pending);
+  }
+  .ver.bad {
+    color: var(--down-text);
+  }
+  .head-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
   }
   .ago {
     font-size: 0.76rem;

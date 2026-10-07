@@ -37,6 +37,11 @@ type AppSettings struct {
 	// e-posta bildirim kanalı; 0 = kapalı (şifremi unuttum bağlantısı görünmez).
 	// Kanalın SMTP ayarı kullanılır, alıcı kullanıcının kendi e-postasıdır.
 	SystemMailChannelID int64 `json:"system_mail_channel_id"`
+
+	// AgentAutoUpdate ajanlar (sunucu ajanları ve kontrol noktaları) panelin
+	// imzalı sürümüne kendiliğinden güncellensin mi (ajan başına geçersiz
+	// kılınabilir). nil (eski kayıt) açık sayılır.
+	AgentAutoUpdate *bool `json:"agent_auto_update"`
 }
 
 // Saklama varsayılanları (gün).
@@ -55,7 +60,8 @@ const DomainCriticalDays = 7
 
 func DefaultSettings() AppSettings {
 	return AppSettings{RetentionRawDays: 14, RetentionHourlyDays: 365, CertDays: []int{21, 14, 7, 3, 1}, DomainDays: append([]int(nil), DefaultDomainDays...), BackupKeep: 7, NotifyLang: i18n.Default,
-		RetentionIncidentDays: intPtr(DefaultIncidentKeepDays), RetentionCaptureDays: intPtr(DefaultCaptureKeepDays), RetentionAuditDays: intPtr(DefaultAuditKeepDays)}
+		RetentionIncidentDays: intPtr(DefaultIncidentKeepDays), RetentionCaptureDays: intPtr(DefaultCaptureKeepDays), RetentionAuditDays: intPtr(DefaultAuditKeepDays),
+		AgentAutoUpdate: boolPtr(true)}
 }
 
 // IncidentKeep / CaptureKeep / AuditKeep saklama süreleri (gün; 0 = süresiz;
@@ -67,6 +73,11 @@ func (a AppSettings) CaptureKeep() int {
 	return orDefault(a.RetentionCaptureDays, DefaultCaptureKeepDays)
 }
 func (a AppSettings) AuditKeep() int { return orDefault(a.RetentionAuditDays, DefaultAuditKeepDays) }
+
+// AgentAutoUpdateOn ajanlar otomatik güncellensin mi (varsayılan açık).
+func (a AppSettings) AgentAutoUpdateOn() bool { return a.AgentAutoUpdate == nil || *a.AgentAutoUpdate }
+
+func boolPtr(b bool) *bool { return &b }
 
 func orDefault(p *int, def int) int {
 	if p == nil {
@@ -152,6 +163,9 @@ func (a *AppSettings) Validate() error {
 	}
 	if d := *a.RetentionAuditDays; d != 0 && (d < 7 || d > 3650) {
 		return fmt.Errorf("İşlem kaydı saklama süresi 7-3650 gün ya da 0 (süresiz) olmalı")
+	}
+	if a.AgentAutoUpdate == nil {
+		a.AgentAutoUpdate = boolPtr(true)
 	}
 	if a.NotifyLang == "" {
 		a.NotifyLang = i18n.Default

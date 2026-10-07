@@ -100,17 +100,26 @@ type Probe struct {
 	// olunca bağlı kanallara (probe_notifications) bildirim gönderilir ve
 	// probe_offline olayı açılır (migration 21).
 	NotifyOffline bool `json:"notify_offline"`
+
+	// Kendini güncelleme alanları (migration 35; probes_update.go).
+	ProbeUpdate
 }
 
 const probeCols = `id, name, token_prefix, active, created_at, last_seen_at, last_ip, version, token_hash,
-	metrics, host_info, metrics_at, metrics_note, kind, ip_lock, locked_ip, notify_offline`
+	metrics, host_info, metrics_at, metrics_note, kind, ip_lock, locked_ip, notify_offline,
+	platform, auto_update, update_requested_at, update_status, update_target, update_note, update_at`
 
 func scanProbe(sc scanner) (Probe, error) {
 	var p Probe
-	var seen, metricsAt sql.NullInt64
+	var seen, metricsAt, autoUpdate sql.NullInt64
 	err := sc.Scan(&p.ID, &p.Name, &p.TokenPrefix, &p.Active, &p.CreatedAt, &seen, &p.LastIP, &p.Version, &p.Hash,
-		&p.Metrics, &p.HostInfo, &metricsAt, &p.MetricsNote, &p.Kind, &p.IPLock, &p.LockedIP, &p.NotifyOffline)
+		&p.Metrics, &p.HostInfo, &metricsAt, &p.MetricsNote, &p.Kind, &p.IPLock, &p.LockedIP, &p.NotifyOffline,
+		&p.Platform, &autoUpdate, &p.UpdateRequestedAt, &p.UpdateStatus, &p.UpdateTarget, &p.UpdateNote, &p.UpdateAt)
 	p.LastSeenAt, p.MetricsAt = seen.Int64, metricsAt.Int64
+	if autoUpdate.Valid {
+		on := autoUpdate.Int64 != 0
+		p.AutoUpdate = &on
+	}
 	return p, err
 }
 
@@ -210,13 +219,6 @@ func (s *Store) SetProbeToken(ctx context.Context, id int64, hash, prefix string
 		return ErrNotFound
 	}
 	return nil
-}
-
-// TouchProbe kontrol noktasının son görülme bilgisini yazar (çağıran seyreltir).
-func (s *Store) TouchProbe(ctx context.Context, id, now int64, ip, version string) error {
-	_, err := s.db.ExecContext(ctx,
-		"UPDATE probes SET last_seen_at = ?, last_ip = ?, version = ? WHERE id = ?", now, ip, version, id)
-	return err
 }
 
 // DeleteProbe kontrol noktasını siler ve etkilenen monitörlerin kimliklerini

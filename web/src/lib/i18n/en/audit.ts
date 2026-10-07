@@ -129,6 +129,12 @@ export default {
       update: 'Check location updated',
       delete: 'Check location deleted',
       token: 'Check location token regenerated',
+      update_request: 'Agent update requested',
+      update_all: 'Update requested for all agents',
+    },
+    agent: {
+      update: 'Agent version changed',
+      update_failed: 'Agent update failed',
     },
     backup: {
       export: 'Backup downloaded',

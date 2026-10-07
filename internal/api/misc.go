@@ -235,10 +235,19 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	// GET yanıtı aynen geri gönderilebilsin: salt okunur alan kabul edilip yok sayılır.
+	// Gövde kayıtlı ayarların üzerine çözülür: gönderilmeyen alan değişmez
+	// (her ayar sayfası yalnızca kendi alanlarını gönderir; ör. Genel sayfası
+	// sistem e-postasını ya da ajan güncelleme ayarını sıfırlamasın).
+	old, err := s.store.LoadSettings(r.Context())
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
 	var body struct {
 		store.AppSettings
 		DefaultUserAgent string `json:"default_user_agent"`
 	}
+	body.AppSettings = cloneSettings(old)
 	if !readJSON(w, r, &body) {
 		return
 	}
@@ -251,7 +260,6 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	old, _ := s.store.LoadSettings(r.Context())
 	if err := s.store.SaveSettings(r.Context(), in); err != nil {
 		s.dbError(w, err)
 		return
@@ -259,6 +267,15 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	s.engine.SetSettings(in)
 	s.audit(r, store.User{}, "settings.update", "settings", 0, "", settingsChanges(old, in))
 	writeJSON(w, http.StatusOK, in)
+}
+
+// cloneSettings ayarların derin kopyası: gövde üzerine çözülürken eski
+// değerin dilimleri ve işaretçileri (değişiklik karşılaştırması için) bozulmasın.
+func cloneSettings(a store.AppSettings) store.AppSettings {
+	b, _ := json.Marshal(a)
+	var c store.AppSettings
+	json.Unmarshal(b, &c)
+	return c
 }
 
 // settingsChanges işlem kaydı için değişen ayarların listesi (Türkçe saklanır).
@@ -279,6 +296,7 @@ func settingsChanges(old, in store.AppSettings) string {
 	add(old.CaptureKeep() != in.CaptureKeep(), "istek/yanıt saklama")
 	add(old.AuditKeep() != in.AuditKeep(), "işlem kaydı saklama")
 	add(old.SystemMailChannelID != in.SystemMailChannelID, "sistem e-postası")
+	add(old.AgentAutoUpdateOn() != in.AgentAutoUpdateOn(), "ajan otomatik güncelleme")
 	if len(changed) == 0 {
 		return "değişiklik yok"
 	}

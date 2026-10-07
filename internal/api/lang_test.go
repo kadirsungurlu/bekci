@@ -89,7 +89,7 @@ func TestErrorLocalization(t *testing.T) {
 }
 
 // TestNotifyLangSetting bildirim dili ayarı kaydedilir, doğrulanır; eski
-// istemcinin göndermediği alan tr sayılır.
+// istemcinin göndermediği alan kayıtlı değerini korur.
 func TestNotifyLangSetting(t *testing.T) {
 	e := newEnv(t)
 	e.mustDo("POST", "/api/auth/setup", map[string]string{"username": "kadir", "password": "cok-gizli-sifre"}, nil, 200)
@@ -108,8 +108,8 @@ func TestNotifyLangSetting(t *testing.T) {
 	e.mustDo("PUT", "/api/settings", st, nil, 400)
 	delete(st, "notify_lang")
 	e.mustDo("PUT", "/api/settings", st, &st, 200)
-	if st["notify_lang"] != "tr" {
-		t.Errorf("eksik alan tr olmalı: %v", st["notify_lang"])
+	if st["notify_lang"] != "en" {
+		t.Errorf("eksik alan korunmalı (en): %v", st["notify_lang"])
 	}
 }
 

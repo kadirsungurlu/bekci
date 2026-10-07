@@ -25,6 +25,7 @@ var internalRoutes = map[string]string{
 	"POST /api/probe/results":             "kontrol noktası ajan protokolü",
 	"POST /api/probe/metrics":             "sunucu ajanı protokolü",
 	"GET /api/probe/binary":               "ajan programı indirme (panel)",
+	"POST /api/probe/update":              "ajan güncelleme durumu protokolü",
 	"GET /api/public/resolve":             "arayüz: özel alan adı çözümü",
 	"GET /api/status-pages/{id}/preview":  "arayüz: tam ekran önizleme verisi",
 	"POST /api/status-pages/preview-data": "arayüz: canlı önizleme verisi",

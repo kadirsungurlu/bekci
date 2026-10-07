@@ -134,12 +134,29 @@ Kontrol noktası düşünce haberiniz olsun diye satır menüsünden **Düzenle*
 
 ## Güncelleme {#guncelleme}
 
-Ajan kendini **güncellemez**: program bir kez indirilir, doğrulanır ve sonraki yeniden başlatmalarda aynı program kullanılır. Böylece panelinizin bulunduğu sunucu ele geçirilse bile sunucularınıza kendiliğinden yeni bir program inmez. Bekci'yi güncelledikten sonra ajanları da güncellemek için:
+Bekci 1.3.1 ve sonrasında kurulan ajanlar **kendini günceller**: Bekci'yi yeni bir sürüme yükselttiğinizde sunucu ajanları ve kontrol noktaları birkaç saniye içinde aynı sürüme geçer. Ajan, panelden gelen programı yalnızca **projenin imzası** doğrulanırsa kurar. İmzanın açık anahtarı ajanın içine gömülüdür; özel anahtar yalnızca resmi sürüm derlemesinde kullanılır. Bu yüzden panelinizin bulunduğu sunucu ele geçirilse bile sunucularınıza imzasız ya da değiştirilmiş bir program inmez ve ajan eski bir sürüme döndürülemez.
 
-> [!IMPORTANT]
-> Bekci 1.2 ile gelen **eşzamanlı konum kontrolü** (tüm konumlar aynı anda kontrol eder) ve tanınabilir **User-Agent** ajan tarafında da yeni sürümü gerektirir. 1.2 öncesi kurulmuş kontrol noktalarını aşağıdaki adımlarla yeniden kurun; eski ajanlar çalışmaya devam eder ama kendi zamanlamasıyla ve kendi User-Agent'ıyla kontrol eder. Panel, sürümü kendisinden farklı ajanları listede **Eski sürüm** rozetiyle gösterir.
+Nasıl çalışır:
 
-1. Panelden **güncel** kurulum komutunu alın. Token yalnızca bir kez gösterildiği için bu, token'ı yeniler (eski token hemen geçersiz olur):
+- Ajan panelin sürümünü görünce imzalı programı indirir. Özeti ve imzayı doğrular, çalışan programı değiştirir ve yeniden başlar. Docker, systemd ya da Windows hizmet yöneticisi ajanı yeni programla yeniden başlatır.
+- Yeni sürüm üç denemede panele bağlanamazsa ajan eski programa döner ve paneli bilgilendirir.
+- Sunucu sayfasında **Ajan sürümü** satırında, kontrol noktaları listesinde **Sürüm** sütununda durum görünür: **Güncel**, **Güncelleme var**, **Güncelleniyor…**, **Güncelleme başarısız** ya da **Eski ajan**.
+
+Ayarlar:
+
+- **Ayarlar → Genel → Ajanları otomatik güncelle**: genel ayar, varsayılan olarak açık.
+- Ajan başına: sunucunun **Ayarlar** penceresinde ya da kontrol noktasının **Düzenle** penceresinde **Otomatik güncelleme**. Seçenekler: genel ayar, açık ya da kapalı.
+- Kapalıyken **Şimdi güncelle** düğmesi ajanı bir kez günceller. Sunucular sayfasında ve kontrol noktaları listesinde **Tümünü güncelle** bütün güncellenebilir ajanları günceller.
+- Ajan tarafında tamamen kapatmak için ajanın ayar dosyasına (`/etc/uptime-agent.env`, `/etc/uptime-probe.env` ya da `agent.env`) `AUTO_UPDATE=0` ekleyip ajanı yeniden başlatın.
+
+> [!NOTE]
+> Yalnızca resmi sürüm imajları (`kadirsungurlu/bekci:1.3.1` gibi) imzalı ajan içerir. Kaynaktan ya da bir commit'ten derlenen panel ajanlara güncelleme sunmaz; ajan satırında **İmzasız derleme** ya da **Sürümsüz derleme** yazar. `PROBE_IMAGE` ile uygulama imajından çalışan ajanlar da kendini güncelleyemez (**Elle güncellenir**); onlarda imajı güncelleyin.
+
+### Eski ajanları bir kez güncelleme {#eski-ajan}
+
+1.3.1'den önce kurulmuş ajanlar kendini güncelleyemez. Listede **Eski ajan** olarak görünürler. Bunları bir kez elle yeniden kurun; sonraki sürümler kendiliğinden gelir:
+
+1. Panelden **güncel** kurulum komutunu alın. Token yalnızca bir kez gösterildiği için bu adım token'ı yeniler ve eski token hemen geçersiz olur:
    - Sunucu ajanı: sunucunun sayfasında **Kurulum komutu** → **Token’ı yenile ve komutu göster**.
    - Kontrol noktası: **Ayarlar → Kontrol noktaları** listesinde satırın menüsünden **Token’ı yenile**.
 2. Docker kurulumlarında önce eskisini kaldırın:

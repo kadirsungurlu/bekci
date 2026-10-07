@@ -48,6 +48,9 @@ export default {
     userAgent: 'Kontrol isteklerinin User-Agent\'ı',
     userAgentHelp:
       'Web sitesi kontrolleri bu değerle gider; tüm kontrol noktaları da aynısını kullanır. Siteniz Cloudflare veya başka bir güvenlik duvarı arkasındaysa, IP adreslerini tek tek eklemek yerine User-Agent\'ında "Bekci" geçen isteklere izin verebilirsiniz. Boş bırakırsanız varsayılan kullanılır; monitörde özel User-Agent başlığı varsa o geçerlidir.',
+    agentAutoUpdate: 'Ajanları otomatik güncelle',
+    agentAutoUpdateHelp:
+      'Panel yeni bir sürüme geçince sunucu ajanları ve kontrol noktaları aynı sürüme kendiliğinden geçer. Program yalnızca projenin imzası doğrulanırsa kurulur; eski sürüme dönülmez. Ajan başına ayrıca açılıp kapatılabilir.',
     errUserAgent: 'User-Agent en fazla 300 karakter olabilir ve yalnızca İngilizce harf, rakam ve noktalama içerebilir.',
     notifyLangHelp: 'Tüm bildirim kanallarına giden mesajların (e-posta, Telegram, webhook…) dili.',
     errRaw: 'Ham kayıt süresi 1-90 gün arasında olmalı.',

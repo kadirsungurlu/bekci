@@ -55,6 +55,7 @@
   import ServerSetupModal from '../components/ServerSetupModal.svelte';
   import ServerSettingsModal from '../components/ServerSettingsModal.svelte';
   import Icon from '../components/Icon.svelte';
+  import AgentVersion from '../components/AgentVersion.svelte';
   import IncidentTable from '../components/IncidentTable.svelte';
   import type { Incident } from '../lib/api';
 
@@ -469,7 +470,7 @@
         <div><dt>{t('servers.detail.facts.coresThreads')}</dt><dd>{host.cores || '—'} / {host.threads || '—'}</dd></div>
         <div><dt>{metricLabel('mem')}</dt><dd>{fmtBytes(host.mem_total)}</dd></div>
         <div><dt>{t('servers.detail.facts.uptime')}</dt><dd>{fmtUptime(st?.uptime ?? (host.boot_time ? now - host.boot_time : 0))}</dd></div>
-        <div><dt>{t('servers.detail.facts.agentVersion')}</dt><dd>{view.version || '—'}</dd></div>
+        <div class="wide"><dt>{t('servers.detail.facts.agentVersion')}</dt><dd><AgentVersion id={view.id} version={view.version} update={view.update} onchange={loadDetail} /></dd></div>
         <div><dt>{t('servers.detail.facts.lastMetric')}</dt><dd title={view.metrics_at ? fmtDate(view.metrics_at) : ''}>{fmtRelative(view.metrics_at, now)}{view.interval ? t('servers.detail.facts.every', { n: view.interval }) : ''}</dd></div>
       </dl>
     </section>

@@ -6,6 +6,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/kadirsungurlu/bekci/internal/agentupdate"
 	"github.com/kadirsungurlu/bekci/internal/i18n"
 	"github.com/kadirsungurlu/bekci/internal/metrics"
 	"github.com/kadirsungurlu/bekci/internal/store"
@@ -80,7 +81,14 @@ type View struct {
 	// InMaintenance sunucu şu an bir bakım penceresinde (uyarı ve çevrimdışı
 	// bildirimi gitmez, yeni uyarı açılmaz).
 	InMaintenance bool `json:"in_maintenance"`
+	// Update ajanın güncelleme durumu (API katmanı hesaplar, SetUpdateStatus;
+	// nil: hesaplayıcı yok).
+	Update *agentupdate.Status `json:"update,omitempty"`
 }
+
+// SetUpdateStatus ajan güncelleme durumunu hesaplayan işlevi bağlar (panel
+// sürümü ve imzaları bilen API katmanı); görünümlere ve canlı akışa girer.
+func (s *Service) SetUpdateStatus(f func(store.Probe) *agentupdate.Status) { s.updateStatus = f }
 
 // HideIPLock yönetici olmayan kullanıcıya gidecek görünümden IP kilidi
 // bilgisini (sunucunun sabitlenmiş IP adresi dahil) çıkarır.
@@ -101,6 +109,9 @@ func (s *Service) View(ctx context.Context, p store.Probe, rules []store.ServerA
 		IPLock: p.IPLock, LockedIP: p.LockedIP, IP: p.LastIP,
 	}
 	v.InMaintenance = s.InMaintenance(p.ID, s.now())
+	if s.updateStatus != nil {
+		v.Update = s.updateStatus(p)
+	}
 	if st := s.Latest(ctx, p); st != nil {
 		for _, c := range st.Containers {
 			if c.Running() {

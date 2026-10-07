@@ -464,6 +464,19 @@ components:
         last_ip: { type: string }
         version: { type: string }
         notify_offline: { type: boolean }
+        platform: { type: string, description: "Ajanın bildirdiği os/arch (boş: kendini güncelleyemeyen eski ajan)" }
+        update: { $ref: "#/components/schemas/AgentUpdate" }
+    AgentUpdate:
+      type: object
+      description: Ajanın güncelleme durumu.
+      properties:
+        state: { type: string, enum: [current, outdated, updating, failed, unsupported, unsigned, unversioned, newer, "off", readonly, unknown] }
+        panel: { type: string, description: Panelin sürümü }
+        note: { type: string }
+        auto: { type: boolean, nullable: true, description: "Ajan başına ayar (null: genel ayar); PUT /api/probes/{id} gövdesinde auto_update" }
+        auto_effective: { type: boolean }
+        requested: { type: boolean, description: "Şimdi güncelle istendi" }
+        at: { type: integer, format: int64 }
     Server:
       type: object
       description: Sunucu ajanı görünümü (son metrikler, uyarılar, konteynerler).
@@ -483,6 +496,7 @@ components:
         retention_capture_days: { type: integer }
         retention_audit_days: { type: integer }
         system_mail_channel_id: { type: integer, format: int64, description: Şifre sıfırlama e-postası kanalı (0 kapalı) }
+        agent_auto_update: { type: boolean, description: Ajanlar panelin imzalı sürümüne kendiliğinden güncellensin (varsayılan açık) }
     OIDCSettings:
       type: object
       properties:
@@ -1053,6 +1067,14 @@ paths:
     delete: { tags: [servers], summary: Kontrol noktasını sil (yönetici), responses: { "200": { $ref: "#/components/responses/OK" } } }
   /api/probes/{id}/token:
     post: { tags: [servers], summary: Token'ı yenile (yönetici), parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: "{token, command}" } } }
+  /api/probes/{id}/update:
+    post: { tags: [servers], summary: "Ajanı panelin sürümüne şimdi güncelle (yönetici; otomatik güncelleme kapalı olsa da bir kez)", parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: Kontrol noktası / ajan }, "400": { $ref: "#/components/responses/Error" } } }
+  /api/probes/update-all:
+    post:
+      tags: [servers]
+      summary: Verilen türdeki güncellenebilir tüm ajanlar için güncelleme iste (yönetici)
+      parameters: [{ name: kind, in: query, required: true, schema: { type: string, enum: [server, location] } }]
+      responses: { "200": { description: "{requested: N}" } }
   /api/maintenance:
     get: { tags: [maintenance], summary: Bakım pencereleri, responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Maintenance" } } } } } } }
     post: { tags: [maintenance], summary: Bakım ekle (editör+), requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/Maintenance" } } } }, responses: { "201": { description: Bakım } } }

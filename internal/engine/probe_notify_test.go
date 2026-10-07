@@ -21,8 +21,8 @@ func TestProbeOfflineNotification(t *testing.T) {
 	if err := f.st.SetProbeNotifyOffline(ctx, p.ID, true); err != nil {
 		t.Fatal(err)
 	}
-	f.st.TouchProbe(ctx, p.ID, f.clock.Unix(), "10.0.0.1", "v1")
-	f.st.TouchProbe(ctx, quiet.ID, f.clock.Unix(), "10.0.0.2", "v1")
+	f.st.TouchProbe(ctx, p.ID, f.clock.Unix(), "10.0.0.1", "v1", "")
+	f.st.TouchProbe(ctx, quiet.ID, f.clock.Unix(), "10.0.0.2", "v1", "")
 	known := f.e.scanProbes(ctx, nil) // ilk tarama: yalnızca öğrenir
 	f.clock = f.clock.Add(ProbeOfflineAfter / 2)
 	known = f.e.scanProbes(ctx, known) // tolerans dolmadı
@@ -56,7 +56,7 @@ func TestProbeOfflineNotification(t *testing.T) {
 		t.Fatalf("tekrar bildirim gitmemeli: %v", f.n.kinds())
 	}
 	// Tekrar görüldü: olay kapanır, 🟢 gider (kesinti süresiyle).
-	f.st.TouchProbe(ctx, p.ID, f.clock.Unix(), "10.0.0.1", "v1")
+	f.st.TouchProbe(ctx, p.ID, f.clock.Unix(), "10.0.0.1", "v1", "")
 	f.e.scanProbes(ctx, known)
 	evs = f.n.events
 	if len(evs) != 2 || evs[1].Kind != notify.KindProbeOnline || evs[1].IncidentID != id || evs[1].Downtime <= 0 {
