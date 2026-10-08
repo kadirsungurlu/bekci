@@ -274,6 +274,24 @@ jobs:
             done
             echo "SON"
           } >> "$GITHUB_OUTPUT"
+      # Çok satırlı PEM, build-push-action'ın "secrets:" girdisinde satırlara bölünür
+      # (::warning::*** is not a valid secret, imza adımı "PEM bloğu bulunamadı"
+      # ile düşer); bu yüzden dosya olarak verilir. İçerik günlüğe yazılmaz.
+      - name: İmza anahtarı dosyası
+        env:
+          SIR: ${{ secrets.AGENT_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          [ -n "$SIR" ] || { echo "::error::AGENT_SIGNING_KEY sırrı boş ya da tanımsız"; exit 1; }
+          f="$RUNNER_TEMP/agent_signing_key.pem"
+          ( umask 077; printf '%s\n' "$SIR" > "$f" )
+          if ! openssl pkey -in "$f" -noout 2>/dev/null; then
+            # Sır base64 olarak saklanmış olabilir.
+            ( umask 077; printf '%s' "$SIR" | base64 -d > "$f.2" 2>/dev/null || true )
+            if openssl pkey -in "$f.2" -noout 2>/dev/null; then mv "$f.2" "$f"; echo "sır base64'ten çözüldü";
+            else echo "::error::AGENT_SIGNING_KEY geçerli bir PKCS#8 PEM özel anahtarı değil (PEM ya da base64 PEM olmalı)"; exit 1; fi
+          fi
+          echo "AGENT_SIGNING_KEY: geçerli özel anahtar ($(openssl pkey -in "$f" -noout -text 2>/dev/null | head -1))"
       # amd64 katmanları duman testindeki derlemenin önbelleğinden gelir.
       - uses: docker/build-push-action@v6
         with:
@@ -286,8 +304,8 @@ jobs:
             VERSION=${{ steps.etiket.outputs.surum }}
           # Ajan programlarını imzalayan anahtar (otomatik güncelleme; Dockerfile
           # yalnızca sürüm derlemesinde kullanır, katmana girmez).
-          secrets: |
-            agent_signing_key=${{ secrets.AGENT_SIGNING_KEY }}
+          secret-files: |
+            agent_signing_key=${{ runner.temp }}/agent_signing_key.pem
           tags: ${{ steps.etiket.outputs.liste }}
           # Tedarik zinciri kanıtları: SBOM ve SLSA provenance (Docker Hub gösterir).
           provenance: mode=max
@@ -339,12 +357,24 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: docker/setup-buildx-action@v3
-      - name: Sır var mı
+      # Çok satırlı PEM, build-push-action'ın "secrets:" girdisinde satırlara bölünür
+      # (::warning::*** is not a valid secret, imza adımı "PEM bloğu bulunamadı"
+      # ile düşer); bu yüzden dosya olarak verilir. İçerik günlüğe yazılmaz.
+      - name: İmza anahtarı dosyası
         env:
           SIR: ${{ secrets.AGENT_SIGNING_KEY }}
         run: |
+          set -euo pipefail
           [ -n "$SIR" ] || { echo "::error::AGENT_SIGNING_KEY sırrı boş ya da tanımsız"; exit 1; }
-          echo "AGENT_SIGNING_KEY tanımlı"
+          f="$RUNNER_TEMP/agent_signing_key.pem"
+          ( umask 077; printf '%s\n' "$SIR" > "$f" )
+          if ! openssl pkey -in "$f" -noout 2>/dev/null; then
+            # Sır base64 olarak saklanmış olabilir.
+            ( umask 077; printf '%s' "$SIR" | base64 -d > "$f.2" 2>/dev/null || true )
+            if openssl pkey -in "$f.2" -noout 2>/dev/null; then mv "$f.2" "$f"; echo "sır base64'ten çözüldü";
+            else echo "::error::AGENT_SIGNING_KEY geçerli bir PKCS#8 PEM özel anahtarı değil (PEM ya da base64 PEM olmalı)"; exit 1; fi
+          fi
+          echo "AGENT_SIGNING_KEY: geçerli özel anahtar ($(openssl pkey -in "$f" -noout -text 2>/dev/null | head -1))"
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -354,8 +384,8 @@ jobs:
           build-args: |
             SOURCE_COMMIT=${{ github.sha }}
             VERSION=0.0.0-imza-denetimi
-          secrets: |
-            agent_signing_key=${{ secrets.AGENT_SIGNING_KEY }}
+          secret-files: |
+            agent_signing_key=${{ runner.temp }}/agent_signing_key.pem
           tags: uptime-imza:${{ matrix.etiket }}
           cache-from: type=gha,scope=${{ matrix.etiket }}
       - name: İmzalar imajda

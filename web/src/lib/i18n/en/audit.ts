@@ -79,6 +79,10 @@ export default {
       create: 'Server added',
       alerts: 'Server alert rules changed',
       notifications: 'Server notification channels changed',
+      update: 'Server updated',
+      delete: 'Server deleted',
+      token: 'Server token regenerated',
+      update_request: 'Server agent update requested',
     },
     settings: {
       update: 'Settings updated',

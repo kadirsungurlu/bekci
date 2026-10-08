@@ -77,6 +77,10 @@ export default {
       create: 'Sunucu eklendi',
       alerts: 'Sunucu uyarı kuralları değiştirildi',
       notifications: 'Sunucu bildirim kanalları değiştirildi',
+      update: 'Sunucu güncellendi',
+      delete: 'Sunucu silindi',
+      token: 'Sunucu token’ı yenilendi',
+      update_request: 'Sunucu ajanı güncellemesi istendi',
     },
     settings: {
       update: 'Ayarlar güncellendi',

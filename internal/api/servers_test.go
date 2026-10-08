@@ -363,7 +363,7 @@ func TestServersAPI(t *testing.T) {
 	}
 	// Ad değişmeden yalnızca metrik değişikliği de işlem kaydına yazılır.
 	audit, _ = f.st.ListAudit(ctx, 0, 1)
-	if audit[0].Action != "probe.update" || !strings.Contains(audit[0].Detail, "metrik toplama kapatıldı") {
+	if audit[0].Action != "server.update" || !strings.Contains(audit[0].Detail, "metrik toplama kapatıldı") {
 		t.Fatalf("işlem kaydı: %+v", audit[0])
 	}
 

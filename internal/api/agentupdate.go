@@ -298,7 +298,7 @@ func (s *Server) requestProbeUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.engine.JobsChanged()
-	s.audit(r, store.User{}, "probe.update_request", auditTarget(p.Kind), id, p.Name, p.Version+" → "+s.version)
+	s.audit(r, store.User{}, auditAction(p.Kind, "update_request"), auditTarget(p.Kind), id, p.Name, p.Version+" → "+s.version)
 	if p.Kind == store.ProbeKindServer {
 		s.servers.Publish(r.Context(), id)
 	}

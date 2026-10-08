@@ -13,7 +13,8 @@ export function auditTone(action: string): AuditTone {
     action.endsWith('_reset') ||
     action === 'user.password_reset' ||
     action === 'monitor.reset_stats' ||
-    action === 'probe.token'
+    action === 'probe.token' ||
+    action === 'server.token'
   )
     return 'warn';
   if (action === 'login.success') return 'good';

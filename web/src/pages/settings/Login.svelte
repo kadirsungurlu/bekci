@@ -280,7 +280,15 @@
     flex: 1;
     min-width: 0;
     overflow-wrap: break-word;
+    word-break: normal;
     font-size: 0.82rem;
+  }
+  /* Dar ekranda da kopyala düğmesi adresin yanında kalsın. */
+  @media (max-width: 640px) {
+    .copybox {
+      flex-direction: row;
+      align-items: center;
+    }
   }
   h3 {
     margin-top: 6px;
