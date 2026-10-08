@@ -393,7 +393,7 @@
   {:else if view.state !== 'online'}
     <div class="alert warning note">
       <Icon name="info" size={16} />
-      <span>{inactiveReason(view)}{#if session.isAdmin && view.state !== 'disabled'} <button class="linkbtn inl" onclick={() => (renewOpen = true)}>{t('servers.list.showCommand')}</button>{/if}</span>
+      <span>{inactiveReason(view)}{#if session.isAdmin && view.state !== 'disabled'}{' '}<button class="linkbtn inl" onclick={() => (renewOpen = true)}>{t('servers.list.showCommand')}</button>{/if}</span>
     </div>
   {/if}
 
