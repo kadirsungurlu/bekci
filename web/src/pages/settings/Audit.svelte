@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, errorMessage, type AuditEntry, type AuditFacets, type AuditQuery } from '../../lib/api';
-  import { auditHref, auditLabel, auditTargetLabel, auditTone } from '../../lib/audit';
+  import { auditDetail, auditHref, auditLabel, auditTargetLabel, auditTone } from '../../lib/audit';
   import { fmtDate } from '../../lib/format';
   import { STRATEGY_LABELS } from '../../lib/maintenance';
   import { t } from '../../lib/i18n';
@@ -11,7 +11,7 @@
 
   // Bakım kayıtlarında ayrıntı strateji kodudur (ör. recurring_weekly).
   const detailText = (a: AuditEntry) =>
-    (a.action.startsWith('maintenance.') && STRATEGY_LABELS[a.detail as keyof typeof STRATEGY_LABELS]) || a.detail || '—';
+    (a.action.startsWith('maintenance.') && STRATEGY_LABELS[a.detail as keyof typeof STRATEGY_LABELS]) || auditDetail(a.detail) || '—';
 
   const LIMIT = 50;
 

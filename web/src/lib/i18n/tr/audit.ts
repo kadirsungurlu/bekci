@@ -151,6 +151,7 @@ export default {
     maintenance: 'Bakım',
     tag: 'Etiket',
     probe: 'Kontrol noktası',
+    server: 'Sunucu',
     backup: 'Yedek',
   },
 };

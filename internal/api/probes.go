@@ -483,6 +483,14 @@ func (s *Server) createProbe(w http.ResponseWriter, r *http.Request) {
 	s.createAgent(w, r, store.ProbeKindLocation)
 }
 
+// auditTarget işlem kaydının hedef türü: sunucu ajanı "server", kontrol noktası "probe".
+func auditTarget(kind string) string {
+	if kind == store.ProbeKindServer {
+		return "server"
+	}
+	return "probe"
+}
+
 // createServer takip edilecek sunucu ekler (POST /api/servers).
 func (s *Server) createServer(w http.ResponseWriter, r *http.Request) {
 	s.createAgent(w, r, store.ProbeKindServer)
@@ -529,7 +537,7 @@ func (s *Server) createAgent(w http.ResponseWriter, r *http.Request, kind string
 	if kind == store.ProbeKindServer {
 		action = "server.create"
 	}
-	s.audit(r, store.User{}, action, "probe", p.ID, p.Name, "")
+	s.audit(r, store.User{}, action, auditTarget(kind), p.ID, p.Name, "")
 	writeJSON(w, http.StatusCreated, s.probeSetup(r, p, token, 0))
 }
 
@@ -679,7 +687,7 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 			s.servers.Publish(r.Context(), id)
 		}
 	}
-	s.audit(r, store.User{}, "probe.update", "probe", id, in.Name, strings.Join(changes, ", "))
+	s.audit(r, store.User{}, "probe.update", auditTarget(old.Kind), id, in.Name, strings.Join(changes, ", "))
 	s.respondProbe(w, r, id)
 }
 
@@ -758,7 +766,7 @@ func (s *Server) deleteProbe(w http.ResponseWriter, r *http.Request) {
 	if len(affected) > 0 {
 		detail = fmt.Sprintf("%d monitörden çıkarıldı", len(affected))
 	}
-	s.audit(r, store.User{}, "probe.delete", "probe", id, p.Name, detail)
+	s.audit(r, store.User{}, "probe.delete", auditTarget(p.Kind), id, p.Name, detail)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
@@ -783,7 +791,7 @@ func (s *Server) regenerateProbeToken(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
-	s.audit(r, store.User{}, "probe.token", "probe", id, p.Name, "")
+	s.audit(r, store.User{}, "probe.token", auditTarget(p.Kind), id, p.Name, "")
 	writeJSON(w, http.StatusOK, s.probeSetup(r, p, token, len(ids)))
 }
 

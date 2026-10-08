@@ -151,7 +151,7 @@
       <p class="help nomargin">{t('settings.login.ssoIntro')} <a href={docsUrl} target="_blank" rel="noopener noreferrer">{t('settings.login.docs')}</a></p>
       <div class="field">
         <span class="label">{t('settings.login.redirect')}</span>
-        <div class="copybox"><code>{redirectUri}</code><CopyButton text={redirectUri} /></div>
+        <div class="copybox"><code>{#each redirectUri.split(/(?<=\/)/) as part}{part}<wbr />{/each}</code><CopyButton text={redirectUri} /></div>
         <span class="help">{t('settings.login.redirectHelp')}</span>
       </div>
       <label class="check">
@@ -274,10 +274,12 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--input);
-    overflow-wrap: anywhere;
   }
+  /* Adres yalnızca "/" sonrasından kırılır (kelime ortasından değil). */
   .copybox code {
     flex: 1;
+    min-width: 0;
+    overflow-wrap: break-word;
     font-size: 0.82rem;
   }
   h3 {

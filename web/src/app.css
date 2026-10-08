@@ -315,6 +315,13 @@ pre {
   border-color: var(--accent);
   color: var(--accent-contrast);
 }
+/* Pasif birincil düğme: soluk yeşil zeminde yazı okunur kalsın (koyu temada koyu yazı kayboluyordu). */
+.btn.primary:disabled {
+  opacity: 1;
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+}
 .btn.danger {
   background: transparent;
   border-color: var(--down-border);
@@ -716,7 +723,7 @@ input[type='search'].input::-webkit-search-decoration {
 }
 .badge.up {
   background: var(--up-soft);
-  color: var(--up);
+  color: var(--up-text);
   border-color: transparent;
 }
 .badge.down {

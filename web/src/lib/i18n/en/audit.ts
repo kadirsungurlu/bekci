@@ -153,6 +153,7 @@ export default {
     maintenance: 'Maintenance',
     tag: 'Tag',
     probe: 'Check location',
+    server: 'Server',
     backup: 'Backup',
   },
 } satisfies Shape<typeof tr>;

@@ -298,7 +298,7 @@ func (s *Server) requestProbeUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.engine.JobsChanged()
-	s.audit(r, store.User{}, "probe.update_request", "probe", id, p.Name, p.Version+" → "+s.version)
+	s.audit(r, store.User{}, "probe.update_request", auditTarget(p.Kind), id, p.Name, p.Version+" → "+s.version)
 	if p.Kind == store.ProbeKindServer {
 		s.servers.Publish(r.Context(), id)
 	}
@@ -360,7 +360,7 @@ func (s *Server) requestAllProbeUpdates(w http.ResponseWriter, r *http.Request) 
 	}
 	if len(names) > 0 {
 		s.engine.JobsChanged()
-		s.audit(r, store.User{}, "probe.update_all", "probe", 0, "", fmt.Sprintf("%d ajan → %s: %s", len(names), s.version, strings.Join(names, ", ")))
+		s.audit(r, store.User{}, "probe.update_all", auditTarget(kind), 0, "", fmt.Sprintf("%d ajan → %s: %s", len(names), s.version, strings.Join(names, ", ")))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"requested": len(names)})
 }

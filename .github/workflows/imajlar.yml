@@ -27,6 +27,10 @@ on:
         description: ":latest ve :postgres bu sürüme yönlendirilsin (ör. 1.2.1); boş: yalnızca testler"
         required: false
         default: ""
+      imza_denetimi:
+        description: "Gerçek AGENT_SIGNING_KEY ile imzalı derleme + doğrulama (yüklemez); sürüm etiketinden önce imza hattını dener"
+        type: boolean
+        default: false
 
 # Aynı dalda yeni bir çalıştırma başlayınca eskisi iptal edilir: eski bir
 # commit'in imajı yenisinin üstüne yazılıp :latest geriye gidemez.
@@ -150,6 +154,41 @@ jobs:
           # Düzgün kapanış.
           docker stop duman
           [ "$(docker inspect duman --format '{{.State.ExitCode}}')" = 0 ] || { echo "::error::kapanış çıkış kodu sıfır değil"; exit 1; }
+      # İmza hattı her gönderimde dener (geçici anahtarla): sürüm derlemesindeki
+      # imzala + doğrula adımı (Dockerfile) yalnızca etiket/main'de çalıştığından
+      # burada olmazsa ilk hata yayın sırasında çıkardı. Gerçek sır için bkz.
+      # imza-denetimi işi.
+      - name: Ajan imzası (geçici anahtar)
+        env:
+          DOSYA: ${{ matrix.dockerfile }}
+        run: |
+          set -euo pipefail
+          openssl genpkey -algorithm ed25519 -out "$RUNNER_TEMP/gecici.pem"
+          pub=$(openssl pkey -in "$RUNNER_TEMP/gecici.pem" -pubout -outform DER | tail -c 32 | base64 -w0)
+          echo "PUB=$pub" >> "$GITHUB_ENV"
+          echo "geçici açık anahtar: $pub"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          load: true
+          push: false
+          build-args: |
+            SOURCE_COMMIT=${{ github.sha }}
+            VERSION=0.0.0-ci
+            AGENT_SIGNING_PUBKEY=${{ env.PUB }}
+          secret-files: |
+            agent_signing_key=${{ runner.temp }}/gecici.pem
+          tags: uptime-imza:${{ matrix.etiket }}
+          cache-from: type=gha,scope=${{ matrix.etiket }}
+      - name: Ajan imzası doğrula
+        run: |
+          set -euo pipefail
+          n=$(docker run --rm --entrypoint sh "uptime-imza:${{ matrix.etiket }}" -c 'grep -l "\"version\":\"0.0.0-ci\"" /usr/local/share/uptime/agents/*.sig | wc -l')
+          echo "imza dosyası: $n"
+          [ "$n" -ge 3 ] || { echo "::error::imzalı derlemede ajan imzaları eksik ($n)"; exit 1; }
+          docker run --rm --entrypoint uptime "uptime-imza:${{ matrix.etiket }}" version
+
       - name: Container günlükleri
         if: failure()
         run: docker logs duman || true
@@ -281,6 +320,50 @@ jobs:
               [ "$n" -ge 3 ] || { echo "::error::$plat imajında ajan imzaları eksik ($n); AGENT_SIGNING_KEY sırrını denetleyin"; exit 1; }
             fi
           done
+
+  # Elle (imza_denetimi=true): GERÇEK AGENT_SIGNING_KEY ile sürüm derlemesi,
+  # imajın gömülü proje anahtarıyla doğrulaması (Dockerfile "dogrula" adımı
+  # tutmazsa derleme düşer); hiçbir yere yüklenmez. Etiket/main'e geçmeden
+  # önce sırrın, gömülü açık anahtarın ve imza hattının uyumunu gösterir.
+  imza-denetimi:
+    if: github.event_name == 'workflow_dispatch' && inputs.imza_denetimi
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerfile: Dockerfile
+            etiket: latest
+          - dockerfile: Dockerfile.postgres
+            etiket: postgres
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: Sır var mı
+        env:
+          SIR: ${{ secrets.AGENT_SIGNING_KEY }}
+        run: |
+          [ -n "$SIR" ] || { echo "::error::AGENT_SIGNING_KEY sırrı boş ya da tanımsız"; exit 1; }
+          echo "AGENT_SIGNING_KEY tanımlı"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          load: true
+          push: false
+          build-args: |
+            SOURCE_COMMIT=${{ github.sha }}
+            VERSION=0.0.0-imza-denetimi
+          secrets: |
+            agent_signing_key=${{ secrets.AGENT_SIGNING_KEY }}
+          tags: uptime-imza:${{ matrix.etiket }}
+          cache-from: type=gha,scope=${{ matrix.etiket }}
+      - name: İmzalar imajda
+        run: |
+          set -euo pipefail
+          n=$(docker run --rm --entrypoint sh "uptime-imza:${{ matrix.etiket }}" -c 'grep -l "\"version\":\"0.0.0-imza-denetimi\"" /usr/local/share/uptime/agents/*.sig | wc -l')
+          echo "IMZA_DENETIMI ${{ matrix.etiket }}: imza dosyası=$n (gömülü proje anahtarıyla doğrulandı)"
+          [ "$n" -ge 3 ] || { echo "::error::ajan imzaları eksik ($n)"; exit 1; }
 
   # Docker Hub depo sayfası (Overview + kısa açıklama) DOCKERHUB.md'den güncellenir.
   # Token'ın "Read, Write, Delete" yetkisi gerekir; yoksa bu adım uyarı verir ama
