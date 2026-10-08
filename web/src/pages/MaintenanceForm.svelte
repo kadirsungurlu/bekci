@@ -12,6 +12,7 @@
   import { session } from '../lib/session.svelte';
   import Icon from '../components/Icon.svelte';
   import { t, tParts } from '../lib/i18n';
+  import DateTimeField from '../components/DateTimeField.svelte';
 
   let { id }: { id?: number } = $props();
   // svelte-ignore state_referenced_locally
@@ -289,11 +290,11 @@
         <div class="grid-2">
           <div class="field">
             <label for="mt-start">{t('maintenance.form.start')}</label>
-            <input id="mt-start" class="input" type="datetime-local" bind:value={start} />
+            <DateTimeField id="mt-start" type="datetime-local" bind:value={start} />
           </div>
           <div class="field">
             <label for="mt-end">{t('maintenance.form.end')}</label>
-            <input id="mt-end" class="input" type="datetime-local" min={start} bind:value={end} />
+            <DateTimeField id="mt-end" type="datetime-local" min={start} bind:value={end} />
           </div>
         </div>
       {:else}
@@ -318,11 +319,11 @@
           <div class="grid-2">
             <div class="field">
               <label for="mt-st">{t('maintenance.form.startTime')}</label>
-              <input id="mt-st" class="input" type="time" bind:value={startTime} />
+              <DateTimeField id="mt-st" type="time" bind:value={startTime} />
             </div>
             <div class="field">
               <label for="mt-et">{t('maintenance.form.endTime')}</label>
-              <input id="mt-et" class="input" type="time" bind:value={endTime} />
+              <DateTimeField id="mt-et" type="time" bind:value={endTime} />
               <span class="help">{t('maintenance.form.endTimeHelp')}</span>
             </div>
           </div>
@@ -357,11 +358,11 @@
           <div class="grid-2">
             <div class="field">
               <label for="mt-df">{t('maintenance.form.dateFrom')}</label>
-              <input id="mt-df" class="input" type="date" bind:value={dateFrom} />
+              <DateTimeField id="mt-df" type="date" bind:value={dateFrom} />
             </div>
             <div class="field">
               <label for="mt-dt">{t('maintenance.form.dateTo')}</label>
-              <input id="mt-dt" class="input" type="date" min={dateFrom || undefined} bind:value={dateTo} />
+              <DateTimeField id="mt-dt" type="date" min={dateFrom || undefined} bind:value={dateTo} />
             </div>
           </div>
         </fieldset>

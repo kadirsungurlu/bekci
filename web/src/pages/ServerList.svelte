@@ -61,6 +61,29 @@
         return t('probes.update.updatingTitle', vars);
     }
   }
+  // Sürüm satırındaki kısa durum etiketi (güncel ve bilinmeyen durumda yok).
+  function verTag(s: ServerView): string | undefined {
+    switch (s.update?.state) {
+      case 'outdated':
+        return t('probes.update.outdated');
+      case 'unsupported':
+        return t('probes.update.unsupported');
+      case 'failed':
+        return t('probes.update.failed');
+      case 'updating':
+        return t('probes.update.updating');
+      case 'unversioned':
+        return t('probes.update.unversioned');
+      case 'readonly':
+        return t('probes.update.readonly');
+      case 'unsigned':
+        return t('probes.update.unsigned');
+      case 'off':
+        return t('probes.update.off');
+      default:
+        return undefined;
+    }
+  }
   let allBusy = $state(false);
   async function updateAll() {
     allBusy = true;
@@ -192,6 +215,13 @@
                   {hl.short || '—'}{#if s.ip}<span class="ip" title={t('overview.servers.ipTitle')}><span class="sep" aria-hidden="true">·</span>{s.ip}</span>{/if}
                 </div>
               {/if}
+              {#if s.version}
+                {@const vt = verTitle(s)}
+                {@const tag = verTag(s)}
+                <div class="sv" title={vt}>
+                  <span class="ver" class:old={!!vt} class:bad={s.update?.state === 'failed'}>{s.version}</span>{#if tag}<span class="vtag" class:old={!!vt} class:bad={s.update?.state === 'failed'}>{tag}</span>{/if}
+                </div>
+              {/if}
             </div>
           </div>
           {#if st}
@@ -254,6 +284,7 @@
               {#if s.version}
                 {@const vt = verTitle(s)}
                 <span class="ver" class:old={!!vt} class:bad={s.update?.state === 'failed'} title={vt}>{#if vt}<Icon name="arrow-up" size={11} />{/if}{s.version}</span>
+                {#if verTag(s)}<span class="vtag" class:old={!!vt} class:bad={s.update?.state === 'failed'}>{verTag(s)}</span>{/if}
               {/if}
               <span class="ago" class:c-down={s.state === 'offline'}>{fmtRelative(s.metrics_at, clock.now)}</span>
             </div>
@@ -467,6 +498,9 @@
     .a-agent {
       display: flex;
     }
+    .sv {
+      display: none;
+    }
     .ip {
       display: inline;
     }
@@ -668,6 +702,40 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .sv {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    margin-top: 1px;
+  }
+  .sv .ver {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  .vtag {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.7rem;
+    line-height: 1.5;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--surface-2, rgba(128, 128, 128, 0.14));
+    color: var(--text-2);
+  }
+  .agent .vtag {
+    align-self: flex-start;
+  }
+  .vtag.old {
+    background: var(--pending-soft);
+    color: var(--pending);
+  }
+  .vtag.bad {
+    color: var(--down-text);
   }
   .ver.old {
     color: var(--pending);

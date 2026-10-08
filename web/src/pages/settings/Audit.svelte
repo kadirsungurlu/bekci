@@ -7,6 +7,7 @@
   import { t } from '../../lib/i18n';
   import { live } from '../../lib/live.svelte';
   import Icon from '../../components/Icon.svelte';
+  import DateTimeField from '../../components/DateTimeField.svelte';
 
   // Bakım kayıtlarında ayrıntı strateji kodudur (ör. recurring_weekly).
   const detailText = (a: AuditEntry) =>
@@ -157,11 +158,11 @@
       </div>
       <div class="field">
         <label for="au-from">{t('audit.filter.from')}</label>
-        <input id="au-from" class="input" type="date" bind:value={filters.from} onchange={loadFirst} />
+        <DateTimeField id="au-from" type="date" bind:value={filters.from} onchange={loadFirst} />
       </div>
       <div class="field">
         <label for="au-to">{t('audit.filter.to')}</label>
-        <input id="au-to" class="input" type="date" bind:value={filters.to} onchange={loadFirst} />
+        <DateTimeField id="au-to" type="date" bind:value={filters.to} onchange={loadFirst} />
       </div>
       {#if active}
         <button class="btn sm ghost clear" onclick={clearFilters}><Icon name="x" size={14} /> {t('audit.filter.clear')}</button>

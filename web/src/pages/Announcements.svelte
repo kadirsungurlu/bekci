@@ -7,6 +7,7 @@
   import RowMenu, { type MenuItem } from '../components/RowMenu.svelte';
   import Icon, { type IconName } from '../components/Icon.svelte';
   import { t } from '../lib/i18n';
+  import DateTimeField from '../components/DateTimeField.svelte';
 
   let { pageId }: { pageId: number } = $props();
 
@@ -210,12 +211,12 @@
     <div class="grid-2">
       <div class="field">
         <label for="an-s">{t('pages.ann.start')}</label>
-        <input id="an-s" class="input" type="datetime-local" bind:value={startsAt} />
+        <DateTimeField id="an-s" type="datetime-local" bind:value={startsAt} />
         <span class="help">{t('pages.ann.startHelp')}</span>
       </div>
       <div class="field">
         <label for="an-e">{t('pages.ann.end')}</label>
-        <input id="an-e" class="input" type="datetime-local" bind:value={endsAt} />
+        <DateTimeField id="an-e" type="datetime-local" bind:value={endsAt} />
       </div>
     </div>
     {#if !editing && otherPages.length}

@@ -8,6 +8,7 @@
   import Icon from '../../components/Icon.svelte';
   import CopyButton from '../../components/CopyButton.svelte';
   import { t } from '../../lib/i18n';
+  import DateTimeField from '../../components/DateTimeField.svelte';
 
   let keys = $state.raw<ApiKey[]>([]);
   let loading = $state(true);
@@ -208,7 +209,7 @@
         </div>
         <div class="field">
           <label for="ak-exp">{t('apiKeys.col.expires')} <span class="muted">{t('apiKeys.form.optional')}</span></label>
-          <input id="ak-exp" class="input" type="date" min={minDay} bind:value={expires} />
+          <DateTimeField id="ak-exp" type="date" min={minDay} bind:value={expires} />
         </div>
       </div>
       <span class="help">{t('apiKeys.form.help', { viewer: ROLE_LABELS.viewer })}</span>

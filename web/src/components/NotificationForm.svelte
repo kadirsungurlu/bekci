@@ -26,6 +26,7 @@
   import Modal from './Modal.svelte';
   import Icon from './Icon.svelte';
   import TagRulePicker from './TagRulePicker.svelte';
+  import DateTimeField from './DateTimeField.svelte';
 
   let {
     open = $bindable(false),
@@ -471,11 +472,11 @@
             <div class="grid-3">
               <div class="field">
                 <label for="q-start">{t('notifications.rules.quietStart')}</label>
-                <input id="q-start" class="input" type="time" bind:value={quietStart} />
+                <DateTimeField id="q-start" type="time" bind:value={quietStart} />
               </div>
               <div class="field">
                 <label for="q-end">{t('notifications.rules.quietEnd')}</label>
-                <input id="q-end" class="input" type="time" bind:value={quietEnd} />
+                <DateTimeField id="q-end" type="time" bind:value={quietEnd} />
               </div>
               <div class="field">
                 <label for="q-tz">{t('notifications.rules.quietTz')}</label>
