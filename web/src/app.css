@@ -401,6 +401,7 @@ textarea.input {
   color: var(--text);
   font: inherit;
   font-size: 0.92rem;
+  text-overflow: ellipsis;
   outline: none;
   transition:
     border-color 0.15s,
