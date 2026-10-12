@@ -22,6 +22,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/kadirsungurlu/bekci/internal/agentupdate"
 	"github.com/kadirsungurlu/bekci/internal/check"
 	"github.com/kadirsungurlu/bekci/internal/engine"
 	"github.com/kadirsungurlu/bekci/internal/i18n"
@@ -198,14 +199,36 @@ func (s *Server) probeOnly(h http.HandlerFunc) http.Handler {
 			return
 		}
 		ip, version := reqIP, cleanVersion(r.Header.Get("X-Probe-Version"))
-		if now.Unix()-p.LastSeenAt >= probeTouchEvery || ip != p.LastIP || version != p.Version {
-			if err := s.store.TouchProbe(r.Context(), p.ID, now.Unix(), ip, version); err != nil {
+		// Kendini güncelleyebilen ajanlar platformlarını bildirir ("linux/amd64",
+		// kapalıysa ";off"/";readonly" sonekiyle); eski ajanlar göndermez.
+		platform := cleanPlatform(r.Header.Get("X-Probe-Platform"))
+		if now.Unix()-p.LastSeenAt >= probeTouchEvery || ip != p.LastIP || version != p.Version || (platform != "" && platform != p.Platform) {
+			if err := s.store.TouchProbe(r.Context(), p.ID, now.Unix(), ip, version, platform); err != nil {
 				s.log.Warn("kontrol noktası son görülme zamanı yazılamadı", "hata", err)
 			}
+			if version != p.Version {
+				s.agentVersionChanged(r.Context(), p, version, ip)
+				p.UpdateStatus, p.UpdateTarget, p.UpdateNote, p.UpdateAt, p.UpdateRequestedAt = "", "", "", 0, 0
+			}
 			p.LastSeenAt, p.LastIP, p.Version = now.Unix(), ip, version
+			if platform != "" {
+				p.Platform = platform
+			}
 		}
 		h(w, r.WithContext(context.WithValue(r.Context(), ctxProbeKey{}, p)))
 	})
+}
+
+// platformHeaderRe X-Probe-Platform değeri: os/arch ve isteğe bağlı kısıt.
+var platformHeaderRe = regexp.MustCompile(`^[a-z0-9]{1,16}/[a-z0-9]{1,16}(;(off|readonly))?$`)
+
+// cleanPlatform geçersiz platform başlığını yok sayar (boş: bilinmiyor).
+func cleanPlatform(v string) string {
+	v = strings.TrimSpace(v)
+	if !platformHeaderRe.MatchString(v) {
+		return ""
+	}
+	return v
 }
 
 // cleanVersion sürüm başlığını kısa ve yazdırılabilir tutar.
@@ -249,6 +272,9 @@ type probeAdminView struct {
 	// kanallarına bildirim gider, probe_offline olayı açılır/kapanır.
 	NotifyOffline   bool    `json:"notify_offline"`
 	NotificationIDs []int64 `json:"notification_ids"`
+	// Platform ajanın bildirdiği os/arch (boş: eski ajan); Update güncelleme durumu.
+	Platform string              `json:"platform"`
+	Update   *agentupdate.Status `json:"update"`
 }
 
 func (s *Server) probeSummaryOf(p store.Probe) probeSummary {
@@ -265,6 +291,7 @@ func (s *Server) probeAdminOf(p store.Probe, monitors int, notificationIDs []int
 		probeSummary: s.probeSummaryOf(p), Kind: p.Kind, TokenPrefix: p.TokenPrefix, CreatedAt: p.CreatedAt,
 		LastIP: p.LastIP, Version: p.Version, MonitorCount: monitors, Metrics: p.Metrics,
 		IPLock: p.IPLock, LockedIP: p.LockedIP, NotifyOffline: p.NotifyOffline, NotificationIDs: notificationIDs,
+		Platform: p.Platform, Update: s.agentUpdateStatus(p),
 	}
 }
 
@@ -456,6 +483,19 @@ func (s *Server) createProbe(w http.ResponseWriter, r *http.Request) {
 	s.createAgent(w, r, store.ProbeKindLocation)
 }
 
+// auditTarget işlem kaydının hedef türü: sunucu ajanı "server", kontrol noktası "probe".
+func auditTarget(kind string) string {
+	if kind == store.ProbeKindServer {
+		return "server"
+	}
+	return "probe"
+}
+
+// auditAction işlem kaydı eylem kodu: sunucu ajanı için "server.<ad>", kontrol noktası için "probe.<ad>".
+func auditAction(kind, name string) string {
+	return auditTarget(kind) + "." + name
+}
+
 // createServer takip edilecek sunucu ekler (POST /api/servers).
 func (s *Server) createServer(w http.ResponseWriter, r *http.Request) {
 	s.createAgent(w, r, store.ProbeKindServer)
@@ -502,7 +542,7 @@ func (s *Server) createAgent(w http.ResponseWriter, r *http.Request, kind string
 	if kind == store.ProbeKindServer {
 		action = "server.create"
 	}
-	s.audit(r, store.User{}, action, "probe", p.ID, p.Name, "")
+	s.audit(r, store.User{}, action, auditTarget(kind), p.ID, p.Name, "")
 	writeJSON(w, http.StatusCreated, s.probeSetup(r, p, token, 0))
 }
 
@@ -528,8 +568,16 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 		// Kontrol noktası: çevrimdışı bildirimi ve kanalları; yoksa değişmez.
 		NotifyOffline   *bool    `json:"notify_offline"`
 		NotificationIDs *[]int64 `json:"notification_ids"`
+		// AutoUpdate ajan başına otomatik güncelleme: true/false, null genel
+		// ayara dönüş; alan yoksa değişmez (agentupdate.go).
+		AutoUpdate json.RawMessage `json:"auto_update"`
 	}
 	if !readJSON(w, r, &in) {
+		return
+	}
+	autoUpdate, setAuto, err := parseAutoUpdate(in.AutoUpdate)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	in.Name = strings.TrimSpace(in.Name)
@@ -602,6 +650,20 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 			changes = append(changes, "bildirim kanalları değişti")
 		}
 	}
+	if setAuto && !sameBoolPtr(autoUpdate, old.AutoUpdate) {
+		if err := s.store.SetProbeAutoUpdate(r.Context(), id, autoUpdate); err != nil {
+			s.dbError(w, err)
+			return
+		}
+		switch {
+		case autoUpdate == nil:
+			changes = append(changes, "otomatik güncelleme: genel ayar")
+		case *autoUpdate:
+			changes = append(changes, "otomatik güncelleme açıldı")
+		default:
+			changes = append(changes, "otomatik güncelleme kapatıldı")
+		}
+	}
 	if in.Name != old.Name {
 		changes = append(changes, "ad: "+old.Name+" → "+in.Name)
 	}
@@ -630,8 +692,16 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 			s.servers.Publish(r.Context(), id)
 		}
 	}
-	s.audit(r, store.User{}, "probe.update", "probe", id, in.Name, strings.Join(changes, ", "))
+	s.audit(r, store.User{}, auditAction(old.Kind, "update"), auditTarget(old.Kind), id, in.Name, strings.Join(changes, ", "))
 	s.respondProbe(w, r, id)
+}
+
+// sameBoolPtr iki isteğe bağlı değer eşit mi (ikisi de nil ya da aynı değer)?
+func sameBoolPtr(a, b *bool) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
 }
 
 func (s *Server) respondProbe(w http.ResponseWriter, r *http.Request, id int64) {
@@ -701,7 +771,7 @@ func (s *Server) deleteProbe(w http.ResponseWriter, r *http.Request) {
 	if len(affected) > 0 {
 		detail = fmt.Sprintf("%d monitörden çıkarıldı", len(affected))
 	}
-	s.audit(r, store.User{}, "probe.delete", "probe", id, p.Name, detail)
+	s.audit(r, store.User{}, auditAction(p.Kind, "delete"), auditTarget(p.Kind), id, p.Name, detail)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
@@ -726,7 +796,7 @@ func (s *Server) regenerateProbeToken(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
-	s.audit(r, store.User{}, "probe.token", "probe", id, p.Name, "")
+	s.audit(r, store.User{}, auditAction(p.Kind, "token"), auditTarget(p.Kind), id, p.Name, "")
 	writeJSON(w, http.StatusOK, s.probeSetup(r, p, token, len(ids)))
 }
 
@@ -1006,13 +1076,13 @@ func (pc *probeConns) forget(id int64) {
 // kopardıysa (durduruldu, silindi, çöktü) konumları hemen "sonuç yok" olur.
 // Sunucu normal yanıt verdiyse ajan ~1 sn içinde yeniden bağlanır;
 // probeReconnectWait içinde gelmezse kopmuş sayılır.
-func (s *Server) probeRequestDone(id int64, ctx context.Context) {
+func (s *Server) probeRequestDone(id int64, kind string, ctx context.Context) {
 	open, gen := s.probeConns.end(id)
 	if open > 0 {
 		return
 	}
 	if ctx.Err() != nil {
-		s.engine.SetProbeConnected(id, false)
+		s.setAgentConnected(id, kind, false)
 		return
 	}
 	wait := s.probeReconnect
@@ -1021,9 +1091,18 @@ func (s *Server) probeRequestDone(id int64, ctx context.Context) {
 	}
 	time.AfterFunc(wait, func() {
 		if s.probeConns.idle(id, gen) {
-			s.engine.SetProbeConnected(id, false)
+			s.setAgentConnected(id, kind, false)
 		}
 	})
+}
+
+// setAgentConnected ajanın bağlantı durumunu motora bildirir; sunucu ajanının
+// durumu değiştiyse sunucu görünümü (çevrimiçi/çevrimdışı) hemen yeniden
+// değerlendirilip canlı akışa yayınlanır.
+func (s *Server) setAgentConnected(id int64, kind string, connected bool) {
+	if s.engine.SetProbeConnected(id, connected) && kind == store.ProbeKindServer && s.servers != nil {
+		go s.servers.CheckOffline(context.Background())
+	}
 }
 
 type probePolls struct {
@@ -1114,12 +1193,13 @@ func (s *Server) holdJobs(w http.ResponseWriter, r *http.Request, p store.Probe,
 
 func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 	p := probeFrom(r)
-	if p.Kind == store.ProbeKindLocation && r.URL.Query().Has("since") {
-		// Uzun yoklama yapan ajan: bağlantısı kopunca konumları beklemeden
-		// "sonuç yok" sayılır (eski ajanlar since göndermez, 3 aralık kuralı).
+	if r.URL.Query().Has("since") {
+		// Uzun yoklama yapan ajan (kontrol noktası ya da sunucu ajanı):
+		// bağlantısı kopunca beklemeden "ulaşılamıyor" / "çevrimdışı" sayılır
+		// (eski ajanlar since göndermez; eski süre kuralları geçerli).
 		s.probeConns.begin(p.ID)
-		s.engine.SetProbeConnected(p.ID, true)
-		defer s.probeRequestDone(p.ID, r.Context())
+		s.setAgentConnected(p.ID, p.Kind, true)
+		defer s.probeRequestDone(p.ID, p.Kind, r.Context())
 	}
 	// Sürüm listeden ÖNCE okunur: okuma sırasında gelen değişiklik kaçmaz.
 	version, changed := s.engine.JobsVersion()
@@ -1151,7 +1231,7 @@ func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 			RetryInterval: m.RetryInterval, Timeout: m.Timeout, Config: m.Config, PhaseMs: schedule.PhaseMs(m.ID), MaxRetries: m.MaxRetries}
 	}
 	s.probePolls.set(p.ID, version, s.now())
-	writeJSON(w, http.StatusOK, map[string]any{
+	out := map[string]any{
 		"probe":      map[string]any{"id": p.ID, "name": p.Name},
 		"poll_after": probeLongPollAfter,
 		// Listenin sürümü: yeni ajanlar sonraki istekte ?since= ile geri gönderir.
@@ -1165,7 +1245,14 @@ func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 		// Kontrol isteklerinin User-Agent'ı: tüm konumlar aynı değerle gider
 		// (güvenlik duvarında tek kuralla izin verilebilsin).
 		"user_agent": check.UserAgent(),
-	})
+	}
+	// İmzalı güncelleme teklifi (agentupdate.go): panel daha yeni bir sürümse,
+	// bu platform için imzalı derleme varsa ve güncelleme açık/istenmişse.
+	// Eski ajanlar bilinmeyen alanı yok sayar.
+	if offer := s.updateOffer(p); offer != nil {
+		out["update"] = offer
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // probeResultIn kontrol noktasından gelen tek sonuç. Zamanlar unix milisaniye

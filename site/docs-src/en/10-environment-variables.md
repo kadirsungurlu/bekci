@@ -60,6 +60,7 @@ The install command from the panel sets these for you (in `/etc/uptime-agent.env
 | `PROBE_ALLOW_INSECURE` | — | `1` allows connecting to an unencrypted `http://` address (not recommended). |
 | `MAX_CONCURRENT_CHECKS` | `20` | The maximum number of simultaneous checks on a check location. |
 | `METRICS` | `1` | `0` turns off collecting server metrics entirely. |
+| `AUTO_UPDATE` | `1` | `0` stops the agent from updating itself to the signed version the panel offers ([updating](/en/docs/server-agent/#update)). |
 | `ADDR` | `:8080` | The agent's health check address; `-` turns it off (install commands use `-`). |
 | `HOST_PROC`, `HOST_SYS`, `HOST_ETC`, `HOST_ROOT` | — | Where the server's `/proc`, `/sys`, `/etc` and root directory are mounted when the agent runs in Docker. The Docker install command sets them. |
 | `DOCKER_HOST` | `unix:///var/run/docker.sock` | Docker API address for container metrics. |

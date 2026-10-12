@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { DiskInfo, ServerView } from '../lib/api';
+  import { api, errorMessage, type DiskInfo, type ServerView } from '../lib/api';
   import { session } from '../lib/session.svelte';
-  import { clock } from '../lib/ui.svelte';
+  import { clock, toast } from '../lib/ui.svelte';
   import { fmtDec, fmtPctInt, fmtRate, fmtRelative, fmtTemp, fmtUptime } from '../lib/format';
   import { t } from '../lib/i18n';
   import {
@@ -42,6 +42,61 @@
     }
     return { online, offline, warn };
   });
+
+  // Ajan güncellemesi: panelin sürümüne geçebilecek ajanlar ve dikkat isteyen durumlar.
+  const updatable = $derived(servers.list.filter((s) => s.update?.state === 'outdated' && !s.update.requested).length);
+  const VER_WARN = new Set(['outdated', 'unsupported', 'failed', 'updating']);
+  function verTitle(s: ServerView): string | undefined {
+    const u = s.update;
+    if (!u || !VER_WARN.has(u.state)) return undefined;
+    const vars = { v: s.version || '—', panel: u.panel || '—', note: u.note || '' };
+    switch (u.state) {
+      case 'outdated':
+        return `${t('probes.update.outdated')}: ${u.auto_effective || u.requested ? t('probes.update.outdatedAuto', vars) : t('probes.update.outdatedManual', vars)}`;
+      case 'unsupported':
+        return `${t('probes.update.unsupported')}: ${t('probes.update.unsupportedTitle', vars)}`;
+      case 'failed':
+        return `${t('probes.update.failed')}: ${t('probes.update.failedTitle', vars)}`;
+      default:
+        return t('probes.update.updatingTitle', vars);
+    }
+  }
+  // Sürüm satırındaki kısa durum etiketi (güncel ve bilinmeyen durumda yok).
+  function verTag(s: ServerView): string | undefined {
+    switch (s.update?.state) {
+      case 'outdated':
+        return t('probes.update.outdated');
+      case 'unsupported':
+        return t('probes.update.unsupported');
+      case 'failed':
+        return t('probes.update.failed');
+      case 'updating':
+        return t('probes.update.updating');
+      case 'unversioned':
+        return t('probes.update.unversioned');
+      case 'readonly':
+        return t('probes.update.readonly');
+      case 'unsigned':
+        return t('probes.update.unsigned');
+      case 'off':
+        return t('probes.update.off');
+      default:
+        return undefined;
+    }
+  }
+  let allBusy = $state(false);
+  async function updateAll() {
+    allBusy = true;
+    try {
+      const r = await api.updateAllAgents('server');
+      toast.success(t('probes.update.allToast', { n: r.requested }));
+      servers.load();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      allBusy = false;
+    }
+  }
 
   let addOpen = $state(false);
   let renewFor = $state<ServerView | null>(null);
@@ -84,7 +139,15 @@
     {/if}
   </div>
   {#if session.isAdmin && servers.list.length > 0}
-    <button class="btn primary" onclick={openAdd}><Icon name="plus" size={16} /> {t('servers.list.add')}</button>
+    <div class="head-actions">
+      {#if updatable > 0}
+        <button class="btn" onclick={updateAll} disabled={allBusy} title={t('probes.update.allTitle', { n: updatable, panel: session.version })}>
+          {#if allBusy}<span class="spinner"></span>{:else}<Icon name="refresh" size={16} />{/if}
+          {t('probes.update.all')} ({updatable})
+        </button>
+      {/if}
+      <button class="btn primary" onclick={openAdd}><Icon name="plus" size={16} /> {t('servers.list.add')}</button>
+    </div>
   {/if}
 </div>
 
@@ -152,6 +215,13 @@
                   {hl.short || '—'}{#if s.ip}<span class="ip" title={t('overview.servers.ipTitle')}><span class="sep" aria-hidden="true">·</span>{s.ip}</span>{/if}
                 </div>
               {/if}
+              {#if s.version}
+                {@const vt = verTitle(s)}
+                {@const tag = verTag(s)}
+                <div class="sv" title={vt}>
+                  <span class="ver" class:old={!!vt} class:bad={s.update?.state === 'failed'}>{s.version}</span>{#if tag}<span class="vtag" class:old={!!vt} class:bad={s.update?.state === 'failed'}>{tag}</span>{/if}
+                </div>
+              {/if}
             </div>
           </div>
           {#if st}
@@ -211,7 +281,11 @@
             </div>
             <div class="up-t a-up">{fmtUptime(st.uptime)}</div>
             <div class="agent a-agent">
-              {#if s.version}<span class="ver">{s.version}</span>{/if}
+              {#if s.version}
+                {@const vt = verTitle(s)}
+                <span class="ver" class:old={!!vt} class:bad={s.update?.state === 'failed'} title={vt}>{#if vt}<Icon name="arrow-up" size={11} />{/if}{s.version}</span>
+                {#if verTag(s)}<span class="vtag" class:old={!!vt} class:bad={s.update?.state === 'failed'}>{verTag(s)}</span>{/if}
+              {/if}
               <span class="ago" class:c-down={s.state === 'offline'}>{fmtRelative(s.metrics_at, clock.now)}</span>
             </div>
             <!-- Mobil kartın alt satırı: ağ, yük ve çalışma süresi tek satırda. -->
@@ -424,6 +498,9 @@
     .a-agent {
       display: flex;
     }
+    .sv {
+      display: none;
+    }
     .ip {
       display: inline;
     }
@@ -625,6 +702,51 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .sv {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    margin-top: 1px;
+  }
+  .sv .ver {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  .vtag {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.7rem;
+    line-height: 1.5;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--surface-2, rgba(128, 128, 128, 0.14));
+    color: var(--text-2);
+  }
+  .agent .vtag {
+    align-self: flex-start;
+  }
+  .vtag.old {
+    background: var(--pending-soft);
+    color: var(--pending);
+  }
+  .vtag.bad {
+    color: var(--down-text);
+  }
+  .ver.old {
+    color: var(--pending);
+  }
+  .ver.bad {
+    color: var(--down-text);
+  }
+  .head-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
   }
   .ago {
     font-size: 0.76rem;

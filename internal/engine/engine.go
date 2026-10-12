@@ -122,6 +122,9 @@ func (e *Engine) Start(ctx context.Context) error {
 	return nil
 }
 
+// Settings geçerli uygulama ayarları (açılışta yüklenen, SetSettings ile güncellenen).
+func (e *Engine) Settings() store.AppSettings { return *e.settings.Load() }
+
 // SetSettings ayarlar değişince çağrılır (SSL eşikleri anında geçerli olur).
 func (e *Engine) SetSettings(s store.AppSettings) {
 	e.settings.Store(&s)

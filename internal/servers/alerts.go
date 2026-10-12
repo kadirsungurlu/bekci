@@ -461,6 +461,10 @@ func (s *Service) CheckOffline(ctx context.Context) {
 					continue
 				}
 				limit := max(time.Duration(a.Minutes)*time.Minute, OfflineAfter)
+				if _, gone := s.goneAt(p.ID); gone {
+					// Bağlantı koptuğu biliniyor: kuraldaki süre yeter.
+					limit = time.Duration(a.Minutes) * time.Minute
+				}
 				if stale > limit {
 					a.ProbeID = p.ID
 					last := time.Unix(p.MetricsAt, 0)
@@ -469,7 +473,7 @@ func (s *Service) CheckOffline(ctx context.Context) {
 				}
 			}
 		}
-		state := State(p, now)
+		state := s.StateOf(p, now)
 		if old, ok := s.states[p.ID]; changed || (ok && old != state) {
 			s.publish(ctx, p, rules)
 		}

@@ -79,6 +79,10 @@ export default {
       create: 'Server added',
       alerts: 'Server alert rules changed',
       notifications: 'Server notification channels changed',
+      update: 'Server updated',
+      delete: 'Server deleted',
+      token: 'Server token regenerated',
+      update_request: 'Server agent update requested',
     },
     settings: {
       update: 'Settings updated',
@@ -129,6 +133,12 @@ export default {
       update: 'Check location updated',
       delete: 'Check location deleted',
       token: 'Check location token regenerated',
+      update_request: 'Agent update requested',
+      update_all: 'Update requested for all agents',
+    },
+    agent: {
+      update: 'Agent version changed',
+      update_failed: 'Agent update failed',
     },
     backup: {
       export: 'Backup downloaded',
@@ -147,6 +157,7 @@ export default {
     maintenance: 'Maintenance',
     tag: 'Tag',
     probe: 'Check location',
+    server: 'Server',
     backup: 'Backup',
   },
 } satisfies Shape<typeof tr>;

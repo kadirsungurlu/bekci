@@ -106,10 +106,17 @@ func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatche
 		not = n
 	}
 	s.servers = servers.New(st, pub, not, log)
+	if e != nil {
+		s.servers.SetConnectionSource(e.ProbeGoneAt)
+	}
 	// Web Push kanalı bu sunucunun aboneliklerine gönderir (notify/webpush.go).
 	notify.SetWebPushSender(&pushSender{s})
 	// Sunucu takibi API'nin saatini kullanır (testler s.now'ı değiştirir).
 	s.servers.SetClock(func() time.Time { return s.now() })
+	// Sunucu görünümündeki ajan güncelleme durumu (agentupdate.go).
+	if e != nil {
+		s.servers.SetUpdateStatus(s.agentUpdateStatus)
+	}
 	return s
 }
 

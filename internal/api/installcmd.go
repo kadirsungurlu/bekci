@@ -128,9 +128,10 @@ func dockerInstallCommand(envPath string, envLines []string, runPrefix, image, v
 		run += image + " probe"
 	} else {
 		// Program bir kez indirilip kalıcı bir birime yazılır ve SHA-256 ile
-		// doğrulanır; yeniden başlatmada tekrar indirilmez (sürüm sabit). Böylece
-		// sunucu sonradan ele geçirilse bile filoya kendiliğinden yeni program inmez.
-		// Güncelleme: bu komut yeni SHA ile tekrar çalıştırılır (önce birim silinir).
+		// doğrulanır; yeniden başlatmada tekrar indirilmez. Sonraki sürümleri ajan
+		// birimdeki programı değiştirerek kendisi kurar (yalnızca projenin
+		// imzasıyla; internal/agentupdate). Elle güncelleme: bu komut yeni SHA ile
+		// tekrar çalıştırılır (önce birim silinir).
 		run += "-v " + volume + ":/opt/uptime alpine:3 " + dockerFetchScript("/opt/uptime/uptime", shaAMD64, shaARM64)
 	}
 	body := envFileSteps(envPath, envLines)

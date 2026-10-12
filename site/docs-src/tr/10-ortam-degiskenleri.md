@@ -60,6 +60,7 @@ Bu değişkenleri panelden aldığınız kurulum komutu sizin için ayarlar (`/e
 | `PROBE_ALLOW_INSECURE` | — | `1` ise şifrelenmemiş `http://` adrese bağlanmaya izin verilir (önerilmez). |
 | `MAX_CONCURRENT_CHECKS` | `20` | Kontrol noktasında aynı anda en fazla kontrol sayısı. |
 | `METRICS` | `1` | `0` ise sunucu ölçümleri hiç toplanmaz. |
+| `AUTO_UPDATE` | `1` | `0` ise ajan panelin sunduğu imzalı sürüme kendini güncellemez ([güncelleme](/docs/sunucu-ajani/#guncelleme)). |
 | `ADDR` | `:8080` | Ajanın sağlık kontrolü adresi; `-` ise kapalı (kurulum komutları `-` kullanır). |
 | `HOST_PROC`, `HOST_SYS`, `HOST_ETC`, `HOST_ROOT` | — | Ajan Docker'da çalışırken sunucunun `/proc`, `/sys`, `/etc` ve kök dizininin bağlandığı yerler. Docker kurulum komutu bunları ayarlar. |
 | `DOCKER_HOST` | `unix:///var/run/docker.sock` | Konteyner ölçümleri için Docker API adresi. |

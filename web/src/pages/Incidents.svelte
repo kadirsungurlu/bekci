@@ -34,6 +34,7 @@
   import IncidentEditModal from '../components/IncidentEditModal.svelte';
   import Icon from '../components/Icon.svelte';
   import { t } from '../lib/i18n';
+  import DateTimeField from '../components/DateTimeField.svelte';
 
   const LIMIT = 50;
 
@@ -251,11 +252,11 @@
     </div>
     <div class="field">
       <label for="f-from">{t('incidents.filter.from')}</label>
-      <input id="f-from" class="input" type="date" bind:value={filters.from} onchange={reset} />
+      <DateTimeField id="f-from" type="date" bind:value={filters.from} onchange={reset} />
     </div>
     <div class="field">
       <label for="f-to">{t('incidents.filter.to')}</label>
-      <input id="f-to" class="input" type="date" bind:value={filters.to} onchange={reset} />
+      <DateTimeField id="f-to" type="date" bind:value={filters.to} onchange={reset} />
     </div>
     {#if active}
       <button class="btn sm ghost clear" onclick={clearFilters}><Icon name="x" size={14} /> {t('incidents.filter.clear')}</button>

@@ -17,6 +17,7 @@
   let notifyLang = $state<Locale>('tr');
   let userAgent = $state('');
   let defaultUA = $state('');
+  let agentAuto = $state(true);
   // Saklama (gün; 0 = süresiz).
   let incidentDays = $state<number | null>(365);
   let captureDays = $state<number | null>(90);
@@ -32,6 +33,7 @@
     backupKeep = s.backup_keep;
     notifyLang = s.notify_lang ?? 'tr';
     userAgent = s.check_user_agent ?? '';
+    agentAuto = s.agent_auto_update ?? true;
     incidentDays = s.retention_incident_days ?? 365;
     captureDays = s.retention_capture_days ?? 90;
     auditDays = s.retention_audit_days ?? 365;
@@ -50,6 +52,7 @@
       backupKeep,
       notifyLang,
       userAgent: userAgent.trim(),
+      agentAuto,
       incidentDays,
       captureDays,
       auditDays,
@@ -108,6 +111,7 @@
         backup_keep: backupKeep!,
         notify_lang: notifyLang,
         check_user_agent: ua,
+        agent_auto_update: agentAuto,
         retention_incident_days: incidentDays!,
         retention_capture_days: captureDays!,
         retention_audit_days: auditDays!,
@@ -207,6 +211,13 @@
         <input id="ua" class="input mono" bind:value={userAgent} placeholder={defaultUA} maxlength="300" spellcheck="false" autocomplete="off" />
         <span class="help">{t('settings.general.userAgentHelp')}</span>
       </div>
+      <label class="check">
+        <input type="checkbox" bind:checked={agentAuto} />
+        <span>
+          {t('settings.general.agentAutoUpdate')}
+          <small>{t('settings.general.agentAutoUpdateHelp')}</small>
+        </span>
+      </label>
       {#if stError}<div class="alert error" role="alert">{stError}</div>{/if}
       <div class="actions">
         <button class="btn primary" type="submit" disabled={stBusy}>

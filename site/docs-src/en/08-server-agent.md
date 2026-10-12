@@ -134,12 +134,29 @@ To be told when a check location goes down, open **Edit** from the row menu, ena
 
 ## Updating {#update}
 
-The agent does **not** update itself: the program is downloaded and verified once, and the same program is used on every restart. That way, even if the server running your panel is compromised, no new program lands on your servers by itself. To update your agents after updating Bekci:
+Agents installed with Bekci 1.3.1 or later **update themselves**: when you upgrade Bekci, server agents and check locations switch to the same version within seconds. An agent installs the program from the panel only if the **project signature** verifies. The signature's public key is built into the agent, and the private key is only used by the official release build. So even if the server running your panel is compromised, no unsigned or modified program lands on your servers, and agents can't be downgraded.
 
-> [!IMPORTANT]
-> **Synchronized location checks** (all locations check at the same moment) and the recognizable **User-Agent** introduced in Bekci 1.2 also need the new agent version. Reinstall check locations set up before 1.2 with the steps below; old agents keep working but check on their own schedule and with their own User-Agent. The panel marks agents whose version differs from its own with an **Outdated** badge in the list.
+How it works:
 
-1. Get the **current** install command from the panel. Since the token is only shown once, this regenerates it (the old token stops working immediately):
+- When an agent sees the panel's version, it downloads the signed program. It verifies the checksum and the signature, replaces the running program and restarts. Docker, systemd or the Windows service manager starts it again with the new program.
+- If the new version can't reach the panel within three attempts, the agent goes back to the previous program and tells the panel.
+- The status shows on the server page in the **Agent version** row and in the **Version** column of the check locations list: **Up to date**, **Update available**, **Updating…**, **Update failed** or **Old agent**.
+
+Settings:
+
+- **Settings → General → Update agents automatically**: the global setting, on by default.
+- Per agent: **Automatic updates** in the server's **Settings** dialog or the check location's **Edit** dialog. The choices are the global setting, on or off.
+- While it's off, **Update now** updates an agent once. **Update all** on the Servers page and in the check locations list updates every agent that can be updated.
+- To turn updates off on the agent itself, add `AUTO_UPDATE=0` to the agent's settings file (`/etc/uptime-agent.env`, `/etc/uptime-probe.env` or `agent.env`) and restart the agent.
+
+> [!NOTE]
+> Only official release images (such as `kadirsungurlu/bekci:1.3.1`) contain signed agents. A panel built from source or from a commit doesn't offer updates to agents, and the agent row says **Unsigned build** or **Unversioned build**. Agents that run from the app image with `PROBE_IMAGE` can't update themselves either (**Manual updates**); update the image for those.
+
+### Updating old agents once {#old-agents}
+
+Agents installed before 1.3.1 can't update themselves. They show as **Old agent** in the list. Reinstall them by hand once, and later versions arrive on their own:
+
+1. Get the **current** install command from the panel. Since the token is only shown once, this step regenerates it and the old token stops working immediately:
    - Server agent: on the server's page, **Install command** → **Regenerate token and show command**.
    - Check location: in the **Settings → Check locations** list, **Regenerate token** in the row's menu.
 2. For Docker installs, remove the old one first:

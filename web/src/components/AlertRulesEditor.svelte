@@ -451,7 +451,8 @@
     justify-content: flex-end;
   }
   .msel {
-    width: 132px;
+    width: 176px;
+    min-width: 176px;
     height: 36px;
     font-weight: 600;
   }
@@ -544,7 +545,7 @@
       margin-left: auto;
     }
     .msel {
-      width: 118px;
+      width: 176px;
     }
     .sep {
       display: none;

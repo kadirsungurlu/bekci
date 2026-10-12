@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/kadirsungurlu/bekci/internal/agentupdate"
 	"log/slog"
 	"slices"
 	"strconv"
@@ -75,7 +76,24 @@ type Service struct {
 	// maint sunucuları kapsayan etkin bakım pencereleri (ReloadMaintenance).
 	maint atomic.Pointer[maintenance.Index]
 
+	// gone ajanın uzun yoklama bağlantısının ne zaman koptuğu (SetConnectionSource;
+	// nil: bilinmiyor, yalnızca son örneğin yaşına bakılır).
+	gone func(id int64) (time.Time, bool)
+	// updateStatus ajan güncelleme durumunu hesaplar (SetUpdateStatus; nil: yok).
+	updateStatus func(store.Probe) *agentupdate.Status
+
 	bg sync.WaitGroup
+}
+
+// SetConnectionSource ajan bağlantı durumunun kaynağını verir (motor): kopan
+// ajanın sunucusu beklemeden çevrimdışı görünür.
+func (s *Service) SetConnectionSource(f func(id int64) (time.Time, bool)) { s.gone = f }
+
+func (s *Service) goneAt(id int64) (time.Time, bool) {
+	if s.gone == nil {
+		return time.Time{}, false
+	}
+	return s.gone(id)
 }
 
 // ReloadMaintenance bakım pencerelerini okuyup sunucu dizinini yeniler

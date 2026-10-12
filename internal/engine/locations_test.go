@@ -320,7 +320,7 @@ func TestProbeWatcher(t *testing.T) {
 	defer unsub()
 	p := f.probe(t, "P", true)
 	known := f.e.scanProbes(ctx, nil) // ilk tarama olay üretmez
-	f.st.TouchProbe(ctx, p.ID, f.clock.Unix(), "10.0.0.1", "v1")
+	f.st.TouchProbe(ctx, p.ID, f.clock.Unix(), "10.0.0.1", "v1", "")
 	known = f.e.scanProbes(ctx, known)
 	f.clock = f.clock.Add(ProbeOfflineAfter + time.Second)
 	f.e.scanProbes(ctx, known)

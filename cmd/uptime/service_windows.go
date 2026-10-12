@@ -14,6 +14,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/kadirsungurlu/bekci/internal/agentupdate"
 	"github.com/kadirsungurlu/bekci/internal/brand"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
@@ -164,6 +165,12 @@ func (a *agentService) Execute(_ []string, req <-chan svc.ChangeRequest, st chan
 	for {
 		select {
 		case err := <-done:
+			if errors.Is(err, agentupdate.ErrRestart) {
+				// Program güncellendi: hatayla biten hizmeti kurtarma ayarı yeni
+				// programla yeniden başlatır.
+				a.log.Info("ajan güncellendi, hizmet yeniden başlatılıyor")
+				return true, agentupdate.ExitCode
+			}
 			if err != nil {
 				a.log.Error("ajan durdu", "hata", err)
 				eventLogError(brand.Name + " ajanı durdu: " + err.Error())

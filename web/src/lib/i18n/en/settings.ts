@@ -50,6 +50,9 @@ export default {
     userAgent: 'User-Agent for checks',
     userAgentHelp:
       'Website checks are sent with this value, and every check location uses the same one. If your site is behind Cloudflare or another firewall, allow requests whose User-Agent contains "Bekci" instead of adding IP addresses one by one. Leave empty for the default; a custom User-Agent header on a monitor takes precedence.',
+    agentAutoUpdate: 'Update agents automatically',
+    agentAutoUpdateHelp:
+      'When the panel moves to a new version, server agents and check locations switch to the same version on their own. The program is installed only if the project signature verifies, and agents are never downgraded. Can also be turned on or off per agent.',
     errUserAgent: 'The User-Agent can be at most 300 characters and may only contain ASCII letters, digits and punctuation.',
     notifyLangHelp: 'Language of the messages sent to all notification channels (email, Telegram, webhook…).',
     errRaw: 'Raw check history must be between 1 and 90 days.',

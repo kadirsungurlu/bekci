@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/kadirsungurlu/bekci/internal/agentupdate"
 	"github.com/kadirsungurlu/bekci/internal/probe"
 )
 
@@ -35,6 +36,8 @@ import (
 //	                       kendi değerleri yanıltır), ana sunucuya neden bildirilir.
 //	DOCKER_HOST            Docker API adresi (varsayılan unix:///var/run/docker.sock);
 //	                       erişilebilirse konteyner istatistikleri de gönderilir
+//	AUTO_UPDATE            "0" ise ajan panelin sunduğu imzalı sürüme kendini
+//	                       güncellemez (varsayılan açık; bkz. internal/agentupdate)
 //
 // Docker kurulumu (host ağı ve süreçleri, kök dizin salt okunur). Token
 // süreç argümanlarında görünmesin diye 0600 izinli bir env dosyasından
@@ -59,6 +62,16 @@ func runProbe(log *slog.Logger) error {
 // probeMain ajanı ctx bitene kadar çalıştırır (konsolda ve Windows hizmetinde ortak).
 func probeMain(ctx context.Context, log *slog.Logger) error {
 	maxChecks, _ := strconv.Atoi(env("MAX_CONCURRENT_CHECKS", "20"))
+	// Kendini güncelleme: önceki güncellemenin sonucu (geri dönüş gerekiyorsa
+	// burada yapılır ve süreç yeniden başlatılmak üzere çıkar).
+	updater := agentupdate.New(version, log)
+	if slices.Contains([]string{"0", "false", "off", "no"}, strings.ToLower(env("AUTO_UPDATE", "1"))) {
+		updater.Disabled = "off"
+	}
+	report, err := updater.Startup()
+	if err != nil {
+		return err
+	}
 	client, err := probe.New(probe.Config{
 		Server:        env("PROBE_SERVER", ""),
 		Token:         env("PROBE_TOKEN", ""),
@@ -67,6 +80,8 @@ func probeMain(ctx context.Context, log *slog.Logger) error {
 		NoMetrics:     slices.Contains([]string{"0", "false", "off", "no"}, strings.ToLower(env("METRICS", "1"))),
 		AllowInsecure: slices.Contains([]string{"1", "true", "on", "yes"}, strings.ToLower(env("PROBE_ALLOW_INSECURE", ""))),
 		Log:           log,
+		Updater:       updater,
+		UpdateReport:  report,
 	})
 	if err != nil {
 		return err

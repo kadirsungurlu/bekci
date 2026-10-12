@@ -1,5 +1,6 @@
 <script lang="ts">
-  // Sunucu ayarları (yönetici): ad, metrik toplamayı duraklatma ve silme.
+  // Sunucu ayarları (yönetici): ad, metrik toplamayı duraklatma, ajanın
+  // otomatik güncellemesi ve silme.
   // Sunucular kontrol noktalarından ayrı kayıtlardır; ayarları burada yapılır.
   import { untrack } from 'svelte';
   import { api, errorMessage, type ServerView } from '../lib/api';
@@ -8,6 +9,7 @@
   import { navigate } from '../lib/router.svelte';
   import { t, tParts } from '../lib/i18n';
   import Modal from './Modal.svelte';
+  import AgentAutoUpdate, { autoChoice, autoValue, type AutoChoice } from './AgentAutoUpdate.svelte';
 
   let {
     open = $bindable(false),
@@ -23,6 +25,7 @@
   let metrics = $state(true);
   let ipLock = $state(true);
   let lockedIp = $state('');
+  let auto = $state<AutoChoice>('inherit');
   let error = $state('');
   let busy = $state(false);
 
@@ -35,6 +38,7 @@
         metrics = server.metrics;
         ipLock = server.ip_lock;
         lockedIp = server.locked_ip;
+        auto = autoChoice(server.update);
         error = '';
       });
   });
@@ -52,7 +56,10 @@
     busy = true;
     error = '';
     try {
-      await api.updateProbe(server.id, n, server.active, metrics, { ipLock });
+      await api.updateProbe(server.id, n, server.active, metrics, {
+        ipLock,
+        ...(server.update ? { autoUpdate: autoValue(auto) } : {}),
+      });
       toast.success(t('servers.settings.saved'));
       open = false;
       onsaved();
@@ -128,6 +135,7 @@
         <button type="button" class="btn sm" onclick={resetIp} disabled={busy}>{t('servers.settings.resetLock')}</button>
       </div>
     {/if}
+    {#if server.update}<AgentAutoUpdate id="srv-auto" bind:value={auto} update={server.update} />{/if}
     {#if error}<div class="alert error" role="alert">{error}</div>{/if}
   </form>
   {#snippet footer()}

@@ -53,7 +53,7 @@ func TestProbeStore(t *testing.T) {
 	if err != nil || got.ID != p.ID || !got.Active || got.LastSeenAt != 0 {
 		t.Fatalf("özetten bulma: %+v %v", got, err)
 	}
-	if err := s.TouchProbe(ctx, p.ID, 500, "10.0.0.1", "v1"); err != nil {
+	if err := s.TouchProbe(ctx, p.ID, 500, "10.0.0.1", "v1", ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.SetProbeToken(ctx, p.ID, "h3", "upr_9999"); err != nil {

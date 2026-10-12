@@ -323,7 +323,7 @@ func (s *Server) putServerAlerts(w http.ResponseWriter, r *http.Request) {
 		s.dbError(w, err)
 		return
 	}
-	s.audit(r, store.User{}, "server.alerts", "probe", id, p.Name, alertSummary(saved))
+	s.audit(r, store.User{}, "server.alerts", "server", id, p.Name, alertSummary(saved))
 	s.servers.Publish(r.Context(), id)
 	writeJSON(w, http.StatusOK, map[string]any{"alerts": saved})
 }
@@ -398,7 +398,7 @@ func (s *Server) putServerNotifications(w http.ResponseWriter, r *http.Request) 
 	if len(list) > 0 {
 		detail = "kanallar: " + strings.Join(list, ", ")
 	}
-	s.audit(r, store.User{}, "server.notifications", "probe", id, p.Name, detail)
+	s.audit(r, store.User{}, "server.notifications", "server", id, p.Name, detail)
 	writeJSON(w, http.StatusOK, map[string]any{"notification_ids": ids, "notification_bindings": bindings})
 }
 

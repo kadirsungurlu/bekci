@@ -364,10 +364,23 @@ Windows sekmesindeki komutu yapıştırın.
 
 ### Ajan güncelleme
 
-Ajan kendini **güncellemez** (sürüm sabit): program bir kez indirilir,
-doğrulanır ve yeniden başlatmalarda aynı program kullanılır. Böylece ana sunucu
-ele geçirilse bile sunuculara kendiliğinden yeni program inmez. Güncellemek
-için panelden **güncel** kurulum komutunu alıp tekrar çalıştırın:
+1.3.1 ve sonrasında kurulan ajanlar **kendini günceller**: Bekci'yi yükselttiğinizde
+sunucu ajanları ve kontrol noktaları birkaç saniye içinde aynı sürüme geçer.
+Ajan programı yalnızca **projenin imzası** (Ed25519, açık anahtar ajana gömülü)
+doğrulanırsa kurar; ana sunucu ele geçirilse bile imzasız ya da değiştirilmiş
+bir program kurulmaz ve ajan eski sürüme döndürülemez. Yeni sürüm panele
+bağlanamazsa ajan eski programa döner.
+
+- Genel ayar: **Ayarlar → Genel → Ajanları otomatik güncelle** (varsayılan açık);
+  ajan başına sunucu ayarlarından / kontrol noktası düzenleme penceresinden.
+- **Şimdi güncelle** ve **Tümünü güncelle** düğmeleri; durum sunucu sayfasında ve
+  kontrol noktaları listesinde rozetle görünür.
+- Ajan tarafında kapatmak için env dosyasına `AUTO_UPDATE=0`.
+- Yalnızca resmi sürüm imajları imzalı ajan içerir; kaynaktan derlenen panel
+  ajanlara güncelleme sunmaz.
+
+1.3.1'den önce kurulmuş ajanlar (**Eski ajan**) bir kez elle yeniden kurulur:
+panelden **güncel** kurulum komutunu alıp tekrar çalıştırın.
 
 - **Docker:** önce eskisini kaldırın, sonra yeni komutu çalıştırın:
   ```bash
@@ -379,12 +392,6 @@ için panelden **güncel** kurulum komutunu alıp tekrar çalıştırın:
 
 Token yalnızca bir kez gösterildiği için komutu yeniden görmek için panelde
 **yeni token** almanız gerekir; eski token geçersiz olur.
-
-1.2 ile gelen **eşzamanlı konum kontrolü** (tüm konumlar aynı anda kontrol
-eder) ve tanınabilir **User-Agent** ajan tarafında da yeni sürümü gerektirir:
-1.2 öncesi kurulmuş kontrol noktalarını yukarıdaki adımlarla yeniden kurun.
-Eski ajanlar çalışmaya devam eder ama kendi zamanlamasıyla ve kendi
-User-Agent'ıyla kontrol eder; panel listede **Eski sürüm** rozeti gösterir.
 
 ### Ajanı kaldırma
 

@@ -77,6 +77,10 @@ export default {
       create: 'Sunucu eklendi',
       alerts: 'Sunucu uyarı kuralları değiştirildi',
       notifications: 'Sunucu bildirim kanalları değiştirildi',
+      update: 'Sunucu güncellendi',
+      delete: 'Sunucu silindi',
+      token: 'Sunucu token’ı yenilendi',
+      update_request: 'Sunucu ajanı güncellemesi istendi',
     },
     settings: {
       update: 'Ayarlar güncellendi',
@@ -127,6 +131,12 @@ export default {
       update: 'Kontrol noktası güncellendi',
       delete: 'Kontrol noktası silindi',
       token: 'Kontrol noktası token’ı yenilendi',
+      update_request: 'Ajan güncellemesi istendi',
+      update_all: 'Tüm ajanlar için güncelleme istendi',
+    },
+    agent: {
+      update: 'Ajan sürümü değişti',
+      update_failed: 'Ajan güncellemesi başarısız',
     },
     backup: {
       export: 'Yedek indirildi',
@@ -145,6 +155,7 @@ export default {
     maintenance: 'Bakım',
     tag: 'Etiket',
     probe: 'Kontrol noktası',
+    server: 'Sunucu',
     backup: 'Yedek',
   },
 };

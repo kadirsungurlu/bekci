@@ -27,6 +27,10 @@ on:
         description: ":latest ve :postgres bu sürüme yönlendirilsin (ör. 1.2.1); boş: yalnızca testler"
         required: false
         default: ""
+      imza_denetimi:
+        description: "Gerçek AGENT_SIGNING_KEY ile imzalı derleme + doğrulama (yüklemez); sürüm etiketinden önce imza hattını dener"
+        type: boolean
+        default: false
 
 # Aynı dalda yeni bir çalıştırma başlayınca eskisi iptal edilir: eski bir
 # commit'in imajı yenisinin üstüne yazılıp :latest geriye gidemez.
@@ -150,6 +154,41 @@ jobs:
           # Düzgün kapanış.
           docker stop duman
           [ "$(docker inspect duman --format '{{.State.ExitCode}}')" = 0 ] || { echo "::error::kapanış çıkış kodu sıfır değil"; exit 1; }
+      # İmza hattı her gönderimde dener (geçici anahtarla): sürüm derlemesindeki
+      # imzala + doğrula adımı (Dockerfile) yalnızca etiket/main'de çalıştığından
+      # burada olmazsa ilk hata yayın sırasında çıkardı. Gerçek sır için bkz.
+      # imza-denetimi işi.
+      - name: Ajan imzası (geçici anahtar)
+        env:
+          DOSYA: ${{ matrix.dockerfile }}
+        run: |
+          set -euo pipefail
+          openssl genpkey -algorithm ed25519 -out "$RUNNER_TEMP/gecici.pem"
+          pub=$(openssl pkey -in "$RUNNER_TEMP/gecici.pem" -pubout -outform DER | tail -c 32 | base64 -w0)
+          echo "PUB=$pub" >> "$GITHUB_ENV"
+          echo "geçici açık anahtar: $pub"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          load: true
+          push: false
+          build-args: |
+            SOURCE_COMMIT=${{ github.sha }}
+            VERSION=0.0.0-ci
+            AGENT_SIGNING_PUBKEY=${{ env.PUB }}
+          secret-files: |
+            agent_signing_key=${{ runner.temp }}/gecici.pem
+          tags: uptime-imza:${{ matrix.etiket }}
+          cache-from: type=gha,scope=${{ matrix.etiket }}
+      - name: Ajan imzası doğrula
+        run: |
+          set -euo pipefail
+          n=$(docker run --rm --entrypoint sh "uptime-imza:${{ matrix.etiket }}" -c 'grep -l "\"version\":\"0.0.0-ci\"" /usr/local/share/uptime/agents/*.sig | wc -l')
+          echo "imza dosyası: $n"
+          [ "$n" -ge 3 ] || { echo "::error::imzalı derlemede ajan imzaları eksik ($n)"; exit 1; }
+          docker run --rm --entrypoint uptime "uptime-imza:${{ matrix.etiket }}" version
+
       - name: Container günlükleri
         if: failure()
         run: docker logs duman || true
@@ -235,6 +274,24 @@ jobs:
             done
             echo "SON"
           } >> "$GITHUB_OUTPUT"
+      # Çok satırlı PEM, build-push-action'ın "secrets:" girdisinde satırlara bölünür
+      # (::warning::*** is not a valid secret, imza adımı "PEM bloğu bulunamadı"
+      # ile düşer); bu yüzden dosya olarak verilir. İçerik günlüğe yazılmaz.
+      - name: İmza anahtarı dosyası
+        env:
+          SIR: ${{ secrets.AGENT_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          [ -n "$SIR" ] || { echo "::error::AGENT_SIGNING_KEY sırrı boş ya da tanımsız"; exit 1; }
+          f="$RUNNER_TEMP/agent_signing_key.pem"
+          ( umask 077; printf '%s\n' "$SIR" > "$f" )
+          if ! openssl pkey -in "$f" -noout 2>/dev/null; then
+            # Sır base64 olarak saklanmış olabilir.
+            ( umask 077; printf '%s' "$SIR" | base64 -d > "$f.2" 2>/dev/null || true )
+            if openssl pkey -in "$f.2" -noout 2>/dev/null; then mv "$f.2" "$f"; echo "sır base64'ten çözüldü";
+            else echo "::error::AGENT_SIGNING_KEY geçerli bir PKCS#8 PEM özel anahtarı değil (PEM ya da base64 PEM olmalı)"; exit 1; fi
+          fi
+          echo "AGENT_SIGNING_KEY: geçerli özel anahtar ($(openssl pkey -in "$f" -noout -text 2>/dev/null | head -1))"
       # amd64 katmanları duman testindeki derlemenin önbelleğinden gelir.
       - uses: docker/build-push-action@v6
         with:
@@ -245,6 +302,10 @@ jobs:
           build-args: |
             SOURCE_COMMIT=${{ github.sha }}
             VERSION=${{ steps.etiket.outputs.surum }}
+          # Ajan programlarını imzalayan anahtar (otomatik güncelleme; Dockerfile
+          # yalnızca sürüm derlemesinde kullanır, katmana girmez).
+          secret-files: |
+            agent_signing_key=${{ runner.temp }}/agent_signing_key.pem
           tags: ${{ steps.etiket.outputs.liste }}
           # Tedarik zinciri kanıtları: SBOM ve SLSA provenance (Docker Hub gösterir).
           provenance: mode=max
@@ -270,7 +331,69 @@ jobs:
             s=$(docker run --rm --pull always --platform "$plat" --entrypoint uptime "$imaj" version)
             echo "$plat: $s"
             [ "$s" = "$beklenen" ] || { echo "::error::$plat sürümü $s (beklenen $beklenen)"; exit 1; }
+            # Sürümde ajan imzaları olmalı: yoksa ajanlar otomatik güncellenemez.
+            if [ -n "$SURUM" ]; then
+              n=$(docker run --rm --platform "$plat" --entrypoint sh "$imaj" -c 'grep -l "\"version\":\"'"$SURUM"'\"" /usr/local/share/uptime/agents/*.sig | wc -l')
+              echo "$plat imza dosyası: $n"
+              [ "$n" -ge 3 ] || { echo "::error::$plat imajında ajan imzaları eksik ($n); AGENT_SIGNING_KEY sırrını denetleyin"; exit 1; }
+            fi
           done
+
+  # Elle (imza_denetimi=true): GERÇEK AGENT_SIGNING_KEY ile sürüm derlemesi,
+  # imajın gömülü proje anahtarıyla doğrulaması (Dockerfile "dogrula" adımı
+  # tutmazsa derleme düşer); hiçbir yere yüklenmez. Etiket/main'e geçmeden
+  # önce sırrın, gömülü açık anahtarın ve imza hattının uyumunu gösterir.
+  imza-denetimi:
+    if: github.event_name == 'workflow_dispatch' && inputs.imza_denetimi
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerfile: Dockerfile
+            etiket: latest
+          - dockerfile: Dockerfile.postgres
+            etiket: postgres
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      # Çok satırlı PEM, build-push-action'ın "secrets:" girdisinde satırlara bölünür
+      # (::warning::*** is not a valid secret, imza adımı "PEM bloğu bulunamadı"
+      # ile düşer); bu yüzden dosya olarak verilir. İçerik günlüğe yazılmaz.
+      - name: İmza anahtarı dosyası
+        env:
+          SIR: ${{ secrets.AGENT_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          [ -n "$SIR" ] || { echo "::error::AGENT_SIGNING_KEY sırrı boş ya da tanımsız"; exit 1; }
+          f="$RUNNER_TEMP/agent_signing_key.pem"
+          ( umask 077; printf '%s\n' "$SIR" > "$f" )
+          if ! openssl pkey -in "$f" -noout 2>/dev/null; then
+            # Sır base64 olarak saklanmış olabilir.
+            ( umask 077; printf '%s' "$SIR" | base64 -d > "$f.2" 2>/dev/null || true )
+            if openssl pkey -in "$f.2" -noout 2>/dev/null; then mv "$f.2" "$f"; echo "sır base64'ten çözüldü";
+            else echo "::error::AGENT_SIGNING_KEY geçerli bir PKCS#8 PEM özel anahtarı değil (PEM ya da base64 PEM olmalı)"; exit 1; fi
+          fi
+          echo "AGENT_SIGNING_KEY: geçerli özel anahtar ($(openssl pkey -in "$f" -noout -text 2>/dev/null | head -1))"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          load: true
+          push: false
+          build-args: |
+            SOURCE_COMMIT=${{ github.sha }}
+            VERSION=0.0.0-imza-denetimi
+          secret-files: |
+            agent_signing_key=${{ runner.temp }}/agent_signing_key.pem
+          tags: uptime-imza:${{ matrix.etiket }}
+          cache-from: type=gha,scope=${{ matrix.etiket }}
+      - name: İmzalar imajda
+        run: |
+          set -euo pipefail
+          n=$(docker run --rm --entrypoint sh "uptime-imza:${{ matrix.etiket }}" -c 'grep -l "\"version\":\"0.0.0-imza-denetimi\"" /usr/local/share/uptime/agents/*.sig | wc -l')
+          echo "IMZA_DENETIMI ${{ matrix.etiket }}: imza dosyası=$n (gömülü proje anahtarıyla doğrulandı)"
+          [ "$n" -ge 3 ] || { echo "::error::ajan imzaları eksik ($n)"; exit 1; }
 
   # Docker Hub depo sayfası (Overview + kısa açıklama) DOCKERHUB.md'den güncellenir.
   # Token'ın "Read, Write, Delete" yetkisi gerekir; yoksa bu adım uyarı verir ama
