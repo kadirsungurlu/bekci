@@ -1192,7 +1192,7 @@ export const EMAIL_PORTS: Record<string, number> = { starttls: 587, tls: 465, no
 
 /**
  * Kanal olay süzgecindeki gruplar: her grup birlikte açılıp kapanan türleri
- * toplar (🔴 ile 🟢 çifti aynı grupta değildir: "düzelme istemeyen kanal"
+ * toplar (kesinti ile düzelme çifti aynı grupta değildir: "düzelme istemeyen kanal"
  * kurulabilsin). Etiket: t(`notifications.rules.events.${id}`).
  */
 export type NotifyEventGroupId = 'down' | 'up' | 'reminder' | 'cert' | 'domain' | 'slow' | 'location' | 'server' | 'probe' | 'acked';

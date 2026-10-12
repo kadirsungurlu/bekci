@@ -290,7 +290,7 @@ func TestAlerts(t *testing.T) {
 		ev.Target != "cp1" || ev.URL != fmt.Sprintf("https://uptime.test/#/servers/%d", e.probe.ID) || ev.Value != 95 {
 		t.Fatalf("olay: %+v", ev)
 	}
-	if ev.Title() != "🔴 CP Server İstanbul: CPU %95 (10 dk ortalama, eşik %90)" {
+	if ev.Title() != "CP Server İstanbul: CPU %95 (10 dk ortalama, eşik %90)" {
 		t.Fatalf("başlık: %s", ev.Title())
 	}
 	if !e.rules()["cpu"].Firing {
@@ -320,7 +320,7 @@ func TestAlerts(t *testing.T) {
 	if len(evs) != 1 || evs[0].Kind != notify.KindServerResolved || evs[0].Metric != "cpu" || evs[0].Value > 90 {
 		t.Fatalf("bitiş: %+v", evs)
 	}
-	if evs[0].Title() != "🟢 CP Server İstanbul: CPU normale döndü" {
+	if evs[0].Title() != "CP Server İstanbul: CPU normale döndü" {
 		t.Fatalf("bitiş başlığı: %s", evs[0].Title())
 	}
 	events, _ := e.st.ServerAlertEvents(ctx, e.probe.ID, 0, 10)
@@ -336,7 +336,7 @@ func TestAlerts(t *testing.T) {
 	if len(evs) != 1 || evs[0].Metric != "disk" || evs[0].Value != 90 {
 		t.Fatalf("disk: %+v", evs)
 	}
-	if evs[0].Title() != "🔴 CP Server İstanbul: Disk (/) %90 (1 dk ortalama, eşik %85)" {
+	if evs[0].Title() != "CP Server İstanbul: Disk (/) %90 (1 dk ortalama, eşik %85)" {
 		t.Fatalf("disk başlığı: %s", evs[0].Title())
 	}
 	e.send(cpu(10))
@@ -355,7 +355,7 @@ func TestAlerts(t *testing.T) {
 	e.svc.CheckOffline(ctx)
 	evs = e.notif.take()
 	if len(evs) != 1 || evs[0].Metric != "offline" || evs[0].Kind != notify.KindServerAlert ||
-		evs[0].Title() != "🔴 CP Server İstanbul: sunucuya ulaşılamıyor" {
+		evs[0].Title() != "CP Server İstanbul: sunucuya ulaşılamıyor" {
 		t.Fatalf("çevrimdışı: %+v", evs)
 	}
 	if v := e.hub.last(); v.State != StateOffline || len(v.Firing) != 1 || v.Firing[0] != "offline" {
@@ -364,7 +364,7 @@ func TestAlerts(t *testing.T) {
 	// Veri tekrar gelir: uyarı biter.
 	e.send(cpu(10))
 	evs = e.notif.take()
-	if len(evs) != 1 || evs[0].Kind != notify.KindServerResolved || evs[0].Title() != "🟢 CP Server İstanbul: tekrar veri gönderiyor" {
+	if len(evs) != 1 || evs[0].Kind != notify.KindServerResolved || evs[0].Title() != "CP Server İstanbul: tekrar veri gönderiyor" {
 		t.Fatalf("tekrar veri: %+v", evs)
 	}
 
@@ -442,7 +442,7 @@ func TestDiskRulePerMount(t *testing.T) {
 	if len(evs) != 1 || evs[0].Mount != "/home" || evs[0].Value != 91 {
 		t.Fatalf("/home uyarısı: %+v", evs)
 	}
-	if got := evs[0].Title(); got != "🔴 CP Server İstanbul: Disk (/home) %91 (1 dk ortalama, eşik %85)" {
+	if got := evs[0].Title(); got != "CP Server İstanbul: Disk (/home) %91 (1 dk ortalama, eşik %85)" {
 		t.Fatalf("başlık: %s", got)
 	}
 	e.send(disks(60))
@@ -546,7 +546,7 @@ func TestNetAlert(t *testing.T) {
 	if len(evs) != 1 || evs[0].Metric != MetricNet || evs[0].Value < 100 {
 		t.Fatalf("ağ uyarısı: %+v", evs)
 	}
-	if got := evs[0].Title(); !strings.HasPrefix(got, "🔴 CP Server İstanbul: Ağ ") || !strings.Contains(got, "Mbit/s (5 dk ortalama, eşik 100 Mbit/s)") {
+	if got := evs[0].Title(); !strings.HasPrefix(got, "CP Server İstanbul: Ağ ") || !strings.Contains(got, "Mbit/s (5 dk ortalama, eşik 100 Mbit/s)") {
 		t.Fatalf("başlık: %s", got)
 	}
 }

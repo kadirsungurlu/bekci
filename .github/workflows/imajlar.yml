@@ -57,6 +57,12 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: "1.27"
+      # Projede emoji yok (arayüz, bildirim şablonları, belgeler): durum metinle verilir.
+      - name: Emoji denetimi
+        run: |
+          if grep -rIlP '[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}\x{1F000}-\x{1F2FF}\x{2B00}-\x{2BFF}\x{23E9}-\x{23FA}\x{FE0F}]' . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=vendor; then
+            echo "::error::Kaynakta emoji bulundu (yukarıdaki dosyalar); metin ya da SVG simge kullanın"; exit 1
+          fi
       - name: Windows derlemesi (ajan)
         run: GOOS=windows GOARCH=amd64 go vet ./...
       - name: Testler (SQLite)

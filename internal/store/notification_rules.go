@@ -14,7 +14,7 @@ import (
 //   - notifications.events: kanalın alacağı olay türleri (JSON dizi; boş =
 //     hepsi, eski kanallar değişmez).
 //   - notifications.quiet_hours: sessiz saatler (JSON; boş = yok): başlangıç,
-//     bitiş ("HH:MM"), saat dilimi ve kip (critical: yalnızca 🔴 geçer, none:
+//     bitiş ("HH:MM"), saat dilimi ve kip (critical: yalnızca kritik geçer, none:
 //     hiçbiri). Sessiz saatlerde "sorun başladı" bildirimleri pencerenin
 //     bitimine ertelenir ve olay hâlâ sürüyorsa gönderilir; hatırlatmalar atılır.
 //   - notifications.delay_min: gecikme (dk): sorun bu kadar süre sürmezse
@@ -60,7 +60,7 @@ CREATE INDEX notification_queue_incident ON notification_queue(incident_id);
 
 // Sessiz saat kipleri.
 const (
-	QuietCritical = "critical" // yalnızca 🔴 (kesinti, sunucu uyarısı, kontrol noktası) ve onların düzelmesi geçer
+	QuietCritical = "critical" // yalnızca kritik (kesinti, sunucu uyarısı, kontrol noktası) ve onların düzelmesi geçer
 	QuietNone     = "none"     // hiçbir bildirim gitmez; sorun başlangıçları pencere bitimine ertelenir
 )
 

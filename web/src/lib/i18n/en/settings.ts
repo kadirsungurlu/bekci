@@ -41,7 +41,7 @@ export default {
     domainDays: 'Domain alert days',
     domainDaysPlaceholder: 'e.g. 30, 14, 7',
     domainDaysHelp:
-      'A notification is sent when the domain registration (RDAP) is this many days from expiry; 7 days or less is 🔴, more is 🟡. Leave empty to turn off domain alerts.',
+      'A notification is sent when the domain registration (RDAP) is this many days from expiry; 7 days or less is critical, more is a warning. Leave empty to turn off domain alerts.',
     errDomainDays: 'Domain alert days must be whole numbers between 0 and 365.',
     errDomainCount: 'You can enter at most 10 domain alert thresholds.',
     backupKeep: 'Nightly backups to keep',

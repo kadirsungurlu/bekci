@@ -40,6 +40,8 @@ const until = async (what, fn, ms = 60000) => {
     await new Promise((r) => setTimeout(r, 300));
   }
 };
+// Projede emoji yok: bildirim başlıkları ve gövdesi düz metin olmalı.
+const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{23E9}-\u{23FA}\u{FE0F}]/u;
 const b64uToBuf = (s) => Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
 
 // RFC 8291 (aes128gcm) çözümü; tarayıcı tarafındaki özel anahtar ve auth ile.
@@ -143,6 +145,7 @@ try {
   if (h1.path !== '/push/e2e' || !/^vapid /.test(h1.headers.authorization || '') || h1.headers['content-encoding'] !== 'aes128gcm') fail('deneme bildirimi başlıkları: ' + JSON.stringify(h1.headers));
   const p1 = decrypt(h1.body, priv, uaPub, b64uToBuf(keys.auth));
   if (!p1.title) fail('deneme yükü başlıksız: ' + JSON.stringify(p1));
+  if (EMOJI.test(JSON.stringify(p1))) fail('deneme yükünde emoji var: ' + JSON.stringify(p1));
   ok('deneme bildirimi şifreli gitti, yük çözüldü: ' + p1.title);
 
   // 3) Kapat, expirationTime sayı ile yeniden abone ol.
@@ -162,6 +165,7 @@ try {
   const mark = hits.length;
   const h2 = await until('olay uyarısı push', () => hits.slice(mark).find((x) => x.path === '/push/e2e'), 120000);
   const p2 = decrypt(h2.body, priv, uaPub, b64uToBuf(keys.auth));
+  if (EMOJI.test(JSON.stringify(p2))) fail('uyarı yükünde emoji var: ' + JSON.stringify(p2));
   if (!JSON.stringify(p2).includes('E2E kapali servis')) fail('uyarı yükü monitörü anmıyor: ' + JSON.stringify(p2));
   ok('olay uyarısı push olarak gitti: ' + (p2.title || JSON.stringify(p2).slice(0, 80)));
 

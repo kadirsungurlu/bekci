@@ -39,7 +39,7 @@ export default {
     domainDays: 'Alan adı uyarı günleri',
     domainDaysPlaceholder: 'Ör. 30, 14, 7',
     domainDaysHelp:
-      'Alan adının (RDAP kaydı) bitmesine bu kadar gün kala bildirim gönderilir; 7 gün ve altı 🔴, üstü 🟡. Boş bırakırsanız alan adı uyarısı gönderilmez.',
+      'Alan adının (RDAP kaydı) bitmesine bu kadar gün kala bildirim gönderilir; 7 gün ve altı kritik, üstü uyarı seviyesindedir. Boş bırakırsanız alan adı uyarısı gönderilmez.',
     errDomainDays: 'Alan adı uyarı günleri 0-365 arasında tam sayı olmalı.',
     errDomainCount: 'En fazla 10 alan adı uyarı eşiği girilebilir.',
     backupKeep: 'Gece yedeği sayısı',

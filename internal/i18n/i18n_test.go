@@ -115,10 +115,10 @@ func TestNormalize(t *testing.T) {
 }
 
 func TestTAndTN(t *testing.T) {
-	if got := T(EN, "notify.down.title", "API"); got != "🔴 API is down" {
+	if got := T(EN, "notify.down.title", "API"); got != "API is down" {
 		t.Errorf("T: %q", got)
 	}
-	if got := T("", "notify.down.title", "API"); got != "🔴 API çalışmıyor" {
+	if got := T("", "notify.down.title", "API"); got != "API çalışmıyor" {
 		t.Errorf("varsayılan dil tr olmalı: %q", got)
 	}
 	if got := T(EN, "yok.boyle.anahtar"); got != "yok.boyle.anahtar" {

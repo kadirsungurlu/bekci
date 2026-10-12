@@ -17,8 +17,8 @@ Choose **Notifications → New channel → Webhook**. On every event a JSON body
 ```json title="Request body (example)"
 {
   "event": "down",
-  "title": "🔴 Website is down",
-  "text": "🔴 Website is down\nTarget: https://example.com\n…",
+  "title": "Website is down",
+  "text": "Website is down\nTarget: https://example.com\n…",
   "message": "HTTP 503 Service Unavailable",
   "time": "2026-09-27T10:15:00+03:00",
   "downtime_seconds": 0,

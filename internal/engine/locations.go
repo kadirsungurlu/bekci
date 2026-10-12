@@ -560,7 +560,7 @@ func aggregateLocations(locs []*location, downWhen string, now time.Time, rules 
 				// Kopan konumun son sonucu "çalışmıyor" (deneme hakkı bitmiş):
 				// sonuç eskiyene kadar (staleAfter) oy geçerli kalır. Aksi halde
 				// ajanın her yeniden başlaması açık kesinti olayını kapatıp bir
-				// saniye sonra yeniden açar (sahte 🟢 + 🔴). Konum düzeldiği
+				// saniye sonra yeniden açar (sahte düzelme + kritik). Konum düzeldiği
 				// bilinmeden kesinti bitmiş sayılmaz.
 				n++
 				down++

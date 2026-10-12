@@ -22,7 +22,7 @@ func TestSampleEvents(t *testing.T) {
 	}
 	for _, ev := range evs {
 		if ev.Metric == "disk" {
-			if got := ev.Title(); got != "🔴 CP Server IST: Disk (/) %91 (1 dk ortalama, eşik %85)" {
+			if got := ev.Title(); got != "CP Server IST: Disk (/) %91 (1 dk ortalama, eşik %85)" {
 				t.Errorf("disk başlığı: %s", got)
 			}
 		}

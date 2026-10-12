@@ -36,10 +36,10 @@ const defaultSweepEvery = 15 * time.Second
 //  1. Olay türü süzgeci (events): kanal bu türü almıyorsa atlanır.
 //  2. Eşleştirme: gecikme veya sessiz saat kuralı olan kanalda düzelme ve
 //     hatırlatma bildirimi yalnızca sorun bildirimi gönderilmişse gider
-//     (🔴 gitmediyse 🟢 de gitmez).
+//     (kritik gitmediyse düzelme de gitmez).
 //  3. Gecikme (delay_min): sorun başlangıcı kuyruğa alınır; vadesinde olay
 //     hâlâ açıksa gönderilir, kapandıysa iptal edilir.
-//  4. Sessiz saatler: kritik kipte 🔴 türler ve onların düzelmesi geçer;
+//  4. Sessiz saatler: kritik kipte kritik türler ve onların düzelmesi geçer;
 //     diğer sorun başlangıçları pencerenin bitimine ertelenir, hatırlatmalar
 //     atılır. "Hiçbiri" kipinde her şey ertelenir (hatırlatma hariç).
 //  5. Gönderim (yeniden denemeli); sonuç olayın işlem geçmişine ve teslimat
@@ -211,7 +211,7 @@ func (d *Dispatcher) withDelivered(ctx context.Context, channels []store.Notific
 }
 
 // cancelQueued olay kapanınca bekleyen sorun bildirimlerini siler ve işlem
-// geçmişine yazar: gönderilmeyen 🔴 için 🟢 de gitmeyecek.
+// geçmişine yazar: gönderilmeyen kritik için düzelme de gitmeyecek.
 func (d *Dispatcher) cancelQueued(ctx context.Context, ev Event, problem string) {
 	rows, err := d.store.QueuedForIncident(ctx, ev.IncidentID)
 	if err != nil {
@@ -306,7 +306,7 @@ func (d *Dispatcher) deliver(ch store.Notification, ev Event, queueID int64) {
 			return
 		}
 	}
-	// 2. Eşleştirme: kurallı kanalda 🟢 ve hatırlatma yalnızca 🔴 gittiyse.
+	// 2. Eşleştirme: kurallı kanalda düzelme ve hatırlatma yalnızca kritik gittiyse.
 	if problem := ProblemOf(ev.Kind); problem != "" && ev.IncidentID != 0 && ch.HasRules() {
 		ok, err := d.store.Delivered(ctx, ev.IncidentID, ch.ID, problem)
 		if err != nil {
@@ -340,7 +340,7 @@ func (d *Dispatcher) deliver(ch store.Notification, ev Event, queueID int64) {
 		if active, end := ch.Quiet.Active(now); active {
 			switch {
 			case ch.Quiet.Mode == store.QuietCritical && (IsCritical(ev.Kind) || IsCritical(ProblemOf(ev.Kind)) && ev.Kind != KindReminder):
-				// 🔴 ve onların 🟢'si sessiz saatte de geçer.
+				// kritik ve onların düzelme bildirimi sessiz saatte de geçer.
 			case ev.Kind == KindReminder:
 				skip(SkipQuiet)
 				return

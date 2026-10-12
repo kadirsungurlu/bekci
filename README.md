@@ -134,7 +134,7 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
 - SSL sertifika ve alan adı (RDAP) bitiş uyarıları, tekrar deneme, kesinti
   hatırlatması, ters mod
 - Yavaş yanıt uyarısı: monitör başına eşik ve pencere; site açıkken yavaşlarsa
-  🟡 "yavaş yanıt" olayı, normale dönünce 🟢 (uptime etkilenmez)
+  "yavaş yanıt" olayı, normale dönünce düzelme bildirimi (uptime etkilenmez)
 - Push monitöründe tolerans süresi (grace) ve tek tıkla adres yenileme
 - Monitör grupları, etiketler, bakım pencereleri; ayrıntıda son 50 kontrol
   (zaman, sonuç, süre, mesaj, konum)
@@ -143,14 +143,14 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
 - Uzak **kontrol noktaları**: monitörler birden çok konumdan aynı anda kontrol
   edilir, kesinti kuralı (herhangi biri / çoğunluk / hepsi); isteğe bağlı
   **konum kesintisinde de bildirim**: monitör genel olarak çalışırken tek bir
-  konum düşerse 🟡 başlıklı ayrı bildirim, düzelince 🟢 (uptime etkilenmez)
+  konum düşerse ayrı bir uyarı bildirimi, düzelince düzelme bildirimi (uptime etkilenmez)
 
 **Sunucu takibi**
 - CPU, RAM, disk (bağlama noktası başına), swap, yük, sıcaklık, ağ (Mbit/s),
   Docker konteynerleri; Linux ve Windows
 - Uyarılar: çevrimdışı, CPU, RAM, disk, swap, yük, sıcaklık, ağ — pencere
   ortalamasıyla ve histerezisle (eşiğe ulaşınca tetiklenir, eşiğin biraz altına
-  inince kapanır); isteğe bağlı 🟡 uyarı / 🔴 kritik eşikleri ve kanal başına
+  inince kapanır); isteğe bağlı uyarı / kritik eşikleri ve kanal başına
   seviye seçimi (ör. telefon yalnızca kritikte)
 - Konteyner alarmı (belirli bir konteyner ya da herhangi biri durunca),
   yeniden başlatma tespiti (açılış zamanı değişince bildirim + kayıt) ve
@@ -166,7 +166,7 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
   geçici hatada yeniden deneme
 - Etikete göre bağlama: kanal bir etikete bağlanır, o etiketli her monitör
   (sonradan eklenenler dahil) kendiliğinden bildirir
-- Kontrol noktası çevrimdışı kalınca 🔴 / dönünce 🟢 bildirimi
+- Kontrol noktası çevrimdışı kalınca kesinti / dönünce düzelme bildirimi
 - HTML + düz metin e-posta; webhook'ta isteğe bağlı HMAC imzası
   (`X-Bekci-Signature`); tarayıcı bildirimi (Web Push, PWA)
 - Olay onaylama ve susturma: onaylı ya da susturulmuş olayda hatırlatma ve

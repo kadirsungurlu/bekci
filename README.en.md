@@ -142,8 +142,8 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
   in the "Yeni monitör" (New monitor) form
 - SSL certificate and domain (RDAP) expiry warnings, retries, outage
   reminders, upside-down mode
-- Slow-response alerts: per-monitor threshold and window; a 🟡 "responding
-  slowly" incident while the site stays up, 🟢 when it recovers (uptime is not
+- Slow-response alerts: per-monitor threshold and window; a "responding
+  slowly" incident while the site stays up, a recovery notification when it recovers (uptime is not
   affected)
 - Push monitors with a grace period and one-click URL regeneration
 - Monitor groups, tags, maintenance windows; the last 50 checks (time, result,
@@ -154,7 +154,7 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
 - Remote **check locations**: monitors are checked from multiple locations at
   the same time, with an outage rule (any / majority / all); optional
   **notify on location outages**: when a single location goes down while the
-  monitor stays up, a separate 🟡 notification is sent, and 🟢 when it recovers
+  monitor stays up, a separate warning notification is sent, and a recovery notification when it recovers
   (uptime is not affected)
 
 **Server monitoring**
@@ -174,7 +174,7 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
   and language; retries on transient errors
 - Tag-based binding: attach a channel to a tag and every monitor with that
   tag (including ones added later) notifies it automatically
-- 🔴 / 🟢 notifications when a check location goes offline / comes back
+- Outage / recovery notifications when a check location goes offline / comes back
 - HTML + plain-text email; optional HMAC signature on webhooks
   (`X-Bekci-Signature`); browser notifications (Web Push, PWA)
 - Incident acknowledge and snooze: no reminders or escalation for acknowledged

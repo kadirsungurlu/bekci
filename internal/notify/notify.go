@@ -80,7 +80,7 @@ type Event struct {
 	CertExpires time.Time     // cert: bitiş tarihi
 	CertIssuer  string
 	// domain: alan adı, kalan gün, bitiş ve kayıt operatörü. DomainCritical
-	// 🔴 eşiği (kalan gün DomainCritical ve altındaysa kritik, üstü 🟡).
+	// kritik eşiği (kalan gün DomainCritical ve altındaysa kritik, üstü uyarı).
 	Domain          string
 	DomainDays      int
 	DomainExpires   time.Time
@@ -166,10 +166,10 @@ func DefaultKinds() []string {
 	return out
 }
 
-// DomainIsCritical alan adı uyarısı 🔴 mü (kalan gün kritik eşiğin altında ya da süresi dolmuş)?
+// DomainIsCritical alan adı uyarısı kritik mü (kalan gün kritik eşiğin altında ya da süresi dolmuş)?
 func (e Event) DomainIsCritical() bool { return e.DomainDays <= e.DomainCritical }
 
-// IsWarning sunucu uyarısı uyarı seviyesinde mi (🟡)?
+// IsWarning sunucu uyarısı uyarı seviyesinde mi?
 func (e Event) IsWarning() bool { return e.Level == LevelWarning }
 
 // ValidKind tür bilinen bir bildirim türü mü (test hariç)?
@@ -200,7 +200,7 @@ func IsProblemStart(kind string) bool {
 	return kind == KindDown || kind == KindServerAlert || kind == KindProbeOffline || kind == KindLocationDown || kind == KindSlow
 }
 
-// IsCritical sessiz saatlerin "yalnızca kritik" kipinde geçen 🔴 türler.
+// IsCritical sessiz saatlerin "yalnızca kritik" kipinde geçen kritik türler.
 func IsCritical(kind string) bool {
 	return kind == KindDown || kind == KindServerAlert || kind == KindProbeOffline
 }
@@ -390,7 +390,7 @@ func (e Event) Rows() []Row {
 		add("downtime", i18n.Duration(l, e.Downtime))
 		if len(e.Locations) > 0 {
 			// Monitör düzeldi ama bazı konumlar hâlâ çalışmıyor (konum
-			// kesintisi sürüyor; ayrıca 🟡 gönderilmez).
+			// kesintisi sürüyor; ayrıca uyarı gönderilmez).
 			locations("still_down")
 		}
 	case KindReminder:

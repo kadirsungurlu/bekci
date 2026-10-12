@@ -72,9 +72,9 @@ func (e Event) mailStatus() (string, mailTone) {
 	return i18n.T(e.Lang, "notify.mail.status."+key), tone
 }
 
-// plainTitle başlığın baştaki emojisiz hali (HTML'de durum rozeti var).
+// plainTitle başlığın kırpılmış hali (HTML'de durum rozeti var).
 func plainTitle(s string) string {
-	return strings.TrimSpace(strings.TrimLeft(s, "🔴🟢🟡⚠️✅🔄⏫⏳🌙👀 "))
+	return strings.TrimSpace(s)
 }
 
 // RenderMail genel HTML e-posta (sistem iletileri: şifre sıfırlama).

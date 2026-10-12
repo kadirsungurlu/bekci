@@ -27,7 +27,7 @@ type Monitor struct {
 	PushToken     string          `json:"push_token,omitempty"`
 
 	// Yavaş yanıt uyarısı (migration 22): son SlowChecks kontrolün ortalama
-	// yanıt süresi SlowMs'yi aşarsa "yavaş" (degraded olayı + 🟡 bildirim);
+	// yanıt süresi SlowMs'yi aşarsa "yavaş" (degraded olayı + uyarı bildirimi);
 	// 0 = kapalı. Slow şu anki durumu (runner yazar); uptime etkilenmez.
 	SlowMs     int  `json:"slow_ms"`
 	SlowChecks int  `json:"slow_checks"`

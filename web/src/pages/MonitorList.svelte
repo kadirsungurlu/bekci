@@ -1052,7 +1052,7 @@
   .sel.on {
     border-color: var(--accent-border);
   }
-  /* "☐ 0 / 12": görünen tüm monitörleri seçer. */
+  /* "0 / 12" onay kutusu: görünen tüm monitörleri seçer. */
   .selbox {
     flex: 0 0 auto;
     align-items: center;

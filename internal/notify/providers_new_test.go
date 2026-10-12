@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -422,7 +423,7 @@ func TestNewProvidersSecretsDontLeak(t *testing.T) {
 
 func TestNetgsmText(t *testing.T) {
 	txt := netgsmText(downEvent)
-	if strings.ContainsAny(txt, "🔴🟢⚠️✅") {
+	if regexp.MustCompile("[\U0001F300-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\u23E9-\u23FA]").MatchString(txt) {
 		t.Errorf("emoji SMS metninde olmamalı: %q", txt)
 	}
 	if !strings.Contains(txt, "HTTP 502") {

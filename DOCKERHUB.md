@@ -61,4 +61,4 @@ Updates: `docker compose pull && docker compose up -d`. The database is backed u
 
 ---
 
-🇹🇷 **Türkçe:** Bekci, web siteleri, servisler ve sunucular için kendi sunucunuzda çalışan, tek imajlık izleme sistemidir. Türkçe belgeler: **https://bekci.app/docs/**
+**Türkçe:** Bekci, web siteleri, servisler ve sunucular için kendi sunucunuzda çalışan, tek imajlık izleme sistemidir. Türkçe belgeler: **https://bekci.app/docs/**

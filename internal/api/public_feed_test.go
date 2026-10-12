@@ -62,10 +62,10 @@ func TestPublicFeed(t *testing.T) {
 		if ch.Items[0].Title != "Bakım" || !strings.Contains(ch.Items[0].Description, "Gece <b>bakım</b>") || ch.Items[0].Category != "Announcement" {
 			t.Errorf("duyuru kaydı yanlış: %+v", ch.Items[0])
 		}
-		if ch.Items[1].Title != "🔴 API: outage ongoing" || ch.Items[1].Category != "Incident" || !strings.HasPrefix(ch.Items[1].Description, "Started: ") {
+		if ch.Items[1].Title != "API: outage ongoing" || ch.Items[1].Category != "Incident" || !strings.HasPrefix(ch.Items[1].Description, "Started: ") {
 			t.Errorf("süren olay kaydı yanlış: %+v", ch.Items[1])
 		}
-		if ch.Items[2].Title != "🟢 API: outage resolved" || !strings.Contains(ch.Items[2].Description, "Duration: 1h") {
+		if ch.Items[2].Title != "API: outage resolved" || !strings.Contains(ch.Items[2].Description, "Duration: 1h") {
 			t.Errorf("çözülen olay kaydı yanlış: %+v", ch.Items[2])
 		}
 		if ch.Items[1].GUID.Value == ch.Items[2].GUID.Value || ch.Items[1].GUID.IsPermaLink {

@@ -43,7 +43,7 @@ type runner struct {
 	partialFailed []string          // kısmi olay boyunca çalışmayan konumlar (olay verisi)
 	partialLearn  bool              // yeniden başlatıldı: konumların ilk sonuçları yalnızca öğrenilir
 	// Tam kesintiye dönüşerek kapanan kısmi olay: tam kesinti bitince konum
-	// hâlâ çalışmıyorsa aynı olay yeniden açılır (yeni 🟡 gitmez, geçmiş bölünmez).
+	// hâlâ çalışmıyorsa aynı olay yeniden açılır (yeni uyarı gitmez, geçmiş bölünmez).
 	escalatedPartial int64
 	resolvedID       int64 // bu sonuçta kapanan normal olay (partialStep bağlantı için)
 
@@ -417,7 +417,7 @@ func (r *runner) notify(kind string, now time.Time, msg string, downtime time.Du
 		ev.Locations = r.locationNotes(now)
 	case notify.KindUp:
 		// Düzelme bildiriminde hâlâ çalışmayan konumlar ayrı satırda: tam
-		// kesinti bitti ama konum kesintisi sürüyorsa ikinci bir 🟡 gitmez,
+		// kesinti bitti ama konum kesintisi sürüyorsa ikinci bir uyarı gitmez,
 		// bilgi bu bildirimde verilir.
 		ev.Locations = r.downLocationNotes(now)
 	}

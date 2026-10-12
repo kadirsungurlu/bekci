@@ -546,8 +546,8 @@ func (s *Service) fire(ctx context.Context, p store.Probe, host *metrics.Host, a
 }
 
 // changeLevel tetiklenmiş kuralın seviyesi değişti (uyarı ↔ kritik): olay
-// güncellenir, işlem geçmişine yazılır ve bildirim gider (kritiğe çıkış 🔴,
-// uyarıya iniş 🟡 "kritik seviyeden indi"). Bakımda bildirim gitmez.
+// güncellenir, işlem geçmişine yazılır ve bildirim gider (kritiğe çıkışta kritik bildirim,
+// uyarıya inişte uyarı bildirimi "kritik seviyeden indi"). Bakımda bildirim gitmez.
 func (s *Service) changeLevel(ctx context.Context, p store.Probe, host *metrics.Host, a *store.ServerAlert, level string, v float64, now time.Time) {
 	prev := a.Level
 	if err := s.store.SetServerAlertLevel(ctx, a.ID, level); err != nil {

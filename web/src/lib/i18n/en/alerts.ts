@@ -17,7 +17,7 @@ export default {
   mountUsage: 'Usage of {mount}',
   anyContainer: 'Any container',
   warnShort: 'warn',
-  warnTitle: 'Warning threshold (optional): crossing it sends a 🟡 warning, crossing the critical threshold sends a 🔴 critical alert.',
+  warnTitle: 'Warning threshold (optional): crossing it sends a warning, crossing the critical threshold sends a critical alert.',
   warnDesc: 'warning threshold {v}',
   sentOffline: 'if no data for {n} min',
   sentOver: 'if the {n}-min average is {v} or higher',

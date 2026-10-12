@@ -281,7 +281,7 @@ func TestReminderCounterSurvivesRestart(t *testing.T) {
 	f := newFixture(t)
 	m := f.monitor(t, func(m *store.Monitor) { m.ResendEvery = 3 })
 	r := f.runnerFor(t, m.ID)
-	r.process(down("502")) // olay açıldı, 🔴
+	r.process(down("502")) // olay açıldı, kritik
 	f.clock = f.clock.Add(time.Minute)
 	r.process(down("502")) // 1. ek kontrol
 	if r.downBeats != 1 {

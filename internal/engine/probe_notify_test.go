@@ -10,8 +10,8 @@ import (
 )
 
 // Kontrol noktası çevrimdışı bildirimi: "çevrimdışında bildir" açık kontrol
-// noktası 90 sn istek göndermeyince 🔴 bildirim + probe_offline olayı; tekrar
-// görülünce 🟢 ve olay kapanır. Kapalı kontrol noktasında hiçbiri olmaz; ilk
+// noktası 90 sn istek göndermeyince kritik bildirim + probe_offline olayı; tekrar
+// görülünce düzelme ve olay kapanır. Kapalı kontrol noktasında hiçbiri olmaz; ilk
 // tarama (açılış) bildirim üretmez.
 func TestProbeOfflineNotification(t *testing.T) {
 	f := newFixture(t)
@@ -55,7 +55,7 @@ func TestProbeOfflineNotification(t *testing.T) {
 	if len(f.n.kinds()) != 1 {
 		t.Fatalf("tekrar bildirim gitmemeli: %v", f.n.kinds())
 	}
-	// Tekrar görüldü: olay kapanır, 🟢 gider (kesinti süresiyle).
+	// Tekrar görüldü: olay kapanır, düzelme gider (kesinti süresiyle).
 	f.st.TouchProbe(ctx, p.ID, f.clock.Unix(), "10.0.0.1", "v1", "")
 	f.e.scanProbes(ctx, known)
 	evs = f.n.events

@@ -832,7 +832,7 @@ export interface QuietHours {
   end: string;
   /** IANA saat dilimi; boş: sunucunun yerel saati. */
   tz: string;
-  /** critical: yalnızca 🔴 ve onların 🟢'si geçer; none: her şey pencere bitimine ertelenir. */
+  /** critical: yalnızca kritik olanlar ve onların düzelmesi geçer; none: her şey pencere bitimine ertelenir. */
   mode: 'critical' | 'none';
 }
 
@@ -841,7 +841,7 @@ export interface NotificationRules {
   /** Alınacak olay türleri; boş = hepsi. */
   events?: NotifyKind[] | null;
   quiet_hours?: QuietHours | null;
-  /** Gecikme (dk): sorun bu kadar sürmezse 🔴 (ve 🟢) gitmez. 0 = kapalı. */
+  /** Gecikme (dk): sorun bu kadar sürmezse kesinti (ve düzelme) bildirimi gitmez. 0 = kapalı. */
   delay_min?: number;
   /** Eskalasyon (dk): bu kadar süredir açık her olay bağlı olmasa da bu kanala gider. 0 = kapalı. */
   escalate_min?: number;

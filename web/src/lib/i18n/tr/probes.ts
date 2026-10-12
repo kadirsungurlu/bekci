@@ -97,7 +97,7 @@ export default {
     resetLock: 'Kilidi sıfırla',
     notifyOffline: 'Çevrimdışı kalınca bildir',
     notifyOfflineHelp:
-      'Kontrol noktası 90 saniye boyunca istek göndermezse seçili kanallara “🔴 kontrol noktasına ulaşılamıyor” bildirimi gider ve bir olay açılır; tekrar bağlanınca “🟢” bildirimiyle olay kapanır. Kısa yeniden başlatmalar bildirim üretmez.',
+      'Kontrol noktası 90 saniye boyunca istek göndermezse seçili kanallara “kontrol noktasına ulaşılamıyor” bildirimi gider ve bir olay açılır; tekrar bağlanınca düzelme bildirimiyle olay kapanır. Kısa yeniden başlatmalar bildirim üretmez.',
     channels: 'Bildirim kanalları',
     /** {link}: kanal ekleme bağlantısı. */
     noChannels: 'Henüz bildirim kanalı yok. {link}',

@@ -33,8 +33,8 @@ import (
 //     başlangıcı, kesinti süresi ve bildirimleri tam kesintinin başladığı
 //     andan hesaplanır; kısmi dönem ayrı kalır.) Tam kesinti bittiğinde konum
 //     hâlâ çalışmıyorsa dönüştürülen kısmi olay yeniden açılır ("tam kesinti
-//     bitti; konum kesintisi sürüyor" kaydıyla): yeni olay ve yeni 🟡 bildirimi
-//     yoktur; düzelme (🟢) bildirimi hâlâ çalışmayan konumları listeler.
+//     bitti; konum kesintisi sürüyor" kaydıyla): yeni olay ve yeni uyarı bildirimi
+//     yoktur; düzelme bildirimi hâlâ çalışmayan konumları listeler.
 //
 // Bakım penceresinde yeni kısmi olay açılmaz; sürenin konum değişimleri yazılır.
 
