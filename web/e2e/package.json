@@ -1,0 +1,8 @@
+{
+  "name": "bekci-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Gerçek Chromium ile uçtan uca denemeler (CI: imajlar.yml, arayuz-e2e işi)",
+  "scripts": { "push": "node push.mjs" },
+  "devDependencies": { "playwright": "1.46.0" }
+}

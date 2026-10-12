@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -150,4 +151,30 @@ func TestWebPush(t *testing.T) {
 	admin.mustDo("DELETE", fmt.Sprintf("/api/webpush/subscriptions/%d", subs[0].ID), nil, nil, 404)
 	cust.mustDo("DELETE", fmt.Sprintf("/api/webpush/subscriptions/%d", subs[0].ID), nil, nil, 200)
 	cust.mustDo("POST", "/api/webpush/test", nil, nil, 400)
+}
+
+// Tarayıcının PushSubscription.toJSON() çıktısı "expirationTime" taşır (null ya da
+// epoch ms); sunucu bilinmeyen alanı reddettiği için bu gövdeler kabul edilmeli.
+func TestWebPushExpirationTime(t *testing.T) {
+	ps := newFakePushService(t)
+	admin := setupAdmin(t)
+	for i, et := range []any{nil, 1893456000000, 1893456000000.5, "yok"} {
+		body := subscription(t, ps.srv.URL+"/et-"+strconv.Itoa(i))
+		if et != "yok" {
+			body["expirationTime"] = et
+		}
+		admin.mustDo("POST", "/api/webpush/subscriptions", body, nil, 200)
+	}
+	var subs []store.PushSubscription
+	admin.mustDo("GET", "/api/webpush/subscriptions", nil, &subs, 200)
+	if len(subs) != 4 {
+		t.Fatalf("expirationTime null/sayı/yok gövdeleri kaydedilmeli: %d abonelik", len(subs))
+	}
+	// Yanlış tür ve gerçekten bilinmeyen alan hâlâ reddedilir.
+	bad := subscription(t, ps.srv.URL+"/bad-type")
+	bad["expirationTime"] = "yarın"
+	admin.mustDo("POST", "/api/webpush/subscriptions", bad, nil, 400)
+	unk := subscription(t, ps.srv.URL+"/bad-field")
+	unk["bilinmeyen"] = 1
+	admin.mustDo("POST", "/api/webpush/subscriptions", unk, nil, 400)
 }
