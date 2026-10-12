@@ -134,7 +134,7 @@ To be told when a check location goes down, open **Edit** from the row menu, ena
 
 ## Updating {#update}
 
-Agents installed with Bekci 1.3.1 or later **update themselves**: when you upgrade Bekci, server agents and check locations switch to the same version within seconds. An agent installs the program from the panel only if the **project signature** verifies. The signature's public key is built into the agent, and the private key is only used by the official release build. So even if the server running your panel is compromised, no unsigned or modified program lands on your servers, and agents can't be downgraded.
+Agents installed with Bekci 1.4.0 or later **update themselves**: when you upgrade Bekci, server agents and check locations switch to the same version within seconds. An agent installs the program from the panel only if the **project signature** verifies. The signature's public key is built into the agent, and the private key is only used by the official release build. So even if the server running your panel is compromised, no unsigned or modified program lands on your servers, and agents can't be downgraded.
 
 How it works:
 
@@ -150,11 +150,11 @@ Settings:
 - To turn updates off on the agent itself, add `AUTO_UPDATE=0` to the agent's settings file (`/etc/uptime-agent.env`, `/etc/uptime-probe.env` or `agent.env`) and restart the agent.
 
 > [!NOTE]
-> Only official release images (such as `kadirsungurlu/bekci:1.3.1`) contain signed agents. A panel built from source or from a commit doesn't offer updates to agents, and the agent row says **Unsigned build** or **Unversioned build**. Agents that run from the app image with `PROBE_IMAGE` can't update themselves either (**Manual updates**); update the image for those.
+> Only official release images (such as `kadirsungurlu/bekci:1.4.0`) contain signed agents. A panel built from source or from a commit doesn't offer updates to agents, and the agent row says **Unsigned build** or **Unversioned build**. Agents that run from the app image with `PROBE_IMAGE` can't update themselves either (**Manual updates**); update the image for those.
 
 ### Updating old agents once {#old-agents}
 
-Agents installed before 1.3.1 can't update themselves. They show as **Old agent** in the list. Reinstall them by hand once, and later versions arrive on their own:
+Agents installed before 1.4.0 can't update themselves. They show as **Old agent** in the list. Reinstall them by hand once, and later versions arrive on their own:
 
 1. Get the **current** install command from the panel. Since the token is only shown once, this step regenerates it and the old token stops working immediately:
    - Server agent: on the server's page, **Install command** → **Regenerate token and show command**.

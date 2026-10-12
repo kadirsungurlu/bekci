@@ -364,7 +364,7 @@ Windows sekmesindeki komutu yapıştırın.
 
 ### Ajan güncelleme
 
-1.3.1 ve sonrasında kurulan ajanlar **kendini günceller**: Bekci'yi yükselttiğinizde
+1.4.0 ve sonrasında kurulan ajanlar **kendini günceller**: Bekci'yi yükselttiğinizde
 sunucu ajanları ve kontrol noktaları birkaç saniye içinde aynı sürüme geçer.
 Ajan programı yalnızca **projenin imzası** (Ed25519, açık anahtar ajana gömülü)
 doğrulanırsa kurar; ana sunucu ele geçirilse bile imzasız ya da değiştirilmiş
@@ -379,7 +379,7 @@ bağlanamazsa ajan eski programa döner.
 - Yalnızca resmi sürüm imajları imzalı ajan içerir; kaynaktan derlenen panel
   ajanlara güncelleme sunmaz.
 
-1.3.1'den önce kurulmuş ajanlar (**Eski ajan**) bir kez elle yeniden kurulur:
+1.4.0'den önce kurulmuş ajanlar (**Eski ajan**) bir kez elle yeniden kurulur:
 panelden **güncel** kurulum komutunu alıp tekrar çalıştırın.
 
 - **Docker:** önce eskisini kaldırın, sonra yeni komutu çalıştırın:
