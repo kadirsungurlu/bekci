@@ -35,6 +35,12 @@ CREATE TABLE page_subscribers (
 );
 CREATE INDEX page_subscribers_confirm ON page_subscribers(confirm_hash);
 `)
+	// orig_id: yedekten geri yüklenen abonenin eski kurulumdaki kimliği. Eski
+	// e-postalardaki çıkış belirteci o kimlikle imzalı; çözülürken buna da bakılır.
+	RegisterMigration(37, `
+ALTER TABLE page_subscribers ADD COLUMN orig_id INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX page_subscribers_orig ON page_subscribers(orig_id);
+`)
 }
 
 // MaxPageSubscribers bir sayfadaki en fazla abone (onaylı + bekleyen).
@@ -53,14 +59,15 @@ type PageSubscriber struct {
 	ConfirmExpires int64
 	ConfirmSentAt  int64
 	UnsubKey       string
+	OrigID         int64 // yedekten geldiyse eski kimlik (0: yok)
 }
 
-const subCols = `id, page_id, email, lang, base_url, confirmed_at, created_at, confirm_hash, confirm_expires, confirm_sent_at, unsub_key`
+const subCols = `id, page_id, email, lang, base_url, confirmed_at, created_at, confirm_hash, confirm_expires, confirm_sent_at, unsub_key, orig_id`
 
 func scanSub(sc scanner) (PageSubscriber, error) {
 	var p PageSubscriber
 	err := sc.Scan(&p.ID, &p.PageID, &p.Email, &p.Lang, &p.BaseURL, &p.ConfirmedAt, &p.CreatedAt,
-		&p.ConfirmHash, &p.ConfirmExpires, &p.ConfirmSentAt, &p.UnsubKey)
+		&p.ConfirmHash, &p.ConfirmExpires, &p.ConfirmSentAt, &p.UnsubKey, &p.OrigID)
 	return p, err
 }
 
@@ -105,6 +112,11 @@ func (s *Store) PageSubscriberByConfirmHash(ctx context.Context, hash string) (P
 		return PageSubscriber{}, ErrNotFound
 	}
 	return s.oneSub(ctx, "confirm_hash = ?", hash)
+}
+
+// PageSubscribersByOrigID yedekten gelmiş, eski kimliği id olan aboneler.
+func (s *Store) PageSubscribersByOrigID(ctx context.Context, id int64) ([]PageSubscriber, error) {
+	return s.querySubs(ctx, `SELECT `+subCols+` FROM page_subscribers WHERE orig_id = ? AND orig_id > 0`, id)
 }
 
 // CountPageSubscribers sayfadaki abone sayısı (onaylı + bekleyen).

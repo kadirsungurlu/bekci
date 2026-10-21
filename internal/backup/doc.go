@@ -198,6 +198,27 @@ type Page struct {
 	Logo          []byte         `json:"logo,omitempty"` // base64
 	LogoType      string         `json:"logo_type,omitempty"`
 	Announcements []Announcement `json:"announcements"`
+	// Subscriptions ve Subscribers e-posta aboneliği; eski yedeklerde yok
+	// (kapalı, abonesiz). Aboneler adreslerini kendi isteğiyle verdi; taşınır.
+	Subscriptions bool         `json:"subscriptions,omitempty"`
+	Subscribers   []Subscriber `json:"subscribers,omitempty"`
+}
+
+// Subscriber durum sayfası e-posta abonesi. ID kaynak kurulumdaki kimliktir:
+// eski e-postalardaki çıkış belirteci "ID.bitiş.HMAC(UnsubKey)" biçiminde
+// olduğundan geri yüklemede ID ve UnsubKey birlikte saklanır. ConfirmHash
+// bekleyen onay belirtecinin SHA-256 özetidir (belirtecin kendisi değil).
+type Subscriber struct {
+	ID             int64  `json:"id"`
+	Email          string `json:"email"`
+	Lang           string `json:"lang,omitempty"`
+	BaseURL        string `json:"base_url,omitempty"`
+	ConfirmedAt    int64  `json:"confirmed_at,omitempty"` // 0: onay bekliyor
+	CreatedAt      int64  `json:"created_at"`
+	ConfirmHash    string `json:"confirm_hash,omitempty"`
+	ConfirmExpires int64  `json:"confirm_expires,omitempty"`
+	ConfirmSentAt  int64  `json:"confirm_sent_at,omitempty"`
+	UnsubKey       string `json:"unsub_key"`
 }
 
 // Skipped dönüştürülemeyen bir kayıt.

@@ -87,8 +87,14 @@ func (s *Server) subscribable(ctx context.Context, p store.StatusPage) (store.No
 
 // unsubToken abonenin çıkış belirteci (exp: unix bitiş).
 func unsubToken(sub store.PageSubscriber, exp int64) string {
-	msg := strconv.FormatInt(sub.ID, 10) + "." + strconv.FormatInt(exp, 10)
-	mac := hmac.New(sha256.New, []byte(sub.UnsubKey))
+	return unsubTokenFor(sub.ID, sub.UnsubKey, exp)
+}
+
+// unsubTokenFor belirteci verilen kimlik ve anahtarla üretir (yedekten gelen
+// abonenin eski kimliğiyle imzalı bağlantıları doğrulamak için de kullanılır).
+func unsubTokenFor(id int64, key string, exp int64) string {
+	msg := strconv.FormatInt(id, 10) + "." + strconv.FormatInt(exp, 10)
+	mac := hmac.New(sha256.New, []byte(key))
 	mac.Write([]byte(msg))
 	return msg + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
@@ -110,6 +116,34 @@ func parseUnsubToken(t string, now int64) (id, exp int64, ok bool) {
 // validUnsubToken belirtecin imzası abonenin anahtarıyla uyuşuyor mu (sabit zamanlı).
 func validUnsubToken(t string, sub store.PageSubscriber, exp int64) bool {
 	return hmac.Equal([]byte(t), []byte(unsubToken(sub, exp)))
+}
+
+// subscriberForUnsub belirtecin sahibi abone: önce kimliğe, tutmazsa yedekten
+// geri yüklenmiş ve eski kimliği bu olan abonelere bakılır (imza her birinin
+// kendi anahtarıyla). found: bu kimlikle herhangi bir kayıt var mı.
+func (s *Server) subscriberForUnsub(ctx context.Context, token string, id, exp int64) (*store.PageSubscriber, bool, error) {
+	found := false
+	sub, err := s.store.GetPageSubscriber(ctx, id)
+	switch {
+	case err == nil:
+		found = true
+		if validUnsubToken(token, sub, exp) {
+			return &sub, true, nil
+		}
+	case !errors.Is(err, store.ErrNotFound):
+		return nil, false, err
+	}
+	olds, err := s.store.PageSubscribersByOrigID(ctx, id)
+	if err != nil {
+		return nil, false, err
+	}
+	for i := range olds {
+		found = true
+		if hmac.Equal([]byte(token), []byte(unsubTokenFor(id, olds[i].UnsubKey, exp))) {
+			return &olds[i], true, nil
+		}
+	}
+	return nil, found, nil
 }
 
 // subLinks abonenin sayfa adresi kökü ve sayfa yolu: özel alan adı varsa
@@ -314,16 +348,16 @@ func (s *Server) publicUnsubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	sub, err := s.store.GetPageSubscriber(ctx, id)
-	if errors.Is(err, store.ErrNotFound) {
-		writeJSON(w, http.StatusOK, map[string]bool{"ok": true}) // zaten çıkmış
-		return
-	}
+	sub, found, err := s.subscriberForUnsub(ctx, token, id, exp)
 	if err != nil {
 		s.dbError(w, err)
 		return
 	}
-	if !validUnsubToken(token, sub, exp) {
+	if sub == nil {
+		if !found {
+			writeJSON(w, http.StatusOK, map[string]bool{"ok": true}) // zaten çıkmış
+			return
+		}
 		writeError(w, http.StatusBadRequest, bad)
 		return
 	}
