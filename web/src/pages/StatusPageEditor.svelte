@@ -30,6 +30,7 @@
   import Icon from '../components/Icon.svelte';
   import CopyButton from '../components/CopyButton.svelte';
   import Announcements from './Announcements.svelte';
+  import PageSubscribers from '../components/PageSubscribers.svelte';
   import PagePreviewPanel, { type PreviewDraft } from '../components/PagePreviewPanel.svelte';
   import { normalizeLayout } from '../components/StatusView.svelte';
   import { i18n, LOCALES, t, type Locale } from '../lib/i18n';
@@ -74,6 +75,9 @@
   // Yeni sayfanın dili, oluşturan yöneticinin arayüz dili (sonradan değiştirilebilir).
   let pageLang = $state<Locale>(i18n.locale);
   let published = $state(true);
+  // E-posta aboneliği; subsAvailable: sistem e-postası var mı (aboneler bölümü yükler).
+  let subscriptions = $state(false);
+  let subsAvailable = $state(true);
   // Dizilim: yerleşim, genişlik, bölüm sırası/görünürlüğü. Olaylar bölümünün
   // görünürlüğü sunucuda show_incidents ile aynı alandır.
   let layout = $state<PageLayout>(normalizeLayout(null));
@@ -117,6 +121,7 @@
     uptimeWindows = [...(p.uptime_windows ?? [])];
     pageLang = p.lang ?? 'tr';
     published = p.published;
+    subscriptions = p.subscriptions ?? false;
     pwMode = 'keep';
     password = '';
     // Etiketle gelen (auto) monitörler saklanmaz; canlı listeden yeniden hesaplanır.
@@ -161,6 +166,7 @@
     uptimeWindows: [...uptimeWindows].sort(),
     pageLang,
     published,
+    subscriptions,
     pwMode,
     password,
     sections: sections.map((s) => [s.title.trim(), s.tagId, s.tagValue, s.monitors.map((m) => [m.id, m.name.trim()])]),
@@ -452,6 +458,7 @@
       uptime_windows: uptimeWindows,
       lang: pageLang,
       published,
+      subscriptions,
     };
     if (pwMode === 'set') body.password = password;
     else if (pwMode === 'remove') body.password = '';
@@ -1010,6 +1017,21 @@
         <input type="checkbox" bind:checked={published} />
         <span>{t('pages.published')}<small>{t('pages.editor.publishedHelp')}</small></span>
       </label>
+      <label class="check">
+        <input
+          type="checkbox"
+          bind:checked={subscriptions}
+          disabled={!subsAvailable && !subscriptions}
+          aria-describedby={subsAvailable ? undefined : 'sp-subs-warn'}
+          data-testid="subs-toggle"
+        />
+        <span>{t('pages.subs.toggle')}<small>{t('pages.subs.toggleHelp')}</small></span>
+      </label>
+      {#if !subsAvailable}
+        <div class="alert warning" id="sp-subs-warn" data-testid="subs-unavailable">
+          <Icon name="mail" size={15} /> {t('pages.subs.unavailable')}
+        </div>
+      {/if}
 
       <div class="field">
         <span class="label" id="pw-l">{t('pages.editor.password')}</span>
@@ -1084,6 +1106,9 @@
   {#if page}
     <div class="ann">
       <Announcements pageId={page.id} />
+    </div>
+    <div class="ann">
+      <PageSubscribers pageId={page.id} enabled={page.subscriptions ?? false} bind:available={subsAvailable} />
     </div>
   {/if}
   </div>
@@ -1587,6 +1612,9 @@
   .ann {
     max-width: 900px;
     margin-top: 24px;
+  }
+  .ann:empty {
+    display: none;
   }
   @media (max-width: 640px) {
     .opt-row.four {

@@ -44,6 +44,7 @@
   import { clock } from '../lib/ui.svelte';
   import * as fmt from '../lib/format';
   import { nowSec } from '../lib/format';
+  import type { Snippet } from 'svelte';
   import Icon, { type IconName } from './Icon.svelte';
   import { barCount, columnWidth, gridColumnCount } from '../lib/statusgrid';
   import { tIn, type Locale, type TKey, type TParams } from '../lib/i18n';
@@ -57,6 +58,7 @@
     embedded = false,
     feedUrl = '',
     live = false,
+    actions,
   }: {
     page: PublicPage;
     logo?: string;
@@ -72,6 +74,8 @@
     feedUrl?: string;
     /** Canlı akış bağlı: değişiklikler anında gelir ("Canlı" göstergesi). */
     live?: boolean;
+    /** Üst çubuğun sağındaki ek düğmeler (genel sayfada "Abone ol"). */
+    actions?: Snippet;
   } = $props();
 
   const t = (key: TKey, params?: TParams) => tIn(lang, key, params);
@@ -346,13 +350,16 @@
           {#if page.description}<p class="desc">{page.description}</p>{/if}
         </div>
       </div>
-      <div class="refresh" class:on={live}>
-        {#if live}
-          <span class="live pulse" aria-hidden="true"></span><strong class="live-t">{t('pub.live')}</strong>
-          <span class="live-sep" aria-hidden="true">·</span>{t('pub.liveInfo', { time: fmtTime(page.updated_at) })}
-        {:else}
-          <span class="live" aria-hidden="true"></span>{t('pub.refreshInfo', { time: fmtTime(page.updated_at) })}
-        {/if}
+      <div class="top-r">
+        <div class="refresh" class:on={live}>
+          {#if live}
+            <span class="live pulse" aria-hidden="true"></span><strong class="live-t">{t('pub.live')}</strong>
+            <span class="live-sep" aria-hidden="true">·</span>{t('pub.liveInfo', { time: fmtTime(page.updated_at) })}
+          {:else}
+            <span class="live" aria-hidden="true"></span>{t('pub.refreshInfo', { time: fmtTime(page.updated_at) })}
+          {/if}
+        </div>
+        {@render actions?.()}
       </div>
     </div>
   </header>
@@ -735,6 +742,7 @@
     background: var(--bg-elev);
   }
   .top-in {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -779,6 +787,12 @@
     margin: 2px 0 0;
     font-size: 0.85rem;
     color: var(--muted);
+  }
+  .top-r {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
   }
   .refresh {
     display: flex;
@@ -1842,6 +1856,11 @@
       gap: 10px;
       padding-top: 16px;
       padding-bottom: 16px;
+    }
+    .top-r {
+      align-self: stretch;
+      justify-content: space-between;
+      gap: 10px;
     }
     .refresh {
       white-space: normal;

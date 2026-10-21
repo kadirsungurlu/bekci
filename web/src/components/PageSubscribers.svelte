@@ -1,0 +1,175 @@
+<script lang="ts">
+  // Durum sayfası düzenleyicisinde e-posta aboneleri: onaylı/bekleyen sayısı,
+  // liste, satır silme (onaylı) ve CSV dışa aktarımı. available (sistem e-postası
+  // var mı) üst bileşene bağlanır; aç/kapa anahtarı onu kullanır.
+  import { onMount, untrack } from 'svelte';
+  import { api, errorMessage, type PageSubscribers } from '../lib/api';
+  import { fmtDate } from '../lib/format';
+  import { confirmDialog, toast } from '../lib/ui.svelte';
+  import Icon from './Icon.svelte';
+  import { t } from '../lib/i18n';
+
+  let {
+    pageId,
+    enabled,
+    available = $bindable(true),
+  }: {
+    pageId: number;
+    /** Sayfada abonelik açık (kayıtlı ayar). */
+    enabled: boolean;
+    available?: boolean;
+  } = $props();
+
+  let data = $state.raw<PageSubscribers | null>(null);
+  let loading = $state(true);
+  let loadError = $state('');
+
+  async function load() {
+    try {
+      data = await api.pageSubscribers(pageId);
+      available = data.available;
+      loadError = '';
+    } catch (e) {
+      loadError = errorMessage(e);
+    } finally {
+      loading = false;
+    }
+  }
+  onMount(load);
+
+  // Ayar kaydedilince (açıldı/kapandı) liste tazelenir.
+  let lastEnabled = untrack(() => enabled);
+  $effect(() => {
+    if (enabled !== lastEnabled) {
+      lastEnabled = enabled;
+      load();
+    }
+  });
+
+  const total = $derived(data ? data.items.length : 0);
+
+  async function remove(id: number, email: string) {
+    const ok = await confirmDialog({
+      title: t('pages.subs.deleteTitle'),
+      message: t('pages.subs.deleteMsg', { email }),
+      confirmText: t('common.delete'),
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.deletePageSubscriber(pageId, id);
+      toast.success(t('pages.subs.deleted'));
+      await load();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  }
+</script>
+
+{#if enabled || total > 0}
+  <section class="card" data-testid="subs-section">
+    <div class="head">
+      <div>
+        <h2 class="card-title">{t('pages.subs.title')}</h2>
+        {#if data}
+          <p class="help nomargin" data-testid="subs-count">
+            {t('pages.subs.summary', { count: data.count, pending: data.pending })}
+          </p>
+        {/if}
+      </div>
+      {#if total > 0}
+        <a class="btn sm" href={api.pageSubscribersCsvUrl(pageId)} download title={t('pages.subs.csvTitle')} data-testid="subs-csv">
+          <Icon name="download" size={14} />
+          {t('pages.subs.csv')}
+        </a>
+      {/if}
+    </div>
+    {#if loading}
+      <div class="skeleton" style="height:60px"></div>
+    {:else if loadError}
+      <div class="alert error">{t('pages.subs.loadFailed')} {loadError}</div>
+    {:else if data && total === 0}
+      <div class="muted small none">{t('pages.subs.empty')}</div>
+    {:else if data}
+      <div class="tw">
+        <table class="table" data-testid="subs-table">
+          <thead>
+            <tr>
+              <th>{t('pages.subs.email')}</th>
+              <th>{t('pages.subs.status')}</th>
+              <th>{t('pages.subs.date')}</th>
+              <th><span class="sr">{t('common.delete')}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each data.items as s (s.id)}
+              <tr data-testid="subs-row" data-id={s.id}>
+                <td class="em">{s.email}</td>
+                <td>
+                  <span class="badge {s.confirmed ? 'up' : 'pending'}">
+                    {s.confirmed ? t('pages.subs.confirmed') : t('pages.subs.pending')}
+                  </span>
+                </td>
+                <td class="dt">{fmtDate(s.confirmed && s.confirmed_at ? s.confirmed_at : s.created_at)}</td>
+                <td class="act">
+                  <button
+                    type="button"
+                    class="btn sm icon danger"
+                    title={t('common.delete')}
+                    aria-label={t('pages.subs.deleteLabel', { email: s.email })}
+                    data-testid="subs-delete"
+                    onclick={() => remove(s.id, s.email)}
+                  >
+                    <Icon name="trash" size={14} />
+                  </button>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+  </section>
+{/if}
+
+<style>
+  .head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .nomargin {
+    margin: 0;
+  }
+  .none {
+    padding: 6px 0;
+  }
+  .tw {
+    overflow-x: auto;
+    max-height: 420px;
+    overflow-y: auto;
+  }
+  .em {
+    overflow-wrap: anywhere;
+    min-width: 160px;
+  }
+  .dt {
+    white-space: nowrap;
+    color: var(--text-2);
+  }
+  .act {
+    width: 1%;
+    text-align: right;
+  }
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+</style>

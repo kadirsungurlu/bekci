@@ -9,6 +9,7 @@
   import { nowSec } from '../lib/format';
   import Icon from '../components/Icon.svelte';
   import StatusView from '../components/StatusView.svelte';
+  import SubscribePanel from '../components/SubscribePanel.svelte';
   import { i18n, isLocale, setLocale, t, type Locale } from '../lib/i18n';
 
   let { slug = '', previewId }: { slug?: string; previewId?: number } = $props();
@@ -126,6 +127,7 @@
     applyThemeColor();
     lightMq.addEventListener('change', applyThemeColor);
     load();
+    if (!isPreview) handleSubscriptionLink();
     timer = setInterval(() => {
       if (!live) load();
     }, 60_000);
@@ -173,6 +175,40 @@
     return p.logo_url ?? '';
   });
 
+  // E-posta aboneliği: e-postadaki onay/çıkış bağlantısı (?abonelik=onay|cik&t=)
+  // sayfa açılınca işlenir, sonuç üstte şerit olarak gösterilir ve parametreler
+  // adresten temizlenir (yenilemede tekrar gönderilmesin).
+  let subNotice = $state<{ kind: 'ok' | 'error'; text: string } | null>(null);
+
+  async function handleSubscriptionLink() {
+    const q = new URLSearchParams(location.search);
+    const action = q.get('abonelik');
+    const token = q.get('t') ?? '';
+    if (action !== 'onay' && action !== 'cik') return;
+    q.delete('abonelik');
+    q.delete('t');
+    const rest = q.toString();
+    history.replaceState(history.state, '', location.pathname + (rest ? `?${rest}` : '') + location.hash);
+    if (!token) {
+      subNotice = { kind: 'error', text: t(action === 'onay' ? 'pub.subscribe.confirmFailed' : 'pub.subscribe.unsubscribeFailed') };
+      return;
+    }
+    try {
+      if (action === 'onay') {
+        const r = await api.publicConfirmSubscription(token);
+        subNotice = {
+          kind: 'ok',
+          text: r.page ? t('pub.subscribe.confirmedPage', { page: r.page }) : t('pub.subscribe.confirmed'),
+        };
+      } else {
+        await api.publicUnsubscribe(token);
+        subNotice = { kind: 'ok', text: t('pub.subscribe.unsubscribed') };
+      }
+    } catch {
+      subNotice = { kind: 'error', text: t(action === 'onay' ? 'pub.subscribe.confirmFailed' : 'pub.subscribe.unsubscribeFailed') };
+    }
+  }
+
   // Şifre --------------------------------------------------------------------------------
   let password = $state('');
   let unlockError = $state('');
@@ -215,6 +251,16 @@
     </div>
   {/if}
 
+  {#if subNotice}
+    <div class="sub-notice {subNotice.kind}" role="status" data-testid="sub-notice" data-state={subNotice.kind}>
+      <Icon name={subNotice.kind === 'ok' ? 'check-circle' : 'alert-circle'} size={16} />
+      <span>{subNotice.text}</span>
+      <button type="button" class="sub-notice-x" aria-label={t('pub.subscribe.dismiss')} onclick={() => (subNotice = null)}>
+        <Icon name="x" size={15} />
+      </button>
+    </div>
+  {/if}
+
   {#if notFound}
     <div class="center">
       <div class="panel msg">
@@ -253,7 +299,13 @@
       <div class="center"><span class="spinner"></span></div>
     {/if}
   {:else}
-    <StatusView {page} {logo} {light} lang={pageLang} foldKey="durum-kapali:{previewId ?? slug}" {feedUrl} {live} />
+    <StatusView {page} {logo} {light} lang={pageLang} foldKey="durum-kapali:{previewId ?? slug}" {feedUrl} {live}>
+      {#snippet actions()}
+        {#if !isPreview && page?.subscribe}
+          <SubscribePanel slug={page.slug} lang={pageLang} />
+        {/if}
+      {/snippet}
+    </StatusView>
   {/if}
 </div>
 
@@ -296,6 +348,51 @@
     color: inherit;
     font-weight: 700;
     text-decoration: underline;
+  }
+
+  /* Abonelik onay/çıkış sonucu */
+  .sub-notice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: 0.88rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-elev);
+    overflow-wrap: anywhere;
+  }
+  .sub-notice :global(svg) {
+    flex: none;
+  }
+  .sub-notice.ok {
+    color: var(--up);
+    background: var(--up-soft);
+  }
+  .sub-notice.error {
+    color: var(--down);
+    background: var(--down-soft);
+  }
+  .sub-notice span {
+    color: var(--text);
+  }
+  .sub-notice-x {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    flex: none;
+    border: 0;
+    border-radius: 7px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .sub-notice-x:hover {
+    color: var(--text);
+  }
+  .sub-notice-x:focus-visible {
+    outline: 2px solid var(--accent);
   }
 
   /* Mesaj ve şifre kartları */

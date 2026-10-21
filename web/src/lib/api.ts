@@ -946,6 +946,8 @@ export interface StatusPage {
   incident_days?: number;
   /** Uptime pencereleri (boş: çubuk kapsamına göre tek pencere). */
   uptime_windows?: UptimeWindow[];
+  /** Ziyaretçiler e-postayla güncellemelere abone olabilir mi (eski sunucuda gelmez: hayır). */
+  subscriptions?: boolean;
   published: boolean;
   has_logo: boolean;
   created_at: number;
@@ -991,6 +993,27 @@ export interface PageInput {
   /** Gönderilmezse değişmez. */
   incident_days?: number;
   uptime_windows?: UptimeWindow[];
+  /** E-posta aboneliği (gönderilmezse değişmez). */
+  subscriptions?: boolean;
+}
+
+/** Durum sayfası abonesi (GET /api/status-pages/{id}/subscribers). */
+export interface PageSubscriber {
+  id: number;
+  email: string;
+  confirmed: boolean;
+  created_at: number;
+  confirmed_at: number;
+}
+
+export interface PageSubscribers {
+  /** Sistem e-postası yapılandırılmış mı (değilse abonelik açılamaz). */
+  available: boolean;
+  /** Onaylı abone sayısı. */
+  count: number;
+  /** Onay bekleyen kayıt sayısı. */
+  pending: number;
+  items: PageSubscriber[];
 }
 
 export type Severity = 'info' | 'warning' | 'danger' | 'success';
@@ -1148,6 +1171,8 @@ export interface PublicPage {
   incident_days?: number;
   /** Monitör satırlarında gösterilen uptime pencereleri (boş: tek pencere, uptime_window). */
   uptime_windows?: UptimeWindow[];
+  /** Ziyaretçi e-postayla abone olabilir ("Abone ol" düğmesi; eski sunucuda gelmez: hayır). */
+  subscribe?: boolean;
 }
 
 /** Şifreli sayfanın 401 yanıtı. */
@@ -1633,6 +1658,10 @@ export const api = {
   uploadLogo: (id: number, file: File) =>
     request<StatusPage>('PUT', `/api/status-pages/${id}/logo`, undefined, { type: file.type, data: file }),
   deleteLogo: (id: number) => del<StatusPage>(`/api/status-pages/${id}/logo`),
+  pageSubscribers: (pageId: number) => get<PageSubscribers>(`/api/status-pages/${pageId}/subscribers`),
+  deletePageSubscriber: (pageId: number, id: number) => del<void>(`/api/status-pages/${pageId}/subscribers/${id}`),
+  /** CSV dışa aktarımı (bağlantı olarak indirilir). */
+  pageSubscribersCsvUrl: (pageId: number) => `/api/status-pages/${pageId}/subscribers.csv`,
   announcements: (pageId: number) => get<Announcement[]>(`/api/status-pages/${pageId}/announcements`),
   createAnnouncement: (pageId: number, a: AnnouncementInput) =>
     post<Announcement & { copies?: number }>(`/api/status-pages/${pageId}/announcements`, a),
@@ -1646,6 +1675,12 @@ export const api = {
     get<PublicPage>(`/api/public/pages/${encodeURIComponent(slug)}${fresh ? `?t=${Date.now()}` : ''}`),
   publicUnlock: (slug: string, password: string) =>
     post<{ ok: boolean }>(`/api/public/pages/${encodeURIComponent(slug)}/unlock`, { password }),
+  /** Yanıt her durumda aynıdır (202); 429 çok deneme, 400 geçersiz e-posta. */
+  publicSubscribe: (slug: string, email: string, lang: Locale) =>
+    post<{ ok: boolean }>(`/api/public/pages/${encodeURIComponent(slug)}/subscribe`, { email, lang }),
+  publicConfirmSubscription: (token: string) =>
+    post<{ ok: boolean; page?: string }>('/api/public/subscriptions/confirm', { token }),
+  publicUnsubscribe: (token: string) => post<{ ok: boolean }>('/api/public/subscriptions/unsubscribe', { token }),
 
   // Bakım pencereleri
   maintenance: () => get<Maintenance[]>('/api/maintenance'),
