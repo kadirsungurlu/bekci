@@ -125,6 +125,9 @@ jobs:
       - name: Durum sayfası (ızgara + canlı akış) uçtan uca
         working-directory: web/e2e
         run: node --test --experimental-strip-types statusgrid.test.mjs && node durum.mjs
+      - name: Durum sayfası e-posta aboneliği (sahte SMTP) uçtan uca
+        working-directory: web/e2e
+        run: node abonelik.mjs
       - name: Panel günlüğü
         if: failure()
         run: tail -n 80 "$RUNNER_TEMP/panel.log" || true

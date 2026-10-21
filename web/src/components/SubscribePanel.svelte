@@ -267,5 +267,9 @@
     .sub-form {
       flex-direction: column;
     }
+    /* Sütunda flex: 1 yüksekliği daraltır. */
+    .sub-form .input {
+      flex: none;
+    }
   }
 </style>

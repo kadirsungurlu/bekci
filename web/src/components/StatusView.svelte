@@ -738,6 +738,9 @@
 
   /* Üst çubuk */
   .top {
+    /* Başlıktaki açılır panel (abone ol) alttaki kartların üstünde kalsın. */
+    position: relative;
+    z-index: 20;
     border-bottom: 1px solid var(--border);
     background: var(--bg-elev);
   }
