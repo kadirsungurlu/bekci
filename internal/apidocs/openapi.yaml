@@ -1012,6 +1012,34 @@ paths:
                   https_error: { type: string }
                   published: { type: boolean }
                   state: { type: string, enum: [none, unpublished, dns, cert, active] }
+  /api/update:
+    get:
+      tags: [settings]
+      summary: "Yeni Bekci sürümü durumu (yönetici). show: bu kullanıcıya şerit gösterilsin (kapatılan sürümden yenisi varsa)"
+      responses:
+        "200":
+          description: Sürüm durumu
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled: { type: boolean, description: "Denetim açık (ayar, UPDATE_CHECK, sürümü bilinen derleme)" }
+                  current: { type: string }
+                  latest: { type: string }
+                  newer: { type: boolean }
+                  notes_url: { type: string }
+                  dismissed: { type: string }
+                  show: { type: boolean }
+                  checked_at: { type: integer, format: int64 }
+  /api/update/check:
+    post: { tags: [settings], summary: "Sürümü şimdi denetle (kapalıyken dışarıya istek gitmez); yanıt GET /api/update ile aynı", responses: { "200": { description: Sürüm durumu } } }
+  /api/update/dismiss:
+    post:
+      tags: [settings]
+      summary: Yeni sürüm şeridini bu kullanıcı için verilen sürümde kapat
+      requestBody: { content: { application/json: { schema: { type: object, properties: { version: { type: string } } } } } }
+      responses: { "200": { description: Sürüm durumu } }
   /api/tls/ask:
     get:
       tags: [status-pages]

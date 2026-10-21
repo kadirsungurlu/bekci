@@ -42,6 +42,9 @@ type AppSettings struct {
 	// imzalı sürümüne kendiliğinden güncellensin mi (ajan başına geçersiz
 	// kılınabilir). nil (eski kayıt) açık sayılır.
 	AgentAutoUpdate *bool `json:"agent_auto_update"`
+	// UpdateCheck panel yeni Bekci sürümünü denetlesin mi (kapalıyken dışarıya
+	// hiç istek gitmez). nil (eski kayıt) açık sayılır.
+	UpdateCheck *bool `json:"update_check"`
 }
 
 // Saklama varsayılanları (gün).
@@ -76,6 +79,8 @@ func (a AppSettings) AuditKeep() int { return orDefault(a.RetentionAuditDays, De
 
 // AgentAutoUpdateOn ajanlar otomatik güncellensin mi (varsayılan açık).
 func (a AppSettings) AgentAutoUpdateOn() bool { return a.AgentAutoUpdate == nil || *a.AgentAutoUpdate }
+
+func (a AppSettings) UpdateCheckOn() bool { return a.UpdateCheck == nil || *a.UpdateCheck }
 
 func boolPtr(b bool) *bool { return &b }
 

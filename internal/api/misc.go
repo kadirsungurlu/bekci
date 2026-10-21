@@ -297,6 +297,7 @@ func settingsChanges(old, in store.AppSettings) string {
 	add(old.AuditKeep() != in.AuditKeep(), "işlem kaydı saklama")
 	add(old.SystemMailChannelID != in.SystemMailChannelID, "sistem e-postası")
 	add(old.AgentAutoUpdateOn() != in.AgentAutoUpdateOn(), "ajan otomatik güncelleme")
+	add(old.UpdateCheckOn() != in.UpdateCheckOn(), "sürüm denetimi")
 	if len(changed) == 0 {
 		return "değişiklik yok"
 	}

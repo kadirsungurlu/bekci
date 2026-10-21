@@ -169,6 +169,9 @@ func run() error {
 
 	apiServer := api.New(st, eng, hub, dispatcher, log, web.Dist(), version)
 	apiServer.BaseURL = baseURL
+	// Yeni sürüm denetimi: UPDATE_CHECK=off ile kapanır (çevrimdışı kurulum).
+	apiServer.ConfigureUpdateCheck(env("UPDATE_CHECK_URL", ""), api.UpdateCheckOffEnv(env("UPDATE_CHECK", "")))
+	go apiServer.RunUpdateCheck(ctx)
 	if env("TRUSTED_PROXY", "") == "" {
 		// Varsayılan geriye dönük uyumlu kalır (Coolify/Traefik gibi aynı
 		// makinedeki vekiller özel ağdan bağlanır); yine de kurulumun farkında
