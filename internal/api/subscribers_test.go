@@ -228,7 +228,7 @@ func TestSubscribeFlow(t *testing.T) {
 		t.Fatalf("onay yanıtı: %v", conf)
 	}
 	se.anon().mustDo("POST", "/api/public/subscriptions/confirm", map[string]string{"token": tok}, nil, 400) // tek kullanımlık
-	se.subscribe("a@ornek.com", 202)                                                                        // zaten onaylı: posta yok
+	se.subscribe("a@ornek.com", 202)                                                                         // zaten onaylı: posta yok
 	se.quiet("a@ornek.com", 2)
 
 	// Süresi dolmuş onay belirteci.
