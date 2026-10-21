@@ -1033,6 +1033,10 @@
           <Icon name="mail" size={15} /> {t('pages.subs.unavailable')}
         </div>
       {/if}
+      {#if page}
+        <!-- Aboneler abonelik anahtarının hemen altında (ayar ile liste bir arada). -->
+        <PageSubscribers pageId={page.id} enabled={page.subscriptions ?? false} bind:available={subsAvailable} inline />
+      {/if}
 
       <div class="field">
         <span class="label" id="pw-l">{t('pages.editor.password')}</span>
@@ -1112,9 +1116,6 @@
   {#if page}
     <div class="ann">
       <Announcements pageId={page.id} />
-    </div>
-    <div class="ann">
-      <PageSubscribers pageId={page.id} enabled={page.subscriptions ?? false} bind:available={subsAvailable} />
     </div>
   {/if}
   </div>

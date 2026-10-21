@@ -109,6 +109,7 @@ export default {
     sent: 'A confirmation link has been sent to your email. Click it to start your subscription.',
     errEmail: 'Enter a valid email address.',
     errRate: 'Too many attempts, please try again later.',
+    errNet: "The request couldn't be sent. Check your connection and try again.",
     close: 'Close',
     confirmed: 'Your subscription is confirmed. Updates will be sent to your email.',
     confirmedPage: 'Your subscription to "{page}" is confirmed. Updates will be sent to your email.',

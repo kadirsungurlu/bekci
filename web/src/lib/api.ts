@@ -892,6 +892,8 @@ export interface AppSettings {
   system_mail_channel_id?: number;
   /** Ajanlar panelin sürümüne kendiliğinden güncellensin (varsayılan açık). */
   agent_auto_update?: boolean;
+  /** Yeni Bekci sürümü denetimi (varsayılan açık). */
+  update_check?: boolean;
 }
 
 export interface BeatEvent {
@@ -1546,6 +1548,19 @@ const qs = (params: Record<string, string | number | undefined>) => {
   return s ? `?${s}` : '';
 };
 
+/** Yeni sürüm durumu (GET /api/update, yalnız yönetici). */
+export interface UpdateInfo {
+  enabled: boolean;
+  current: string;
+  latest: string;
+  newer: boolean;
+  notes_url: string;
+  dismissed: string;
+  /** Bu kullanıcıya şerit gösterilsin. */
+  show: boolean;
+  checked_at: number;
+}
+
 export const api = {
   authState: () => get<AuthState>('/api/auth/state'),
   setup: (username: string, password: string) => post<{ user: User }>('/api/auth/setup', { username, password }),
@@ -1628,6 +1643,9 @@ export const api = {
   /** Kayıtlı kanala her bildirim türünden birer örnek gönderir (arka planda, sırayla). */
   sampleNotifications: (id: number) => post<{ count: number }>(`/api/notifications/${id}/samples`, {}),
 
+  updateInfo: () => get<UpdateInfo>('/api/update'),
+  updateCheck: () => post<UpdateInfo>('/api/update/check', {}),
+  updateDismiss: (version: string) => post<UpdateInfo>('/api/update/dismiss', { version }),
   settings: () => get<AppSettings>('/api/settings'),
   saveSettings: (s: AppSettings) => put<AppSettings>('/api/settings', s),
 

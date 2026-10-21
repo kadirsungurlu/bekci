@@ -51,6 +51,9 @@ export default {
     userAgentHelp:
       'Website checks are sent with this value, and every check location uses the same one. If your site is behind Cloudflare or another firewall, allow requests whose User-Agent contains "Bekci" instead of adding IP addresses one by one. Leave empty for the default; a custom User-Agent header on a monitor takes precedence.',
     agentAutoUpdate: 'Update agents automatically',
+    updateCheck: 'Check for new versions',
+    updateCheckHelp:
+      'Every 6 hours the panel looks at the Bekci releases on GitHub and tells admins at the top of the panel when a new version is out. When off, no request leaves the server (the UPDATE_CHECK=off environment variable also turns it off).',
     agentAutoUpdateHelp:
       'When the panel moves to a new version, server agents and check locations switch to the same version on their own. The program is installed only if the project signature verifies, and agents are never downgraded. Can also be turned on or off per agent.',
     errUserAgent: 'The User-Agent can be at most 300 characters and may only contain ASCII letters, digits and punctuation.',

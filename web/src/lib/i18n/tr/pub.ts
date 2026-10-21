@@ -110,6 +110,7 @@ export default {
     sent: 'Onay bağlantısı e-postanıza gönderildi. Aboneliği başlatmak için bağlantıya tıklayın.',
     errEmail: 'Geçerli bir e-posta adresi girin.',
     errRate: 'Çok fazla deneme, biraz sonra tekrar deneyin.',
+    errNet: 'İstek gönderilemedi. Bağlantınızı kontrol edip tekrar deneyin.',
     close: 'Kapat',
     confirmed: 'Aboneliğiniz onaylandı. Güncellemeler e-postanıza gelecek.',
     confirmedPage: '"{page}" aboneliğiniz onaylandı. Güncellemeler e-postanıza gelecek.',

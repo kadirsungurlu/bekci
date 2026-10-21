@@ -36,6 +36,12 @@
     if (open && root && !root.contains(e.target as Node)) close(false);
   }
 
+  // Tab ile panelin dışına çıkınca kapanır (odak zaten başka yerde: geri verilmez).
+  function onFocusOut(e: FocusEvent) {
+    const to = e.relatedTarget as Node | null;
+    if (open && to && root && !root.contains(to)) close(false);
+  }
+
   function onKey(e: KeyboardEvent) {
     if (e.key === 'Escape' && open) {
       e.preventDefault();
@@ -62,8 +68,9 @@
     } catch (err) {
       if (err instanceof ApiError && err.status === 429) result = { kind: 'error', text: t('pub.subscribe.errRate') };
       else if (err instanceof ApiError && err.status === 400) result = { kind: 'error', text: t('pub.subscribe.errEmail') };
-      // Diğer durumlarda da (sayfa kapandı, ağ) adres hakkında bilgi verilmez; nötr metin.
-      else result = { kind: 'sent', text: t('pub.subscribe.sent') };
+      // Ağ/sunucu hatası ya da abonelik kapandı: hata metni (sunucu yanıtı adrese
+      // göre değişmediği için adres hakkında bilgi vermez).
+      else result = { kind: 'error', text: t('pub.subscribe.errNet') };
     } finally {
       sending = false;
     }
@@ -73,7 +80,7 @@
 <svelte:document onpointerdown={onOutside} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="sub" bind:this={root} onkeydown={onKey}>
+<div class="sub" bind:this={root} onkeydown={onKey} onfocusout={onFocusOut}>
   <button
     type="button"
     class="sub-btn"

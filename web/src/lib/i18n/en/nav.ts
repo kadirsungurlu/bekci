@@ -26,6 +26,13 @@ export default {
   },
   offline: 'Offline',
   offlineTip: 'Reconnecting the live connection',
+  update: {
+    available: 'Bekci {latest} is available',
+    installed: '(installed: {current})',
+    notes: "What's new",
+    how: 'How to update',
+    dismiss: 'Hide for this version',
+  },
   refreshData: 'Refresh data',
   sessionExpired: 'Your session has expired. Please sign in again.',
   connectFailed: "Couldn't connect to the server",

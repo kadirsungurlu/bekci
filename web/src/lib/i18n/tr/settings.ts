@@ -48,6 +48,9 @@ export default {
     userAgent: 'Kontrol isteklerinin User-Agent\'ı',
     userAgentHelp:
       'Web sitesi kontrolleri bu değerle gider; tüm kontrol noktaları da aynısını kullanır. Siteniz Cloudflare veya başka bir güvenlik duvarı arkasındaysa, IP adreslerini tek tek eklemek yerine User-Agent\'ında "Bekci" geçen isteklere izin verebilirsiniz. Boş bırakırsanız varsayılan kullanılır; monitörde özel User-Agent başlığı varsa o geçerlidir.',
+    updateCheck: 'Yeni sürümleri denetle',
+    updateCheckHelp:
+      "Panel 6 saatte bir GitHub'daki Bekci sürümlerine bakar ve yeni sürüm çıkınca yöneticilere panelin üstünde bildirir. Kapalıyken dışarıya hiç istek gitmez (UPDATE_CHECK=off ortam değişkeni de kapatır).",
     agentAutoUpdate: 'Ajanları otomatik güncelle',
     agentAutoUpdateHelp:
       'Panel yeni bir sürüme geçince sunucu ajanları ve kontrol noktaları aynı sürüme kendiliğinden geçer. Program yalnızca projenin imzası doğrulanırsa kurulur; eski sürüme dönülmez. Ajan başına ayrıca açılıp kapatılabilir.',

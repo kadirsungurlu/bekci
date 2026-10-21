@@ -13,11 +13,14 @@
     pageId,
     enabled,
     available = $bindable(true),
+    inline = false,
   }: {
     pageId: number;
     /** Sayfada abonelik açık (kayıtlı ayar). */
     enabled: boolean;
     available?: boolean;
+    /** Düzenleyici formunun içinde (kart çerçevesi olmadan). */
+    inline?: boolean;
   } = $props();
 
   let data = $state.raw<PageSubscribers | null>(null);
@@ -67,7 +70,7 @@
 </script>
 
 {#if enabled || total > 0}
-  <section class="card" data-testid="subs-section">
+  <section class={inline ? 'inline' : 'card'} data-testid="subs-section">
     <div class="head">
       <div>
         <h2 class="card-title">{t('pages.subs.title')}</h2>
@@ -133,6 +136,20 @@
 {/if}
 
 <style>
+  .inline {
+    margin: 4px 0 18px 28px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .inline .card-title {
+    font-size: 0.95rem;
+  }
+  @media (max-width: 640px) {
+    .inline {
+      margin-left: 0;
+    }
+  }
   .head {
     display: flex;
     align-items: flex-start;
