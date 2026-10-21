@@ -79,6 +79,16 @@
   } = $props();
 
   const t = (key: TKey, params?: TParams) => tIn(lang, key, params);
+
+  // Canlı akış bağlanınca/kesilince ekran okuyucuya bir kez duyurulur (saat her
+  // güncellemede okunmasın diye göstergenin kendisi canlı bölge değildir).
+  let liveMsg = $state('');
+  let prevLive: boolean | undefined;
+  $effect(() => {
+    const l = live;
+    if (prevLive !== undefined && l !== prevLive) liveMsg = t(l ? 'pub.liveOn' : 'pub.liveOff');
+    prevLive = l;
+  });
   // Tarih, süre ve yüzdeler de sayfanın dilinde (düzenleyicideki canlı önizlemede
   // yönetim arayüzünün dili farklı olabilir).
   const fmtDate = (ts: number) => fmt.fmtDate(ts, lang);
@@ -359,6 +369,7 @@
             <span class="live" aria-hidden="true"></span>{t('pub.refreshInfo', { time: fmtTime(page.updated_at) })}
           {/if}
         </div>
+        <span class="sr-only" role="status">{liveMsg}</span>
         {@render actions?.()}
       </div>
     </div>
@@ -803,6 +814,14 @@
     gap: 8px;
     color: var(--muted);
     font-size: 0.82rem;
+    white-space: nowrap;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
     white-space: nowrap;
   }
   .live {
@@ -1334,17 +1353,21 @@
       padding-left: 14px;
       padding-right: 14px;
     }
+    /* Ad tam genişlikte üstte; yüzde ve rozet altta iki uca yaslı. */
     .m-top {
-      align-items: flex-start;
+      flex-wrap: wrap;
+      row-gap: 8px;
       gap: 10px;
     }
     .m-name {
+      flex: 1 1 100%;
       min-width: 0;
       overflow-wrap: anywhere;
     }
     .m-right {
-      flex-direction: column-reverse;
-      align-items: flex-end;
+      flex: 1 1 100%;
+      flex-direction: row;
+      justify-content: space-between;
       gap: 6px;
     }
     .m-up {

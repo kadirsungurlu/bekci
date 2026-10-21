@@ -353,7 +353,7 @@ export default {
     empty: 'Henüz abone yok.',
     email: 'E-posta',
     status: 'Durum',
-    date: 'Tarih',
+    date: 'Onay / kayıt tarihi',
     confirmed: 'Onaylı',
     pending: 'Onay bekliyor',
     csv: 'CSV indir',

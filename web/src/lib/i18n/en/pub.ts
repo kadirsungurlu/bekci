@@ -17,6 +17,8 @@ export default {
   refreshInfo: 'Last updated {time} · refreshes every 60 s',
   live: 'Live',
   liveInfo: 'Last updated {time}',
+  liveOn: 'Live updates connected',
+  liveOff: 'Live updates lost, the page refreshes every 60 s',
   overall: {
     up: 'All systems operational',
     partial: 'Some systems are experiencing issues',

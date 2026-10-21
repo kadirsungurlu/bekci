@@ -15,6 +15,8 @@ export default {
   refreshInfo: "Son güncelleme {time} · 60 sn'de bir yenilenir",
   live: 'Canlı',
   liveInfo: 'Son güncelleme {time}',
+  liveOn: 'Canlı akış bağlandı',
+  liveOff: "Canlı akış kesildi, sayfa 60 sn'de bir yenilenir",
   overall: {
     up: 'Tüm sistemler çalışıyor',
     partial: 'Bazı sistemlerde sorun var',
@@ -114,6 +116,6 @@ export default {
     confirmFailed: 'Onay bağlantısı geçersiz ya da süresi dolmuş. Yeniden abone olabilirsiniz.',
     unsubscribed: 'Abonelikten çıktınız. Artık e-posta almayacaksınız.',
     unsubscribeFailed: 'Çıkış bağlantısı geçersiz ya da süresi dolmuş.',
-    dismiss: 'Bildirimi kapat',
+    dismiss: 'Uyarıyı kapat',
   },
 };

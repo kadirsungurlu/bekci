@@ -95,10 +95,10 @@
         <table class="table" data-testid="subs-table">
           <thead>
             <tr>
-              <th>{t('pages.subs.email')}</th>
-              <th>{t('pages.subs.status')}</th>
-              <th>{t('pages.subs.date')}</th>
-              <th><span class="sr">{t('common.delete')}</span></th>
+              <th scope="col">{t('pages.subs.email')}</th>
+              <th scope="col" class="c-st">{t('pages.subs.status')}</th>
+              <th scope="col" class="c-dt">{t('pages.subs.date')}</th>
+              <th scope="col" class="c-act"><span class="sr">{t('common.delete')}</span></th>
             </tr>
           </thead>
           <tbody>
@@ -152,16 +152,27 @@
     max-height: 420px;
     overflow-y: auto;
   }
+  /* Sabit düzen: sil düğmesi kart kenarında kesilmesin, uzun adres kırılsın. */
+  .table {
+    table-layout: fixed;
+    width: 100%;
+  }
+  .c-st {
+    width: 120px;
+  }
+  .c-dt {
+    width: 160px;
+  }
+  .c-act {
+    width: 56px;
+  }
   .em {
     overflow-wrap: anywhere;
-    min-width: 160px;
   }
   .dt {
-    white-space: nowrap;
     color: var(--text-2);
   }
   .act {
-    width: 1%;
     text-align: right;
   }
   .sr {

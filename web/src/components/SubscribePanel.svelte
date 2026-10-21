@@ -255,6 +255,15 @@
     .sub {
       position: static;
     }
+    /* Dokunmatik hedef en az 44 px (kapatma 40 px, köşe hizası negatif boşlukla). */
+    .sub-btn {
+      height: 44px;
+    }
+    .sub-x {
+      width: 40px;
+      height: 40px;
+      margin: -10px -10px -10px 0;
+    }
     .sub-panel {
       top: calc(100% - 6px);
       left: 16px;

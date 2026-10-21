@@ -10,7 +10,7 @@
   import Icon from '../components/Icon.svelte';
   import StatusView from '../components/StatusView.svelte';
   import SubscribePanel from '../components/SubscribePanel.svelte';
-  import { i18n, isLocale, setLocale, t, type Locale } from '../lib/i18n';
+  import { i18n, isLocale, setLocale, t, tIn, type Locale, type TKey, type TParams } from '../lib/i18n';
 
   let { slug = '', previewId }: { slug?: string; previewId?: number } = $props();
 
@@ -82,6 +82,7 @@
   let destroyed = false;
   let liveSlug = '';
   let wasLive = false;
+  let liveOffTimer: ReturnType<typeof setTimeout> | undefined;
 
   function connect(s: string) {
     if (destroyed || typeof EventSource === 'undefined') return;
@@ -92,6 +93,7 @@
     es = src;
     src.onopen = () => {
       if (es !== src) return;
+      clearTimeout(liveOffTimer);
       // Kopukken kaçan değişiklikler: yeniden bağlanınca bir kez tazelenir.
       if (wasLive) load(true);
       live = wasLive = true;
@@ -102,7 +104,12 @@
     };
     src.onerror = () => {
       if (es !== src) return;
-      live = false;
+      // Tarayıcının kendi yeniden bağlanması kısa sürer: gösterge hemen
+      // "60 sn" metnine düşüp geri dönmesin (titreme), 8 sn bağlanamazsa düşer.
+      clearTimeout(liveOffTimer);
+      liveOffTimer = setTimeout(() => {
+        if (es !== src || src.readyState !== EventSource.OPEN) live = false;
+      }, 8_000);
       if (src.readyState === EventSource.CLOSED) {
         es = null;
         retryTimer = setTimeout(() => connect(s), retryDelay);
@@ -137,6 +144,7 @@
   onDestroy(() => {
     destroyed = true;
     clearTimeout(retryTimer);
+    clearTimeout(liveOffTimer);
     es?.close();
     clearInterval(timer);
     document.removeEventListener('visibilitychange', onVisible);
@@ -178,7 +186,8 @@
   // E-posta aboneliği: e-postadaki onay/çıkış bağlantısı (?abonelik=onay|cik&t=)
   // sayfa açılınca işlenir, sonuç üstte şerit olarak gösterilir ve parametreler
   // adresten temizlenir (yenilemede tekrar gönderilmesin).
-  let subNotice = $state<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  // Metin anahtar olarak saklanır, sayfanın dilinde (pageLang) çizilir.
+  let subNotice = $state<{ kind: 'ok' | 'error'; key: TKey; params?: TParams } | null>(null);
 
   async function handleSubscriptionLink() {
     const q = new URLSearchParams(location.search);
@@ -190,22 +199,21 @@
     const rest = q.toString();
     history.replaceState(history.state, '', location.pathname + (rest ? `?${rest}` : '') + location.hash);
     if (!token) {
-      subNotice = { kind: 'error', text: t(action === 'onay' ? 'pub.subscribe.confirmFailed' : 'pub.subscribe.unsubscribeFailed') };
+      subNotice = { kind: 'error', key: action === 'onay' ? 'pub.subscribe.confirmFailed' : 'pub.subscribe.unsubscribeFailed' };
       return;
     }
     try {
       if (action === 'onay') {
         const r = await api.publicConfirmSubscription(token);
-        subNotice = {
-          kind: 'ok',
-          text: r.page ? t('pub.subscribe.confirmedPage', { page: r.page }) : t('pub.subscribe.confirmed'),
-        };
+        subNotice = r.page
+          ? { kind: 'ok', key: 'pub.subscribe.confirmedPage', params: { page: r.page } }
+          : { kind: 'ok', key: 'pub.subscribe.confirmed' };
       } else {
         await api.publicUnsubscribe(token);
-        subNotice = { kind: 'ok', text: t('pub.subscribe.unsubscribed') };
+        subNotice = { kind: 'ok', key: 'pub.subscribe.unsubscribed' };
       }
     } catch {
-      subNotice = { kind: 'error', text: t(action === 'onay' ? 'pub.subscribe.confirmFailed' : 'pub.subscribe.unsubscribeFailed') };
+      subNotice = { kind: 'error', key: action === 'onay' ? 'pub.subscribe.confirmFailed' : 'pub.subscribe.unsubscribeFailed' };
     }
   }
 
@@ -251,15 +259,18 @@
     </div>
   {/if}
 
-  {#if subNotice}
-    <div class="sub-notice {subNotice.kind}" role="status" data-testid="sub-notice" data-state={subNotice.kind}>
-      <Icon name={subNotice.kind === 'ok' ? 'check-circle' : 'alert-circle'} size={16} />
-      <span>{subNotice.text}</span>
-      <button type="button" class="sub-notice-x" aria-label={t('pub.subscribe.dismiss')} onclick={() => (subNotice = null)}>
-        <Icon name="x" size={15} />
-      </button>
-    </div>
-  {/if}
+  <!-- Kalıcı canlı bölge: şerit sonradan içine girer ki ekran okuyucu duyursun. -->
+  <div role="status">
+    {#if subNotice}
+      <div class="sub-notice {subNotice.kind}" data-testid="sub-notice" data-state={subNotice.kind}>
+        <Icon name={subNotice.kind === 'ok' ? 'check-circle' : 'alert-circle'} size={16} />
+        <span>{tIn(pageLang, subNotice.key, subNotice.params)}</span>
+        <button type="button" class="sub-notice-x" aria-label={tIn(pageLang, 'pub.subscribe.dismiss')} onclick={() => (subNotice = null)}>
+          <Icon name="x" size={15} />
+        </button>
+      </div>
+    {/if}
+  </div>
 
   {#if notFound}
     <div class="center">
@@ -356,7 +367,7 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 10px 16px;
+    padding: 6px 8px 6px 16px;
     font-size: 0.88rem;
     border-bottom: 1px solid var(--border);
     background: var(--bg-elev);
@@ -379,8 +390,8 @@
   .sub-notice-x {
     display: grid;
     place-items: center;
-    width: 28px;
-    height: 28px;
+    width: 44px;
+    height: 44px;
     flex: none;
     border: 0;
     border-radius: 7px;

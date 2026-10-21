@@ -355,7 +355,7 @@ export default {
     empty: 'No subscribers yet.',
     email: 'Email',
     status: 'Status',
-    date: 'Date',
+    date: 'Confirmed / signed up',
     confirmed: 'Confirmed',
     pending: 'Pending confirmation',
     csv: 'Download CSV',
