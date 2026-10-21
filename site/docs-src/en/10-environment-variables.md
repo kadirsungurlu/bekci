@@ -74,5 +74,5 @@ The `/opt/bekci/.env` file of the [Caddy install](/en/docs/install/caddy/) reads
 | `UPTIME_DOMAIN` | The panel's domain (without `https://`). `BASE_URL` is built from it. Required. |
 | `ACME_EMAIL` | Email for Let's Encrypt notices. Required. |
 | `UPTIME_TAG` | Image tag: `latest`, `postgres`, `1.0.0`, `1.0.0-postgres`… Default `latest`. |
-| `STATUS_DOMAIN` | Optional: a separate domain for the status page ([details](/en/docs/install/caddy/#status-domain)). |
+| `STATUS_DOMAIN` | No longer needed: status page custom domains get HTTPS automatically. Only used by an older, hand-written `{$STATUS_DOMAIN}` Caddy block ([details](/en/docs/install/caddy/#status-domain-migrate)). |
 | `TZ`, `LOG_LEVEL`, `MAX_CONCURRENT_CHECKS` | Same as in the table above. |

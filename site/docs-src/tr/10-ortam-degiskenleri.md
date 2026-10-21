@@ -74,5 +74,5 @@ Bu değişkenleri panelden aldığınız kurulum komutu sizin için ayarlar (`/e
 | `UPTIME_DOMAIN` | Panelin alan adı (`https://` olmadan). `BASE_URL` bundan oluşturulur. Zorunlu. |
 | `ACME_EMAIL` | Let's Encrypt bildirimleri için e-posta. Zorunlu. |
 | `UPTIME_TAG` | İmaj etiketi: `latest`, `postgres`, `1.0.0`, `1.0.0-postgres`… Varsayılan `latest`. |
-| `STATUS_DOMAIN` | İsteğe bağlı: durum sayfası için ayrı alan adı ([ayrıntı](/docs/kurulum/caddy/#durum-alan-adi)). |
+| `STATUS_DOMAIN` | Artık gerekmez: durum sayfası özel alan adları otomatik HTTPS alır. Yalnız eski, elle eklenmiş `{$STATUS_DOMAIN}` Caddy bloğu için kullanılır ([ayrıntı](/docs/kurulum/caddy/#durum-alan-adi-gecis)). |
 | `TZ`, `LOG_LEVEL`, `MAX_CONCURRENT_CHECKS` | Yukarıdaki tabloyla aynı. |

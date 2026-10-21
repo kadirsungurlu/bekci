@@ -175,7 +175,7 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
 **Durum sayfaları**
 - Gruplar (katlanabilir), hedef adres gösterimi (yalnızca alan adı), son
   olaylar (gizlenebilir; 7/14/30/90 gün), çoklu uptime pencereleri, şifre
-  koruması, özel alan adı, rozetler
+  koruması, özel alan adı (otomatik HTTPS, Caddy on-demand TLS), rozetler
 - Elle açılan olaylar ve olay güncellemeleri (inceleniyor → neden bulundu →
   izleniyor → çözüldü), planlı bakım bloğu; hepsi RSS akışında
 

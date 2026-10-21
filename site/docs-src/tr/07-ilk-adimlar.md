@@ -113,7 +113,7 @@ Durum sayfası, müşterilerinize servislerinizin durumunu, planlı bakımları 
 > [!CHECK]
 > Sayfanız `https://⟦bekci.ornek.com⟧/durum/⟦acme⟧` adresinde açılır. Giriş yapmamış bir tarayıcıda (ör. gizli pencerede) açıp deneyin.
 
-Sayfayı `durum.ornek.com` gibi ayrı bir alan adından yayınlamak için sayfanın **Özel alan adı** alanını kullanın; alan adının DNS kaydı sunucunuzu göstermeli ve vekiliniz bu adı Bekci'ye yönlendirmelidir ([Caddy'li kurulumda nasıl yapılır](/docs/kurulum/caddy/#durum-alan-adi)).
+Sayfayı `durum.ornek.com` gibi ayrı bir alan adından yayınlamak için sayfanın **Özel alan adı** alanını kullanın; alan adının DNS kaydı sunucunuzu göstermelidir. Caddy'li kurulumda HTTPS sertifikası otomatik alınır, Caddy'ye dokunmanız gerekmez; alanın altındaki rozet **Etkin** olunca hazırdır ([ayrıntı](/docs/kurulum/caddy/#durum-alan-adi)). Coolify ya da başka bir vekil kullanıyorsanız alan adını vekile de eklemeniz gerekir ([Caddy kullanmıyorsanız](/docs/kurulum/caddy/#durum-alan-adi-vekil)).
 
 **Pencereler:** **Uptime pencereleri** ile her monitör satırında hangi yüzdelerin yazılacağını seçin (24 saat, 7, 30, 90 gün; birden fazlası seçilirse yan yana gösterilir, hiçbiri seçili değilse çubuk görünümüne göre tek pencere). **Olay penceresi** (7/14/30/90 gün) "Son olaylar" bölümünün ve RSS akışının kaç günlük geçmişi göstereceğini belirler.
 

@@ -1,9 +1,13 @@
-# Caddy: HTTPS sertifikasını otomatik alır ve Bekci'ye yönlendirir.
-# Alan adları .env dosyasından gelir; bu dosyayı değiştirmeniz gerekmez.
-# Rehber: https://bekci.app/docs/kurulum/caddy/
+# Caddy: HTTPS sertifikasını otomatik alır ve uygulamaya yönlendirir.
+# Alan adları .env dosyasından gelir (docker-compose.yml → environment).
 
 {
 	email {$ACME_EMAIL}
+	# Durum sayfası özel alan adları: Caddy tanımadığı bir ada sertifika almadan
+	# önce Bekci'ye sorar; yalnız yayındaki bir sayfaya tanımlı adlar onaylanır.
+	on_demand_tls {
+		ask http://bekci:8080/api/tls/ask
+	}
 }
 
 {$UPTIME_DOMAIN} {
@@ -17,13 +21,17 @@
 	}
 }
 
-# İsteğe bağlı: durum sayfası için ayrı alan adı (ör. durum.ornek.com).
-# .env'de STATUS_DOMAIN tanımlayıp aşağıdaki bloğun başındaki # işaretlerini
-# kaldırın; ardından panelde durum sayfasının "Özel alan adı" alanına aynı
-# adı yazın. Bu adresten yalnızca durum sayfası açılır, yönetim paneli açılmaz.
-#
-# {$STATUS_DOMAIN} {
-# 	encode zstd gzip
-# 	header >Strict-Transport-Security "max-age=31536000"
-# 	reverse_proxy bekci:8080
-# }
+# Durum sayfası özel alan adları (otomatik): panelde sayfaya alan adı yazıp
+# DNS'i bu sunucuya yönlendirmek yeterli; bu dosyaya dokunmaya gerek yok.
+# Sertifika alan adına ilk HTTPS isteğinde alınır. Yukarıdaki gibi adı açıkça
+# yazılmış site blokları bu bloğun önüne geçer (eski elle eklenmiş bloklar çalışır).
+https:// {
+	tls {
+		on_demand
+	}
+	encode zstd gzip
+	header >Strict-Transport-Security "max-age=31536000"
+	reverse_proxy bekci:8080 {
+		flush_interval -1
+	}
+}

@@ -116,7 +116,7 @@ A status page is a public page that shows your customers the state of your servi
 > [!CHECK]
 > Your page opens at `https://⟦bekci.example.com⟧/durum/⟦acme⟧` (`durum` is Turkish for “status”). Open it in a browser where you're not signed in (e.g. a private window) to check.
 
-To publish the page on a separate domain such as `status.example.com`, use the page's **Custom domain** field; the domain's DNS record must point to your server and your proxy must route that name to Bekci ([how to do it with the Caddy install](/en/docs/install/caddy/#status-domain)).
+To publish the page on a separate domain such as `status.example.com`, use the page's **Custom domain** field; the domain's DNS record must point to your server. With the Caddy install the HTTPS certificate is obtained automatically and you don't need to touch Caddy; the domain is ready once the badge below the field shows **Active** ([details](/en/docs/install/caddy/#status-domain)). If you use Coolify or another proxy, you also need to add the domain to the proxy ([if you don't use Caddy](/en/docs/install/caddy/#status-domain-other-proxy)).
 
 **Windows:** **Uptime windows** picks which percentages each monitor row shows (24 hours, 7, 30, 90 days; several are shown side by side, none means a single window following the bar view). **Incident window** (7/14/30/90 days) sets how much history the "Recent incidents" section and the RSS feed show.
 
