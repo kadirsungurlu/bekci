@@ -150,7 +150,7 @@ Ayarlar:
 - Ajan tarafında tamamen kapatmak için ajanın ayar dosyasına (`/etc/uptime-agent.env`, `/etc/uptime-probe.env` ya da `agent.env`) `AUTO_UPDATE=0` ekleyip ajanı yeniden başlatın.
 
 > [!NOTE]
-> Yalnızca resmi sürüm imajları (`kadirsungurlu/bekci:1.4.0` gibi) imzalı ajan içerir. Kaynaktan ya da bir commit'ten derlenen panel ajanlara güncelleme sunmaz; ajan satırında **İmzasız derleme** ya da **Sürümsüz derleme** yazar. `PROBE_IMAGE` ile uygulama imajından çalışan ajanlar da kendini güncelleyemez (**Elle güncellenir**); onlarda imajı güncelleyin.
+> Yalnızca resmi sürüm imajları (`kadirsungurlu/bekci:1.5.0` gibi) imzalı ajan içerir. Kaynaktan ya da bir commit'ten derlenen panel ajanlara güncelleme sunmaz; ajan satırında **İmzasız derleme** ya da **Sürümsüz derleme** yazar. `PROBE_IMAGE` ile uygulama imajından çalışan ajanlar da kendini güncelleyemez (**Elle güncellenir**); onlarda imajı güncelleyin.
 
 ### Eski ajanları bir kez güncelleme {#eski-ajan}
 

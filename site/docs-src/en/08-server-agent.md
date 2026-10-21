@@ -150,7 +150,7 @@ Settings:
 - To turn updates off on the agent itself, add `AUTO_UPDATE=0` to the agent's settings file (`/etc/uptime-agent.env`, `/etc/uptime-probe.env` or `agent.env`) and restart the agent.
 
 > [!NOTE]
-> Only official release images (such as `kadirsungurlu/bekci:1.4.0`) contain signed agents. A panel built from source or from a commit doesn't offer updates to agents, and the agent row says **Unsigned build** or **Unversioned build**. Agents that run from the app image with `PROBE_IMAGE` can't update themselves either (**Manual updates**); update the image for those.
+> Only official release images (such as `kadirsungurlu/bekci:1.5.0`) contain signed agents. A panel built from source or from a commit doesn't offer updates to agents, and the agent row says **Unsigned build** or **Unversioned build**. Agents that run from the app image with `PROBE_IMAGE` can't update themselves either (**Manual updates**); update the image for those.
 
 ### Updating old agents once {#old-agents}
 
