@@ -121,12 +121,33 @@ try {
   if (!up) fail('çözüldü e-postası gelmedi');
   console.log('çözüldü e-postası:', up.subject);
 
+  // Panel abone listesi (dolu hâli) görüntüsü.
+  if (SHOTS) {
+    const ed0 = await ctx.newPage();
+    await ed0.setViewportSize({ width: 1280, height: 900 });
+    await ed0.goto(BASE + `/#/status-pages/${pageId}`);
+    await ed0.getByTestId('subs-section').waitFor({ timeout: 10000 });
+    await ed0.getByTestId('subs-section').scrollIntoViewIfNeeded();
+    await ed0.waitForTimeout(800);
+    await ed0.screenshot({ path: `${SHOTS}/abone-liste-1280.jpg`, type: 'jpeg', quality: 60 });
+    await ed0.close();
+  }
+
   // Tek tıkla çıkış (RFC 8058): X-Uptime'sız form POST.
   const lu = up.headers['list-unsubscribe'].match(/<(https?:[^>]+)>/)[1].replace(/^https?:\/\/[^/]+/, BASE);
   const un = await rq.post(lu, { form: { 'List-Unsubscribe': 'One-Click' } });
   if (!un.ok()) fail('tek tıkla çıkış ' + un.status());
   const after = await (await rq.get(BASE + `/api/status-pages/${pageId}/subscribers`, { headers: H })).json();
   if (after.count !== 0 || (after.items || []).length !== 0) fail('çıkıştan sonra abone kaldı');
+
+  // E-postadaki çıkış bağlantısı tarayıcıda (zaten çıkmış: yine onay şeridi).
+  const cik = link(up, 'cik');
+  if (!cik) fail('e-postada çıkış bağlantısı yok');
+  const pc = await browser.newPage({ viewport: { width: 375, height: 800 } });
+  await pc.goto(cik.replace(/^https?:\/\/[^/]+/, BASE));
+  await pc.locator('[data-testid="sub-notice"]').waitFor({ timeout: 10000 });
+  if (SHOTS) await pc.screenshot({ path: `${SHOTS}/abone-cikis-375.jpg`, type: 'jpeg', quality: 60 });
+  await pc.close();
 
   // Panel: abonelik bölümü görünür.
   const ed = await ctx.newPage();
