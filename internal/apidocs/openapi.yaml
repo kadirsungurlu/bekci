@@ -990,6 +990,37 @@ paths:
                   items:
                     type: array
                     items: { type: object, properties: { id: { type: integer, format: int64 }, email: { type: string }, confirmed: { type: boolean }, created_at: { type: integer, format: int64 }, confirmed_at: { type: integer, format: int64 } } }
+  /api/status-pages/{id}/domain:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get:
+      tags: [status-pages]
+      summary: "Özel alan adı durumu: DNS bu sunucuyu gösteriyor mu, HTTPS ile açılıp bu sayfayı sunuyor mu (yönetici)"
+      responses:
+        "200":
+          description: "state: none | unpublished | dns (DNS bekleniyor) | cert (sertifika bekleniyor) | active"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  domain: { type: string }
+                  target: { type: string, description: CNAME hedefi (uygulamanın adresi) }
+                  target_ips: { type: array, items: { type: string }, description: A/AAAA hedefleri }
+                  domain_ips: { type: array, items: { type: string } }
+                  dns: { type: boolean }
+                  https: { type: boolean }
+                  https_error: { type: string }
+                  published: { type: boolean }
+                  state: { type: string, enum: [none, unpublished, dns, cert, active] }
+  /api/tls/ask:
+    get:
+      tags: [status-pages]
+      summary: "Ters vekilin on-demand TLS onayı (Caddy on_demand_tls ask): alan adı yayındaki bir durum sayfasına tanımlıysa ya da uygulamanın adresiyse 200, değilse 404. Oturum gerekmez; IP başına dakikada 600 istek."
+      security: []
+      parameters: [{ name: domain, in: query, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Sertifika alınabilir }
+        "404": { description: Tanımsız alan adı }
   /api/status-pages/{id}/subscribers.csv:
     parameters: [{ $ref: "#/components/parameters/id" }]
     get: { tags: [status-pages], summary: "Aboneler CSV (email,status,created_at,confirmed_at; RFC3339)", responses: { "200": { description: CSV, content: { text/csv: {} } } } }

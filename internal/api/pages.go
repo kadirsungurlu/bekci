@@ -144,19 +144,7 @@ func requestHost(r *http.Request) string {
 
 // domainPageFor istek bir durum sayfasının özel alan adına geldiyse o sayfayı döner.
 func (s *Server) domainPageFor(r *http.Request) (domainPage, bool) {
-	s.pages.mu.RLock()
-	loaded := s.pages.domains != nil
-	s.pages.mu.RUnlock()
-	if !loaded {
-		if err := s.reloadDomains(r.Context()); err != nil {
-			s.log.Error("durum sayfası alan adları yüklenemedi", "hata", err)
-			return domainPage{}, false
-		}
-	}
-	s.pages.mu.RLock()
-	defer s.pages.mu.RUnlock()
-	d, ok := s.pages.domains[requestHost(r)]
-	return d, ok
+	return s.domainPage(r.Context(), requestHost(r))
 }
 
 // customDomainOnly: istek bir durum sayfasının özel alan adına geldiyse yalnızca
@@ -407,7 +395,15 @@ func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.St
 	}
 	p.Sections = sections
 
-	p.CustomDomain = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(in.CustomDomain)), ".")
+	// Unicode ad punycode'a çevrilir (vekil ve ask ucu xn-- biçimini görür).
+	domainOK := true
+	p.CustomDomain = ""
+	if strings.TrimSpace(in.CustomDomain) != "" {
+		p.CustomDomain, domainOK = normalizeDomain(in.CustomDomain)
+		if !domainOK {
+			p.CustomDomain = strings.TrimSpace(in.CustomDomain)
+		}
+	}
 	// Özel alan adını yalnızca yönetici belirleyebilir veya değiştirebilir;
 	// editör alanı değiştirmeyen bir kaydı yine de saklayabilir. Böylece bir
 	// editör sayfayı kendi alan adına (ör. uygulamanın adresine) yönlendirip
@@ -420,7 +416,7 @@ func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.St
 		return p, &inputError{http.StatusForbidden, "Özel alan adını yalnızca yöneticiler değiştirebilir"}
 	}
 	if p.CustomDomain != "" {
-		if !validHostname(p.CustomDomain) {
+		if !domainOK {
 			return p, badInput("Geçerli bir alan adı girin (ör. durum.ornek.com); http:// ve / olmadan")
 		}
 		// Uygulamanın kendi adresi (BASE_URL) ya da isteğin geldiği adres
