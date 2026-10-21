@@ -13,7 +13,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 - `internal/servers/` sunucu ajanı metrikleri · `internal/backup/` dışa/içe aktarma (Kuma, UptimeRobot) · `internal/webpush/`
 - `internal/apidocs/openapi.yaml` — API belgesi (yeni genel uç eklenirse güncelle)
 - `web/` — Svelte 5 + Vite SPA (TS). `src/pages/` sayfalar, `src/components/`, `src/lib/` (api.ts türler+istekler, router, i18n)
-- `web/e2e/` — Playwright betikleri (`push.mjs`, `durum.mjs`, `abonelik.mjs` + `smtp-sink.mjs` sahte SMTP; `ozelalan.mjs` abonelik ve `alanadi.mjs` on-demand TLS: gerçek alan adıyla elle, CI'da yok), `statusgrid.test.mjs` (node --test)
+- `web/e2e/` — Playwright betikleri (`push.mjs`, `durum.mjs`, `abonelik.mjs` + `smtp-sink.mjs` sahte SMTP; `ozelalan.mjs` abonelik ve `alanadi.mjs` on-demand TLS: gerçek alan adıyla elle, CI'da yok; `guncelleme.mjs` yeni sürüm şeridi, sahte sürüm sunucusu, CI'da), `statusgrid.test.mjs` (node --test)
 - `site/` — tanıtım sitesi + belgeler (`docs-src/{tr,en}`) · `deploy/compose/` — örnek compose · `Dockerfile`, `Dockerfile.postgres`
 - `.github/workflows/imajlar.yml` — CI: go vet/test (sqlite+pg), web check/build, e2e, duman testi, imaj
 
@@ -53,6 +53,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 | Durum sayfaları (yönetim) | api/pages.go; store/pages*.go; web pages/StatusPages, StatusPageEditor, PagePreviewPanel |
 | E-posta aboneliği (durum sayfası) | api/subscribers.go, subscribers_notify.go; store/subscribers.go; web components/SubscribePanel, PageSubscribers |
 | Özel alan adı, otomatik HTTPS | api/domains.go (GET /api/tls/ask: Caddy on-demand TLS onayı; alan adı durum denetimi); web components/DomainStatus; deploy/compose/Caddyfile; belge site/docs-src/*/04-caddy.md |
+| Yeni sürüm bildirimi | api/updatecheck.go (GitHub yayın+etiket, semver, 6 sa; UPDATE_CHECK=off, UPDATE_CHECK_URL); store/updates.go (kapatma, migration 38); web components/UpdateBanner, settings/General |
 | Durum sayfası (genel) | api/public.go, public_feed.go, public_incidents.go, public_live.go; web pages/PublicStatus.svelte, lib/statusgrid.ts |
 | Durum sayfası e-posta aboneliği | api/subscribers.go (uçlar, belirteçler), subscribers_notify.go (birleştirme, hız sınırı, e-posta); store/subscribers.go; notify Dispatcher.SetObserver, SendMailHeaders |
 | Bakım / duyurular | api/maintenance.go; store/maintenance.go; internal/maintenance; web pages/Maintenance*, Announcements |
@@ -88,6 +89,7 @@ sessions.go: GET /api/auth/sessions | DELETE /api/auth/sessions/{id} | DELETE /a
 subscribers.go: GET /api/status-pages/{id}/subscribers | GET /api/status-pages/{id}/subscribers.csv | DELETE /api/status-pages/{id}/subscribers/{sid} | POST /api/public/pages/{slug}/subscribe | POST /api/public/subscriptions/confirm | POST /api/public/subscriptions/unsubscribe
 tags.go: GET /api/tags | POST /api/tags | PUT /api/tags/{id} | DELETE /api/tags/{id} | PUT /api/monitors/{id}/tags
 twofactor.go: GET /api/auth/2fa | POST /api/auth/2fa/setup | POST /api/auth/2fa/enable | POST /api/auth/2fa/disable | POST /api/auth/2fa/recovery-codes | POST /api/auth/login/2fa | POST /api/users/{id}/2fa/reset
+updatecheck.go: GET /api/update | POST /api/update/check | POST /api/update/dismiss
 webpush.go: GET /api/webpush/vapid | GET /api/webpush/subscriptions | POST /api/webpush/subscriptions | DELETE /api/webpush/subscriptions/{id} | POST /api/webpush/test
 ```
 
@@ -97,7 +99,7 @@ webpush.go: GET /api/webpush/vapid | GET /api/webpush/subscriptions | POST /api/
 10: servers.go 11: incident_events.go 12: user_servers.go 13: pages_incidents.go 14: pages_incidents.go 15: probes_iplock.go 16: i18n.go 
 17: pages_layout.go 18: incident_kinds.go 19: probes.go 20: maintenance.go 21: probes.go 22: monitors.go 23: notification_rules.go 24: 
 pages_period.go 25: incident_manual.go 26: servers_ext.go 27: beats_recent.go 28: domain.go 29: incident_ack.go 30: tag_rules.go 31: 
-auth_ext.go 32: webpush.go 33: auth_ext.go 34: sessions.go 35: probes_update.go 36: subscribers.go 37: subscribers.go
+auth_ext.go 32: webpush.go 33: auth_ext.go 34: sessions.go 35: probes_update.go 36: subscribers.go 37: subscribers.go 38: updates.go
 ```
 
 ### Arayüz sayfaları / bileşenler / i18n ad alanları
@@ -109,6 +111,6 @@ ContainerTable CopyButton DateTimeField DomainStatus FilePick Icon ImportResult 
 LangSwitch LineChart Modal MonitorMenu MonitorPicker MonitorRow NotificationForm PagePreviewPanel PageSubscribers PageThumb PingChart 
 PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu ServerPicker ServerSettingsModal 
 ServerSetupModal Sessions Sparkline StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker ThemeToggle Toasts Tooltip 
-TypeBadge UptimeBars UsageBar
+TypeBadge UpdateBanner UptimeBars UsageBar
 i18n: account ale.ts apiKeys audit auth backup common incide.ts maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles servers settings status tags users
 ```

@@ -45,6 +45,7 @@ Uygulamanın **Environment Variables** bölümüne ekleyip yeniden dağıtın.
 | `DATA_DIR` | `/data` | SQLite veritabanı ve yedeklerin klasörü. Docker'da değiştirmeniz gerekmez; birimi `/data`'ya bağlayın. |
 | `ADDR` | `:8080` | Konteynerin içinde dinlenecek adres ve port. |
 | `TRUSTED_PROXY` | — | Güvenilir ters vekil ağları, virgülle ayrılmış CIDR listesi (ör. `172.17.0.1/32,10.0.0.0/8`). Ayarlıysa `X-Forwarded-For` başlığına yalnızca bu ağlardan gelen bağlantılarda güvenilir. Boşsa tüm özel ve yerel adresler güvenilir sayılır ve açılışta bir uyarı yazılır; vekilsiz kurulumda `127.0.0.1/32` verin ([ayrıntı](/docs/kurulum/ters-vekil/#trusted-proxy)). |
+| `UPDATE_CHECK` | açık | `off` (ya da `0`, `false`) yeni sürüm denetimini kapatır: dışarıya hiç istek gitmez (çevrimdışı kurulumlar). Açıkken panel 6 saatte bir GitHub'daki sürümlere bakar ve yöneticilere panelin üstünde bildirir; Ayarlar > Genel'den de kapatılabilir. |
 | `UPTIME_LOCK_WAIT` | `600` | Aynı veri klasörünü (SQLite) ya da aynı veritabanını (PostgreSQL) kullanan ikinci bir kopyanın, ilki kapanana kadar en fazla kaç saniye bekleyeceği. Süre dolarsa hata ile çıkar. Aynı veritabanıyla tek kopya (replika) çalışır. |
 | `AGENT_DIR` | `/usr/local/share/uptime/agents` | Diğer platformların ajan programlarının klasörü. Resmi imajda hazırdır; değiştirmeyin. |
 | `PROBE_IMAGE` | — | Verilirse kontrol noktası kurulum komutu programı indirmek yerine bu Docker imajını kullanır. |

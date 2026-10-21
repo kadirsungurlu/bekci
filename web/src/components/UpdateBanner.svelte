@@ -149,7 +149,17 @@
     background: var(--bg);
     border: 1px solid var(--border);
     font-size: 0.8rem;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .acts a,
+  .linkbtn {
+    text-decoration: none;
+  }
+  .acts a:hover,
+  .linkbtn:hover {
+    text-decoration: underline;
   }
   @media (max-width: 640px) {
     .acts {

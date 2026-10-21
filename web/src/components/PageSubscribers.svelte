@@ -100,20 +100,23 @@
             <tr>
               <th scope="col">{t('pages.subs.email')}</th>
               <th scope="col" class="c-st">{t('pages.subs.status')}</th>
-              <th scope="col" class="c-dt">{t('pages.subs.date')}</th>
+              {#if !inline}<th scope="col" class="c-dt">{t('pages.subs.date')}</th>{/if}
               <th scope="col" class="c-act"><span class="sr">{t('common.delete')}</span></th>
             </tr>
           </thead>
           <tbody>
             {#each data.items as s (s.id)}
               <tr data-testid="subs-row" data-id={s.id}>
-                <td class="em">{s.email}</td>
+                <td class="em">
+                  {s.email}
+                  {#if inline}<small class="dt sub" title={t('pages.subs.date')}>{fmtDate(s.confirmed && s.confirmed_at ? s.confirmed_at : s.created_at)}</small>{/if}
+                </td>
                 <td>
                   <span class="badge {s.confirmed ? 'up' : 'pending'}">
                     {s.confirmed ? t('pages.subs.confirmed') : t('pages.subs.pending')}
                   </span>
                 </td>
-                <td class="dt">{fmtDate(s.confirmed && s.confirmed_at ? s.confirmed_at : s.created_at)}</td>
+                {#if !inline}<td class="dt">{fmtDate(s.confirmed && s.confirmed_at ? s.confirmed_at : s.created_at)}</td>{/if}
                 <td class="act">
                   <button
                     type="button"
@@ -188,6 +191,11 @@
   }
   .dt {
     color: var(--text-2);
+  }
+  .sub {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.78rem;
   }
   .act {
     text-align: right;
