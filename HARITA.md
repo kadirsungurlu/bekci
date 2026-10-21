@@ -13,7 +13,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 - `internal/servers/` sunucu ajanı metrikleri · `internal/backup/` dışa/içe aktarma (Kuma, UptimeRobot) · `internal/webpush/`
 - `internal/apidocs/openapi.yaml` — API belgesi (yeni genel uç eklenirse güncelle)
 - `web/` — Svelte 5 + Vite SPA (TS). `src/pages/` sayfalar, `src/components/`, `src/lib/` (api.ts türler+istekler, router, i18n)
-- `web/e2e/` — Playwright betikleri (`push.mjs`, `durum.mjs`), `statusgrid.test.mjs` (node --test)
+- `web/e2e/` — Playwright betikleri (`push.mjs`, `durum.mjs`, `abonelik.mjs` + `smtp-sink.mjs` sahte SMTP), `statusgrid.test.mjs` (node --test)
 - `site/` — tanıtım sitesi + belgeler (`docs-src/{tr,en}`) · `deploy/compose/` — örnek compose · `Dockerfile`, `Dockerfile.postgres`
 - `.github/workflows/imajlar.yml` — CI: go vet/test (sqlite+pg), web check/build, e2e, duman testi, imaj
 
@@ -51,6 +51,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 | Olaylar | engine/incidents.go; api/incidents*.go; store/incident*.go |
 | Bildirim kanalları | api/notifications.go; notify/*; store/notifications.go, notification_rules.go |
 | Durum sayfaları (yönetim) | api/pages.go; store/pages*.go; web pages/StatusPages, StatusPageEditor, PagePreviewPanel |
+| E-posta aboneliği (durum sayfası) | api/subscribers.go, subscribers_notify.go; store/subscribers.go; web components/SubscribePanel, PageSubscribers |
 | Durum sayfası (genel) | api/public.go, public_feed.go, public_incidents.go, public_live.go; web pages/PublicStatus.svelte, lib/statusgrid.ts |
 | Durum sayfası e-posta aboneliği | api/subscribers.go (uçlar, belirteçler), subscribers_notify.go (birleştirme, hız sınırı, e-posta); store/subscribers.go; notify Dispatcher.SetObserver, SendMailHeaders |
 | Bakım / duyurular | api/maintenance.go; store/maintenance.go; internal/maintenance; web pages/Maintenance*, Announcements |
@@ -103,8 +104,9 @@ pages: Announcements Auth ForcePassword IncidentDetail Incidents MaintenanceForm
 pages/settings: Account ApiKeys Audit Backup General Login Probes Tags TwoFactor UserForm Users
 components: AgentAutoUpdate AgentVersion AlertRulesEditor BadgeBuilder BulkEditModal ConfigFields ConfirmDialog ConnectionDetails 
 ContainerTable CopyButton DateTimeField FilePick Icon ImportResult IncidentAck IncidentEditModal IncidentTable IncidentUpdates LangSwitch 
-LineChart Modal MonitorMenu MonitorPicker MonitorRow NotificationForm PagePreviewPanel PageThumb PingChart PushDevices QuickMaintModal 
-QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu ServerPicker ServerSettingsModal ServerSetupModal Sessions Sparkline 
-StatusIcon StatusView TagChip TagDialog TagRulePicker ThemeToggle Toasts Tooltip TypeBadge UptimeBars UsageBar
+LineChart Modal MonitorMenu MonitorPicker MonitorRow NotificationForm PagePreviewPanel PageSubscribers PageThumb PingChart PushDevices 
+QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu ServerPicker ServerSettingsModal ServerSetupModal 
+Sessions Sparkline StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker ThemeToggle Toasts Tooltip TypeBadge UptimeBars 
+UsageBar
 i18n: account ale.ts apiKeys audit auth backup common incide.ts maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles servers settings status tags users
 ```
