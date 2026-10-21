@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kadirsungurlu/bekci/internal/check"
@@ -66,6 +67,20 @@ type Dispatcher struct {
 
 	escMu   sync.Mutex
 	escDone map[[2]int64]bool // bu açılışta ele alınan (olay, kanal) eskalasyonları
+
+	// observer her Notify çağrısında olayı (kanal seçiminden bağımsız) alır:
+	// durum sayfası abone e-postaları (api/subscribers_notify.go). Bloklamamalı.
+	observer atomic.Pointer[func(Event)]
+}
+
+// SetObserver Notify'a gelen her olayı fn'e de iletir (nil: kapatır). fn
+// çağıranın goroutine'inde çalışır; uzun iş yapmamalıdır.
+func (d *Dispatcher) SetObserver(fn func(Event)) {
+	if fn == nil {
+		d.observer.Store(nil)
+		return
+	}
+	d.observer.Store(&fn)
 }
 
 func NewDispatcher(s *store.Store, log *slog.Logger) *Dispatcher {
@@ -119,6 +134,9 @@ func (d *Dispatcher) sendRetry(typ string, cfg json.RawMessage, ev Event) (int, 
 // gönderir (bloklamaz). Düzelme bildirimleri, sorun bildirimini eskalasyonla
 // almış kanallara da gider.
 func (d *Dispatcher) Notify(ev Event) {
+	if fn := d.observer.Load(); fn != nil {
+		(*fn)(ev)
+	}
 	d.wg.Add(1)
 	go func() {
 		defer d.wg.Done()

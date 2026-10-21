@@ -115,6 +115,9 @@ type publicPageView struct {
 	// satırlarında gösterilen uptime pencereleri (boşsa tek pencere: UptimeWindow).
 	IncidentDays  int      `json:"incident_days"`
 	UptimeWindows []string `json:"uptime_windows"`
+	// Subscribe ziyaretçi e-postayla abone olabilir (sayfada açık ve sistem
+	// e-postası ayarlı; subscribers.go).
+	Subscribe bool `json:"subscribe"`
 }
 
 func logoURL(p store.StatusPage) *string {
@@ -382,6 +385,7 @@ func (s *Server) buildPublicPage(ctx context.Context, p store.StatusPage) ([]byt
 		view.Maintenance = mw
 	}
 	view.ShowIncidents, view.Collapsible, view.Lang, view.HasPassword = p.ShowIncidents, p.Collapsible, i18n.Or(p.Lang), p.HasPassword
+	_, view.Subscribe = s.subscribable(ctx, p)
 	if !p.ShowIncidents {
 		return json.Marshal(view)
 	}

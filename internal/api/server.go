@@ -56,6 +56,10 @@ type Server struct {
 	relaxTimeoutRule bool
 	// mailer sistem e-postası (şifre sıfırlama; password_reset.go); testler sahteyle değiştirir.
 	mailer Mailer
+	// subMailer durum sayfası abone e-postaları (ek başlıklı; subscribers.go); testler sahteyle değiştirir.
+	subMailer HeaderMailer
+	// subs abonelik bildirimi birleştirme ve hız sınırları (subscribers_notify.go).
+	subs *subState
 	// oidcProviders OIDC sağlayıcı keşif önbelleği (oidc.go).
 	oidcProviders *oidcProviders
 	// vapidKeys Web Push anahtar çifti önbelleği; pushClient push servisine
@@ -93,6 +97,8 @@ func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatche
 		sseRecheck:    25 * time.Second,
 		AgentDir:      DefaultAgentDir,
 		mailer:        notify.SendMail,
+		subMailer:     notify.SendMailHeaders,
+		subs:          newSubState(),
 		oidcProviders: &oidcProviders{},
 		sessTouch:     newSessionTouches(),
 	}
@@ -105,6 +111,8 @@ func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatche
 	}
 	if n != nil {
 		not = n
+		// Olay açan/kapatan monitör bildirimleri durum sayfası abonelerine de gider.
+		n.SetObserver(s.subObserve)
 	}
 	s.servers = servers.New(st, pub, not, log)
 	if e != nil {
@@ -217,12 +225,14 @@ func securityHeaders(next http.Handler) http.Handler {
 // anahtarıyla (Authorization: Bearer upk_…) gelen istekler de muaftır:
 // tarayıcı bu başlığı başka siteden kendiliğinden eklemez (bkz. isAPIKeyRequest).
 // Kontrol noktası uç noktaları (/api/probe/…) da aynı gerekçeyle muaftır
-// (bkz. isProbeRequest).
+// (bkz. isProbeRequest). Durum sayfası aboneliğinden one-click çıkış
+// (e-posta istemcisinin List-Unsubscribe-Post isteği) da muaftır: yalnızca
+// imzalı belirtecin sahibi aboneyi siler (bkz. isUnsubscribeRequest).
 func csrf(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") && !strings.HasPrefix(r.URL.Path, "/api/push/") &&
 			r.Method != http.MethodGet && r.Method != http.MethodHead && r.Header.Get("X-Uptime") != "1" &&
-			!isAPIKeyRequest(r) && !isProbeRequest(r) {
+			!isAPIKeyRequest(r) && !isProbeRequest(r) && !isUnsubscribeRequest(r) {
 			writeError(w, http.StatusForbidden, "Geçersiz istek")
 			return
 		}

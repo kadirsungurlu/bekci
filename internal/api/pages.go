@@ -210,6 +210,9 @@ type pageInput struct {
 	// UptimeWindows: monitör satırlarındaki uptime pencereleri (24h, 7d, 30d,
 	// 90d'den seçim; boş liste = çubuk kapsamına göre tek pencere); yok = değişmez.
 	UptimeWindows *[]string `json:"uptime_windows"`
+	// Subscriptions: ziyaretçiler e-postayla abone olabilsin mi (sistem
+	// e-postası gerekir); yok = değişmez.
+	Subscriptions *bool `json:"subscriptions"`
 }
 
 // layoutInput dizilim girdisinin gevşek biçimi: bilinmeyen alanlar yok sayılır.
@@ -476,6 +479,14 @@ func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.St
 	}
 	if in.Published != nil {
 		p.Published = *in.Published
+	}
+	if in.Subscriptions != nil {
+		if *in.Subscriptions && (old == nil || !old.Subscriptions) {
+			if _, ok := s.systemMailer(ctx); !ok {
+				return p, badInput("Abonelik için önce Ayarlar > Giriş'te sistem e-postası seçin")
+			}
+		}
+		p.Subscriptions = *in.Subscriptions
 	}
 	if in.Password != nil {
 		if *in.Password == "" {
@@ -1140,7 +1151,9 @@ func (s *Server) createAnnouncement(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		names = append(names, op.Title)
+		s.subNotifyAnnouncement(op, c)
 	}
+	s.subNotifyAnnouncement(p, a)
 	s.pagesChanged(r.Context())
 	detail := "sayfa: " + p.Title + ", " + a.Severity
 	if len(others) > 0 {

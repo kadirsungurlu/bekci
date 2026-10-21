@@ -10,27 +10,33 @@ import (
 // tüketimine karşıdır; aynı makinedeki onlarca cron işi rahatça sığar.
 const pushPerMinute = 300
 
-// ipLimiter IP başına sabit pencereli (dakikalık) istek sayacı.
+// ipLimiter IP başına sabit pencereli (varsayılan dakikalık) istek sayacı.
 type ipLimiter struct {
 	mu     sync.Mutex
-	perMin int
+	perMin int   // pencere başına izin (adı tarihsel: dakikalık pencereden kalma)
+	window int64 // pencere uzunluğu (saniye)
 	m      map[string]*ipWindow
 }
 
 type ipWindow struct {
-	start int64 // dakika
+	start int64 // pencere sırası (unix / window)
 	count int
 }
 
 func newIPLimiter(perMin int) *ipLimiter {
-	return &ipLimiter{perMin: perMin, m: map[string]*ipWindow{}}
+	return &ipLimiter{perMin: perMin, window: 60, m: map[string]*ipWindow{}}
+}
+
+// newIPLimiterWindow pencere başına n istek (pencere saniyenin katı olmalı).
+func newIPLimiterWindow(n int, window time.Duration) *ipLimiter {
+	return &ipLimiter{perMin: n, window: int64(window / time.Second), m: map[string]*ipWindow{}}
 }
 
 // allow isteğe izin verir; vermezse pencerenin bitimine kalan saniye.
 func (l *ipLimiter) allow(ip string, now time.Time) (bool, int) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	minute := now.Unix() / 60
+	minute := now.Unix() / l.window
 	w := l.m[ip]
 	if w == nil || w.start != minute {
 		w = &ipWindow{start: minute}
@@ -46,7 +52,7 @@ func (l *ipLimiter) allow(ip string, now time.Time) (bool, int) {
 	}
 	w.count++
 	if w.count > l.perMin {
-		return false, int(60 - now.Unix()%60)
+		return false, int(l.window - now.Unix()%l.window)
 	}
 	return true, 0
 }

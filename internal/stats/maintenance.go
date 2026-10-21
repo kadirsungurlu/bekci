@@ -94,6 +94,12 @@ func (m *Maintenance) Tick(ctx context.Context) {
 	if err := m.store.DeleteExpiredAuthTokens(ctx, now.Unix()); err != nil {
 		m.log.Error("süresi dolan sıfırlama / SSO kayıtları silinemedi", "hata", err)
 	}
+	// Durum sayfası aboneliği 7 gün içinde onaylanmadıysa kayıt silinir.
+	if n, err := m.store.DeletePendingSubscribersBefore(ctx, now.AddDate(0, 0, -7).Unix()); err != nil {
+		m.log.Error("onaylanmamış aboneler silinemedi", "hata", err)
+	} else if n > 0 {
+		m.log.Info("onaylanmamış aboneler silindi", "adet", n)
+	}
 
 	local := now.In(m.loc)
 	if settings.BackupKeep > 0 && local.Hour() >= BackupHour {

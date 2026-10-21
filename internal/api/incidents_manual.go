@@ -164,6 +164,10 @@ func (s *Server) createManualIncident(w http.ResponseWriter, r *http.Request) {
 	}
 	s.pagesChanged(r.Context())
 	s.audit(r, store.User{}, "incident.create", "incident", id, title, "sayfa: "+page.Title+", "+sev)
+	s.subNotifyManual(page.ID, id, "incident", title)
+	if upd.State == store.StateResolved {
+		s.subNotifyManual(page.ID, id, "resolved", title)
+	}
 	s.hub.Publish("incident", map[string]any{"incident_id": id, "kind": store.IncidentManual})
 	inc, err := s.store.GetIncident(r.Context(), id)
 	if err != nil {
@@ -275,6 +279,9 @@ func (s *Server) addIncidentUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	s.pagesChanged(r.Context())
 	s.audit(r, store.User{}, "incident.update_post", "incident", id, incidentLabel(inc), in.State)
+	if inc.Kind == store.IncidentManual && in.State == store.StateResolved {
+		s.subNotifyManual(inc.PageID, id, "resolved", inc.Title)
+	}
 	s.hub.Publish("incident", map[string]any{"incident_id": id, "kind": inc.Kind})
 	writeJSON(w, http.StatusCreated, upd)
 }

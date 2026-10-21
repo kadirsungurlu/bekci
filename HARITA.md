@@ -52,6 +52,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 | Bildirim kanalları | api/notifications.go; notify/*; store/notifications.go, notification_rules.go |
 | Durum sayfaları (yönetim) | api/pages.go; store/pages*.go; web pages/StatusPages, StatusPageEditor, PagePreviewPanel |
 | Durum sayfası (genel) | api/public.go, public_feed.go, public_incidents.go, public_live.go; web pages/PublicStatus.svelte, lib/statusgrid.ts |
+| Durum sayfası e-posta aboneliği | api/subscribers.go (uçlar, belirteçler), subscribers_notify.go (birleştirme, hız sınırı, e-posta); store/subscribers.go; notify Dispatcher.SetObserver, SendMailHeaders |
 | Bakım / duyurular | api/maintenance.go; store/maintenance.go; internal/maintenance; web pages/Maintenance*, Announcements |
 | Sunucu ajanları | api/servers.go, metrics*.go; internal/servers; store/servers*.go |
 | Yedek / içe aktarma | api/backup.go, importer.go; internal/backup |
@@ -81,6 +82,7 @@ quick.go: POST /api/monitors/{id}/clone | POST /api/monitors/{id}/reset-stats | 
 server.go: GET /healthz | GET /api/push/{token} | POST /api/push/{token} | GET /api/auth/state | POST /api/auth/setup | POST /api/auth/login | POST /api/auth/logout | POST /api/auth/password | PUT /api/auth/preferences | GET /api/summary | GET /api/monitors | POST /api/monitors | GET /api/monitors/{id} | PUT /api/monitors/{id} | DELETE /api/monitors/{id} | POST /api/monitors/{id}/pause | POST /api/monitors/{id}/resume | GET /api/monitors/{id}/series | GET /api/monitors/{id}/beats | GET /api/monitors/{id}/incidents | GET /api/incidents | GET /api/notifications | POST /api/notifications | PUT /api/notifications/{id} | DELETE /api/notifications/{id} | POST /api/notifications/test | POST /api/notifications/{id}/samples | GET /api/settings | PUT /api/settings | GET /api/events | GET /api/users | POST /api/users | PUT /api/users/{id} | DELETE /api/users/{id} | POST /api/users/{id}/password | GET /api/audit | GET /api/audit/facets | /api/ | /
 servers.go: GET /api/servers | POST /api/servers | GET /api/servers/{id} | GET /api/servers/{id}/stats | GET /api/servers/{id}/events | PUT /api/servers/{id}/alerts | PUT /api/servers/{id}/notifications | POST /api/probe/metrics
 sessions.go: GET /api/auth/sessions | DELETE /api/auth/sessions/{id} | DELETE /api/auth/sessions
+subscribers.go: GET /api/status-pages/{id}/subscribers | GET /api/status-pages/{id}/subscribers.csv | DELETE /api/status-pages/{id}/subscribers/{sid} | POST /api/public/pages/{slug}/subscribe | POST /api/public/subscriptions/confirm | POST /api/public/subscriptions/unsubscribe
 tags.go: GET /api/tags | POST /api/tags | PUT /api/tags/{id} | DELETE /api/tags/{id} | PUT /api/monitors/{id}/tags
 twofactor.go: GET /api/auth/2fa | POST /api/auth/2fa/setup | POST /api/auth/2fa/enable | POST /api/auth/2fa/disable | POST /api/auth/2fa/recovery-codes | POST /api/auth/login/2fa | POST /api/users/{id}/2fa/reset
 webpush.go: GET /api/webpush/vapid | GET /api/webpush/subscriptions | POST /api/webpush/subscriptions | DELETE /api/webpush/subscriptions/{id} | POST /api/webpush/test
@@ -92,7 +94,7 @@ webpush.go: GET /api/webpush/vapid | GET /api/webpush/subscriptions | POST /api/
 10: servers.go 11: incident_events.go 12: user_servers.go 13: pages_incidents.go 14: pages_incidents.go 15: probes_iplock.go 16: i18n.go 
 17: pages_layout.go 18: incident_kinds.go 19: probes.go 20: maintenance.go 21: probes.go 22: monitors.go 23: notification_rules.go 24: 
 pages_period.go 25: incident_manual.go 26: servers_ext.go 27: beats_recent.go 28: domain.go 29: incident_ack.go 30: tag_rules.go 31: 
-auth_ext.go 32: webpush.go 33: auth_ext.go 34: sessions.go 35: probes_update.go
+auth_ext.go 32: webpush.go 33: auth_ext.go 34: sessions.go 35: probes_update.go 36: subscribers.go
 ```
 
 ### Arayüz sayfaları / bileşenler / i18n ad alanları
