@@ -21,9 +21,11 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/net/idna"
@@ -131,18 +133,55 @@ func probeDomainHTTPS(ctx context.Context, domain string) (string, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+		return "", httpStatusError(resp.StatusCode)
 	}
 	var out struct {
 		Slug *string `json:"slug"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<10)).Decode(&out); err != nil {
-		return "", errors.New("yanıt Bekci'den gelmiyor")
+		return "", errNotBekci
 	}
 	if out.Slug == nil {
-		return "", errors.New("alan adı bu kurulumda bir sayfaya bağlı değil")
+		return "", errUnbound
 	}
 	return *out.Slug, nil
+}
+
+var (
+	errNotBekci = errors.New("yanıt Bekci'den gelmiyor")
+	errUnbound  = errors.New("alan adı bu kurulumda bir sayfaya bağlı değil")
+)
+
+type httpStatusError int
+
+func (e httpStatusError) Error() string { return fmt.Sprintf("HTTP %d", int(e)) }
+
+// httpsErrCode HTTPS denetimi hatasını arayüzde çevrilecek türe indirger.
+func httpsErrCode(err error) string {
+	var dnsErr *net.DNSError
+	var hs httpStatusError
+	var tlsRec tls.RecordHeaderError
+	var certErr *tls.CertificateVerificationError
+	var opErr *net.OpError
+	switch {
+	case errors.Is(err, errNotBekci):
+		return "not_bekci"
+	case errors.Is(err, errUnbound):
+		return "unbound"
+	case errors.As(err, &hs):
+		return "http"
+	case errors.As(err, &dnsErr):
+		return "no_host"
+	case errors.As(err, &certErr), errors.As(err, &tlsRec), strings.Contains(err.Error(), "tls:"), strings.Contains(err.Error(), "x509:"):
+		return "tls"
+	case errors.Is(err, context.DeadlineExceeded), os.IsTimeout(err):
+		return "timeout"
+	case errors.Is(err, syscall.ECONNREFUSED):
+		return "refused"
+	case errors.As(err, &opErr) && opErr.Timeout():
+		return "timeout"
+	}
+	return "other"
 }
 
 type domainStatus struct {
@@ -152,8 +191,11 @@ type domainStatus struct {
 	DomainIPs  []string `json:"domain_ips"`  // alan adının çözüldüğü adresler
 	DNS        bool     `json:"dns"`         // alan adı bu sunucuyu gösteriyor
 	HTTPS      bool     `json:"https"`       // HTTPS ile açılıyor ve bu sayfayı sunuyor
-	HTTPSError string   `json:"https_error"` // HTTPS denetiminin hatası
-	Published  bool     `json:"published"`
+	HTTPSError string   `json:"https_error"` // HTTPS denetiminin ham hatası (ayrıntı)
+	// HTTPSCode hatanın türü (arayüzde çevrilir): no_host | refused | timeout |
+	// tls | http | not_bekci | unbound | other_page | other.
+	HTTPSCode string `json:"https_code"`
+	Published bool   `json:"published"`
 	// State: none (alan adı yok) | unpublished | dns (DNS bekleniyor) |
 	// cert (sertifika bekleniyor) | active (etkin).
 	State string `json:"state"`
@@ -199,9 +241,9 @@ func (s *Server) pageDomainStatus(w http.ResponseWriter, r *http.Request) {
 	slug, err := domainProbe(ctx, p.CustomDomain)
 	switch {
 	case err != nil:
-		st.HTTPSError = err.Error()
+		st.HTTPSError, st.HTTPSCode = err.Error(), httpsErrCode(err)
 	case slug != p.Slug:
-		st.HTTPSError = "alan adı başka bir sayfayı sunuyor"
+		st.HTTPSError, st.HTTPSCode = "alan adı başka bir sayfayı sunuyor", "other_page"
 	default:
 		st.HTTPS = true
 	}

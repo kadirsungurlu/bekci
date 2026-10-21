@@ -109,9 +109,10 @@
               <tr data-testid="subs-row" data-id={s.id}>
                 <td class="em">
                   {s.email}
+                  <span class="badge st-m {s.confirmed ? 'up' : 'pending'}">{s.confirmed ? t('pages.subs.confirmed') : t('pages.subs.pending')}</span>
                   {#if inline}<small class="dt sub" title={t('pages.subs.date')}>{fmtDate(s.confirmed && s.confirmed_at ? s.confirmed_at : s.created_at)}</small>{/if}
                 </td>
-                <td>
+                <td class="st">
                   <span class="badge {s.confirmed ? 'up' : 'pending'}">
                     {s.confirmed ? t('pages.subs.confirmed') : t('pages.subs.pending')}
                   </span>
@@ -191,6 +192,29 @@
   }
   .dt {
     color: var(--text-2);
+  }
+  .st-m {
+    display: none;
+  }
+  @media (max-width: 640px) {
+    /* Dar ekranda durum rozeti e-postanın altında; sütun kalkar, adres sığar. */
+    .c-st,
+    .st {
+      display: none;
+    }
+    .st-m {
+      display: flex;
+      width: fit-content;
+      margin-top: 4px;
+    }
+    .c-act {
+      width: 68px;
+    }
+    .act :global(.btn),
+    .head :global(.btn) {
+      min-height: 44px;
+      min-width: 44px;
+    }
   }
   .sub {
     display: block;

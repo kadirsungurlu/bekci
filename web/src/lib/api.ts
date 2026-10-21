@@ -1020,6 +1020,8 @@ export interface PageDomainStatus {
   dns: boolean;
   https: boolean;
   https_error: string;
+  /** Hata türü: no_host | refused | timeout | tls | http | not_bekci | unbound | other_page | other. */
+  https_code: string;
   published: boolean;
   state: 'none' | 'unpublished' | 'dns' | 'cert' | 'active';
 }

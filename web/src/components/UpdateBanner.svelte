@@ -45,10 +45,10 @@
 </script>
 
 {#if info?.show}
-  <div class="upd" role="status" data-testid="update-banner" data-version={info.latest}>
+  <div class="upd" role="region" aria-label={t('nav.update.available', { latest: info.latest })} data-testid="update-banner" data-version={info.latest}>
     <div class="row">
       <Icon name="download" size={15} />
-      <span class="msg">
+      <span class="msg" role="status">
         <strong>{t('nav.update.available', { latest: info.latest })}</strong>
         <span class="cur">{t('nav.update.installed', { current: info.current })}</span>
       </span>
@@ -56,7 +56,7 @@
         {#if info.notes_url}
           <a href={info.notes_url} target="_blank" rel="noopener noreferrer">{t('nav.update.notes')}</a>
         {/if}
-        <button type="button" class="linkbtn" aria-expanded={howOpen} onclick={() => (howOpen = !howOpen)} data-testid="update-how">
+        <button type="button" class="linkbtn" aria-expanded={howOpen} aria-controls="upd-how" onclick={() => (howOpen = !howOpen)} data-testid="update-how">
           {t('nav.update.how')}
         </button>
       </span>
@@ -65,8 +65,9 @@
       </button>
     </div>
     {#if howOpen}
-      <div class="how">
-        <code>{CMD}</code>
+      <div class="how" id="upd-how">
+        <!-- İki satır gösterilir (dar ekranda kırılmasın); kopyalanan tek satır. -->
+        <code>docker compose pull{'\n'}docker compose up -d</code>
         <CopyButton text={CMD} />
         <a href={docsUrl} target="_blank" rel="noopener noreferrer">bekci.app/docs</a>
       </div>
@@ -149,9 +150,8 @@
     background: var(--bg);
     border: 1px solid var(--border);
     font-size: 0.8rem;
-    white-space: nowrap;
-    max-width: 100%;
-    overflow-x: auto;
+    white-space: pre;
+    line-height: 1.5;
   }
   .acts a,
   .linkbtn {
@@ -160,6 +160,11 @@
   .acts a:hover,
   .linkbtn:hover {
     text-decoration: underline;
+  }
+  .linkbtn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 3px;
   }
   @media (max-width: 640px) {
     .acts {

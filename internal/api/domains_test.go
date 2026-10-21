@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
@@ -146,4 +147,23 @@ func (e *env) sendHost(method, path, host string) (int, []byte, http.Header) {
 	defer resp.Body.Close()
 	data, _ := io.ReadAll(resp.Body)
 	return resp.StatusCode, data, resp.Header
+}
+
+func TestHTTPSErrCode(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := probeDomainHTTPS(ctx, "yok.invalid")
+	if c := httpsErrCode(err); c != "no_host" {
+		t.Errorf("çözülmeyen ad: %q (%v)", c, err)
+	}
+	_, err = probeDomainHTTPS(ctx, "127.0.0.1:1")
+	if c := httpsErrCode(err); c != "refused" {
+		t.Errorf("kapalı port: %q (%v)", c, err)
+	}
+	for err, want := range map[error]string{errNotBekci: "not_bekci", errUnbound: "unbound", httpStatusError(502): "http",
+		context.DeadlineExceeded: "timeout", errors.New("x509: certificate signed by unknown authority"): "tls", errors.New("baska"): "other"} {
+		if c := httpsErrCode(err); c != want {
+			t.Errorf("%v: %q, %q bekleniyordu", err, c, want)
+		}
+	}
 }
