@@ -31,6 +31,7 @@
   import CopyButton from '../components/CopyButton.svelte';
   import Announcements from './Announcements.svelte';
   import PageSubscribers from '../components/PageSubscribers.svelte';
+  import DomainStatus from '../components/DomainStatus.svelte';
   import PagePreviewPanel, { type PreviewDraft } from '../components/PagePreviewPanel.svelte';
   import { normalizeLayout } from '../components/StatusView.svelte';
   import { i18n, LOCALES, t, type Locale } from '../lib/i18n';
@@ -1083,6 +1084,11 @@
             {t('pages.editor.domainHelpOther')}
           {/if}
         </span>
+        {#if session.isAdmin && page?.custom_domain && page.custom_domain === customDomain.trim().toLowerCase()}
+          <DomainStatus pageId={page.id} domain={page.custom_domain} />
+        {:else if session.isAdmin && customDomain.trim()}
+          <span class="help">{t('pages.editor.domainSaveFirst')}</span>
+        {/if}
       </div>
     </section>
 

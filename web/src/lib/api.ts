@@ -1006,6 +1006,22 @@ export interface PageSubscriber {
   confirmed_at: number;
 }
 
+/** Özel alan adı durumu (GET /api/status-pages/{id}/domain). */
+export interface PageDomainStatus {
+  domain: string;
+  /** CNAME hedefi (uygulamanın adresi). */
+  target: string;
+  /** A/AAAA hedefleri. */
+  target_ips: string[];
+  /** Alan adının şu an çözüldüğü adresler. */
+  domain_ips: string[];
+  dns: boolean;
+  https: boolean;
+  https_error: string;
+  published: boolean;
+  state: 'none' | 'unpublished' | 'dns' | 'cert' | 'active';
+}
+
 export interface PageSubscribers {
   /** Sistem e-postası yapılandırılmış mı (değilse abonelik açılamaz). */
   available: boolean;
@@ -1658,6 +1674,7 @@ export const api = {
   uploadLogo: (id: number, file: File) =>
     request<StatusPage>('PUT', `/api/status-pages/${id}/logo`, undefined, { type: file.type, data: file }),
   deleteLogo: (id: number) => del<StatusPage>(`/api/status-pages/${id}/logo`),
+  pageDomainStatus: (pageId: number) => get<PageDomainStatus>(`/api/status-pages/${pageId}/domain`),
   pageSubscribers: (pageId: number) => get<PageSubscribers>(`/api/status-pages/${pageId}/subscribers`),
   deletePageSubscriber: (pageId: number, id: number) => del<void>(`/api/status-pages/${pageId}/subscribers/${id}`),
   /** CSV dışa aktarımı (bağlantı olarak indirilir). */
