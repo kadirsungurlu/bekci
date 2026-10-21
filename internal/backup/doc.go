@@ -169,6 +169,8 @@ type PageLayout struct {
 	Blocks []PageBlock `json:"blocks"`
 	// ShowUptime eski yedeklerde yok → gösterilir.
 	ShowUptime *bool `json:"show_uptime,omitempty"`
+	// Columns ızgara sütun sayısı (1-6); eski yedeklerde yok → otomatik.
+	Columns int `json:"columns,omitempty"`
 }
 
 type PageBlock struct {

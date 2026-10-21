@@ -190,7 +190,7 @@ func (s *Server) buildExportWith(ctx context.Context, opt exportOptions) (*backu
 			IncidentDays: p.IncidentDays, UptimeWindows: p.UptimeWindows,
 		}
 		showUptime := p.Layout.UptimeShown()
-		bl := backup.PageLayout{Style: p.Layout.Style, Width: p.Layout.Width, Blocks: []backup.PageBlock{}, ShowUptime: &showUptime}
+		bl := backup.PageLayout{Style: p.Layout.Style, Width: p.Layout.Width, Blocks: []backup.PageBlock{}, ShowUptime: &showUptime, Columns: p.Layout.Columns}
 		for _, b := range p.Layout.Blocks {
 			bl.Blocks = append(bl.Blocks, backup.PageBlock{ID: b.ID, Visible: b.Visible})
 		}
@@ -921,7 +921,7 @@ func planPage(bp backup.Page, known map[int64]bool, slugs, domains, selfHosts ma
 		Lang: i18n.Or(bp.Lang), IncidentDays: bp.IncidentDays, UptimeWindows: store.NormalizeUptimeWindows(bp.UptimeWindows),
 	}
 	if bp.Layout != nil {
-		l := store.PageLayout{Style: bp.Layout.Style, Width: bp.Layout.Width, ShowUptime: bp.Layout.ShowUptime}
+		l := store.PageLayout{Style: bp.Layout.Style, Width: bp.Layout.Width, ShowUptime: bp.Layout.ShowUptime, Columns: bp.Layout.Columns}
 		for _, b := range bp.Layout.Blocks {
 			l.Blocks = append(l.Blocks, store.PageBlock{ID: b.ID, Visible: b.Visible})
 			// show_incidents olmayan (elle yazılmış) yedekte olaylar dizilimden alınır.

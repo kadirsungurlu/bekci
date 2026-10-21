@@ -154,7 +154,7 @@
     footer: footer.trim(),
     customDomain: customDomain.trim().toLowerCase(),
     showTargets,
-    layout: [layout.style, layout.width, layout.show_uptime, layout.blocks.map((b) => (b.visible ? b.id : `-${b.id}`))],
+    layout: [layout.style, layout.width, layout.show_uptime, layout.columns ?? 0, layout.blocks.map((b) => (b.visible ? b.id : `-${b.id}`))],
     collapsible,
     barRange,
     incidentDays,
@@ -444,6 +444,7 @@
         width: layout.width,
         blocks: layout.blocks.map((b) => ({ id: b.id, visible: b.visible })),
         show_uptime: layout.show_uptime,
+        columns: layout.columns ?? 0,
       },
       collapsible,
       bar_range: barRange,
@@ -550,6 +551,7 @@
       width: layout.width,
       blocks: layout.blocks.map((b) => ({ id: b.id, visible: b.visible })),
       show_uptime: layout.show_uptime,
+      columns: layout.columns ?? 0,
     },
     barRange,
     showTargets,
@@ -837,6 +839,18 @@
           {/each}
         </div>
       </fieldset>
+      {#if layout.style === 'grid'}
+        <div class="field">
+          <label for="lay-cols">{t('pages.layout.columns')}</label>
+          <select id="lay-cols" class="input" bind:value={layout.columns}>
+            <option value={0}>{t('pages.layout.columnsAuto')}</option>
+            {#each [1, 2, 3, 4, 5, 6] as n (n)}
+              <option value={n}>{n}</option>
+            {/each}
+          </select>
+          <span class="help">{t('pages.layout.columnsHelp')}</span>
+        </div>
+      {/if}
       <label class="check">
         <input type="checkbox" bind:checked={layout.show_uptime} />
         <span>

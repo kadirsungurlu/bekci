@@ -189,6 +189,9 @@ export default {
       rows: 'Status light, name, bars and uptime on one row; for wide screens.',
     },
     showUptime: 'Show uptime percentage',
+    columns: 'Number of columns',
+    columnsAuto: 'Automatic (1-3 by width)',
+    columnsHelp: 'Group cards are laid out in at most this many columns; on narrow screens columns are reduced, on phones a single column. Wide page recommended for 4 or more.',
     showUptimeHelp: 'When off, monitor percentages are hidden; in the single-row layout the bars fill the space.',
     width: 'Page width',
     widths: {

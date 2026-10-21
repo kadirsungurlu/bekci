@@ -1034,6 +1034,8 @@ export interface PageLayout {
   blocks: { id: PageBlockId; visible: boolean }[];
   /** Monitörlerin uptime yüzdesi gösterilsin mi (eski sunucu/sayfa: gösterilir). */
   show_uptime: boolean;
+  /** Izgarada en çok grup sütunu (1-6); yok/0 = otomatik (genişliğe göre 1-3). */
+  columns?: number;
 }
 
 /** Düzenleyicideki canlı önizleme verisi (POST /api/status-pages/preview-data). */
@@ -1639,7 +1641,9 @@ export const api = {
 
   // Herkese açık durum sayfası (oturum gerekmez)
   publicResolve: () => get<{ slug: string | null }>('/api/public/resolve'),
-  publicPage: (slug: string) => get<PublicPage>(`/api/public/pages/${encodeURIComponent(slug)}`),
+  /** fresh: canlı sinyalden sonra tarayıcı önbelleği (max-age=30) atlanır. */
+  publicPage: (slug: string, fresh = false) =>
+    get<PublicPage>(`/api/public/pages/${encodeURIComponent(slug)}${fresh ? `?t=${Date.now()}` : ''}`),
   publicUnlock: (slug: string, password: string) =>
     post<{ ok: boolean }>(`/api/public/pages/${encodeURIComponent(slug)}/unlock`, { password }),
 

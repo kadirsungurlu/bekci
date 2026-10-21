@@ -196,7 +196,8 @@ type pageInput struct {
 	// Lang: herkese açık sayfanın dili (tr | en); yok = değişmez (yeni sayfada oluşturanın arayüz dili).
 	Lang *string `json:"lang"`
 	// Layout: yerleşim (list | grid | compact | rows), genişlik, bölüm
-	// sırası/görünürlüğü ve uptime yüzdesi (show_uptime, yok = gösterilir);
+	// sırası/görünürlüğü, uptime yüzdesi (show_uptime, yok = gösterilir) ve
+	// ızgara sütun sayısı (columns 1-6, 0/yok = otomatik);
 	// yok/null = değişmez.
 	// Bilinmeyen değerler varsayılana çekilir (hata değildir). Olaylar
 	// bölümünün görünürlüğü show_incidents ile aynı alandır: ikisi birden
@@ -217,6 +218,7 @@ type layoutInput struct {
 	Width string `json:"width"`
 	// ShowUptime yok = gösterilir (dizilim bütün olarak değişir).
 	ShowUptime *bool `json:"show_uptime"`
+	Columns    int   `json:"columns"` // 0/yok = otomatik; 1-6 dışı otomatik sayılır
 	Blocks     []struct {
 		ID      string `json:"id"`
 		Visible *bool  `json:"visible"`
@@ -233,7 +235,7 @@ func parseLayout(raw json.RawMessage) (l store.PageLayout, incidents *bool, ok b
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return l, nil, false, badInput("Sayfa dizilimi geçersiz")
 	}
-	l.Style, l.Width, l.ShowUptime = in.Style, in.Width, in.ShowUptime
+	l.Style, l.Width, l.ShowUptime, l.Columns = in.Style, in.Width, in.ShowUptime, in.Columns
 	for _, b := range in.Blocks {
 		vis := b.Visible == nil || *b.Visible
 		if b.ID == store.BlockIncidents && incidents == nil {

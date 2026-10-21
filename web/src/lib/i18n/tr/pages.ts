@@ -187,6 +187,9 @@ export default {
       rows: 'Durum ışığı, ad, çubuklar ve uptime aynı satırda; geniş ekranlar için.',
     },
     showUptime: 'Uptime oranını göster',
+    columns: 'Sütun sayısı',
+    columnsAuto: 'Otomatik (genişliğe göre 1-3)',
+    columnsHelp: 'Grup kartları en çok bu kadar sütuna dizilir; dar ekranda sütunlar azalır, telefonda tek sütun. 4 ve üstü için geniş sayfa önerilir.',
     showUptimeHelp: 'Kapalıyken monitörlerin yüzdesi gizlenir; tek satır yerleşiminde çubuklar boşluğu doldurur.',
     width: 'Sayfa genişliği',
     widths: {

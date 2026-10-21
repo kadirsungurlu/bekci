@@ -13,6 +13,8 @@ export default {
   errPassword: 'Şifreyi girin.',
   loadFailed: 'Sayfa yüklenemedi',
   refreshInfo: "Son güncelleme {time} · 60 sn'de bir yenilenir",
+  live: 'Canlı',
+  liveInfo: 'Son güncelleme {time}',
   overall: {
     up: 'Tüm sistemler çalışıyor',
     partial: 'Bazı sistemlerde sorun var',

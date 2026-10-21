@@ -65,7 +65,13 @@ type PageLayout struct {
 	// (eski sayfa, eski yedek, alan gönderilmemiş) = gösterilir;
 	// NormalizeLayout her zaman dolu döndürür.
 	ShowUptime *bool `json:"show_uptime"`
+	// Columns ızgara yerleşiminde en çok grup sütunu (1-6). 0 = otomatik
+	// (eski davranış: genişliğe göre 1-3). Dar ekranda arayüz sütunları azaltır.
+	Columns int `json:"columns,omitempty"`
 }
+
+// MaxLayoutColumns ızgarada seçilebilecek en çok sütun.
+const MaxLayoutColumns = 6
 
 // UptimeShown uptime yüzdesi gösterilir mi (nil = evet)?
 func (l PageLayout) UptimeShown() bool { return l.ShowUptime == nil || *l.ShowUptime }
@@ -92,6 +98,9 @@ func DefaultLayout(showIncidents bool) PageLayout {
 func NormalizeLayout(l PageLayout, showIncidents bool) PageLayout {
 	showUptime := l.UptimeShown()
 	out := PageLayout{Style: l.Style, Width: l.Width, Blocks: make([]PageBlock, 0, len(DefaultBlockOrder)), ShowUptime: &showUptime}
+	if l.Columns >= 1 && l.Columns <= MaxLayoutColumns {
+		out.Columns = l.Columns
+	}
 	switch out.Style {
 	case LayoutList, LayoutGrid, LayoutCompact, LayoutRows:
 	default:
@@ -130,6 +139,7 @@ type storedLayout struct {
 	Order      []string `json:"order,omitempty"`
 	Hidden     []string `json:"hidden,omitempty"`
 	HideUptime bool     `json:"hide_uptime,omitempty"`
+	Columns    int      `json:"columns,omitempty"` // 0 = otomatik
 }
 
 // encodeLayout layout sütununa yazılacak metin; varsayılan dizilim "" olarak saklanır.
@@ -138,7 +148,7 @@ func encodeLayout(l PageLayout) string {
 	if isDefaultLayout(l) {
 		return ""
 	}
-	st := storedLayout{Style: l.Style, Width: l.Width, HideUptime: !l.UptimeShown()}
+	st := storedLayout{Style: l.Style, Width: l.Width, HideUptime: !l.UptimeShown(), Columns: l.Columns}
 	for _, b := range l.Blocks {
 		st.Order = append(st.Order, b.ID)
 		if !b.Visible && b.ID != BlockIncidents {
@@ -150,7 +160,7 @@ func encodeLayout(l PageLayout) string {
 }
 
 func isDefaultLayout(l PageLayout) bool {
-	if l.Style != LayoutList || l.Width != WidthNarrow || !l.UptimeShown() || len(l.Blocks) != len(DefaultBlockOrder) {
+	if l.Style != LayoutList || l.Width != WidthNarrow || !l.UptimeShown() || l.Columns != 0 || len(l.Blocks) != len(DefaultBlockOrder) {
 		return false
 	}
 	for i, b := range l.Blocks {
@@ -172,7 +182,7 @@ func decodeLayout(s string, showIncidents bool) PageLayout {
 		hidden[id] = true
 	}
 	showUptime := !st.HideUptime
-	l := PageLayout{Style: st.Style, Width: st.Width, ShowUptime: &showUptime}
+	l := PageLayout{Style: st.Style, Width: st.Width, ShowUptime: &showUptime, Columns: st.Columns}
 	for _, id := range st.Order {
 		l.Blocks = append(l.Blocks, PageBlock{ID: id, Visible: !hidden[id]})
 	}

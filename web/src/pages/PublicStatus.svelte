@@ -1,6 +1,7 @@
 <script lang="ts">
   // Herkese açık durum sayfası (/durum/<kısa-ad> veya özel alan adı). Giriş gerektirmez,
-  // 60 saniyede bir yenilenir ve sistemin açık/koyu tema tercihini izler.
+  // canlı akışla (SSE sinyali) anında, akış yoksa 60 saniyede bir yenilenir ve
+  // sistemin açık/koyu tema tercihini izler.
   // previewId verilirse yönetim panelinden önizleme olarak açılır (yayında/şifre yok sayılır).
   // Sayfanın gövdesi StatusView'dedir (düzenleyicideki canlı önizleme de onu kullanır).
   import { onDestroy, onMount, tick, untrack } from 'svelte';
@@ -31,9 +32,9 @@
   let loadError = $state('');
   let loadedAt = $state(0);
 
-  async function load() {
+  async function load(fresh = false) {
     try {
-      const p = previewId !== undefined ? await api.previewPage(previewId) : await api.publicPage(slug);
+      const p = previewId !== undefined ? await api.previewPage(previewId) : await api.publicPage(slug, fresh);
       applyPageLang(p.lang);
       page = p;
       locked = null;
@@ -69,9 +70,54 @@
     if (metaTheme) metaTheme.content = getComputedStyle(root).getPropertyValue('--bg').trim() || prevTheme;
   }
 
+  // Canlı akış: sunucu yalnızca "değişti" sinyali yollar, sayfa genel uçtan
+  // yeniden alınır. Akış koparsa tarayıcı kendisi yeniden bağlanır; kapanırsa
+  // (sunucu reddi, ağ) artan aralıkla yeniden denenir. Akış yokken 60 sn'lik
+  // yenileme sürer.
+  let live = $state(false);
+  let es: EventSource | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let retryDelay = 5_000;
+  let destroyed = false;
+  let liveSlug = '';
+  let wasLive = false;
+
+  function connect(s: string) {
+    if (destroyed || typeof EventSource === 'undefined') return;
+    clearTimeout(retryTimer);
+    es?.close();
+    liveSlug = s;
+    const src = new EventSource(`/api/public/pages/${encodeURIComponent(s)}/events`);
+    es = src;
+    src.onopen = () => {
+      if (es !== src) return;
+      // Kopukken kaçan değişiklikler: yeniden bağlanınca bir kez tazelenir.
+      if (wasLive) load(true);
+      live = wasLive = true;
+      retryDelay = 5_000;
+    };
+    src.onmessage = () => {
+      if (es === src) load(true);
+    };
+    src.onerror = () => {
+      if (es !== src) return;
+      live = false;
+      if (src.readyState === EventSource.CLOSED) {
+        es = null;
+        retryTimer = setTimeout(() => connect(s), retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 60_000);
+      }
+    };
+  }
+
+  $effect(() => {
+    const s = !isPreview && page ? page.slug : '';
+    if (s && s !== liveSlug) untrack(() => connect(s));
+  });
+
   let timer: ReturnType<typeof setInterval> | undefined;
   const onVisible = () => {
-    if (!document.hidden && nowSec() - loadedAt > 30) load();
+    if (!document.hidden && !live && nowSec() - loadedAt > 30) load();
   };
 
   onMount(() => {
@@ -80,11 +126,16 @@
     applyThemeColor();
     lightMq.addEventListener('change', applyThemeColor);
     load();
-    timer = setInterval(load, 60_000);
+    timer = setInterval(() => {
+      if (!live) load();
+    }, 60_000);
     document.addEventListener('visibilitychange', onVisible);
   });
 
   onDestroy(() => {
+    destroyed = true;
+    clearTimeout(retryTimer);
+    es?.close();
     clearInterval(timer);
     document.removeEventListener('visibilitychange', onVisible);
     lightMq.removeEventListener('change', applyThemeColor);
@@ -195,14 +246,14 @@
         <div class="panel msg">
           <h1>{t('pub.loadFailed')}</h1>
           <p>{loadError}</p>
-          <button class="btn primary" onclick={load}>{t('common.retry')}</button>
+          <button class="btn primary" onclick={() => load()}>{t('common.retry')}</button>
         </div>
       </div>
     {:else}
       <div class="center"><span class="spinner"></span></div>
     {/if}
   {:else}
-    <StatusView {page} {logo} {light} lang={pageLang} foldKey="durum-kapali:{previewId ?? slug}" {feedUrl} />
+    <StatusView {page} {logo} {light} lang={pageLang} foldKey="durum-kapali:{previewId ?? slug}" {feedUrl} {live} />
   {/if}
 </div>
 

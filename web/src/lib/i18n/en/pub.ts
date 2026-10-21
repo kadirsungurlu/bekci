@@ -15,6 +15,8 @@ export default {
   errPassword: 'Enter the password.',
   loadFailed: "Couldn't load the page",
   refreshInfo: 'Last updated {time} · refreshes every 60 s',
+  live: 'Live',
+  liveInfo: 'Last updated {time}',
   overall: {
     up: 'All systems operational',
     partial: 'Some systems are experiencing issues',
