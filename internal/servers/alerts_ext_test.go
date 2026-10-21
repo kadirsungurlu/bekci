@@ -43,8 +43,8 @@ func kinds(evs []notify.Event) []string {
 	return out
 }
 
-// Uyarı + kritik eşik: CPU %82 → 🟡 uyarı; %95 → 🔴 kritiğe çıkış; %84 → 🟡
-// kritikten iniş (histerezis: kritik eşiğin %5 altına inince); %10 → 🟢
+// Uyarı + kritik eşik: CPU %82 → uyarı uyarı; %95 → kritik kritiğe çıkış; %84 → uyarı
+// kritikten iniş (histerezis: kritik eşiğin %5 altına inince); %10 → düzelme
 // düzelme (en yüksek seviye kritik).
 func TestAlertLevels(t *testing.T) {
 	e := newTestEnv(t)

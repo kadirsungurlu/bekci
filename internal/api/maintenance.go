@@ -200,6 +200,7 @@ func (s *Server) createMaintenance(w http.ResponseWriter, r *http.Request) {
 	}
 	s.maintenanceChanged(r, m.ID)
 	s.audit(r, store.User{}, "maintenance.create", "maintenance", m.ID, m.Title, m.Strategy)
+	s.subNotifyMaintenance(r.Context(), m)
 	s.respondMaintenance(w, r, m.ID, http.StatusCreated)
 }
 

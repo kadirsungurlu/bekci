@@ -18,7 +18,7 @@ type AppSettings struct {
 	RetentionHourlyDays int   `json:"retention_hourly_days"` // saatlik özetler (günlükler süresiz)
 	CertDays            []int `json:"cert_days"`             // SSL uyarı eşikleri (gün)
 	// DomainDays alan adı bitiş uyarı eşikleri (gün; boş liste = uyarı yok;
-	// eski kayıtta alan yoksa varsayılan). 7 gün ve altı 🔴, üstü 🟡.
+	// eski kayıtta alan yoksa varsayılan). 7 gün ve altı kritik, üstü uyarı.
 	DomainDays []int `json:"domain_days"`
 	BackupKeep int   `json:"backup_keep"` // saklanacak gece yedeği sayısı
 	// NotifyLang bildirim metinlerinin dili (tr | en). Boş (eski kayıt) tr sayılır.
@@ -42,6 +42,9 @@ type AppSettings struct {
 	// imzalı sürümüne kendiliğinden güncellensin mi (ajan başına geçersiz
 	// kılınabilir). nil (eski kayıt) açık sayılır.
 	AgentAutoUpdate *bool `json:"agent_auto_update"`
+	// UpdateCheck panel yeni Bekci sürümünü denetlesin mi (kapalıyken dışarıya
+	// hiç istek gitmez). nil (eski kayıt) açık sayılır.
+	UpdateCheck *bool `json:"update_check"`
 }
 
 // Saklama varsayılanları (gün).
@@ -53,7 +56,7 @@ const (
 
 func intPtr(n int) *int { return &n }
 
-// DefaultDomainDays alan adı uyarı eşikleri; DomainCriticalDays ve altı 🔴.
+// DefaultDomainDays alan adı uyarı eşikleri; DomainCriticalDays ve altı kritik.
 var DefaultDomainDays = []int{30, 14, 7, 1}
 
 const DomainCriticalDays = 7
@@ -76,6 +79,8 @@ func (a AppSettings) AuditKeep() int { return orDefault(a.RetentionAuditDays, De
 
 // AgentAutoUpdateOn ajanlar otomatik güncellensin mi (varsayılan açık).
 func (a AppSettings) AgentAutoUpdateOn() bool { return a.AgentAutoUpdate == nil || *a.AgentAutoUpdate }
+
+func (a AppSettings) UpdateCheckOn() bool { return a.UpdateCheck == nil || *a.UpdateCheck }
 
 func boolPtr(b bool) *bool { return &b }
 

@@ -202,6 +202,11 @@ volumes:
 
 {
 	email {$ACME_EMAIL}
+	# Status page custom domains: before obtaining a certificate for a name it
+	# doesn't know, Caddy asks Bekci; only names set on a published page are approved.
+	on_demand_tls {
+		ask http://bekci:8080/api/tls/ask
+	}
 }
 
 {$UPTIME_DOMAIN} {
@@ -215,16 +220,21 @@ volumes:
 	}
 }
 
-# Optional: a separate domain for the status page (e.g. status.example.com).
-# Set STATUS_DOMAIN in .env and remove the # signs at the start of the block
-# below; then enter the same name in the status page's "Custom domain" field
-# in the panel. That address only serves the status page, never the admin panel.
-#
-# {$STATUS_DOMAIN} {
-# 	encode zstd gzip
-# 	header >Strict-Transport-Security "max-age=31536000"
-# 	reverse_proxy bekci:8080
-# }
+# Status page custom domains (automatic): enter the domain on the page in the
+# panel and point its DNS to this server; you don't need to touch this file.
+# The certificate is obtained on the first HTTPS request to the domain. Site
+# blocks with an explicit name, like the one above, take precedence over this
+# block (older hand-written blocks keep working).
+https:// {
+	tls {
+		on_demand
+	}
+	encode zstd gzip
+	header >Strict-Transport-Security "max-age=31536000"
+	reverse_proxy bekci:8080 {
+		flush_interval -1
+	}
+}
 ```
 
 **.env** — `nano /opt/bekci/.env` (you'll edit its content in the next step)
@@ -251,7 +261,9 @@ LOG_LEVEL=info
 # Maximum number of checks at the same time (raise it for hundreds of monitors).
 MAX_CONCURRENT_CHECKS=50
 
-# Optional: a separate domain for the status page (also enable the block in the Caddyfile).
+# Status page custom domains are now automatic (the on-demand TLS block in the
+# Caddyfile): entering the domain on the page in the panel is enough. STATUS_DOMAIN
+# is only kept for older installs that use a hand-written site block.
 # STATUS_DOMAIN=status.example.com
 ```
 :::
@@ -371,31 +383,79 @@ After editing `.env`, run `docker compose up -d`; Compose recreates the changed 
 
 ## A separate domain for the status page (optional) {#status-domain}
 
-You can publish your public status page at a separate address such as `status.example.com`. That address only serves the status page, never the admin panel.
+You can publish your public status page at a separate address such as `status.example.com`. That address only serves the status page, never the admin panel. The HTTPS certificate is obtained automatically: you don't need to touch Caddy or the `.env` file.
 
-1. Add an **A** record named `status` pointing to the same server (like [step 1](#dns)).
-2. In `.env`, remove the `#` at the start of the last line and fill in the domain: `STATUS_DOMAIN=⟦status.example.com⟧`
-3. In the `Caddyfile`, remove the `#` signs at the start of the lines of the last block. The block should look like this:
+1. In the domain's DNS settings, add an **A** record pointing to your server (like [step 1](#dns); add **AAAA** too if you use IPv6). Alternatively you can add a **CNAME** record pointing to the panel's address (`⟦bekci.example.com⟧`).
+2. In the panel, open your page under **Status pages**, enter `status.example.com` in the **Custom domain** field and save. Below the field you'll see the CNAME target (the panel's address) and the target IP addresses for the A/AAAA record.
+3. Once the status badge below the field shows **Active**, the domain is ready. Click **Check again** to refresh the badge right away.
 
-   ```caddyfile title="/opt/bekci/Caddyfile (end of the file)"
-   {$STATUS_DOMAIN} {
-   	encode zstd gzip
-   	header >Strict-Transport-Security "max-age=31536000"
-   	reverse_proxy bekci:8080
+The certificate is obtained on the first HTTPS request to the domain. Before obtaining it, Caddy asks Bekci (`/api/tls/ask`): certificates are only issued for names set on a **published** status page; if the page isn't published or no page uses the name, no certificate is requested. This way no certificates are requested for random names that happen to point to your server.
+
+| Badge | Meaning |
+|---|---|
+| Waiting for DNS | The domain doesn't point to this server yet; check the A/AAAA or CNAME record (propagation can take a few minutes). |
+| Waiting for certificate | DNS is correct but the HTTPS check hasn't passed yet. The certificate is obtained on the first request; click **Check again** a little later. |
+| Active | The domain serves the status page over HTTPS. |
+| Page not published | No certificate is obtained because the page isn't published; publish the page first. |
+
+> [!NOTE] If you use Cloudflare
+> It also works with the proxy (orange cloud) on; if the HTTPS check passes, the badge shows **Active**. **Full (strict)** is the recommended Cloudflare **SSL/TLS** mode. In this mode, set the record to **DNS only** (grey cloud) temporarily so the server can obtain its first certificate, then turn the proxy on once the badge shows **Active**. Even without switching to the grey cloud, visitors reach the page with Cloudflare's own certificate.
+
+### Migrating an older install {#status-domain-migrate}
+
+Hand-written `{$STATUS_DOMAIN} { ... }` or `status.example.com { ... }` blocks keep working: a site block with an explicit name takes precedence over the automatic (`https://`) block. To switch to automatic HTTPS:
+
+> [!IMPORTANT]
+> The certificate approval endpoint (`/api/tls/ask`) ships with Bekci 1.5.0. Update Bekci first: `docker compose pull && docker compose up -d`.
+
+1. Add the approval endpoint to the global block at the top of the `Caddyfile`:
+
+   ```caddyfile title="/opt/bekci/Caddyfile (top of the file)"
+   {
+   	email {$ACME_EMAIL}
+   	on_demand_tls {
+   		ask http://bekci:8080/api/tls/ask
+   	}
    }
    ```
 
-4. Apply it:
+2. Add the automatic block at the end of the file:
+
+   ```caddyfile title="/opt/bekci/Caddyfile (end of the file)"
+   https:// {
+   	tls {
+   		on_demand
+   	}
+   	encode zstd gzip
+   	header >Strict-Transport-Security "max-age=31536000"
+   	reverse_proxy bekci:8080 {
+   		flush_interval -1
+   	}
+   }
+   ```
+
+3. Validate the file and apply it:
 
    ```bash
    cd /opt/bekci
-   docker compose up -d --force-recreate caddy
+   docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile
+   docker compose restart caddy
    ```
 
-5. In the panel, open your page under **Status pages**, enter `status.example.com` in the **Custom domain** field and save.
+   Instead of restarting you can also use `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile`.
 
-> [!CHECK]
-> `https://⟦status.example.com⟧` should open your status page.
+4. In the panel, check that the badge under the page's **Custom domain** field shows **Active**.
+5. If you like, remove the old `{$STATUS_DOMAIN}` block from the `Caddyfile` and the `STATUS_DOMAIN` line from `.env`, then repeat step 3.
+
+### If you don't use Caddy {#status-domain-other-proxy}
+
+Automatic certificates rely on Caddy's on-demand TLS; with other proxies you have to register each domain with the proxy yourself:
+
+- **Traefik (including Coolify)** doesn't support on-demand TLS: each domain needs a router/host rule and a certresolver. In Coolify, add the domain to the application's **Domains** field, separated by a comma.
+- **Nginx**: obtain a certificate for each name with certbot, or put Caddy in front.
+- You can use the `GET /api/tls/ask?domain=<name>` endpoint in your own automation (e.g. a certificate script) as an "is this name configured?" query: it returns `200` if the name is set on a published page, `404` otherwise.
+
+Bekci itself doesn't listen on port 443 or obtain certificates (ACME): most installs already sit behind a reverse proxy, and port conflicts and certificate storage add complexity; Caddy solves it with a single block.
 
 ## Next steps {#next}
 

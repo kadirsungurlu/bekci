@@ -26,12 +26,12 @@ func TestServerEventTexts(t *testing.T) {
 	temp.Metric, temp.Value, temp.Threshold = "temp", 81.6, 80
 
 	cases := map[string]Event{
-		"🔴 CP Server İstanbul: CPU %94 (10 dk ortalama, eşik %90)":                   serverAlert,
-		"🟢 CP Server İstanbul: CPU normale döndü":                                    resolved,
-		"🔴 CP Server İstanbul: sunucuya ulaşılamıyor":                                offline,
-		"🟢 CP Server İstanbul: tekrar veri gönderiyor":                               back,
-		"🔴 CP Server İstanbul: Yük 2,35 (5 dk ortalama, çekirdek başına, eşik 1,50)": load,
-		"🔴 CP Server İstanbul: Sıcaklık 82 °C (10 dk ortalama, eşik 80 °C)":          temp,
+		"CP Server İstanbul: CPU %94 (10 dk ortalama, eşik %90)":                   serverAlert,
+		"CP Server İstanbul: CPU normale döndü":                                    resolved,
+		"CP Server İstanbul: sunucuya ulaşılamıyor":                                offline,
+		"CP Server İstanbul: tekrar veri gönderiyor":                               back,
+		"CP Server İstanbul: Yük 2,35 (5 dk ortalama, çekirdek başına, eşik 1,50)": load,
+		"CP Server İstanbul: Sıcaklık 82 °C (10 dk ortalama, eşik 80 °C)":          temp,
 	}
 	for want, ev := range cases {
 		if got := ev.Title(); got != want {

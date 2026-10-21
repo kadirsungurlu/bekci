@@ -231,3 +231,25 @@ func TestPageLayoutRowsAndUptime(t *testing.T) {
 		t.Fatalf("dizilimsiz sayfa: %+v", got.Layout)
 	}
 }
+
+func TestNormalizeLayoutColumns(t *testing.T) {
+	for in, want := range map[int]int{-1: 0, 0: 0, 1: 1, 2: 2, 3: 3, 6: 6, 7: 0, 100: 0} {
+		if got := NormalizeLayout(PageLayout{Style: LayoutGrid, Columns: in}, true).Columns; got != want {
+			t.Errorf("Columns %d -> %d, %d bekleniyordu", in, got, want)
+		}
+	}
+}
+
+// Sütun sayısı veritabanı biçiminde saklanır; otomatik (0) varsayılan dizilimi bozmaz.
+func TestLayoutColumnsRoundTrip(t *testing.T) {
+	l := NormalizeLayout(PageLayout{Style: LayoutGrid, Columns: 6}, true)
+	if got := decodeLayout(encodeLayout(l), true); got.Columns != 6 || got.Style != LayoutGrid {
+		t.Fatalf("sütun korunmadı: %+v", got)
+	}
+	if enc := encodeLayout(DefaultLayout(true)); enc != "" {
+		t.Fatalf("varsayılan dizilim boş saklanmalı: %q", enc)
+	}
+	if enc := encodeLayout(PageLayout{Columns: 3}); enc == "" {
+		t.Fatal("yalnız sütun değişince de saklanmalı")
+	}
+}

@@ -13,6 +13,7 @@
   import { deviceLocale, isLocale, setLocale, t } from './lib/i18n';
   import { APP_NAME } from './lib/brand';
   import Icon, { type IconName } from './components/Icon.svelte';
+  import UpdateBanner from './components/UpdateBanner.svelte';
   import Toasts from './components/Toasts.svelte';
   import ConfirmDialog from './components/ConfirmDialog.svelte';
   import Tooltip from './components/Tooltip.svelte';
@@ -396,6 +397,7 @@
         class:wide={route.name === 'list' || route.name === 'servers' || route.name === 'page-edit' || route.name === 'page-new'}
         class:form-page={route.name === 'new' || route.name === 'edit' || route.name === 'maint-new' || route.name === 'maint-edit'}
       >
+        {#if session.isAdmin}<UpdateBanner />{/if}
         {#if editorOnly && !session.canEdit}
           {@render forbidden()}
         {:else if (route.name === 'servers' || route.name === 'server') && !session.canSeeServers}

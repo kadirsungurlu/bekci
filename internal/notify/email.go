@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/mail"
 	"net/smtp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -86,6 +87,27 @@ func SendMail(ctx context.Context, cfg json.RawMessage, to, subject, text, html 
 		return fmt.Errorf("alıcı adresi geçersiz: %w", err)
 	}
 	return sendMail(ctx, c, to, func(from, toHdr string) []byte { return buildRawMail(from, toHdr, subject, text, html) })
+}
+
+// SendMailHeaders SendMail gibi; ek başlıklar (ör. List-Unsubscribe) iletiye
+// eklenir. Başlık adı/değerinde satır sonu olan girdi reddedilir (başlık
+// enjeksiyonu).
+func SendMailHeaders(ctx context.Context, cfg json.RawMessage, to, subject, text, html string, headers map[string]string) error {
+	var c emailConfig
+	if err := json.Unmarshal(cfg, &c); err != nil {
+		return err
+	}
+	if _, err := mail.ParseAddress(to); err != nil {
+		return fmt.Errorf("alıcı adresi geçersiz: %w", err)
+	}
+	for k, v := range headers {
+		if k == "" || strings.ContainsAny(k, "\r\n:") || strings.ContainsAny(v, "\r\n") {
+			return fmt.Errorf("geçersiz e-posta başlığı: %q", k)
+		}
+	}
+	return sendMail(ctx, c, to, func(from, toHdr string) []byte {
+		return buildRawMailHeaders(from, toHdr, subject, text, html, headers)
+	})
 }
 
 // sendMail SMTP bağlantısını kurar ve body'nin ürettiği iletiyi toList
@@ -176,6 +198,12 @@ func buildMail(from, to string, ev Event) []byte {
 
 // buildRawMail düz metin + (varsa) HTML gövdeli MIME iletisi.
 func buildRawMail(from, to, subject, text, html string) []byte {
+	return buildRawMailHeaders(from, to, subject, text, html, nil)
+}
+
+// buildRawMailHeaders buildRawMail'in ek başlıklı hali (başlıklar ada göre
+// sıralı yazılır; değerler çağıranda denetlenmiş olmalı).
+func buildRawMailHeaders(from, to, subject, text, html string, extra map[string]string) []byte {
 	var b bytes.Buffer
 	h := func(k, v string) { fmt.Fprintf(&b, "%s: %s\r\n", k, v) }
 	h("From", from)
@@ -183,6 +211,14 @@ func buildRawMail(from, to, subject, text, html string) []byte {
 	h("Subject", mime.QEncoding.Encode("utf-8", subject))
 	h("Date", time.Now().Format(time.RFC1123Z)) // gönderim anı; olay zamanı gövdede
 	h("Message-ID", messageID(from))
+	keys := make([]string, 0, len(extra))
+	for k := range extra {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		h(k, extra[k])
+	}
 	h("MIME-Version", "1.0")
 	// Düz metin + HTML: HTML göstermeyen istemci düz metni okur.
 	sep := make([]byte, 12)

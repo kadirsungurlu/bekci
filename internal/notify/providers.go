@@ -408,8 +408,8 @@ func (ntfy) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	if ev.IsProblem() {
 		prio = c.Priority
 	}
-	// Başlık diğer kanallardaki gibi durum noktasıyla (🔴/🟢) gider; ntfy
-	// etiketi (🚨/✅) eklenmez. ntfy, ASCII dışı başlıklar için RFC 2047
+	// Başlık diğer kanallardaki gibi düz metindir; ntfy etiketi eklenmez.
+	// ntfy, ASCII dışı başlıklar için RFC 2047
 	// kodlamasını destekler; ham UTF-8 başlık araya giren proxy'lerde bozulabilir.
 	headers := map[string]string{
 		"Title":    mime.QEncoding.Encode("utf-8", ev.Title()),

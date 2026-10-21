@@ -1,6 +1,7 @@
 <script lang="ts">
   // Herkese açık durum sayfası (/durum/<kısa-ad> veya özel alan adı). Giriş gerektirmez,
-  // 60 saniyede bir yenilenir ve sistemin açık/koyu tema tercihini izler.
+  // canlı akışla (SSE sinyali) anında, akış yoksa 60 saniyede bir yenilenir ve
+  // sistemin açık/koyu tema tercihini izler.
   // previewId verilirse yönetim panelinden önizleme olarak açılır (yayında/şifre yok sayılır).
   // Sayfanın gövdesi StatusView'dedir (düzenleyicideki canlı önizleme de onu kullanır).
   import { onDestroy, onMount, tick, untrack } from 'svelte';
@@ -8,7 +9,8 @@
   import { nowSec } from '../lib/format';
   import Icon from '../components/Icon.svelte';
   import StatusView from '../components/StatusView.svelte';
-  import { i18n, isLocale, setLocale, t, type Locale } from '../lib/i18n';
+  import SubscribePanel from '../components/SubscribePanel.svelte';
+  import { i18n, isLocale, setLocale, t, tIn, type Locale, type TKey, type TParams } from '../lib/i18n';
 
   let { slug = '', previewId }: { slug?: string; previewId?: number } = $props();
 
@@ -31,9 +33,9 @@
   let loadError = $state('');
   let loadedAt = $state(0);
 
-  async function load() {
+  async function load(fresh = false) {
     try {
-      const p = previewId !== undefined ? await api.previewPage(previewId) : await api.publicPage(slug);
+      const p = previewId !== undefined ? await api.previewPage(previewId) : await api.publicPage(slug, fresh);
       applyPageLang(p.lang);
       page = p;
       locked = null;
@@ -69,9 +71,61 @@
     if (metaTheme) metaTheme.content = getComputedStyle(root).getPropertyValue('--bg').trim() || prevTheme;
   }
 
+  // Canlı akış: sunucu yalnızca "değişti" sinyali yollar, sayfa genel uçtan
+  // yeniden alınır. Akış koparsa tarayıcı kendisi yeniden bağlanır; kapanırsa
+  // (sunucu reddi, ağ) artan aralıkla yeniden denenir. Akış yokken 60 sn'lik
+  // yenileme sürer.
+  let live = $state(false);
+  let es: EventSource | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let retryDelay = 5_000;
+  let destroyed = false;
+  let liveSlug = '';
+  let wasLive = false;
+  let liveOffTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function connect(s: string) {
+    if (destroyed || typeof EventSource === 'undefined') return;
+    clearTimeout(retryTimer);
+    es?.close();
+    liveSlug = s;
+    const src = new EventSource(`/api/public/pages/${encodeURIComponent(s)}/events`);
+    es = src;
+    src.onopen = () => {
+      if (es !== src) return;
+      clearTimeout(liveOffTimer);
+      // Kopukken kaçan değişiklikler: yeniden bağlanınca bir kez tazelenir.
+      if (wasLive) load(true);
+      live = wasLive = true;
+      retryDelay = 5_000;
+    };
+    src.onmessage = () => {
+      if (es === src) load(true);
+    };
+    src.onerror = () => {
+      if (es !== src) return;
+      // Tarayıcının kendi yeniden bağlanması kısa sürer: gösterge hemen
+      // "60 sn" metnine düşüp geri dönmesin (titreme), 8 sn bağlanamazsa düşer.
+      clearTimeout(liveOffTimer);
+      liveOffTimer = setTimeout(() => {
+        if (es !== src || src.readyState !== EventSource.OPEN) live = false;
+      }, 8_000);
+      if (src.readyState === EventSource.CLOSED) {
+        es = null;
+        retryTimer = setTimeout(() => connect(s), retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 60_000);
+      }
+    };
+  }
+
+  $effect(() => {
+    const s = !isPreview && page ? page.slug : '';
+    if (s && s !== liveSlug) untrack(() => connect(s));
+  });
+
   let timer: ReturnType<typeof setInterval> | undefined;
   const onVisible = () => {
-    if (!document.hidden && nowSec() - loadedAt > 30) load();
+    if (!document.hidden && !live && nowSec() - loadedAt > 30) load();
   };
 
   onMount(() => {
@@ -80,11 +134,18 @@
     applyThemeColor();
     lightMq.addEventListener('change', applyThemeColor);
     load();
-    timer = setInterval(load, 60_000);
+    if (!isPreview) handleSubscriptionLink();
+    timer = setInterval(() => {
+      if (!live) load();
+    }, 60_000);
     document.addEventListener('visibilitychange', onVisible);
   });
 
   onDestroy(() => {
+    destroyed = true;
+    clearTimeout(retryTimer);
+    clearTimeout(liveOffTimer);
+    es?.close();
     clearInterval(timer);
     document.removeEventListener('visibilitychange', onVisible);
     lightMq.removeEventListener('change', applyThemeColor);
@@ -121,6 +182,40 @@
     if (previewId !== undefined) return `/api/status-pages/${previewId}/logo?v=${page?.updated_at ?? 0}`;
     return p.logo_url ?? '';
   });
+
+  // E-posta aboneliği: e-postadaki onay/çıkış bağlantısı (?abonelik=onay|cik&t=)
+  // sayfa açılınca işlenir, sonuç üstte şerit olarak gösterilir ve parametreler
+  // adresten temizlenir (yenilemede tekrar gönderilmesin).
+  // Metin anahtar olarak saklanır, sayfanın dilinde (pageLang) çizilir.
+  let subNotice = $state<{ kind: 'ok' | 'error'; key: TKey; params?: TParams } | null>(null);
+
+  async function handleSubscriptionLink() {
+    const q = new URLSearchParams(location.search);
+    const action = q.get('abonelik');
+    const token = q.get('t') ?? '';
+    if (action !== 'onay' && action !== 'cik') return;
+    q.delete('abonelik');
+    q.delete('t');
+    const rest = q.toString();
+    history.replaceState(history.state, '', location.pathname + (rest ? `?${rest}` : '') + location.hash);
+    if (!token) {
+      subNotice = { kind: 'error', key: action === 'onay' ? 'pub.subscribe.confirmFailed' : 'pub.subscribe.unsubscribeFailed' };
+      return;
+    }
+    try {
+      if (action === 'onay') {
+        const r = await api.publicConfirmSubscription(token);
+        subNotice = r.page
+          ? { kind: 'ok', key: 'pub.subscribe.confirmedPage', params: { page: r.page } }
+          : { kind: 'ok', key: 'pub.subscribe.confirmed' };
+      } else {
+        await api.publicUnsubscribe(token);
+        subNotice = { kind: 'ok', key: 'pub.subscribe.unsubscribed' };
+      }
+    } catch {
+      subNotice = { kind: 'error', key: action === 'onay' ? 'pub.subscribe.confirmFailed' : 'pub.subscribe.unsubscribeFailed' };
+    }
+  }
 
   // Şifre --------------------------------------------------------------------------------
   let password = $state('');
@@ -164,6 +259,19 @@
     </div>
   {/if}
 
+  <!-- Kalıcı canlı bölge: şerit sonradan içine girer ki ekran okuyucu duyursun. -->
+  <div role="status">
+    {#if subNotice}
+      <div class="sub-notice {subNotice.kind}" data-testid="sub-notice" data-state={subNotice.kind}>
+        <Icon name={subNotice.kind === 'ok' ? 'check-circle' : 'alert-circle'} size={16} />
+        <span>{tIn(pageLang, subNotice.key, subNotice.params)}</span>
+        <button type="button" class="sub-notice-x" aria-label={tIn(pageLang, 'pub.subscribe.dismiss')} onclick={() => (subNotice = null)}>
+          <Icon name="x" size={15} />
+        </button>
+      </div>
+    {/if}
+  </div>
+
   {#if notFound}
     <div class="center">
       <div class="panel msg">
@@ -195,14 +303,20 @@
         <div class="panel msg">
           <h1>{t('pub.loadFailed')}</h1>
           <p>{loadError}</p>
-          <button class="btn primary" onclick={load}>{t('common.retry')}</button>
+          <button class="btn primary" onclick={() => load()}>{t('common.retry')}</button>
         </div>
       </div>
     {:else}
       <div class="center"><span class="spinner"></span></div>
     {/if}
   {:else}
-    <StatusView {page} {logo} {light} lang={pageLang} foldKey="durum-kapali:{previewId ?? slug}" {feedUrl} />
+    <StatusView {page} {logo} {light} lang={pageLang} foldKey="durum-kapali:{previewId ?? slug}" {feedUrl} {live}>
+      {#snippet actions()}
+        {#if !isPreview && page?.subscribe}
+          <SubscribePanel slug={page.slug} lang={pageLang} />
+        {/if}
+      {/snippet}
+    </StatusView>
   {/if}
 </div>
 
@@ -245,6 +359,51 @@
     color: inherit;
     font-weight: 700;
     text-decoration: underline;
+  }
+
+  /* Abonelik onay/çıkış sonucu */
+  .sub-notice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 8px 6px 16px;
+    font-size: 0.88rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-elev);
+    overflow-wrap: anywhere;
+  }
+  .sub-notice :global(svg) {
+    flex: none;
+  }
+  .sub-notice.ok {
+    color: var(--up);
+    background: var(--up-soft);
+  }
+  .sub-notice.error {
+    color: var(--down);
+    background: var(--down-soft);
+  }
+  .sub-notice span {
+    color: var(--text);
+  }
+  .sub-notice-x {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    flex: none;
+    border: 0;
+    border-radius: 7px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .sub-notice-x:hover {
+    color: var(--text);
+  }
+  .sub-notice-x:focus-visible {
+    outline: 2px solid var(--accent);
   }
 
   /* Mesaj ve şifre kartları */

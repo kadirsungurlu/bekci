@@ -97,7 +97,7 @@ export default {
     resetLock: 'Reset lock',
     notifyOffline: 'Notify when offline',
     notifyOfflineHelp:
-      'If the check location sends no request for 90 seconds, a “🔴 check location unreachable” notification goes to the selected channels and an incident is opened; when it reconnects, a “🟢” notification closes it. Short restarts do not notify.',
+      'If the check location sends no request for 90 seconds, a “check location unreachable” notification goes to the selected channels and an incident is opened; when it reconnects, a recovery notification closes it. Short restarts do not notify.',
     channels: 'Notification channels',
     noChannels: 'No notification channels yet. {link}',
     addChannel: 'Add a channel',

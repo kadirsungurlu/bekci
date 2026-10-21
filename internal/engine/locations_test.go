@@ -336,7 +336,7 @@ func TestProbeWatcher(t *testing.T) {
 
 // Kontrol noktasının bağlantısı kopunca son sonucu "çalışmıyor" olan konumun
 // oyu sonuç eskiyene kadar korunur: ajanın yeniden başlaması açık kesinti
-// olayını kapatıp yeniden açmaz (sahte 🟢 + 🔴 yok).
+// olayını kapatıp yeniden açmaz (sahte düzelme + kritik yok).
 func TestGoneProbeKeepsDownVote(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()

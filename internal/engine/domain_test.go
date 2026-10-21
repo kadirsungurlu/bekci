@@ -111,8 +111,8 @@ func TestDomainScan(t *testing.T) {
 		t.Fatalf("kapalı monitör sorgulanmamalı: %+v", m)
 	}
 
-	// Bildirimler: ornek.com 10 gün (eşik 14 → 🟡) iki monitör için ayrı ayrı;
-	// bitmis.org süresi dolmuş (🔴); uzak.net 200 gün eşik dışı; hata yok.
+	// Bildirimler: ornek.com 10 gün (eşik 14 → uyarı) iki monitör için ayrı ayrı;
+	// bitmis.org süresi dolmuş (kritik); uzak.net 200 gün eşik dışı; hata yok.
 	var dom []notify.Event
 	for _, ev := range f.n.events {
 		if ev.Kind == notify.KindDomain {
@@ -130,10 +130,10 @@ func TestDomainScan(t *testing.T) {
 	if ev.Domain != "ornek.com" || ev.DomainDays != 10 || ev.DomainRegistrar != "Kayıt A.Ş." || ev.DomainIsCritical() || ev.URL == "" {
 		t.Fatalf("site bildirimi: %+v", ev)
 	}
-	if ev.Title() != "🟡 Site: ornek.com alan adı 10 gün içinde bitiyor" {
+	if ev.Title() != "Site: ornek.com alan adı 10 gün içinde bitiyor" {
 		t.Fatalf("başlık: %q", ev.Title())
 	}
-	if ev := byMon[tls.ID]; ev.DomainDays != -2 || !ev.DomainIsCritical() || ev.Title() != "🔴 TLS: bitmis.org alan adının süresi doldu" {
+	if ev := byMon[tls.ID]; ev.DomainDays != -2 || !ev.DomainIsCritical() || ev.Title() != "TLS: bitmis.org alan adının süresi doldu" {
 		t.Fatalf("bitmiş bildirimi: %+v %q", ev, ev.Title())
 	}
 	if _, ok := byMon[dns.ID]; ok {
@@ -164,7 +164,7 @@ func TestDomainScan(t *testing.T) {
 	if m := get(bad.ID); m.DomainStatus != store.DomainOK || m.DomainExpiresAt != now.AddDate(0, 0, 60).Unix() {
 		t.Fatalf("düzelen sorgu: %+v", m)
 	}
-	// Daha dar eşiğe girince (7) yeni bildirim 🔴.
+	// Daha dar eşiğe girince (7) yeni bildirim kritik.
 	f.clock = now.Add(4*24*time.Hour + 25*time.Hour)
 	f.e.DomainScan(ctx)
 	last := f.n.events[len(f.n.events)-1]

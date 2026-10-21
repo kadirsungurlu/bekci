@@ -832,7 +832,7 @@ export interface QuietHours {
   end: string;
   /** IANA saat dilimi; boş: sunucunun yerel saati. */
   tz: string;
-  /** critical: yalnızca 🔴 ve onların 🟢'si geçer; none: her şey pencere bitimine ertelenir. */
+  /** critical: yalnızca kritik olanlar ve onların düzelmesi geçer; none: her şey pencere bitimine ertelenir. */
   mode: 'critical' | 'none';
 }
 
@@ -841,7 +841,7 @@ export interface NotificationRules {
   /** Alınacak olay türleri; boş = hepsi. */
   events?: NotifyKind[] | null;
   quiet_hours?: QuietHours | null;
-  /** Gecikme (dk): sorun bu kadar sürmezse 🔴 (ve 🟢) gitmez. 0 = kapalı. */
+  /** Gecikme (dk): sorun bu kadar sürmezse kesinti (ve düzelme) bildirimi gitmez. 0 = kapalı. */
   delay_min?: number;
   /** Eskalasyon (dk): bu kadar süredir açık her olay bağlı olmasa da bu kanala gider. 0 = kapalı. */
   escalate_min?: number;
@@ -892,6 +892,8 @@ export interface AppSettings {
   system_mail_channel_id?: number;
   /** Ajanlar panelin sürümüne kendiliğinden güncellensin (varsayılan açık). */
   agent_auto_update?: boolean;
+  /** Yeni Bekci sürümü denetimi (varsayılan açık). */
+  update_check?: boolean;
 }
 
 export interface BeatEvent {
@@ -946,6 +948,8 @@ export interface StatusPage {
   incident_days?: number;
   /** Uptime pencereleri (boş: çubuk kapsamına göre tek pencere). */
   uptime_windows?: UptimeWindow[];
+  /** Ziyaretçiler e-postayla güncellemelere abone olabilir mi (eski sunucuda gelmez: hayır). */
+  subscriptions?: boolean;
   published: boolean;
   has_logo: boolean;
   created_at: number;
@@ -991,6 +995,45 @@ export interface PageInput {
   /** Gönderilmezse değişmez. */
   incident_days?: number;
   uptime_windows?: UptimeWindow[];
+  /** E-posta aboneliği (gönderilmezse değişmez). */
+  subscriptions?: boolean;
+}
+
+/** Durum sayfası abonesi (GET /api/status-pages/{id}/subscribers). */
+export interface PageSubscriber {
+  id: number;
+  email: string;
+  confirmed: boolean;
+  created_at: number;
+  confirmed_at: number;
+}
+
+/** Özel alan adı durumu (GET /api/status-pages/{id}/domain). */
+export interface PageDomainStatus {
+  domain: string;
+  /** CNAME hedefi (uygulamanın adresi). */
+  target: string;
+  /** A/AAAA hedefleri. */
+  target_ips: string[];
+  /** Alan adının şu an çözüldüğü adresler. */
+  domain_ips: string[];
+  dns: boolean;
+  https: boolean;
+  https_error: string;
+  /** Hata türü: no_host | refused | timeout | tls | http | not_bekci | unbound | other_page | other. */
+  https_code: string;
+  published: boolean;
+  state: 'none' | 'unpublished' | 'dns' | 'cert' | 'active';
+}
+
+export interface PageSubscribers {
+  /** Sistem e-postası yapılandırılmış mı (değilse abonelik açılamaz). */
+  available: boolean;
+  /** Onaylı abone sayısı. */
+  count: number;
+  /** Onay bekleyen kayıt sayısı. */
+  pending: number;
+  items: PageSubscriber[];
 }
 
 export type Severity = 'info' | 'warning' | 'danger' | 'success';
@@ -1034,6 +1077,8 @@ export interface PageLayout {
   blocks: { id: PageBlockId; visible: boolean }[];
   /** Monitörlerin uptime yüzdesi gösterilsin mi (eski sunucu/sayfa: gösterilir). */
   show_uptime: boolean;
+  /** Izgarada en çok grup sütunu (1-6); yok/0 = otomatik (genişliğe göre 1-3). */
+  columns?: number;
 }
 
 /** Düzenleyicideki canlı önizleme verisi (POST /api/status-pages/preview-data). */
@@ -1146,6 +1191,8 @@ export interface PublicPage {
   incident_days?: number;
   /** Monitör satırlarında gösterilen uptime pencereleri (boş: tek pencere, uptime_window). */
   uptime_windows?: UptimeWindow[];
+  /** Ziyaretçi e-postayla abone olabilir ("Abone ol" düğmesi; eski sunucuda gelmez: hayır). */
+  subscribe?: boolean;
 }
 
 /** Şifreli sayfanın 401 yanıtı. */
@@ -1503,6 +1550,19 @@ const qs = (params: Record<string, string | number | undefined>) => {
   return s ? `?${s}` : '';
 };
 
+/** Yeni sürüm durumu (GET /api/update, yalnız yönetici). */
+export interface UpdateInfo {
+  enabled: boolean;
+  current: string;
+  latest: string;
+  newer: boolean;
+  notes_url: string;
+  dismissed: string;
+  /** Bu kullanıcıya şerit gösterilsin. */
+  show: boolean;
+  checked_at: number;
+}
+
 export const api = {
   authState: () => get<AuthState>('/api/auth/state'),
   setup: (username: string, password: string) => post<{ user: User }>('/api/auth/setup', { username, password }),
@@ -1585,6 +1645,9 @@ export const api = {
   /** Kayıtlı kanala her bildirim türünden birer örnek gönderir (arka planda, sırayla). */
   sampleNotifications: (id: number) => post<{ count: number }>(`/api/notifications/${id}/samples`, {}),
 
+  updateInfo: () => get<UpdateInfo>('/api/update'),
+  updateCheck: () => post<UpdateInfo>('/api/update/check', {}),
+  updateDismiss: (version: string) => post<UpdateInfo>('/api/update/dismiss', { version }),
   settings: () => get<AppSettings>('/api/settings'),
   saveSettings: (s: AppSettings) => put<AppSettings>('/api/settings', s),
 
@@ -1631,6 +1694,11 @@ export const api = {
   uploadLogo: (id: number, file: File) =>
     request<StatusPage>('PUT', `/api/status-pages/${id}/logo`, undefined, { type: file.type, data: file }),
   deleteLogo: (id: number) => del<StatusPage>(`/api/status-pages/${id}/logo`),
+  pageDomainStatus: (pageId: number) => get<PageDomainStatus>(`/api/status-pages/${pageId}/domain`),
+  pageSubscribers: (pageId: number) => get<PageSubscribers>(`/api/status-pages/${pageId}/subscribers`),
+  deletePageSubscriber: (pageId: number, id: number) => del<void>(`/api/status-pages/${pageId}/subscribers/${id}`),
+  /** CSV dışa aktarımı (bağlantı olarak indirilir). */
+  pageSubscribersCsvUrl: (pageId: number) => `/api/status-pages/${pageId}/subscribers.csv`,
   announcements: (pageId: number) => get<Announcement[]>(`/api/status-pages/${pageId}/announcements`),
   createAnnouncement: (pageId: number, a: AnnouncementInput) =>
     post<Announcement & { copies?: number }>(`/api/status-pages/${pageId}/announcements`, a),
@@ -1639,9 +1707,17 @@ export const api = {
 
   // Herkese açık durum sayfası (oturum gerekmez)
   publicResolve: () => get<{ slug: string | null }>('/api/public/resolve'),
-  publicPage: (slug: string) => get<PublicPage>(`/api/public/pages/${encodeURIComponent(slug)}`),
+  /** fresh: canlı sinyalden sonra tarayıcı önbelleği (max-age=30) atlanır. */
+  publicPage: (slug: string, fresh = false) =>
+    get<PublicPage>(`/api/public/pages/${encodeURIComponent(slug)}${fresh ? `?t=${Date.now()}` : ''}`),
   publicUnlock: (slug: string, password: string) =>
     post<{ ok: boolean }>(`/api/public/pages/${encodeURIComponent(slug)}/unlock`, { password }),
+  /** Yanıt her durumda aynıdır (202); 429 çok deneme, 400 geçersiz e-posta. */
+  publicSubscribe: (slug: string, email: string, lang: Locale) =>
+    post<{ ok: boolean }>(`/api/public/pages/${encodeURIComponent(slug)}/subscribe`, { email, lang }),
+  publicConfirmSubscription: (token: string) =>
+    post<{ ok: boolean; page?: string }>('/api/public/subscriptions/confirm', { token }),
+  publicUnsubscribe: (token: string) => post<{ ok: boolean }>('/api/public/subscriptions/unsubscribe', { token }),
 
   // Bakım pencereleri
   maintenance: () => get<Maintenance[]>('/api/maintenance'),

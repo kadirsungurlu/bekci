@@ -336,7 +336,7 @@ gönderilir; metinler kırpılır (`Sample.Sanitize`).
   yeni sunucuda varsayılan (is_default) kanallar seçili gelir.
 - `notify.Event`'e `ProbeID` ve sunucu olay türleri (`server_alert`,
   `server_resolved`) eklenir; dağıtıcı `ProbeID` doluysa kanalları
-  `probe_notifications`'tan alır. Mesaj örneği: "🔴 CP Server İstanbul: CPU %94
+  `probe_notifications`'tan alır. Mesaj örneği: "CP Server İstanbul: CPU %94
   (10 dk ortalama, eşik %90)".
 - Uyarı geçmişi: `server_alert_events(id, probe_id, alert_id, metric, value, started_at, ended_at)`,
   90 gün; sunucu detayında gösterilir.
@@ -592,9 +592,9 @@ Bildirimlerdeki "Detay" bağlantısı down/up/hatırlatma için olay sayfasıdı
 
 | | Editör / yönetici | İzleyici | Müşteri kısıtlı izleyici |
 |---|---|---|---|
-| Kök neden, durum, süre, konumlar | ✓ | ✓ (mesajlar `viewerMessage` ile temizlenir) | yalnızca izinli monitörler; aksi 404 |
+| Kök neden, durum, süre, konumlar | evet | evet (mesajlar `viewerMessage` ile temizlenir) | yalnızca izinli monitörler; aksi 404 |
 | İşlem geçmişi | tam | bildirim kayıtları yok, kullanıcı adı yok | aynı |
-| İstek / yanıt, hedef adresin tamamı | ✓ | ✗ (`publicTarget`) | ✗ |
+| İstek / yanıt, hedef adresin tamamı | evet | hayır (`publicTarget`) | hayır |
 
 Herkese açık durum sayfaları değişmez (olay nedeni zaten gösterilmiyor).
 

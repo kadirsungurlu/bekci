@@ -243,7 +243,7 @@ export default {
     },
     updateUninstall: 'Güncellemek için aynı komutu tekrar çalıştırın. Kaldırmak için: {cmd}',
     conn: {
-      okTitle: 'Bağlandı ✓',
+      okTitle: 'Bağlandı',
       okText: 'İlk ölçümler geldi; sunucu listede görünüyor.',
       unavailableTitle: 'Ajan bağlandı ama metrik okuyamıyor.',
       unavailableHint: 'Komutu eksiksiz (host bağlamalarıyla) çalıştırdığınızdan emin olun.',

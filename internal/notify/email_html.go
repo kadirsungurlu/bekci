@@ -24,9 +24,11 @@ var (
 
 type mailView struct {
 	Lang, Brand, Status, Heading, Link, Open, Footer string
-	Tone                                             mailTone
-	Notes                                            []string
-	Rows                                             []Row
+	// Unsub/UnsubText abonelikten çıkma bağlantısı (durum sayfası aboneleri; boş: yok).
+	Unsub, UnsubText string
+	Tone             mailTone
+	Notes            []string
+	Rows             []Row
 }
 
 func (e Event) mailStatus() (string, mailTone) {
@@ -72,9 +74,9 @@ func (e Event) mailStatus() (string, mailTone) {
 	return i18n.T(e.Lang, "notify.mail.status."+key), tone
 }
 
-// plainTitle başlığın baştaki emojisiz hali (HTML'de durum rozeti var).
+// plainTitle başlığın kırpılmış hali (HTML'de durum rozeti var).
 func plainTitle(s string) string {
-	return strings.TrimSpace(strings.TrimLeft(s, "🔴🟢🟡⚠️✅🔄⏫⏳🌙👀 "))
+	return strings.TrimSpace(s)
 }
 
 // RenderMail genel HTML e-posta (sistem iletileri: şifre sıfırlama).
@@ -83,6 +85,28 @@ func plainTitle(s string) string {
 func RenderMail(lang, status, heading string, notes []string, rows []Row, link, open string) string {
 	v := mailView{Lang: i18n.Or(lang), Brand: brand.Name, Status: status, Heading: heading, Link: link, Open: open,
 		Footer: i18n.T(lang, "notify.mail.footer", brand.Name), Tone: toneInfo, Notes: notes, Rows: rows}
+	var b bytes.Buffer
+	if err := mailTmpl.Execute(&b, v); err != nil {
+		return ""
+	}
+	return b.String()
+}
+
+// RenderSubscriberMail durum sayfası abone e-postası: RenderMail ile aynı
+// tasarım; tone "down" | "up" | "warn" | "info", alt kısımda abonelikten çıkma
+// bağlantısı (unsub, unsubText).
+func RenderSubscriberMail(lang, tone, status, heading string, notes []string, rows []Row, link, open, unsub, unsubText string) string {
+	t := toneInfo
+	switch tone {
+	case "down":
+		t = toneDown
+	case "up":
+		t = toneUp
+	case "warn":
+		t = toneWarn
+	}
+	v := mailView{Lang: i18n.Or(lang), Brand: brand.Name, Status: status, Heading: heading, Link: link, Open: open,
+		Footer: i18n.T(lang, "notify.mail.footer", brand.Name), Tone: t, Notes: notes, Rows: rows, Unsub: unsub, UnsubText: unsubText}
 	var b bytes.Buffer
 	if err := mailTmpl.Execute(&b, v); err != nil {
 		return ""
@@ -131,5 +155,5 @@ var mailTmpl = template.Must(template.New("mail").Parse(`<!DOCTYPE html>
 </table>
 {{if .Link}}<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:22px"><tr><td style="border-radius:8px;background:#10b981"><a href="{{.Link}}" style="display:inline-block;padding:11px 20px;font-size:14px;font-weight:700;color:#022c22;text-decoration:none">{{.Open}}</a></td></tr></table>{{end}}
 </td></tr>
-<tr><td style="padding:14px 4px 0;font-size:12px;line-height:1.5;color:#9ca3af">{{.Footer}}{{if .Link}}<br><a href="{{.Link}}" style="color:#9ca3af">{{.Link}}</a>{{end}}</td></tr>
+<tr><td style="padding:14px 4px 0;font-size:12px;line-height:1.5;color:#9ca3af">{{.Footer}}{{if .Link}}<br><a href="{{.Link}}" style="color:#9ca3af">{{.Link}}</a>{{end}}{{if .Unsub}}<br><a href="{{.Unsub}}" style="color:#6b7280">{{.UnsubText}}</a>{{end}}</td></tr>
 </table></td></tr></table></body></html>`))

@@ -373,8 +373,8 @@ func TestMaintenanceEventsIdempotent(t *testing.T) {
 }
 
 // Yükseltilen kısmi olay: tam kesinti bitince uzak konum hâlâ çalışmıyorsa
-// aynı kısmi olay yeniden açılır; ikinci bir konum kesintisi (🟡) bildirimi
-// gitmez, düzelme (🟢) bildirimi hâlâ çalışmayan konumu listeler. Yeniden
+// aynı kısmi olay yeniden açılır; ikinci bir konum kesintisi (uyarı) bildirimi
+// gitmez, düzelme (düzelme) bildirimi hâlâ çalışmayan konumu listeler. Yeniden
 // başlatma bu bağı unutturmaz.
 func TestEscalatedPartialResumesWithoutSecondNotification(t *testing.T) {
 	for _, restart := range []bool{false, true} {
@@ -440,7 +440,7 @@ func TestEscalatedPartialResumesWithoutSecondNotification(t *testing.T) {
 		if body := upEv.Body(); !strings.Contains(body, "Frankfurt: DNS hatası") {
 			t.Fatalf("bildirim gövdesi: %q", body)
 		}
-		// Frankfurt düzelir: kısmi olay kapanır, 🟢 aynı olaya bağlı.
+		// Frankfurt düzelir: kısmi olay kapanır, düzelme aynı olaya bağlı.
 		step()
 		r.remote(fra, f.clock, up())
 		if r.partialID != 0 {

@@ -93,7 +93,7 @@ func normalizeTRPhone(s string) (string, bool) {
 }
 
 func netgsmText(ev Event) string {
-	title := strings.TrimSpace(strings.TrimLeft(ev.Title(), "🔴🟢🟡⚠️✅ "))
+	title := strings.TrimSpace(ev.Title())
 	msg := title
 	if ev.Kind == KindDown || ev.Kind == KindReminder || ev.Kind == KindLocationDown {
 		if ev.LocalMessage() != "" {

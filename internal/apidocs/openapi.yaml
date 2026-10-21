@@ -387,6 +387,7 @@ components:
         layout: { type: object, additionalProperties: true }
         incident_days: { type: integer, enum: [7, 14, 30, 90] }
         uptime_windows: { type: array, items: { type: string, enum: [24h, 7d, 30d, 90d] } }
+        subscriptions: { type: boolean, description: "Ziyaretçiler e-postayla abone olabilir (sistem e-postası gerekir; yokken true -> 400)" }
         published: { type: boolean }
         has_logo: { type: boolean }
         created_at: { type: integer, format: int64 }
@@ -419,6 +420,7 @@ components:
         layout: { type: object, additionalProperties: true }
         lang: { $ref: "#/components/schemas/Lang" }
         has_password: { type: boolean }
+        subscribe: { type: boolean, description: "E-posta aboneliği açık (sayfada açık ve sistem e-postası ayarlı)" }
         updated_at: { type: integer, format: int64 }
     Maintenance:
       type: object
@@ -969,6 +971,92 @@ paths:
     get: { tags: [status-pages], summary: Logo (editör+), responses: { "200": { description: Görsel, content: { image/png: {}, image/jpeg: {}, image/webp: {} } } } }
     put: { tags: [status-pages], summary: Logo yükle (≤512 KB; png/jpeg/webp), requestBody: { content: { image/png: {}, image/jpeg: {}, image/webp: {} } }, responses: { "200": { $ref: "#/components/responses/OK" } } }
     delete: { tags: [status-pages], summary: Logoyu kaldır, responses: { "200": { $ref: "#/components/responses/OK" } } }
+  /api/status-pages/{id}/subscribers:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get:
+      tags: [status-pages]
+      summary: E-posta aboneleri
+      responses:
+        "200":
+          description: "available: sistem e-postası ayarlı mı; count: onaylı; pending: onay bekleyen"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available: { type: boolean }
+                  count: { type: integer }
+                  pending: { type: integer }
+                  items:
+                    type: array
+                    items: { type: object, properties: { id: { type: integer, format: int64 }, email: { type: string }, confirmed: { type: boolean }, created_at: { type: integer, format: int64 }, confirmed_at: { type: integer, format: int64 } } }
+  /api/status-pages/{id}/domain:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get:
+      tags: [status-pages]
+      summary: "Özel alan adı durumu: DNS bu sunucuyu gösteriyor mu, HTTPS ile açılıp bu sayfayı sunuyor mu (yönetici)"
+      responses:
+        "200":
+          description: "state: none | unpublished | dns (DNS bekleniyor) | cert (sertifika bekleniyor) | active"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  domain: { type: string }
+                  target: { type: string, description: CNAME hedefi (uygulamanın adresi) }
+                  target_ips: { type: array, items: { type: string }, description: A/AAAA hedefleri }
+                  domain_ips: { type: array, items: { type: string } }
+                  dns: { type: boolean }
+                  https: { type: boolean }
+                  https_error: { type: string }
+                  published: { type: boolean }
+                  state: { type: string, enum: [none, unpublished, dns, cert, active] }
+  /api/update:
+    get:
+      tags: [settings]
+      summary: "Yeni Bekci sürümü durumu (yönetici). show: bu kullanıcıya şerit gösterilsin (kapatılan sürümden yenisi varsa)"
+      responses:
+        "200":
+          description: Sürüm durumu
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled: { type: boolean, description: "Denetim açık (ayar, UPDATE_CHECK, sürümü bilinen derleme)" }
+                  current: { type: string }
+                  latest: { type: string }
+                  newer: { type: boolean }
+                  notes_url: { type: string }
+                  dismissed: { type: string }
+                  show: { type: boolean }
+                  checked_at: { type: integer, format: int64 }
+  /api/update/check:
+    post: { tags: [settings], summary: "Sürümü şimdi denetle (kapalıyken dışarıya istek gitmez); yanıt GET /api/update ile aynı", responses: { "200": { description: Sürüm durumu } } }
+  /api/update/dismiss:
+    post:
+      tags: [settings]
+      summary: Yeni sürüm şeridini bu kullanıcı için verilen sürümde kapat
+      requestBody: { content: { application/json: { schema: { type: object, properties: { version: { type: string } } } } } }
+      responses: { "200": { description: Sürüm durumu } }
+  /api/tls/ask:
+    get:
+      tags: [status-pages]
+      summary: "Ters vekilin on-demand TLS onayı (Caddy on_demand_tls ask): alan adı yayındaki bir durum sayfasına tanımlıysa ya da uygulamanın adresiyse 200, değilse 404. Oturum gerekmez; IP başına dakikada 600 istek."
+      security: []
+      parameters: [{ name: domain, in: query, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Sertifika alınabilir }
+        "404": { description: Tanımsız alan adı }
+  /api/status-pages/{id}/subscribers.csv:
+    parameters: [{ $ref: "#/components/parameters/id" }]
+    get: { tags: [status-pages], summary: "Aboneler CSV (email,status,created_at,confirmed_at; RFC3339)", responses: { "200": { description: CSV, content: { text/csv: {} } } } }
+  /api/status-pages/{id}/subscribers/{sid}:
+    parameters:
+      - { $ref: "#/components/parameters/id" }
+      - { name: sid, in: path, required: true, schema: { type: integer, format: int64 } }
+    delete: { tags: [status-pages], summary: Aboneyi sil, responses: { "204": { description: Silindi }, "404": { $ref: "#/components/responses/Error" } } }
   /api/status-pages/{id}/announcements:
     parameters: [{ $ref: "#/components/parameters/id" }]
     get: { tags: [status-pages], summary: Duyurular, responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Announcement" } } } } } } }
@@ -999,8 +1087,33 @@ paths:
       parameters: [{ $ref: "#/components/parameters/slug" }]
       requestBody: { content: { application/json: { schema: { type: object, properties: { password: { type: string } } } } } }
       responses: { "200": { $ref: "#/components/responses/OK" }, "401": { $ref: "#/components/responses/Error" } }
+  /api/public/pages/{slug}/subscribe:
+    post:
+      tags: [public]
+      summary: "E-posta aboneliği iste (çift onay): her durumda 202, adresin kayıtlı olup olmadığı belli olmaz. Abonelik kapalıysa / sistem e-postası yoksa 404; şifreli sayfada çerez yoksa 401; IP başına 15 dakikada 5 istek (429)."
+      security: []
+      parameters: [{ $ref: "#/components/parameters/slug" }]
+      requestBody: { content: { application/json: { schema: { type: object, required: [email], properties: { email: { type: string }, lang: { type: string, enum: [tr, en] } } } } } }
+      responses: { "202": { $ref: "#/components/responses/OK" }, "400": { $ref: "#/components/responses/Error" }, "401": { $ref: "#/components/responses/Error" }, "404": { $ref: "#/components/responses/Error" }, "429": { $ref: "#/components/responses/Error" } }
+  /api/public/subscriptions/confirm:
+    post:
+      tags: [public]
+      summary: "Aboneliği onayla (e-postadaki tek kullanımlık, 24 saat geçerli belirteç)"
+      security: []
+      requestBody: { content: { application/json: { schema: { type: object, required: [token], properties: { token: { type: string } } } } } }
+      responses: { "200": { description: "Onaylandı", content: { application/json: { schema: { type: object, properties: { ok: { type: boolean }, page: { type: string } } } } } }, "400": { $ref: "#/components/responses/Error" }, "404": { $ref: "#/components/responses/Error" } }
+  /api/public/subscriptions/unsubscribe:
+    post:
+      tags: [public]
+      summary: "Abonelikten çık. RFC 8058 one-click (gövde List-Unsubscribe=One-Click, X-Uptime başlığı gerekmez) ya da JSON {token}. Abone yoksa da 200; belirteç bozuk/süresi dolmuşsa 400."
+      security: []
+      parameters: [{ name: t, in: query, schema: { type: string } }]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { token: { type: string } } } }, application/x-www-form-urlencoded: { schema: { type: object } } } }
+      responses: { "200": { $ref: "#/components/responses/OK" }, "400": { $ref: "#/components/responses/Error" }, "404": { $ref: "#/components/responses/Error" } }
   /api/public/pages/{slug}/logo:
     get: { tags: [public], summary: Sayfa logosu, security: [], parameters: [{ $ref: "#/components/parameters/slug" }], responses: { "200": { description: Görsel } } }
+  /api/public/pages/{slug}/events:
+    get: { tags: [public], summary: "Canlı sinyal akışı (SSE): sayfa değişince `data: {\"type\":\"update\"}`; olay verisi içermez, istemci sayfayı yeniden alır. IP başına 8, toplam 100 akış.", security: [], parameters: [{ $ref: "#/components/parameters/slug" }], responses: { "200": { description: Akış, content: { text/event-stream: {} } }, "401": { $ref: "#/components/responses/Error" }, "429": { $ref: "#/components/responses/Error" } } }
   /api/public/pages/{slug}/feed.xml:
     get: { tags: [public], summary: RSS akışı (olaylar, duyurular, planlı bakım), security: [], parameters: [{ $ref: "#/components/parameters/slug" }], responses: { "200": { description: RSS 2.0, content: { application/rss+xml: {} } } } }
   /api/badge/{id}/{kind}:

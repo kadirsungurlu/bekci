@@ -13,14 +13,14 @@ import (
 // Yavaş yanıt uyarısı ("degraded") -------------------------------------------------------
 //
 // Monitörde eşik (SlowMs) tanımlıysa son SlowChecks başarılı kontrolün
-// ortalama yanıt süresi eşiği aşınca bir "yavaş yanıt" olayı açılır ve 🟡
-// bildirim gider; ortalama eşiğin %90'ının altına inince olay kapanır ve 🟢
+// ortalama yanıt süresi eşiği aşınca bir "yavaş yanıt" olayı açılır ve uyarı
+// bildirimi gider; ortalama eşiğin %90'ının altına inince olay kapanır ve düzelme
 // gider (histerezis: eşiğin hemen çevresinde gidip gelen süre her kontrolde
 // bildirim üretmez). Uptime ve monitörün durumu etkilenmez. Çok konumlu
 // monitörde birleşik sonucun ortalaması (çalışan konumların ortalaması) kullanılır.
 //
 // Kesintide (DOWN) pencere sıfırlanır ve açık yavaş yanıt olayı bildirimsiz
-// kapanır (🔴 zaten gider); bakımda değerlendirme yapılmaz.
+// kapanır (kritik zaten gider); bakımda değerlendirme yapılmaz.
 
 // slowRecoverRatio eşiğin bu oranının altına inince "normale döndü".
 const slowRecoverRatio = 0.9
@@ -98,7 +98,7 @@ func (r *runner) beginSlow(ctx context.Context, now time.Time, avg int64, n int)
 	r.notifySlow(notify.KindSlow, now, id, avg, n, 0)
 }
 
-// endSlow yavaş yanıt olayını kapatır; alert=true ise 🟢 bildirim gider
+// endSlow yavaş yanıt olayını kapatır; alert=true ise düzelme bildirimi gider
 // (kesintiye dönüşme ve eşik kaldırma sessizdir).
 func (r *runner) endSlow(ctx context.Context, now time.Time, msg string, avg int64, alert bool) {
 	if avg > 0 {

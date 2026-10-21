@@ -90,21 +90,21 @@ On Windows the load average is an approximation (derived from the processor queu
 :::
 
 > [!CHECK]
-> Within a minute or two the install window in the panel changes from **Waiting for connection…** to **Connected ✓**. Open the server's page with **Go to server**; the charts start to fill.
+> Within a minute or two the install window in the panel changes from **Waiting for connection…** to **Connected**. Open the server's page with **Go to server**; the charts start to fill.
 
 ## Alert rules {#alert-rules}
 
 The **Alert rules** section on a server's page decides when a notification is sent. A new server gets default rules: offline after 3 min without data, CPU and RAM 10-min average at 90%, fullest disk at 85%, and reboot. Each rule can be enabled or disabled on its own; a server without rules never sends alerts.
 
-**Warning and critical thresholds.** CPU, RAM, swap, load, temperature, network and disk rules take an optional **warning** threshold (it must be below the critical one). When the value crosses the warning threshold a 🟡 *warning* is sent, when it crosses the critical threshold a 🔴 *critical* alert; when the level drops you get a "downgraded from critical to warning" note, and when the value falls below the threshold a 🟢 resolved notification. The incident stays a single record; the **Incidents** page shows level changes on its timeline. In the server's **Notification channels** section you can pick a level per channel: *all*, *warnings only* or *critical only* — for example Slack gets everything while your phone only rings for critical. The resolved notification goes to the channels that received the incident's highest level.
+**Warning and critical thresholds.** CPU, RAM, swap, load, temperature, network and disk rules take an optional **warning** threshold (it must be below the critical one). When the value crosses the warning threshold a *warning* is sent, when it crosses the critical threshold a *critical* alert; when the level drops you get a "downgraded from critical to warning" note, and when the value falls below the threshold a resolved notification. The incident stays a single record; the **Incidents** page shows level changes on its timeline. In the server's **Notification channels** section you can pick a level per channel: *all*, *warnings only* or *critical only* — for example Slack gets everything while your phone only rings for critical. The resolved notification goes to the channels that received the incident's highest level.
 
 **Container alarm.** The *Container* metric alerts when a Docker container stops running. Leave the name empty and the alarm fires when **any** container previously seen on the server stops; type a name (names seen on the server are suggested) and only that container is watched — the alarm also opens when the name no longer appears at all (the container was removed). The duration is how many minutes the container must be not running; a container that restarts within seconds doesn't trigger it. On servers without Docker data (Windows, an agent without the Docker socket mounted) the rule stays silent and never produces a false alarm. Stopped containers are listed in the server page's container table with a **stopped** badge; the agent shipped with this version reports stopped containers too; older agents only report running ones, and the rule then fires when the name disappears (see [updating](#update)).
 
-**Reboot detection.** The *Reboot* rule sends "🔁 *Name* was rebooted" when the server's boot time moves forward (by at least 60 seconds) and adds a row with the new boot time to the **Events** list on the server page. This is an instant notification: it doesn't open an incident and there is no resolved message. If you want the record but not the notification, disable the rule — reboots are still written to the list.
+**Reboot detection.** The *Reboot* rule sends "*Name* was rebooted" when the server's boot time moves forward (by at least 60 seconds) and adds a row with the new boot time to the **Events** list on the server page. This is an instant notification: it doesn't open an incident and there is no resolved message. If you want the record but not the notification, disable the rule — reboots are still written to the list.
 
 ### Server maintenance {#server-maintenance}
 
-Before a planned reboot or upgrade open a window on the **Maintenance windows** page and pick the servers (or *All servers*) in the **Affected servers** section; selecting monitors in the same window is optional. While the window is active no new alerts open on the selected servers and no offline or reboot notifications are sent; the server list and detail page show a **Maintenance** badge. An alert opened earlier can still resolve during maintenance (the 🟢 notification is sent). When the window ends monitoring resumes where it left off; metrics still above a threshold open an alert after the normal duration.
+Before a planned reboot or upgrade open a window on the **Maintenance windows** page and pick the servers (or *All servers*) in the **Affected servers** section; selecting monitors in the same window is optional. While the window is active no new alerts open on the selected servers and no offline or reboot notifications are sent; the server list and detail page show a **Maintenance** badge. An alert opened earlier can still resolve during maintenance (the notification is sent). When the window ends monitoring resumes where it left off; metrics still above a threshold open an alert after the normal duration.
 
 ## Install a check location {#check-location}
 
@@ -114,14 +114,14 @@ A check location checks your monitors from another city or network too. That way
 2. Give it a short name describing the place (e.g. “Frankfurt”) and save.
 3. Run the command shown on the server that will be the check location (it needs Docker), as **root**, pasting the whole command. It creates `/etc/uptime-probe.env` and a container named `uptime-probe`.
 4. Close the window with **I've copied it, close**.
-5. On a monitor's edit page, select this check location under **Locations** and choose the **Outage rule**: down when any location, the majority of locations or all locations fail. Optionally enable **Also notify on location outages**: when a single location goes down or becomes unreachable while the monitor stays up, a separate 🟡 notification is sent, and 🟢 when the location recovers; uptime is not affected (off by default). Location outages are listed separately on the **Incidents** page under the “Location outage” type.
+5. On a monitor's edit page, select this check location under **Locations** and choose the **Outage rule**: down when any location, the majority of locations or all locations fail. Optionally enable **Also notify on location outages**: when a single location goes down or becomes unreachable while the monitor stays up, a separate notification is sent, and when the location recovers; uptime is not affected (off by default). Location outages are listed separately on the **Incidents** page under the “Location outage” type.
 
 > [!CHECK]
 > Within a few seconds the check location shows as **Online** in the list. A check location that sent results in the last 90 seconds counts as online; a location whose connection drops (stopped, crashed) shows as offline immediately. `docker logs uptime-probe` should contain a `msg="kontrol noktası başladı"` (“agent started”) line.
 
 ### Offline notification {#check-location-notification}
 
-To be told when a check location goes down, open **Edit** from the row menu, enable **Notify when offline** and pick the notification channels. If the check location sends no request for 90 seconds, a “🔴 *Name*: check location unreachable” notification is sent and an incident of type “Check location offline” is opened on the **Incidents** page; when it reconnects, a “🟢 … back online” notification closes the incident with the downtime. Thanks to the 90-second grace period a short agent restart does not notify. If you disable the check location yourself, nothing is sent and an open incident is closed quietly. These notifications are independent of the monitors' own channels: they go to the channels selected for the check location.
+To be told when a check location goes down, open **Edit** from the row menu, enable **Notify when offline** and pick the notification channels. If the check location sends no request for 90 seconds, a “*Name*: check location unreachable” notification is sent and an incident of type “Check location offline” is opened on the **Incidents** page; when it reconnects, a “… back online” notification closes the incident with the downtime. Thanks to the 90-second grace period a short agent restart does not notify. If you disable the check location yourself, nothing is sent and an open incident is closed quietly. These notifications are independent of the monitors' own channels: they go to the channels selected for the check location.
 
 ## Files the install creates {#files}
 
@@ -134,7 +134,7 @@ To be told when a check location goes down, open **Edit** from the row menu, ena
 
 ## Updating {#update}
 
-Agents installed with Bekci 1.3.1 or later **update themselves**: when you upgrade Bekci, server agents and check locations switch to the same version within seconds. An agent installs the program from the panel only if the **project signature** verifies. The signature's public key is built into the agent, and the private key is only used by the official release build. So even if the server running your panel is compromised, no unsigned or modified program lands on your servers, and agents can't be downgraded.
+Agents installed with Bekci 1.4.0 or later **update themselves**: when you upgrade Bekci, server agents and check locations switch to the same version within seconds. An agent installs the program from the panel only if the **project signature** verifies. The signature's public key is built into the agent, and the private key is only used by the official release build. So even if the server running your panel is compromised, no unsigned or modified program lands on your servers, and agents can't be downgraded.
 
 How it works:
 
@@ -150,11 +150,11 @@ Settings:
 - To turn updates off on the agent itself, add `AUTO_UPDATE=0` to the agent's settings file (`/etc/uptime-agent.env`, `/etc/uptime-probe.env` or `agent.env`) and restart the agent.
 
 > [!NOTE]
-> Only official release images (such as `kadirsungurlu/bekci:1.3.1`) contain signed agents. A panel built from source or from a commit doesn't offer updates to agents, and the agent row says **Unsigned build** or **Unversioned build**. Agents that run from the app image with `PROBE_IMAGE` can't update themselves either (**Manual updates**); update the image for those.
+> Only official release images (such as `kadirsungurlu/bekci:1.5.0`) contain signed agents. A panel built from source or from a commit doesn't offer updates to agents, and the agent row says **Unsigned build** or **Unversioned build**. Agents that run from the app image with `PROBE_IMAGE` can't update themselves either (**Manual updates**); update the image for those.
 
 ### Updating old agents once {#old-agents}
 
-Agents installed before 1.3.1 can't update themselves. They show as **Old agent** in the list. Reinstall them by hand once, and later versions arrive on their own:
+Agents installed before 1.4.0 can't update themselves. They show as **Old agent** in the list. Reinstall them by hand once, and later versions arrive on their own:
 
 1. Get the **current** install command from the panel. Since the token is only shown once, this step regenerates it and the old token stops working immediately:
    - Server agent: on the server's page, **Install command** → **Regenerate token and show command**.
@@ -227,4 +227,4 @@ Logs: on Docker `docker logs uptime-agent` (for a check location `uptime-probe`)
 | `ana sunucuya ulaşılamıyor, tekrar denenecek` — “can't reach the main server, will retry” | The agent can't reach the panel's address. Check `BASE_URL`, DNS and outgoing connections from the agent's server (e.g. `curl -sI https://bekci.example.com/healthz`). |
 | “Docker wasn’t found or the agent can’t access the Docker socket” in the panel | Container data isn't collected; that's normal if there's no Docker. If there is, make sure the `/var/run/docker.sock` mount from the command is in place. |
 | “Check location unreachable” in an incident or notification | No results arrive from that location (agent stopped, network down). The location is left out of the outage rule; a location whose last result was “down” keeps counting as down until that result goes stale (an agent restart doesn't close and reopen the incident). Check the agent and its access to the panel. |
-| “🔴 … server unreachable” notification, “Server unreachable” in the incident list | No data from the server agent for 3 minutes (offline alert). Check that the agent container/service is running and can reach the panel; once data arrives, a “🟢 … sending data again” notification is sent and the incident closes. |
+| “… server unreachable” notification, “Server unreachable” in the incident list | No data from the server agent for 3 minutes (offline alert). Check that the agent container/service is running and can reach the panel; once data arrives, a “… sending data again” notification is sent and the incident closes. |

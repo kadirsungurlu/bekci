@@ -332,7 +332,7 @@ export default {
     resendHelp: 'Kesinti sürerken her N başarısız kontrolde bir tekrar bildir. 0 = kapalı.',
     slowMs: 'Yanıt süresi eşiği (ms)',
     slowMsHelp:
-      'Son kontrollerin ortalama yanıt süresi bu eşiği aşarsa “yavaş” sayılır: 🟡 bildirim gider ve bir yavaş yanıt olayı açılır; eşiğin %90 altına inince 🟢 ile kapanır. Uptime etkilenmez. 0 = kapalı.',
+      'Son kontrollerin ortalama yanıt süresi bu eşiği aşarsa “yavaş” sayılır: uyarı bildirimi gider ve bir yavaş yanıt olayı açılır; eşiğin %90 altına inince düzelme bildirimiyle kapanır. Uptime etkilenmez. 0 = kapalı.',
     slowChecks: 'Ortalama penceresi (kontrol)',
     slowChecksHelp: 'Ortalama bu kadar ardışık başarılı kontrolden alınır; tek bir yavaş yanıt alarm üretmez.',
     upsideDown: 'Ters mod',

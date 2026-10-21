@@ -138,8 +138,8 @@ func TestRulesEventFilter(t *testing.T) {
 	}
 }
 
-// Gecikme: kesinti N dk sürmezse ne 🔴 ne 🟢 gider; sürerse 🔴 "gecikmeli"
-// notuyla gider, ardından 🟢 gider.
+// Gecikme: kesinti N dk sürmezse ne kritik ne düzelme gider; sürerse kritik "gecikmeli"
+// notuyla gider, ardından düzelme gider.
 func TestRulesDelay(t *testing.T) {
 	f := newRulesFixture(t, func(n *store.Notification) { n.DelayMin = 5 }, true)
 	ctx := context.Background()
@@ -185,7 +185,7 @@ func TestRulesDelay(t *testing.T) {
 	f.clock = f.clock.Add(time.Hour)
 	inc2, _ := f.st.StartIncident(ctx, f.m.ID, f.clock.Unix(), "HTTP 502")
 	f.notify(KindDown, inc2)
-	f.notify(KindReminder, inc2) // 🔴 gitmeden hatırlatma da gitmez
+	f.notify(KindReminder, inc2) // kritik gitmeden hatırlatma da gitmez
 	f.clock = f.clock.Add(5*time.Minute + time.Second)
 	f.d.Sweep(ctx)
 	f.d.Wait(5 * time.Second)
@@ -205,7 +205,7 @@ func TestRulesDelay(t *testing.T) {
 }
 
 // Sessiz saatler: "hiçbiri" kipinde kesinti pencerenin bitimine ertelenir ve
-// olay hâlâ açıksa gider; kritik kipte 🔴 geçer, 🟡 ertelenir, hatırlatma atılır.
+// olay hâlâ açıksa gider; kritik kipte kritik geçer, uyarı ertelenir, hatırlatma atılır.
 func TestRulesQuietHours(t *testing.T) {
 	// 22:00-07:00 UTC; saat 23:30.
 	f := newRulesFixture(t, func(n *store.Notification) {
@@ -220,7 +220,7 @@ func TestRulesQuietHours(t *testing.T) {
 		t.Fatalf("sessiz saatte gitmemeliydi: %v", got)
 	}
 	dd := f.deliveries(t, inc)
-	// Hatırlatma: 🔴 henüz gitmediği için eşleşmedi (sessiz saatten önce eşleştirme denetlenir).
+	// Hatırlatma: kritik henüz gitmediği için eşleşmedi (sessiz saatten önce eşleştirme denetlenir).
 	if len(dd) != 2 || dd[0].Deferred != time.Date(2026, 10, 2, 7, 0, 0, 0, time.UTC).Unix() || dd[0].Reason != store.QueueQuiet || dd[1].Skipped != SkipUnpaired {
 		t.Fatalf("erteleme kaydı: %+v", dd)
 	}
@@ -248,7 +248,7 @@ func TestRulesQuietHours(t *testing.T) {
 		t.Fatalf("kritik kipte yalnızca kesinti geçmeliydi: %v", got)
 	}
 	g.st.ResolveIncident(ctx, g.m.ID, g.clock.Unix()+60)
-	g.notify(KindUp, inc2) // 🔴 gittiği için 🟢 de sessiz saatte geçer
+	g.notify(KindUp, inc2) // kritik gittiği için düzelme de sessiz saatte geçer
 	if got := g.sink.events(); len(got) != 2 || got[1] != KindUp {
 		t.Fatalf("düzelme geçmeliydi: %v", got)
 	}
@@ -288,7 +288,7 @@ func TestQuietHoursActive(t *testing.T) {
 	}
 }
 
-// Eskalasyon: monitöre bağlı olmayan kanal N dk sonra 🔴 alır, olay kapanınca 🟢 de alır;
+// Eskalasyon: monitöre bağlı olmayan kanal N dk sonra kritik alır, olay kapanınca düzelme de alır;
 // aynı olay için ikinci kez bildirilmez.
 func TestRulesEscalation(t *testing.T) {
 	f := newRulesFixture(t, func(n *store.Notification) { n.EscalateMin = 10 }, false)
@@ -340,13 +340,13 @@ func TestRulesChannelLang(t *testing.T) {
 	}
 }
 
-// Kuralsız kanalda eski davranış korunur: 🔴 gönderilemese de 🟢 gider.
+// Kuralsız kanalda eski davranış korunur: kritik gönderilemese de düzelme gider.
 func TestRulesNoneKeepsLegacy(t *testing.T) {
 	f := newRulesFixture(t, nil, true)
 	ctx := context.Background()
 	inc, _ := f.st.StartIncident(ctx, f.m.ID, f.clock.Unix(), "HTTP 500")
 	f.st.ResolveIncident(ctx, f.m.ID, f.clock.Unix()+60)
-	f.notify(KindUp, inc) // 🔴 hiç gönderilmedi
+	f.notify(KindUp, inc) // kritik hiç gönderilmedi
 	if got := f.sink.events(); len(got) != 1 || got[0] != KindUp {
 		t.Fatalf("kuralsız kanalda düzelme gitmeliydi: %v", got)
 	}

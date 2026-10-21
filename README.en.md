@@ -142,8 +142,8 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
   in the "Yeni monitör" (New monitor) form
 - SSL certificate and domain (RDAP) expiry warnings, retries, outage
   reminders, upside-down mode
-- Slow-response alerts: per-monitor threshold and window; a 🟡 "responding
-  slowly" incident while the site stays up, 🟢 when it recovers (uptime is not
+- Slow-response alerts: per-monitor threshold and window; a "responding
+  slowly" incident while the site stays up, a recovery notification when it recovers (uptime is not
   affected)
 - Push monitors with a grace period and one-click URL regeneration
 - Monitor groups, tags, maintenance windows; the last 50 checks (time, result,
@@ -154,7 +154,7 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
 - Remote **check locations**: monitors are checked from multiple locations at
   the same time, with an outage rule (any / majority / all); optional
   **notify on location outages**: when a single location goes down while the
-  monitor stays up, a separate 🟡 notification is sent, and 🟢 when it recovers
+  monitor stays up, a separate warning notification is sent, and a recovery notification when it recovers
   (uptime is not affected)
 
 **Server monitoring**
@@ -174,7 +174,7 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
   and language; retries on transient errors
 - Tag-based binding: attach a channel to a tag and every monitor with that
   tag (including ones added later) notifies it automatically
-- 🔴 / 🟢 notifications when a check location goes offline / comes back
+- Outage / recovery notifications when a check location goes offline / comes back
 - HTML + plain-text email; optional HMAC signature on webhooks
   (`X-Bekci-Signature`); browser notifications (Web Push, PWA)
 - Incident acknowledge and snooze: no reminders or escalation for acknowledged
@@ -183,7 +183,7 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
 **Status pages**
 - Groups (collapsible), target address display (domain only), recent
   incidents (can be hidden; 7/14/30/90 days), multiple uptime windows,
-  password protection, custom domain, badges
+  password protection, custom domain (automatic HTTPS, Caddy on-demand TLS), badges
 - Manual incidents and incident updates (investigating → identified →
   monitoring → resolved), planned-maintenance block; all in the RSS feed
 
@@ -220,7 +220,7 @@ Coolify and Compose setups, image tags and environment variables.
 ### Coolify
 
 - Recommended: Build Pack **Docker Image**, image `kadirsungurlu/bekci:latest`
-  (or a pinned version, e.g. `kadirsungurlu/bekci:1.3.0`); use Build Pack
+  (or a pinned version, e.g. `kadirsungurlu/bekci:1.5.0`); use Build Pack
   **Dockerfile** if you want to build from source. Port **8080**, health check
   `/healthz`
 - Persistent storage: **/data** (database and the `backups/` folder). Add it

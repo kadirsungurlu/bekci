@@ -24,8 +24,8 @@ Open `http://SERVER:8080` and create the first admin account. For HTTPS with Cad
 
 | Tag | Contents |
 |---|---|
-| `latest`, `1`, `1.3`, `1.3.0` (exact version, e.g.) | SQLite (recommended, lightest) |
-| `postgres`, `1-postgres`, `1.3-postgres`, `1.3.0-postgres` | Embedded PostgreSQL 18 |
+| `latest`, `1`, `1.5`, `1.5.0` (exact version, e.g.) | SQLite (recommended, lightest) |
+| `postgres`, `1-postgres`, `1.5-postgres`, `1.5.0-postgres` | Embedded PostgreSQL 18 |
 
 - `latest` / `postgres` always point to the latest **released** version; development builds are not pushed to Docker Hub (they live on `ghcr.io/kadirsungurlu/bekci:<short-sha>` only).
 - Platforms: `linux/amd64`, `linux/arm64`.
@@ -61,4 +61,4 @@ Updates: `docker compose pull && docker compose up -d`. The database is backed u
 
 ---
 
-🇹🇷 **Türkçe:** Bekci, web siteleri, servisler ve sunucular için kendi sunucunuzda çalışan, tek imajlık izleme sistemidir. Türkçe belgeler: **https://bekci.app/docs/**
+**Türkçe:** Bekci, web siteleri, servisler ve sunucular için kendi sunucunuzda çalışan, tek imajlık izleme sistemidir. Türkçe belgeler: **https://bekci.app/docs/**

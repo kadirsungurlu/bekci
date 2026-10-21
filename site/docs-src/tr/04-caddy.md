@@ -196,12 +196,16 @@ volumes:
 **Caddyfile** — `nano /opt/bekci/Caddyfile` (dosyanın adı tam olarak `Caddyfile`; uzantısı yok, C büyük)
 
 ```caddyfile title="/opt/bekci/Caddyfile" download="/indir/caddy/Caddyfile"
-# Caddy: HTTPS sertifikasını otomatik alır ve Bekci'ye yönlendirir.
-# Alan adları .env dosyasından gelir; bu dosyayı değiştirmeniz gerekmez.
-# Rehber: https://bekci.app/docs/kurulum/caddy/
+# Caddy: HTTPS sertifikasını otomatik alır ve uygulamaya yönlendirir.
+# Alan adları .env dosyasından gelir (docker-compose.yml → environment).
 
 {
 	email {$ACME_EMAIL}
+	# Durum sayfası özel alan adları: Caddy tanımadığı bir ada sertifika almadan
+	# önce Bekci'ye sorar; yalnız yayındaki bir sayfaya tanımlı adlar onaylanır.
+	on_demand_tls {
+		ask http://bekci:8080/api/tls/ask
+	}
 }
 
 {$UPTIME_DOMAIN} {
@@ -215,16 +219,20 @@ volumes:
 	}
 }
 
-# İsteğe bağlı: durum sayfası için ayrı alan adı (ör. durum.ornek.com).
-# .env'de STATUS_DOMAIN tanımlayıp aşağıdaki bloğun başındaki # işaretlerini
-# kaldırın; ardından panelde durum sayfasının "Özel alan adı" alanına aynı
-# adı yazın. Bu adresten yalnızca durum sayfası açılır, yönetim paneli açılmaz.
-#
-# {$STATUS_DOMAIN} {
-# 	encode zstd gzip
-# 	header >Strict-Transport-Security "max-age=31536000"
-# 	reverse_proxy bekci:8080
-# }
+# Durum sayfası özel alan adları (otomatik): panelde sayfaya alan adı yazıp
+# DNS'i bu sunucuya yönlendirmek yeterli; bu dosyaya dokunmaya gerek yok.
+# Sertifika alan adına ilk HTTPS isteğinde alınır. Yukarıdaki gibi adı açıkça
+# yazılmış site blokları bu bloğun önüne geçer (eski elle eklenmiş bloklar çalışır).
+https:// {
+	tls {
+		on_demand
+	}
+	encode zstd gzip
+	header >Strict-Transport-Security "max-age=31536000"
+	reverse_proxy bekci:8080 {
+		flush_interval -1
+	}
+}
 ```
 
 **.env** — `nano /opt/bekci/.env` (içeriğini bir sonraki adımda düzenleyeceksiniz)
@@ -250,7 +258,9 @@ LOG_LEVEL=info
 # Aynı anda en fazla kontrol sayısı (yüzlerce monitörde artırılabilir).
 MAX_CONCURRENT_CHECKS=50
 
-# İsteğe bağlı: durum sayfası için ayrı alan adı (Caddyfile'daki bloğu da açın).
+# Durum sayfası özel alan adları artık otomatik (Caddyfile'daki on-demand TLS
+# bloğu): panelde sayfaya alan adı yazmak yeterli. STATUS_DOMAIN yalnız eski,
+# elle eklenmiş site bloğu kullanan kurulumlar için tutulur.
 # STATUS_DOMAIN=durum.ornek.com
 ```
 :::
@@ -370,31 +380,79 @@ Sertifika henüz alınmamıştır. [8. adımdaki](#sertifika) kontrolü yapın. 
 
 ## Durum sayfası için ayrı alan adı (isteğe bağlı) {#durum-alan-adi}
 
-Müşterilerinize açık durum sayfasını `durum.ornek.com` gibi ayrı bir adresten yayınlayabilirsiniz. Bu adreste yalnızca durum sayfası açılır, yönetim paneli açılmaz.
+Müşterilerinize açık durum sayfasını `durum.ornek.com` gibi ayrı bir adresten yayınlayabilirsiniz. Bu adreste yalnızca durum sayfası açılır, yönetim paneli açılmaz. HTTPS sertifikası otomatik alınır: Caddy'ye ya da `.env` dosyasına dokunmanız gerekmez.
 
-1. `durum` adıyla, aynı sunucuyu gösteren bir **A** kaydı ekleyin ([1. adım](#dns) gibi).
-2. `.env` dosyasında son satırın başındaki `#` işaretini kaldırıp alan adını yazın: `STATUS_DOMAIN=⟦durum.ornek.com⟧`
-3. `Caddyfile` dosyasının sonundaki bloğun satır başlarındaki `#` işaretlerini kaldırın. Blok şöyle görünmeli:
+1. Alan adının DNS ayarlarında sunucunuzu gösteren bir **A** kaydı ekleyin ([1. adım](#dns) gibi; IPv6 kullanıyorsanız **AAAA** da). Alternatif olarak panelin adresine (`⟦bekci.ornek.com⟧`) bir **CNAME** kaydı ekleyebilirsiniz.
+2. Panelde **Durum sayfaları** bölümünden sayfanızı açın, **Özel alan adı** alanına `durum.ornek.com` yazıp kaydedin. Alanın altında CNAME hedefi (panelin adresi) ve A/AAAA kaydı için hedef IP adresleri gösterilir.
+3. Alanın altındaki durum rozeti **Etkin** olunca alan adı hazırdır. Rozeti hemen güncellemek için **Yeniden denetle**'ye tıklayın.
 
-   ```caddyfile title="/opt/bekci/Caddyfile (dosyanın sonu)"
-   {$STATUS_DOMAIN} {
-   	encode zstd gzip
-   	header >Strict-Transport-Security "max-age=31536000"
-   	reverse_proxy bekci:8080
+Sertifika, alan adına gelen ilk HTTPS isteğinde alınır. Caddy sertifika almadan önce Bekci'ye sorar (`/api/tls/ask`): yalnız **yayındaki** bir durum sayfasına tanımlı adlara sertifika alınır; sayfa yayında değilse ya da ad hiçbir sayfada yoksa sertifika alınmaz. Böylece sunucunuzu gösteren rastgele adlar için sertifika istenmez.
+
+| Rozet | Anlamı |
+|---|---|
+| DNS bekleniyor | Alan adı henüz bu sunucuyu göstermiyor; A/AAAA ya da CNAME kaydını kontrol edin (yayılması birkaç dakika sürebilir). |
+| Sertifika bekleniyor | DNS doğru, HTTPS denetimi henüz geçmedi. Sertifika ilk istekte alınır; biraz sonra **Yeniden denetle**'ye tıklayın. |
+| Etkin | Alan adı HTTPS ile durum sayfasını açıyor. |
+| Sayfa yayında değil | Sayfa yayında olmadığı için sertifika alınmaz; önce sayfayı yayınlayın. |
+
+> [!NOTE] Cloudflare kullanıyorsanız
+> Proxy (turuncu bulut) açıkken de çalışır; HTTPS denetimi geçerse rozet **Etkin** olur. Cloudflare'in **SSL/TLS** modu olarak **Full (strict)** önerilir. Bu modda sunucudaki ilk sertifikanın alınabilmesi için kaydı geçici olarak **DNS only** (gri bulut) yapın, rozet **Etkin** olunca proxy'yi açın. Gri buluta geçmeden de ziyaretçiler Cloudflare'in kendi sertifikasıyla sayfaya ulaşır.
+
+### Eski kurulumdan geçiş {#durum-alan-adi-gecis}
+
+Elle eklenmiş `{$STATUS_DOMAIN} { ... }` ya da `durum.ornek.com { ... }` blokları çalışmaya devam eder: adı açıkça yazılmış bir site bloğu, otomatik bloğun (`https://`) önüne geçer. Otomatik HTTPS'e geçmek için:
+
+> [!IMPORTANT]
+> Sertifika onay ucu (`/api/tls/ask`) Bekci 1.5.0 ile gelir. Önce Bekci'yi güncelleyin: `docker compose pull && docker compose up -d`.
+
+1. `Caddyfile` dosyasının başındaki global bloğa onay ucunu ekleyin:
+
+   ```caddyfile title="/opt/bekci/Caddyfile (dosyanın başı)"
+   {
+   	email {$ACME_EMAIL}
+   	on_demand_tls {
+   		ask http://bekci:8080/api/tls/ask
+   	}
    }
    ```
 
-4. Uygulayın:
+2. Dosyanın sonuna otomatik bloğu ekleyin:
+
+   ```caddyfile title="/opt/bekci/Caddyfile (dosyanın sonu)"
+   https:// {
+   	tls {
+   		on_demand
+   	}
+   	encode zstd gzip
+   	header >Strict-Transport-Security "max-age=31536000"
+   	reverse_proxy bekci:8080 {
+   		flush_interval -1
+   	}
+   }
+   ```
+
+3. Dosyayı doğrulayın ve uygulayın:
 
    ```bash
    cd /opt/bekci
-   docker compose up -d --force-recreate caddy
+   docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile
+   docker compose restart caddy
    ```
 
-5. Panelde **Durum sayfaları** bölümünden sayfanızı açın ve **Özel alan adı** alanına `durum.ornek.com` yazıp kaydedin.
+   Yeniden başlatmak yerine `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile` de kullanabilirsiniz.
 
-> [!CHECK]
-> `https://⟦durum.ornek.com⟧` adresi durum sayfanızı açmalı.
+4. Panelde sayfanın **Özel alan adı** altındaki rozetin **Etkin** olduğunu görün.
+5. İsterseniz eski `{$STATUS_DOMAIN}` bloğunu `Caddyfile`'dan, `STATUS_DOMAIN` satırını `.env`'den kaldırın ve 3. adımı tekrarlayın.
+
+### Caddy kullanmıyorsanız {#durum-alan-adi-vekil}
+
+Otomatik sertifika Caddy'nin on-demand TLS özelliğine dayanır; başka vekillerde her alan adını vekile ayrıca tanıtmanız gerekir:
+
+- **Traefik (Coolify dahil)** on-demand TLS desteklemez: her alan adı için bir router/host kuralı ve certresolver gerekir. Coolify'da alan adını uygulamanın **Domains** alanına virgülle ekleyin.
+- **Nginx**: her ad için certbot ile sertifika alın ya da önde Caddy kullanın.
+- `GET /api/tls/ask?domain=<ad>` ucunu kendi otomasyonunuzda (ör. sertifika betiği) "bu ad tanımlı mı" sorgusu olarak kullanabilirsiniz: ad yayındaki bir sayfaya tanımlıysa `200`, değilse `404` döner.
+
+Bekci'nin kendisi 443 portunu dinleyip sertifika (ACME) almaz: çoğu kurulum zaten bir ters vekil arkasındadır, port çakışması ve sertifika saklama işi karmaşıklık getirir; Caddy bunu tek blokla çözer.
 
 ## Sonraki adımlar {#sonraki}
 

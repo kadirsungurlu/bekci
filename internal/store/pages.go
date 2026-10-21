@@ -53,10 +53,12 @@ type StatusPage struct {
 	IncidentDays  int      `json:"incident_days"`
 	UptimeWindows []string `json:"uptime_windows"`
 	Published     bool     `json:"published"`
-	HasLogo       bool     `json:"has_logo"`
-	CreatedAt     int64    `json:"created_at"`
-	UpdatedAt     int64    `json:"updated_at"`
-	PasswordHash  string   `json:"-"`
+	// Subscriptions ziyaretçiler e-postayla güncellemelere abone olabilir (migration 36).
+	Subscriptions bool   `json:"subscriptions"`
+	HasLogo       bool   `json:"has_logo"`
+	CreatedAt     int64  `json:"created_at"`
+	UpdatedAt     int64  `json:"updated_at"`
+	PasswordHash  string `json:"-"`
 }
 
 // MonitorIDs sayfadaki tüm monitörlerin kimlikleri.
@@ -72,7 +74,7 @@ func (p StatusPage) MonitorIDs() []int64 {
 
 const pageCols = `id, slug, title, description, footer, sections, custom_domain, password_hash,
 	show_targets, published, CASE WHEN logo IS NULL THEN 0 ELSE 1 END, created_at, updated_at, bar_range,
-	show_incidents, collapsible, lang, layout, incident_days, uptime_windows`
+	show_incidents, collapsible, lang, layout, incident_days, uptime_windows, subscriptions`
 
 func scanPage(sc scanner) (StatusPage, error) {
 	var (
@@ -85,7 +87,7 @@ func scanPage(sc scanner) (StatusPage, error) {
 	)
 	err := sc.Scan(&p.ID, &p.Slug, &p.Title, &p.Description, &p.Footer, &sections, &domain, &pw,
 		&p.ShowTargets, &p.Published, &p.HasLogo, &p.CreatedAt, &p.UpdatedAt, &p.BarRange, &p.ShowIncidents, &p.Collapsible, &p.Lang, &layout,
-		&p.IncidentDays, &windows)
+		&p.IncidentDays, &windows, &p.Subscriptions)
 	if err != nil {
 		return p, err
 	}
@@ -177,12 +179,12 @@ func (s *Store) CreatePage(ctx context.Context, p *StatusPage) error {
 	return s.db.QueryRowContext(ctx, `
 		INSERT INTO status_pages (slug, title, description, footer, sections, custom_domain,
 			password_hash, show_targets, published, created_at, updated_at, bar_range, show_incidents, collapsible, lang, layout,
-			incident_days, uptime_windows)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+			incident_days, uptime_windows, subscriptions)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 		p.Slug, p.Title, p.Description, p.Footer, string(sections), nullStr(p.CustomDomain),
 		nullStr(p.PasswordHash), boolInt(p.ShowTargets), boolInt(p.Published), now, now, barRangeOr(p.BarRange),
 		boolInt(p.ShowIncidents), boolInt(p.Collapsible), pageLangOr(p.Lang), encodeLayout(p.Layout),
-		incidentDaysOr(p.IncidentDays), encodeWindows(p.UptimeWindows)).Scan(&p.ID)
+		incidentDaysOr(p.IncidentDays), encodeWindows(p.UptimeWindows), boolInt(p.Subscriptions)).Scan(&p.ID)
 }
 
 // UpdatePage logo dışındaki alanları günceller (PasswordHash dahil; çağıran
@@ -194,12 +196,13 @@ func (s *Store) UpdatePage(ctx context.Context, p *StatusPage) error {
 	res, err := s.db.ExecContext(ctx, `
 		UPDATE status_pages SET slug = ?, title = ?, description = ?, footer = ?, sections = ?,
 			custom_domain = ?, password_hash = ?, show_targets = ?, published = ?, updated_at = ?,
-			bar_range = ?, show_incidents = ?, collapsible = ?, lang = ?, layout = ?, incident_days = ?, uptime_windows = ?
+			bar_range = ?, show_incidents = ?, collapsible = ?, lang = ?, layout = ?, incident_days = ?, uptime_windows = ?,
+			subscriptions = ?
 		WHERE id = ?`,
 		p.Slug, p.Title, p.Description, p.Footer, string(sections), nullStr(p.CustomDomain),
 		nullStr(p.PasswordHash), boolInt(p.ShowTargets), boolInt(p.Published), p.UpdatedAt,
 		barRangeOr(p.BarRange), boolInt(p.ShowIncidents), boolInt(p.Collapsible), pageLangOr(p.Lang), encodeLayout(p.Layout),
-		incidentDaysOr(p.IncidentDays), encodeWindows(p.UptimeWindows), p.ID)
+		incidentDaysOr(p.IncidentDays), encodeWindows(p.UptimeWindows), boolInt(p.Subscriptions), p.ID)
 	if err != nil {
 		return err
 	}

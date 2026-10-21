@@ -39,7 +39,7 @@ export default {
     domainDays: 'Alan adı uyarı günleri',
     domainDaysPlaceholder: 'Ör. 30, 14, 7',
     domainDaysHelp:
-      'Alan adının (RDAP kaydı) bitmesine bu kadar gün kala bildirim gönderilir; 7 gün ve altı 🔴, üstü 🟡. Boş bırakırsanız alan adı uyarısı gönderilmez.',
+      'Alan adının (RDAP kaydı) bitmesine bu kadar gün kala bildirim gönderilir; 7 gün ve altı kritik, üstü uyarı seviyesindedir. Boş bırakırsanız alan adı uyarısı gönderilmez.',
     errDomainDays: 'Alan adı uyarı günleri 0-365 arasında tam sayı olmalı.',
     errDomainCount: 'En fazla 10 alan adı uyarı eşiği girilebilir.',
     backupKeep: 'Gece yedeği sayısı',
@@ -48,6 +48,9 @@ export default {
     userAgent: 'Kontrol isteklerinin User-Agent\'ı',
     userAgentHelp:
       'Web sitesi kontrolleri bu değerle gider; tüm kontrol noktaları da aynısını kullanır. Siteniz Cloudflare veya başka bir güvenlik duvarı arkasındaysa, IP adreslerini tek tek eklemek yerine User-Agent\'ında "Bekci" geçen isteklere izin verebilirsiniz. Boş bırakırsanız varsayılan kullanılır; monitörde özel User-Agent başlığı varsa o geçerlidir.',
+    updateCheck: 'Yeni sürümleri denetle',
+    updateCheckHelp:
+      "Panel 6 saatte bir GitHub'daki Bekci sürümlerine bakar ve yeni sürüm çıkınca yöneticilere panelin üstünde bildirir. Kapalıyken dışarıya hiç istek gitmez (UPDATE_CHECK=off ortam değişkeni de kapatır).",
     agentAutoUpdate: 'Ajanları otomatik güncelle',
     agentAutoUpdateHelp:
       'Panel yeni bir sürüme geçince sunucu ajanları ve kontrol noktaları aynı sürüme kendiliğinden geçer. Program yalnızca projenin imzası doğrulanırsa kurulur; eski sürüme dönülmez. Ajan başına ayrıca açılıp kapatılabilir.',

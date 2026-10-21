@@ -17,8 +17,8 @@ Bekci'yi kendi sistemlerinize bağlamanın dört yolu: genel **webhook** kanalı
 ```json title="Gönderilen gövde (örnek)"
 {
   "event": "down",
-  "title": "🔴 Web sitesi çalışmıyor",
-  "text": "🔴 Web sitesi çalışmıyor\nHedef: https://ornek.com\n…",
+  "title": "Web sitesi çalışmıyor",
+  "text": "Web sitesi çalışmıyor\nHedef: https://ornek.com\n…",
   "message": "HTTP 503 Service Unavailable",
   "time": "2026-09-27T10:15:00+03:00",
   "downtime_seconds": 0,

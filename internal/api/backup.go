@@ -8,10 +8,13 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"slices"
 	"strings"
@@ -187,10 +190,10 @@ func (s *Server) buildExportWith(ctx context.Context, opt exportOptions) (*backu
 			Slug: p.Slug, Title: p.Title, Description: p.Description, Footer: p.Footer,
 			CustomDomain: p.CustomDomain, PasswordHash: p.PasswordHash, ShowTargets: p.ShowTargets,
 			BarRange: p.BarRange, ShowIncidents: &p.ShowIncidents, Collapsible: p.Collapsible, Lang: p.Lang, Published: p.Published, Sections: []backup.PageSection{}, Announcements: []backup.Announcement{},
-			IncidentDays: p.IncidentDays, UptimeWindows: p.UptimeWindows,
+			IncidentDays: p.IncidentDays, UptimeWindows: p.UptimeWindows, Subscriptions: p.Subscriptions,
 		}
 		showUptime := p.Layout.UptimeShown()
-		bl := backup.PageLayout{Style: p.Layout.Style, Width: p.Layout.Width, Blocks: []backup.PageBlock{}, ShowUptime: &showUptime}
+		bl := backup.PageLayout{Style: p.Layout.Style, Width: p.Layout.Width, Blocks: []backup.PageBlock{}, ShowUptime: &showUptime, Columns: p.Layout.Columns}
 		for _, b := range p.Layout.Blocks {
 			bl.Blocks = append(bl.Blocks, backup.PageBlock{ID: b.ID, Visible: b.Visible})
 		}
@@ -224,6 +227,17 @@ func (s *Server) buildExportWith(ctx context.Context, opt exportOptions) (*backu
 		for _, a := range anns {
 			bp.Announcements = append(bp.Announcements, backup.Announcement{
 				Title: a.Title, Body: a.Body, Severity: a.Severity, StartsAt: a.StartsAt, EndsAt: a.EndsAt,
+			})
+		}
+		subs, err := s.store.ListPageSubscribers(ctx, p.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, sb := range subs {
+			bp.Subscribers = append(bp.Subscribers, backup.Subscriber{
+				ID: sb.ID, Email: sb.Email, Lang: sb.Lang, BaseURL: sb.BaseURL, ConfirmedAt: sb.ConfirmedAt,
+				CreatedAt: sb.CreatedAt, ConfirmHash: sb.ConfirmHash, ConfirmExpires: sb.ConfirmExpires,
+				ConfirmSentAt: sb.ConfirmSentAt, UnsubKey: sb.UnsubKey,
 			})
 		}
 		doc.StatusPages = append(doc.StatusPages, bp)
@@ -919,9 +933,10 @@ func planPage(bp backup.Page, known map[int64]bool, slugs, domains, selfHosts ma
 		ShowTargets: bp.ShowTargets, Published: bp.Published, BarRange: bp.BarRange,
 		ShowIncidents: bp.ShowIncidents == nil || *bp.ShowIncidents, Collapsible: bp.Collapsible,
 		Lang: i18n.Or(bp.Lang), IncidentDays: bp.IncidentDays, UptimeWindows: store.NormalizeUptimeWindows(bp.UptimeWindows),
+		Subscriptions: bp.Subscriptions,
 	}
 	if bp.Layout != nil {
-		l := store.PageLayout{Style: bp.Layout.Style, Width: bp.Layout.Width, ShowUptime: bp.Layout.ShowUptime}
+		l := store.PageLayout{Style: bp.Layout.Style, Width: bp.Layout.Width, ShowUptime: bp.Layout.ShowUptime, Columns: bp.Layout.Columns}
 		for _, b := range bp.Layout.Blocks {
 			l.Blocks = append(l.Blocks, store.PageBlock{ID: b.ID, Visible: b.Visible})
 			// show_incidents olmayan (elle yazılmış) yedekte olaylar dizilimden alınır.
@@ -1029,9 +1044,55 @@ func planPage(bp backup.Page, known map[int64]bool, slugs, domains, selfHosts ma
 			Title: a.Title, Body: a.Body, Severity: a.Severity, StartsAt: a.StartsAt, EndsAt: a.EndsAt,
 		})
 	}
+	ip.Subscribers = planSubscribers(bp.Subscribers, &it)
 	slugs[p.Slug] = true
 	it.Result = "created"
 	return ip, it
+}
+
+// planSubscribers yedekteki aboneleri doğrular: geçersiz adres ve aynı adresin
+// ikincisi atlanır; anahtarı eksik/bozuk olana yeni anahtar üretilir (eski
+// çıkış bağlantısı o abone için geçmez ama yeni e-postalardaki çalışır).
+func planSubscribers(in []backup.Subscriber, it *importItem) []store.PageSubscriber {
+	var out []store.PageSubscriber
+	seen := map[string]bool{}
+	bad := 0
+	for _, b := range in {
+		if len(out) >= store.MaxPageSubscribers {
+			bad++
+			continue
+		}
+		email, err := normalizeEmail(b.Email)
+		if err != nil || email == "" || seen[email] || b.CreatedAt <= 0 {
+			bad++
+			continue
+		}
+		seen[email] = true
+		key := strings.ToLower(strings.TrimSpace(b.UnsubKey))
+		if _, err := hex.DecodeString(key); err != nil || len(key) < 32 || len(key) > 128 {
+			k := make([]byte, 32)
+			rand.Read(k)
+			key = hex.EncodeToString(k)
+		}
+		sb := store.PageSubscriber{
+			ID: max(b.ID, 0), Email: email, Lang: i18n.Or(b.Lang), CreatedAt: b.CreatedAt, UnsubKey: key,
+			ConfirmedAt: max(b.ConfirmedAt, 0),
+		}
+		if u, err := url.Parse(b.BaseURL); err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != "" && len(b.BaseURL) <= 300 {
+			sb.BaseURL = strings.TrimRight(b.BaseURL, "/")
+		}
+		// Bekleyen onay: özet biçimliyse taşınır (eski onay bağlantısı süresi içinde çalışır).
+		if sb.ConfirmedAt == 0 && len(b.ConfirmHash) == 64 {
+			if _, err := hex.DecodeString(b.ConfirmHash); err == nil {
+				sb.ConfirmHash, sb.ConfirmExpires, sb.ConfirmSentAt = b.ConfirmHash, b.ConfirmExpires, b.ConfirmSentAt
+			}
+		}
+		out = append(out, sb)
+	}
+	if bad > 0 {
+		it.Messages = append(it.Messages, fmt.Sprintf("%d geçersiz abone atlandı", bad))
+	}
+	return out
 }
 
 // browserAsHTTP kaldırılan tarayıcı monitörünün ayarından HTTP kontrolüyle

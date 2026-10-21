@@ -4,6 +4,11 @@
 
 {
 	email {$ACME_EMAIL}
+	# Status page custom domains: before obtaining a certificate for a name it
+	# doesn't know, Caddy asks Bekci; only names set on a published page are approved.
+	on_demand_tls {
+		ask http://bekci:8080/api/tls/ask
+	}
 }
 
 {$UPTIME_DOMAIN} {
@@ -17,13 +22,18 @@
 	}
 }
 
-# Optional: a separate domain for the status page (e.g. status.example.com).
-# Set STATUS_DOMAIN in .env and remove the # signs at the start of the block
-# below; then enter the same name in the status page's "Custom domain" field
-# in the panel. That address only serves the status page, never the admin panel.
-#
-# {$STATUS_DOMAIN} {
-# 	encode zstd gzip
-# 	header >Strict-Transport-Security "max-age=31536000"
-# 	reverse_proxy bekci:8080
-# }
+# Status page custom domains (automatic): enter the domain on the page in the
+# panel and point its DNS to this server; you don't need to touch this file.
+# The certificate is obtained on the first HTTPS request to the domain. Site
+# blocks with an explicit name, like the one above, take precedence over this
+# block (older hand-written blocks keep working).
+https:// {
+	tls {
+		on_demand
+	}
+	encode zstd gzip
+	header >Strict-Transport-Security "max-age=31536000"
+	reverse_proxy bekci:8080 {
+		flush_interval -1
+	}
+}

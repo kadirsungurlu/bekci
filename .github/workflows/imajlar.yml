@@ -57,6 +57,12 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: "1.27"
+      # Projede emoji yok (arayüz, bildirim şablonları, belgeler): durum metinle verilir.
+      - name: Emoji denetimi
+        run: |
+          if grep -rIlP '[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}\x{1F000}-\x{1F2FF}\x{2B00}-\x{2BFF}\x{23E9}-\x{23FA}\x{FE0F}]' . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=vendor; then
+            echo "::error::Kaynakta emoji bulundu (yukarıdaki dosyalar); metin ya da SVG simge kullanın"; exit 1
+          fi
       - name: Windows derlemesi (ajan)
         run: GOOS=windows GOARCH=amd64 go vet ./...
       - name: Testler (SQLite)
@@ -83,6 +89,52 @@ jobs:
         run: npm run check
       - name: Derleme
         run: npm run build
+
+  # Gerçek Chromium ile uçtan uca: tarayıcı bildirimi (Web Push) aboneliği, deneme
+  # bildirimi ve olay uyarısı (web/e2e/push.mjs). Panel bu işte derlenip açılır.
+  arayuz-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.27"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            web/e2e/package-lock.json
+      - name: Arayüz derlemesi
+        working-directory: web
+        run: npm ci --no-audit --no-fund && npm run build
+      - name: Panel derlemesi ve başlatma
+        run: |
+          set -euo pipefail
+          # Sürüm şeridi testi için sürüm 1.5.0 ve sahte sürüm sunucusu (guncelleme.mjs açar).
+          go build -ldflags "-X main.version=1.5.0" -o "$RUNNER_TEMP/uptime" ./cmd/uptime
+          ADDR=127.0.0.1:8080 DATA_DIR="$RUNNER_TEMP/e2e-data" UPDATE_CHECK_URL=http://127.0.0.1:8099 "$RUNNER_TEMP/uptime" > "$RUNNER_TEMP/panel.log" 2>&1 &
+          for _ in $(seq 1 60); do curl -sf http://127.0.0.1:8080/healthz >/dev/null && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/panel.log"; exit 1
+      - name: Tarayıcı kurulumu
+        working-directory: web/e2e
+        run: npm ci --no-audit --no-fund && npx playwright install --with-deps chromium
+      - name: Web Push uçtan uca
+        working-directory: web/e2e
+        run: node push.mjs
+      - name: Durum sayfası (ızgara + canlı akış) uçtan uca
+        working-directory: web/e2e
+        run: node --test --experimental-strip-types statusgrid.test.mjs && node durum.mjs
+      - name: Durum sayfası e-posta aboneliği (sahte SMTP) uçtan uca
+        working-directory: web/e2e
+        run: node abonelik.mjs
+      - name: Yeni sürüm şeridi (sahte sürüm sunucusu) uçtan uca
+        working-directory: web/e2e
+        run: node guncelleme.mjs
+      - name: Panel günlüğü
+        if: failure()
+        run: tail -n 80 "$RUNNER_TEMP/panel.log" || true
 
   # İmajı derler, çalıştırır ve temel işlevleri dener (yüklemez).
   duman:
@@ -194,7 +246,7 @@ jobs:
         run: docker logs duman || true
 
   yayinla:
-    needs: [test, arayuz, duman]
+    needs: [test, arayuz, arayuz-e2e, duman]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     permissions:

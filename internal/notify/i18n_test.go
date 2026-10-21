@@ -29,25 +29,25 @@ func TestEnglishEvents(t *testing.T) {
 		}
 	}
 	want := map[int]string{
-		0:  "🔴 Example Site is down",
-		1:  "🔴 Example Site is still down",
-		2:  "🟢 Example Site is up again",
-		3:  "🟡 Example Site is responding slowly",
-		4:  "🟢 Example Site response time back to normal",
-		5:  "🟡 Example Site: location outage",
-		6:  "🟢 Example Site: all locations up",
-		7:  "⚠️ Example Site: SSL certificate expires in 7 days",
-		8:  "🟡 Example Site: domain example.com expires in 14 days",
-		9:  "🟡 Example Server: CPU 82% (10 min average, warning threshold 80%)",
-		10: "🔴 Example Server: CPU 94% (10 min average, threshold 90%)",
-		12: "🔴 Example Server: Disk (/home) 91% (1 min average, threshold 85%)",
-		13: "🔴 Example Server: container nginx is not running",
-		14: "🔄 Example Server was rebooted",
-		15: "🔴 Example Server: server unreachable",
-		16: "🟢 Example Server: CPU back to normal",
-		17: "🟢 Example Server: sending data again",
-		18: "🔴 Frankfurt: check location unreachable",
-		19: "🟢 Frankfurt: check location back online",
+		0:  "Example Site is down",
+		1:  "Example Site is still down",
+		2:  "Example Site is up again",
+		3:  "Example Site is responding slowly",
+		4:  "Example Site response time back to normal",
+		5:  "Example Site: location outage",
+		6:  "Example Site: all locations up",
+		7:  "Example Site: SSL certificate expires in 7 days",
+		8:  "Example Site: domain example.com expires in 14 days",
+		9:  "Example Server: CPU 82% (10 min average, warning threshold 80%)",
+		10: "Example Server: CPU 94% (10 min average, threshold 90%)",
+		12: "Example Server: Disk (/home) 91% (1 min average, threshold 85%)",
+		13: "Example Server: container nginx is not running",
+		14: "Example Server was rebooted",
+		15: "Example Server: server unreachable",
+		16: "Example Server: CPU back to normal",
+		17: "Example Server: sending data again",
+		18: "Frankfurt: check location unreachable",
+		19: "Frankfurt: check location back online",
 	}
 	for i, w := range want {
 		if got := evs[i].Title(); got != w {
@@ -74,15 +74,15 @@ func TestEnglishEvents(t *testing.T) {
 	}
 
 	test := Event{Kind: KindTest, MonitorName: "Test", Time: now, Lang: "en"}
-	if got := test.Text(); !strings.HasPrefix(got, "✅ Test notification\nYour "+brand.Name+" notification channel is working.") {
+	if got := test.Text(); !strings.HasPrefix(got, "Test notification\nYour "+brand.Name+" notification channel is working.") {
 		t.Errorf("test bildirimi: %q", got)
 	}
 	cert := Event{Kind: KindCert, MonitorName: "Site", CertDays: 1, Lang: "en", Time: now}
-	if got := cert.Title(); got != "⚠️ Site: SSL certificate expires in 1 day" {
+	if got := cert.Title(); got != "Site: SSL certificate expires in 1 day" {
 		t.Errorf("tekil gün: %q", got)
 	}
 	load := Event{Kind: KindServerAlert, MonitorName: "S", Metric: "load", Value: 1.254, Threshold: 1, Minutes: 5, Lang: "en"}
-	if got := load.Title(); got != "🔴 S: Load 1.25 (5 min average, per core, threshold 1.00)" {
+	if got := load.Title(); got != "S: Load 1.25 (5 min average, per core, threshold 1.00)" {
 		t.Errorf("yük: %q", got)
 	}
 	gone := Event{Kind: KindServerResolved, MonitorName: "S", Metric: "temp", GoneMinutes: 3, Lang: "en", Time: now}
@@ -95,7 +95,7 @@ func TestEnglishEvents(t *testing.T) {
 func TestTurkishUnchanged(t *testing.T) {
 	now := time.Date(2026, 9, 28, 12, 0, 0, 0, time.Local)
 	up := Event{Kind: KindUp, MonitorName: "API", Target: "https://x", Time: now, Downtime: 72 * time.Minute}
-	want := "🟢 API tekrar çalışıyor\nHedef: https://x\nKesinti süresi: 1 sa 12 dk\nZaman: 28.09.2026 12:00:00"
+	want := "API tekrar çalışıyor\nHedef: https://x\nKesinti süresi: 1 sa 12 dk\nZaman: 28.09.2026 12:00:00"
 	if got := up.Text(); got != want {
 		t.Errorf("tr metin değişti:\n%q\n%q", got, want)
 	}

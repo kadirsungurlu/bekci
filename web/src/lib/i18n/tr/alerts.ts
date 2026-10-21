@@ -15,7 +15,7 @@ export default {
   mountUsage: '{mount} bölümünün doluluğu',
   anyContainer: 'Herhangi bir konteyner',
   warnShort: 'uyarı',
-  warnTitle: 'Uyarı eşiği (isteğe bağlı): bu değer aşılınca 🟡 uyarı, kritik eşik aşılınca 🔴 kritik bildirimi gider.',
+  warnTitle: 'Uyarı eşiği (isteğe bağlı): bu değer aşılınca uyarı, kritik eşik aşılınca kritik bildirimi gider.',
   warnDesc: 'uyarı eşiği {v}',
   /** Kural özeti (salt okunur görünüm). */
   sentOffline: '{n} dk veri gelmezse',

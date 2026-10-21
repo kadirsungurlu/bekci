@@ -52,6 +52,9 @@ type ImportPage struct {
 	LogoType      string
 	Announcements []Announcement
 	SectionTags   map[int]ImportTagRef
+	// Subscribers e-posta aboneleri; ID alanı yedekteki (eski) kimliktir ve
+	// orig_id olarak saklanır (eski çıkış bağlantıları çalışsın).
+	Subscribers []PageSubscriber
 }
 
 type ImportData struct {
@@ -276,12 +279,12 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 			id, err := insertID(ctx, tx, `
 				INSERT INTO status_pages (slug, title, description, footer, sections, custom_domain,
 					password_hash, show_targets, published, logo, logo_type, created_at, updated_at, bar_range,
-					show_incidents, collapsible, lang, layout, incident_days, uptime_windows)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					show_incidents, collapsible, lang, layout, incident_days, uptime_windows, subscriptions)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				p.Slug, p.Title, p.Description, p.Footer, string(sj), nullStr(p.CustomDomain),
 				nullStr(p.PasswordHash), boolInt(p.ShowTargets), boolInt(p.Published), logo, ip.LogoType, now, now,
 				barRangeOr(p.BarRange), boolInt(p.ShowIncidents), boolInt(p.Collapsible), pageLangOr(p.Lang), encodeLayout(p.Layout),
-				incidentDaysOr(p.IncidentDays), encodeWindows(p.UptimeWindows))
+				incidentDaysOr(p.IncidentDays), encodeWindows(p.UptimeWindows), boolInt(p.Subscriptions))
 			if err != nil {
 				return err
 			}
@@ -292,6 +295,16 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 					INSERT INTO announcements (page_id, title, body, severity, starts_at, ends_at, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 					id, a.Title, a.Body, a.Severity, a.StartsAt, nullInt(a.EndsAt), now, now); err != nil {
+					return err
+				}
+			}
+			for _, sb := range ip.Subscribers {
+				if _, err := tx.ExecContext(ctx, `
+					INSERT INTO page_subscribers (page_id, email, lang, base_url, confirmed_at, created_at, confirm_hash,
+						confirm_expires, confirm_sent_at, unsub_key, orig_id)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					id, sb.Email, sb.Lang, sb.BaseURL, sb.ConfirmedAt, sb.CreatedAt, sb.ConfirmHash,
+					sb.ConfirmExpires, sb.ConfirmSentAt, sb.UnsubKey, sb.ID); err != nil {
 					return err
 				}
 			}

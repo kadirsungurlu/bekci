@@ -122,7 +122,7 @@ func TestSendRoundTrip(t *testing.T) {
 	}))
 	defer srv.Close()
 	sub.Endpoint = srv.URL + "/push/abc"
-	payload := []byte(`{"title":"🔴 site çalışmıyor","url":"/#/incidents/1"}`)
+	payload := []byte(`{"title":"site çalışmıyor","url":"/#/incidents/1"}`)
 	err = Send(context.Background(), srv.Client(), keys, sub, payload, Options{TTL: 60, Urgency: "high", Topic: "inc-1", Subject: "mailto:ops@ornek.com"})
 	if err != nil {
 		t.Fatal(err)

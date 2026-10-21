@@ -134,7 +134,7 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
 - SSL sertifika ve alan adı (RDAP) bitiş uyarıları, tekrar deneme, kesinti
   hatırlatması, ters mod
 - Yavaş yanıt uyarısı: monitör başına eşik ve pencere; site açıkken yavaşlarsa
-  🟡 "yavaş yanıt" olayı, normale dönünce 🟢 (uptime etkilenmez)
+  "yavaş yanıt" olayı, normale dönünce düzelme bildirimi (uptime etkilenmez)
 - Push monitöründe tolerans süresi (grace) ve tek tıkla adres yenileme
 - Monitör grupları, etiketler, bakım pencereleri; ayrıntıda son 50 kontrol
   (zaman, sonuç, süre, mesaj, konum)
@@ -143,14 +143,14 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
 - Uzak **kontrol noktaları**: monitörler birden çok konumdan aynı anda kontrol
   edilir, kesinti kuralı (herhangi biri / çoğunluk / hepsi); isteğe bağlı
   **konum kesintisinde de bildirim**: monitör genel olarak çalışırken tek bir
-  konum düşerse 🟡 başlıklı ayrı bildirim, düzelince 🟢 (uptime etkilenmez)
+  konum düşerse ayrı bir uyarı bildirimi, düzelince düzelme bildirimi (uptime etkilenmez)
 
 **Sunucu takibi**
 - CPU, RAM, disk (bağlama noktası başına), swap, yük, sıcaklık, ağ (Mbit/s),
   Docker konteynerleri; Linux ve Windows
 - Uyarılar: çevrimdışı, CPU, RAM, disk, swap, yük, sıcaklık, ağ — pencere
   ortalamasıyla ve histerezisle (eşiğe ulaşınca tetiklenir, eşiğin biraz altına
-  inince kapanır); isteğe bağlı 🟡 uyarı / 🔴 kritik eşikleri ve kanal başına
+  inince kapanır); isteğe bağlı uyarı / kritik eşikleri ve kanal başına
   seviye seçimi (ör. telefon yalnızca kritikte)
 - Konteyner alarmı (belirli bir konteyner ya da herhangi biri durunca),
   yeniden başlatma tespiti (açılış zamanı değişince bildirim + kayıt) ve
@@ -166,7 +166,7 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
   geçici hatada yeniden deneme
 - Etikete göre bağlama: kanal bir etikete bağlanır, o etiketli her monitör
   (sonradan eklenenler dahil) kendiliğinden bildirir
-- Kontrol noktası çevrimdışı kalınca 🔴 / dönünce 🟢 bildirimi
+- Kontrol noktası çevrimdışı kalınca kesinti / dönünce düzelme bildirimi
 - HTML + düz metin e-posta; webhook'ta isteğe bağlı HMAC imzası
   (`X-Bekci-Signature`); tarayıcı bildirimi (Web Push, PWA)
 - Olay onaylama ve susturma: onaylı ya da susturulmuş olayda hatırlatma ve
@@ -175,7 +175,7 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
 **Durum sayfaları**
 - Gruplar (katlanabilir), hedef adres gösterimi (yalnızca alan adı), son
   olaylar (gizlenebilir; 7/14/30/90 gün), çoklu uptime pencereleri, şifre
-  koruması, özel alan adı, rozetler
+  koruması, özel alan adı (otomatik HTTPS, Caddy on-demand TLS), rozetler
 - Elle açılan olaylar ve olay güncellemeleri (inceleniyor → neden bulundu →
   izleniyor → çözüldü), planlı bakım bloğu; hepsi RSS akışında
 
@@ -213,7 +213,7 @@ ortam değişkenleri var.
 ### Coolify
 
 - Önerilen: Build Pack **Docker Image**, imaj `kadirsungurlu/bekci:latest` (ya
-  da sabit bir sürüm, ör. `kadirsungurlu/bekci:1.3.0`); kaynaktan derlemek
+  da sabit bir sürüm, ör. `kadirsungurlu/bekci:1.5.0`); kaynaktan derlemek
   isterseniz Build Pack **Dockerfile**. Port **8080**, health check `/healthz`
 - Kalıcı depolama: **/data** (veritabanı ve `backups/` klasörü). Coolify'da
   **Volume** türünde ekleyin. Sunucudaki bir klasörü bağlamak (Directory Mount)
@@ -364,7 +364,7 @@ Windows sekmesindeki komutu yapıştırın.
 
 ### Ajan güncelleme
 
-1.3.1 ve sonrasında kurulan ajanlar **kendini günceller**: Bekci'yi yükselttiğinizde
+1.4.0 ve sonrasında kurulan ajanlar **kendini günceller**: Bekci'yi yükselttiğinizde
 sunucu ajanları ve kontrol noktaları birkaç saniye içinde aynı sürüme geçer.
 Ajan programı yalnızca **projenin imzası** (Ed25519, açık anahtar ajana gömülü)
 doğrulanırsa kurar; ana sunucu ele geçirilse bile imzasız ya da değiştirilmiş
@@ -379,7 +379,7 @@ bağlanamazsa ajan eski programa döner.
 - Yalnızca resmi sürüm imajları imzalı ajan içerir; kaynaktan derlenen panel
   ajanlara güncelleme sunmaz.
 
-1.3.1'den önce kurulmuş ajanlar (**Eski ajan**) bir kez elle yeniden kurulur:
+1.4.0'den önce kurulmuş ajanlar (**Eski ajan**) bir kez elle yeniden kurulur:
 panelden **güncel** kurulum komutunu alıp tekrar çalıştırın.
 
 - **Docker:** önce eskisini kaldırın, sonra yeni komutu çalıştırın:

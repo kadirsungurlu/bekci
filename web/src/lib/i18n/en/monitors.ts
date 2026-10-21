@@ -332,7 +332,7 @@ export default {
     resendHelp: 'While an outage lasts, notify again every N failed checks. 0 = off.',
     slowMs: 'Response-time threshold (ms)',
     slowMsHelp:
-      'If the average response time of the last checks exceeds this threshold the monitor counts as “slow”: a 🟡 notification is sent and a slow-response incident is opened; it closes with 🟢 once the average drops below 90% of the threshold. Uptime is not affected. 0 = off.',
+      'If the average response time of the last checks exceeds this threshold the monitor counts as “slow”: a warning notification is sent and a slow-response incident is opened; it closes with a recovery notification once the average drops below 90% of the threshold. Uptime is not affected. 0 = off.',
     slowChecks: 'Averaging window (checks)',
     slowChecksHelp: 'The average is taken over this many consecutive successful checks; a single slow response does not alert.',
     upsideDown: 'Upside-down mode',

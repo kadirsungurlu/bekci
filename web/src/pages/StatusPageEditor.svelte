@@ -30,6 +30,8 @@
   import Icon from '../components/Icon.svelte';
   import CopyButton from '../components/CopyButton.svelte';
   import Announcements from './Announcements.svelte';
+  import PageSubscribers from '../components/PageSubscribers.svelte';
+  import DomainStatus from '../components/DomainStatus.svelte';
   import PagePreviewPanel, { type PreviewDraft } from '../components/PagePreviewPanel.svelte';
   import { normalizeLayout } from '../components/StatusView.svelte';
   import { i18n, LOCALES, t, type Locale } from '../lib/i18n';
@@ -74,6 +76,9 @@
   // Yeni sayfanın dili, oluşturan yöneticinin arayüz dili (sonradan değiştirilebilir).
   let pageLang = $state<Locale>(i18n.locale);
   let published = $state(true);
+  // E-posta aboneliği; subsAvailable: sistem e-postası var mı (aboneler bölümü yükler).
+  let subscriptions = $state(false);
+  let subsAvailable = $state(true);
   // Dizilim: yerleşim, genişlik, bölüm sırası/görünürlüğü. Olaylar bölümünün
   // görünürlüğü sunucuda show_incidents ile aynı alandır.
   let layout = $state<PageLayout>(normalizeLayout(null));
@@ -117,6 +122,7 @@
     uptimeWindows = [...(p.uptime_windows ?? [])];
     pageLang = p.lang ?? 'tr';
     published = p.published;
+    subscriptions = p.subscriptions ?? false;
     pwMode = 'keep';
     password = '';
     // Etiketle gelen (auto) monitörler saklanmaz; canlı listeden yeniden hesaplanır.
@@ -154,13 +160,14 @@
     footer: footer.trim(),
     customDomain: customDomain.trim().toLowerCase(),
     showTargets,
-    layout: [layout.style, layout.width, layout.show_uptime, layout.blocks.map((b) => (b.visible ? b.id : `-${b.id}`))],
+    layout: [layout.style, layout.width, layout.show_uptime, layout.columns ?? 0, layout.blocks.map((b) => (b.visible ? b.id : `-${b.id}`))],
     collapsible,
     barRange,
     incidentDays,
     uptimeWindows: [...uptimeWindows].sort(),
     pageLang,
     published,
+    subscriptions,
     pwMode,
     password,
     sections: sections.map((s) => [s.title.trim(), s.tagId, s.tagValue, s.monitors.map((m) => [m.id, m.name.trim()])]),
@@ -444,6 +451,7 @@
         width: layout.width,
         blocks: layout.blocks.map((b) => ({ id: b.id, visible: b.visible })),
         show_uptime: layout.show_uptime,
+        columns: layout.columns ?? 0,
       },
       collapsible,
       bar_range: barRange,
@@ -451,6 +459,7 @@
       uptime_windows: uptimeWindows,
       lang: pageLang,
       published,
+      subscriptions,
     };
     if (pwMode === 'set') body.password = password;
     else if (pwMode === 'remove') body.password = '';
@@ -550,6 +559,7 @@
       width: layout.width,
       blocks: layout.blocks.map((b) => ({ id: b.id, visible: b.visible })),
       show_uptime: layout.show_uptime,
+      columns: layout.columns ?? 0,
     },
     barRange,
     showTargets,
@@ -837,6 +847,18 @@
           {/each}
         </div>
       </fieldset>
+      {#if layout.style === 'grid'}
+        <div class="field">
+          <label for="lay-cols">{t('pages.layout.columns')}</label>
+          <select id="lay-cols" class="input" bind:value={layout.columns}>
+            <option value={0}>{t('pages.layout.columnsAuto')}</option>
+            {#each [1, 2, 3, 4, 5, 6] as n (n)}
+              <option value={n}>{n}</option>
+            {/each}
+          </select>
+          <span class="help">{t('pages.layout.columnsHelp')}</span>
+        </div>
+      {/if}
       <label class="check">
         <input type="checkbox" bind:checked={layout.show_uptime} />
         <span>
@@ -996,6 +1018,25 @@
         <input type="checkbox" bind:checked={published} />
         <span>{t('pages.published')}<small>{t('pages.editor.publishedHelp')}</small></span>
       </label>
+      <label class="check">
+        <input
+          type="checkbox"
+          bind:checked={subscriptions}
+          disabled={!subsAvailable && !subscriptions}
+          aria-describedby={subsAvailable ? undefined : 'sp-subs-warn'}
+          data-testid="subs-toggle"
+        />
+        <span>{t('pages.subs.toggle')}<small>{t('pages.subs.toggleHelp')}</small></span>
+      </label>
+      {#if !subsAvailable}
+        <div class="alert warning" id="sp-subs-warn" data-testid="subs-unavailable">
+          <Icon name="mail" size={15} /> {t('pages.subs.unavailable')}
+        </div>
+      {/if}
+      {#if page}
+        <!-- Aboneler abonelik anahtarının hemen altında (ayar ile liste bir arada). -->
+        <PageSubscribers pageId={page.id} enabled={page.subscriptions ?? false} bind:available={subsAvailable} inline />
+      {/if}
 
       <div class="field">
         <span class="label" id="pw-l">{t('pages.editor.password')}</span>
@@ -1047,6 +1088,11 @@
             {t('pages.editor.domainHelpOther')}
           {/if}
         </span>
+        {#if session.isAdmin && page?.custom_domain && page.custom_domain === customDomain.trim().toLowerCase()}
+          <DomainStatus pageId={page.id} domain={page.custom_domain} />
+        {:else if session.isAdmin && customDomain.trim()}
+          <span class="help">{t('pages.editor.domainSaveFirst')}</span>
+        {/if}
       </div>
     </section>
 
@@ -1573,6 +1619,9 @@
   .ann {
     max-width: 900px;
     margin-top: 24px;
+  }
+  .ann:empty {
+    display: none;
   }
   @media (max-width: 640px) {
     .opt-row.four {

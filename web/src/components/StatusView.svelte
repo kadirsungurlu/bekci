@@ -1,5 +1,6 @@
 <script lang="ts" module>
   import type { PageBlockId, PageLayout } from '../lib/api';
+  import { normalizeColumns } from '../lib/statusgrid';
 
   /** Önceki sabit görünümün sırası (sunucudaki store.DefaultBlockOrder ile aynı). */
   export const BLOCK_ORDER: PageBlockId[] = ['overall', 'announcements', 'maintenance', 'groups', 'incidents'];
@@ -21,7 +22,7 @@
     };
     for (const b of l?.blocks ?? []) add(b.id, b.visible !== false);
     for (const id of BLOCK_ORDER) add(id, true);
-    return { style, width, blocks, show_uptime: l?.show_uptime !== false };
+    return { style, width, blocks, show_uptime: l?.show_uptime !== false, columns: normalizeColumns(l?.columns) };
   }
 </script>
 
@@ -43,7 +44,9 @@
   import { clock } from '../lib/ui.svelte';
   import * as fmt from '../lib/format';
   import { nowSec } from '../lib/format';
+  import type { Snippet } from 'svelte';
   import Icon, { type IconName } from './Icon.svelte';
+  import { barCount, columnWidth, gridColumnCount } from '../lib/statusgrid';
   import { tIn, type Locale, type TKey, type TParams } from '../lib/i18n';
 
   let {
@@ -54,6 +57,8 @@
     foldKey = null,
     embedded = false,
     feedUrl = '',
+    live = false,
+    actions,
   }: {
     page: PublicPage;
     logo?: string;
@@ -67,9 +72,23 @@
     embedded?: boolean;
     /** RSS akışının adresi (boş: bağlantı gösterilmez; önizleme ve şifreli sayfa). */
     feedUrl?: string;
+    /** Canlı akış bağlı: değişiklikler anında gelir ("Canlı" göstergesi). */
+    live?: boolean;
+    /** Üst çubuğun sağındaki ek düğmeler (genel sayfada "Abone ol"). */
+    actions?: Snippet;
   } = $props();
 
   const t = (key: TKey, params?: TParams) => tIn(lang, key, params);
+
+  // Canlı akış bağlanınca/kesilince ekran okuyucuya bir kez duyurulur (saat her
+  // güncellemede okunmasın diye göstergenin kendisi canlı bölge değildir).
+  let liveMsg = $state('');
+  let prevLive: boolean | undefined;
+  $effect(() => {
+    const l = live;
+    if (prevLive !== undefined && l !== prevLive) liveMsg = t(l ? 'pub.liveOn' : 'pub.liveOff');
+    prevLive = l;
+  });
   // Tarih, süre ve yüzdeler de sayfanın dilinde (düzenleyicideki canlı önizlemede
   // yönetim arayüzünün dili farklı olabilir).
   const fmtDate = (ts: number) => fmt.fmtDate(ts, lang);
@@ -139,20 +158,16 @@
     success: { icon: 'check-circle', l: t('pub.sev.success') },
   });
 
-  // Izgarada gruplar bu genişlikten itibaren iki sütun olur (CSS'teki @container ile aynı).
-  const GRID_MIN = 760;
-  const GRID3_MIN = 1400;
-  const GRID_GAP = 18;
   let mainW = $state(800);
   /** Bir grubun (sütunun) genişliği: çubuk sayısı buna göre seçilir. */
-  // Izgara sütun sayısı CSS'teki kapsayıcı sorgularıyla aynı eşiklerde: 760 px'ten
-  // iki, 1400 px'ten üç sütun.
+  // Izgara sütun sayısı (lib/statusgrid): ayar yoksa 760 px'ten iki, 1400 px'ten
+  // üç sütun; ayar (1-6) varsa en çok o kadar, kart daralırsa ve telefonda azalır.
   // Grup sayısından fazla sütun açılmaz (iki grupta üçüncü sütun boş kalıyordu).
   const shownSections = $derived(page.sections.map((sec, si) => ({ sec, si })).filter((x) => x.sec.monitors.length > 0));
   const gridCols = $derived(
     layout.style !== 'grid'
       ? 1
-      : Math.max(1, Math.min(shownSections.length, mainW >= GRID3_MIN ? 3 : mainW >= GRID_MIN ? 2 : 1)),
+      : gridColumnCount(layout.columns ?? 0, shownSections.length, mainW),
   );
   // Izgarada gruplar sütunlara yükseklik dengesiyle dağıtılır (sıradaki grup en
   // kısa sütuna; eşitlikte soldaki): satır ızgarasında kısa grubun yanında
@@ -170,7 +185,7 @@
     }
     return cols;
   });
-  const colW = $derived((mainW - GRID_GAP * (gridCols - 1)) / gridCols);
+  const colW = $derived(columnWidth(mainW, gridCols));
   // Sayfanın çubuk görünümü (eski sunucu: 90 gün). Dar alanda çubuklar okunur
   // kalsın diye daha az çubuk gösterilir.
   const range = $derived<BarRange>(page.range ?? '90d');
@@ -185,8 +200,7 @@
       const opts = [90, 60, 45, 30];
       return opts.find((n) => w / n >= ROW_PITCH) ?? 30;
     }
-    if (range === 'recent') return colW >= 560 ? 60 : colW >= 420 ? 45 : 30;
-    return colW >= 560 ? 90 : colW >= 420 ? 60 : 30;
+    return barCount(range, colW);
   });
 
   /**
@@ -346,8 +360,17 @@
           {#if page.description}<p class="desc">{page.description}</p>{/if}
         </div>
       </div>
-      <div class="refresh">
-        <span class="live" aria-hidden="true"></span>{t('pub.refreshInfo', { time: fmtTime(page.updated_at) })}
+      <div class="top-r">
+        <div class="refresh" class:on={live}>
+          {#if live}
+            <span class="live pulse" aria-hidden="true"></span><strong class="live-t">{t('pub.live')}</strong>
+            <span class="live-sep" aria-hidden="true">·</span>{t('pub.liveInfo', { time: fmtTime(page.updated_at) })}
+          {:else}
+            <span class="live" aria-hidden="true"></span>{t('pub.refreshInfo', { time: fmtTime(page.updated_at) })}
+          {/if}
+        </div>
+        <span class="sr-only" role="status">{liveMsg}</span>
+        {@render actions?.()}
       </div>
     </div>
   </header>
@@ -726,10 +749,14 @@
 
   /* Üst çubuk */
   .top {
+    /* Başlıktaki açılır panel (abone ol) alttaki kartların üstünde kalsın. */
+    position: relative;
+    z-index: 20;
     border-bottom: 1px solid var(--border);
     background: var(--bg-elev);
   }
   .top-in {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -775,12 +802,26 @@
     font-size: 0.85rem;
     color: var(--muted);
   }
+  .top-r {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+  }
   .refresh {
     display: flex;
     align-items: center;
     gap: 8px;
     color: var(--muted);
     font-size: 0.82rem;
+    white-space: nowrap;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
     white-space: nowrap;
   }
   .live {
@@ -790,6 +831,31 @@
     background: var(--up);
     box-shadow: 0 0 0 3px var(--up-soft);
     flex: none;
+  }
+  .refresh:not(.on) .live {
+    background: var(--muted);
+    box-shadow: none;
+    opacity: 0.6;
+  }
+  .live.pulse {
+    animation: live-pulse 2s ease-in-out infinite;
+  }
+  @keyframes live-pulse {
+    50% {
+      box-shadow: 0 0 0 5px var(--up-soft);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .live.pulse {
+      animation: none;
+    }
+  }
+  .live-t {
+    color: var(--up);
+    font-weight: 600;
+  }
+  .live-sep {
+    margin: 0 -2px;
   }
 
   main.wrap {
@@ -1271,6 +1337,52 @@
   }
   .st-grid .mon {
     padding: 14px 18px 12px;
+  }
+  /* Dar kart (4-6 sütun): monitör satırı telefondaki gibi yığılır, ad sıkışmaz. */
+  .st-grid .group {
+    container: gcard / inline-size;
+  }
+  @container gcard (max-width: 380px) {
+    .g-head {
+      flex-wrap: wrap;
+      row-gap: 8px;
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    .mon {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    /* Ad tam genişlikte üstte; yüzde ve rozet altta iki uca yaslı. */
+    .m-top {
+      flex-wrap: wrap;
+      row-gap: 8px;
+      gap: 10px;
+    }
+    .m-name {
+      flex: 1 1 100%;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .m-right {
+      flex: 1 1 100%;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      min-width: 0;
+      gap: 6px;
+    }
+    .m-up {
+      flex-direction: row;
+      align-items: baseline;
+      gap: 5px;
+    }
+    .sb {
+      height: 26px;
+      font-size: 0.8rem;
+      padding: 0 9px 0 8px;
+      gap: 6px;
+    }
   }
   .st-grid .bars {
     gap: 2px;
@@ -1772,6 +1884,11 @@
       gap: 10px;
       padding-top: 16px;
       padding-bottom: 16px;
+    }
+    .top-r {
+      align-self: stretch;
+      justify-content: space-between;
+      gap: 10px;
     }
     .refresh {
       white-space: normal;

@@ -244,7 +244,7 @@ export default {
     },
     updateUninstall: 'To update, run the same command again. To uninstall: {cmd}',
     conn: {
-      okTitle: 'Connected ✓',
+      okTitle: 'Connected',
       okText: 'First metrics received; the server now appears in the list.',
       unavailableTitle: 'The agent connected but can’t read metrics.',
       unavailableHint: 'Make sure you ran the complete command (with the host mounts).',

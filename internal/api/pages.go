@@ -65,6 +65,7 @@ func init() {
 		mux.HandleFunc("GET /api/public/pages/{slug}", s.publicPage)
 		mux.HandleFunc("POST /api/public/pages/{slug}/unlock", s.publicUnlock)
 		mux.HandleFunc("GET /api/public/pages/{slug}/logo", s.publicLogo)
+		mux.HandleFunc("GET /api/public/pages/{slug}/events", s.publicEvents)
 	})
 }
 
@@ -126,6 +127,7 @@ func (s *Server) pagesChanged(ctx context.Context) {
 	s.pages.gen++
 	s.pages.cache = map[string]*pageEntry{}
 	s.pages.mu.Unlock()
+	s.markAllLive()
 	if err := s.reloadDomains(ctx); err != nil {
 		s.log.Error("durum sayfası alan adları yüklenemedi", "hata", err)
 	}
@@ -142,19 +144,7 @@ func requestHost(r *http.Request) string {
 
 // domainPageFor istek bir durum sayfasının özel alan adına geldiyse o sayfayı döner.
 func (s *Server) domainPageFor(r *http.Request) (domainPage, bool) {
-	s.pages.mu.RLock()
-	loaded := s.pages.domains != nil
-	s.pages.mu.RUnlock()
-	if !loaded {
-		if err := s.reloadDomains(r.Context()); err != nil {
-			s.log.Error("durum sayfası alan adları yüklenemedi", "hata", err)
-			return domainPage{}, false
-		}
-	}
-	s.pages.mu.RLock()
-	defer s.pages.mu.RUnlock()
-	d, ok := s.pages.domains[requestHost(r)]
-	return d, ok
+	return s.domainPage(r.Context(), requestHost(r))
 }
 
 // customDomainOnly: istek bir durum sayfasının özel alan adına geldiyse yalnızca
@@ -194,7 +184,8 @@ type pageInput struct {
 	// Lang: herkese açık sayfanın dili (tr | en); yok = değişmez (yeni sayfada oluşturanın arayüz dili).
 	Lang *string `json:"lang"`
 	// Layout: yerleşim (list | grid | compact | rows), genişlik, bölüm
-	// sırası/görünürlüğü ve uptime yüzdesi (show_uptime, yok = gösterilir);
+	// sırası/görünürlüğü, uptime yüzdesi (show_uptime, yok = gösterilir) ve
+	// ızgara sütun sayısı (columns 1-6, 0/yok = otomatik);
 	// yok/null = değişmez.
 	// Bilinmeyen değerler varsayılana çekilir (hata değildir). Olaylar
 	// bölümünün görünürlüğü show_incidents ile aynı alandır: ikisi birden
@@ -207,6 +198,9 @@ type pageInput struct {
 	// UptimeWindows: monitör satırlarındaki uptime pencereleri (24h, 7d, 30d,
 	// 90d'den seçim; boş liste = çubuk kapsamına göre tek pencere); yok = değişmez.
 	UptimeWindows *[]string `json:"uptime_windows"`
+	// Subscriptions: ziyaretçiler e-postayla abone olabilsin mi (sistem
+	// e-postası gerekir); yok = değişmez.
+	Subscriptions *bool `json:"subscriptions"`
 }
 
 // layoutInput dizilim girdisinin gevşek biçimi: bilinmeyen alanlar yok sayılır.
@@ -215,6 +209,7 @@ type layoutInput struct {
 	Width string `json:"width"`
 	// ShowUptime yok = gösterilir (dizilim bütün olarak değişir).
 	ShowUptime *bool `json:"show_uptime"`
+	Columns    int   `json:"columns"` // 0/yok = otomatik; 1-6 dışı otomatik sayılır
 	Blocks     []struct {
 		ID      string `json:"id"`
 		Visible *bool  `json:"visible"`
@@ -231,7 +226,7 @@ func parseLayout(raw json.RawMessage) (l store.PageLayout, incidents *bool, ok b
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return l, nil, false, badInput("Sayfa dizilimi geçersiz")
 	}
-	l.Style, l.Width, l.ShowUptime = in.Style, in.Width, in.ShowUptime
+	l.Style, l.Width, l.ShowUptime, l.Columns = in.Style, in.Width, in.ShowUptime, in.Columns
 	for _, b := range in.Blocks {
 		vis := b.Visible == nil || *b.Visible
 		if b.ID == store.BlockIncidents && incidents == nil {
@@ -400,7 +395,15 @@ func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.St
 	}
 	p.Sections = sections
 
-	p.CustomDomain = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(in.CustomDomain)), ".")
+	// Unicode ad punycode'a çevrilir (vekil ve ask ucu xn-- biçimini görür).
+	domainOK := true
+	p.CustomDomain = ""
+	if strings.TrimSpace(in.CustomDomain) != "" {
+		p.CustomDomain, domainOK = normalizeDomain(in.CustomDomain)
+		if !domainOK {
+			p.CustomDomain = strings.TrimSpace(in.CustomDomain)
+		}
+	}
 	// Özel alan adını yalnızca yönetici belirleyebilir veya değiştirebilir;
 	// editör alanı değiştirmeyen bir kaydı yine de saklayabilir. Böylece bir
 	// editör sayfayı kendi alan adına (ör. uygulamanın adresine) yönlendirip
@@ -413,7 +416,7 @@ func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.St
 		return p, &inputError{http.StatusForbidden, "Özel alan adını yalnızca yöneticiler değiştirebilir"}
 	}
 	if p.CustomDomain != "" {
-		if !validHostname(p.CustomDomain) {
+		if !domainOK {
 			return p, badInput("Geçerli bir alan adı girin (ör. durum.ornek.com); http:// ve / olmadan")
 		}
 		// Uygulamanın kendi adresi (BASE_URL) ya da isteğin geldiği adres
@@ -472,6 +475,14 @@ func (s *Server) normalizePage(ctx context.Context, in *pageInput, old *store.St
 	}
 	if in.Published != nil {
 		p.Published = *in.Published
+	}
+	if in.Subscriptions != nil {
+		if *in.Subscriptions && (old == nil || !old.Subscriptions) {
+			if _, ok := s.systemMailer(ctx); !ok {
+				return p, badInput("Abonelik için önce Ayarlar > Giriş'te sistem e-postası seçin")
+			}
+		}
+		p.Subscriptions = *in.Subscriptions
 	}
 	if in.Password != nil {
 		if *in.Password == "" {
@@ -1136,7 +1147,9 @@ func (s *Server) createAnnouncement(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		names = append(names, op.Title)
+		s.subNotifyAnnouncement(op, c)
 	}
+	s.subNotifyAnnouncement(p, a)
 	s.pagesChanged(r.Context())
 	detail := "sayfa: " + p.Title + ", " + a.Severity
 	if len(others) > 0 {

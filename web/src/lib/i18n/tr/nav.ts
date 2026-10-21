@@ -24,6 +24,13 @@ export default {
   },
   offline: 'Bağlantı yok',
   offlineTip: 'Canlı bağlantı yeniden kuruluyor',
+  update: {
+    available: 'Bekci {latest} yayınlandı',
+    installed: '(kurulu: {current})',
+    notes: 'Neler yeni',
+    how: 'Nasıl güncellenir',
+    dismiss: 'Bu sürüm için gizle',
+  },
   refreshData: 'Verileri yenile',
   sessionExpired: 'Oturumunuz sona erdi. Lütfen tekrar giriş yapın.',
   connectFailed: 'Sunucuya bağlanılamadı',

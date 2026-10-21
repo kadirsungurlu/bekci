@@ -35,6 +35,10 @@ var errorsEN = map[string]string{
 	"%s gerekli":       "%s is required",
 	"kayıt bulunamadı": "record not found",
 	// E-posta, şifre sıfırlama, OIDC, tema
+	"Abonelik için önce Ayarlar > Giriş'te sistem e-postası seçin":                  "To enable subscriptions, first choose a system email in Settings > Sign-in",
+	"Onay bağlantısı geçersiz veya süresi dolmuş":                                   "The confirmation link is invalid or has expired",
+	"Çıkış bağlantısı geçersiz veya süresi dolmuş":                                  "The unsubscribe link is invalid or has expired",
+	"Çok fazla deneme, biraz sonra tekrar deneyin":                                  "Too many attempts, please try again later",
 	"E-posta adresi geçersiz":                                                       "Invalid email address",
 	"Bu e-posta adresi başka bir kullanıcıda kayıtlı":                               "This email address belongs to another user",
 	"Kullanıcı adı veya e-posta gerekli":                                            "Username or email is required",

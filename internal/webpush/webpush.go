@@ -29,10 +29,13 @@ import (
 	"time"
 )
 
-// Subscription tarayıcının PushSubscription.toJSON() çıktısı.
+// Subscription tarayıcının PushSubscription.toJSON() çıktısı. Standart gereği
+// toJSON "expirationTime" (null ya da epoch ms) da yollar; readJSON bilinmeyen
+// alanı reddettiği için alan tanımlı olmalı (kesirli ms'ye karşı float64).
 type Subscription struct {
-	Endpoint string `json:"endpoint"`
-	Keys     struct {
+	Endpoint       string   `json:"endpoint"`
+	ExpirationTime *float64 `json:"expirationTime,omitempty"`
+	Keys           struct {
 		P256dh string `json:"p256dh"` // istemcinin P-256 açık anahtarı (base64url, 65 bayt)
 		Auth   string `json:"auth"`   // 16 baytlık kimlik doğrulama sırrı (base64url)
 	} `json:"keys"`

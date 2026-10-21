@@ -18,6 +18,7 @@
   let userAgent = $state('');
   let defaultUA = $state('');
   let agentAuto = $state(true);
+  let updateCheck = $state(true);
   // Saklama (gün; 0 = süresiz).
   let incidentDays = $state<number | null>(365);
   let captureDays = $state<number | null>(90);
@@ -34,6 +35,7 @@
     notifyLang = s.notify_lang ?? 'tr';
     userAgent = s.check_user_agent ?? '';
     agentAuto = s.agent_auto_update ?? true;
+    updateCheck = s.update_check ?? true;
     incidentDays = s.retention_incident_days ?? 365;
     captureDays = s.retention_capture_days ?? 90;
     auditDays = s.retention_audit_days ?? 365;
@@ -53,6 +55,7 @@
       notifyLang,
       userAgent: userAgent.trim(),
       agentAuto,
+      updateCheck,
       incidentDays,
       captureDays,
       auditDays,
@@ -112,6 +115,7 @@
         notify_lang: notifyLang,
         check_user_agent: ua,
         agent_auto_update: agentAuto,
+        update_check: updateCheck,
         retention_incident_days: incidentDays!,
         retention_capture_days: captureDays!,
         retention_audit_days: auditDays!,
@@ -216,6 +220,13 @@
         <span>
           {t('settings.general.agentAutoUpdate')}
           <small>{t('settings.general.agentAutoUpdateHelp')}</small>
+        </span>
+      </label>
+      <label class="check">
+        <input type="checkbox" bind:checked={updateCheck} data-testid="update-check" />
+        <span>
+          {t('settings.general.updateCheck')}
+          <small>{t('settings.general.updateCheckHelp')}</small>
         </span>
       </label>
       {#if stError}<div class="alert error" role="alert">{stError}</div>{/if}

@@ -12,8 +12,8 @@ import (
 
 func upMs(ms int64) check.Result { return check.Result{Up: true, PingMs: ms, Message: "200 OK"} }
 
-// Yavaş yanıt: son N başarılı kontrolün ortalaması eşiği aşınca 🟡 + degraded
-// olayı; eşiğin %90 altına inince 🟢 ve olay kapanır. Uptime ve durum değişmez.
+// Yavaş yanıt: son N başarılı kontrolün ortalaması eşiği aşınca uyarı + degraded
+// olayı; eşiğin %90 altına inince düzelme ve olay kapanır. Uptime ve durum değişmez.
 func TestSlowResponse(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
@@ -33,7 +33,7 @@ func TestSlowResponse(t *testing.T) {
 		t.Fatalf("yavaş bildirimi bekleniyordu: %v", got)
 	}
 	ev := f.n.events[0]
-	if ev.Value != 1500 || ev.Threshold != 1000 || ev.Checks != 3 || ev.IncidentID == 0 || ev.Title() != "🟡 site yavaş yanıt veriyor" {
+	if ev.Value != 1500 || ev.Threshold != 1000 || ev.Checks != 3 || ev.IncidentID == 0 || ev.Title() != "site yavaş yanıt veriyor" {
 		t.Errorf("yavaş olayı: %+v", ev)
 	}
 	got, _ := f.st.GetMonitor(ctx, m.ID)
@@ -55,14 +55,14 @@ func TestSlowResponse(t *testing.T) {
 	if len(f.n.kinds()) != 1 {
 		t.Fatalf("histerezis: eşiğin %%90'ı üstünde bildirim gitmemeli: %v", f.n.kinds())
 	}
-	// Belirgin düzelme: pencere [950, 950, 200] → ortalama 700 < 900: 🟢 ve olay kapanır.
+	// Belirgin düzelme: pencere [950, 950, 200] → ortalama 700 < 900: düzelme ve olay kapanır.
 	step(upMs(200))
 	kinds := f.n.kinds()
 	if len(kinds) != 2 || kinds[1] != notify.KindSlowResolved {
 		t.Fatalf("düzelme bildirimi bekleniyordu: %v", kinds)
 	}
 	if ev := f.n.events[1]; ev.Downtime != 4*time.Minute || ev.Value != 700 || ev.IncidentID != incs[0].ID ||
-		ev.Title() != "🟢 site yanıt süresi normale döndü" {
+		ev.Title() != "site yanıt süresi normale döndü" {
 		t.Errorf("düzelme olayı: %+v", ev)
 	}
 	step(upMs(200))
@@ -102,11 +102,11 @@ func TestSlowResponseOutageAndRestore(t *testing.T) {
 	if r2.slowID == 0 || !r2.m.Slow {
 		t.Fatalf("yeniden başlatmada yavaş durumu korunmalı: id=%d slow=%v", r2.slowID, r2.m.Slow)
 	}
-	// Kesinti: 🔴 gider, degraded olayı sessizce kapanır.
+	// Kesinti: kritik gider, degraded olayı sessizce kapanır.
 	step(r2, down("HTTP 503"))
 	kinds := f.n.kinds()
 	if len(kinds) != 2 || kinds[1] != notify.KindDown {
-		t.Fatalf("kesintide yalnızca 🔴 gitmeli: %v", kinds)
+		t.Fatalf("kesintide yalnızca gitmeli: %v", kinds)
 	}
 	incs, _ := f.st.ListIncidents(ctx, store.IncidentFilter{Kind: store.KindGroupDegraded})
 	if len(incs) != 1 || incs[0].ResolvedAt == 0 {
