@@ -8,8 +8,9 @@ import { mkdirSync } from 'node:fs';
 
 const BASE = process.env.BASE || 'http://127.0.0.1:8080';
 const SHOTS = process.env.SHOTS || '';
-const USER = 'e2edurum';
-const PASS = 'e2e-durum-sifre-123';
+// push.mjs ile aynı hesap: CI'da ikisi aynı panele sırayla çalışır (ilk kurulumu hangisi yaparsa).
+const USER = 'e2e';
+const PASS = 'e2e-parola-12345';
 const H = { 'Content-Type': 'application/json', 'X-Uptime': '1' };
 
 function fail(msg) {
