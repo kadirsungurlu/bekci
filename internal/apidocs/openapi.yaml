@@ -1001,6 +1001,8 @@ paths:
       responses: { "200": { $ref: "#/components/responses/OK" }, "401": { $ref: "#/components/responses/Error" } }
   /api/public/pages/{slug}/logo:
     get: { tags: [public], summary: Sayfa logosu, security: [], parameters: [{ $ref: "#/components/parameters/slug" }], responses: { "200": { description: Görsel } } }
+  /api/public/pages/{slug}/events:
+    get: { tags: [public], summary: "Canlı sinyal akışı (SSE): sayfa değişince `data: {\"type\":\"update\"}`; olay verisi içermez, istemci sayfayı yeniden alır. IP başına 8, toplam 100 akış.", security: [], parameters: [{ $ref: "#/components/parameters/slug" }], responses: { "200": { description: Akış, content: { text/event-stream: {} } }, "401": { $ref: "#/components/responses/Error" }, "429": { $ref: "#/components/responses/Error" } } }
   /api/public/pages/{slug}/feed.xml:
     get: { tags: [public], summary: RSS akışı (olaylar, duyurular, planlı bakım), security: [], parameters: [{ $ref: "#/components/parameters/slug" }], responses: { "200": { description: RSS 2.0, content: { application/rss+xml: {} } } } }
   /api/badge/{id}/{kind}:

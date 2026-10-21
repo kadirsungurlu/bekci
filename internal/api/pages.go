@@ -65,6 +65,7 @@ func init() {
 		mux.HandleFunc("GET /api/public/pages/{slug}", s.publicPage)
 		mux.HandleFunc("POST /api/public/pages/{slug}/unlock", s.publicUnlock)
 		mux.HandleFunc("GET /api/public/pages/{slug}/logo", s.publicLogo)
+		mux.HandleFunc("GET /api/public/pages/{slug}/events", s.publicEvents)
 	})
 }
 
@@ -126,6 +127,7 @@ func (s *Server) pagesChanged(ctx context.Context) {
 	s.pages.gen++
 	s.pages.cache = map[string]*pageEntry{}
 	s.pages.mu.Unlock()
+	s.markAllLive()
 	if err := s.reloadDomains(ctx); err != nil {
 		s.log.Error("durum sayfası alan adları yüklenemedi", "hata", err)
 	}

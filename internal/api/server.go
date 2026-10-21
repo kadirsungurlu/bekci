@@ -31,6 +31,7 @@ type Server struct {
 	limiter  *loginLimiter
 	now      func() time.Time
 	pages    *pagesState   // durum sayfası önbellekleri (pages.go)
+	live     *publicLive   // durum sayfası canlı akışı (public_live.go)
 	probeRL  *probeLimiter // kontrol noktası istek sınırı (probes.go)
 	// probePolls ajan başına son verilen iş listesi sürümü (uzun yoklama; probes.go)
 	probePolls *probePolls
@@ -82,7 +83,7 @@ const DefaultAgentDir = "/usr/local/share/uptime/agents"
 func New(st *store.Store, e *engine.Engine, hub *engine.Hub, n *notify.Dispatcher, log *slog.Logger, static fs.FS, version string) *Server {
 	s := &Server{
 		store: st, engine: e, hub: hub, notifier: n, log: log, static: static, version: version,
-		limiter: newLoginLimiter(), now: time.Now, pages: newPagesState(), probeRL: newProbeLimiter(),
+		limiter: newLoginLimiter(), now: time.Now, pages: newPagesState(), live: newPublicLive(), probeRL: newProbeLimiter(),
 		badges:        newBadgeState(),
 		notifyRL:      newNotifyLimiter(),
 		pushRL:        newIPLimiter(pushPerMinute),
