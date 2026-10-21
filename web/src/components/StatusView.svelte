@@ -1367,7 +1367,9 @@
     .m-right {
       flex: 1 1 100%;
       flex-direction: row;
+      flex-wrap: wrap;
       justify-content: space-between;
+      min-width: 0;
       gap: 6px;
     }
     .m-up {
