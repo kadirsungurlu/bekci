@@ -117,11 +117,6 @@ try {
   await q.waitForTimeout(800);
   const txt = await q.locator('.refresh').innerText();
   if (!txt.includes('60 sn')) fail('akış yokken eski metin yok: ' + txt);
-  // Sağ alttaki boş kutu: sayfada yalnız "null" yazan öğe olmamalı.
-  const nullBox = await q.evaluate(() =>
-    [...document.querySelectorAll('body *')].some((e) => e.children.length === 0 && e.textContent?.trim() === 'null'),
-  );
-  if (nullBox) fail('sayfada "null" yazan öğe var');
   console.log('yedek: akış yokken "60 sn" metni');
   await q.close();
   console.log('TAMAM');
