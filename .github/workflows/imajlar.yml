@@ -132,6 +132,9 @@ jobs:
       - name: Yeni sürüm şeridi (sahte sürüm sunucusu) uçtan uca
         working-directory: web/e2e
         run: node guncelleme.mjs
+      - name: Olaylar listesi sayfalama uçtan uca
+        working-directory: web/e2e
+        run: node olaylar.mjs
       - name: Panel günlüğü
         if: failure()
         run: tail -n 80 "$RUNNER_TEMP/panel.log" || true

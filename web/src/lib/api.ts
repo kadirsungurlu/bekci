@@ -1647,7 +1647,7 @@ export const api = {
   incidentsPage: (offset: number, limit: number, kind: IncidentFilterKind = '', open = false, f: IncidentQuery = {}) =>
     getPaged<Incident>(
       `/api/incidents${qs({
-        offset,
+        offset: String(offset),
         limit,
         kind: kind || undefined,
         open: open ? 1 : undefined,
@@ -1696,7 +1696,7 @@ export const api = {
   resetUser2fa: (id: number) => post<{ ok: boolean }>(`/api/users/${id}/2fa/reset`),
   audit: (q: AuditQuery) => get<AuditEntry[]>(`/api/audit${qs({ ...q })}`),
   /** Sayfa numaralı işlem kaydı (offset/limit; toplam ile). */
-  auditPage: (q: AuditQuery & { offset: number }) => getPaged<AuditEntry>(`/api/audit${qs({ ...q })}`),
+  auditPage: (q: AuditQuery & { offset: number }) => getPaged<AuditEntry>(`/api/audit${qs({ ...q, offset: String(q.offset) })}`),
   auditFacets: () => get<AuditFacets>('/api/audit/facets'),
 
   // İki adımlı doğrulama
