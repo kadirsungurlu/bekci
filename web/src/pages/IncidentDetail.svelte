@@ -487,13 +487,24 @@
   }
 
   const locLabel = (s: string) => tOr(`incidents.detail.loc.${s}`, s);
+
+  // Listeye dönüş: son açılan olay listesi sayfası ve süzgeçleri (Incidents.svelte saklar).
+  function listHref(): string {
+    try {
+      const u = sessionStorage.getItem('bekci-olay-listesi');
+      if (u && u.startsWith('/incidents')) return u;
+    } catch {
+      /* gizli mod */
+    }
+    return '/incidents';
+  }
 </script>
 
 {#if notFound}
   <div class="card empty">
     <h3>{t('incidents.detail.notFound')}</h3>
     <p>{t('incidents.detail.notFoundText')}</p>
-    <a class="btn primary" href="#/incidents">{t('incidents.detail.backToList')}</a>
+    <a class="btn primary" href={'#' + listHref()}>{t('incidents.detail.backToList')}</a>
   </div>
 {:else if !data || !inc}
   {#if loadError}
@@ -508,7 +519,7 @@
   {/if}
 {:else}
   <div class="page" class:narrow={!showSide}>
-    <a class="back" href="#/incidents"><Icon name="chevron-left" size={16} /> {t('incidents.detail.back')}</a>
+    <a class="back" href={'#' + listHref()}><Icon name="chevron-left" size={16} /> {t('incidents.detail.back')}</a>
 
     <div class="head">
       <div class="title">

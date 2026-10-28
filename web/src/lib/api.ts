@@ -1451,7 +1451,13 @@ export function onPasswordChangeRequired(fn: () => void) {
 const NO_SESSION_401 = ['/api/auth/login', '/api/auth/login/2fa', '/api/auth/setup', '/api/auth/forgot', '/api/auth/reset'];
 const noSession401 = (path: string) => NO_SESSION_401.includes(path) || path.startsWith('/api/public/');
 
-async function request<T>(method: string, path: string, body?: unknown, raw?: { type: string; data: Blob }): Promise<T> {
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  raw?: { type: string; data: Blob },
+  meta?: { total?: number },
+): Promise<T> {
   // X-Uptime-Lang: sunucu hata mesajlarını arayüzün dilinde döndürsün.
   const headers: Record<string, string> = { Accept: 'application/json', 'X-Uptime-Lang': i18n.locale };
   if (method !== 'GET') {
@@ -1479,6 +1485,10 @@ async function request<T>(method: string, path: string, body?: unknown, raw?: { 
     }
   }
   if (!res.ok) throw failure(path, res.status, data, res.headers.get('Retry-After'));
+  if (meta) {
+    const total = Number(res.headers.get('X-Total-Count'));
+    if (Number.isFinite(total)) meta.total = total;
+  }
   return data as T;
 }
 
@@ -1539,6 +1549,17 @@ export function upload<T>(
 }
 
 const get = <T>(p: string) => request<T>('GET', p);
+
+/** Sayfa numaralı liste yanıtı (toplam X-Total-Count başlığından). */
+export interface Paged<T> {
+  items: T[];
+  total: number;
+}
+const getPaged = async <T>(p: string): Promise<Paged<T>> => {
+  const meta: { total?: number } = {};
+  const items = await request<T[]>('GET', p, undefined, undefined, meta);
+  return { items, total: meta.total ?? items.length };
+};
 const post = <T>(p: string, b?: unknown) => request<T>('POST', p, b);
 const put = <T>(p: string, b?: unknown) => request<T>('PUT', p, b);
 const del = <T>(p: string) => request<T>('DELETE', p);
@@ -1622,6 +1643,21 @@ export const api = {
         q: f.q?.trim() || undefined,
       })}`,
     ),
+  /** Sayfa numaralı olay listesi (offset/limit; toplam ile). */
+  incidentsPage: (offset: number, limit: number, kind: IncidentFilterKind = '', open = false, f: IncidentQuery = {}) =>
+    getPaged<Incident>(
+      `/api/incidents${qs({
+        offset,
+        limit,
+        kind: kind || undefined,
+        open: open ? 1 : undefined,
+        monitor_id: f.monitor_id || undefined,
+        server_id: f.server_id || undefined,
+        from: f.from || undefined,
+        to: f.to || undefined,
+        q: f.q?.trim() || undefined,
+      })}`,
+    ),
   serverIncidents: (id: number) => get<Incident[]>(`/api/servers/${id}/incidents`),
   incident: (id: number) => get<IncidentDetail>(`/api/incidents/${id}`),
   // Manuel olaylar ve güncellemeler (editör+)
@@ -1659,6 +1695,8 @@ export const api = {
   resetUserPassword: (id: number, password: string) => post<{ ok: boolean }>(`/api/users/${id}/password`, { password }),
   resetUser2fa: (id: number) => post<{ ok: boolean }>(`/api/users/${id}/2fa/reset`),
   audit: (q: AuditQuery) => get<AuditEntry[]>(`/api/audit${qs({ ...q })}`),
+  /** Sayfa numaralı işlem kaydı (offset/limit; toplam ile). */
+  auditPage: (q: AuditQuery & { offset: number }) => getPaged<AuditEntry>(`/api/audit${qs({ ...q })}`),
   auditFacets: () => get<AuditFacets>('/api/audit/facets'),
 
   // İki adımlı doğrulama

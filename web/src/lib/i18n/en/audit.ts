@@ -5,7 +5,6 @@ export default {
   title: 'Audit log',
   loadFailed: "Couldn't load the audit log",
   empty: 'No entries yet.',
-  loadMore: 'Load more',
   filter: {
     label: 'Filters',
     search: 'Search',

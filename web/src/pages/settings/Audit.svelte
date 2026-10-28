@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { navigate } from '../../lib/router.svelte';
+  import Pager from '../../components/Pager.svelte';
   import { api, errorMessage, type AuditEntry, type AuditFacets, type AuditQuery } from '../../lib/api';
   import { auditDetail, auditHref, auditLabel, auditTargetLabel, auditTone } from '../../lib/audit';
   import { fmtDate } from '../../lib/format';
@@ -13,12 +15,20 @@
   const detailText = (a: AuditEntry) =>
     (a.action.startsWith('maintenance.') && STRATEGY_LABELS[a.detail as keyof typeof STRATEGY_LABELS]) || auditDetail(a.detail) || '—';
 
-  const LIMIT = 50;
+  const SIZES = [25, 50, 100];
+  // Sayfa ve sayfa boyu adreste (#/settings/audit?sayfa=2&adet=50): geri tuşu çalışır.
+  function readUrl(): { page: number; perPage: number } {
+    const q = new URLSearchParams(location.hash.split('?')[1] ?? '');
+    const per = Number(q.get('adet'));
+    return { page: Math.max(1, Math.floor(Number(q.get('sayfa'))) || 1), perPage: SIZES.includes(per) ? per : 25 };
+  }
+  const init = readUrl();
 
   let items = $state.raw<AuditEntry[]>([]);
+  let total = $state(0);
+  let page = $state(init.page);
+  let perPage = $state(init.perPage);
   let loading = $state(true);
-  let loadingMore = $state(false);
-  let hasMore = $state(false);
   let error = $state('');
   let facets = $state.raw<AuditFacets>({ users: [], actions: [] });
 
@@ -30,10 +40,10 @@
   // Yerel günün başlangıcı / sonu (unix).
   const dayStart = (d: string) => (d ? Math.floor(new Date(`${d}T00:00:00`).getTime() / 1000) : 0);
   const dayEnd = (d: string) => (d ? Math.floor(new Date(`${d}T23:59:59`).getTime() / 1000) : 0);
-  function query(before = 0): AuditQuery {
+  function query(): AuditQuery & { offset: number } {
     return {
-      before,
-      limit: LIMIT,
+      offset: (page - 1) * perPage,
+      limit: perPage,
       user: filters.user,
       action: filters.action,
       from: dayStart(filters.from),
@@ -54,14 +64,18 @@
   });
 
   let req = 0;
-  async function loadFirst() {
-    loading = true;
+  async function load() {
     const my = ++req;
     try {
-      const list = await api.audit(query());
+      const res = await api.auditPage(query());
       if (my !== req) return;
-      items = list;
-      hasMore = list.length === LIMIT;
+      const last = Math.max(1, Math.ceil(res.total / perPage));
+      if (res.items.length === 0 && page > last) {
+        setPage(last, true);
+        return;
+      }
+      items = res.items;
+      total = res.total;
       error = '';
     } catch (e) {
       if (my === req) error = errorMessage(e);
@@ -70,18 +84,35 @@
     }
   }
 
-  async function loadMore() {
-    if (!items.length) return;
-    loadingMore = true;
-    try {
-      const list = await api.audit(query(items[items.length - 1].id));
-      items = [...items, ...list];
-      hasMore = list.length === LIMIT;
-    } catch (e) {
-      error = errorMessage(e);
-    } finally {
-      loadingMore = false;
-    }
+  function urlOf(): string {
+    const q = new URLSearchParams();
+    if (page > 1) q.set('sayfa', String(page));
+    if (perPage !== 25) q.set('adet', String(perPage));
+    const qs = q.toString();
+    return '/settings/audit' + (qs ? '?' + qs : '');
+  }
+
+  function setPage(p: number, replace = false) {
+    page = Math.max(1, p);
+    navigate(urlOf(), replace);
+    load();
+    if (!replace) window.scrollTo(0, 0);
+  }
+
+  // Süzgeç değişti: ilk sayfa.
+  function loadFirst() {
+    loading = true;
+    setPage(1, true);
+  }
+
+  function onHashChange() {
+    if (!location.hash.startsWith('#/settings/audit')) return;
+    const u = readUrl();
+    if (u.page === page && u.perPage === perPage) return;
+    page = u.page;
+    perPage = u.perPage;
+    loading = true;
+    load();
   }
 
   async function loadFacets() {
@@ -107,9 +138,15 @@
   }
 
   onMount(() => {
-    refresh();
+    loadFacets();
+    load(); // adresteki sayfa korunur
+    window.addEventListener('hashchange', onHashChange);
     // Dil değişince (ayrıntılar sunucuda çevrilir) ve uzun aradan sonra tazele.
-    return live.onResume(loadFirst);
+    const off = live.onResume(load);
+    return () => {
+      off();
+      window.removeEventListener('hashchange', onHashChange);
+    };
   });
 </script>
 
@@ -219,13 +256,8 @@
       </tbody>
     </table>
     {#if error}<div class="alert error">{error}</div>{/if}
-    {#if hasMore}
-      <div class="more">
-        <button class="btn" onclick={loadMore} disabled={loadingMore}>
-          {#if loadingMore}<span class="spinner"></span>{/if}
-          {t('audit.loadMore')}
-        </button>
-      </div>
+    {#if total > 0}
+      <Pager {total} {page} {perPage} onpage={(p) => setPage(p)} onperpage={(n) => ((perPage = n), setPage(1))} />
     {/if}
   {/if}
 </div>
@@ -326,13 +358,6 @@
   }
   .tm {
     color: var(--text-2);
-  }
-  .more {
-    display: flex;
-    justify-content: center;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-    margin-top: 4px;
   }
   @media (max-width: 720px) {
     .det {

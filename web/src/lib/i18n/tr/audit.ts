@@ -3,7 +3,6 @@ export default {
   title: 'İşlem kaydı',
   loadFailed: 'İşlem kaydı yüklenemedi',
   empty: 'Henüz kayıt yok.',
-  loadMore: 'Daha fazla yükle',
   filter: {
     label: 'Süzgeçler',
     search: 'Ara',

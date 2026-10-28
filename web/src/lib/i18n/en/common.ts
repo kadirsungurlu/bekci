@@ -82,4 +82,13 @@ export default {
     uploadAborted: 'Upload canceled.',
     unexpected: 'An unexpected error occurred',
   },
+  pager: {
+    label: 'Pagination',
+    total: '{n} records in total',
+    range: '{from}-{to} of {n}',
+    perPage: 'Per page',
+    prev: 'Previous page',
+    next: 'Next page',
+    page: 'Page {n}',
+  },
 } satisfies Shape<typeof tr>;
