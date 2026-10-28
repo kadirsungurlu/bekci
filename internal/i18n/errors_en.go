@@ -510,6 +510,7 @@ var errorsEN = map[string]string{
 	"Uygulama ayarları":                                                                            "App settings",
 	"Ayarlar yalnızca “değiştir” modunda geri yüklenir":                                            "Settings are restored only in “replace” mode",
 	"Ayarlar geçersiz: %s":                                                                         "Invalid settings: %s",
+	"Geçersiz sayfa":                                                                               "Invalid page",
 	"Geçersiz sayfa adresi: %s":                                                                    "Invalid page address: %s",
 	"Açıklama en fazla 1000, alt bilgi en fazla 500 karakter olabilir":                             "Description can be at most 1000 characters and footer at most 500",
 	"Bu adreste (%s) bir durum sayfası zaten var; eklenmedi":                                       "A status page already exists at this address (%s); not added",

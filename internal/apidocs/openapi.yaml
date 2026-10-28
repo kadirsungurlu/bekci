@@ -860,6 +860,7 @@ paths:
         - { name: to, in: query, schema: { type: integer } }
         - { name: q, in: query, schema: { type: string } }
         - { name: before, in: query, schema: { type: integer }, description: "Sayfalama: bu kimlikten küçükler" }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, maximum: 100000 }, description: "Sayfa numaralı liste: verilirse before yok sayılır, limit 1-100 (varsayılan 25) ve toplam X-Total-Count başlığında döner" }
         - { name: limit, in: query, schema: { type: integer, maximum: 500 } }
         - { name: format, in: query, schema: { type: string, enum: [csv] } }
       responses:
@@ -1248,6 +1249,7 @@ paths:
         - { name: to, in: query, schema: { type: integer } }
         - { name: q, in: query, schema: { type: string } }
         - { name: before, in: query, schema: { type: integer } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, maximum: 100000 }, description: "Sayfa numaralı liste: limit 1-100 (varsayılan 25), toplam X-Total-Count başlığında" }
         - { name: limit, in: query, schema: { type: integer, maximum: 500 } }
       responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AuditEntry" } } } } } }
   /api/audit/facets:

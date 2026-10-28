@@ -725,3 +725,9 @@ func rawString(data json.RawMessage) string {
 	}
 	return string(data)
 }
+
+// Olay listesi sayfalaması: tür sekmesi + id sırası (ORDER BY id DESC LIMIT/OFFSET)
+// ve sayım tür süzgeciyle tablo taramasına düşmesin.
+func init() {
+	RegisterMigration(39, `CREATE INDEX incidents_kind_id ON incidents(kind, id);`)
+}

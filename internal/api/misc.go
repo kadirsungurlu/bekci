@@ -96,6 +96,20 @@ func (s *Server) listIncidents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f := store.IncidentFilter{Before: before, Limit: limit, Kind: kind, Open: q.Get("open") == "1", Query: q.Get("q")}
+	// Sayfa numaralı liste: offset + toplam (X-Total-Count). Sayfa boyu 1-100.
+	paged := q.Has("offset")
+	if paged {
+		f.Before = 0
+		f.Offset, _ = strconv.Atoi(q.Get("offset"))
+		if f.Offset < 0 || f.Offset > store.MaxIncidentOffset {
+			writeError(w, http.StatusBadRequest, "Geçersiz sayfa")
+			return
+		}
+		if f.Limit <= 0 {
+			f.Limit = 25
+		}
+		f.Limit = min(f.Limit, 100)
+	}
 	// Süzgeçler: monitör / sunucu, başlangıç tarihi aralığı (unix), metin.
 	f.MonitorID, _ = strconv.ParseInt(q.Get("monitor_id"), 10, 64)
 	f.ServerID, _ = strconv.ParseInt(q.Get("server_id"), 10, 64)
@@ -137,6 +151,14 @@ func (s *Server) listIncidents(w http.ResponseWriter, r *http.Request) {
 			list[k].Cause = viewerMessage(u, typ, store.StatusDown, list[k].Cause)
 		}
 	}
+	if paged && !asCSV {
+		total, err := s.store.CountIncidents(r.Context(), f)
+		if err != nil {
+			s.dbError(w, err)
+			return
+		}
+		w.Header().Set("X-Total-Count", strconv.Itoa(total))
+	}
 	lang := responseLang(w)
 	localizeIncidents(lang, list)
 	if asCSV {
@@ -152,7 +174,7 @@ const csvExportMax = 10000
 // allIncidents süzgece uyan olayları sayfalayarak toplar (en fazla csvExportMax).
 func (s *Server) allIncidents(ctx context.Context, f store.IncidentFilter) ([]store.Incident, error) {
 	var out []store.Incident
-	f.Limit = 500
+	f.Limit, f.Offset = 500, 0
 	for len(out) < csvExportMax {
 		page, err := s.store.ListIncidents(ctx, f)
 		if err != nil {
