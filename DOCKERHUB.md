@@ -57,7 +57,7 @@ Updates: `docker compose pull && docker compose up -d`. The database is backed u
 
 ## License
 
-[AGPL-3.0](https://github.com/kadirsungurlu/bekci/blob/main/LICENSE) · Made in Türkiye · Contact: [GitHub](https://github.com/kadirsungurlu/bekci/issues)
+[AGPL-3.0](https://github.com/kadirsungurlu/bekci/blob/main/LICENSE) · Made in Türkiye · Contact: me@kadir.app
 
 ---
 

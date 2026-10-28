@@ -15,7 +15,7 @@
 
 **Türkçe** · [English](README.en.md)
 
-[bekci.app](https://bekci.app) · İletişim: [GitHub](https://github.com/kadirsungurlu/bekci/issues)
+[bekci.app](https://bekci.app) · İletişim: [me@kadir.app](mailto:me@kadir.app)
 
 <img src="docs/ekran/monitorler.png" alt="Monitör listesi: durum, yanıt süresi, son 24 saatin uptime çubukları ve genel özet" width="100%">
 

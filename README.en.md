@@ -15,7 +15,7 @@
 
 [Türkçe](README.md) · **English**
 
-[bekci.app](https://bekci.app) · Contact: [GitHub](https://github.com/kadirsungurlu/bekci/issues)
+[bekci.app](https://bekci.app) · Contact: [me@kadir.app](mailto:me@kadir.app)
 
 <img src="docs/ekran/monitorler.png" alt="Monitor list: status, response time, uptime bars for the last 24 hours and an overall summary" width="100%">
 
