@@ -36,7 +36,7 @@ export default {
     firstText:
       'Start monitoring your websites, servers and scheduled jobs. We’ll let you know right away when something goes wrong.',
     addMonitor: 'Add monitor',
-    migrateTitle: 'Migrate from UptimeRobot or Uptime Kuma',
+    migrateTitle: 'Migrate from another monitoring tool',
     migrateText: 'Bring over your monitors, notification channels and tags in a few clicks.',
     noneTitle: 'No monitors to show',
     noneText:

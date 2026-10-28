@@ -40,7 +40,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 - Haritayı yenile: `sh scripts/harita.sh`
 
 ## Ortamlar
-- Test: https://test-uptime.kadir.app (dal `gelistirme`) · Yayın: https://bekci.app (dal `main`), Docker Hub. Yayın kuralı: proje CLAUDE.md.
+- Test: Coolify Bekci Test (dal `gelistirme`; adres proje CLAUDE.md'de) · Yayın: https://bekci.app (dal `main`), Docker Hub. Yayın kuralı: proje CLAUDE.md.
 
 ## Nerede ne var
 | Özellik | Dosyalar |

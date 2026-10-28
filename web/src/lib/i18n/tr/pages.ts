@@ -119,7 +119,7 @@ export default {
     bars24h: 'Son 24 saat (saatlik)',
     bars90d: 'Son 90 gün (günlük)',
     barsHelp:
-      'Ziyaretçiler çoğunlukla anlık durumu merak eder. "Son kontroller"de her çubuk bir kontroldür (Uptime Kuma gibi); uzun vadeli güvenilirliği göstermek için 90 gün seçilebilir.',
+      'Ziyaretçiler çoğunlukla anlık durumu merak eder. "Son kontroller"de her çubuk bir kontroldür; uzun vadeli güvenilirliği göstermek için 90 gün seçilebilir.',
     showTargets: 'Hedef adresleri göster',
     showTargetsHelp:
       'Kapalıyken monitörlerin adresleri gizlenir. Açıksa web sitelerinde alan adı (ör. ornek.com), diğerlerinde sunucu adresi gösterilir.',

@@ -67,7 +67,7 @@
       <ul>
         <li><a href="#features">Features</a></li>
         <li><a href="#screenshots">Screenshots</a></li>
-        <li><a href="#compare">Compare</a></li>
+        <li><a href="#compare">What you get</a></li>
         <li><a href="#security">Security</a></li>
         <li><a href="#install">Install</a></li>
         <li><a href="#faq">FAQ</a></li>
@@ -95,7 +95,7 @@
     <ul>
       <li><a href="#features">Features</a></li>
       <li><a href="#screenshots">Screenshots</a></li>
-      <li><a href="#compare">Compare</a></li>
+      <li><a href="#compare">What you get</a></li>
       <li><a href="#security">Security</a></li>
       <li><a href="#install">Install</a></li>
       <li><a href="#faq">FAQ</a></li>
@@ -159,8 +159,8 @@
     <div class="wrap">
       <div class="section-head">
         <span class="eyebrow">Features</span>
-        <h2 id="features-title">Uptime Kuma's monitors and Beszel's server metrics, in one dashboard</h2>
-        <p>A UI as simple as UptimeRobot's, built to stay fast with hundreds of monitors.</p>
+        <h2 id="features-title">Website monitoring and server metrics in one dashboard</h2>
+        <p>A simple UI, built to stay fast with hundreds of monitors.</p>
       </div>
       <div class="features">
         <article class="card feature">
@@ -227,7 +227,7 @@
         <article class="card feature">
           <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
           <h3>Painless migration and backups</h3>
-          <p>Import from an Uptime Kuma backup or straight from your UptimeRobot account. Nightly automatic backups; exports can be encrypted with a password.</p>
+          <p>Import from other monitoring tools' backups and accounts. Nightly automatic backups; exports can be encrypted with a password.</p>
         </article>
       </div>
     </div>
@@ -357,82 +357,41 @@
     <div class="wrap">
       <div class="section-head">
         <span class="eyebrow">Why Bekci?</span>
-        <h2 id="compare-title">Two tools' worth of monitoring in one container</h2>
+        <h2 id="compare-title">What Bekci offers</h2>
         <p>Instead of running one tool for your sites and another for your servers, get both in one dashboard, one image, on your own hardware.</p>
       </div>
-      <div class="table-wrap" role="region" aria-labelledby="compare-title" tabindex="0">
-        <table class="compare">
-          <caption class="sr-only">Comparison of Bekci, UptimeRobot, Uptime Kuma and Beszel</caption>
-          <thead>
-            <tr>
-              <th scope="col">Feature</th>
-              <th scope="col" class="us">Bekci<small>self-hosted</small></th>
-              <th scope="col">UptimeRobot<small>hosted (SaaS)</small></th>
-              <th scope="col">Uptime Kuma<small>self-hosted</small></th>
-              <th scope="col">Beszel<small>self-hosted</small></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th scope="row">Your data stays on your server</th>
-              <td class="us" data-label="Bekci"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
-              <td data-label="UptimeRobot"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">No</span></span></td>
-              <td data-label="Uptime Kuma"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
-              <td data-label="Beszel"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
-            </tr>
-            <tr>
-              <th scope="row">Website and service checks (HTTP, TCP, DNS…)</th>
-              <td class="us" data-label="Bekci"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
-              <td data-label="UptimeRobot"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
-              <td data-label="Uptime Kuma"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
-              <td data-label="Beszel"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">No</span></span></td>
-            </tr>
-            <tr>
-              <th scope="row">Server resource monitoring (CPU, RAM, disk, network)</th>
-              <td class="us" data-label="Bekci"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
-              <td data-label="UptimeRobot"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">No</span></span></td>
-              <td data-label="Uptime Kuma"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">No</span></span></td>
-              <td data-label="Beszel"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
-            </tr>
-            <tr>
-              <th scope="row">Public status pages</th>
-              <td class="us" data-label="Bekci"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
-              <td data-label="UptimeRobot"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
-              <td data-label="Uptime Kuma"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
-              <td data-label="Beszel"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">No</span></span></td>
-            </tr>
-            <tr>
-              <th scope="row">Checks from multiple locations</th>
-              <td class="us" data-label="Bekci"><span class="part">Via your own check locations</span></td>
-              <td data-label="UptimeRobot"><span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span class="sr-only">Yes</span></span></td>
-              <td data-label="Uptime Kuma"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">No</span></span></td>
-              <td data-label="Beszel"><span class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><span class="sr-only">No</span></span></td>
-            </tr>
-            <tr>
-              <th scope="row">Price</th>
-              <td class="us" data-label="Bekci"><span class="part">Free</span></td>
-              <td data-label="UptimeRobot"><span class="part">Free plan, paid plans</span></td>
-              <td data-label="Uptime Kuma"><span class="part">Free, open source</span></td>
-              <td data-label="Beszel"><span class="part">Free, open source</span></td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="features">
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg></div>
+          <h3>Your data stays on your server</h3>
+          <p>Bekci runs on your own server; your data stays with you.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg></div>
+          <h3>Website and service checks</h3>
+          <p>HTTP, TCP, DNS and more.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg></div>
+          <h3>Server resource monitoring</h3>
+          <p>CPU, RAM, disk and network.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg></div>
+          <h3>Public status pages</h3>
+          <p>Show your visitors the status of your services.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg></div>
+          <h3>Checks from multiple locations</h3>
+          <p>Via your own check locations.</p>
+        </article>
+        <article class="card feature">
+          <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg></div>
+          <h3>Free</h3>
+          <p>Bekci is free.</p>
+        </article>
       </div>
-      <div class="compare-foot">
-        <div class="card">
-          <h3>Coming from UptimeRobot?</h3>
-          <p>Your data stays on your own server and there are no plan limits. Import your monitors straight from your account.</p>
-        </div>
-        <div class="card">
-          <h3>Coming from Uptime Kuma?</h3>
-          <p>The monitor types you know, plus server metrics, client accounts and remote check locations. Bring your Kuma backup along.</p>
-        </div>
-        <div class="card">
-          <h3>Using Beszel?</h3>
-          <p>Keep your server metrics and add your websites, APIs and status pages to the same dashboard.</p>
-        </div>
-      </div>
-      <p class="fine">This table is a high-level summary of each product's core features (September 2026). Uptime Kuma and Beszel are mature, well-loved open-source projects; check their own docs for current details.</p>
     </div>
   </section>
 
@@ -610,7 +569,7 @@ PROBE_TOKEN=upr_…
       <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
       <li><a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">License: AGPL-3.0</a></li>
       <li><a href="/" hreflang="tr" lang="tr">Türkçe</a></li>
-      <li><a href="mailto:me@kadir.app">Contact: me@kadir.app</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">Contact: GitHub</a></li>
     </ul>
     <p>© 2026 Bekci · Made in Türkiye. <span lang="tr">Bekçi</span> is Turkish for “night watchman”.</p>
   </div>

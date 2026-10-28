@@ -60,7 +60,7 @@ export default {
     login: 'Giriş ve SSO',
     loginDesc: 'Şifre sıfırlama e-postası, OpenID Connect ile tek oturum açma',
     backup: 'Yedekle / Geri yükle',
-    backupDesc: 'Yedek al, geri yükle; UptimeRobot veya Uptime Kuma’dan taşı',
+    backupDesc: 'Yedek al, geri yükle; başka bir izleme aracından taşı',
     audit: 'İşlem kaydı',
     auditDesc: 'Kim ne zaman ne yaptı',
   },

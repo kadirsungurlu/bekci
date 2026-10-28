@@ -5,7 +5,7 @@
 //	ADDR                   dinlenecek adres (varsayılan :8080)
 //	DATA_DIR               SQLite veritabanı ve yedeklerin klasörü (varsayılan ./data)
 //	DATABASE_URL           verilirse PostgreSQL kullanılır (postgres://kullanıcı:şifre@sunucu:5432/vt)
-//	BASE_URL               bildirimlerdeki bağlantılar için dış adres, ör. https://uptime.kadir.app
+//	BASE_URL               bildirimlerdeki bağlantılar için dış adres, ör. https://bekci.alanadi.com
 //	                       (durum sayfası özel alan adı bu adresle aynı olamaz)
 //	LOG_LEVEL              debug | info | warn | error (varsayılan info)
 //	MAX_CONCURRENT_CHECKS  aynı anda en fazla kontrol sayısı (varsayılan 50)

@@ -121,7 +121,7 @@ export default {
     bars24h: 'Last 24 hours (hourly)',
     bars90d: 'Last 90 days (daily)',
     barsHelp:
-      'Visitors mostly care about the current status. With "Recent checks" each bar is one check (like Uptime Kuma); choose 90 days to show long-term reliability.',
+      'Visitors mostly care about the current status. With "Recent checks" each bar is one check; choose 90 days to show long-term reliability.',
     showTargets: 'Show target addresses',
     showTargetsHelp:
       'When off, monitor addresses are hidden. When on, websites show their domain (e.g. example.com) and other monitors show the host address.',

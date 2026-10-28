@@ -36,7 +36,7 @@ export default {
     firstText:
       'Web sitelerinizi, sunucularınızı ve zamanlanmış işlerinizi izlemeye başlayın. Bir sorun olduğunda size hemen haber verelim.',
     addMonitor: 'Monitör ekle',
-    migrateTitle: 'UptimeRobot veya Uptime Kuma’dan taşıyın',
+    migrateTitle: 'Başka bir izleme aracından taşıyın',
     migrateText: 'Monitörlerinizi, bildirim kanallarınızı ve etiketlerinizi birkaç tıkla aktarın.',
     noneTitle: 'Görüntülenecek monitör yok',
     noneText:

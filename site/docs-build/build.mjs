@@ -82,7 +82,7 @@ const T = {
     callout: { NOTE: 'Not', TIP: 'İpucu', IMPORTANT: 'Önemli', WARNING: 'Uyarı', CAUTION: 'Dikkat', CHECK: 'Ne görmelisiniz?' },
     nav: [['/#ozellikler', 'Özellikler'], ['/#ekranlar', 'Ekranlar'], ['/#neden', 'Karşılaştırma'], ['/#kurulum', 'Kurulum'], ['/#sss', 'SSS']],
     footer: [['/docs/', 'Belgeler'], ['https://hub.docker.com/r/kadirsungurlu/bekci', 'Docker Hub'], [GITHUB, 'GitHub'], [GITHUB + '/blob/main/LICENSE', 'Lisans: AGPL-3.0']],
-    contact: 'İletişim: me@kadir.app', copyright: '© 2026 Bekci · Türkiye’de geliştirildi.',
+    contact: 'İletişim: GitHub', copyright: '© 2026 Bekci · Türkiye’de geliştirildi.',
   },
   en: {
     locale: 'en_US', docs: 'Docs', home: '/en/', docsHome: '/en/docs/', onThisPage: 'On this page', prev: 'Previous', next: 'Next',
@@ -95,7 +95,7 @@ const T = {
     callout: { NOTE: 'Note', TIP: 'Tip', IMPORTANT: 'Important', WARNING: 'Warning', CAUTION: 'Caution', CHECK: 'What you should see' },
     nav: [['/en/#features', 'Features'], ['/en/#screenshots', 'Screenshots'], ['/en/#compare', 'Compare'], ['/en/#install', 'Install'], ['/en/#faq', 'FAQ']],
     footer: [['/en/docs/', 'Docs'], ['https://hub.docker.com/r/kadirsungurlu/bekci', 'Docker Hub'], [GITHUB, 'GitHub'], [GITHUB + '/blob/main/LICENSE', 'License: AGPL-3.0']],
-    contact: 'Contact: me@kadir.app', copyright: '© 2026 Bekci · Made in Türkiye.',
+    contact: 'Contact: GitHub', copyright: '© 2026 Bekci · Made in Türkiye.',
   },
 };
 
@@ -479,7 +479,7 @@ function footer(page) {
     <ul class="foot-links">
       ${links}
       <li><a href="${page.pair.url}" hreflang="${t.otherLang}" lang="${t.otherLang}">${t.langName}</a></li>
-      <li><a href="mailto:me@kadir.app">${t.contact}</a></li>
+      <li><a href="${GITHUB}/issues" rel="noopener">${t.contact}</a></li>
     </ul>
     <p>${t.copyright}</p>
   </div>
@@ -594,7 +594,7 @@ ${sidebar(page, pages)}
 ${tocHtml(page, 'inline')}
 <div class="doc-body">
 ${page.html}</div>
-<div class="doc-feedback">${ICON.github}<p>${t.feedback} <a href="${GITHUB}/issues" rel="noopener">${t.feedbackLink}</a> ${t.orMail} <a href="mailto:me@kadir.app">me@kadir.app</a></p></div>
+<div class="doc-feedback">${ICON.github}<p>${t.feedback} <a href="${GITHUB}/issues" rel="noopener">${t.feedbackLink}</a></p></div>
 <nav class="pn-nav" aria-label="${t.prev} / ${t.next}">${pn}</nav>
 </article>
 </main>

@@ -15,15 +15,15 @@
 
 **Türkçe** · [English](README.en.md)
 
-[bekci.app](https://bekci.app) · İletişim: [me@kadir.app](mailto:me@kadir.app)
+[bekci.app](https://bekci.app) · İletişim: [GitHub](https://github.com/kadirsungurlu/bekci/issues)
 
 <img src="docs/ekran/monitorler.png" alt="Monitör listesi: durum, yanıt süresi, son 24 saatin uptime çubukları ve genel özet" width="100%">
 
 </div>
 
 **Bekci** (bekçi), Go ile yazılmış, Sade arayüzü olan izleme sistemi: web
-siteleri ve servisler için uptime kontrolü (Uptime Kuma'nın özellik seti) ve
-sunucular için kaynak takibi (Beszel benzeri). Tek Docker imajı, SQLite veya
+siteleri ve servisler için uptime kontrolü ve sunucular için kaynak takibi.
+Tek Docker imajı, SQLite veya
 PostgreSQL; yüzlerce monitörde de hızlı kalacak şekilde tasarlanmıştır.
 
 ## Neden?
@@ -37,7 +37,7 @@ PostgreSQL; yüzlerce monitörde de hızlı kalacak şekilde tasarlanmıştır.
   ile doğrulanan ve kendiliğinden güncellenmeyen sabit sürüm.
 - **Telefonda uygulama gibi (PWA)** — ana ekrana eklenir, canlı güncellenir.
 - **Türkçe ve İngilizce arayüz** — kullanıcı başına dil; durum sayfaları ve bildirimler için ayrı dil ayarı, tarih ve sayı biçimleri dahil.
-- **Kolay geçiş** — Uptime Kuma yedeğinden ve UptimeRobot hesabından içe aktarma.
+- **Kolay geçiş** — başka izleme araçlarının yedeklerinden ve hesaplarından içe aktarma.
 
 ## Hızlı başlangıç
 
@@ -261,7 +261,7 @@ amd64/arm64, Windows amd64) da içinde hazır gelir.
 
 | Değişken | Varsayılan | Açıklama |
 |---|---|---|
-| `BASE_URL` | — | Dış adres, ör. `https://uptime.kadir.app`. Bildirim bağlantıları ve ajan kurulum komutları bunu kullanır |
+| `BASE_URL` | — | Dış adres, ör. `https://bekci.alanadi.com`. Bildirim bağlantıları ve ajan kurulum komutları bunu kullanır |
 | `TZ` | `Europe/Istanbul` | Günlük özetler ve gece yedeği saati |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `MAX_CONCURRENT_CHECKS` | `50` | Aynı anda çalışacak en fazla kontrol |
@@ -330,7 +330,7 @@ set -e
 # root kontrolü
 install -m 600 /dev/null /etc/uptime-agent.env      # token yalnızca root'a okunur
 cat > /etc/uptime-agent.env <<'UPTIME_ENV'
-PROBE_SERVER=https://uptime.kadir.app
+PROBE_SERVER=https://bekci.alanadi.com
 PROBE_TOKEN=upr_…
 UPTIME_ENV
 docker run -d --name uptime-agent --restart unless-stopped … --env-file /etc/uptime-agent.env -v uptime-agent-bin:/opt/uptime alpine:3 sh -c '…'
@@ -463,7 +463,7 @@ Cron işi veya betik, belirlenen aralıkta şu adresi çağırır; çağrı gelm
 monitör DOWN olur:
 
 ```bash
-curl -fsS "https://uptime.kadir.app/api/push/<token>?status=up&msg=tamam&ping=120"
+curl -fsS "https://bekci.alanadi.com/api/push/<token>?status=up&msg=tamam&ping=120"
 ```
 
 `status=down` ile hata da bildirilebilir.

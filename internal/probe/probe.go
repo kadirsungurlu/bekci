@@ -62,7 +62,7 @@ import (
 
 // Config istemci ayarları. Sıfır değerli alanlar varsayılanla doldurulur.
 type Config struct {
-	Server        string           // ana sunucu adresi, ör. https://uptime.kadir.app
+	Server        string           // ana sunucu adresi, ör. https://bekci.alanadi.com
 	Token         string           // kontrol noktası token'ı (upr_…)
 	Version       string           // sunucuya bildirilen sürüm
 	Unit          time.Duration    // aralık birimi; üretimde saniye, testlerde daha kısa
@@ -221,7 +221,7 @@ func newHTTPClient() *http.Client {
 func New(cfg Config) (*Client, error) {
 	u, err := url.Parse(strings.TrimRight(strings.TrimSpace(cfg.Server), "/"))
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return nil, errors.New("PROBE_SERVER geçerli bir http(s) adresi olmalı, ör. https://uptime.kadir.app")
+		return nil, errors.New("PROBE_SERVER geçerli bir http(s) adresi olmalı, ör. https://bekci.alanadi.com")
 	}
 	// http token ve monitör ayarlarını açık metin gönderir; kazara güvensiz
 	// kuruluma karşı reddedilir (yalnızca PROBE_ALLOW_INSECURE=1 ile açılır).

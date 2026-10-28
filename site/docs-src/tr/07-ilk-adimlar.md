@@ -173,6 +173,6 @@ Sınırlamalar: panel **HTTPS** ile açılmalı. **iPhone ve iPad**'de (iOS 16.4
 - **Başka konumlardan kontrol edin:** Monitörlerinizi başka bir şehirden ya da ağdan da kontrol etmek için bir [kontrol noktası](/docs/sunucu-ajani/#kontrol-noktasi) ekleyin.
 - **Ekibinizi ekleyin:** **Ayarlar → Kullanıcılar** bölümünden **Yönetici**, **Editör** ya da **İzleyici** rolünde hesaplar açın; müşterileriniz için yalnızca kendilerine atanan monitörleri gören hesaplar oluşturabilirsiniz.
 - **Planlı bakımlarda bildirimleri susturun:** **Bakım** bölümü.
-- **Başka bir servisten taşıyın:** **Ayarlar → Yedekle / Geri yükle** bölümünden UptimeRobot hesabınızı ya da Uptime Kuma yedeğinizi içe aktarın.
+- **Başka bir servisten taşıyın:** **Ayarlar → Yedekle / Geri yükle** bölümünden başka bir izleme aracından yedeğinizi ya da hesabınızı içe aktarın.
 - **Yedeklemeyi ayarlayın:** [Güncelleme, yedek ve geri dönüş](/docs/guncelleme-yedek/).
 - **Prometheus/Grafana'ya bağlayın:** `GET /metrics` ucu monitör durumu, yanıt süresi ve uptime ile sunucu ajanlarının CPU, RAM, disk ve ağ ölçümlerini verir ([metrik listesi](/docs/entegrasyonlar/#prometheus)). **Ayarlar → API anahtarları** bölümünden bir anahtar alın ve `Authorization: Bearer upk_…` başlığıyla ya da Basic kimlikle (kullanıcı `metrics`, şifre anahtar) çağırın; anahtarın izleyici yetkisi yeter.
