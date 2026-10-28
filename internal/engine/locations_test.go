@@ -230,7 +230,7 @@ func TestLocationsUpsideDownAndCert(t *testing.T) {
 	p := f.probe(t, "P", true)
 	m := f.monitor(t, func(m *store.Monitor) {
 		m.UpsideDown = true
-		m.Type, m.Config = "http", json.RawMessage(`{"url":"https://kadir.app"}`)
+		m.Type, m.Config = "http", json.RawMessage(`{"url":"https://example.com"}`)
 	})
 	r := f.locRunner(t, m, store.LocationSetup{IncludeLocal: false, ProbeIDs: []int64{p.ID}, DownWhen: store.DownWhenAny})
 	r.remote(p, f.clock, down("Bağlantı reddedildi"))

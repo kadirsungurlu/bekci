@@ -80,13 +80,13 @@ func TestMQTTNormalize(t *testing.T) {
 			t.Errorf("%s: doğrulama hatası bekleniyordu, %v geldi", b, err)
 		}
 	}
-	norm, err := c.Normalize(json.RawMessage(`{"broker_url":" tcp://kadir.app:1883 "}`))
+	norm, err := c.Normalize(json.RawMessage(`{"broker_url":" tcp://example.com:1883 "}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var cfg MQTTConfig
 	json.Unmarshal(norm, &cfg)
-	if cfg.BrokerURL != "tcp://kadir.app:1883" {
+	if cfg.BrokerURL != "tcp://example.com:1883" {
 		t.Errorf("normalize yanlış: %+v", cfg)
 	}
 }

@@ -10,9 +10,9 @@ import (
 )
 
 func TestSanitizeMessage(t *testing.T) {
-	in := `Get "https://ali:***@ic.kadir.app/panel?token=gizli": remote error: tls: bad certificate`
+	in := `Get "https://ali:***@ic.example.com/panel?token=gizli": remote error: tls: bad certificate`
 	got := sanitizeMessage(in)
-	if strings.Contains(got, "ali") || strings.Contains(got, "gizli") || !strings.Contains(got, "https://ic.kadir.app/panel") {
+	if strings.Contains(got, "ali") || strings.Contains(got, "gizli") || !strings.Contains(got, "https://ic.example.com/panel") {
 		t.Errorf("temizlenmedi: %s", got)
 	}
 }
@@ -65,13 +65,13 @@ func TestHeadersMasked(t *testing.T) {
 	admin.mustDo("POST", "/api/auth/setup", map[string]string{"username": "kadir", "password": "cok-gizli-sifre"}, nil, 200)
 	var m monitorView
 	admin.mustDo("POST", "/api/monitors", map[string]any{"name": "Api", "type": "http",
-		"config": map[string]any{"url": "https://api.kadir.app", "headers": "Authorization: Bearer cokgizli"}}, &m, 201)
+		"config": map[string]any{"url": "https://api.example.com", "headers": "Authorization: Bearer cokgizli"}}, &m, 201)
 	if strings.Contains(string(m.Config), "cokgizli") {
 		t.Fatalf("başlık maskelenmedi: %s", m.Config)
 	}
 	// Maskeli değer geri gönderilince kayıtlı başlık korunur.
 	admin.mustDo("PUT", fmt.Sprintf("/api/monitors/%d", m.ID), map[string]any{"name": "Api 2", "type": "http",
-		"config": map[string]any{"url": "https://api.kadir.app", "headers": "••••••"}}, nil, 200)
+		"config": map[string]any{"url": "https://api.example.com", "headers": "••••••"}}, nil, 200)
 	stored, _ := srv.store.GetMonitor(t.Context(), m.ID)
 	if !strings.Contains(string(stored.Config), "cokgizli") {
 		t.Errorf("kayıtlı başlık kayboldu: %s", stored.Config)

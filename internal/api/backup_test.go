@@ -171,7 +171,7 @@ func TestBackupRoundTrip(t *testing.T) {
 	}
 	doc.StatusPages = []backup.Page{{
 		Slug: "durum", Title: "Kadir Durum", Description: "Hizmetler", Footer: "alt", Published: true, ShowTargets: true,
-		PasswordHash: string(hash), CustomDomain: "Durum.Kadir.App", Logo: pngLogo, LogoType: "image/png",
+		PasswordHash: string(hash), CustomDomain: "Durum.Example.Com", Logo: pngLogo, LogoType: "image/png",
 		Sections: []backup.PageSection{{Title: "Web", Monitors: []backup.PageMonitor{{MonitorID: siteID, Name: "Web sitesi"}, {MonitorID: 999}}},
 			{Title: "İşler", Monitors: []backup.PageMonitor{{MonitorID: cronID}}}},
 		Announcements: []backup.Announcement{{Title: "Bakım", Body: "Pazar", Severity: "warning", StartsAt: 1700000000}},
@@ -224,7 +224,7 @@ func TestBackupRoundTrip(t *testing.T) {
 	}
 	p := doc2.StatusPages[0]
 	newSite := m2["Site"].ID
-	if p.Slug != "durum" || p.CustomDomain != "durum.kadir.app" || p.PasswordHash != string(hash) || !bytes.Equal(p.Logo, pngLogo) ||
+	if p.Slug != "durum" || p.CustomDomain != "durum.example.com" || p.PasswordHash != string(hash) || !bytes.Equal(p.Logo, pngLogo) ||
 		len(p.Sections) != 2 || len(p.Sections[0].Monitors) != 1 || p.Sections[0].Monitors[0].MonitorID != newSite ||
 		p.Sections[0].Monitors[0].Name != "Web sitesi" || len(p.Announcements) != 1 || p.Announcements[0].Severity != "warning" {
 		t.Errorf("durum sayfası: %+v", p)

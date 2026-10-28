@@ -45,8 +45,8 @@ func newCapture(t *testing.T) (*capture, *httptest.Server) {
 }
 
 var downEvent = Event{
-	Kind: KindDown, MonitorID: 3, MonitorName: "ha.kadir.app", MonitorType: "http",
-	Target: "https://ha.kadir.app", Message: "HTTP 502 Bad Gateway",
+	Kind: KindDown, MonitorID: 3, MonitorName: "ha.example.com", MonitorType: "http",
+	Target: "https://ha.example.com", Message: "HTTP 502 Bad Gateway",
 	Time: time.Date(2026, 9, 27, 2, 15, 0, 0, time.UTC),
 }
 
@@ -141,7 +141,7 @@ func TestWebhookPayload(t *testing.T) {
 	if err := json.Unmarshal([]byte(c.body), &p); err != nil {
 		t.Fatal(err)
 	}
-	if c.headers.Get("Authorization") != "Bearer x" || p.Event != "up" || p.DowntimeSeconds != 720 || p.Monitor.Name != "ha.kadir.app" || !strings.Contains(p.Text, "12 dk") {
+	if c.headers.Get("Authorization") != "Bearer x" || p.Event != "up" || p.DowntimeSeconds != 720 || p.Monitor.Name != "ha.example.com" || !strings.Contains(p.Text, "12 dk") {
 		t.Errorf("gövde yanlış: %+v", p)
 	}
 }
@@ -157,10 +157,10 @@ func TestOtherHTTPProviders(t *testing.T) {
 		cfg   map[string]any
 		check func() bool
 	}{
-		{"discord", map[string]any{"webhook_url": srv.URL + "/d"}, func() bool { return c.path == "/d" && strings.Contains(c.body, "ha.kadir.app çalışmıyor") }},
+		{"discord", map[string]any{"webhook_url": srv.URL + "/d"}, func() bool { return c.path == "/d" && strings.Contains(c.body, "ha.example.com çalışmıyor") }},
 		{"slack", map[string]any{"webhook_url": srv.URL + "/s"}, func() bool { return c.path == "/s" && strings.Contains(c.body, `"text"`) }},
 		{"ntfy", map[string]any{"server": srv.URL, "topic": "uyari", "token": "tk"}, func() bool {
-			return c.path == "/uyari" && c.headers.Get("Priority") == "4" && c.headers.Get("Authorization") == "Bearer tk" && decodeHeader(c.headers.Get("Title")) == "ha.kadir.app çalışmıyor" && c.headers.Get("Tags") == ""
+			return c.path == "/uyari" && c.headers.Get("Priority") == "4" && c.headers.Get("Authorization") == "Bearer tk" && decodeHeader(c.headers.Get("Title")) == "ha.example.com çalışmıyor" && c.headers.Get("Tags") == ""
 		}},
 		{"gotify", map[string]any{"server": srv.URL, "app_token": "g"}, func() bool { return c.path == "/message" && c.headers.Get("X-Gotify-Key") == "g" }},
 		{"pushover", map[string]any{"user_key": "u", "app_token": "a", "priority": 1}, func() bool { return c.path == "/po" && strings.Contains(c.body, "priority=1") }},
@@ -236,7 +236,7 @@ func TestEmail(t *testing.T) {
 	json.Unmarshal([]byte(port), &p)
 	err := send(t, "email", map[string]any{
 		"host": host, "port": p, "security": "none",
-		"from": "Uptime <uptime@kadir.app>", "to": "kadir@example.com, diger@example.com",
+		"from": "Uptime <uptime@example.com>", "to": "kadir@example.com, diger@example.com",
 	}, downEvent)
 	if err != nil {
 		t.Fatal(err)
@@ -302,7 +302,7 @@ func TestFormatDuration(t *testing.T) {
 }
 
 func TestEventText(t *testing.T) {
-	ev := Event{Kind: KindCert, MonitorName: "kadir.app", Target: "https://kadir.app", CertDays: 7,
+	ev := Event{Kind: KindCert, MonitorName: "example.com", Target: "https://example.com", CertDays: 7,
 		CertExpires: time.Now().Add(7 * 24 * time.Hour), CertIssuer: "Let's Encrypt", Time: time.Now()}
 	txt := ev.Text()
 	if !strings.Contains(txt, "7 gün içinde") || !strings.Contains(txt, "Let's Encrypt") {
@@ -353,12 +353,12 @@ func TestEmailRejectsAuthWithoutTLS(t *testing.T) {
 // Güvenlik: maskeli gizli alan, hedef adresi değiştirilmiş ayarla birleştirilmez
 // (aksi halde gizli bilgi saldırganın sunucusuna "test gönder" ile sızardı).
 func TestMergeSecretsRejectsDestinationChange(t *testing.T) {
-	stored := json.RawMessage(`{"url":"https://kanca.kadir.app/x","method":"POST","headers":"Authorization: Bearer gizli"}`)
+	stored := json.RawMessage(`{"url":"https://kanca.example.com/x","method":"POST","headers":"Authorization: Bearer gizli"}`)
 	cases := []struct {
 		cfg    string
 		reject bool
 	}{
-		{`{"url":"https://kanca.kadir.app/x","method":"PUT","headers":"` + Mask + `"}`, false},
+		{`{"url":"https://kanca.example.com/x","method":"PUT","headers":"` + Mask + `"}`, false},
 		{`{"url":"https://saldirgan.example/topla","method":"POST","headers":"` + Mask + `"}`, true},
 		{`{"url":"https://saldirgan.example/topla","method":"POST","headers":"Authorization: yeni"}`, false},
 	}
@@ -369,7 +369,7 @@ func TestMergeSecretsRejectsDestinationChange(t *testing.T) {
 		}
 	}
 	// E-posta: SMTP sunucusu değişince şifre taşınmaz.
-	storedMail := json.RawMessage(`{"host":"smtp.kadir.app","port":587,"password":"p","from":"a@b.c","to":"c@d.e"}`)
+	storedMail := json.RawMessage(`{"host":"smtp.example.com","port":587,"password":"p","from":"a@b.c","to":"c@d.e"}`)
 	if _, err := MergeSecrets("email", json.RawMessage(`{"host":"smtp.saldirgan.example","port":587,"password":"`+Mask+`","from":"a@b.c","to":"c@d.e"}`), storedMail); err != ErrSecretRebind {
 		t.Errorf("SMTP sunucusu değişince ret bekleniyordu: %v", err)
 	}

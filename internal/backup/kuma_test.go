@@ -64,35 +64,35 @@ INSERT INTO proxy (id, protocol, host, port, auth, username, password) VALUES (1
 INSERT INTO monitor (id, name, type, url, method, body, headers, basic_auth_user, basic_auth_pass, auth_method,
 	accepted_statuscodes_json, maxredirects, ignore_tls, interval, retry_interval, maxretries, timeout, resend_interval,
 	upside_down, active, description, http_body_encoding, proxy_id, expiry_notification)
-VALUES (1, 'Ana site', 'http', 'https://kadir.app', 'POST', 'a=1', '{"X-Token":"abc","Accept":"text/html"}', 'admin', 'gizli',
+VALUES (1, 'Ana site', 'http', 'https://example.com', 'POST', 'a=1', '{"X-Token":"abc","Accept":"text/html"}', 'admin', 'gizli',
 	'basic', '["200-299","301"]', 3, 1, 30, 25, 3, 12.5, 5, 0, 1, 'açıklama', 'form', 1, 0);
 INSERT INTO monitor (id, name, type, url, keyword, invert_keyword, interval, active, parent)
-	VALUES (2, 'Kelime', 'keyword', 'https://kadir.app/durum', 'Hata', 1, 10, 0, 7);
+	VALUES (2, 'Kelime', 'keyword', 'https://example.com/durum', 'Hata', 1, 10, 0, 7);
 INSERT INTO monitor (id, name, type, url, json_path, expected_value, interval, parent)
-	VALUES (3, 'JSON', 'json-query', 'https://api.kadir.app/saglik', '$.data.items[0].status', 'ok', 60, 7);
-INSERT INTO monitor (id, name, type, hostname, port, interval) VALUES (4, 'SSH', 'port', 'sunucu.kadir.app', 22, 60);
+	VALUES (3, 'JSON', 'json-query', 'https://api.example.com/saglik', '$.data.items[0].status', 'ok', 60, 7);
+INSERT INTO monitor (id, name, type, hostname, port, interval) VALUES (4, 'SSH', 'port', 'sunucu.example.com', 22, 60);
 INSERT INTO monitor (id, name, type, hostname, interval) VALUES (5, 'Ping', 'ping', '1.1.1.1', 60);
 INSERT INTO monitor (id, name, type, hostname, dns_resolve_server, dns_resolve_type, port, interval)
-	VALUES (6, 'DNS', 'dns', 'kadir.app', '8.8.8.8', 'MX', 53, 60);
+	VALUES (6, 'DNS', 'dns', 'example.com', '8.8.8.8', 'MX', 53, 60);
 INSERT INTO monitor (id, name, type, interval) VALUES (7, 'Grup', 'group', 60);
 INSERT INTO monitor (id, name, type, push_token, interval, maxretries) VALUES (8, 'Yedek işi', 'push', 'Kuma1234Token', 3600, 50);
 INSERT INTO monitor (id, name, type, docker_container, docker_host, interval) VALUES (9, 'Konteyner', 'docker', 'db', 1, 60);
-INSERT INTO monitor (id, name, type, hostname, interval) VALUES (10, 'Oyun', 'steam', 'oyun.kadir.app', 60);
+INSERT INTO monitor (id, name, type, hostname, interval) VALUES (10, 'Oyun', 'steam', 'oyun.example.com', 60);
 INSERT INTO monitor (id, name, type, url, auth_method, tls_cert, tls_key, tls_ca, interval)
-	VALUES (11, 'mTLS', 'http', 'https://ic.kadir.app', 'mtls', 'CERT', 'KEY', 'CA', 60);
+	VALUES (11, 'mTLS', 'http', 'https://ic.example.com', 'mtls', 'CERT', 'KEY', 'CA', 60);
 INSERT INTO monitor (id, name, type, url, auth_method, oauth_token_url, oauth_client_id, oauth_client_secret,
 	oauth_scopes, oauth_auth_method, interval)
-	VALUES (12, 'OAuth', 'http', 'https://api.kadir.app', 'oauth2-cc', 'https://auth.kadir.app/token', 'cid', 'csecret',
+	VALUES (12, 'OAuth', 'http', 'https://api.example.com', 'oauth2-cc', 'https://auth.example.com/token', 'cid', 'csecret',
 	'okuma', 'client_secret_post', 60);
 
 INSERT INTO notification (id, name, config, active, is_default) VALUES
 	(1, 'Telegram', '{"name":"Telegram","type":"telegram","telegramBotToken":"123:ABC","telegramChatID":"-100","isDefault":true}', 1, 1),
-	(2, 'E-posta', '{"type":"smtp","smtpHost":"smtp.kadir.app","smtpPort":465,"smtpSecure":true,"smtpUsername":"u","smtpPassword":"p","smtpFrom":"uptime@kadir.app","smtpTo":"a@kadir.app","smtpCC":"b@kadir.app"}', 1, 0),
+	(2, 'E-posta', '{"type":"smtp","smtpHost":"smtp.example.com","smtpPort":465,"smtpSecure":true,"smtpUsername":"u","smtpPassword":"p","smtpFrom":"uptime@example.com","smtpTo":"a@example.com","smtpCC":"b@example.com"}', 1, 0),
 	(3, 'Telegram', '{"type":"telegram","telegramBotToken":"456:DEF","telegramChatID":"42"}', 0, 0),
 	(4, 'Apprise', '{"type":"apprise","appriseURL":"tgram://x"}', 1, 0),
 	(5, 'Feishu', '{"type":"Feishu","feishuWebHookUrl":"https://x"}', 1, 0),
-	(6, 'Kanca', '{"type":"webhook","webhookURL":"https://hook.kadir.app","webhookContentType":"custom","webhookAdditionalHeaders":"{\"Authorization\":\"Bearer t\"}"}', 1, 0),
-	(7, 'Roket', '{"type":"rocket.chat","rocketwebhookURL":"https://chat.kadir.app/hooks/x","rocketchannel":"#izleme","rocketusername":"Uptime"}', 1, 0);
+	(6, 'Kanca', '{"type":"webhook","webhookURL":"https://hook.example.com","webhookContentType":"custom","webhookAdditionalHeaders":"{\"Authorization\":\"Bearer t\"}"}', 1, 0),
+	(7, 'Roket', '{"type":"rocket.chat","rocketwebhookURL":"https://chat.example.com/hooks/x","rocketchannel":"#izleme","rocketusername":"Uptime"}', 1, 0);
 INSERT INTO monitor_notification (monitor_id, notification_id) VALUES (1, 1), (1, 2), (1, 4), (4, 3), (8, 6);
 
 INSERT INTO tag (id, name, color) VALUES (1, 'ortam', '#DC2626'), (2, 'Takım', 'blue'), (3, 'ORTAM', '#000');
@@ -182,7 +182,7 @@ func checkKumaDoc(t *testing.T, res *Result) {
 
 	site := monitorByName(t, d, "Ana site")
 	c := cfgOf(site)
-	if site.Type != "http" || c["url"] != "https://kadir.app" || c["method"] != "POST" || c["body"] != "a=1" ||
+	if site.Type != "http" || c["url"] != "https://example.com" || c["method"] != "POST" || c["body"] != "a=1" ||
 		c["basic_user"] != "admin" || c["basic_pass"] != "gizli" || c["ignore_tls"] != true || c["cert_expiry"] != false ||
 		c["max_redirects"] != float64(3) {
 		t.Errorf("http ayarı: %v", c)
@@ -210,7 +210,7 @@ func checkKumaDoc(t *testing.T, res *Result) {
 	if c["json_path"] != "data.items.0.status" || c["json_expected"] != "ok" || c["json_op"] != "==" {
 		t.Errorf("json sorgusu: %v", c)
 	}
-	if c := cfgOf(monitorByName(t, d, "SSH")); c["host"] != "sunucu.kadir.app" || c["port"] != float64(22) {
+	if c := cfgOf(monitorByName(t, d, "SSH")); c["host"] != "sunucu.example.com" || c["port"] != float64(22) {
 		t.Errorf("port: %v", c)
 	}
 	if c := cfgOf(monitorByName(t, d, "DNS")); c["server"] != "8.8.8.8" || c["record_type"] != "MX" || c["port"] != float64(53) {
@@ -258,7 +258,7 @@ func checkKumaDoc(t *testing.T, res *Result) {
 	}
 	em := notifs["E-posta"]
 	json.Unmarshal(em.Config, &tc)
-	if em.Type != "email" || tc["security"] != "tls" || tc["to"] != "a@kadir.app, b@kadir.app" || tc["password"] != "p" || len(em.Notes) == 0 {
+	if em.Type != "email" || tc["security"] != "tls" || tc["to"] != "a@example.com, b@example.com" || tc["password"] != "p" || len(em.Notes) == 0 {
 		t.Errorf("e-posta: %+v %v", em, tc)
 	}
 	hook := notifs["Kanca"]
@@ -280,35 +280,35 @@ const kumaJSONBackup = `{
  "version": "1.23.16",
  "notificationList": [
   {"id": 1, "name": "Telegram", "config": "{\"name\":\"Telegram\",\"type\":\"telegram\",\"telegramBotToken\":\"123:ABC\",\"telegramChatID\":\"-100\",\"isDefault\":true}", "active": 1, "userId": 1, "isDefault": true},
-  {"id": 2, "name": "E-posta", "config": "{\"type\":\"smtp\",\"smtpHost\":\"smtp.kadir.app\",\"smtpPort\":465,\"smtpSecure\":true,\"smtpUsername\":\"u\",\"smtpPassword\":\"p\",\"smtpFrom\":\"uptime@kadir.app\",\"smtpTo\":\"a@kadir.app\",\"smtpCC\":\"b@kadir.app\"}", "active": 1, "isDefault": false},
+  {"id": 2, "name": "E-posta", "config": "{\"type\":\"smtp\",\"smtpHost\":\"smtp.example.com\",\"smtpPort\":465,\"smtpSecure\":true,\"smtpUsername\":\"u\",\"smtpPassword\":\"p\",\"smtpFrom\":\"uptime@example.com\",\"smtpTo\":\"a@example.com\",\"smtpCC\":\"b@example.com\"}", "active": 1, "isDefault": false},
   {"id": 3, "name": "Telegram", "config": "{\"type\":\"telegram\",\"telegramBotToken\":\"456:DEF\",\"telegramChatID\":\"42\"}", "active": false, "isDefault": false},
   {"id": 4, "name": "Apprise", "config": "{\"type\":\"apprise\",\"appriseURL\":\"tgram://x\"}", "active": true},
   {"id": 5, "name": "Feishu", "config": "{\"type\":\"Feishu\"}", "active": true},
-  {"id": 6, "name": "Kanca", "config": "{\"type\":\"webhook\",\"webhookURL\":\"https://hook.kadir.app\",\"webhookContentType\":\"custom\",\"webhookAdditionalHeaders\":\"{\\\"Authorization\\\":\\\"Bearer t\\\"}\"}", "active": true}
+  {"id": 6, "name": "Kanca", "config": "{\"type\":\"webhook\",\"webhookURL\":\"https://hook.example.com\",\"webhookContentType\":\"custom\",\"webhookAdditionalHeaders\":\"{\\\"Authorization\\\":\\\"Bearer t\\\"}\"}", "active": true}
  ],
  "monitorList": [
-  {"id": 1, "name": "Ana site", "description": "açıklama", "type": "http", "url": "https://kadir.app", "method": "POST",
+  {"id": 1, "name": "Ana site", "description": "açıklama", "type": "http", "url": "https://example.com", "method": "POST",
    "body": "a=1", "headers": "{\"X-Token\":\"abc\",\"Accept\":\"text/html\"}", "basic_auth_user": "admin", "basic_auth_pass": "gizli",
    "authMethod": "basic", "accepted_statuscodes": ["200-299", "301"], "maxredirects": 3, "ignoreTls": true, "interval": 30,
    "retryInterval": 25, "maxretries": 3, "timeout": 12.5, "resendInterval": 5, "upsideDown": false, "active": true,
    "httpBodyEncoding": "form", "expiryNotification": false, "parent": null,
    "notificationIDList": {"1": true, "2": true, "4": true}, "tags": [{"tag_id": 1, "monitor_id": 1, "value": "canlı", "name": "ortam", "color": "#DC2626"}]},
-  {"id": 2, "name": "Kelime", "type": "keyword", "url": "https://kadir.app/durum", "keyword": "Hata", "invertKeyword": true,
+  {"id": 2, "name": "Kelime", "type": "keyword", "url": "https://example.com/durum", "keyword": "Hata", "invertKeyword": true,
    "interval": 10, "active": false, "parent": 7, "notificationIDList": {}},
-  {"id": 3, "name": "JSON", "type": "json-query", "url": "https://api.kadir.app/saglik", "jsonPath": "$.data.items[0].status",
+  {"id": 3, "name": "JSON", "type": "json-query", "url": "https://api.example.com/saglik", "jsonPath": "$.data.items[0].status",
    "expectedValue": "ok", "interval": 60, "active": true, "parent": 7},
-  {"id": 4, "name": "SSH", "type": "port", "hostname": "sunucu.kadir.app", "port": 22, "interval": 60, "active": true,
+  {"id": 4, "name": "SSH", "type": "port", "hostname": "sunucu.example.com", "port": 22, "interval": 60, "active": true,
    "notificationIDList": {"3": true}},
   {"id": 5, "name": "Ping", "type": "ping", "hostname": "1.1.1.1", "interval": 60, "active": true},
-  {"id": 6, "name": "DNS", "type": "dns", "hostname": "kadir.app", "dns_resolve_server": "8.8.8.8", "dns_resolve_type": "MX",
+  {"id": 6, "name": "DNS", "type": "dns", "hostname": "example.com", "dns_resolve_server": "8.8.8.8", "dns_resolve_type": "MX",
    "port": 53, "interval": 60, "active": true},
   {"id": 7, "name": "Grup", "type": "group", "interval": 60, "active": true},
   {"id": 8, "name": "Yedek işi", "type": "push", "pushToken": "Kuma1234Token", "interval": 3600, "maxretries": 50, "active": true,
    "notificationIDList": {"6": true, "99": true}},
   {"id": 9, "name": "Konteyner", "type": "docker", "docker_container": "db", "interval": 60, "active": true},
-  {"id": 10, "name": "Oyun", "type": "steam", "hostname": "oyun.kadir.app", "interval": 60, "active": true},
-  {"id": 11, "name": "mTLS", "type": "http", "url": "https://ic.kadir.app", "authMethod": "mtls", "tlsCert": "CERT", "tlsKey": "KEY", "tlsCa": "CA", "interval": 60, "active": true},
-  {"id": 12, "name": "OAuth", "type": "http", "url": "https://api.kadir.app", "authMethod": "oauth2-cc", "oauth_token_url": "https://auth.kadir.app/token",
+  {"id": 10, "name": "Oyun", "type": "steam", "hostname": "oyun.example.com", "interval": 60, "active": true},
+  {"id": 11, "name": "mTLS", "type": "http", "url": "https://ic.example.com", "authMethod": "mtls", "tlsCert": "CERT", "tlsKey": "KEY", "tlsCa": "CA", "interval": 60, "active": true},
+  {"id": 12, "name": "OAuth", "type": "http", "url": "https://api.example.com", "authMethod": "oauth2-cc", "oauth_token_url": "https://auth.example.com/token",
    "oauth_client_id": "cid", "oauth_client_secret": "csecret", "oauth_scopes": "okuma", "oauth_auth_method": "client_secret_post", "interval": 60, "active": true}
  ]
 }`
