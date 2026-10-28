@@ -204,7 +204,7 @@ func TestUpsideDown(t *testing.T) {
 func TestCertNotices(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	m := f.monitor(t, func(m *store.Monitor) { m.Type = "http"; m.Config = json.RawMessage(`{"url":"https://kadir.app"}`) })
+	m := f.monitor(t, func(m *store.Monitor) { m.Type = "http"; m.Config = json.RawMessage(`{"url":"https://example.com"}`) })
 	r := f.runnerFor(t, m.ID)
 	cert := &check.CertInfo{NotAfter: f.clock.Add(10*24*time.Hour + time.Hour), Issuer: "Let's Encrypt"}
 

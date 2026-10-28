@@ -46,20 +46,20 @@ func fakeUptimeRobot(t *testing.T, key string, monitors []map[string]any) (*http
 // URSample gerçek API yanıtındaki alan biçimleriyle örnek monitörler.
 func URSample() []map[string]any {
 	return []map[string]any{
-		{"id": 101, "friendly_name": "Ana site", "url": "https://kadir.app", "type": 1, "sub_type": "", "keyword_type": nil,
+		{"id": 101, "friendly_name": "Ana site", "url": "https://example.com", "type": 1, "sub_type": "", "keyword_type": nil,
 			"keyword_case_type": nil, "keyword_value": "", "http_username": "", "http_password": "", "port": "", "interval": 300,
 			"timeout": 30, "status": 2, "custom_http_headers": map[string]any{"X-Kaynak": "uptimerobot"}},
-		{"id": 102, "friendly_name": "Durum sayfası", "url": "https://kadir.app/durum", "type": 2, "sub_type": "", "keyword_type": 1,
+		{"id": 102, "friendly_name": "Durum sayfası", "url": "https://example.com/durum", "type": 2, "sub_type": "", "keyword_type": 1,
 			"keyword_case_type": 0, "keyword_value": "Hata", "http_username": "u", "http_password": "p", "port": "", "interval": 60,
 			"status": 9, "http_method": 2},
-		{"id": 103, "friendly_name": "Olmalı", "url": "https://kadir.app", "type": 2, "keyword_type": "2", "keyword_case_type": "1",
+		{"id": 103, "friendly_name": "Olmalı", "url": "https://example.com", "type": 2, "keyword_type": "2", "keyword_case_type": "1",
 			"keyword_value": "Hoş geldiniz", "interval": 10, "status": 0},
 		{"id": 104, "friendly_name": "Sunucu ping", "url": "1.2.3.4", "type": 3, "interval": 300, "status": 2},
-		{"id": 105, "friendly_name": "HTTPS portu", "url": "sunucu.kadir.app", "type": 4, "sub_type": 2, "port": "", "interval": 300, "status": 2},
-		{"id": 106, "friendly_name": "Özel port", "url": "sunucu.kadir.app", "type": 4, "sub_type": 99, "port": 5432, "interval": 300, "status": 2},
+		{"id": 105, "friendly_name": "HTTPS portu", "url": "sunucu.example.com", "type": 4, "sub_type": 2, "port": "", "interval": 300, "status": 2},
+		{"id": 106, "friendly_name": "Özel port", "url": "sunucu.example.com", "type": 4, "sub_type": 99, "port": 5432, "interval": 300, "status": 2},
 		{"id": 107, "friendly_name": "Gece yedeği", "url": "https://heartbeat.uptimerobot.com/m107-abc", "type": 5, "interval": 86400, "status": 1},
 		{"id": 108, "friendly_name": "Bilinmeyen", "url": "x", "type": 99, "interval": 300, "status": 2},
-		{"id": 109, "friendly_name": "POST uç", "url": "https://api.kadir.app/ping", "type": 1, "http_method": 3, "post_value": "{\"a\":1}", "interval": 300, "status": 2},
+		{"id": 109, "friendly_name": "POST uç", "url": "https://api.example.com/ping", "type": 1, "http_method": 3, "post_value": "{\"a\":1}", "interval": 300, "status": 2},
 	}
 }
 
@@ -98,7 +98,7 @@ func TestUptimeRobot(t *testing.T) {
 	if c := cfgOf(monitorByName(t, d, "HTTPS portu")); c["port"] != float64(443) {
 		t.Errorf("port 443: %v", c)
 	}
-	if c := cfgOf(monitorByName(t, d, "Özel port")); c["port"] != float64(5432) || c["host"] != "sunucu.kadir.app" {
+	if c := cfgOf(monitorByName(t, d, "Özel port")); c["port"] != float64(5432) || c["host"] != "sunucu.example.com" {
 		t.Errorf("özel port: %v", c)
 	}
 	hb := monitorByName(t, d, "Gece yedeği")

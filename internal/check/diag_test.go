@@ -197,11 +197,11 @@ func TestDNSDiag(t *testing.T) {
 		t.Fatal(err)
 	}
 	mux := dns.NewServeMux()
-	mux.HandleFunc("kadir.app.", func(w dns.ResponseWriter, r *dns.Msg) {
+	mux.HandleFunc("example.com.", func(w dns.ResponseWriter, r *dns.Msg) {
 		m := new(dns.Msg)
 		m.SetReply(r)
 		if r.Question[0].Qtype == dns.TypeA {
-			rr, _ := dns.NewRR("kadir.app. 60 IN A 94.130.174.47")
+			rr, _ := dns.NewRR("example.com. 60 IN A 94.130.174.47")
 			m.Answer = append(m.Answer, rr)
 		}
 		w.WriteMsg(m)
@@ -217,7 +217,7 @@ func TestDNSDiag(t *testing.T) {
 	port := pc.LocalAddr().(*net.UDPAddr).Port
 	server := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
 
-	ok, _ := runT(t, "dns", map[string]any{"host": "kadir.app", "server": "127.0.0.1", "port": port}, 3*time.Second)
+	ok, _ := runT(t, "dns", map[string]any{"host": "example.com", "server": "127.0.0.1", "port": port}, 3*time.Second)
 	if !ok.Up || ok.Detail != nil {
 		t.Fatalf("başarılı sorguda ayrıntı olmamalı: %+v", ok)
 	}
@@ -236,12 +236,12 @@ func TestDNSDiag(t *testing.T) {
 		t.Errorf("NXDOMAIN tanısı ek süre almamalı: %v", took)
 	}
 
-	res, _ = runT(t, "dns", map[string]any{"host": "kadir.app", "server": "127.0.0.1", "port": port, "expected": "1.2.3.4"}, 3*time.Second)
+	res, _ = runT(t, "dns", map[string]any{"host": "example.com", "server": "127.0.0.1", "port": port, "expected": "1.2.3.4"}, 3*time.Second)
 	g = diagOf(t, res, "dns")
 	if g.ErrorClass != ClassMismatch || g.DNS.Rcode != "NOERROR" || len(g.DNS.Answers) != 1 || g.DNS.Answers[0] != "A 94.130.174.47" {
 		t.Errorf("beklenen değer tanısı: %+v %+v", g, g.DNS)
 	}
-	res, _ = runT(t, "dns", map[string]any{"host": "kadir.app", "server": "127.0.0.1", "port": port, "record_type": "TXT"}, 3*time.Second)
+	res, _ = runT(t, "dns", map[string]any{"host": "example.com", "server": "127.0.0.1", "port": port, "record_type": "TXT"}, 3*time.Second)
 	if g = diagOf(t, res, "dns"); g.ErrorClass != ClassNoRecord || g.DNS.Type != "TXT" {
 		t.Errorf("kayıt yok tanısı: %+v", g)
 	}
@@ -252,7 +252,7 @@ func TestDNSDiag(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer silent.Close()
-	res, took = runT(t, "dns", map[string]any{"host": "kadir.app", "server": "127.0.0.1", "port": silent.LocalAddr().(*net.UDPAddr).Port}, 300*time.Millisecond)
+	res, took = runT(t, "dns", map[string]any{"host": "example.com", "server": "127.0.0.1", "port": silent.LocalAddr().(*net.UDPAddr).Port}, 300*time.Millisecond)
 	g = diagOf(t, res, "dns")
 	if g.ErrorClass != ClassTimeout || g.DNS.Rcode != "timeout" || g.Phase != PhaseQuery || g.Ping == nil || g.Ping.Target != "127.0.0.1" {
 		t.Fatalf("zaman aşımı tanısı: %+v %+v", g, g.Ping)

@@ -298,12 +298,12 @@ func TestLocationMessagesAndProbeListForViewers(t *testing.T) {
 
 // İçe aktarma, uygulamanın kendi adresini özel alan adı yapamaz.
 func TestImportDropsSelfCustomDomain(t *testing.T) {
-	e := newEnv(t, func(s *Server) { s.BaseURL = "https://uptime.kadir.app" })
+	e := newEnv(t, func(s *Server) { s.BaseURL = "https://uptime.example.com" })
 	e.mustDo("POST", "/api/auth/setup", map[string]string{"username": "kadir", "password": "cok-gizli-sifre"}, nil, 200)
 	doc := map[string]any{
 		"format": "uptime-kadir", "version": 1,
 		"status_pages": []map[string]any{
-			{"slug": "kendi", "title": "Kendi", "published": true, "custom_domain": "Uptime.Kadir.App."},
+			{"slug": "kendi", "title": "Kendi", "published": true, "custom_domain": "Uptime.Example.Com."},
 			{"slug": "baska", "title": "Başka", "published": true, "custom_domain": "durum.ornek.com"},
 		},
 	}

@@ -170,19 +170,19 @@ func TestNewValidates(t *testing.T) {
 		{Server: "", Token: "upr_x"},
 		{Server: "ftp://x", Token: "upr_x"},
 		{Server: "https://", Token: "upr_x"},
-		{Server: "https://uptime.kadir.app", Token: "upk_x"},
+		{Server: "https://uptime.example.com", Token: "upk_x"},
 	} {
 		if _, err := New(c); err == nil {
 			t.Errorf("%+v kabul edilmemeliydi", c)
 		}
 	}
-	if _, err := New(Config{Server: "http://uptime.kadir.app", Token: "upr_x"}); err == nil {
+	if _, err := New(Config{Server: "http://uptime.example.com", Token: "upr_x"}); err == nil {
 		t.Error("http PROBE_ALLOW_INSECURE olmadan reddedilmeliydi")
 	}
-	if _, err := New(Config{Server: "http://uptime.kadir.app", Token: "upr_x", AllowInsecure: true}); err != nil {
+	if _, err := New(Config{Server: "http://uptime.example.com", Token: "upr_x", AllowInsecure: true}); err != nil {
 		t.Errorf("http AllowInsecure ile kabul edilmeliydi: %v", err)
 	}
-	if _, err := New(Config{Server: "https://uptime.kadir.app/", Token: "upr_x"}); err != nil {
+	if _, err := New(Config{Server: "https://uptime.example.com/", Token: "upr_x"}); err != nil {
 		t.Fatal(err)
 	}
 }

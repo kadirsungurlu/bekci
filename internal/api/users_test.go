@@ -296,7 +296,7 @@ func TestSecretRebindBlocked(t *testing.T) {
 	admin := setupAdmin(t)
 	var ch store.Notification
 	admin.mustDo("POST", "/api/notifications", map[string]any{
-		"name": "Kanca", "type": "webhook", "config": map[string]any{"url": "https://kanca.kadir.app/x", "headers": "Authorization: Bearer gizli"},
+		"name": "Kanca", "type": "webhook", "config": map[string]any{"url": "https://kanca.example.com/x", "headers": "Authorization: Bearer gizli"},
 	}, &ch, 201)
 	editor, _ := admin.newUser("editor2", store.RoleEditor, nil)
 	masked := map[string]any{"url": "https://saldirgan.example/topla", "headers": "••••••"}
@@ -310,12 +310,12 @@ func TestSecretRebindBlocked(t *testing.T) {
 	// Monitör: adres değişip basic auth şifresi maskeli bırakılırsa ret.
 	var m monitorView
 	admin.mustDo("POST", "/api/monitors", map[string]any{"name": "Gizli", "type": "http", "config": map[string]any{
-		"url": "https://ic.kadir.app", "basic_user": "a", "basic_pass": "cokgizli"}}, &m, 201)
+		"url": "https://ic.example.com", "basic_user": "a", "basic_pass": "cokgizli"}}, &m, 201)
 	if code := editor.do("PUT", fmt.Sprintf("/api/monitors/%d", m.ID), map[string]any{"name": "Gizli", "type": "http", "config": map[string]any{
 		"url": "https://saldirgan.example", "basic_user": "a", "basic_pass": "••••••"}}, nil); code != 400 {
 		t.Errorf("monitör hedef değişimi: %d", code)
 	}
 	// Aynı adresle maskeli kaydetme çalışmaya devam eder.
 	editor.mustDo("PUT", fmt.Sprintf("/api/monitors/%d", m.ID), map[string]any{"name": "Gizli 2", "type": "http", "config": map[string]any{
-		"url": "https://ic.kadir.app", "basic_user": "a", "basic_pass": "••••••"}}, nil, 200)
+		"url": "https://ic.example.com", "basic_user": "a", "basic_pass": "••••••"}}, nil, 200)
 }

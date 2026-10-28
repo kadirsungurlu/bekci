@@ -17,8 +17,8 @@ import (
 // upEvent downEvent'in "up" karşılığı; birçok sağlayıcı trigger/resolve
 // ayrımını test eder.
 var upEvent = Event{
-	Kind: KindUp, MonitorID: 3, MonitorName: "ha.kadir.app", MonitorType: "http",
-	Target: "https://ha.kadir.app", Downtime: 5 * time.Minute,
+	Kind: KindUp, MonitorID: 3, MonitorName: "ha.example.com", MonitorType: "http",
+	Target: "https://ha.example.com", Downtime: 5 * time.Minute,
 	Time: time.Date(2026, 9, 27, 2, 20, 0, 0, time.UTC),
 }
 
@@ -27,7 +27,7 @@ func TestTeams(t *testing.T) {
 	if err := send(t, "teams", map[string]any{"webhook_url": srv.URL}, downEvent); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(c.body, "AdaptiveCard") || !strings.Contains(c.body, `"attention"`) || !strings.Contains(c.body, "ha.kadir.app") {
+	if !strings.Contains(c.body, "AdaptiveCard") || !strings.Contains(c.body, `"attention"`) || !strings.Contains(c.body, "ha.example.com") {
 		t.Errorf("kart yanlış: %s", c.body)
 	}
 	if err := send(t, "teams", map[string]any{"webhook_url": srv.URL}, upEvent); err != nil {
@@ -45,7 +45,7 @@ func TestGoogleChat(t *testing.T) {
 	}
 	var body map[string]string
 	json.Unmarshal([]byte(c.body), &body)
-	if !strings.Contains(body["text"], "ha.kadir.app çalışmıyor") {
+	if !strings.Contains(body["text"], "ha.example.com çalışmıyor") {
 		t.Errorf("gövde yanlış: %s", c.body)
 	}
 }

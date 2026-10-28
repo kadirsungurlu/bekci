@@ -179,12 +179,12 @@ func TestHTTPNormalize(t *testing.T) {
 			t.Errorf("%s: doğrulama hatası bekleniyordu, %v geldi", b, err)
 		}
 	}
-	norm, err := c.Normalize(json.RawMessage(`{"url":" https://kadir.app "}`))
+	norm, err := c.Normalize(json.RawMessage(`{"url":" https://example.com "}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg := HTTPConfigOf(norm)
-	if cfg.URL != "https://kadir.app" || cfg.Method != "GET" || *cfg.MaxRedirects != 10 || !*cfg.CertExpiry || cfg.AcceptedCodes[0] != "200-399" {
+	if cfg.URL != "https://example.com" || cfg.Method != "GET" || *cfg.MaxRedirects != 10 || !*cfg.CertExpiry || cfg.AcceptedCodes[0] != "200-399" {
 		t.Errorf("varsayılanlar yanlış: %+v", cfg)
 	}
 }
@@ -219,15 +219,15 @@ func TestDNS(t *testing.T) {
 		t.Fatal(err)
 	}
 	mux := dns.NewServeMux()
-	mux.HandleFunc("kadir.app.", func(w dns.ResponseWriter, r *dns.Msg) {
+	mux.HandleFunc("example.com.", func(w dns.ResponseWriter, r *dns.Msg) {
 		m := new(dns.Msg)
 		m.SetReply(r)
 		switch r.Question[0].Qtype {
 		case dns.TypeA:
-			rr, _ := dns.NewRR("kadir.app. 60 IN A 94.130.174.47")
+			rr, _ := dns.NewRR("example.com. 60 IN A 94.130.174.47")
 			m.Answer = append(m.Answer, rr)
 		case dns.TypeMX:
-			rr, _ := dns.NewRR("kadir.app. 60 IN MX 10 mx.kadir.app.")
+			rr, _ := dns.NewRR("example.com. 60 IN MX 10 mx.example.com.")
 			m.Answer = append(m.Answer, rr)
 		}
 		w.WriteMsg(m)
@@ -253,19 +253,19 @@ func TestDNS(t *testing.T) {
 		return m
 	}
 
-	if r := run(t, "dns", with("host", "kadir.app")); !r.Up || r.Message != "94.130.174.47" {
+	if r := run(t, "dns", with("host", "example.com")); !r.Up || r.Message != "94.130.174.47" {
 		t.Errorf("A kaydı: %+v", r)
 	}
-	if r := run(t, "dns", with("host", "kadir.app", "record_type", "MX", "expected", "mx.kadir")); !r.Up || r.Message != "10 mx.kadir.app" {
+	if r := run(t, "dns", with("host", "example.com", "record_type", "MX", "expected", "mx.example")); !r.Up || r.Message != "10 mx.example.com" {
 		t.Errorf("MX kaydı: %+v", r)
 	}
-	if r := run(t, "dns", with("host", "kadir.app", "expected", "1.2.3.4")); r.Up || !strings.Contains(r.Message, "Beklenen") {
+	if r := run(t, "dns", with("host", "example.com", "expected", "1.2.3.4")); r.Up || !strings.Contains(r.Message, "Beklenen") {
 		t.Errorf("beklenen değer yok: %+v", r)
 	}
 	if r := run(t, "dns", with("host", "yok.example")); r.Up || !strings.Contains(r.Message, "NXDOMAIN") {
 		t.Errorf("NXDOMAIN: %+v", r)
 	}
-	if r := run(t, "dns", with("host", "kadir.app", "record_type", "TXT")); r.Up || !strings.Contains(r.Message, "bulunamadı") {
+	if r := run(t, "dns", with("host", "example.com", "record_type", "TXT")); r.Up || !strings.Contains(r.Message, "bulunamadı") {
 		t.Errorf("kayıt yok: %+v", r)
 	}
 }

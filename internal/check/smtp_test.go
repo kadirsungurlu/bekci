@@ -152,13 +152,13 @@ func TestSMTPNormalize(t *testing.T) {
 			t.Errorf("%s: doğrulama hatası bekleniyordu, %v geldi", b, err)
 		}
 	}
-	norm, err := c.Normalize(json.RawMessage(`{"host":" mail.kadir.app "}`))
+	norm, err := c.Normalize(json.RawMessage(`{"host":" mail.example.com "}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var cfg SMTPConfig
 	json.Unmarshal(norm, &cfg)
-	if cfg.Host != "mail.kadir.app" || cfg.Port != 25 || cfg.Security != "none" {
+	if cfg.Host != "mail.example.com" || cfg.Port != 25 || cfg.Security != "none" {
 		t.Errorf("varsayılanlar yanlış: %+v", cfg)
 	}
 }

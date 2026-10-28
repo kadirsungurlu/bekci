@@ -9,7 +9,7 @@ import (
 )
 
 func TestEnvFileRoundTrip(t *testing.T) {
-	kv := map[string]string{"PROBE_SERVER": "https://uptime.kadir.app", "PROBE_TOKEN": "upr_abc", "ADDR": "-"}
+	kv := map[string]string{"PROBE_SERVER": "https://uptime.example.com", "PROBE_TOKEN": "upr_abc", "ADDR": "-"}
 	text := formatEnvFile(kv)
 	if !strings.HasPrefix(text, "# ") || !strings.Contains(text, "PROBE_TOKEN=upr_abc\r\n") {
 		t.Fatalf("biçim: %q", text)
