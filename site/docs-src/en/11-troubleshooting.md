@@ -155,4 +155,4 @@ It depends on the number of monitors and the check interval. Each individual che
 
 ### I found a bug or want a feature {#report}
 
-[Open an issue on GitHub](https://github.com/kadirsungurlu/bekci/issues) or write to [me@kadir.app](mailto:me@kadir.app).
+[Open an issue on GitHub](https://github.com/kadirsungurlu/bekci/issues).

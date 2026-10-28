@@ -171,7 +171,7 @@
     return data.locations.length > 1 && down ? down.message : data.incident.cause;
   });
 
-  /** "HTTP 400 Bad Request" → "400 Bad Request" (UptimeRobot gibi). */
+  /** "HTTP 400 Bad Request" → "400 Bad Request". */
   function causeTitle(c: string): string {
     const m = c.match(/^HTTP (\d{3}\b.*)$/);
     return m ? m[1] : c || t('incidents.detail.noCause');

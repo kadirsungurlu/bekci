@@ -68,7 +68,7 @@ lib/i18n/
    dosyalarına EKLEME YAPMAYIN** (paralel çalışmada çakışır); gereken yeni metni kendi ad
    alanınıza ekleyin.
 
-İngilizce terimler (UptimeRobot / Uptime Kuma dili): Monitor, Up / Down, Paused, Pending,
+İngilizce terimler (yaygın izleme aracı dili): Monitor, Up / Down, Paused, Pending,
 Maintenance (window), Incident, Status page, Response time, Check interval, Retry interval,
 Check location (kontrol noktası), Server agent (sunucu ajanı), Notification channel, Tag,
 Announcement, API key, Audit log, Two-factor authentication. Cümle düzeni (sentence case),

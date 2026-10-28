@@ -15,15 +15,15 @@
 
 [Türkçe](README.md) · **English**
 
-[bekci.app](https://bekci.app) · Contact: [me@kadir.app](mailto:me@kadir.app)
+[bekci.app](https://bekci.app) · Contact: [GitHub](https://github.com/kadirsungurlu/bekci/issues)
 
 <img src="docs/ekran/monitorler.png" alt="Monitor list: status, response time, uptime bars for the last 24 hours and an overall summary" width="100%">
 
 </div>
 
 **Bekci** (Turkish for "night watchman") is a monitoring system written in Go with a simple interface:
-uptime checks for websites and services (the Uptime Kuma feature set) and
-resource tracking for servers (similar to Beszel). One Docker image, SQLite or
+uptime checks for websites and services and resource tracking for servers.
+One Docker image, SQLite or
 PostgreSQL; designed to stay fast with hundreds of monitors.
 
 > [!NOTE]
@@ -46,7 +46,7 @@ PostgreSQL; designed to stay fast with hundreds of monitors.
 - **Works like an app on your phone (PWA)** — add to home screen, live updates.
 - **Turkish and English UI** — language per user; separate language settings
   for status pages and notifications, including date and number formats.
-- **Easy migration** — import from an Uptime Kuma backup or an UptimeRobot account.
+- **Easy migration** — import from other monitoring tools' backups and accounts.
 
 ## Quick start
 
@@ -272,7 +272,7 @@ amd64/arm64, Windows amd64) are included.
 
 | Variable | Default | Description |
 |---|---|---|
-| `BASE_URL` | — | External address, e.g. `https://uptime.kadir.app`. Used by notification links and agent install commands |
+| `BASE_URL` | — | External address, e.g. `https://bekci.alanadi.com`. Used by notification links and agent install commands |
 | `TZ` | `Europe/Istanbul` | Time of daily summaries and the nightly backup |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `MAX_CONCURRENT_CHECKS` | `50` | Maximum number of checks running at the same time |
@@ -344,7 +344,7 @@ set -e
 # root kontrolü
 install -m 600 /dev/null /etc/uptime-agent.env      # token yalnızca root'a okunur
 cat > /etc/uptime-agent.env <<'UPTIME_ENV'
-PROBE_SERVER=https://uptime.kadir.app
+PROBE_SERVER=https://bekci.alanadi.com
 PROBE_TOKEN=upr_…
 UPTIME_ENV
 docker run -d --name uptime-agent --restart unless-stopped … --env-file /etc/uptime-agent.env -v uptime-agent-bin:/opt/uptime alpine:3 sh -c '…'
@@ -476,7 +476,7 @@ A cron job or script calls this address at the configured interval; if the
 call does not arrive, the monitor goes DOWN:
 
 ```bash
-curl -fsS "https://uptime.kadir.app/api/push/<token>?status=up&msg=tamam&ping=120"
+curl -fsS "https://bekci.alanadi.com/api/push/<token>?status=up&msg=tamam&ping=120"
 ```
 
 Failures can also be reported with `status=down`.

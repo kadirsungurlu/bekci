@@ -24,7 +24,7 @@ import (
 //	scrape_configs:
 //	  - job_name: uptime
 //	    scheme: https
-//	    static_configs: [{targets: ["uptime.kadir.app"]}]
+//	    static_configs: [{targets: ["bekci.alanadi.com"]}]
 //	    basic_auth: {username: metrics, password: upk_...}
 
 func init() {

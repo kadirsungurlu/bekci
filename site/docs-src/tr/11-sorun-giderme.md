@@ -155,4 +155,4 @@ Monitör sayısına ve kontrol aralığına bağlıdır. Her kontrolün ayrı ka
 
 ### Bir hata buldum ya da bir özellik istiyorum {#hata-bildir}
 
-[GitHub'da bir kayıt (issue) açın](https://github.com/kadirsungurlu/bekci/issues) ya da [me@kadir.app](mailto:me@kadir.app) adresine yazın.
+[GitHub'da bir kayıt (issue) açın](https://github.com/kadirsungurlu/bekci/issues).

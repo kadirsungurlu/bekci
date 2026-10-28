@@ -24,7 +24,7 @@ import (
 //
 // Ortam değişkenleri:
 //
-//	PROBE_SERVER           ana sunucunun adresi, ör. https://uptime.kadir.app
+//	PROBE_SERVER           ana sunucunun adresi, ör. https://bekci.alanadi.com
 //	PROBE_TOKEN            arayüzde (Ayarlar → Kontrol noktaları) verilen token (upr_…)
 //	MAX_CONCURRENT_CHECKS  aynı anda en fazla kontrol (varsayılan 20)
 //	PROBE_ALLOW_INSECURE   "1" ise şifrelenmemiş http ana sunucuya izin verilir (önerilmez)

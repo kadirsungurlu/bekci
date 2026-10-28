@@ -61,7 +61,7 @@ export default {
     login: 'Sign-in & SSO',
     loginDesc: 'Password reset email, single sign-on with OpenID Connect',
     backup: 'Backup / Restore',
-    backupDesc: 'Back up, restore; migrate from UptimeRobot or Uptime Kuma',
+    backupDesc: 'Back up, restore; migrate from another monitoring tool',
     audit: 'Audit log',
     auditDesc: 'Who did what, and when',
   },

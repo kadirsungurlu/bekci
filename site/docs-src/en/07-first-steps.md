@@ -176,6 +176,6 @@ Limitations: the panel must be opened over **HTTPS**. On **iPhone and iPad** (iO
 - **Check from other locations:** add a [check location](/en/docs/server-agent/#check-location) to check your monitors from another city or network too.
 - **Add your team:** create accounts with the **Admin**, **Editor** or **Viewer** role under **Settings → Users**; for your customers you can create accounts that only see the monitors assigned to them.
 - **Silence notifications during planned maintenance:** the **Maintenance** section.
-- **Move from another service:** import your UptimeRobot account or Uptime Kuma backup under **Settings → Backup / Restore**.
+- **Move from another service:** import your backup or account from another monitoring tool under **Settings → Backup / Restore**.
 - **Set up backups:** [Updates, backups and rollback](/en/docs/updates-backups/).
 - **Connect Prometheus/Grafana:** the `GET /metrics` endpoint exposes monitor status, response time and uptime as well as the server agents' CPU, RAM, disk and network metrics ([metric list](/en/docs/integrations/#prometheus)). Create a key under **Settings → API keys** and call it with the `Authorization: Bearer upk_…` header or Basic auth (user `metrics`, password the key); viewer permission is enough.

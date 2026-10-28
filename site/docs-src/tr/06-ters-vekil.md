@@ -17,7 +17,7 @@ Hangi vekili kullanırsanız kullanın, Bekci'nin düzgün çalışması için v
 | `Host`, `X-Forwarded-For` ve `X-Forwarded-Proto` başlıklarını iletmek | Bekci, isteğin HTTPS ile geldiğini `X-Forwarded-Proto` başlığından anlar (güvenli oturum çerezi ve HSTS için). İstemcinin gerçek IP adresini `X-Forwarded-For`'dan alır (giriş denemesi sınırı ve işlem kaydı için). |
 | `/api/events` yanıtını **tamponlamadan** iletmek | Arayüzün canlı güncellemeleri bu uzun ömürlü bağlantıdan (Server-Sent Events) gelir. Vekil yanıtı biriktirirse panel güncellenmez. |
 | Uzun bağlantıyı erken kesmemek | Bekci bu bağlantıda 25 saniyede bir sinyal gönderir; okuma zaman aşımı bundan uzun olmalı. |
-| Büyük istek gövdelerine izin vermek | Uptime Kuma'dan içe aktarma 200 MB'a kadar dosya yükleyebilir. |
+| Büyük istek gövdelerine izin vermek | Yedek geri yükleme ve içe aktarma 200 MB'a kadar dosya yükleyebilir. |
 
 ## 1. Bekci'yi yalnızca yerelde dinleyecek şekilde çalıştırın {#bekci}
 
@@ -69,7 +69,7 @@ server {
     listen [::]:80;
     server_name ⟦bekci.ornek.com⟧;
 
-    # Yedek geri yükleme ve Uptime Kuma içe aktarma için büyük dosyalar
+    # Yedek geri yükleme ve içe aktarma için büyük dosyalar
     client_max_body_size 200m;
 
     location / {

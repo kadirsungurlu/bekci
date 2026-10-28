@@ -40,7 +40,7 @@ Open `http://SERVER:8080` and create the first admin account. For HTTPS with Cad
 - **Notification channels (24 + Web Push):** Telegram, WhatsApp, e-mail (HTML), Slack, Discord, Teams, ntfy, PagerDuty, Opsgenie, signed webhooks and more; per-channel rules (event filter, quiet hours, delay, escalation, language), tag-based binding, slow-response and domain-expiry alerts.
 - **Status pages:** several layouts, custom domain, password protection, per-page language, manual incidents with updates, planned-maintenance block and RSS feed.
 - **Incidents:** timeline plus connection diagnostics, acknowledge/snooze, CSV export, maintenance windows, roles, customer accounts, 2FA, OpenID Connect sign-in, API keys and an OpenAPI document.
-- **Other:** dark/light theme; installable as a PWA on phones; encrypted backups; import from Uptime Kuma and UptimeRobot; Prometheus `/metrics`.
+- **Other:** dark/light theme; installable as a PWA on phones; encrypted backups; import from other monitoring tools; Prometheus `/metrics`.
 
 ## Data & configuration
 
@@ -57,7 +57,7 @@ Updates: `docker compose pull && docker compose up -d`. The database is backed u
 
 ## License
 
-[AGPL-3.0](https://github.com/kadirsungurlu/bekci/blob/main/LICENSE) · Made in Türkiye · Contact: me@kadir.app
+[AGPL-3.0](https://github.com/kadirsungurlu/bekci/blob/main/LICENSE) · Made in Türkiye · Contact: [GitHub](https://github.com/kadirsungurlu/bekci/issues)
 
 ---
 

@@ -29,7 +29,7 @@ type Notifier interface{ Notify(notify.Event) }
 
 type Config struct {
 	MaxConcurrent int           // aynı anda en fazla kaç kontrol çalışır
-	BaseURL       string        // bildirimlerdeki bağlantılar için, ör. https://uptime.kadir.app
+	BaseURL       string        // bildirimlerdeki bağlantılar için, ör. https://bekci.alanadi.com
 	Unit          time.Duration // aralık birimi; üretimde saniye, testlerde daha kısa
 }
 

@@ -17,7 +17,7 @@ Whichever proxy you use, it must do the following for Bekci to work properly:
 | Pass the `Host`, `X-Forwarded-For` and `X-Forwarded-Proto` headers | Bekci learns from `X-Forwarded-Proto` that the request arrived over HTTPS (for the secure session cookie and HSTS). It takes the client's real IP address from `X-Forwarded-For` (for the login attempt limit and the audit log). |
 | Pass the `/api/events` response through **without buffering** | The interface's live updates arrive over this long-lived connection (Server-Sent Events). If the proxy buffers the response, the panel doesn't update. |
 | Not cut the long connection early | Bekci sends a keep-alive signal on this connection every 25 seconds; the read timeout must be longer. |
-| Allow large request bodies | Importing from Uptime Kuma can upload files of up to 200 MB. |
+| Allow large request bodies | Backup restores and imports can upload files of up to 200 MB. |
 
 ## 1. Run Bekci so it only listens locally {#bekci}
 
@@ -69,7 +69,7 @@ server {
     listen [::]:80;
     server_name ⟦bekci.example.com⟧;
 
-    # Large files for backup restores and Uptime Kuma imports
+    # Large files for backup restores and imports
     client_max_body_size 200m;
 
     location / {

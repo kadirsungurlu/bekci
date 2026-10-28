@@ -6,10 +6,10 @@
 > arayüz, kontrol noktaları, kısmi kesinti olayları gibi sonradan eklenen
 > özellikler için README ve belge sitesi (bekci.app/docs) esastır.
 
-Uptime Kuma'nın özelliklerini UptimeRobot sadeliğinde bir arayüzle sunan, Go ile
+Kapsamlı izleme özelliklerini sade bir arayüzle sunan, Go ile
 yazılmış izleme sistemi. Yüzlerce monitörde arayüz yavaşlamamalı.
 
-- Kurulum: Coolify, `https://uptime.kadir.app`
+- Kurulum: Coolify, `https://bekci.alanadi.com`
 - Repo: `kadirsungurlu/bekci` (herkese açık, AGPL-3.0)
 - Onay tarihi: 2026-09-27
 
@@ -45,7 +45,7 @@ Kuma'daki yavaşlamaya karşı:
 | Bakım pencereleri (tek seferlik / tekrarlayan) | 2 |
 | Etiketler, gruplar (grup monitörü) | 2 |
 | Uptime rozetleri, REST API + API anahtarları, Prometheus metrikleri | 2 |
-| Dışa/içe aktarma, Uptime Kuma'dan içe aktarma | 2 |
+| Dışa/içe aktarma, başka araçlardan içe aktarma | 2 |
 | Ek bildirimler: Teams, Google Chat, Mattermost, Matrix, Signal, PagerDuty, Opsgenie, Home Assistant, Netgsm SMS | 2 |
 | Docker container, veritabanı monitörleri (MariaDB, PostgreSQL, Redis, MongoDB, MSSQL) | 3 |
 | gRPC, MQTT, SMTP, WebSocket, SNMP | 3 |
@@ -112,7 +112,7 @@ Ham kontroller 14 gün, saatlik özet 1 yıl, günlük özet süresiz.
 
 ## 4. Coolify kurulumu
 
-API ile: Dockerfile build, mevcut SSH anahtarı, `uptime.kadir.app`, port 8080,
+API ile: Dockerfile build, mevcut SSH anahtarı, `bekci.alanadi.com`, port 8080,
 kalıcı `/data`, health check `/healthz`, `TZ=Europe/Istanbul`.
 
 ## 5. Çalışma yöntemi
@@ -126,9 +126,9 @@ kalıcı `/data`, health check `/healthz`, `TZ=Europe/Istanbul`.
 
 ## 6. Canlıya geçiş
 
-1. UptimeRobot'taki 12 monitör yeni sisteme eklenir.
+1. Önceki hizmetteki 12 monitör yeni sisteme eklenir.
 2. Bir hafta iki sistem paralel çalışır; tutarlıysa geçiş tamamlanır.
-3. UptimeRobot'ta sadece `uptime.kadir.app`'i izleyen tek monitör kalır
+3. Önceki hizmette sadece `bekci.alanadi.com`'i izleyen tek monitör kalır
    (Aşama 3'teki uzak ajanla bu ihtiyaç da kalkar).
 
 ## 7. Riskler
@@ -145,7 +145,7 @@ kalıcı `/data`, health check `/healthz`, `TZ=Europe/Istanbul`.
 - Ana bildirim kanalı WhatsApp (WP API); anahtar ve alıcı sonra girilecek.
 - ~~Aşama 1–2 tek yönetici; çoklu kullanıcı Aşama 3'te.~~ Güncellendi (2026-09-27):
   çoklu kullanıcı ve yetkiler Aşama 2'nin ilk işi (bkz. bölüm 10).
-- Alan adı `uptime.kadir.app`.
+- Alan adı `bekci.alanadi.com`.
 
 ## 9. İlerleme
 
@@ -159,10 +159,10 @@ kalıcı `/data`, health check `/healthz`, `TZ=Europe/Istanbul`.
 - [x] API: oturum, monitörler, özet, olaylar, bildirimler, SSE, push, healthz
 - [x] Arayüz: kurulum/giriş, liste, detay, form, olaylar, bildirimler, ayarlar
 - [x] Dockerfile ve uçtan uca test
-- [x] Coolify kurulumu ve canlıya çıkış (`uptime.kadir.app`)
+- [x] Coolify kurulumu ve canlıya çıkış (`bekci.alanadi.com`)
 - [x] Bağımsız inceleme (Fable): backend + arayüz bulguları düzeltildi
 - [x] Tasarım kontrolü ve düzeltmeleri
-- [ ] UptimeRobot monitörlerinin taşınması, bir hafta paralel çalışma
+- [ ] Önceki hizmetteki monitörlerin taşınması, bir hafta paralel çalışma
 
 ### Aşama 2 — sıradaki (öncelik sırasıyla)
 
@@ -171,7 +171,7 @@ kalıcı `/data`, health check `/healthz`, `TZ=Europe/Istanbul`.
 - [x] 2c. Bakım pencereleri + grup monitörü — backend
 - [x] 2d. Etiketler ve gruplar — backend
 - [x] 2e. Rozetler, REST API + API anahtarları, Prometheus metrikleri — backend
-- [x] 2f. Dışa/içe aktarma, Uptime Kuma ve UptimeRobot'tan içe aktarma — backend
+- [x] 2f. Dışa/içe aktarma, başka araçlardan içe aktarma — backend
 - [x] 2g. Ek bildirim servisleri (15 yeni: Teams, Google Chat, Mattermost, Rocket.Chat,
       Matrix, Signal, PagerDuty, Opsgenie, Home Assistant, Netgsm SMS, Twilio, Pushbullet,
       Bark, LINE, Apprise)
@@ -219,8 +219,8 @@ Roller (API her istekte rolü kontrol eder; arayüzde gizlemek tek başına yetm
 
 ## 11. Aşama 2b — Herkese açık durum sayfaları
 
-- Birden fazla sayfa; adres `uptime.kadir.app/durum/<ad>`, isteğe bağlı özel alan
-  adı (ör. `durum.kadir.app`; Coolify'a alan adı eklenir, DNS kaydı açılır).
+- Birden fazla sayfa; adres `bekci.alanadi.com/durum/<ad>`, isteğe bağlı özel alan
+  adı (ör. `durum.alanadi.com`; Coolify'a alan adı eklenir, DNS kaydı açılır).
 - İçerik: başlık, açıklama, logo (PNG/JPEG/WebP, en fazla 512 KB), alt bilgi,
   gruplar halinde monitörler (her monitör için görünen ad), genel durum özeti,
   monitör başına 90 günlük uptime çubuğu ve yüzde, son 14 günün olayları.
@@ -243,10 +243,10 @@ Roller (API her istekte rolü kontrol eder; arayüzde gizlemek tek başına yetm
 3. Bağımsız inceleme (Fable, özellikle yetki atlatma denemeleri) → düzeltmeler →
    canlıya çıkış.
 
-## 12. Aşama 4 — Sunucu takibi (Beszel benzeri)
+## 12. Aşama 4 — Sunucu takibi
 
 Karar: 2026-09-27, kullanıcı onayladı. Amaç: siteler ve sunucular tek panelde,
-aynı bildirim kanallarıyla. Beszel seviyesi: CPU, RAM, disk, ağ, yük, sıcaklık,
+aynı bildirim kanallarıyla. Kapsam: CPU, RAM, disk, ağ, yük, sıcaklık,
 Docker konteynerleri, geçmiş grafikleri, eşik uyarıları.
 
 ### 12.1 Mimari kararlar
@@ -285,7 +285,7 @@ Docker (varsayılan, arayüzde gösterilir):
       --network host --pid host \
       -v /:/host:ro,rslave -v /var/run/docker.sock:/var/run/docker.sock:ro \
       -e HOST_PROC=/host/proc -e HOST_SYS=/host/sys -e HOST_ETC=/host/etc -e HOST_ROOT=/host \
-      -e ADDR=- -e PROBE_SERVER=https://uptime.kadir.app -e PROBE_TOKEN=upr_… \
+      -e ADDR=- -e PROBE_SERVER=https://bekci.alanadi.com -e PROBE_TOKEN=upr_… \
       alpine:3 sh -c 'wget -qO /usr/local/bin/uptime --header "Authorization: Bearer $PROBE_TOKEN" "$PROBE_SERVER/api/probe/binary" && chmod +x /usr/local/bin/uptime && exec uptime probe'
 
 `--network host`: ağ sayaçları host'un olsun diye; sağlık uç noktası bu yüzden
@@ -505,7 +505,7 @@ izlenir; ayrı program yok.
 - Windows'ta ping kontrolü (ajan kontrol noktası olarak kullanılırsa) ayrıcalıklı
   ICMP ile yapılır (hizmet LocalSystem).
 
-## 13. Olay ayrıntıları (UptimeRobot benzeri olay sayfası)
+## 13. Olay ayrıntıları
 
 Karar: 2026-09-27. Bugün bir olay yalnızca "çözüldü, X sürdü" gösteriyor. Hedef:
 her olayın kendi sayfası (`#/incidents/{id}`): kök neden, durum, süre, konumlar,
