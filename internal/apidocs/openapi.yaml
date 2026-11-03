@@ -1271,6 +1271,34 @@ paths:
                         rtt_ms: { type: integer, description: "Son ölçülen gidiş-dönüş süresi (ms)" }
                         loss_streak: { type: integer, description: "Ardışık kayıp sayısı" }
                         last_ok_at: { type: integer, description: "Son başarılı ölçüm (unix sn; 0: hiç)" }
+  /api/topology:
+    get:
+      tags: [monitors]
+      summary: "Canlı topoloji: sayfanın tüm verisi tek yanıtta (oturum). Kısıtlı izleyici yalnız izinli monitörleri, kullandıkları kontrol noktalarını (ad + çevrimiçi) ve atanmış sunucuları görür; mesh ve nokta ayrıntısı (panel RTT, hat, eşler, sürüm) yalnız yöneticiye, kanallar düzenleyici ve üstüne"
+      responses:
+        "200":
+          description: "monitors[].state: up | partial | down | pending | paused | maintenance; locations[].status: up | down | retrying | waiting | unknown (sonuç gelmiyor), oob: karara katılmıyor. stats.results_per_sec yalnız tüm monitörleri görene. channels[].last_send panel açıldığından beri son gönderim. incidents en çok 50 açık olay (stats.open_incidents toplam, en çok 500)"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  now: { type: integer }
+                  admin: { type: boolean }
+                  stats:
+                    type: object
+                    properties:
+                      probes_online: { type: integer }
+                      probes_total: { type: integer }
+                      results_per_sec: { type: number }
+                      open_incidents: { type: integer }
+                  monitors: { type: array, items: { type: object } }
+                  probes: { type: array, items: { type: object } }
+                  mesh: { type: object, description: "GET /api/mesh ile aynı (yalnız yönetici)" }
+                  servers: { type: array, items: { type: object } }
+                  channels: { type: array, items: { type: object } }
+                  incidents: { type: array, items: { type: object } }
+        "401": { description: "Oturum yok" }
   /api/maintenance:
     get: { tags: [maintenance], summary: Bakım pencereleri, responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Maintenance" } } } } } } }
     post: { tags: [maintenance], summary: Bakım ekle (editör+), requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/Maintenance" } } } }, responses: { "201": { description: Bakım } } }

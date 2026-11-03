@@ -66,9 +66,9 @@
   </div>
   <div class="live-state" data-testid="topology-live">
     {#if live.connected}
-      <span class="pill ok" title={t('topology.live.sseTip')}><i class="sd"></i>{t('topology.live.sse')}</span>
+      <span class="pill up" title={t('topology.live.sseTip')}>{t('topology.live.sse')}</span>
     {:else}
-      <span class="pill pend" title={t('topology.live.pollTip', { s: POLL_MS / 1000 })}><i class="sd"></i>{t('topology.live.poll')}</span>
+      <span class="pill pending" title={t('topology.live.pollTip', { s: POLL_MS / 1000 })}>{t('topology.live.poll')}</span>
     {/if}
     {#if store.updatedAt}
       <span class="muted small">{t('topology.live.updated', { time: fmtTimeSec(Math.floor(store.updatedAt / 1000)) })}</span>
@@ -258,23 +258,6 @@
     align-items: center;
     gap: 10px;
   }
-  .pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
-  .pill.ok {
-    color: var(--accent-text);
-    border-color: var(--accent-border);
-  }
-  .pill.pend {
-    color: var(--warn-text);
-  }
   .sd {
     width: 8px;
     height: 8px;
@@ -282,11 +265,9 @@
     flex: none;
     background: var(--muted);
   }
-  .pill.ok .sd,
   .sd.ok {
     background: var(--up);
   }
-  .pill.pend .sd,
   .sd.pend {
     background: var(--pending);
   }
