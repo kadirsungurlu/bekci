@@ -69,6 +69,8 @@ type Server struct {
 	pushClient *http.Client
 	// sessTouch oturum son görülme yazımını seyrekleştirir (sessions.go).
 	sessTouch *sessionTouches
+	// mesh ajan dinleme portları ve "mesh" yayını seyreltmesi (probes_mesh.go).
+	mesh meshState
 
 	// BaseURL uygulamanın dış adresi (BASE_URL); durum sayfası özel alan adı
 	// bu adresin sunucu adıyla aynı olamaz. Boş olabilir.

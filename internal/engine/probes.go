@@ -8,11 +8,12 @@ import (
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
-// ProbeOfflineAfter bu süre boyunca hiç istek göndermeyen kontrol noktası
-// çevrimdışı sayılır. Kontrol noktası iş listesini uzun yoklamayla (en fazla
-// ~20 sn bekletilen istekler; api.probeHold) ister, sonuçları birkaç saniyede
-// bir gönderir; bekletme bu süreden epey kısa kalmalıdır.
-const ProbeOfflineAfter = 90 * time.Second
+// ProbeLegacyOfflineAfter kalp atışı (POST /api/probe/mesh) göndermeyen eski
+// ajanlar için yedek kural: bu süre boyunca hiç istek göndermeyen kontrol
+// noktası çevrimdışı sayılır. Kalp atışı gönderen ajanın eşiği
+// store.EffectiveProbeTiming(...).OfflineAfter()'dır (varsayılan 15 sn).
+// Uzun yoklama bekletmesi (api.probeHold) bu süreden epey kısa kalmalıdır.
+const ProbeLegacyOfflineAfter = 90 * time.Second
 
 // ProbePollAfter uzun yoklama öncesi iş listesi yenileme aralığı (aralık
 // birimi cinsinden; üretimde saniye). Sunucu artık poll_after=1 ile uzun
@@ -20,9 +21,108 @@ const ProbeOfflineAfter = 90 * time.Second
 // geç ne zaman öğreneceğinin temkinli üst sınırı olarak kullanılır.
 const ProbePollAfter = 30
 
-// ProbeOnline kontrol noktası etkin ve yakın zamanda görülmüş mü?
-func ProbeOnline(p store.Probe, now time.Time) bool {
-	return p.Active && p.LastSeenAt > 0 && now.Unix()-p.LastSeenAt <= int64(ProbeOfflineAfter/time.Second)
+// ProbeOnline kontrol noktası etkin ve çevrimiçi mi? Kalp atışı gönderen
+// ajan için son kalp atışından beri etkin zamanlamanın OfflineAfter süresi
+// geçmemiş olmalı; hiç kalp atışı göndermemiş (eski) ajan için son görülme
+// + ProbeLegacyOfflineAfter (bkz. probeOnlineAt).
+func (e *Engine) ProbeOnline(p store.Probe, now time.Time) bool {
+	last, ok := e.lastHeartbeat(p.ID)
+	return probeOnlineAt(p, last, ok, e.Settings(), now)
+}
+
+// probeOnlineAt çevrimiçi kuralı. Kalp atışı biliniyor ama son görülme
+// ondan ProbeLegacyOfflineAfter'dan fazla yeniyse ajan kalp atışını bırakmış
+// (eski sürüme dönmüş) sayılır ve yedek kural geçerli olur.
+func probeOnlineAt(p store.Probe, lastHB time.Time, haveHB bool, set store.AppSettings, now time.Time) bool {
+	if !p.Active {
+		return false
+	}
+	legacySec := int64(ProbeLegacyOfflineAfter / time.Second)
+	legacy := p.LastSeenAt > 0 && now.Unix()-p.LastSeenAt <= legacySec
+	if !haveHB || p.LastSeenAt-lastHB.Unix() > legacySec {
+		return legacy
+	}
+	return now.Sub(lastHB) <= store.EffectiveProbeTiming(p, set).OfflineAfter()
+}
+
+// heartbeatBased ajanın çevrimiçi durumu kalp atışından mı hesaplanıyor.
+func heartbeatBased(p store.Probe, lastHB time.Time, haveHB bool) bool {
+	return haveHB && p.LastSeenAt-lastHB.Unix() <= int64(ProbeLegacyOfflineAfter/time.Second)
+}
+
+// ProbeHeartbeat ajanın kalp atışı alındı (API: POST /api/probe/mesh). Main ->
+// probe kenarı kopuk işaretliyse kalkar ve konumlar yeniden değerlendirilir.
+func (e *Engine) ProbeHeartbeat(probeID int64, at time.Time) {
+	e.mu.Lock()
+	e.heartbeats[probeID] = at
+	_, wasDown := e.mainDown[probeID]
+	delete(e.mainDown, probeID)
+	e.mu.Unlock()
+	if wasDown {
+		e.wakeProbe(e.probeRunners(probeID))
+	}
+}
+
+func (e *Engine) lastHeartbeat(probeID int64) (time.Time, bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	at, ok := e.heartbeats[probeID]
+	return at, ok
+}
+
+// loadHeartbeats açılışta son kalp atışlarını probe_links'ten (src=0) okur;
+// böylece yeniden başlatmada kalp atışı gönderen ajanlar eski kurala düşmez.
+func (e *Engine) loadHeartbeats(ctx context.Context) {
+	links, err := e.store.ListProbeLinks(ctx)
+	if err != nil {
+		e.log.Error("mesh bağlantıları okunamadı", "hata", err)
+		return
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for _, l := range links {
+		if l.Src == store.MeshMainID && l.LastOKAt > 0 {
+			if _, ok := e.heartbeats[l.Dst]; !ok {
+				e.heartbeats[l.Dst] = time.Unix(l.LastOKAt, 0)
+			}
+		}
+	}
+}
+
+// setMainDown Main -> probe kenarının kopukluğunu işaretler/kaldırır. Kopuk
+// kenar konumlar için uzun yoklama kopması gibi davranır (probeGoneAt):
+// konum "sonuç yok" olur, linkHealthy false döner. Değiştiyse true.
+func (e *Engine) setMainDown(probeID int64, down bool, at time.Time) bool {
+	e.mu.Lock()
+	_, was := e.mainDown[probeID]
+	if down && !was {
+		e.mainDown[probeID] = at
+	} else if !down && was {
+		delete(e.mainDown, probeID)
+	}
+	e.mu.Unlock()
+	if was == down {
+		return false
+	}
+	e.wakeProbe(e.probeRunners(probeID))
+	return true
+}
+
+// markMainLinkDown kalp atışı kesilen probe için Main -> probe kenarını
+// "down" yazar (loss_streak: kaçırılan panel aralığı sayısı) ve yayınlar.
+func (e *Engine) markMainLinkDown(ctx context.Context, p store.Probe, lastHB time.Time, now time.Time) {
+	t := store.EffectiveProbeTiming(p, e.Settings())
+	loss := 0
+	if t.PanelSec > 0 {
+		loss = int(now.Sub(lastHB) / (time.Duration(t.PanelSec) * time.Second))
+	}
+	l := store.ProbeLink{Src: store.MeshMainID, Dst: p.ID, State: store.LinkDown, LossStreak: loss,
+		LastOKAt: lastHB.Unix(), UpdatedAt: now.Unix()}
+	if err := e.store.UpsertProbeLinks(ctx, []store.ProbeLink{l}); err != nil {
+		e.log.Error("mesh bağlantısı yazılamadı", "kontrol_noktasi", p.Name, "hata", err)
+		return
+	}
+	e.hub.Publish("mesh", map[string]any{"links": []store.ProbeLink{l}})
 }
 
 // watchProbes kontrol noktalarının çevrimiçi/çevrimdışı değişimlerini izler;
@@ -52,10 +152,18 @@ func (e *Engine) scanProbes(ctx context.Context, known map[int64]bool) map[int64
 		return known
 	}
 	now := e.now()
+	set := e.Settings()
 	next := make(map[int64]bool, len(probes))
 	for _, p := range probes {
-		online := ProbeOnline(p, now)
+		lastHB, haveHB := e.lastHeartbeat(p.ID)
+		online := probeOnlineAt(p, lastHB, haveHB, set, now)
 		next[p.ID] = online
+		// Kalp atışı kesildi: Main -> probe kenarı kopuk (konumlar hemen
+		// "sonuç yok"); kenar satırı geçişte bir kez yazılır.
+		hbDown := !online && p.Active && heartbeatBased(p, lastHB, haveHB)
+		if e.setMainDown(p.ID, hbDown, now) && hbDown {
+			e.markMainLinkDown(ctx, p, lastHB, now)
+		}
 		if known == nil {
 			continue
 		}
@@ -79,8 +187,9 @@ func (e *Engine) scanProbes(ctx context.Context, known map[int64]bool) map[int64
 
 // probeTransition kontrol noktasının çevrimdışı/çevrimiçi geçişinde olay açar
 // veya kapatır ve "çevrimdışında bildir" açıksa bağlı kanallara bildirim
-// gönderir. Tolerans ProbeOfflineAfter'dır (90 sn): ajanın birkaç saniyelik
-// yeniden başlaması bildirim üretmez. İlk taramada (known == nil) çağrılmaz:
+// gönderir. Tolerans kalp atışı eşiğidir (varsayılan 15 sn; eski ajanda
+// ProbeLegacyOfflineAfter, 90 sn): ajanın birkaç saniyelik yeniden başlaması
+// bildirim üretmez. İlk taramada (known == nil) çağrılmaz:
 // ana sunucu uzun kapalı kaldıysa açılışta tüm kontrol noktaları çevrimdışı
 // görünür, o an bildirim gitmez. Devre dışı bırakılan kontrol noktası için
 // açık olay bildirimsiz kapanır; devre dışıyken yeni olay açılmaz.
@@ -210,10 +319,15 @@ func (e *Engine) wakeProbe(sets []*locationSet) {
 }
 
 // probeGoneAt kontrol noktasının bağlantısı ne zaman koptu (ok=false: bağlı).
+// Uzun yoklama kopması ya da kalp atışı kesilmesi (Main -> probe kenarı
+// "down"; scanProbes) sayılır; ikisi de varsa erken olanı.
 func (e *Engine) probeGoneAt(probeID int64) (time.Time, bool) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	at, ok := e.gone[probeID]
+	if md, down := e.mainDown[probeID]; down && (!ok || md.Before(at)) {
+		at, ok = md, true
+	}
 	return at, ok
 }
 

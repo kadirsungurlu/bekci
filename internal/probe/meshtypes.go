@@ -15,6 +15,8 @@ type MeshPeer struct {
 
 // MeshPeersResponse GET /api/probe/mesh/peers yanıtı.
 type MeshPeersResponse struct {
+	// Self isteği yapan ajanın kimliği (mesh çerçevelerinde gönderen id).
+	Self    int64      `json:"self"`
 	Version string     `json:"version"`
 	Peers   []MeshPeer `json:"peers"`
 }

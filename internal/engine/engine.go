@@ -44,12 +44,16 @@ type Engine struct {
 	maint    atomic.Pointer[maintenance.Index] // aktif bakım pencereleri (ReloadMaintenance)
 	now      func() time.Time
 
-	mu       sync.Mutex
-	ctx      context.Context
-	runners  map[int64]*runner
-	gone     map[int64]time.Time   // bağlantısı kopan kontrol noktaları ve kopma anı (SetProbeConnected)
-	monLocks map[int64]*sync.Mutex // monitör başına: Reload/Remove/start sıraya girer (bkz. lockMonitor)
-	retired  map[int64]retiredLocs // durdurulan çok konumlu runner'ların konum sonuçları (bkz. adoptLocations)
+	mu      sync.Mutex
+	ctx     context.Context
+	runners map[int64]*runner
+	gone    map[int64]time.Time // bağlantısı kopan kontrol noktaları ve kopma anı (SetProbeConnected)
+	// heartbeats son kalp atışı (ProbeHeartbeat); mainDown kalp atışı kesilen
+	// probe'lar ve kesilme anı (scanProbes). Bkz. probes.go.
+	heartbeats map[int64]time.Time
+	mainDown   map[int64]time.Time
+	monLocks   map[int64]*sync.Mutex // monitör başına: Reload/Remove/start sıraya girer (bkz. lockMonitor)
+	retired    map[int64]retiredLocs // durdurulan çok konumlu runner'ların konum sonuçları (bkz. adoptLocations)
 
 	jobs *jobsSignal // kontrol noktası iş listesi sürümü (jobs.go)
 
@@ -68,15 +72,18 @@ func New(st *store.Store, n Notifier, hub *Hub, log *slog.Logger, cfg Config) *E
 	}
 	e := &Engine{
 		store: st, notifier: n, hub: hub, log: log, cfg: cfg,
-		sem:      make(chan struct{}, cfg.MaxConcurrent),
-		now:      time.Now,
-		runners:  map[int64]*runner{},
-		monLocks: map[int64]*sync.Mutex{},
-		gone:     map[int64]time.Time{},
-		retired:  map[int64]retiredLocs{},
-		jobs:     newJobsSignal(),
+		sem:        make(chan struct{}, cfg.MaxConcurrent),
+		now:        time.Now,
+		runners:    map[int64]*runner{},
+		monLocks:   map[int64]*sync.Mutex{},
+		gone:       map[int64]time.Time{},
+		heartbeats: map[int64]time.Time{},
+		mainDown:   map[int64]time.Time{},
+		retired:    map[int64]retiredLocs{},
+		jobs:       newJobsSignal(),
 
-		probeWatchEvery: 10 * time.Second,
+		// Kalp atışı eşiği (vars. 15 sn) içinde yakalansın; tarama tek sorgu.
+		probeWatchEvery: 2 * time.Second,
 	}
 	def := store.DefaultSettings()
 	e.settings.Store(&def)
@@ -96,6 +103,7 @@ func (e *Engine) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	e.loadHeartbeats(ctx)
 	e.mu.Lock()
 	e.ctx = ctx
 	e.mu.Unlock()

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/kadirsungurlu/bekci/internal/engine"
 	"github.com/kadirsungurlu/bekci/internal/metrics"
 	"github.com/kadirsungurlu/bekci/internal/servers"
 	"github.com/kadirsungurlu/bekci/internal/store"
@@ -122,7 +121,7 @@ func (s *Server) agentMetrics(r *http.Request, b *strings.Builder, family func(n
 
 	family("uptime_probe_online", "gauge", "Kontrol noktası çevrimiçi mi (1 = çevrimiçi, 0 = çevrimdışı veya devre dışı)")
 	for _, p := range locations {
-		online := engine.ProbeOnline(p, now) && !s.engine.ProbeDisconnected(p.ID)
+		online := s.engine.ProbeOnline(p, now) && !s.engine.ProbeDisconnected(p.ID)
 		fmt.Fprintf(b, "uptime_probe_online{probe_id=\"%d\",probe_name=\"%s\"} %d\n", p.ID, promLabel(p.Name), boolMetric(online))
 	}
 

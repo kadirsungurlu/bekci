@@ -87,6 +87,17 @@ type Config struct {
 	// UpdateReport açılışta Updater.Startup'ın verdiği, panele iletilecek
 	// durum (önceki güncelleme geri alındı vb.); ilk başarılı yoklamadan sonra gönderilir.
 	UpdateReport *agentupdate.Report
+
+	// Mesh kancaları (heartbeat.go); hepsi isteğe bağlı.
+	// MeshSource kalp atışına eklenen eş ölçümleri ve dinleme portu (nil: yok).
+	MeshSource MeshSource
+	// OnMeshPeers eş listesi sürümü değişince yeni liste ile çağrılır.
+	OnMeshPeers func(MeshPeersResponse)
+	// OnMeshTiming her başarılı kalp atışında panelin bildirdiği zamanlamayla çağrılır.
+	OnMeshTiming func(MeshTiming)
+	// HeartbeatRetry panel kalp atışını tanımıyorsa (404, eski panel) yeniden
+	// deneme aralığı (varsayılan 300 birim).
+	HeartbeatRetry time.Duration
 }
 
 // MetricsCollector sunucu ölçümlerini toplar (metrics.Collector; testlerde sahtesi).
@@ -193,6 +204,8 @@ type Client struct {
 	updateReport  *agentupdate.Report  // panele iletilmeyi bekleyen durum
 	updateRefused map[string]time.Time // sürüm → yeniden denenebileceği zaman (tekrar denemeyi seyreltir)
 	updateFirst   bool                 // ilk başarılı yoklama yapıldı (Confirm çağrıldı)
+
+	hb heartbeatState // kalp atışı (heartbeat.go)
 }
 
 type task struct {
@@ -262,6 +275,9 @@ func New(cfg Config) (*Client, error) {
 	if cfg.MaxBackoff <= 0 {
 		cfg.MaxBackoff = 60 * cfg.Unit
 	}
+	if cfg.HeartbeatRetry <= 0 {
+		cfg.HeartbeatRetry = 300 * cfg.Unit
+	}
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
@@ -307,9 +323,10 @@ func (c *Client) Run(ctx context.Context) error {
 		}
 	}()
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 	go func() { defer wg.Done(); c.jobsLoop(ctx) }()
 	go func() { defer wg.Done(); c.flushLoop(ctx) }()
+	go func() { defer wg.Done(); c.heartbeatLoop(ctx) }()
 	if c.cfg.NoMetrics {
 		c.log.Info("sunucu metrikleri bu ajanda kapalı (METRICS=0)")
 	} else {
@@ -652,7 +669,7 @@ func (c *Client) clearBuffer() {
 
 func (c *Client) flushLoop(ctx context.Context) {
 	backoff := time.Duration(0)
-	wait := c.cfg.FlushEvery
+	wait := c.flushEvery()
 	for {
 		now := c.flushNow
 		if backoff > 0 {
@@ -664,7 +681,7 @@ func (c *Client) flushLoop(ctx context.Context) {
 		case <-time.After(wait):
 		case <-now:
 		}
-		wait = c.cfg.FlushEvery
+		wait = c.flushEvery()
 		for c.pending() > 0 && ctx.Err() == nil {
 			retryAfter, err := c.flushOnce(ctx)
 			if err != nil {

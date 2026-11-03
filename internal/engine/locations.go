@@ -463,8 +463,9 @@ const (
 )
 
 // linkHealthy konumun ana sunucuyla bağlantısı sağlam mı: ana sunucu her
-// zaman; kontrol noktası uzun yoklama bağlantısı kopmamışsa ve oyu yok
-// sayılmıyorsa. (Mesh ölçümü gelince Main-probe kenarının durumuna bakar.)
+// zaman; kontrol noktası uzun yoklama bağlantısı kopmamışsa, kalp atışı
+// kesilmemişse (Main -> probe kenarı; l.gone ikisini de taşır, bkz.
+// probeGoneAt) ve oyu yok sayılmıyorsa.
 func linkHealthy(l *location) bool {
 	return l.probeID == LocalProbeID || (!l.gone && !l.noVote)
 }

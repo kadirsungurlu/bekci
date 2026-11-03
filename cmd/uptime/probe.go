@@ -30,6 +30,8 @@ import (
 //	PROBE_TOKEN            arayüzde (Ayarlar → Kontrol noktaları) verilen token (upr_…)
 //	MAX_CONCURRENT_CHECKS  aynı anda en fazla kontrol (varsayılan 20)
 //	PROBE_ALLOW_INSECURE   "1" ise şifrelenmemiş http ana sunucuya izin verilir (önerilmez)
+//	MESH_ADDR              kontrol noktaları arası bağlantı (mesh) TCP dinleme adresi
+//	                       (varsayılan :7480; "-" ise dinlemez, yalnız dinleyen eşlere bağlanır)
 //	ADDR                   sağlık kontrolü (/healthz) adresi (varsayılan :8080; "-" ise kapalı)
 //	METRICS                "0" ise sunucu metrikleri hiç toplanmaz, ana sunucu istese de
 //	HOST_PROC, HOST_SYS,   Docker içinde çalışırken host'un /proc, /sys, /etc ve kök
@@ -77,7 +79,11 @@ func probeMain(ctx context.Context, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	mesh := newMeshRunner(ctx, env("MESH_ADDR", ":7480"), log)
 	client, err := probe.New(probe.Config{
+		MeshSource:    mesh,
+		OnMeshPeers:   mesh.onPeers,
+		OnMeshTiming:  mesh.onTiming,
 		Server:        env("PROBE_SERVER", ""),
 		Token:         env("PROBE_TOKEN", ""),
 		Version:       version,

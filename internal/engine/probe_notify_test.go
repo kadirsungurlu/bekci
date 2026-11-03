@@ -24,12 +24,12 @@ func TestProbeOfflineNotification(t *testing.T) {
 	f.st.TouchProbe(ctx, p.ID, f.clock.Unix(), "10.0.0.1", "v1", "")
 	f.st.TouchProbe(ctx, quiet.ID, f.clock.Unix(), "10.0.0.2", "v1", "")
 	known := f.e.scanProbes(ctx, nil) // ilk tarama: yalnızca öğrenir
-	f.clock = f.clock.Add(ProbeOfflineAfter / 2)
+	f.clock = f.clock.Add(ProbeLegacyOfflineAfter / 2)
 	known = f.e.scanProbes(ctx, known) // tolerans dolmadı
 	if kinds := f.n.kinds(); len(kinds) != 0 {
 		t.Fatalf("tolerans dolmadan bildirim gitmemeli: %v", kinds)
 	}
-	f.clock = f.clock.Add(ProbeOfflineAfter)
+	f.clock = f.clock.Add(ProbeLegacyOfflineAfter)
 	known = f.e.scanProbes(ctx, known)
 	evs := f.n.events
 	if len(evs) != 1 || evs[0].Kind != notify.KindProbeOffline || evs[0].ProbeID != p.ID || evs[0].MonitorName != "Frankfurt" || evs[0].IncidentID == 0 {
