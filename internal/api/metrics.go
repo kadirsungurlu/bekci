@@ -142,7 +142,7 @@ func (s *Server) metrics(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := s.agentMetrics(r, &b, family, vis); err != nil {
+	if err := s.agentMetrics(r, &b, family, vis, isPageAdmin(u)); err != nil {
 		s.dbError(w, err)
 		return
 	}

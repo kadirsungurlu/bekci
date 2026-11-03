@@ -254,6 +254,9 @@ func (s *Server) addIncidentUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	inc, err := s.store.GetIncident(r.Context(), id)
+	if err == nil && !canSeeIncident(userFrom(r), inc) {
+		err = store.ErrNotFound // görmediği olaya (ör. mesh: yalnız yönetici) yazamaz
+	}
 	if err != nil {
 		s.dbError(w, err)
 		return
@@ -297,6 +300,9 @@ func (s *Server) deleteIncidentUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	inc, err := s.store.GetIncident(r.Context(), id)
+	if err == nil && !canSeeIncident(userFrom(r), inc) {
+		err = store.ErrNotFound
+	}
 	if err != nil {
 		s.dbError(w, err)
 		return
