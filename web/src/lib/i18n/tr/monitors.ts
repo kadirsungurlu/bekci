@@ -313,12 +313,12 @@ export default {
     downRule: 'Kesinti kuralı',
     dwAny: 'Herhangi bir konum çalışmıyorsa',
     dwMajority: 'Konumların çoğunluğu çalışmıyorsa',
-    dwAll: 'Kısmi erişim ayrımı: tüm konumlar çalışmıyorsa kesinti',
+    dwAll: 'Kısmi erişim ayrımı (önerilen)',
     notifyPartial: 'Kısmi erişim kesintisinde de bildirim gönder',
     notifyPartialHelp:
       'Monitör çalışırken bir konum çalışmaz ya da ulaşılamaz olursa seçili kanallara bildirim gider; konum düzelince de bildirilir. Uptime etkilenmez.',
     downRuleHelp:
-      'Bir konum, tekrar deneme hakkını kullandıktan sonra da başarısızsa çalışmıyor sayılır. Ulaşılamayan konum (3 kontrol aralığı boyunca sonuç göndermeyen ya da bağlantısı kopan) hesaba katılmaz. Kısmi erişim ayrımı (önerilen): tüm konumlar başarısızsa kesinti; yalnız bir kısmı başarısızsa monitör çalışıyor sayılır ve kısmi erişim kesintisi kaydedilir.',
+      'Bir konum, tekrar deneme hakkını kullandıktan sonra da başarısızsa çalışmıyor sayılır. Ulaşılamayan konum (3 kontrol aralığı boyunca sonuç göndermeyen ya da bağlantısı kopan) hesaba katılmaz. Kısmi erişim ayrımı: tüm konumlar başarısızsa kesinti; yalnız bir kısmı başarısızsa monitör çalışıyor sayılır ve kısmi erişim kesintisi kaydedilir.',
     advanced: 'Gelişmiş ayarlar',
     retries: 'Tekrar deneme sayısı',
     retriesHelp: 'Çalışmıyor saymadan önce kaç kez daha denensin. 0 = ilk hatada bildir. Yeni monitörde 1: tek anlık hata alarm üretmez.',
