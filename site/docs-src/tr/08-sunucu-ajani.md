@@ -132,6 +132,14 @@ Kontrol noktası düşünce haberiniz olsun diye satır menüsünden **Düzenle*
 | Sunucu ajanı, Windows | `C:\Program Files\Uptime\uptime.exe` | `C:\Program Files\Uptime\agent.env` | `uptime-agent` hizmeti |
 | Kontrol noktası, Docker | `uptime-probe-bin` birimi | `/etc/uptime-probe.env` | `uptime-probe` konteyneri |
 
+### DNS kesintisinde bağlantı {#dns-onbellek}
+
+Ajan panelin alan adını çözdüğünde IP adreslerini program dizinindeki `uptime.dns.json` dosyasına yazar (yalnızca sahibi okuyabilir; dizini `PROBE_STATE_DIR` ile değiştirebilirsiniz). Ad saatte bir yeniden çözülür. DNS sunucusu yanıt vermezse ya da ad bulunamazsa ajan **son bilinen IP** ile bağlanmaya devam eder; bunun bir süre sınırı yoktur ve ajan bu sırada yeniden başlasa da dosyadaki IP'yi kullanır. DNS düzelince yeni IP hemen alınır.
+
+- Yalnızca ajanın panele bağlantısı için geçerlidir; ajanın yaptığı kontroller (HTTP, DNS vb.) her zamanki gibi çözülür.
+- Bağlantı yine panelin alan adıyla doğrulanır (TLS sertifikası ve SNI); eski IP'de başka bir sunucu varsa bağlantı reddedilir.
+- Program dizini yazılabilir değilse önbellek yalnızca bellekte tutulur (ajan yeniden başlayınca boşalır).
+
 ## Güncelleme {#guncelleme}
 
 Bekci 1.4.0 ve sonrasında kurulan ajanlar **kendini günceller**: Bekci'yi yeni bir sürüme yükselttiğinizde sunucu ajanları ve kontrol noktaları birkaç saniye içinde aynı sürüme geçer. Ajan, panelden gelen programı yalnızca **projenin imzası** doğrulanırsa kurar. İmzanın açık anahtarı ajanın içine gömülüdür; özel anahtar yalnızca resmi sürüm derlemesinde kullanılır. Bu yüzden panelinizin bulunduğu sunucu ele geçirilse bile sunucularınıza imzasız ya da değiştirilmiş bir program inmez ve ajan eski bir sürüme döndürülemez.

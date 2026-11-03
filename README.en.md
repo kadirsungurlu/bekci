@@ -381,6 +381,15 @@ command from the Windows tab in the panel.
 - On Windows the load average is approximate (processor queue); temperature
   and Docker containers are not collected.
 
+### Staying connected during a DNS outage
+
+The agent stores the last known IP addresses of the panel's domain in
+`uptime.dns.json` in the program directory (change it with `PROBE_STATE_DIR`;
+resolved again every hour). If DNS fails, the agent keeps connecting with the
+last known IP without a time limit; the TLS certificate is still verified
+against the domain. This only applies to the connection to the panel, not to
+checks.
+
 ### Updating the agent
 
 The agent does **not update itself** (pinned version): the binary is

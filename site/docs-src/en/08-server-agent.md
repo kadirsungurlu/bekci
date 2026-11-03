@@ -132,6 +132,14 @@ To be told when a check location goes down, open **Edit** from the row menu, ena
 | Server agent, Windows | `C:\Program Files\Uptime\uptime.exe` | `C:\Program Files\Uptime\agent.env` | `uptime-agent` service |
 | Check location, Docker | `uptime-probe-bin` volume | `/etc/uptime-probe.env` | `uptime-probe` container |
 
+### Staying connected during a DNS outage {#dns-cache}
+
+When the agent resolves the panel's domain, it writes the IP addresses to `uptime.dns.json` in the program directory (readable by the owner only; change the directory with `PROBE_STATE_DIR`). The name is resolved again every hour. If the DNS server does not answer or the name is not found, the agent keeps connecting with the **last known IP**; there is no time limit, and the agent uses the IP from the file even if it restarts meanwhile. Once DNS works again the new IP is picked up immediately.
+
+- This only applies to the agent's connection to the panel; the checks the agent runs (HTTP, DNS, etc.) resolve names as usual.
+- The connection is still verified against the panel's domain (TLS certificate and SNI); if a different server now sits at the old IP, the connection is refused.
+- If the program directory is not writable, the cache is kept in memory only (it is empty after the agent restarts).
+
 ## Updating {#update}
 
 Agents installed with Bekci 1.4.0 or later **update themselves**: when you upgrade Bekci, server agents and check locations switch to the same version within seconds. An agent installs the program from the panel only if the **project signature** verifies. The signature's public key is built into the agent, and the private key is only used by the official release build. So even if the server running your panel is compromised, no unsigned or modified program lands on your servers, and agents can't be downgraded.

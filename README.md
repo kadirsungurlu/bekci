@@ -363,6 +363,14 @@ Windows sekmesindeki komutu yapıştırın.
 - Windows'ta yük ortalaması yaklaşıktır (işlemci kuyruğu); sıcaklık ve Docker
   konteynerleri toplanmaz.
 
+### DNS kesintisinde bağlantı
+
+Ajan panelin alan adının son bilinen IP adreslerini program dizininde
+`uptime.dns.json` dosyasında saklar (`PROBE_STATE_DIR` ile değiştirilir; saatte
+bir yeniden çözülür). DNS çözülemezse ajan süre sınırı olmadan son bilinen IP
+ile bağlanır; TLS sertifikası yine alan adıyla doğrulanır. Yalnızca panele
+bağlantı için geçerlidir, kontroller etkilenmez.
+
 ### Ajan güncelleme
 
 1.4.0 ve sonrasında kurulan ajanlar **kendini günceller**: Bekci'yi yükselttiğinizde
