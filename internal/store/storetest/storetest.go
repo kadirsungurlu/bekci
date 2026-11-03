@@ -6,12 +6,9 @@
 package storetest
 
 import (
-	"database/sql"
-	"fmt"
-	"math/rand/v2"
+	"github.com/kadirsungurlu/bekci/internal/store/pgtestdb"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -43,22 +40,5 @@ func Target(t testing.TB) string {
 	if dsn == "" {
 		return filepath.Join(t.TempDir(), "test.db")
 	}
-	admin, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	schema := fmt.Sprintf("t_%d_%d", time.Now().UnixNano(), rand.IntN(1_000_000))
-	if _, err := admin.Exec("CREATE SCHEMA " + schema); err != nil {
-		admin.Close()
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		admin.Exec("DROP SCHEMA " + schema + " CASCADE")
-		admin.Close()
-	})
-	sep := "?"
-	if strings.Contains(dsn, "?") {
-		sep = "&"
-	}
-	return dsn + sep + "search_path=" + schema
+	return pgtestdb.Target(t, dsn)
 }
