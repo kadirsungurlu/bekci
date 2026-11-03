@@ -117,7 +117,16 @@ Kontrol noktası, monitörlerinizi başka bir şehirden ya da ağdan da kontrol 
 5. Bir monitörün düzenleme sayfasında **Konumlar** bölümünden bu kontrol noktasını seçin ve **Kesinti kuralını** belirleyin: herhangi bir konum, konumların çoğunluğu ya da **Kısmi erişim ayrımı** (yalnız tüm konumlar çalışmıyorsa kesinti). **Kısmi erişim kesintisinde de bildirim gönder** açıksa monitör çalışırken bir konum düşer ya da ulaşılamaz olursa ayrı bir bildirim gider, konum düzelince de bildirilir; uptime etkilenmez. Yeni monitörde ikinci konumu seçtiğiniz anda kural **Kısmi erişim ayrımı**na geçer ve bu bildirim açılır; kaydetmeden önce değiştirebilirsiniz. Ayrıntı: [Kısmi erişim kesintisi](#kismi-erisim).
 
 > [!CHECK]
-> Birkaç saniye içinde kontrol noktası listede **Çevrimiçi** görünür. Son 90 saniyede sonuç gönderen kontrol noktası çevrimiçi sayılır; bağlantısı kopan (durdurulan, çöken) nokta anında çevrimdışı görünür. `docker logs uptime-probe` çıktısında `msg="kontrol noktası başladı"` satırı olmalı.
+> Birkaç saniye içinde kontrol noktası listede **Çevrimiçi** görünür. Kontrol noktası panele her **panel haberleşme aralığında** (varsayılan 5 sn) bir kalp atışı gönderir; art arda **kopukluk eşiği** (varsayılan 3) kadar kalp atışı gelmezse, yani varsayılanla 15 saniye içinde, çevrimdışı sayılır. Bağlantısı kopan (durdurulan, çöken) nokta anında çevrimdışı görünür. Kalp atışı göndermeyen eski sürüm ajanlar için eski kural (son 90 saniyede istek) geçerlidir. `docker logs uptime-probe` çıktısında `msg="kontrol noktası başladı"` satırı olmalı.
+
+### Kontrol noktaları arası bağlantı (mesh) {#mesh}
+
+Kontrol noktaları birbirine de bağlanır ve aradaki yolu ölçer: her çift arasında tek bir kalıcı TCP bağlantısı açılır, iki yön de bu bağlantı üzerinden **mesh ping aralığında** (varsayılan 5 sn) ping atar. Art arda kopukluk eşiği kadar yanıt alınamazsa o yön kopuk sayılır. Ölçümler her panel haberleşme aralığında toplu olarak panele raporlanır. Bağlantılar çift başına panelin ürettiği anahtarla imzalanır (HMAC-SHA256); çerçevelerde gizli bilgi yoktur, bu yüzden ayrıca TLS kullanılmaz. Kontrol noktasının token'ını yenilediğinizde ya da onu devre dışı bıraktığınızda anahtarları da yenilenir.
+
+- **Port:** Ajan varsayılan olarak `7480/TCP` portunu dinler (`MESH_ADDR`, `-` dinlemeyi kapatır). Diğer kontrol noktalarının bu porta ulaşabilmesi için güvenlik duvarında açın.
+- **NAT arkasındaki nokta:** Dinleyemeyen (dışarıdan erişilemeyen) nokta yine de dinleyen eşlere kendisi bağlanır ve ölçülür. Kontrol noktası düzenleme penceresindeki **Mesh adresi** alanına `-` yazarak bunu panele bildirin; iki ucu da dinlemeyen çift “ölçülemiyor” sayılır, kopuk sayılmaz.
+- **Mesh adresi:** Boşsa eşler, kontrol noktasının panele bağlandığı IP'nin 7480 portuna bağlanır. Farklı bir adres ya da port gerekiyorsa `host:port` olarak yazın.
+- **Ayarlar:** **Ayarlar > Kontrol noktaları** sayfasında mesh ping aralığı (1-60 sn), kopukluk eşiği (1-10 ardışık kayıp) ve panel haberleşme aralığı (1-60 sn) bulunur. Eşik ile aralığın çarpımı en az 3 saniye olmalıdır (tek paket kaybı alarm üretmesin). Her kontrol noktası düzenleme penceresinde bu değerleri kendisi için ezebilir; **Genel değeri kullan** seçiliyse genel ayar geçerlidir.
 
 ### Kısmi erişim kesintisi {#kismi-erisim}
 
@@ -134,7 +143,7 @@ Mevcut monitörlerin kuralı kendiliğinden değişmez. Birkaç monitörü yeni 
 
 ### Çevrimdışı bildirimi {#kontrol-noktasi-bildirim}
 
-Kontrol noktası düşünce haberiniz olsun diye satır menüsünden **Düzenle** → **Çevrimdışı kalınca bildir** seçeneğini açıp bildirim kanallarını seçin. Kontrol noktası 90 saniye boyunca hiç istek göndermezse “*Ad*: kontrol noktasına ulaşılamıyor” bildirimi gider ve **Olaylar** sayfasında “Kontrol noktası çevrimdışı” türünde bir olay açılır; tekrar bağlanınca “… tekrar çevrimiçi” bildirimiyle olay kapanır ve kesinti süresi yazılır. 90 saniyelik tolerans sayesinde ajanın kısa bir yeniden başlatması bildirim üretmez. Kontrol noktasını siz devre dışı bırakırsanız bildirim gitmez, açık olay sessizce kapanır. Bu bildirimler monitörlerin kendi kanallarından bağımsızdır: kontrol noktasına seçtiğiniz kanallara gider.
+Kontrol noktası düşünce haberiniz olsun diye satır menüsünden **Düzenle** → **Çevrimdışı kalınca bildir** seçeneğini açıp bildirim kanallarını seçin. Kontrol noktasından art arda kopukluk eşiği kadar kalp atışı gelmezse (varsayılan 3 x 5 sn = 15 saniye) “*Ad*: kontrol noktasına ulaşılamıyor” bildirimi gider ve **Olaylar** sayfasında “Kontrol noktası çevrimdışı” türünde bir olay açılır; tekrar bağlanınca “… tekrar çevrimiçi” bildirimiyle olay kapanır ve kesinti süresi yazılır. Bu süreden kısa bir yeniden başlatma bildirim üretmez; daha fazla tolerans isterseniz eşiği ya da aralığı artırın. Kontrol noktasını siz devre dışı bırakırsanız bildirim gitmez, açık olay sessizce kapanır. Bu bildirimler monitörlerin kendi kanallarından bağımsızdır: kontrol noktasına seçtiğiniz kanallara gider.
 
 ## Kurulumun oluşturduğu dosyalar {#dosyalar}
 
