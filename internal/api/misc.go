@@ -314,6 +314,7 @@ func settingsChanges(old, in store.AppSettings) string {
 	add(old.BackupKeep != in.BackupKeep, "yedek sayısı")
 	add(old.NotifyLang != in.NotifyLang, "bildirim dili")
 	add(old.CheckUserAgent != in.CheckUserAgent, "User-Agent")
+	add(old.LocalLocationName != in.LocalLocationName, "ana sunucu konum adı")
 	add(old.IncidentKeep() != in.IncidentKeep(), "olay saklama")
 	add(old.CaptureKeep() != in.CaptureKeep(), "istek/yanıt saklama")
 	add(old.AuditKeep() != in.AuditKeep(), "işlem kaydı saklama")

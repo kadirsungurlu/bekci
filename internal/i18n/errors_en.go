@@ -71,6 +71,8 @@ var errorsEN = map[string]string{
 	"Gönderilemedi: %d cihazın hiçbirine ulaşılamadı":                         "Not sent: none of the %d devices could be reached",
 	"Kapanmış olay onaylanamaz veya susturulamaz":                             "A closed incident cannot be acknowledged or snoozed",
 	"Not en fazla %d karakter olabilir":                                       "The note can be at most %d characters",
+	"Ana sunucu konum adı en fazla %d karakter olabilir":                      "The main server location name can be at most %d characters",
+	"Ana sunucu konum adı kontrol karakteri içeremez":                         "The main server location name cannot contain control characters",
 	"Susturma süresi 1-%d dakika olmalı":                                      "Snooze duration must be 1-%d minutes",
 	"En fazla %d etiket kuralı eklenebilir":                                   "At most %d tag rules can be added",
 	"Kullanıcı adı geçersiz: %s":                                              "Invalid username: %s",

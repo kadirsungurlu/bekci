@@ -597,7 +597,7 @@
                   <td><span class="badge {pointStatusClass(b.status)}">{pointStatusLabel(b.status)}</span></td>
                   <td class="num mono">{b.ping_ms >= 0 ? fmtMs(b.ping_ms) : '—'}</td>
                   <td class="msg">{b.message || '—'}</td>
-                  {#if showBeatLocation}<td class="loc">{b.location || t('monitors.detail.chk.local')}</td>{/if}
+                  {#if showBeatLocation}<td class="loc">{b.location || session.localName || t('monitors.detail.chk.local')}</td>{/if}
                 </tr>
               {/each}
             </tbody>

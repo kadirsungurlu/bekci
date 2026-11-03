@@ -37,6 +37,8 @@ export const roleRank = (r: Role) => RANK[r] ?? 0;
 class Session {
   user = $state<User | null>(null);
   version = $state('');
+  /** Ana sunucu konum adı (Ayarlar > Genel; boş: varsayılan çeviri). */
+  localName = $state('');
 
   role = $derived<Role>(this.user?.role ?? 'viewer');
   /** Monitör, bildirim, durum sayfası ve bakım ekleyip değiştirebilir. */

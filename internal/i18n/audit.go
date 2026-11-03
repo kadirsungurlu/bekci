@@ -161,6 +161,7 @@ var auditEN = map[string]string{
 	"SSL eşikleri":          "SSL thresholds",
 	"yedek sayısı":          "backups kept",
 	"bildirim dili":         "notification language",
+	"ana sunucu konum adı":  "main server location name",
 	// Durum sayfaları.
 	"alan adı: %s":       "domain: %s",
 	"yayında değil":      "not published",

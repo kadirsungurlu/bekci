@@ -16,6 +16,7 @@
   let backupKeep = $state<number | null>(7);
   let notifyLang = $state<Locale>('tr');
   let userAgent = $state('');
+  let localName = $state('');
   let defaultUA = $state('');
   let agentAuto = $state(true);
   let updateCheck = $state(true);
@@ -34,6 +35,7 @@
     backupKeep = s.backup_keep;
     notifyLang = s.notify_lang ?? 'tr';
     userAgent = s.check_user_agent ?? '';
+    localName = s.local_location_name ?? '';
     agentAuto = s.agent_auto_update ?? true;
     updateCheck = s.update_check ?? true;
     incidentDays = s.retention_incident_days ?? 365;
@@ -54,6 +56,7 @@
       backupKeep,
       notifyLang,
       userAgent: userAgent.trim(),
+      localName: localName.trim(),
       agentAuto,
       updateCheck,
       incidentDays,
@@ -104,6 +107,8 @@
     if (!keepOk(auditDays, 7)) return (stError = t('settings.general.errAuditDays'));
     const ua = userAgent.trim();
     if (ua.length > 300 || /[^\x20-\x7e]/.test(ua)) return (stError = t('settings.general.errUserAgent'));
+    const ln = localName.trim();
+    if ([...ln].length > 60 || /[\x00-\x1f\x7f]/.test(ln)) return (stError = t('settings.general.errLocalName'));
     stBusy = true;
     try {
       const res = await api.saveSettings({
@@ -114,6 +119,7 @@
         backup_keep: backupKeep!,
         notify_lang: notifyLang,
         check_user_agent: ua,
+        local_location_name: ln,
         agent_auto_update: agentAuto,
         update_check: updateCheck,
         retention_incident_days: incidentDays!,
@@ -121,6 +127,7 @@
         retention_audit_days: auditDays!,
       });
       apply(res);
+      session.localName = res.local_location_name ?? '';
       toast.success(t('settings.general.saved'));
     } catch (err) {
       stError = errorMessage(err);
@@ -209,6 +216,11 @@
           </select>
           <span class="help">{t('settings.general.notifyLangHelp')}</span>
         </div>
+      </div>
+      <div class="field">
+        <label for="lname">{t('settings.general.localName')}</label>
+        <input id="lname" class="input" bind:value={localName} placeholder={t('settings.general.localNameDefault')} maxlength="60" autocomplete="off" />
+        <span class="help">{t('settings.general.localNameHelp')}</span>
       </div>
       <div class="field">
         <label for="ua">{t('settings.general.userAgent')}</label>

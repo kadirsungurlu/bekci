@@ -127,8 +127,43 @@ func (e *Engine) Settings() store.AppSettings { return *e.settings.Load() }
 
 // SetSettings ayarlar değişince çağrılır (SSL eşikleri anında geçerli olur).
 func (e *Engine) SetSettings(s store.AppSettings) {
-	e.settings.Store(&s)
+	old := e.settings.Swap(&s)
 	check.SetUserAgent(s.CheckUserAgent)
+	if old != nil && old.LocalLocationName != s.LocalLocationName {
+		go e.reloadLocalLocations()
+	}
+}
+
+// LocalLocationName ana sunucunun konum adı: ayardaki ad, boşsa LocalName
+// (varsayılan; API ve bildirim dile göre çevirir).
+func (e *Engine) LocalLocationName() string {
+	if n := e.Settings().LocalLocationName; n != "" {
+		return n
+	}
+	return LocalName
+}
+
+// reloadLocalLocations ana sunucu konum adı değişince ana sunucuyu konum
+// olarak içeren runner'ları yeniden başlatır (konum sonuçları adoptLocations
+// ile korunur; ad runner'ın konum kümesine başlangıçta yazılır).
+func (e *Engine) reloadLocalLocations() {
+	e.mu.Lock()
+	ctx := e.ctx
+	var ids []int64
+	for id, r := range e.runners {
+		if r.locs != nil && r.locs.local != nil {
+			ids = append(ids, id)
+		}
+	}
+	e.mu.Unlock()
+	if ctx == nil || ctx.Err() != nil {
+		return
+	}
+	for _, id := range ids {
+		if err := e.Reload(ctx, id); err != nil {
+			e.log.Error("monitör yeniden başlatılamadı", "monitor_id", id, "hata", err)
+		}
+	}
 }
 
 // Reload monitör eklendi/düzenlendi/durduruldu/başlatıldıktan sonra çağrılır.

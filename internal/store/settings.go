@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/kadirsungurlu/bekci/internal/i18n"
 )
@@ -45,7 +47,14 @@ type AppSettings struct {
 	// UpdateCheck panel yeni Bekci sürümünü denetlesin mi (kapalıyken dışarıya
 	// hiç istek gitmez). nil (eski kayıt) açık sayılır.
 	UpdateCheck *bool `json:"update_check"`
+	// LocalLocationName ana sunucunun (panelin kendi kontrolü) konum adı:
+	// konum kartı, olay kaydı ve bildirimlerde görünür. Boş: varsayılan
+	// ("Ana sunucu", arayüz ve bildirim diline çevrilir).
+	LocalLocationName string `json:"local_location_name"`
 }
+
+// LocalLocationMax konum adının en uzun hâli (karakter).
+const LocalLocationMax = 60
 
 // Saklama varsayılanları (gün).
 const (
@@ -101,6 +110,15 @@ func (a *AppSettings) Validate() error {
 		// HTTP başlık değeri: yazdırılabilir ASCII (satır sonu ile başlık eklenemez).
 		if r < 0x20 || r > 0x7e {
 			return fmt.Errorf("User-Agent yalnızca yazdırılabilir ASCII karakterler içerebilir")
+		}
+	}
+	a.LocalLocationName = strings.TrimSpace(a.LocalLocationName)
+	if utf8.RuneCountInString(a.LocalLocationName) > LocalLocationMax {
+		return fmt.Errorf("Ana sunucu konum adı en fazla %d karakter olabilir", LocalLocationMax)
+	}
+	for _, r := range a.LocalLocationName {
+		if unicode.IsControl(r) {
+			return fmt.Errorf("Ana sunucu konum adı kontrol karakteri içeremez")
 		}
 	}
 	if a.RetentionRawDays < 1 || a.RetentionRawDays > 90 {

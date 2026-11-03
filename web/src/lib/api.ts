@@ -150,6 +150,8 @@ export interface AuthState {
   password_reset?: boolean;
   /** SSO düğmesi; local_login false ise şifre formu bağlantıyla açılır. */
   oidc?: { enabled: boolean; name: string; local_login: boolean };
+  /** Ana sunucu konum adı (yalnız oturum açıkken; boş: varsayılan). */
+  local_location_name?: string;
 }
 
 /** OIDC/SSO ayarları (yönetici; client_secret maskeli gelir, maskeli gönderilirse korunur). */
@@ -882,6 +884,8 @@ export interface AppSettings {
   notify_lang?: Locale;
   /** Kontrol isteklerinin User-Agent'ı; boş: varsayılan. */
   check_user_agent?: string;
+  /** Ana sunucunun konum adı; boş: varsayılan ("Ana sunucu" / "Main server"). */
+  local_location_name?: string;
   /** Yalnızca okunur: varsayılan User-Agent (GET yanıtında). */
   default_user_agent?: string;
   /** Saklama süreleri (gün; 0 = süresiz). Eski sunucuda gelmez → 365 / 90 / 365. */

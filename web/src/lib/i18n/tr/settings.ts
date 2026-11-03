@@ -45,6 +45,11 @@ export default {
     backupKeep: 'Gece yedeği sayısı',
     backupKeepHelp: 'Her gece veritabanı yedeklenir ve son N yedek tutulur. 0 = yedek alma.',
     notifyLang: 'Bildirim dili',
+    localName: 'Ana sunucu konum adı',
+    localNameDefault: 'Ana sunucu',
+    localNameHelp:
+      'Panelin kendi yaptığı kontrollerin konum adı (ör. DH-EU). Konum kartlarında, olay kayıtlarında ve bildirimlerde görünür. Boş bırakırsanız "Ana sunucu" yazılır.',
+    errLocalName: 'Konum adı en fazla 60 karakter olabilir ve kontrol karakteri içeremez.',
     userAgent: 'Kontrol isteklerinin User-Agent\'ı',
     userAgentHelp:
       'Web sitesi kontrolleri bu değerle gider; tüm kontrol noktaları da aynısını kullanır. Siteniz Cloudflare veya başka bir güvenlik duvarı arkasındaysa, IP adreslerini tek tek eklemek yerine User-Agent\'ında "Bekci" geçen isteklere izin verebilirsiniz. Boş bırakırsanız varsayılan kullanılır; monitörde özel User-Agent başlığı varsa o geçerlidir.',

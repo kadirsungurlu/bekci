@@ -114,7 +114,7 @@
     if (m.loc_states?.length) return m.loc_states.map((l) => ({ key: l.probe_id, name: l.name, status: l.status, ping: l.ping_ms }));
     if (m.type === 'push' || m.type === 'group' || kind === 'paused') return [];
     const status = kind === 'up' ? 'up' : kind === 'down' ? 'down' : kind === 'pending' ? 'retrying' : 'unknown';
-    return [{ key: 0, name: t('overview.row.locMain'), status, ping: lastMs }];
+    return [{ key: 0, name: session.localName || t('overview.row.locMain'), status, ping: lastMs }];
   });
   const shownDots = $derived(dots.length > MAX_DOTS ? dots.slice(0, MAX_DOTS - 1) : dots);
   const dotClass = (s: string) => (s === 'up' ? 'up' : s === 'down' ? 'down' : s === 'retrying' ? 'warn' : 'muted');

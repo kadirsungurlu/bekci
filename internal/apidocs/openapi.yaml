@@ -493,6 +493,7 @@ components:
         backup_keep: { type: integer }
         notify_lang: { $ref: "#/components/schemas/Lang" }
         check_user_agent: { type: string }
+        local_location_name: { type: string, maxLength: 60, description: "Ana sunucunun konum adı; boş = varsayılan (Ana sunucu / Main server)" }
         default_user_agent: { type: string, readOnly: true }
         retention_incident_days: { type: integer }
         retention_capture_days: { type: integer }

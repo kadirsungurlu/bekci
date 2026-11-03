@@ -1183,7 +1183,7 @@
               <input type="checkbox" bind:checked={locLocal} />
               <span class="loc-t">
                 <span class="odot up" aria-hidden="true"></span>
-                <span>{t('monitors.form.mainServer')}<small>{t('monitors.form.mainServerDesc')}</small></span>
+                <span>{session.localName || t('monitors.form.mainServer')}<small>{t('monitors.form.mainServerDesc')}</small></span>
               </span>
             </label>
             {#each probes as p (p.id)}

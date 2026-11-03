@@ -47,7 +47,8 @@ import (
 // LocalProbeID ana sunucunun konum kimliği.
 const LocalProbeID = 0
 
-// LocalName ana sunucunun konum adı (mesajlarda).
+// LocalName ana sunucunun varsayılan konum adı (ayar boşken; bkz.
+// Engine.LocalLocationName). API ve bildirimler bu adı dile göre çevirir.
 const LocalName = "Ana sunucu"
 
 // NoLocationData hiçbir konumdan güncel sonuç yokken kaydedilen mesaj.
@@ -141,7 +142,7 @@ func (e *Engine) loadLocations(m store.Monitor) *locationSet {
 		started: now, wake: make(chan struct{}, 1),
 	}
 	if setup.IncludeLocal {
-		ls.local = &location{probeID: LocalProbeID, name: LocalName, added: now}
+		ls.local = &location{probeID: LocalProbeID, name: e.LocalLocationName(), added: now}
 		ls.locs = append(ls.locs, ls.local)
 	}
 	for _, id := range setup.ProbeIDs { // kimliğe göre sıralı
@@ -198,7 +199,7 @@ func (r *runner) localOnlyLocations() *locationSet {
 	if !RemoteCapable(r.m.Type) || r.m.LastCheckAt == 0 {
 		return nil
 	}
-	l := &location{probeID: LocalProbeID, name: LocalName, have: true, at: time.Unix(r.m.LastCheckAt, 0)}
+	l := &location{probeID: LocalProbeID, name: r.e.LocalLocationName(), have: true, at: time.Unix(r.m.LastCheckAt, 0)}
 	l.added = l.at
 	l.res = check.Result{PingMs: r.m.LastPingMs, Message: r.m.LastMessage}
 	switch r.m.Status {

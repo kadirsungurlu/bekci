@@ -916,7 +916,7 @@ func (s *Server) putMonitorLocations(w http.ResponseWriter, r *http.Request) {
 	}
 	names := []string{}
 	if setup.IncludeLocal {
-		names = append(names, engine.LocalName)
+		names = append(names, s.engine.LocalLocationName())
 	}
 	for _, pid := range setup.ProbeIDs {
 		p, ok := probes[pid]
