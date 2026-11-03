@@ -9,6 +9,7 @@
 //	                       (durum sayfası özel alan adı bu adresle aynı olamaz)
 //	LOG_LEVEL              debug | info | warn | error (varsayılan info)
 //	MAX_CONCURRENT_CHECKS  aynı anda en fazla kontrol sayısı (varsayılan 50)
+//	BEAT_BATCH_MS          kontrol sonuçlarını bu pencerede biriktirip tek işlemde yazar (varsayılan 250; 0 = her sonuç ayrı işlem)
 //	TZ                     saat dilimi (günlük özetler ve yedek saati için)
 //	PROBE_IMAGE            kontrol noktası kurulum komutunda kullanılacak Docker imajı; boşsa (varsayılan)
 //	                       komut herkese açık alpine imajıyla programı bu sunucudan indirir
@@ -127,12 +128,17 @@ func run() error {
 	// kilit almaz.
 	serverMode := len(os.Args) <= 1
 	lockWait, _ := strconv.Atoi(env("UPTIME_LOCK_WAIT", "600"))
+	beatBatch, err := strconv.Atoi(env("BEAT_BATCH_MS", "250"))
+	if err != nil || beatBatch < 0 || beatBatch > 5000 {
+		beatBatch = 250
+	}
 	st, err := store.OpenWith(target, time.Local, store.Options{
 		Log:          log,
 		BackupDir:    filepath.Join(dataDir, "backups"),
 		InstanceLock: serverMode,
 		LockWait:     time.Duration(lockWait) * time.Second,
 		StandbyFile:  filepath.Join(os.TempDir(), "uptime-bekliyor"),
+		BeatBatch:    time.Duration(beatBatch) * time.Millisecond,
 	})
 	if err != nil {
 		return fmt.Errorf("veritabanı açılamadı: %w", err)

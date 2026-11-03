@@ -265,6 +265,7 @@ amd64/arm64, Windows amd64) da içinde hazır gelir.
 | `TZ` | `Europe/Istanbul` | Günlük özetler ve gece yedeği saati |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `MAX_CONCURRENT_CHECKS` | `50` | Aynı anda çalışacak en fazla kontrol |
+| `BEAT_BATCH_MS` | `250` | Kontrol sonuçlarını bu süre (ms) içinde biriktirip tek işlemde yazar; 0 = her sonuç ayrı işlem |
 | `DATA_DIR` | `/data` | SQLite veritabanı ve yedeklerin klasörü |
 | `DATABASE_URL` | — | Verilirse **PostgreSQL** kullanılır: `postgres://kullanıcı:şifre@sunucu:5432/veritabanı?sslmode=disable`. Yedek bu durumda veritabanı tarafında alınmalıdır (Coolify yedekleri / `pg_dump`) |
 | `ADDR` | `:8080` | Dinlenecek adres |

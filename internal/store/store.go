@@ -46,8 +46,9 @@ type Store struct {
 	path     string         // SQLite dosya yolu
 	loc      *time.Location // günlük özetlerin gün sınırı bu saat dilimine göre
 	opts     Options
-	lockFile *os.File  // InstanceLock: süreç boyunca tutulan veri klasörü kilidi (SQLite)
-	pgLock   *sql.Conn // InstanceLock: süreç boyunca tutulan danışma kilidinin bağlantısı (PostgreSQL)
+	lockFile *os.File    // InstanceLock: süreç boyunca tutulan veri klasörü kilidi (SQLite)
+	pgLock   *sql.Conn   // InstanceLock: süreç boyunca tutulan danışma kilidinin bağlantısı (PostgreSQL)
+	beats    beatBatcher // Options.BeatBatch > 0 ise kontrol sonuçlarının toplu yazımı (beats_batch.go)
 }
 
 // Options Open'ın isteğe bağlı ayarları.
@@ -68,6 +69,10 @@ type Options struct {
 	// StandbyFile kilit beklenirken oluşturulan dosya; sağlık kontrolü bu
 	// dosya varken bekleyen örneği sağlıklı sayar (bkz. Dockerfile).
 	StandbyFile string
+	// BeatBatch > 0 ise kontrol sonuçları (RecordBeat) bu süre içinde gelenlerle
+	// tek işlemde yazılır (grup commit); çağıran yazım bitene kadar bekler.
+	// Kısa aralıklı çok monitörde disk yazımını ve işlem sayısını düşürür.
+	BeatBatch time.Duration
 }
 
 // IsPostgresDSN bağlantı adresinin PostgreSQL olup olmadığını söyler.
@@ -147,6 +152,7 @@ func sqliteDSN(path string) string {
 }
 
 func (s *Store) Close() error {
+	s.stopBeats()     // bekleyen kontrol sonuçları yazılır
 	s.releasePGLock() // havuz kapanmadan önce (bağlantı havuzdan alınmıştı)
 	err := s.db.db.Close()
 	s.releaseLock()

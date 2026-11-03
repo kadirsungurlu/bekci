@@ -41,6 +41,7 @@ Uygulamanın **Environment Variables** bölümüne ekleyip yeniden dağıtın.
 | `TZ` | `Europe/Istanbul` | Saat dilimi: günlük özetler ve gece yedeğinin saati buna göredir. Ör. `Europe/Berlin`, `UTC`. |
 | `LOG_LEVEL` | `info` | Günlük ayrıntısı: `debug`, `info`, `warn` ya da `error`. |
 | `MAX_CONCURRENT_CHECKS` | `50` | Aynı anda çalışabilecek en fazla kontrol sayısı. Yüzlerce monitörde artırılabilir. |
+| `BEAT_BATCH_MS` | `250` | Bu süre (milisaniye) içinde gelen kontrol sonuçları tek işlemde yazılır. Kısa aralıklı (5-15 saniye) çok sayıda monitörde disk yazımını azaltır; 0 her sonucu ayrı yazar. |
 | `DATABASE_URL` | — | Verilirse SQLite yerine **PostgreSQL** kullanılır: `postgres://kullanıcı:parola@sunucu:5432/veritabanı?sslmode=disable`. `postgres://` ya da `postgresql://` ile başlamalıdır. Bu durumda Bekci gece yedeği almaz; yedeği veritabanı tarafında alın. `postgres` imajında bu değişken yok sayılır (her zaman gömülü veritabanı kullanılır). |
 | `DATA_DIR` | `/data` | SQLite veritabanı ve yedeklerin klasörü. Docker'da değiştirmeniz gerekmez; birimi `/data`'ya bağlayın. |
 | `ADDR` | `:8080` | Konteynerin içinde dinlenecek adres ve port. |

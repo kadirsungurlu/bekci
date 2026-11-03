@@ -27,6 +27,15 @@ type BeatUpdate struct {
 }
 
 func (s *Store) RecordBeat(ctx context.Context, u BeatUpdate) error {
+	if s.opts.BeatBatch <= 0 {
+		return s.tx(ctx, func(tx *Tx) error { return s.writeBeat(ctx, tx, u) })
+	}
+	return s.queueBeat(ctx, u)
+}
+
+// writeBeat tek sonucu verilen işlemde yazar: ham kayıt, saatlik ve günlük
+// özet, monitör satırı.
+func (s *Store) writeBeat(ctx context.Context, tx *Tx, u BeatUpdate) error {
 	b := u.Beat
 	// Uptime yalnızca onaylanmış sonuçlardan hesaplanır: bekleyen (tekrar
 	// denenen) ve bakımdaki kontroller ne çalışıyor ne de kesinti sayılır.
@@ -48,43 +57,41 @@ func (s *Store) RecordBeat(ctx context.Context, u BeatUpdate) error {
 	hour := b.Time - b.Time%3600
 	day := s.dayStart(b.Time)
 
-	return s.tx(ctx, func(tx *Tx) error {
-		if _, err := tx.ExecContext(ctx,
-			"INSERT INTO heartbeats (monitor_id, time, status, ping_ms, message, location) VALUES (?, ?, ?, ?, ?, ?)",
-			b.MonitorID, b.Time, b.Status, ping, b.Message, b.Location); err != nil {
+	if _, err := tx.ExecContext(ctx,
+		"INSERT INTO heartbeats (monitor_id, time, status, ping_ms, message, location) VALUES (?, ?, ?, ?, ?, ?)",
+		b.MonitorID, b.Time, b.Status, ping, b.Message, b.Location); err != nil {
+		return err
+	}
+	for _, t := range []struct {
+		table  string
+		bucket int64
+	}{{"stats_hourly", hour}, {"stats_daily", day}} {
+		// ping_min/max: yeni değer NULL ise eskisi korunur. Sütunlar tablo adıyla
+		// nitelenir: PostgreSQL'de "up" tek başına excluded.up ile belirsiz olur.
+		if _, err := tx.ExecContext(ctx, strings.ReplaceAll(`
+			INSERT INTO `+t.table+` (monitor_id, bucket, up, down, ping_sum, ping_count, ping_min, ping_max)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT (monitor_id, bucket) DO UPDATE SET
+				up = T.up + excluded.up,
+				down = T.down + excluded.down,
+				ping_sum = T.ping_sum + excluded.ping_sum,
+				ping_count = T.ping_count + excluded.ping_count,
+				ping_min = CASE WHEN excluded.ping_min IS NULL THEN T.ping_min
+					WHEN T.ping_min IS NULL OR excluded.ping_min < T.ping_min THEN excluded.ping_min
+					ELSE T.ping_min END,
+				ping_max = CASE WHEN excluded.ping_max IS NULL THEN T.ping_max
+					WHEN T.ping_max IS NULL OR excluded.ping_max > T.ping_max THEN excluded.ping_max
+					ELSE T.ping_max END`, "T.", t.table+"."),
+			b.MonitorID, t.bucket, up, down, pingSum, pingCount, ping, ping); err != nil {
 			return err
 		}
-		for _, t := range []struct {
-			table  string
-			bucket int64
-		}{{"stats_hourly", hour}, {"stats_daily", day}} {
-			// ping_min/max: yeni değer NULL ise eskisi korunur. Sütunlar tablo adıyla
-			// nitelenir: PostgreSQL'de "up" tek başına excluded.up ile belirsiz olur.
-			if _, err := tx.ExecContext(ctx, strings.ReplaceAll(`
-				INSERT INTO `+t.table+` (monitor_id, bucket, up, down, ping_sum, ping_count, ping_min, ping_max)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-				ON CONFLICT (monitor_id, bucket) DO UPDATE SET
-					up = T.up + excluded.up,
-					down = T.down + excluded.down,
-					ping_sum = T.ping_sum + excluded.ping_sum,
-					ping_count = T.ping_count + excluded.ping_count,
-					ping_min = CASE WHEN excluded.ping_min IS NULL THEN T.ping_min
-						WHEN T.ping_min IS NULL OR excluded.ping_min < T.ping_min THEN excluded.ping_min
-						ELSE T.ping_min END,
-					ping_max = CASE WHEN excluded.ping_max IS NULL THEN T.ping_max
-						WHEN T.ping_max IS NULL OR excluded.ping_max > T.ping_max THEN excluded.ping_max
-						ELSE T.ping_max END`, "T.", t.table+"."),
-				b.MonitorID, t.bucket, up, down, pingSum, pingCount, ping, ping); err != nil {
-				return err
-			}
-		}
-		_, err := tx.ExecContext(ctx, `
-			UPDATE monitors SET status = ?, last_check_at = ?, last_ping_ms = ?, last_message = ?,
-				last_change_at = COALESCE(?, last_change_at)
-			WHERE id = ?`,
-			b.Status, b.Time, ping, b.Message, nullInt(u.LastChangeAt), b.MonitorID)
-		return err
-	})
+	}
+	_, err := tx.ExecContext(ctx, `
+		UPDATE monitors SET status = ?, last_check_at = ?, last_ping_ms = ?, last_message = ?,
+			last_change_at = COALESCE(?, last_change_at)
+		WHERE id = ?`,
+		b.Status, b.Time, ping, b.Message, nullInt(u.LastChangeAt), b.MonitorID)
+	return err
 }
 
 // dayStart t'nin ait olduğu günün (yerel saat diliminde) başlangıcı.

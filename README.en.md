@@ -276,6 +276,7 @@ amd64/arm64, Windows amd64) are included.
 | `TZ` | `Europe/Istanbul` | Time of daily summaries and the nightly backup |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `MAX_CONCURRENT_CHECKS` | `50` | Maximum number of checks running at the same time |
+| `BEAT_BATCH_MS` | `250` | Collects check results for this long (ms) and writes them in one transaction; 0 = one transaction per result |
 | `DATA_DIR` | `/data` | Folder for the SQLite database and backups |
 | `DATABASE_URL` | — | If set, **PostgreSQL** is used: `postgres://kullanıcı:şifre@sunucu:5432/veritabanı?sslmode=disable` (user:password@host:5432/database). Backups must then be taken on the database side (Coolify backups / `pg_dump`) |
 | `ADDR` | `:8080` | Listen address |
