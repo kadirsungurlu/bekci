@@ -62,3 +62,13 @@ func TestNormalizeOOB(t *testing.T) {
 		t.Error("SameIP")
 	}
 }
+
+func TestUplinkKindsAlias(t *testing.T) {
+	n := Notification{Events: []string{"probe_offline", "probe_online"}}
+	if !n.Accepts("probe_uplink_failover") || !n.Accepts("probe_uplink_restored") {
+		t.Fatal("kontrol noktası türlerini seçmiş kanal hat bildirimini almalı")
+	}
+	if (Notification{Events: []string{"down"}}).Accepts("probe_uplink_failover") {
+		t.Fatal("ilgisiz kanal almamalı")
+	}
+}

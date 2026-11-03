@@ -65,6 +65,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 | İşlem kaydı | store/audit.go; i18n/audit.go; web settings/Audit.svelte |
 | Mesh (probe arası TCP ping, kalp atışı) | store/mesh.go (ayar/ezme, probe_links, probe_pair_keys, migration 40); api/probes_mesh.go (POST /api/probe/mesh, GET /api/probe/mesh/peers), mesh_settings.go; engine/probes.go (ProbeOnline: eşik x panel aralığı, eski ajan 90 sn); probe/meshtcp.go (çerçeve+HMAC), heartbeat.go, meshtypes.go (tel sözleşmesi); cmd/uptime/probe_mesh.go (MESH_ADDR :7480); web settings/Probes |
 | Mesh karar + bildirim | mesh/verdict.go (saf karar: bölünme, düğüm, yol, tek yönlü, yetersiz gözlem), mesh/text.go (TR/EN metin, Report); mesh/render.go (şema PNG, RenderPNG; Inter alt kümesi mesh/font/, altın PNG testdata/topo*.png); engine/mesh.go (evalMesh: ısınma, 1 panel aralığı erteleme, tek olay; probe_offline tekil bildirimi bastırır); store/mesh_incident.go (olay türü mesh, yalnız yönetici, IncidentFilter.NoMesh); notify/mesh.go (KindMesh/KindMeshResolved, kanal = noktaların çevrimdışı kanalları); api/incidents_mesh.go; api/mesh_view.go (GET /api/mesh matris, engine.MeshSnapshot); i18n/mesh.go; web IncidentDetail mesh kartı, components/MeshMatrix (Ayarlar > Kontrol noktaları, SSE "mesh") |
+| OOB ikinci hat (ajan hat yedeği) | store/probes_oob.go (migration 41: oob_ip, oob_name, uplink, uplink_since, oob_iface_missing); api/probe_guard.go (IP kilidi OOB yuvası), probes_oob.go (X-Probe-Uplink / X-Probe-OOB-Iface başlıkları), jobs + kalp atışı yanıtında oob; engine/uplink.go (SetProbeUplink, bildirim, OOB konumu noVote); notify KindUplinkFailover/Restored; probe/bind*.go (arayüz bulma, SO_BINDTODEVICE / IP_UNICAST_IF, PROBE_OOB_IFACE), probe/uplink.go (geçiş/dönüş durum makinesi); web components/UplinkBadge, OobFields; belge 08-sunucu-ajani#oob |
 | Mesh topoloji şeması | web components/MeshDiagram.svelte (elle SVG, lib/meshlayout.ts yerleşimi, ipucu + klavye odağı; MeshMatrix kartında ve IncidentDetail mesh kartında); GET /api/mesh links (yönlü: rtt_ms, loss_streak, last_ok_at; api/mesh_view.go meshLinkViews); olay kaydı nodes + ab/ba (api/incidents_mesh.go); i18n probes.topo; Tooltip focusin |
 
 <!-- OTOMATIK: scripts/harita.sh -->
@@ -107,7 +108,7 @@ webpush.go: GET /api/webpush/vapid | GET /api/webpush/subscriptions | POST /api/
 17: pages_layout.go 18: incident_kinds.go 19: probes.go 20: maintenance.go 21: probes.go 22: monitors.go 23: notification_rules.go 24: 
 pages_period.go 25: incident_manual.go 26: servers_ext.go 27: beats_recent.go 28: domain.go 29: incident_ack.go 30: tag_rules.go 31: 
 auth_ext.go 32: webpush.go 33: auth_ext.go 34: sessions.go 35: probes_update.go 36: subscribers.go 37: subscribers.go 38: updates.go 39: 
-incident_kinds.go 40: mesh.go
+incident_kinds.go 40: mesh.go 41: probes_oob.go
 ```
 
 ### Arayüz sayfaları / bileşenler / i18n ad alanları
@@ -116,9 +117,9 @@ pages: Announcements Auth ForcePassword IncidentDetail Incidents MaintenanceForm
 pages/settings: Account ApiKeys Audit Backup General Login Probes Tags TwoFactor UserForm Users
 components: AgentAutoUpdate AgentVersion AlertRulesEditor BadgeBuilder BulkEditModal ConfigFields ConfirmDialog ConnectionDetails 
 ContainerTable CopyButton DateTimeField DomainStatus FilePick Icon ImportResult IncidentAck IncidentEditModal IncidentTable IncidentUpdates 
-LangSwitch LineChart MeshDiagram MeshMatrix Modal MonitorMenu MonitorPicker MonitorRow NotificationForm PagePreviewPanel PageSubscribers 
-PageThumb Pager PingChart PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu ServerPicker 
-ServerSettingsModal ServerSetupModal Sessions Sparkline StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker ThemeToggle 
-Toasts Tooltip TypeBadge UpdateBanner UptimeBars UsageBar
+LangSwitch LineChart MeshDiagram MeshMatrix Modal MonitorMenu MonitorPicker MonitorRow NotificationForm OobFields PagePreviewPanel 
+PageSubscribers PageThumb Pager PingChart PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu 
+ServerPicker ServerSettingsModal ServerSetupModal Sessions Sparkline StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker 
+ThemeToggle Toasts Tooltip TypeBadge UpdateBanner UplinkBadge UptimeBars UsageBar
 i18n: account ale.ts apiKeys audit auth backup common incide.ts maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles servers settings status tags users
 ```

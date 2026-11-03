@@ -159,8 +159,10 @@ func (n Notification) Accepts(kind string) bool {
 		return !OptInEvents[kind]
 	}
 	// Mesh bildirimi kontrol noktası çevrimdışı bildiriminin yerini alır:
-	// yalnız "kontrol noktası" türlerini seçmiş eski kanallar da alır.
-	alias := map[string]string{"mesh": "probe_offline", "mesh_resolved": "probe_online"}[kind]
+	// yalnız "kontrol noktası" türlerini seçmiş eski kanallar da alır. OOB hat
+	// geçişi/dönüşü de aynı gruptadır (tür listesi kaydedilmiş eski kanallar).
+	alias := map[string]string{"mesh": "probe_offline", "mesh_resolved": "probe_online",
+		"probe_uplink_failover": "probe_offline", "probe_uplink_restored": "probe_online"}[kind]
 	for _, k := range n.Events {
 		if k == kind || (alias != "" && k == alias) {
 			return true
