@@ -115,7 +115,7 @@ func (s *Store) ResetMonitorStats(ctx context.Context, id int64) error {
 		for _, q := range []string{
 			"DELETE FROM heartbeats WHERE monitor_id = ?",
 			"DELETE FROM " + s.hourlyTable() + " WHERE monitor_id = ?",
-			"DELETE FROM stats_daily WHERE monitor_id = ?",
+			"DELETE FROM " + s.dailyTable() + " WHERE monitor_id = ?",
 			"DELETE FROM incidents WHERE monitor_id = ? AND resolved_at IS NOT NULL",
 		} {
 			if _, err := tx.ExecContext(ctx, q, id); err != nil {

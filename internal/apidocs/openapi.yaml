@@ -862,7 +862,7 @@ paths:
       tags: [monitors]
       summary: Grafik serisi
       parameters: [{ $ref: "#/components/parameters/id" }, { name: range, in: query, schema: { type: string, enum: [24h, 7d, 30d, 90d] } }]
-      responses: { "200": { description: Kovalar, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Bucket" } } } } } }
+      responses: { "200": { description: "{range, kind, points[] (Bucket), p95 (7d/30d/90d: histogramdan ms, -1 = ölçüm yok)}" } }
   /api/monitors/{id}/beats:
     get:
       tags: [monitors]

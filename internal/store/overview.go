@@ -81,46 +81,7 @@ func (s *Store) UptimeWindows(ctx context.Context, ids []int64, since ...int64) 
 	if len(since) == 0 {
 		return out, nil
 	}
-	filter, idArgs := "", []any(nil)
-	if len(ids) > 0 {
-		q, a := inClause(ids)
-		filter, idArgs = " AND m.id IN ("+q+")", a
-	}
-	var (
-		parts []string
-		args  []any
-	)
-	for i, t := range since {
-		t = hourCeil(t)
-		w := strconv.Itoa(i)
-		hourly := "SELECT h.monitor_id AS mid, " + w + " AS w, h.up AS up, h.down AS down FROM monitors m " +
-			"JOIN stats_hourly h ON h.monitor_id = m.id AND h.bucket >= ?"
-		// Pencerenin ilk tam günü (t gün başıysa kendisi).
-		d0 := s.dayStart(t)
-		if d0 != t {
-			y, mo, d := time.Unix(d0, 0).In(s.loc).Date()
-			d0 = time.Date(y, mo, d+1, 0, 0, 0, 0, s.loc).Unix()
-		}
-		if d0%3600 != 0 {
-			// Gün başı saat başına denk gelmiyor (yarım saatlik dilim): yalnızca saatlik özet.
-			parts = append(parts, hourly+filter)
-			args = append(append(args, t), idArgs...)
-			continue
-		}
-		parts = append(parts,
-			hourly+" AND h.bucket < ?"+filter,
-			"SELECT d.monitor_id, "+w+", d.up, d.down FROM monitors m "+
-				"JOIN stats_daily d ON d.monitor_id = m.id AND d.bucket >= ?"+filter)
-		args = append(append(args, t, d0), idArgs...)
-		args = append(append(args, d0), idArgs...)
-	}
-	sel := "SELECT mid"
-	for i := range since {
-		w := strconv.Itoa(i)
-		sel += ", CAST(SUM(CASE WHEN w = " + w + " THEN up ELSE 0 END) AS BIGINT)" +
-			", CAST(SUM(CASE WHEN w = " + w + " THEN down ELSE 0 END) AS BIGINT)"
-	}
-	query := sel + " FROM (" + strings.Join(parts, " UNION ALL ") + ") x GROUP BY mid"
+	query, args := s.uptimeWindowsSQL(ids, since)
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -148,4 +109,53 @@ func (s *Store) UptimeWindows(ctx context.Context, ids []int64, since ...int64) 
 		out[id] = res
 	}
 	return out, rows.Err()
+}
+
+// uptimeWindowsSQL UptimeWindows sorgusu (mid + pencere başına up, down).
+func (s *Store) uptimeWindowsSQL(ids []int64, since []int64) (string, []any) {
+	filter, idArgs := "", []any(nil)
+	if len(ids) > 0 {
+		q, a := inClause(ids)
+		filter, idArgs = " AND m.id IN ("+q+")", a
+	}
+	var (
+		parts []string
+		args  []any
+	)
+	for i, t := range since {
+		t = hourCeil(t)
+		w := strconv.Itoa(i)
+		if s.tsFull() {
+			p, a := s.tsWindowParts(t, w, filter, idArgs)
+			parts, args = append(parts, p...), append(args, a...)
+			continue
+		}
+		hourly := "SELECT h.monitor_id AS mid, " + w + " AS w, h.up AS up, h.down AS down FROM monitors m " +
+			"JOIN stats_hourly h ON h.monitor_id = m.id AND h.bucket >= ?"
+		// Pencerenin ilk tam günü (t gün başıysa kendisi).
+		d0 := s.dayStart(t)
+		if d0 != t {
+			y, mo, d := time.Unix(d0, 0).In(s.loc).Date()
+			d0 = time.Date(y, mo, d+1, 0, 0, 0, 0, s.loc).Unix()
+		}
+		if d0%3600 != 0 {
+			// Gün başı saat başına denk gelmiyor (yarım saatlik dilim): yalnızca saatlik özet.
+			parts = append(parts, hourly+filter)
+			args = append(append(args, t), idArgs...)
+			continue
+		}
+		parts = append(parts,
+			hourly+" AND h.bucket < ?"+filter,
+			"SELECT d.monitor_id, "+w+", d.up, d.down FROM monitors m "+
+				"JOIN stats_daily d ON d.monitor_id = m.id AND d.bucket >= ?"+filter)
+		args = append(append(args, t, d0), idArgs...)
+		args = append(append(args, d0), idArgs...)
+	}
+	sel := "SELECT mid"
+	for i := range since {
+		w := strconv.Itoa(i)
+		sel += ", CAST(SUM(CASE WHEN w = " + w + " THEN up ELSE 0 END) AS BIGINT)" +
+			", CAST(SUM(CASE WHEN w = " + w + " THEN down ELSE 0 END) AS BIGINT)"
+	}
+	return sel + " FROM (" + strings.Join(parts, " UNION ALL ") + ") x GROUP BY mid", args
 }

@@ -67,7 +67,7 @@ func (s *Store) writeBeat(ctx context.Context, tx *Tx, u BeatUpdate) error {
 		bucket int64
 	}{{"stats_hourly", hour}, {"stats_daily", day}}
 	if s.tsFull() {
-		tables = tables[1:] // saatlik özet sürekli özetten (timescale.go)
+		tables = nil // özetler sürekli özetten (timescale.go)
 	}
 	for _, t := range tables {
 		// Saatlik özette gecikme histogramı: tek kova sütunu artar.
@@ -168,13 +168,11 @@ func (s *Store) HourlyAll(ctx context.Context, since int64) (map[int64][]Bucket,
 
 // Series bir monitörün since'den itibaren özet serisi; daily=false saatlik.
 func (s *Store) Series(ctx context.Context, monitorID int64, since int64, daily bool) ([]Bucket, error) {
-	table := "stats_hourly"
+	q, args := "SELECT "+bucketCols+" FROM stats_hourly WHERE monitor_id = ? AND bucket >= ? ORDER BY bucket", []any{monitorID, since}
 	if daily {
-		table = "stats_daily"
+		q, args = s.dailySQL("monitor_id = ?", []any{monitorID}, since)
 	}
-	rows, err := s.db.QueryContext(ctx,
-		"SELECT "+bucketCols+" FROM "+table+" WHERE monitor_id = ? AND bucket >= ? ORDER BY bucket",
-		monitorID, since)
+	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}

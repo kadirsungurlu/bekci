@@ -46,11 +46,13 @@ type Store struct {
 	path     string         // SQLite dosya yolu
 	loc      *time.Location // günlük özetlerin gün sınırı bu saat dilimine göre
 	opts     Options
-	lockFile *os.File    // InstanceLock: süreç boyunca tutulan veri klasörü kilidi (SQLite)
-	pgLock   *sql.Conn   // InstanceLock: süreç boyunca tutulan danışma kilidinin bağlantısı (PostgreSQL)
-	mode     DBMode      // ensureTimescale (timescale.go)
-	tsExt    string      // timescaledb eklentisinin şeması
-	beats    beatBatcher // Options.BeatBatch > 0 ise kontrol sonuçlarının toplu yazımı (beats_batch.go)
+	lockFile *os.File  // InstanceLock: süreç boyunca tutulan veri klasörü kilidi (SQLite)
+	pgLock   *sql.Conn // InstanceLock: süreç boyunca tutulan danışma kilidinin bağlantısı (PostgreSQL)
+	mode     DBMode    // ensureTimescale (timescale.go)
+	tsExt    string    // timescaledb eklentisinin şeması
+	// Dönüşüm sınırları: öncesi stats_*_legacy tablolarında (timescale_read.go).
+	tsDailyCutoff, tsHourlyCutoff int64
+	beats                         beatBatcher // Options.BeatBatch > 0 ise kontrol sonuçlarının toplu yazımı (beats_batch.go)
 }
 
 // Options Open'ın isteğe bağlı ayarları.

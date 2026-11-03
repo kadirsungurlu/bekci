@@ -167,7 +167,13 @@ func (s *Store) ensureTimescale(ctx context.Context) error {
 	if err := s.tsConvertFull(cctx, ext); err != nil {
 		return fmt.Errorf("TimescaleDB sürekli özet dönüşümü: %w", err)
 	}
+	if err := s.tsConvertDaily(cctx); err != nil {
+		return fmt.Errorf("TimescaleDB günlük özet devri: %w", err)
+	}
 	s.mode = DBModeTimescale
+	if err := s.tsTuneChunks(cctx); err != nil {
+		s.opts.Log.Warn("TimescaleDB parça planı ayarlanamadı", "err", err)
+	}
 	return nil
 }
 
@@ -347,6 +353,14 @@ func histColsPrefixed(prefix, cols string) string {
 		parts[i] = prefix + p
 	}
 	return strings.Join(parts, ", ")
+}
+
+// dailyTable günlük özetin yazılabilir tablosu (silme/sıfırlama).
+func (s *Store) dailyTable() string {
+	if s.tsFull() {
+		return "stats_daily_legacy"
+	}
+	return "stats_daily"
 }
 
 // hourlyTable saatlik özetin yazılabilir tablosu (silme/sıfırlama).
