@@ -108,6 +108,7 @@ export default {
     serverAlert: 'Server alert',
     probeOffline: 'Check location offline',
     probe: 'Check location',
+    meshName: 'Check location links',
     degraded: 'Slow response',
     degradedHint: "The average response time of the last checks exceeds the monitor's threshold; the monitor is up, uptime is not affected.",
     partialHint: 'Some check locations are down but the monitor is up; uptime is not affected. Notifications are sent only if “Also notify on partial reachability outages” is enabled on the monitor.',

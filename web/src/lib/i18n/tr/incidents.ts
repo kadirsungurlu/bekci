@@ -109,6 +109,7 @@ export default {
     serverAlert: 'Sunucu uyarısı',
     probeOffline: 'Kontrol noktası çevrimdışı',
     probe: 'Kontrol noktası',
+    meshName: 'Kontrol noktası bağlantıları',
     degraded: 'Yavaş yanıt',
     degradedHint: 'Son kontrollerin ortalama yanıt süresi monitörün eşiğini aşıyor; monitör çalışıyor, uptime etkilenmez.',
     partialHint: 'Bazı kontrol konumları çalışmıyor ama monitör çalışıyor; uptime etkilenmez. Bildirim yalnızca monitörde “Kısmi erişim kesintisinde de bildirim gönder” açıksa gider.',
