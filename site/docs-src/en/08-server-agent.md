@@ -138,6 +138,8 @@ Check locations also connect to each other and measure the path between them: ea
 
 The verdict waits one panel interval and is issued only if it persists (a momentary blip sends nothing). The notification includes the message owner (main server), the state of every link and the interpretation; it goes to the channels of the affected locations that have **notify when offline** selected. The incident is visible on the **Incidents** page to administrators only; when the links recover it closes and a recovery notification is sent.
 
+**Topology diagram.** **Settings > Check locations** shows a live diagram above the connection matrix: the main server on top, check locations around it. A solid line with a check mark means two-way reachability, a cross means the link is down, an arrow shows the only working direction (one-way link), and a dashed grey line means the link cannot be measured. Hover over or keyboard-focus a link to see both directions' state, round-trip time (RTT), consecutive losses and the last successful measurement. The mesh incident detail page draws the same diagram with the state at the time of the incident. Telegram notifications include the diagram as a PNG (if sending the image fails, the text is still sent), and e-mail notifications include it as an inline image; plain-text clients read the text unchanged.
+
 ### Partial reachability outage {#partial-reachability}
 
 When the target is reachable from some locations but not from others (for example, its firewall blocks a country), it is not a full outage. With the **Partial reachability split** rule:

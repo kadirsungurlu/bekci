@@ -138,6 +138,8 @@ Kontrol noktaları birbirine de bağlanır ve aradaki yolu ölçer: her çift ar
 
 Karar bir panel aralığı beklenip kalıcıysa verilir (anlık dalgalanma bildirim üretmez). Bildirim mesaj sahibini (ana sunucu), tüm bağlantıların durumunu ve yorumu içerir; ilgili kontrol noktalarının **çevrimdışında bildir** seçili kanallarına gider. Olay **Olaylar** sayfasında yalnız yöneticilere görünür; bağlantılar düzelince olay kapanır ve düzelme bildirimi gider.
 
+**Topoloji şeması.** **Ayarlar > Kontrol noktaları** sayfasında bağlantı matrisinin üstünde canlı bir şema vardır: ana sunucu tepede, kontrol noktaları çevresinde. Düz çizgi ve onay işareti çift yönlü erişimi, çarpı kopukluğu, ok yalnız çalışan yönü (tek yönlü bağlantı), kesikli gri çizgi ölçülemeyen bağlantıyı gösterir. Bir bağlantının üzerine gelince ya da klavyeyle odaklanınca iki yönün durumu, gecikmesi (RTT), ardışık kayıp sayısı ve son başarılı ölçüm zamanı görünür. Mesh olayının ayrıntı sayfasında aynı şema olay anındaki durumla çizilir. Telegram bildirimine şema PNG olarak eklenir (gönderilemezse yalnız metin gider), e-posta bildiriminde ise satır içi görüntü olarak yer alır; düz metin okuyan istemcilerde metin değişmeden okunur.
+
 ### Kısmi erişim kesintisi {#kismi-erisim}
 
 Hedefe bazı konumlardan ulaşılıp bazılarından ulaşılamıyorsa (ör. hedefin güvenlik duvarı bir ülkeyi engelliyor) bu tam kesinti değildir. **Kısmi erişim ayrımı** kuralında:
