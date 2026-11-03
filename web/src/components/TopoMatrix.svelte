@@ -2,7 +2,7 @@
   // Canlı topoloji: kontrol noktaları arası bağlantı matrisi (satır ölçen, sütun hedef, değer RTT).
   // Çok noktada (tuvalde yay çizilmediğinde) mesh'in ana görünümü budur.
   import { t } from '../lib/i18n';
-  import { fmtMs } from '../lib/format';
+  import { fmtMs } from '../lib/topoview';
   import type { MeshMatrix } from '../lib/api';
 
   let { mesh }: { mesh: MeshMatrix } = $props();

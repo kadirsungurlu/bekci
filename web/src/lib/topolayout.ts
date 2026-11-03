@@ -54,8 +54,10 @@ export const PAD = 14; // grup iç boşluğu
 export const GAP = 10; // kartlar arası
 export const HEAD = 38; // grup başlığı
 export const CARD_H = 58;
-export const CARD_MIN_W = 168;
+export const CARD_MIN_W = 180;
 export const MESH_CARD_MIN_W = 124;
+export const MESH_CARD_MID_W = 160;
+export const MESH_CARD_COMFY_W = 196;
 export const MESH_MAX = 10;
 export const ARC_H = 92; // mesh yaylarına ayrılan yükseklik
 export const EMPTY_H = 108;
@@ -141,9 +143,17 @@ function pair(a: GroupInput | null, b: GroupInput | null, y: number, width: numb
     share = Math.min(1 - minShare, Math.max(minShare, share));
     let wa = Math.round((width - GROUP_GAP) * share);
     // Mesh yayları tek sıra ister: sığabiliyorsa noktalara yer açılır (diğer gruba en az 260 px kalır).
+    // Önce metnin kesilmediği rahat kart genişliği denenir (diğer gruba en az 420 px kalırsa).
     if (a.mesh && a.ids.length >= 2 && a.ids.length <= MESH_MAX) {
-      const need = a.ids.length * (MESH_CARD_MIN_W + GAP) - GAP + 2 * PAD;
-      if (need > wa && need <= width - GROUP_GAP - 260) wa = need;
+      const span = (cw: number) => a.ids.length * (cw + GAP) - GAP + 2 * PAD;
+      const room = width - GROUP_GAP;
+      for (const [cw, rest] of [[MESH_CARD_COMFY_W, 420], [MESH_CARD_MID_W, 300], [MESH_CARD_MIN_W, 260]]) {
+        if (span(cw) <= wa) break;
+        if (span(cw) <= room - rest) {
+          wa = span(cw);
+          break;
+        }
+      }
     }
     res.push(layoutGroup(a, 0, y, wa), layoutGroup(b, wa + GROUP_GAP, y, width - wa - GROUP_GAP));
   } else if (a || b) {

@@ -2,7 +2,10 @@
 // satırı, bağlantı (kenar) sınıfı ve ipucu satırları. Tuval (TopoCanvas) ve dar ekran listesi
 // (TopoList) aynı kuralları kullanır.
 import { t } from './i18n';
-import { fmtMs, fmtRelative, fmtTimeSec } from './format';
+import { fmtMs as fmtMsRaw, fmtRelative, fmtTimeSec } from './format';
+
+/** Yerel ağda 1 ms altı ölçümler 0 yerine "<1 ms" görünür. */
+export const fmtMs = (ms: number | null | undefined) => (ms !== null && ms !== undefined && ms >= 0 && ms < 0.5 ? '<1 ms' : fmtMsRaw(ms));
 import { typeLabel } from './monitorTypes';
 import { NOTIFY_LABELS } from './notifyTypes';
 import type { Topology, TopoChannel, TopoMonitor, TopoProbe, TopoServer } from './api';
@@ -60,7 +63,8 @@ export const when = (ts: number | undefined, now: number) =>
 
 export function monitorSub(m: TopoMonitor): string {
   const parts = [typeLabel(m.type)];
-  if (m.state === 'up' || m.state === 'partial') {
+  if (m.state === 'partial') parts.push(t('topology.state.partial'));
+  else if (m.state === 'up') {
     if (m.ping_ms >= 0) parts.push(fmtMs(m.ping_ms));
   } else parts.push(t(`topology.state.${m.state}`));
   return parts.join(' · ');
@@ -164,8 +168,9 @@ export function edgeTip(id: string, d: Topology, now: number): EdgeTip | null {
     const rows: [string, string][] = [[t('topology.tip.state'), p.online ? t('topology.probe.online') : t('topology.probe.offline')]];
     if (d.admin) {
       rows.push([t('topology.probe.rtt'), p.panel_rtt_ms !== undefined ? fmtMs(p.panel_rtt_ms) : '—']);
-      rows.push([t('topology.probe.uplink'), p.uplink === 'oob' ? t('topology.probe.oob') : t('topology.probe.primary')]);
-      if (p.peers) rows.push([t('topology.probe.peers'), `${p.peers_up ?? 0}/${p.peers}`]);
+      // Çevrimdışı noktanın hat ve eş bilgisi son raporundan kalır, gösterilmez.
+      if (p.online) rows.push([t('topology.probe.uplink'), p.uplink === 'oob' ? t('topology.probe.oob') : t('topology.probe.primary')]);
+      if (p.online && p.peers) rows.push([t('topology.probe.peers'), `${p.peers_up ?? 0}/${p.peers}`]);
       if (p.version) rows.push([t('topology.probe.version'), p.version]);
     }
     rows.push([t('topology.tip.lastSeen'), when(p.last_seen_at, now)]);

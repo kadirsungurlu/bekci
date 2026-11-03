@@ -230,4 +230,9 @@
     flex: none;
     background: var(--down);
   }
+  @media (max-width: 640px) {
+    .btn {
+      min-height: 44px;
+    }
+  }
 </style>

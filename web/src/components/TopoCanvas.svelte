@@ -164,7 +164,7 @@
   let wrap: HTMLDivElement;
   let tipEl = $state<HTMLDivElement>();
   const tipData = $derived(tip ? edgeTip(tip.id, d, now) : null);
-  const TIP_W = 260;
+  const TIP_W = 300;
   const tipPos = $derived.by(() => {
     if (!tip) return { left: 0, top: 0 };
     const h = tipEl?.offsetHeight ?? 160;
@@ -346,6 +346,14 @@
   }
   .grp.lv-bad {
     border-top-color: var(--down);
+  }
+  /* Başlık metni ve sayaçlar bağlantı çizgilerinin üstünde kalır. */
+  .grp header h3,
+  .grp header .cnt {
+    position: relative;
+    z-index: 3;
+    background: var(--card-2);
+    box-shadow: 0 0 0 4px var(--card-2);
   }
   .grp header {
     display: flex;
@@ -641,19 +649,22 @@
   }
   .etip dl {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: minmax(6em, 1fr) minmax(0, max-content);
     gap: 4px 14px;
     margin: 0;
     padding: 8px 10px;
   }
   .etip dt {
     color: var(--muted);
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   .etip dd {
     margin: 0;
     text-align: right;
     font-variant-numeric: tabular-nums;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+    min-width: 0;
   }
   @media (prefers-reduced-motion: reduce) {
     .e {
