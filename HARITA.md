@@ -12,6 +12,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 - `internal/check/` — izleyici türleri (http, tcp, dns, ping, sql, ...); `internal/i18n/` — sunucu tarafı TR/EN metinler
 - `internal/servers/` sunucu ajanı metrikleri · `internal/backup/` dışa/içe aktarma (Kuma, UptimeRobot) · `internal/webpush/`
 - `internal/apidocs/openapi.yaml` — API belgesi (yeni genel uç eklenirse güncelle)
+- `docs/TIMESCALE-TASARIM.md` — Postgres+TimescaleDB ve sunucu bilgi kaynağı tasarımı (600; 610-695 buna uyar): hypertable/cagg/saklama, uyumluluk modları, yükseltme yolları, lisans
 - `web/` — Svelte 5 + Vite SPA (TS). `src/pages/` sayfalar, `src/components/`, `src/lib/` (api.ts türler+istekler, router, i18n)
 - `web/e2e/` — Playwright betikleri (`push.mjs`, `durum.mjs`, `abonelik.mjs` + `smtp-sink.mjs` sahte SMTP; `ozelalan.mjs` abonelik ve `alanadi.mjs` on-demand TLS: gerçek alan adıyla elle, CI'da yok; `guncelleme.mjs` yeni sürüm şeridi, sahte sürüm sunucusu, CI'da; `olaylar.mjs` olay listesi sayfalama, CI'da; `mesh.mjs` bağlantı matrisi, CI'da; `topoloji.mjs` canlı topoloji, CI'da), `statusgrid.test.mjs`, `meshlayout.test.mjs`, `topolayout.test.mjs` (node --test)
 - `site/` — tanıtım sitesi + belgeler (`docs-src/{tr,en}`) · `deploy/compose/` — örnek compose · `Dockerfile`, `Dockerfile.postgres`
