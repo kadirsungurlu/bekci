@@ -560,6 +560,7 @@
     flex-direction: row;
     gap: 6px;
     border-style: dashed;
+    border-color: var(--border-strong);
     border-left-width: 1px;
     background: transparent;
     color: var(--text-2);

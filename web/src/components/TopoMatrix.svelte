@@ -69,6 +69,13 @@
     max-width: 100%;
     margin-top: 10px;
   }
+  /* Dar ekranda satır adı sabit kalır, sütunlar kayar. */
+  th[scope='row'] {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--card);
+  }
   table {
     border-collapse: collapse;
     font-size: 0.82rem;
