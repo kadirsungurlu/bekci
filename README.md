@@ -142,7 +142,7 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
   yöneticiler görür), 24 saat / 7 / 30 / 90 gün uptime ve yanıt süresi grafikleri
 - Uzak **kontrol noktaları**: monitörler birden çok konumdan aynı anda kontrol
   edilir, kesinti kuralı (herhangi biri / çoğunluk / hepsi); isteğe bağlı
-  **konum kesintisinde de bildirim**: monitör genel olarak çalışırken tek bir
+  **kısmi erişim kesintisinde de bildirim**: monitör genel olarak çalışırken tek bir
   konum düşerse ayrı bir uyarı bildirimi, düzelince düzelme bildirimi (uptime etkilenmez)
 
 **Sunucu takibi**

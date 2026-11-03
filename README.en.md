@@ -153,7 +153,7 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
   response time charts
 - Remote **check locations**: monitors are checked from multiple locations at
   the same time, with an outage rule (any / majority / all); optional
-  **notify on location outages**: when a single location goes down while the
+  **notify on partial reachability outages**: when a single location goes down while the
   monitor stays up, a separate warning notification is sent, and a recovery notification when it recovers
   (uptime is not affected)
 

@@ -114,10 +114,23 @@ Kontrol noktası, monitörlerinizi başka bir şehirden ya da ağdan da kontrol 
 2. Konumu anlatan kısa bir ad verin (ör. “Frankfurt”) ve kaydedin.
 3. Gösterilen komutu, kontrol noktası olacak sunucuda (Docker kurulu olmalı) **root** olarak, tamamını yapıştırarak çalıştırın. Komut `/etc/uptime-probe.env` dosyasını ve `uptime-probe` adlı konteyneri oluşturur.
 4. **Kopyaladım, kapat** ile pencereyi kapatın.
-5. Bir monitörün düzenleme sayfasında **Konumlar** bölümünden bu kontrol noktasını seçin ve **Kesinti kuralını** belirleyin: herhangi bir konum, konumların çoğunluğu ya da tüm konumlar çalışmıyorsa. İsterseniz **Konum kesintisinde de bildirim gönder** seçeneğini açın: monitör genel olarak çalışırken tek bir konum düşer ya da ulaşılamaz olursa başlıklı ayrı bir bildirim gider, konum düzelince ile bildirilir; uptime etkilenmez (varsayılan kapalı). Konum kesintileri **Olaylar** sayfasında “Konum kesintisi” türüyle ayrı listelenir.
+5. Bir monitörün düzenleme sayfasında **Konumlar** bölümünden bu kontrol noktasını seçin ve **Kesinti kuralını** belirleyin: herhangi bir konum, konumların çoğunluğu ya da **Kısmi erişim ayrımı** (yalnız tüm konumlar çalışmıyorsa kesinti). **Kısmi erişim kesintisinde de bildirim gönder** açıksa monitör çalışırken bir konum düşer ya da ulaşılamaz olursa ayrı bir bildirim gider, konum düzelince de bildirilir; uptime etkilenmez. Yeni monitörde ikinci konumu seçtiğiniz anda kural **Kısmi erişim ayrımı**na geçer ve bu bildirim açılır; kaydetmeden önce değiştirebilirsiniz. Ayrıntı: [Kısmi erişim kesintisi](#kismi-erisim).
 
 > [!CHECK]
 > Birkaç saniye içinde kontrol noktası listede **Çevrimiçi** görünür. Son 90 saniyede sonuç gönderen kontrol noktası çevrimiçi sayılır; bağlantısı kopan (durdurulan, çöken) nokta anında çevrimdışı görünür. `docker logs uptime-probe` çıktısında `msg="kontrol noktası başladı"` satırı olmalı.
+
+### Kısmi erişim kesintisi {#kismi-erisim}
+
+Hedefe bazı konumlardan ulaşılıp bazılarından ulaşılamıyorsa (ör. hedefin güvenlik duvarı bir ülkeyi engelliyor) bu tam kesinti değildir. **Kısmi erişim ayrımı** kuralında:
+
+- Tüm konumlar başarısızsa monitör **Çalışmıyor** olur, olağan kesinti bildirimi gider.
+- Yalnız bir kısmı başarısızsa monitör **Çalışıyor** kalır, uptime etkilenmez; **Olaylar** sayfasında “Kısmi erişim kesintisi” kaydı açılır. Bildirim açıksa başlığı “<monitör> için kısmi erişim kesintisi” olur ve her konum için “Başarılı” ya da “Başarısız” satırı taşır.
+- Kısmi erişim kararı için en az bir konumun, bağlantısı sağlam olarak “çalışıyor” demesi gerekir. Kontrol noktalarının hepsine ulaşılamıyorsa karar yalnız ana sunucunun sonucuna dayanır; bildirimde ve olay ayrıntısında bu durum not olarak yazılır.
+- Bir kısmi erişim kesintisi sürerken onu “çalışıyor” diyen kontrol noktasıyla bağlantı koparsa, kesinti 3 kontrol aralığı daha bekletilir; bağlantı dönmezse monitör **Çalışmıyor** olur.
+
+Ana sunucunun konum adı (varsayılan “Ana sunucu”) **Ayarlar → Genel** bölümünden değiştirilebilir; bildirimlerde ve olaylarda bu ad görünür.
+
+Mevcut monitörlerin kuralı kendiliğinden değişmez. Birkaç monitörü yeni kurala geçirmek için her birinin düzenleme sayfasında kuralı seçin; çok sayıda monitör için API'yi kullanabilirsiniz (her monitör için `PUT /api/monitors/{id}/locations`, gövdede `down_when: "all"` ve `notify_partial: true`; seçili konumlar da `include_local` ve `probe_ids` ile birlikte gönderilmelidir). API anahtarı ve örnek istekler için [Entegrasyonlar](/docs/entegrasyonlar/) belgesine bakın.
 
 ### Çevrimdışı bildirimi {#kontrol-noktasi-bildirim}
 

@@ -114,10 +114,23 @@ A check location checks your monitors from another city or network too. That way
 2. Give it a short name describing the place (e.g. “Frankfurt”) and save.
 3. Run the command shown on the server that will be the check location (it needs Docker), as **root**, pasting the whole command. It creates `/etc/uptime-probe.env` and a container named `uptime-probe`.
 4. Close the window with **I've copied it, close**.
-5. On a monitor's edit page, select this check location under **Locations** and choose the **Outage rule**: down when any location, the majority of locations or all locations fail. Optionally enable **Also notify on location outages**: when a single location goes down or becomes unreachable while the monitor stays up, a separate notification is sent, and when the location recovers; uptime is not affected (off by default). Location outages are listed separately on the **Incidents** page under the “Location outage” type.
+5. On a monitor's edit page, select this check location under **Locations** and choose the **Outage rule**: any location, the majority of locations or **Partial reachability split** (an outage only when all locations fail). With **Also notify on partial reachability outages** enabled, a separate notification is sent when a location goes down or becomes unreachable while the monitor stays up, and again when it recovers; uptime is not affected. On a new monitor, selecting a second location switches the rule to **Partial reachability split** and turns this notification on; you can change both before saving. Details: [Partial reachability outage](#partial-reachability).
 
 > [!CHECK]
 > Within a few seconds the check location shows as **Online** in the list. A check location that sent results in the last 90 seconds counts as online; a location whose connection drops (stopped, crashed) shows as offline immediately. `docker logs uptime-probe` should contain a `msg="kontrol noktası başladı"` (“agent started”) line.
+
+### Partial reachability outage {#partial-reachability}
+
+When the target is reachable from some locations but not from others (for example, its firewall blocks a country), it is not a full outage. With the **Partial reachability split** rule:
+
+- If every location fails, the monitor goes **Down** and the usual outage notification is sent.
+- If only some fail, the monitor stays **Up** and uptime is not affected; a “Partial reachability outage” incident opens on the **Incidents** page. If notifications are on, the title reads “Partial reachability outage: <monitor>” and each location gets a “Successful” or “Failed” line.
+- A partial reachability decision needs at least one location with a healthy connection reporting “up”. If no check location can be reached, the decision rests only on the main server's result; the notification and the incident detail say so.
+- If, during a partial reachability outage, the connection to the location reporting “up” drops, the outage is held for 3 more check intervals; if the connection does not come back, the monitor goes **Down**.
+
+The main server's location name (default “Main server”) can be changed under **Settings → General**; notifications and incidents show that name.
+
+Existing monitors keep their rule. To move a few monitors to the new rule, pick it on each edit page; for many monitors use the API (`PUT /api/monitors/{id}/locations` per monitor with `down_when: "all"` and `notify_partial: true`; also send the selected locations as `include_local` and `probe_ids`). See [Integrations](/en/docs/integrations/) for API keys and sample requests.
 
 ### Offline notification {#check-location-notification}
 
