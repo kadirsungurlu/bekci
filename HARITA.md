@@ -60,6 +60,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 | Sunucu ajanları | api/servers.go, metrics*.go; internal/servers; store/servers*.go |
 | Yedek / içe aktarma | api/backup.go, importer.go; internal/backup |
 | Ayarlar | api/misc.go (settings); store/settings.go; web pages/Settings + settings/* |
+| Ajan (probe) istemcisi | internal/probe/probe.go (yoklama, sonuç gönderimi), dnscache.go (Main adı için son bilinen IP, PROBE_STATE_DIR/uptime.dns.json); cmd/uptime/probe.go env |
 | İşlem kaydı | store/audit.go; i18n/audit.go; web settings/Audit.svelte |
 
 <!-- OTOMATIK: scripts/harita.sh -->
