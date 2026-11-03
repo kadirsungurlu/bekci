@@ -184,6 +184,7 @@ export default {
     captureLocations: 'Captured locations',
     partialPre: 'Location outage:',
     degradedPre: 'Slow response:',
+    meshLost: 'Check locations are unreachable; the decision rests only on the {name} result.',
     partialNote: 'The monitor stayed up during this time; only some check locations could not reach the target. Location outage notifications are off for this monitor (enable “Also notify on location outages” in the monitor settings); uptime is not affected and the incident is not shown on public status pages.',
     partialNoteNotify: 'The monitor stayed up during this time; only some check locations could not reach the target. Location outage notifications are on for this monitor: the selected channels are notified when a location goes down and when it recovers. Uptime is not affected and the incident is not shown on public status pages.',
     inMaint: 'In maintenance',

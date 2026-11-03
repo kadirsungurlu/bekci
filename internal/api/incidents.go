@@ -161,6 +161,7 @@ type incidentDetailView struct {
 	Server    *incidentServer         `json:"server,omitempty"`   // yalnızca sunucu olayında
 	Location  string                  `json:"location"`           // kök nedenin gözlendiği yer
 	Locations []incidentLocationView  `json:"locations"`          // olay başında
+	MeshLost  bool                    `json:"mesh_lost,omitempty"` // kontrol noktalarına ulaşılamıyordu; karar yalnız ana sunucunun sonucu
 	Events    []store.IncidentEvent   `json:"events"`             // yeniden eskiye
 	Capture   *store.IncidentCapture  `json:"capture"`            // yalnızca yönetici
 	Captures  []store.IncidentCapture `json:"captures,omitempty"` // yalnızca yönetici: Capture + diğer çalışmayan konumlarınki
@@ -289,8 +290,10 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 		var d struct {
 			Locations []incidentLocationView  `json:"locations"`
 			Monitor   *engine.MonitorSnapshot `json:"monitor"`
+			MeshLost  bool                    `json:"mesh_lost"`
 		}
 		if json.Unmarshal(events[i].Data, &d) == nil {
+			out.MeshLost = d.MeshLost
 			if d.Locations != nil {
 				out.Locations = d.Locations
 			}

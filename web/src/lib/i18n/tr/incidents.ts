@@ -186,6 +186,7 @@ export default {
     captureLocations: 'Yakalanan konumlar',
     partialPre: 'Konum kesintisi:',
     degradedPre: 'Yavaş yanıt:',
+    meshLost: 'Kontrol noktalarına ulaşılamıyor; karar yalnız {name} sonucuna dayanıyor.',
     partialNote: 'Monitör bu süre boyunca çalışmaya devam etti; yalnızca bazı kontrol konumları hedefe ulaşamadı. Bu monitörde konum kesintisi bildirimi kapalı (monitör ayarlarında “Konum kesintisinde de bildirim gönder” ile açılır); uptime oranı etkilenmez, olay herkese açık durum sayfalarında görünmez.',
     partialNoteNotify: 'Monitör bu süre boyunca çalışmaya devam etti; yalnızca bazı kontrol konumları hedefe ulaşamadı. Bu monitörde konum kesintisi bildirimi açık: konum düşünce ve düzelince seçili kanallara bildirim gider. Uptime oranı etkilenmez, olay herkese açık durum sayfalarında görünmez.',
     inMaint: 'Bakımda',

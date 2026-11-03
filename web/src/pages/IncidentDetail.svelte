@@ -165,6 +165,13 @@
 
   // Kök neden: çok konumluda birleşik mesaj ("A: …; B: …") yerine ilk çalışmayan
   // konumun kendi hatası; konum adı altta ayrıca yazılır.
+  // Karar yalnız ana sunucunun sonucuna dayanıyorsa onun adı (kimlikle bulunur; ad ayardan değişebilir).
+  const meshLostName = $derived.by(() => {
+    if (!data?.mesh_lost) return '';
+    const l = data.locations.find((x) => x.probe_id === 0);
+    return l ? locName(l.name) : session.localName || t('incidents.localName');
+  });
+
   const rootCause = $derived.by(() => {
     if (!data) return '';
     const down = data.locations.find((l) => l.status === 'down' && l.message);
@@ -737,6 +744,13 @@
           </div>
         {/if}
 
+        {#if meshLostName}
+          <div class="alert warning mesh" role="note" data-testid="mesh-lost">
+            <Icon name="wifi-off" size={14} />
+            <span>{t('incidents.detail.meshLost', { name: meshLostName })}</span>
+          </div>
+        {/if}
+
         <!-- Grup ve push monitörlerinin konumu yoktur ("Ana sunucu" anlamsız). -->
         <!-- Konum kesintisinde etkilenen konumlar yukarıdaki kartta (aynı bilgi iki kez yazılmaz). -->
         {#if data.locations.length && !partial && data.monitor.type !== 'group' && data.monitor.type !== 'push'}
@@ -1057,6 +1071,16 @@
     font-size: 0.85rem;
     color: var(--text-2);
     line-height: 1.45;
+  }
+  .alert.mesh {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin: 0 0 14px;
+  }
+  .alert.mesh :global(svg) {
+    flex: none;
+    margin-top: 3px;
   }
   .note :global(svg) {
     flex: none;

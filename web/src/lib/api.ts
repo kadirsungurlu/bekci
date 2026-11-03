@@ -740,6 +740,8 @@ export interface IncidentLocation {
 
 export interface IncidentDetail {
   incident: Incident;
+  /** Kontrol noktalarına ulaşılamıyordu; karar yalnız ana sunucunun (probe_id 0) sonucuna dayanıyor. */
+  mesh_lost?: boolean;
   /** Sunucu olayında boş (id 0). */
   /** type/target olay anındaki değerler; changed: sonradan değiştirildi (güncel değerler current_*). */
   monitor: {
