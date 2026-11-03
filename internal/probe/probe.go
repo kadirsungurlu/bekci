@@ -46,6 +46,7 @@ import (
 	"io"
 	"log/slog"
 	"math/rand/v2"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -75,7 +76,11 @@ type Config struct {
 	AllowInsecure bool             // true değilse http:// ana sunucu reddedilir (yalnızca PROBE_ALLOW_INSECURE=1)
 	Metrics       MetricsCollector // varsayılan metrics.NewCollector
 	HTTPClient    *http.Client
-	Log           *slog.Logger
+	// StateDir ajanın kalıcı durum dizini (PROBE_STATE_DIR): ana sunucunun son
+	// bilinen IP'leri burada saklanır (bkz. dnscache.go). Boşsa yalnızca bellekte.
+	// HTTPClient verilmişse kullanılmaz.
+	StateDir string
+	Log      *slog.Logger
 	// Updater kendini güncelleme (agentupdate.New); nil: "update" teklifleri yok
 	// sayılır ve platform başlığı gönderilmez (ajan güncelleme desteklemez gibi görünür).
 	Updater *agentupdate.Updater
@@ -208,9 +213,17 @@ var ErrForbidden = errors.New("kontrol noktası devre dışı veya başka bir IP
 // izlenmez (yanıt olduğu gibi döner): Authorization: Bearer token'ı başka bir
 // adrese (ör. https'ten http'ye düşüren bir yönlendirmeyle açık metin) tekrar
 // gönderilmesin. Ana sunucu yönlendirme yapmaz; 3xx beklenmeyen yanıt sayılır.
-func newHTTPClient() *http.Client {
+//
+// Yalnızca DialContext değişir (DNS son bilinen IP önbelleği): TLS el sıkışması
+// Transport'un kendisinde kalır, SNI ve sertifika doğrulaması URL'deki alan
+// adıyla yapılır. Uzun yoklama, sonuç/metrik gönderimi ve güncelleme indirmesi
+// bu Transport'u paylaşır.
+func newHTTPClient(dns *dnsCache) *http.Client {
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.DialContext = dns.dialContext(&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second})
 	return &http.Client{
-		Timeout: 30 * time.Second,
+		Transport: tr,
+		Timeout:   30 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
@@ -249,11 +262,11 @@ func New(cfg Config) (*Client, error) {
 	if cfg.MaxBackoff <= 0 {
 		cfg.MaxBackoff = 60 * cfg.Unit
 	}
-	if cfg.HTTPClient == nil {
-		cfg.HTTPClient = newHTTPClient()
-	}
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+	if cfg.HTTPClient == nil {
+		cfg.HTTPClient = newHTTPClient(newDNSCache(cfg.StateDir, cfg.Log))
 	}
 	if cfg.Version == "" {
 		cfg.Version = "dev"
