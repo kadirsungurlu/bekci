@@ -359,8 +359,31 @@ func (s *Store) hourlyTable() string {
 
 // tsDropChunks hypertable/sürekli özetin t'den tamamen eski parçalarını
 // atar; atılan parça sayısını döner.
+// Arka plan işleri (sıkıştırma, sürekli özet yenileme) aynı parçaları
+// kilitleyebilir: kilitlenme (deadlock) ya da kilit beklemesinde kısa
+// aralıkla yeniden denenir.
 func (s *Store) tsDropChunks(ctx context.Context, rel string, t int64) (int64, error) {
-	rows, err := s.db.QueryContext(ctx, fmt.Sprintf("SELECT %s.drop_chunks('%s', older_than => CAST(? AS BIGINT))", s.tsExt, rel), t)
+	q := fmt.Sprintf("SELECT %s.drop_chunks('%s', older_than => CAST(? AS BIGINT))", s.tsExt, rel)
+	var err error
+	for try := range 5 {
+		var n int64
+		if n, err = s.tsDropOnce(ctx, q, t); err == nil {
+			return n, nil
+		}
+		if !strings.Contains(err.Error(), "40P01") && !strings.Contains(err.Error(), "55P03") {
+			return 0, err
+		}
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		case <-time.After(time.Duration(try+1) * 500 * time.Millisecond):
+		}
+	}
+	return 0, err
+}
+
+func (s *Store) tsDropOnce(ctx context.Context, q string, t int64) (int64, error) {
+	rows, err := s.db.QueryContext(ctx, q, t)
 	if err != nil {
 		return 0, err
 	}
