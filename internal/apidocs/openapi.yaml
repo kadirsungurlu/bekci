@@ -99,6 +99,7 @@ components:
       properties:
         error: { type: string }
         code: { type: string, description: "İsteğe bağlı makine kodu (ör. password_change_required, backup_password, reset_invalid)" }
+        field: { type: string, description: "Alan hatasında hatalı alanın adı (ör. mesh_ping_sec, mesh_loss_threshold, panel_sec, mesh_addr)" }
       required: [error]
     OK:
       type: object
@@ -468,6 +469,39 @@ components:
         notify_offline: { type: boolean }
         platform: { type: string, description: "Ajanın bildirdiği os/arch (boş: kendini güncelleyemeyen eski ajan)" }
         update: { $ref: "#/components/schemas/AgentUpdate" }
+        mesh_ping_sec: { type: integer, nullable: true, minimum: 1, maximum: 60, description: "Yalnızca kontrol noktası: mesh ping aralığı ezmesi (sn; null: genel ayar)" }
+        mesh_loss_threshold: { type: integer, nullable: true, minimum: 1, maximum: 10, description: "Kopukluk eşiği ezmesi (ardışık kayıp; null: genel ayar)" }
+        panel_sec: { type: integer, nullable: true, minimum: 1, maximum: 60, description: "Panel haberleşme aralığı ezmesi (sn; null: genel ayar)" }
+        mesh_addr: { type: string, maxLength: 255, description: "Eşlerin bağlanacağı host:port; boş: görülen IP + 7480; \"-\": dinlemiyor (NAT)" }
+        fallback_notifier: { type: boolean, description: "Main'e ulaşılamazsa yedek bildirici olabilir (varsayılan açık)" }
+        timing: { $ref: "#/components/schemas/ProbeTiming" }
+    ProbeTiming:
+      type: object
+      description: "Kontrol noktasının etkin mesh zamanlaması (genel ayar + ezme). Eşik x aralık en az 3 sn."
+      readOnly: true
+      properties:
+        mesh_enabled: { type: boolean }
+        ping_sec: { type: integer }
+        loss_threshold: { type: integer }
+        panel_sec: { type: integer }
+    ProbeUpdate:
+      type: object
+      description: "PUT /api/probes/{id} gövdesi; gönderilmeyen alan değişmez. Mesh alanları yalnızca kontrol noktasında uygulanır (sunucu ajanında yok sayılır)."
+      additionalProperties: true
+      properties:
+        name: { type: string }
+        active: { type: boolean }
+        metrics: { type: boolean }
+        ip_lock: { type: boolean }
+        reset_ip: { type: boolean }
+        notify_offline: { type: boolean }
+        notification_ids: { type: array, items: { type: integer, format: int64 } }
+        auto_update: { type: boolean, nullable: true }
+        mesh_ping_sec: { type: integer, nullable: true, minimum: 1, maximum: 60 }
+        mesh_loss_threshold: { type: integer, nullable: true, minimum: 1, maximum: 10 }
+        panel_sec: { type: integer, nullable: true, minimum: 1, maximum: 60 }
+        mesh_addr: { type: string, maxLength: 255 }
+        fallback_notifier: { type: boolean }
     AgentUpdate:
       type: object
       description: Ajanın güncelleme durumu.
@@ -500,6 +534,10 @@ components:
         retention_audit_days: { type: integer }
         system_mail_channel_id: { type: integer, format: int64, description: Şifre sıfırlama e-postası kanalı (0 kapalı) }
         agent_auto_update: { type: boolean, description: Ajanlar panelin imzalı sürümüne kendiliğinden güncellensin (varsayılan açık) }
+        mesh_enabled: { type: boolean, nullable: true, description: "Kontrol noktaları arası mesh ping (null/yok: açık)" }
+        mesh_ping_sec: { type: integer, minimum: 1, maximum: 60, description: "Mesh ping aralığı (sn; 0 gönderilirse varsayılan 5)" }
+        mesh_loss_threshold: { type: integer, minimum: 1, maximum: 10, description: "Kopukluk eşiği, ardışık kayıp (0: varsayılan 3); eşik x aralık en az 3 sn" }
+        probe_panel_sec: { type: integer, minimum: 1, maximum: 60, description: "Kontrol noktası <-> panel haberleşme aralığı (sn; 0: varsayılan 5). Çevrimdışı sayılma = eşik x bu aralık" }
     OIDCSettings:
       type: object
       properties:
@@ -1178,7 +1216,7 @@ paths:
     post: { tags: [servers], summary: Kontrol noktası ekle (yönetici), requestBody: { content: { application/json: { schema: { type: object, properties: { name: { type: string } } } } } }, responses: { "201": { description: Kontrol noktası + token } } }
   /api/probes/{id}:
     parameters: [{ $ref: "#/components/parameters/id" }]
-    put: { tags: [servers], summary: Kontrol noktasını güncelle (yönetici), requestBody: { content: { application/json: { schema: { type: object, additionalProperties: true } } } }, responses: { "200": { description: Kontrol noktası } } }
+    put: { tags: [servers], summary: Kontrol noktasını güncelle (yönetici), requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/ProbeUpdate" } } } }, responses: { "200": { description: Kontrol noktası, content: { application/json: { schema: { $ref: "#/components/schemas/Probe" } } } }, "400": { $ref: "#/components/responses/Error" } } }
     delete: { tags: [servers], summary: Kontrol noktasını sil (yönetici), responses: { "200": { $ref: "#/components/responses/OK" } } }
   /api/probes/{id}/token:
     post: { tags: [servers], summary: Token'ı yenile (yönetici), parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: "{token, command}" } } }

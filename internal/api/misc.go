@@ -275,6 +275,9 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	in := body.AppSettings
 	if err := in.Validate(); err != nil {
+		if writeTimingError(w, err) {
+			return
+		}
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -321,6 +324,11 @@ func settingsChanges(old, in store.AppSettings) string {
 	add(old.SystemMailChannelID != in.SystemMailChannelID, "sistem e-postası")
 	add(old.AgentAutoUpdateOn() != in.AgentAutoUpdateOn(), "ajan otomatik güncelleme")
 	add(old.UpdateCheckOn() != in.UpdateCheckOn(), "sürüm denetimi")
+	om, nm := old.MeshTiming(), in.MeshTiming()
+	add(om.MeshEnabled != nm.MeshEnabled, map[bool]string{true: "mesh açıldı", false: "mesh kapatıldı"}[nm.MeshEnabled])
+	add(om.PingSec != nm.PingSec, "mesh ping aralığı")
+	add(om.LossThreshold != nm.LossThreshold, "kopukluk eşiği")
+	add(om.PanelSec != nm.PanelSec, "panel haberleşme aralığı")
 	if len(changed) == 0 {
 		return "değişiklik yok"
 	}
