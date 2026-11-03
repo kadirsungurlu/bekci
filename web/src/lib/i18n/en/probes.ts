@@ -68,7 +68,7 @@ export default {
   lockedTo: "Locked to IP {ip}",
   lockPending: "IP lock on; pinned on first connection",
   actionsFor: "Actions for {name}",
-  foot: "A check location that sent results in the last 90 seconds counts as online. Agents update themselves along with the panel (Settings → General). Update agents marked “Old agent” once by hand: run {cmd} on the server, then run the install command again (get the command again with “Regenerate token” in the row menu).",
+  foot: "A check location that misses loss threshold heartbeats in a row counts as offline (3 x 5 s = 15 s by default; 90 s for old agents). Agents update themselves along with the panel (Settings → General). Update agents marked “Old agent” once by hand: run {cmd} on the server, then run the install command again (get the command again with “Regenerate token” in the row menu).",
   menu: {
     enable: "Enable",
     disable: "Disable",
@@ -108,7 +108,7 @@ export default {
     resetLock: "Reset lock",
     notifyOffline: "Notify when offline",
     notifyOfflineHelp:
-      "If the check location sends no request for 90 seconds, a “check location unreachable” notification goes to the selected channels and an incident is opened; when it reconnects, a recovery notification closes it. Short restarts do not notify.",
+      "When loss threshold heartbeats in a row are missed (15 s by default), a “check location unreachable” notification goes to the selected channels and an incident is opened; when it reconnects, a recovery notification closes it. Restarts shorter than that do not notify.",
     channels: "Notification channels",
     noChannels: "No notification channels yet. {link}",
     addChannel: "Add a channel",

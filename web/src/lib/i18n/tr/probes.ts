@@ -67,7 +67,7 @@ export default {
   lockPending: "IP kilidi açık; ilk bağlantıda sabitlenir",
   actionsFor: "{name} için işlemler",
   /** {cmd}: güncelleme komutu (<code>). */
-  foot: "Son 90 saniyede sonuç gönderen kontrol noktası çevrimiçi sayılır. Ajanlar panelle birlikte kendiliğinden güncellenir (Ayarlar → Genel). “Eski ajan” görünenleri bir kez elle güncelleyin: sunucuda {cmd}, sonra kurulum komutunu tekrar çalıştırın (komut, satır menüsündeki “Token’ı yenile” ile yeniden alınır).",
+  foot: "Art arda kopukluk eşiği kadar kalp atışı gelmeyen kontrol noktası çevrimdışı sayılır (varsayılan 3 x 5 sn = 15 sn; eski ajanlarda 90 sn). Ajanlar panelle birlikte kendiliğinden güncellenir (Ayarlar → Genel). “Eski ajan” görünenleri bir kez elle güncelleyin: sunucuda {cmd}, sonra kurulum komutunu tekrar çalıştırın (komut, satır menüsündeki “Token’ı yenile” ile yeniden alınır).",
   menu: {
     enable: "Etkinleştir",
     disable: "Devre dışı bırak",
@@ -108,7 +108,7 @@ export default {
     resetLock: "Kilidi sıfırla",
     notifyOffline: "Çevrimdışı kalınca bildir",
     notifyOfflineHelp:
-      "Kontrol noktası 90 saniye boyunca istek göndermezse seçili kanallara “kontrol noktasına ulaşılamıyor” bildirimi gider ve bir olay açılır; tekrar bağlanınca düzelme bildirimiyle olay kapanır. Kısa yeniden başlatmalar bildirim üretmez.",
+      "Kontrol noktasından art arda kopukluk eşiği kadar kalp atışı gelmezse (varsayılan 15 sn) seçili kanallara “kontrol noktasına ulaşılamıyor” bildirimi gider ve bir olay açılır; tekrar bağlanınca düzelme bildirimiyle olay kapanır. Bu süreden kısa yeniden başlatmalar bildirim üretmez.",
     channels: "Bildirim kanalları",
     /** {link}: kanal ekleme bağlantısı. */
     noChannels: "Henüz bildirim kanalı yok. {link}",
