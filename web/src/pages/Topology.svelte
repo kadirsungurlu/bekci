@@ -287,4 +287,9 @@
       flex: 1 1 40%;
     }
   }
+  @media (max-width: 640px) {
+    .btn {
+      min-height: 44px;
+    }
+  }
 </style>

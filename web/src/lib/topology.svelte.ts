@@ -3,8 +3,9 @@
 // Tazeleme: panelin canlı akışı (SSE, lib/live) bağlıyken kontrol sonucu,
 // konum, kontrol noktası, mesh, sunucu ve olay olayları isteği tetikler
 // (en sık THROTTLE_MS'de bir; art arda gelenler birleşir). Akış kopuksa
-// POLL_MS'de bir yoklanır. Kanal "son gönderim" gibi akışta olmayan alanlar
-// için bağlıyken de SAFETY_MS'de bir tazelenir. Sekme gizliyken hiçbir istek
+// POLL_MS'de bir yoklanır. Kanal "son gönderim" ve kontrol noktasının
+// çevrimdışı olması (kalp atışı zamanından hesaplanır, akışta olay yok) için
+// bağlıyken de SAFETY_MS'de bir tazelenir; kopma 5-15 sn içinde görünür. Sekme gizliyken hiçbir istek
 // yapılmaz; görünür olunca hemen tazelenir.
 
 import { api, errorMessage, type Topology } from './api';
@@ -12,7 +13,7 @@ import { live } from './live.svelte';
 
 export const POLL_MS = 5_000;
 const THROTTLE_MS = 2_000;
-const SAFETY_MS = 15_000;
+const SAFETY_MS = 5_000;
 
 export class TopologyStore {
   data = $state.raw<Topology | null>(null);
