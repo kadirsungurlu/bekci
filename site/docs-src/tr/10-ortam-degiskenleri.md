@@ -64,6 +64,7 @@ Bu değişkenleri panelden aldığınız kurulum komutu sizin için ayarlar (`/e
 | `METRICS` | `1` | `0` ise sunucu ölçümleri hiç toplanmaz. |
 | `AUTO_UPDATE` | `1` | `0` ise ajan panelin sunduğu imzalı sürüme kendini güncellemez ([güncelleme](/docs/sunucu-ajani/#guncelleme)). |
 | `PROBE_STATE_DIR` | program dizini | Panelin son bilinen IP adreslerinin saklandığı dizin (`uptime.dns.json`); DNS çözülemezse ajan bu IP ile bağlanır ([DNS kesintisi](/docs/sunucu-ajani/#dns-onbellek)). |
+| `PROBE_OOB_IFACE` | — | İkinci hattın (OOB) ağ arayüzü, ör. `eth1`. Boşsa panelde girilen OOB IP'sine göre otomatik bulunur; OOB IP'si NAT arkasındaysa gerekir ([OOB](/docs/sunucu-ajani/#oob)). |
 | `MESH_ADDR` | `:7480` | Kontrol noktaları arası bağlantının (mesh) TCP dinleme adresi; `-` ise dinlemez, yalnız dinleyen eşlere kendisi bağlanır ([mesh](/docs/sunucu-ajani/#mesh)). |
 | `ADDR` | `:8080` | Ajanın sağlık kontrolü adresi; `-` ise kapalı (kurulum komutları `-` kullanır). |
 | `HOST_PROC`, `HOST_SYS`, `HOST_ETC`, `HOST_ROOT` | — | Ajan Docker'da çalışırken sunucunun `/proc`, `/sys`, `/etc` ve kök dizininin bağlandığı yerler. Docker kurulum komutu bunları ayarlar. |

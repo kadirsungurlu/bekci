@@ -64,6 +64,7 @@ The install command from the panel sets these for you (in `/etc/uptime-agent.env
 | `METRICS` | `1` | `0` turns off collecting server metrics entirely. |
 | `AUTO_UPDATE` | `1` | `0` stops the agent from updating itself to the signed version the panel offers ([updating](/en/docs/server-agent/#update)). |
 | `PROBE_STATE_DIR` | program directory | Directory that stores the panel's last known IP addresses (`uptime.dns.json`); if DNS fails the agent connects with that IP ([DNS outage](/en/docs/server-agent/#dns-cache)). |
+| `PROBE_OOB_IFACE` | — | Network interface of the second line (OOB), e.g. `eth1`. If empty it is found from the OOB IP entered in the panel; needed when the OOB IP is behind NAT ([OOB](/en/docs/server-agent/#oob)). |
 | `MESH_ADDR` | `:7480` | TCP listen address for connections between check locations (mesh); `-` turns listening off and the agent only connects to listening peers itself ([mesh](/en/docs/server-agent/#mesh)). |
 | `ADDR` | `:8080` | The agent's health check address; `-` turns it off (install commands use `-`). |
 | `HOST_PROC`, `HOST_SYS`, `HOST_ETC`, `HOST_ROOT` | — | Where the server's `/proc`, `/sys`, `/etc` and root directory are mounted when the agent runs in Docker. The Docker install command sets them. |

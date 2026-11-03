@@ -157,6 +157,52 @@ Existing monitors keep their rule. To move a few monitors to the new rule, pick 
 
 To be told when a check location goes down, open **Edit** from the row menu, enable **Notify when offline** and pick the notification channels. When loss threshold heartbeats in a row are missed (3 x 5 s = 15 seconds by default), a “*Name*: check location unreachable” notification is sent and an incident of type “Check location offline” is opened on the **Incidents** page; when it reconnects, a “… back online” notification closes the incident with the downtime. A restart shorter than that does not notify; raise the threshold or the interval for more tolerance. If you disable the check location yourself, nothing is sent and an open incident is closed quietly. These notifications are independent of the monitors' own channels: they go to the channels selected for the check location.
 
+### Second line (OOB) {#oob}
+
+If the check location's server has a second network connection (OOB, management line, backup line), the agent moves its panel connection to that line when it can't reach the panel over the primary line. The check location then doesn't show as “offline” when the primary line fails; the panel knows which line it is on and notifies you.
+
+Only the agent's **connection to the panel** (job list, results, heartbeat, metrics, updates) switches lines. The checks the agent runs (HTTP, ping, DNS etc.) and the mesh connections always follow the operating system's routing.
+
+**Enter the OOB IP.** In the **Settings → Check locations** list, open **Edit** from the row's menu and in the **OOB (second line)** section enter the second line's IP address in **OOB IP address**, and optionally a name shown in notifications in **Line name** (default “OOB”, at most 40 characters). Clearing the IP turns the feature off. Loopback (`127.0.0.1`, `::1`), multicast and `0.0.0.0` style addresses are rejected.
+
+**IP lock.** When the [IP lock](#ip-lock) is on, the panel accepts requests from the OOB IP in addition to the locked primary IP. A request from the OOB IP never changes the lock; the lock is pinned only by the first request over the primary line. The OOB IP is compared as a full address (not a /64 block for IPv6).
+
+**Finding the interface.** The agent looks for the OOB IP given by the panel among the server's network interfaces and binds the panel connection to that interface (source address = OOB IP). If the OOB IP lives on a NAT device in front of the server (a public IP) rather than on the server, no interface is found: the panel shows an **OOB interface not found** warning and the agent doesn't switch to OOB. In that case add the interface name to the agent's settings file (`/etc/uptime-probe.env`), e.g. `PROBE_OOB_IFACE=eth1`; that interface's address of the same family (IPv4/IPv6) as the panel address is used as the source. Restart the agent; in Docker recreate the container (`docker restart` doesn't re-read the settings file).
+
+**Linux.** The connection is bound to the interface with `SO_BINDTODEVICE` and to the OOB IP. This needs the `CAP_NET_RAW` capability (or root); the Docker install command already grants it (`--cap-add NET_RAW`). Without it only the source address is bound, and the policy routing rule below is **required** for packets to leave through the OOB interface. Even with the capability, set up the same rule if the OOB interface has no gateway of its own (the default route is only on the primary line):
+
+```bash
+# separate routing table for the OOB interface (e.g. eth1, gateway 10.20.0.1, OOB IP 10.20.0.15)
+echo "100 oob" >> /etc/iproute2/rt_tables
+ip route add default via 10.20.0.1 dev eth1 table oob
+ip rule add from 10.20.0.15 table oob
+# check
+ip rule
+ip route show table oob
+curl --interface eth1 -sI https://bekci.example.com/healthz
+```
+
+These commands are lost on reboot. To make them permanent, add them to your distribution's network configuration (netplan: `routing-policy` and `routes` with `table: 100`; NetworkManager: `ipv4.routing-rules` and `ipv4.routes ... table=100`; ifupdown: `post-up` lines on the interface).
+
+**Docker.** On the default bridge network the container doesn't see the server's OOB interface. Run a check location that uses OOB on the host network: replace `-p 7480:7480` in the install command with `--network host` (no port publishing is needed on the host network; mesh listens on port 7480 directly). With Compose, add `network_mode: host` to the service and remove its `ports:` lines.
+
+**Windows.** The connection is bound to the OOB interface with `IP_UNICAST_IF`; no extra privileges are needed. The OOB interface must have a gateway (otherwise Windows can't send the packets). For NAT, add the interface name (`PROBE_OOB_IFACE=Ethernet 2`) to `C:\Program Files\Uptime\agent.env`.
+
+**Switching.** The agent switches to OOB when both conditions hold:
+
+- Loss threshold (Settings → Check locations, default 3) requests in a row to the panel over the primary line failed with a connection error (could not connect, timeout). `4xx`/`5xx` responses from the panel don't count; if the panel answers, the line is fine.
+- The panel's `GET /healthz` answered successfully over the OOB line.
+
+If mesh is on and the agent still reaches at least one peer over the primary line, it doesn't switch: the problem is on the panel's side, not the line. Open connections are closed on the switch and re-established over OOB. With default settings the switch happens about loss threshold x panel interval (3 x 5 s = 15 s) after the primary line fails. The log shows `ana hattan Main'e ulaşılamıyor; OOB hattına geçildi` (“panel unreachable over the primary line; switched to the OOB line”).
+
+**Switching back.** After at least **5 minutes** on OOB, the agent returns to the primary line once it gets **3 successful** `/healthz` responses in a row over it (log: `ana hatta dönüldü`, “back on the primary line”). If the OOB line fails too, there is no wait: a single successful `/healthz` over the primary line is enough.
+
+**Notifications.** On the switch “*Name* cannot connect over the primary line, now connected via *OOB name*” is sent, on the return “*Name* is back on the primary line” (with the time spent on the second line). They go to the check location's **Notify when offline** channels ([Offline notification](#check-location-notification)); for a server agent, to the server's notification channels. The badge in the check locations list shows the active line (**Primary line** or “Via *OOB name*”) and when it switched.
+
+**Check results while on OOB.** While on OOB the agent's checks still leave over the primary (broken) path, so that location's results don't count towards the outage decision and the location is treated as “unknown” (shown as a note on the location card). Even if a location on OOB reports “Failed”, no partial reachability outage or outage is opened.
+
+The agent reports the active line on every request with the `X-Probe-Uplink` header (`primary` or `oob`) and the interface state with `X-Probe-OOB-Iface` (`ok` or `missing`); a reverse proxy in front of the panel must not strip these headers.
+
 ## Files the install creates {#files}
 
 | Install | Program | Token (settings file) | Service / container |
@@ -252,6 +298,8 @@ If the server's IP address changes (e.g. you moved the server), reset the lock; 
 
 - **Server agent:** on the server's page, **Settings** → **Reset lock**.
 - **Check location:** in the **Settings → Check locations** list, **Edit** in the row's menu → **Reset lock**.
+
+If you entered an [OOB IP](#oob) for a check location, requests from that address are accepted too; the lock doesn't change.
 
 You can turn the lock off entirely in the same place (the **Lock to IP** switch). If you suspect the token leaked, regenerate it and run the install command again (the [update](#update) steps).
 

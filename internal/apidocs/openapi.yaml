@@ -474,6 +474,11 @@ components:
         panel_sec: { type: integer, nullable: true, minimum: 1, maximum: 60, description: "Panel haberleşme aralığı ezmesi (sn; null: genel ayar)" }
         mesh_addr: { type: string, maxLength: 255, description: "Eşlerin bağlanacağı host:port; boş: görülen IP + 7480; \"-\": dinlemiyor (NAT)" }
         fallback_notifier: { type: boolean, description: "Main'e ulaşılamazsa yedek bildirici olabilir (varsayılan açık)" }
+        oob_ip: { type: string, description: "OOB (ikinci hat) IP'si; boş: OOB kapalı. IP kilidi bu adresi de kabul eder" }
+        oob_name: { type: string, maxLength: 40, description: "OOB hattının bildirimlerde görünen adı (boş: \"OOB\")" }
+        uplink: { type: string, enum: [primary, oob], readOnly: true, description: "Ajanın etkin hattı (X-Probe-Uplink)" }
+        uplink_since: { type: integer, format: int64, readOnly: true, description: "Etkin hatta geçiş anı (unix sn; 0: hiç geçiş yok)" }
+        oob_iface_missing: { type: boolean, readOnly: true, description: "Ajan OOB IP'sinin yerel arayüzünü bulamadı (NAT; PROBE_OOB_IFACE gerekir)" }
         timing: { $ref: "#/components/schemas/ProbeTiming" }
     ProbeTiming:
       type: object
@@ -502,6 +507,8 @@ components:
         panel_sec: { type: integer, nullable: true, minimum: 1, maximum: 60 }
         mesh_addr: { type: string, maxLength: 255 }
         fallback_notifier: { type: boolean }
+        oob_ip: { type: string, description: "OOB (ikinci hat) IP'si; boş dize OOB'yi kapatır. Döngü, çoklu yayın ve belirsiz adres reddedilir (400)" }
+        oob_name: { type: string, maxLength: 40, description: "OOB hattının adı (boş: \"OOB\")" }
     AgentUpdate:
       type: object
       description: Ajanın güncelleme durumu.

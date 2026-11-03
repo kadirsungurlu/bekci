@@ -157,6 +157,52 @@ Mevcut monitörlerin kuralı kendiliğinden değişmez. Birkaç monitörü yeni 
 
 Kontrol noktası düşünce haberiniz olsun diye satır menüsünden **Düzenle** → **Çevrimdışı kalınca bildir** seçeneğini açıp bildirim kanallarını seçin. Kontrol noktasından art arda kopukluk eşiği kadar kalp atışı gelmezse (varsayılan 3 x 5 sn = 15 saniye) “*Ad*: kontrol noktasına ulaşılamıyor” bildirimi gider ve **Olaylar** sayfasında “Kontrol noktası çevrimdışı” türünde bir olay açılır; tekrar bağlanınca “… tekrar çevrimiçi” bildirimiyle olay kapanır ve kesinti süresi yazılır. Bu süreden kısa bir yeniden başlatma bildirim üretmez; daha fazla tolerans isterseniz eşiği ya da aralığı artırın. Kontrol noktasını siz devre dışı bırakırsanız bildirim gitmez, açık olay sessizce kapanır. Bu bildirimler monitörlerin kendi kanallarından bağımsızdır: kontrol noktasına seçtiğiniz kanallara gider.
 
+### İkinci hat (OOB) {#oob}
+
+Kontrol noktasının sunucusunda ikinci bir ağ bağlantısı (OOB, yönetim hattı, yedek hat) varsa ajan, ana hattan panele ulaşamadığında panel bağlantısını bu hatta taşır. Böylece ana hat koptuğunda kontrol noktası “çevrimdışı” görünmez; panel hangi hatta olduğunu bilir ve size bildirir.
+
+Yalnız ajanın **panele giden bağlantısı** (iş listesi, sonuçlar, kalp atışı, metrik, güncelleme) hat değiştirir. Ajanın yaptığı denetimler (HTTP, ping, DNS vb.) ve mesh bağlantıları her zaman işletim sisteminin yönlendirmesini izler.
+
+**OOB IP'sini girin.** **Ayarlar → Kontrol noktaları** listesinde satırın menüsünden **Düzenle** → **OOB (ikinci hat)** bölümünde **OOB IP adresi** alanına ikinci hattın IP adresini, isterseniz **Hat adı** alanına bildirimlerde görünecek adı yazın (varsayılan “OOB”, en çok 40 karakter). IP alanını boşaltmak özelliği kapatır. Döngü (`127.0.0.1`, `::1`), çoklu yayın ve `0.0.0.0` gibi adresler kabul edilmez.
+
+**IP kilidi.** [IP kilidi](#ip-kilidi) açıksa panel, kilitli ana IP'ye ek olarak OOB IP'sinden gelen istekleri de kabul eder. OOB IP'sinden gelen istek kilidi değiştirmez; kilit yalnız ana hattan gelen ilk istekle sabitlenir. OOB IP'si tam adres olarak karşılaştırılır (IPv6'da /64 blok değil).
+
+**Arayüzün bulunması.** Ajan, panelin verdiği OOB IP'sini sunucunun ağ arayüzlerinde arar ve panel bağlantısını o arayüze bağlar (kaynak adres = OOB IP'si). OOB IP'si sunucuda değil de önündeki bir NAT cihazındaysa (genel IP) arayüz bulunamaz: panelde **OOB arayüzü bulunamadı** uyarısı görünür ve ajan OOB'ye geçmez. Bu durumda ajanın ayar dosyasına (`/etc/uptime-probe.env`) arayüz adını ekleyin, ör. `PROBE_OOB_IFACE=eth1`; o arayüzün panel adresiyle aynı aileden (IPv4/IPv6) adresi kaynak olarak kullanılır. Ajanı yeniden başlatın; Docker'da konteyneri yeniden oluşturun (`docker restart` ayar dosyasını yeniden okumaz).
+
+**Linux.** Bağlantı `SO_BINDTODEVICE` ile arayüze ve OOB IP'sine bağlanır. Bunun için ajanın `CAP_NET_RAW` yetkisi (ya da root) gerekir; Docker kurulum komutu bu yetkiyi zaten verir (`--cap-add NET_RAW`). Yetki yoksa yalnız kaynak adres bağlanır; bu durumda paketlerin OOB arayüzünden çıkması için aşağıdaki policy routing kuralı **şarttır**. Yetki olsa da OOB arayüzünün kendi ağ geçidi yoksa (varsayılan rota yalnız ana hatta ise) aynı kuralı kurun:
+
+```bash
+# OOB arayüzü için ayrı yönlendirme tablosu (ör. eth1, ağ geçidi 10.20.0.1, OOB IP 10.20.0.15)
+echo "100 oob" >> /etc/iproute2/rt_tables
+ip route add default via 10.20.0.1 dev eth1 table oob
+ip rule add from 10.20.0.15 table oob
+# kontrol
+ip rule
+ip route show table oob
+curl --interface eth1 -sI https://bekci.ornek.com/healthz
+```
+
+Bu komutlar yeniden başlatmada silinir. Kalıcı yapmak için dağıtımınızın ağ yapılandırmasına ekleyin (netplan'da `routing-policy` ve `routes` altında `table: 100`, NetworkManager'da `ipv4.routing-rules` ve `ipv4.routes ... table=100`, ifupdown'da arayüzün `post-up` satırları).
+
+**Docker.** Konteyner varsayılan köprü ağında sunucunun OOB arayüzünü görmez. OOB kullanacak kontrol noktasını sunucunun ağında çalıştırın: kurulum komutundaki `-p 7480:7480` yerine `--network host` yazın (host ağında port yayınlamaya gerek yoktur; mesh doğrudan 7480 portunu dinler). Compose kullanıyorsanız servise `network_mode: host` ekleyin ve `ports:` satırlarını kaldırın.
+
+**Windows.** Bağlantı `IP_UNICAST_IF` ile OOB arayüzüne bağlanır; ek yetki gerekmez. OOB arayüzünde ağ geçidi tanımlı olmalıdır (yoksa Windows paketi gönderemez). NAT durumunda `C:\Program Files\Uptime\agent.env` dosyasına arayüz adını (`PROBE_OOB_IFACE=Ethernet 2`) ekleyin.
+
+**Geçiş.** Ajan şu iki koşul birlikte sağlanınca OOB'ye geçer:
+
+- Ana hattan panele art arda **kopukluk eşiği** (Ayarlar → Kontrol noktaları, varsayılan 3) kadar istek bağlantı hatasıyla (bağlantı kurulamadı, zaman aşımı) sonuçlandı. Panelin `4xx`/`5xx` yanıtları sayılmaz; panel yanıt veriyorsa hat sağlamdır.
+- OOB hattından panelin `GET /healthz` adresi başarılı yanıt verdi.
+
+Mesh açıksa ve ajan ana hattan en az bir eşe hâlâ ulaşıyorsa geçilmez: sorun ana hatta değil panel tarafındadır. Geçiş anında açık bağlantılar kesilir ve OOB'den yeniden kurulur. Varsayılan ayarlarla geçiş, ana hat koptuktan yaklaşık kopukluk eşiği x panel haberleşme aralığı (3 x 5 sn = 15 sn) sonra olur. Günlükte `ana hattan Main'e ulaşılamıyor; OOB hattına geçildi` satırı görünür.
+
+**Dönüş.** Ajan OOB'de en az **5 dakika** kaldıktan sonra ana hattan art arda **3 başarılı** `/healthz` alınca ana hatta döner (günlükte `ana hatta dönüldü`). OOB hattı da koparsa beklemeden, ana hattan tek başarılı `/healthz` yeter.
+
+**Bildirimler.** Geçişte “*Ad* ana hatta erişemiyor, şu an *OOB adı* üzerinden bağlı”, dönüşte “*Ad* ana hatta döndü” bildirimi gider (dönüşte ikinci hatta geçen süre de yazılır). Bildirimler kontrol noktasının **Çevrimdışı kalınca bildir** kanallarına gider ([Çevrimdışı bildirimi](#kontrol-noktasi-bildirim)); sunucu ajanında sunucunun bildirim kanallarına. Kontrol noktaları listesindeki rozet etkin hattı (**Ana hat** ya da “*OOB adı* üzerinden”) ve geçiş zamanını gösterir.
+
+**OOB'deyken denetim sonuçları.** Ajan OOB'deyken denetimleri yine ana hattan (bozuk yoldan) çıkar; bu yüzden o konumun sonuçları kesinti kararına katılmaz ve konum “bilinmiyor” sayılır (konum kartında not olarak yazılır). OOB'deki bir konum “Başarısız” dese de kısmi erişim kesintisi ya da kesinti açılmaz.
+
+Ajan her istekte etkin hattı `X-Probe-Uplink` (`primary` ya da `oob`) ve arayüz durumunu `X-Probe-OOB-Iface` (`ok` ya da `missing`) başlığıyla panele bildirir; panelin önündeki ters vekil bu başlıkları silmemelidir.
+
 ## Kurulumun oluşturduğu dosyalar {#dosyalar}
 
 | Kurulum | Program | Token (ayar dosyası) | Hizmet / konteyner |
@@ -252,6 +298,8 @@ Sunucunun IP adresi değişirse (ör. sunucuyu taşıdınız) kilidi sıfırlay�
 
 - **Sunucu ajanı:** sunucunun sayfasında **Ayarlar** → **Kilidi sıfırla**.
 - **Kontrol noktası:** **Ayarlar → Kontrol noktaları** listesinde satırın menüsünden **Düzenle** → **Kilidi sıfırla**.
+
+Kontrol noktasına [OOB IP'si](#oob) girdiyseniz o adresten gelen istekler de kabul edilir; kilit değişmez.
 
 Kilidi aynı yerden tamamen kapatabilirsiniz (**IP'ye kilitle** anahtarı). Token'ın sızdığından şüpheleniyorsanız token'ı yenileyip kurulum komutunu yeniden çalıştırın ([güncelleme](#guncelleme) adımları).
 

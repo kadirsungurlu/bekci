@@ -131,6 +131,26 @@ When the disk is full, Bekci can't write new measurements; with SQLite the autom
 
 If the `postgres` image refuses to start with `HATA: PostgreSQL ana sürümü uyuşmuyor.` (“ERROR: PostgreSQL major version mismatch.”), follow the [PostgreSQL major version upgrade](/en/docs/updates-backups/#postgresql-upgrade) steps.
 
+## “OOB interface not found” {#oob-interface}
+
+The OOB IP entered in the panel is on none of the check location's network interfaces. Possible causes:
+
+- The OOB IP is not on the server but on a NAT device in front of it (a public IP). Add the interface name to the agent's settings file (`PROBE_OOB_IFACE=eth1`) and restart the agent (in Docker, `docker restart` doesn't re-read the settings file; recreate the container).
+- The agent runs in Docker on the bridge network and can't see the server's OOB interface. Run the container with `--network host` (`network_mode: host` in Compose).
+- The IP was mistyped. Compare it with `ip -br addr` (`ipconfig` on Windows) on the server.
+
+Details: [Second line (OOB)](/en/docs/server-agent/#oob).
+
+## The primary line is down but the agent doesn't switch to OOB {#oob-no-switch}
+
+Check in order:
+
+1. If the panel shows **OOB interface not found**, [fix that first](#oob-interface).
+2. `curl --interface <oob_interface> -sI https://bekci.example.com/healthz` must work on the server. If it doesn't, the OOB interface has no gateway or packets leave over the primary line: check the [policy routing](/en/docs/server-agent/#oob) setup with `ip rule` and `ip route show table oob`. The rule is required when the agent runs without the `CAP_NET_RAW` capability.
+3. Error type: the switch happens only on connection errors (could not connect, timeout). If the panel answers with `4xx`/`5xx`, the primary line counts as healthy and there is no switch.
+4. If mesh is on and the check location still reaches at least one peer over the primary line, there is no switch: the problem is taken to be on the panel's side.
+5. Timing: the switch happens after loss threshold errors in a row (default 3 x 5 s = 15 s). Look for `OOB hattına geçildi` in the log.
+
 ## Frequently asked questions {#faq}
 
 ### Is Bekci free? {#free}
