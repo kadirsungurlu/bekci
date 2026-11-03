@@ -122,6 +122,9 @@ func (s *Store) SaveServerSample(ctx context.Context, in ServerSample) (first bo
 			in.ProbeID, in.Time, string(in.Data)); err != nil {
 			return err
 		}
+		if err := s.writeServerMetrics(ctx, tx, in.ProbeID, in.Time, in.Data); err != nil {
+			return err
+		}
 		_, err = tx.ExecContext(ctx, `
 			UPDATE probes SET metrics_at = ?, metrics_note = '',
 				host_info = CASE WHEN ? = '' THEN host_info ELSE ? END

@@ -107,8 +107,8 @@ CREATE INDEX mesh_samples_time ON mesh_samples(time);
 `)
 }
 
-// tsMinVersion dönüşümün gerektirdiği şema sürümü (mesh_samples, histogram).
-const tsMinVersion = 43
+// tsMinVersion dönüşümün gerektirdiği şema sürümü (43 mesh_samples + histogram, 44 sunucu metrikleri).
+const tsMinVersion = 44
 
 // Saklama ve sıkıştırma (tasarım §3.2). Ham saklama ayardan (Go bakımı
 // drop_chunks çağırır); burada yalnız parça aralığı ve sıkıştırma eşiği.
@@ -155,6 +155,9 @@ func (s *Store) ensureTimescale(ctx context.Context) error {
 	defer cancel()
 	if err := s.tsConvertHyper(cctx, ext); err != nil {
 		return fmt.Errorf("TimescaleDB hypertable dönüşümü: %w", err)
+	}
+	if err := s.tsServerMetrics(cctx, ext, license == "timescale"); err != nil {
+		return fmt.Errorf("TimescaleDB sunucu metrikleri: %w", err)
 	}
 	s.mode = DBModeTimescaleApache
 	if license != "timescale" {

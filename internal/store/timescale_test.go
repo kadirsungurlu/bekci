@@ -167,6 +167,38 @@ func TestTimescaleConvertExisting(t *testing.T) {
 		t.Fatalf("mesh örneği %d, 1 bekleniyordu", n)
 	}
 
+	// Sunucu örneği: JSON server_stats'a, sütunlar hypertable'lara.
+	for _, h := range []string{"server_metrics", "server_disk_metrics", "server_container_metrics"} {
+		if ok, err := s.tsHas(ctx, "hypertables", h); err != nil || !ok {
+			t.Fatalf("%s hypertable değil (%v)", h, err)
+		}
+	}
+	p := Probe{Kind: ProbeKindServer, Name: "cp", Active: true, CreatedAt: 1, Hash: "h"}
+	if err := s.CreateProbe(ctx, &p); err != nil {
+		t.Fatal(err)
+	}
+	sample := `{"cpu":12.5,"load1":0.5,"mem_total":1000,"mem_used":400,"temps":[{"name":"a","c":40},{"name":"b","c":55}],` +
+		`"disks":[{"mount":"/","total":100,"used":60},{"mount":"/data","total":200,"used":10}],"containers":[{"id":"abc","name":"web","cpu":3,"mem":50,"state":"running"}]}`
+	for range 2 { // aynı dakika iki kez: tek satır
+		if _, err := s.SaveServerSample(ctx, ServerSample{ProbeID: p.ID, Time: now - now%60, At: now, Data: []byte(sample)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var cpu, temp float64
+	if err := s.db.QueryRowContext(ctx, "SELECT cpu, temp_max FROM server_metrics WHERE probe_id = ?", p.ID).Scan(&cpu, &temp); err != nil || cpu != 12.5 || temp != 55 {
+		t.Fatalf("server_metrics: %v %v %v", cpu, temp, err)
+	}
+	if d, c := countRows(t, s, "server_disk_metrics"), countRows(t, s, "server_container_metrics"); d != 2 || c != 1 {
+		t.Fatalf("disk %d, konteyner %d satır", d, c)
+	}
+	var used int64
+	if err := s.db.QueryRowContext(ctx, "SELECT used_max FROM server_disk_1h WHERE probe_id = ? AND mount = '/'", p.ID).Scan(&used); err != nil || used != 60 {
+		t.Fatalf("server_disk_1h: %d %v", used, err)
+	}
+	if n := countRows(t, s, "server_metrics_1h"); n != 1 {
+		t.Fatalf("server_metrics_1h %d satır", n)
+	}
+
 	// İkinci açılış: dönüşüm tekrar yapılmaz, hata yok.
 	again, err := Open(target, time.UTC)
 	if err != nil {
