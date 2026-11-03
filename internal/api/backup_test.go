@@ -334,7 +334,7 @@ func TestImportValidation(t *testing.T) {
 		},
 		"monitors": []map[string]any{
 			{"id": 1, "name": "Sihirli", "type": "sihirli", "interval": 60, "config": map[string]any{}},
-			{"id": 2, "name": "Hızlı", "type": "push", "interval": 5, "config": map[string]any{}},
+			{"id": 2, "name": "Hızlı", "type": "push", "interval": 4, "config": map[string]any{}},
 			{"id": 3, "name": "P1", "type": "push", "interval": 86400, "config": map[string]any{}, "push_token": "ayni-token-123",
 				"notifications": []string{"Yok"}, "tags": []map[string]any{{"name": "yeni-etiket", "value": "d"}}},
 			{"id": 3, "name": "P2", "type": "push", "interval": 86400, "config": map[string]any{}, "push_token": "ayni-token-123"},
@@ -361,7 +361,7 @@ func TestImportValidation(t *testing.T) {
 	}
 	for k, want := range map[string]string{
 		"monitor:P1": "“Yok” bulunamadı", "monitor:P2": "başka bir monitörde", "monitor:P3": "kullanılamıyor",
-		"monitor:Hızlı": "20 saniye", "notification:Bilinmeyen": "bu sürümde yok", "status_page:İyi": "yayından kaldırılmış",
+		"monitor:Hızlı": "5 saniye", "notification:Bilinmeyen": "bu sürümde yok", "status_page:İyi": "yayından kaldırılmış",
 	} {
 		if !strings.Contains(msgs[k], want) {
 			t.Errorf("%s mesajı %q, %q içermeli", k, msgs[k], want)

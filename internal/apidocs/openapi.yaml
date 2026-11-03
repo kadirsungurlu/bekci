@@ -240,7 +240,7 @@ components:
         name: { type: string }
         type: { type: string }
         description: { type: string }
-        interval: { type: integer, minimum: 20 }
+        interval: { type: integer, minimum: 5, maximum: 86400 }
         retry_interval: { type: integer }
         max_retries: { type: integer }
         timeout: { type: integer, description: Kontrol aralığından kısa olmalı }

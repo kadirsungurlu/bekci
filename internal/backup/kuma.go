@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/kadirsungurlu/bekci/internal/check"
+	"github.com/kadirsungurlu/bekci/internal/store"
 
 	_ "modernc.org/sqlite"
 )
@@ -446,7 +447,7 @@ func kumaTimings(m kv, out *Monitor) {
 	if interval <= 0 {
 		interval = 60
 	}
-	out.Interval = clamp(interval, 20, 86400)
+	out.Interval = clamp(interval, store.MinIntervalSec, store.MaxIntervalSec)
 	if out.Interval != interval {
 		out.Notes = append(out.Notes, fmt.Sprintf("Kontrol aralığı %d sn → %d sn", interval, out.Interval))
 	}
@@ -454,7 +455,7 @@ func kumaTimings(m kv, out *Monitor) {
 	if retry <= 0 {
 		retry = out.Interval
 	}
-	out.RetryInterval = clamp(retry, 20, 86400)
+	out.RetryInterval = clamp(retry, store.MinIntervalSec, store.MaxIntervalSec)
 	retries := m.int("maxretries", "max_retries", "maxRetries")
 	out.MaxRetries = clamp(retries, 0, 20)
 	if out.MaxRetries != retries {

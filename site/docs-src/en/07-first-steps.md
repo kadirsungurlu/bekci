@@ -30,7 +30,7 @@ Click **Create account** and you're taken straight into the panel. This screen a
 1. On the **Monitors** page, click **Add monitor** (or **New** at the top right).
 2. Choose **HTTP(S)** as the **Monitor type** (to watch a website or an API).
 3. Give it a clear **Name** (e.g. “Company website”) and enter the site's address in **URL** (e.g. `https://example.com`).
-4. **Check interval** is how often it's checked: at least 20 seconds, at most 24 hours. 60 seconds is a good start.
+4. **Check interval** is how often it's checked: at least 5 seconds, at most 24 hours. 60 seconds is a good start; short intervals such as 5-15 seconds write a record on every check, so use them only for targets that really need fast detection. The timeout cannot be longer than the check interval.
 5. Click **Add monitor**.
 
 ![New monitor form: monitor type picker with web, network, database and system categories](/img/yeni-monitor-1600.webp)

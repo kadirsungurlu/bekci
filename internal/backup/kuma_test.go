@@ -67,7 +67,7 @@ INSERT INTO monitor (id, name, type, url, method, body, headers, basic_auth_user
 VALUES (1, 'Ana site', 'http', 'https://example.com', 'POST', 'a=1', '{"X-Token":"abc","Accept":"text/html"}', 'admin', 'gizli',
 	'basic', '["200-299","301"]', 3, 1, 30, 25, 3, 12.5, 5, 0, 1, 'açıklama', 'form', 1, 0);
 INSERT INTO monitor (id, name, type, url, keyword, invert_keyword, interval, active, parent)
-	VALUES (2, 'Kelime', 'keyword', 'https://example.com/durum', 'Hata', 1, 10, 0, 7);
+	VALUES (2, 'Kelime', 'keyword', 'https://example.com/durum', 'Hata', 1, 3, 0, 7);
 INSERT INTO monitor (id, name, type, url, json_path, expected_value, interval, parent)
 	VALUES (3, 'JSON', 'json-query', 'https://api.example.com/saglik', '$.data.items[0].status', 'ok', 60, 7);
 INSERT INTO monitor (id, name, type, hostname, port, interval) VALUES (4, 'SSH', 'port', 'sunucu.example.com', 22, 60);
@@ -203,7 +203,7 @@ func checkKumaDoc(t *testing.T, res *Result) {
 
 	kw := monitorByName(t, d, "Kelime")
 	c = cfgOf(kw)
-	if c["keyword"] != "Hata" || c["keyword_invert"] != true || c["keyword_case"] != true || kw.Active || kw.Interval != 20 {
+	if c["keyword"] != "Hata" || c["keyword_invert"] != true || c["keyword_case"] != true || kw.Active || kw.Interval != 5 {
 		t.Errorf("keyword: %+v %v", kw, c)
 	}
 	c = cfgOf(monitorByName(t, d, "JSON"))
@@ -294,7 +294,7 @@ const kumaJSONBackup = `{
    "httpBodyEncoding": "form", "expiryNotification": false, "parent": null,
    "notificationIDList": {"1": true, "2": true, "4": true}, "tags": [{"tag_id": 1, "monitor_id": 1, "value": "canlı", "name": "ortam", "color": "#DC2626"}]},
   {"id": 2, "name": "Kelime", "type": "keyword", "url": "https://example.com/durum", "keyword": "Hata", "invertKeyword": true,
-   "interval": 10, "active": false, "parent": 7, "notificationIDList": {}},
+   "interval": 3, "active": false, "parent": 7, "notificationIDList": {}},
   {"id": 3, "name": "JSON", "type": "json-query", "url": "https://api.example.com/saglik", "jsonPath": "$.data.items[0].status",
    "expectedValue": "ok", "interval": 60, "active": true, "parent": 7},
   {"id": 4, "name": "SSH", "type": "port", "hostname": "sunucu.example.com", "port": 22, "interval": 60, "active": true,

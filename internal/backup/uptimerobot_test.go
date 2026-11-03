@@ -53,7 +53,7 @@ func URSample() []map[string]any {
 			"keyword_case_type": 0, "keyword_value": "Hata", "http_username": "u", "http_password": "p", "port": "", "interval": 60,
 			"status": 9, "http_method": 2},
 		{"id": 103, "friendly_name": "Olmalı", "url": "https://example.com", "type": 2, "keyword_type": "2", "keyword_case_type": "1",
-			"keyword_value": "Hoş geldiniz", "interval": 10, "status": 0},
+			"keyword_value": "Hoş geldiniz", "interval": 3, "status": 0},
 		{"id": 104, "friendly_name": "Sunucu ping", "url": "1.2.3.4", "type": 3, "interval": 300, "status": 2},
 		{"id": 105, "friendly_name": "HTTPS portu", "url": "sunucu.example.com", "type": 4, "sub_type": 2, "port": "", "interval": 300, "status": 2},
 		{"id": 106, "friendly_name": "Özel port", "url": "sunucu.example.com", "type": 4, "sub_type": 99, "port": 5432, "interval": 300, "status": 2},
@@ -89,7 +89,7 @@ func TestUptimeRobot(t *testing.T) {
 	}
 	must := monitorByName(t, d, "Olmalı")
 	c = cfgOf(must)
-	if c["keyword_invert"] != false || c["keyword_case"] != true || must.Active || must.Interval != 20 {
+	if c["keyword_invert"] != false || c["keyword_case"] != true || must.Active || must.Interval != 5 {
 		t.Errorf("keyword (yoksa uyar), duraklatılmış: %+v %v", must, c)
 	}
 	if c := cfgOf(monitorByName(t, d, "Sunucu ping")); c["host"] != "1.2.3.4" {

@@ -289,7 +289,7 @@ export default {
     pushGrace: 'Tolerans (sn)',
     pushGraceHelp:
       'Beklenen aralığın üstüne eklenen ek süre: iş bazen gecikiyorsa (ör. 30 dk’lık yedek bazen 40 dk sürüyorsa) bu süre dolmadan “sinyal gelmedi” sayılmaz. 0 = tolerans yok.',
-    intervalHelp: 'Hedef bu sıklıkla kontrol edilir. En az 20 saniye, en fazla 24 saat.',
+    intervalHelp: 'Hedef bu sıklıkla kontrol edilir. En az 5 saniye, en fazla 24 saat.',
     noChannels:
       'Henüz bildirim kanalı yok. {link} sayfasından WhatsApp, Telegram, e-posta gibi bir kanal ekleyebilirsiniz.',
     notifyHelp: 'Bu monitör çalışmadığında ve düzeldiğinde seçili kanallara bildirim gönderilir.',
@@ -327,6 +327,7 @@ export default {
     retryIntervalHelp: 'Hata sonrası tekrar denemeler arasındaki süre.',
     timeout: 'Zaman aşımı (sn)',
     timeoutHelp: 'Bu sürede yanıt gelmezse kontrol başarısız sayılır.',
+    timeoutClipped: 'Zaman aşımı yeni kontrol aralığını aşıyordu; {n} saniyeye düşürüldü (Gelişmiş ayarlar).',
     timeoutTooLong: 'Zaman aşımı kontrol aralığından ({n} sn) uzun olamaz; aksi halde kontrol bir sonrakine kadar bitmez.',
     resend: 'Hatırlatma sıklığı',
     resendHelp: 'Kesinti sürerken her N başarısız kontrolde bir tekrar bildir. 0 = kapalı.',
@@ -394,7 +395,7 @@ export default {
     v: {
       nameRequired: 'Monitör adı gerekli',
       nameTooLong: 'Ad en fazla 100 karakter olabilir',
-      intervalRange: 'Kontrol aralığı 20 saniye ile 24 saat (86400 sn) arasında olmalı',
+      intervalRange: 'Kontrol aralığı 5 saniye ile 24 saat (86400 sn) arasında olmalı',
       pushGraceRange: 'Tolerans 0 ile 86400 saniye arasında olmalı',
       urlInvalid: 'Geçerli bir http:// veya https:// adresi girin',
       badCode: 'Geçersiz durum kodu: “{code}”. Kodlar 100-599 arasında olmalı; örnek biçimler: 200, 200-299, 2xx',
@@ -414,7 +415,7 @@ export default {
       groupSelf: 'Grup kendisini alt monitör olarak içeremez',
       groupPercent: 'Grup eşiği %0-99 arasında olmalı',
       locEmpty: 'Konumlar: en az bir konum seçin',
-      retryIntervalRange: 'Tekrar deneme aralığı 20 saniye ile 24 saat arasında olmalı',
+      retryIntervalRange: 'Tekrar deneme aralığı 5 saniye ile 24 saat arasında olmalı',
       retriesRange: 'Tekrar deneme sayısı 0-20 arasında olmalı',
       timeoutInterval: 'Zaman aşımı kontrol aralığından uzun olamaz',
       timeoutRange: 'Zaman aşımı 1-300 saniye arasında olmalı',

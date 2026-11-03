@@ -289,7 +289,7 @@ export default {
     pushGrace: 'Grace period (sec)',
     pushGraceHelp:
       'Extra time added on top of the expected interval: if the job is sometimes late (e.g. a 30-minute backup that occasionally takes 40), it is not counted as “no signal” before this runs out. 0 = no grace period.',
-    intervalHelp: 'How often the target is checked. At least 20 seconds, at most 24 hours.',
+    intervalHelp: 'How often the target is checked. At least 5 seconds, at most 24 hours.',
     noChannels:
       'No notification channels yet. You can add one (WhatsApp, Telegram, email and more) on the {link} page.',
     notifyHelp: 'When this monitor goes down and recovers, the selected channels are notified.',
@@ -327,6 +327,7 @@ export default {
     retryIntervalHelp: 'Time between retries after a failure.',
     timeout: 'Timeout (sec)',
     timeoutHelp: 'The check fails if there is no response within this time.',
+    timeoutClipped: 'The timeout was longer than the new check interval; it was lowered to {n} seconds (Advanced settings).',
     timeoutTooLong: 'Timeout can’t be longer than the check interval ({n} sec); otherwise the check wouldn’t finish before the next one.',
     resend: 'Reminder frequency',
     resendHelp: 'While an outage lasts, notify again every N failed checks. 0 = off.',
@@ -393,7 +394,7 @@ export default {
     v: {
       nameRequired: 'Monitor name is required',
       nameTooLong: 'Name can be at most 100 characters',
-      intervalRange: 'Check interval must be between 20 seconds and 24 hours (86400 sec)',
+      intervalRange: 'Check interval must be between 5 seconds and 24 hours (86400 sec)',
       pushGraceRange: 'Grace period must be between 0 and 86400 seconds',
       urlInvalid: 'Enter a valid http:// or https:// URL',
       badCode: 'Invalid status code: “{code}”. Codes must be between 100 and 599; example formats: 200, 200-299, 2xx',
@@ -413,7 +414,7 @@ export default {
       groupSelf: 'A group can’t contain itself as a child monitor',
       groupPercent: 'The group threshold must be between 0% and 99%',
       locEmpty: 'Locations: select at least one location',
-      retryIntervalRange: 'Retry interval must be between 20 seconds and 24 hours',
+      retryIntervalRange: 'Retry interval must be between 5 seconds and 24 hours',
       retriesRange: 'Retries must be between 0 and 20',
       timeoutInterval: "Timeout can't be longer than the check interval",
       timeoutRange: 'Timeout must be between 1 and 300 seconds',

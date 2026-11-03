@@ -27,7 +27,7 @@ Paneli ilk açtığınızda **Hoş geldiniz** ekranı yönetici hesabını oluş
 1. **Monitörler** sayfasında **Monitör ekle** (ya da sağ üstteki **Yeni**) düğmesine basın.
 2. **Monitör tipi** olarak **HTTP(S)** seçin (bir web sitesini ya da API'yi izlemek için).
 3. **Ad** alanına anlaşılır bir ad yazın (ör. “Şirket web sitesi”), **Adres (URL)** alanına sitenin adresini yazın (ör. `https://ornek.com`).
-4. **Kontrol aralığı** ne sıklıkla kontrol edileceğidir: en az 20 saniye, en fazla 24 saat. Başlangıç için 60 saniye iyi bir seçimdir.
+4. **Kontrol aralığı** ne sıklıkla kontrol edileceğidir: en az 5 saniye, en fazla 24 saat. Başlangıç için 60 saniye iyi bir seçimdir; 5-15 saniye gibi kısa aralıklar her kontrolde kayıt yazdığından yalnız gerçekten hızlı fark edilmesi gereken hedeflerde kullanılmalıdır. Zaman aşımı kontrol aralığından uzun olamaz.
 5. **Monitörü ekle** düğmesine basın.
 
 ![Yeni monitör formu: web, ağ, veritabanı ve sistem kategorilerinde monitör tipi seçici](/img/yeni-monitor-1600.webp)
