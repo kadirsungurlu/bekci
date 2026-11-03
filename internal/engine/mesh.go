@@ -172,6 +172,9 @@ func (e *Engine) commitMesh(ctx context.Context, r mesh.Report, key string, prob
 }
 
 func (e *Engine) sendMesh(ev notify.Event) {
+	if ev.Mesh != nil {
+		ev.Image = e.meshImage(*ev.Mesh)
+	}
 	if e.cfg.BaseURL != "" {
 		ev.URL = e.cfg.BaseURL + "/#/settings/probes"
 		if ev.IncidentID != 0 {
@@ -180,6 +183,35 @@ func (e *Engine) sendMesh(ev notify.Event) {
 	}
 	e.hub.Publish("incident", map[string]any{"incident_id": ev.IncidentID, "kind": store.IncidentMesh})
 	e.notifier.Notify(ev)
+}
+
+// meshImageTimeout şema çiziminin üst sınırı; aşılırsa bildirim yalnız metin.
+var meshImageTimeout = 200 * time.Millisecond
+
+// meshImage bildirime eklenen topoloji PNG'si (olay başına bir kez). Dil
+// ayarlardaki bildirim dili; kanala özel dil seçilmişse metin o dilde, şema
+// bu dilde kalır. Hata ya da süre aşımında nil.
+func (e *Engine) meshImage(r mesh.Report) []byte {
+	lang := i18n.Default
+	if s := e.settings.Load(); s != nil {
+		lang = i18n.Or(s.NotifyLang)
+	}
+	ch := make(chan []byte, 1)
+	go func() {
+		b, err := mesh.RenderPNG(mesh.BuildTopology(r.Verdict), r.Names, lang)
+		if err != nil {
+			e.log.Warn("mesh şeması çizilemedi", "hata", err)
+			b = nil
+		}
+		ch <- b
+	}()
+	select {
+	case b := <-ch:
+		return b
+	case <-time.After(meshImageTimeout):
+		e.log.Warn("mesh şeması süre aşımı; bildirim yalnız metin")
+		return nil
+	}
 }
 
 // notifiable "çevrimdışında bildir" açık olan kontrol noktaları.

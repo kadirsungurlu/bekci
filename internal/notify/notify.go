@@ -140,6 +140,10 @@ type Event struct {
 	MeshLost bool
 	// Mesh mesh ve mesh_resolved bildiriminin raporu (bağlantılar, yorum, mesaj sahibi).
 	Mesh *mesh.Report
+	// Image yalnız mesh bildiriminde: topoloji şemasının PNG'si (motor olay
+	// başına bir kez çizer; boşsa yalnız metin). Kuyruğa yazılmaz: ertelenen
+	// bildirim yalnız metinle gider.
+	Image []byte `json:"-"`
 	// MeshProbes mesh bildiriminin kanallarının alınacağı kontrol noktaları.
 	MeshProbes []int64
 	LocalName  string

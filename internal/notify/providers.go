@@ -8,7 +8,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"mime"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -110,11 +112,79 @@ func (telegram) Normalize(raw json.RawMessage) (json.RawMessage, error) {
 func (telegram) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 	var c telegramConfig
 	json.Unmarshal(raw, &c)
-	payload := map[string]any{"chat_id": c.ChatID, "text": ev.Text(), "disable_web_page_preview": true}
+	base, text := telegramAPI+"/bot"+c.BotToken, ev.Text()
+	if len(ev.Image) > 0 {
+		// Şema fotoğraf olarak, metin altyazıda; altyazı sınırını aşan metin
+		// kısa altyazı + ardından tam metin. Fotoğraf gitmezse yalnız metin:
+		// metin her durumda gönderilir.
+		caption, full := telegramCaption(text)
+		if err := telegramPhoto(ctx, base, c, ev.Image, caption); err == nil {
+			if full == "" {
+				return nil
+			}
+			text = full
+		}
+	}
+	payload := map[string]any{"chat_id": c.ChatID, "text": text, "disable_web_page_preview": true}
 	if c.ThreadID != 0 {
 		payload["message_thread_id"] = c.ThreadID
 	}
-	return postJSON(ctx, telegramAPI+"/bot"+c.BotToken+"/sendMessage", payload, nil)
+	return postJSON(ctx, base+"/sendMessage", payload, nil)
+}
+
+// telegramCaptionMax Telegram altyazı sınırı (UTF-16 birimi).
+const telegramCaptionMax = 1024
+
+// telegramCaption metin altyazıya sığarsa (metin, ""); sığmazsa ilk satırdan
+// kısa altyazı ve ayrıca gönderilecek tam metin.
+func telegramCaption(text string) (caption, full string) {
+	if utf16Len(text) <= telegramCaptionMax {
+		return text, ""
+	}
+	first, _, _ := strings.Cut(text, "\n")
+	r := []rune(first)
+	for utf16Len(string(r)) > telegramCaptionMax-1 {
+		r = r[:len(r)-1]
+	}
+	if len(r) < len([]rune(first)) {
+		return string(r) + "…", text
+	}
+	return first, text
+}
+
+func utf16Len(s string) int {
+	n := 0
+	for _, r := range s {
+		if r >= 0x10000 {
+			n += 2
+		} else {
+			n++
+		}
+	}
+	return n
+}
+
+// telegramPhoto sendPhoto (multipart): şema PNG'si + altyazı.
+func telegramPhoto(ctx context.Context, base string, c telegramConfig, img []byte, caption string) error {
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	w.WriteField("chat_id", c.ChatID)
+	if c.ThreadID != 0 {
+		w.WriteField("message_thread_id", strconv.FormatInt(c.ThreadID, 10))
+	}
+	w.WriteField("caption", caption)
+	h := textproto.MIMEHeader{}
+	h.Set("Content-Disposition", `form-data; name="photo"; filename="mesh.png"`)
+	h.Set("Content-Type", "image/png")
+	fw, err := w.CreatePart(h)
+	if err != nil {
+		return err
+	}
+	fw.Write(img)
+	if err := w.Close(); err != nil {
+		return err
+	}
+	return doRequest(ctx, http.MethodPost, base+"/sendPhoto", &body, map[string]string{"Content-Type": w.FormDataContentType()})
 }
 
 // Discord -------------------------------------------------------------------------

@@ -81,6 +81,9 @@ func TestMeshNodeVerdict(t *testing.T) {
 	if ev.Mesh == nil || ev.Mesh.Verdict.Key() != "node:"+strconv.FormatInt(c, 10)+";" || len(ev.MeshProbes) != 1 || ev.MeshProbes[0] != c {
 		t.Fatalf("yorum: %+v %v", ev.Mesh, ev.MeshProbes)
 	}
+	if len(ev.Image) < 8 || string(ev.Image[1:4]) != "PNG" {
+		t.Fatalf("mesh bildiriminde şema PNG'si yok (%d bayt)", len(ev.Image))
+	}
 	if p := ev.Mesh.Verdict.Pair(a, c); p.State != mesh.PairDown {
 		t.Fatalf("A-C çifti: %+v", p)
 	}
