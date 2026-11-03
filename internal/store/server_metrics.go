@@ -69,7 +69,7 @@ CREATE INDEX server_container_metrics_time ON server_container_metrics(time);
 // tsServerTables hypertable ayarları: sıkıştırma segmentby, sıkıştırma ve
 // saklama eşiği (sn).
 var tsServerTables = []struct {
-	name, segment     string
+	name, segment    string
 	compress, retain int64
 }{
 	{"server_metrics", "probe_id", 3 * 86400, 30 * 86400},
@@ -110,7 +110,9 @@ func (s *Store) tsServerMetrics(ctx context.Context, ext string, full bool) erro
 	if err != nil || done {
 		return err
 	}
-	tb := func(w int, col string) string { return fmt.Sprintf("%s.time_bucket(CAST(%d AS BIGINT), %s)", ext, w, col) }
+	tb := func(w int, col string) string {
+		return fmt.Sprintf("%s.time_bucket(CAST(%d AS BIGINT), %s)", ext, w, col)
+	}
 	pol := func(name string, start, end int64, every string) string {
 		return fmt.Sprintf(`SELECT %s.add_continuous_aggregate_policy('%s', start_offset => CAST(%d AS BIGINT), end_offset => CAST(%d AS BIGINT), schedule_interval => INTERVAL '%s')`,
 			ext, name, start, end, every)
