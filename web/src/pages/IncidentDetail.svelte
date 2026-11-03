@@ -133,6 +133,7 @@
   const partial = $derived(inc?.kind === 'partial' || degraded);
   const server = $derived(isServerIncident(inc?.kind));
   const probe = $derived(isProbeIncident(inc?.kind));
+  const mesh = $derived(inc?.kind === 'mesh');
   const offline = $derived(inc?.kind === 'server_offline' || probe);
   const sdata = $derived<ServerIncidentData | null>(server ? ((inc?.data ?? null) as ServerIncidentData | null) : null);
   const smetric = $derived((sdata?.metric ?? '') as ServerMetric);
@@ -215,6 +216,8 @@
     slow_resolved: 'notifyUp',
     probe_offline: 'notifyServerAlert',
     probe_online: 'notifyUp',
+    mesh: 'notifyServerAlert',
+    mesh_resolved: 'notifyUp',
   };
   const LOC_TONE: Record<string, Tone> = { up: 'up', down: 'down', retrying: 'pending', unknown: 'muted' };
 
@@ -254,12 +257,14 @@
           ? t('incidents.ev.degradedStarted')
           : partial
           ? t('incidents.ev.partialStarted')
-          : probe
+          : mesh
+            ? t('incidents.ev.meshStarted')
+            : probe
             ? t('incidents.ev.probeOffline')
             : server
               ? t(offline ? 'incidents.ev.serverOffline' : 'incidents.ev.serverAlert')
               : t('incidents.ev.started');
-        r.sub = offline ? '' : ev.message;
+        r.sub = offline && !mesh ? '' : ev.message;
         r.note = ev.location ? t('incidents.ev.confirmedBy', { where: locName(ev.location) }) : '';
         break;
       case 'escalated':
@@ -274,6 +279,12 @@
         if (other) r.href = `#/incidents/${other}`;
         break;
       }
+      case 'mesh_change':
+        r.icon = 'wifi-off';
+        r.tone = 'down';
+        r.title = t('incidents.ev.meshChanged');
+        r.sub = ev.message;
+        break;
       case 'change':
         r.icon = 'alert';
         r.tone = 'down';
@@ -625,6 +636,19 @@
             {#if data.location}
               <div class="cause-w"><Icon name="map-pin" size={14} /> {locName(data.location)}</div>
             {/if}
+          </div>
+        {/if}
+        {#if mesh && data.mesh}
+          <div class="card mesh">
+            <div class="label">{t('incidents.detail.meshFindings')}</div>
+            <ul class="mesh-l">
+              {#each data.mesh.findings as f, i (i)}<li><span class="dot {ongoing ? 'down' : 'up'}"></span>{f}</li>{/each}
+            </ul>
+            <div class="label">{t('incidents.detail.meshLinks')}</div>
+            <ul class="mesh-l">
+              {#each data.mesh.pairs as p (p.a + '-' + p.b)}<li><span class="dot {p.state}"></span>{p.text}</li>{/each}
+            </ul>
+            <div class="muted small">{t('incidents.detail.meshOwner', { owner: data.mesh.owner })}</div>
           </div>
         {/if}
 
@@ -1027,6 +1051,39 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--muted);
+  }
+  .mesh .label {
+    margin-top: 4px;
+  }
+  .mesh-l {
+    list-style: none;
+    margin: 6px 0 12px;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+  .mesh-l li {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .mesh-l .dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--muted);
+  }
+  .mesh-l .dot.up {
+    background: var(--up);
+  }
+  .mesh-l .dot.down {
+    background: var(--down);
+  }
+  .mesh-l .dot.oneway {
+    background: var(--pending);
   }
   .cause {
     border-left: 3px solid var(--down);

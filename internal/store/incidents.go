@@ -98,6 +98,7 @@ type IncidentFilter struct {
 	ServerID   int64
 	MonitorIDs []int64 // müşteri kısıtı: görebileceği monitörler
 	ServerIDs  []int64 // müşteri kısıtı: görebileceği sunucular
+	NoMesh     bool    // mesh (kontrol noktası ağı) olaylarını gizle: yönetici olmayanlar
 	Kind       string  // süzgeç grubu: monitor | partial | server | degraded | manual ("" = hepsi)
 	Before     int64   // sayfalama: bu id'den küçükler
 	Since      int64
@@ -147,6 +148,9 @@ func incidentWhere(f IncidentFilter) (string, []any) {
 	if f.ServerID > 0 {
 		q += " AND i.server_id = ?"
 		args = append(args, f.ServerID)
+	}
+	if f.NoMesh {
+		q += " AND i.kind <> '" + IncidentMesh + "'"
 	}
 	if f.MonitorIDs != nil || f.ServerIDs != nil {
 		// Manuel olaylar (durum sayfası iletişimi) herkese görünür.

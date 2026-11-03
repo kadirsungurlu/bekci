@@ -118,6 +118,7 @@ func (s *Server) listIncidents(w http.ResponseWriter, r *http.Request) {
 	if len(f.Query) > 200 {
 		f.Query = f.Query[:200]
 	}
+	f.NoMesh = userFrom(r).Role != store.RoleAdmin
 	if vis := visibleTo(userFrom(r)); !vis.all {
 		// Müşteri kısıtlı izleyici: izinli monitörlerin ve atanmış sunucuların olayları.
 		f.MonitorIDs, f.ServerIDs = vis.list(), vis.serverList()

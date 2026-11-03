@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/kadirsungurlu/bekci/internal/brand"
+	"github.com/kadirsungurlu/bekci/internal/mesh"
 )
 
 // Testlerde sahte sunucuya yönlendirmek için değiştirilebilir adresler.
@@ -240,6 +241,7 @@ type WebhookPayload struct {
 	Monitor    WebhookMonitor `json:"monitor"`
 	// Locations çok konumlu monitörde çalışmayan / sonuç gelmeyen konumlar.
 	Locations []LocationNote `json:"locations,omitempty"`
+	Mesh      *mesh.Report   `json:"mesh,omitempty"`
 	// Server yalnızca sunucu uyarılarında (server_alert, server_resolved)
 	// doludur; o zaman Monitor sunucunun adını ve host adını taşır, kimliği 0'dır.
 	Server *WebhookServer `json:"server,omitempty"`
@@ -305,6 +307,7 @@ func (webhook) Send(ctx context.Context, raw json.RawMessage, ev Event) error {
 		DowntimeSeconds: int64(ev.Downtime.Seconds()),
 		Monitor:         WebhookMonitor{ID: ev.MonitorID, Name: ev.MonitorName, Type: ev.MonitorType, Target: ev.Target, URL: ev.URL},
 		Locations:       ev.Locations,
+		Mesh:            ev.Mesh,
 		Escalated:       ev.Escalated, Delayed: ev.Delayed, ElapsedSeconds: int64(ev.Elapsed.Seconds()),
 	}
 	if ev.Kind == KindCert {

@@ -576,6 +576,7 @@ export type IncidentKind =
   | "server_offline"
   | "server_alert"
   | "probe_offline"
+  | "mesh"
   | "degraded"
   | "manual";
 /** Olay listesi süzgeci (sunucu: sunucu ve kontrol noktası türleri birlikte). */
@@ -672,16 +673,17 @@ export interface ServerIncidentData {
 
 /** Ajan olayı: sunucu (server_offline/server_alert) veya kontrol noktası (probe_offline); server_id dolu. */
 export const isServerIncident = (k: IncidentKind | undefined) =>
-  k === "server_offline" || k === "server_alert" || k === "probe_offline";
+  k === "server_offline" || k === "server_alert" || k === "probe_offline" || k === "mesh";
 /** Kontrol noktası çevrimdışı olayı (ayrıntı ve bağlantılar kontrol noktaları sayfasına gider). */
 export const isProbeIncident = (k: IncidentKind | undefined) =>
-  k === "probe_offline";
+  k === "probe_offline" || k === "mesh";
 
 /** Olay ayrıntıları (docs/PLAN.md §13). */
 export type IncidentEventKind =
   | "retry"
   | "down"
   | "change"
+  | "mesh_change"
   | "location"
   | "reminder"
   | "maint_start"
@@ -797,6 +799,8 @@ export interface IncidentDetail {
   incident: Incident;
   /** Kontrol noktalarına ulaşılamıyordu; karar yalnız ana sunucunun (probe_id 0) sonucuna dayanıyor. */
   mesh_lost?: boolean;
+  /** Mesh olayı: son yorum ve tüm bağlantılar (yanıt dilinde). */
+  mesh?: { owner: string; findings: string[]; pairs: { a: number; b: number; state: 'up' | 'down' | 'oneway' | 'unknown'; text: string }[] };
   /** Sunucu olayında boş (id 0). */
   /** type/target olay anındaki değerler; changed: sonradan değiştirildi (güncel değerler current_*). */
   monitor: {
@@ -882,6 +886,8 @@ export type NotifyKind =
   | "server_resolved"
   | "probe_offline"
   | "probe_online"
+  | "mesh"
+  | "mesh_resolved"
   | "server_reboot"
   | "acked";
 

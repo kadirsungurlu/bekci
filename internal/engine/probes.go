@@ -154,6 +154,7 @@ func (e *Engine) scanProbes(ctx context.Context, known map[int64]bool) map[int64
 	now := e.now()
 	set := e.Settings()
 	next := make(map[int64]bool, len(probes))
+	meshNodes := e.meshNodes(probes)
 	for _, p := range probes {
 		lastHB, haveHB := e.lastHeartbeat(p.ID)
 		online := probeOnlineAt(p, lastHB, haveHB, set, now)
@@ -180,8 +181,10 @@ func (e *Engine) scanProbes(ctx context.Context, known map[int64]bool) map[int64
 		e.hub.Publish("probe", map[string]any{
 			"probe_id": p.ID, "name": p.Name, "online": online, "last_seen_at": p.LastSeenAt,
 		})
-		e.probeTransition(ctx, p, online, now)
+		_, quiet := meshNodes[p.ID]
+		e.probeTransition(ctx, p, online, quiet, now)
 	}
+	e.evalMesh(ctx, probes, next, now)
 	return next
 }
 
@@ -192,8 +195,10 @@ func (e *Engine) scanProbes(ctx context.Context, known map[int64]bool) map[int64
 // bildirim üretmez. İlk taramada (known == nil) çağrılmaz:
 // ana sunucu uzun kapalı kaldıysa açılışta tüm kontrol noktaları çevrimdışı
 // görünür, o an bildirim gitmez. Devre dışı bırakılan kontrol noktası için
-// açık olay bildirimsiz kapanır; devre dışıyken yeni olay açılmaz.
-func (e *Engine) probeTransition(ctx context.Context, p store.Probe, online bool, now time.Time) {
+// açık olay bildirimsiz kapanır; devre dışıyken yeni olay açılmaz. quiet:
+// kontrol noktası mesh kararına katılıyor; olay kaydı açılır/kapanır ama
+// bildirimi mesh olayı taşır (tekil bildirim gitmez).
+func (e *Engine) probeTransition(ctx context.Context, p store.Probe, online, quiet bool, now time.Time) {
 	if !online {
 		if !p.Active || !p.NotifyOffline {
 			if !p.Active {
@@ -206,6 +211,9 @@ func (e *Engine) probeTransition(ctx context.Context, p store.Probe, online bool
 		id, err := e.store.OpenProbeIncident(ctx, p.ID, now.Unix(), p.LastSeenAt)
 		if err != nil {
 			e.log.Error("kontrol noktası olayı açılamadı", "kontrol_noktasi", p.Name, "hata", err)
+		}
+		if quiet {
+			return // mesh olayı bildirir (tüm bağlantılar + yorum)
 		}
 		ev := e.probeEvent(notify.KindProbeOffline, p, now, id)
 		ev.LastSeen = time.Unix(p.LastSeenAt, 0)
@@ -222,7 +230,7 @@ func (e *Engine) probeTransition(ctx context.Context, p store.Probe, online bool
 	}
 	ev := e.probeEvent(notify.KindProbeOnline, p, now, id)
 	ev.Downtime = now.Sub(time.Unix(started, 0))
-	if p.NotifyOffline {
+	if p.NotifyOffline && !quiet {
 		e.notifier.Notify(ev)
 	}
 }

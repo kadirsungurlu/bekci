@@ -128,6 +128,16 @@ Kontrol noktaları birbirine de bağlanır ve aradaki yolu ölçer: her çift ar
 - **Mesh adresi:** Boşsa eşler, kontrol noktasının panele bağlandığı IP'nin 7480 portuna bağlanır. Farklı bir adres ya da port gerekiyorsa `host:port` olarak yazın.
 - **Ayarlar:** **Ayarlar > Kontrol noktaları** sayfasında mesh ping aralığı (1-60 sn), kopukluk eşiği (1-10 ardışık kayıp) ve panel haberleşme aralığı (1-60 sn) bulunur. Eşik ile aralığın çarpımı en az 3 saniye olmalıdır (tek paket kaybı alarm üretmesin). Her kontrol noktası düzenleme penceresinde bu değerleri kendisi için ezebilir; **Genel değeri kullan** seçiliyse genel ayar geçerlidir.
 
+**Karar ve bildirim.** En az iki kontrol noktası kalp atışı gönderiyorsa panel tüm bağlantıları (ana sunucu dahil) birlikte yorumlar ve tek tek "çevrimdışı" bildirimleri yerine tek bir mesh bildirimi gönderir:
+
+- **Ağ bölünmesi:** noktalar birbirine ulaşamayan en az iki gruba ayrıldı.
+- **Genel erişim sorunu:** bir nokta en az iki bağlantısında ulaşılamıyor, diğerleri birbirine ulaşıyor (sorun o noktada).
+- **Yol sorunu:** iki nokta birbirine ulaşamıyor ama başka noktalar üzerinden ulaşılıyorlar.
+- **Tek yönlü bağlantı:** bir yön çalışıyor, ters yön kopuk.
+- **Yetersiz gözlem:** bağlantı koptu ama yorum için yeterli ölçüm yok.
+
+Karar bir panel aralığı beklenip kalıcıysa verilir (anlık dalgalanma bildirim üretmez). Bildirim mesaj sahibini (ana sunucu), tüm bağlantıların durumunu ve yorumu içerir; ilgili kontrol noktalarının **çevrimdışında bildir** seçili kanallarına gider. Olay **Olaylar** sayfasında yalnız yöneticilere görünür; bağlantılar düzelince olay kapanır ve düzelme bildirimi gider.
+
 ### Kısmi erişim kesintisi {#kismi-erisim}
 
 Hedefe bazı konumlardan ulaşılıp bazılarından ulaşılamıyorsa (ör. hedefin güvenlik duvarı bir ülkeyi engelliyor) bu tam kesinti değildir. **Kısmi erişim ayrımı** kuralında:

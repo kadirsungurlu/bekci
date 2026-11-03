@@ -158,8 +158,11 @@ func (n Notification) Accepts(kind string) bool {
 	if len(n.Events) == 0 {
 		return !OptInEvents[kind]
 	}
+	// Mesh bildirimi kontrol noktası çevrimdışı bildiriminin yerini alır:
+	// yalnız "kontrol noktası" türlerini seçmiş eski kanallar da alır.
+	alias := map[string]string{"mesh": "probe_offline", "mesh_resolved": "probe_online"}[kind]
 	for _, k := range n.Events {
-		if k == kind {
+		if k == kind || (alias != "" && k == alias) {
 			return true
 		}
 	}

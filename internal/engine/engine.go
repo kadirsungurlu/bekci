@@ -52,6 +52,7 @@ type Engine struct {
 	// probe'lar ve kesilme anı (scanProbes). Bkz. probes.go.
 	heartbeats map[int64]time.Time
 	mainDown   map[int64]time.Time
+	meshEv     meshEval              // mesh kararı (watchProbes döngüsü)
 	monLocks   map[int64]*sync.Mutex // monitör başına: Reload/Remove/start sıraya girer (bkz. lockMonitor)
 	retired    map[int64]retiredLocs // durdurulan çok konumlu runner'ların konum sonuçları (bkz. adoptLocations)
 

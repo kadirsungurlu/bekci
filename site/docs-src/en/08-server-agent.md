@@ -128,6 +128,16 @@ Check locations also connect to each other and measure the path between them: ea
 - **Mesh address:** When empty, peers connect to port 7480 of the IP the check location uses to reach the panel. Enter `host:port` if a different address or port is needed.
 - **Settings:** **Settings > Check locations** has the mesh ping interval (1-60 s), the loss threshold (1-10 misses in a row) and the panel interval (1-60 s). Threshold times interval must be at least 3 seconds (a single lost packet must not raise an alarm). Each check location can override these in its edit dialog; with **Use global value** selected the global setting applies.
 
+**Verdict and notification.** When at least two check locations send heartbeats, the panel interprets all links together (including the main server) and sends a single mesh notification instead of separate "offline" ones:
+
+- **Network partition:** the locations split into at least two groups that cannot reach each other.
+- **General reachability problem:** one location is unreachable on at least two links while the others reach each other (the problem is on that location).
+- **Path problem:** two locations cannot reach each other but are reachable through other locations.
+- **One-way link:** one direction works, the reverse is down.
+- **Insufficient observation:** a link is down but there are not enough measurements to interpret it.
+
+The verdict waits one panel interval and is issued only if it persists (a momentary blip sends nothing). The notification includes the message owner (main server), the state of every link and the interpretation; it goes to the channels of the affected locations that have **notify when offline** selected. The incident is visible on the **Incidents** page to administrators only; when the links recover it closes and a recovery notification is sent.
+
 ### Partial reachability outage {#partial-reachability}
 
 When the target is reachable from some locations but not from others (for example, its firewall blocks a country), it is not a full outage. With the **Partial reachability split** rule:

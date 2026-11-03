@@ -18,6 +18,7 @@ import (
 
 	"github.com/kadirsungurlu/bekci/internal/brand"
 	"github.com/kadirsungurlu/bekci/internal/i18n"
+	"github.com/kadirsungurlu/bekci/internal/mesh"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
@@ -48,6 +49,12 @@ const (
 	// noktasının kimliği, Metric "offline", LastSeen son isteğin zamanı).
 	KindProbeOffline = "probe_offline"
 	KindProbeOnline  = "probe_online"
+
+	// Kontrol noktaları arası bağlantı sorunu (Mesh: tüm bağlantılar + yorum)
+	// / tüm bağlantılar düzeldi. Kanallar: yorumda geçen ve "çevrimdışında
+	// bildir" açık kontrol noktalarının kanalları (MeshProbes).
+	KindMesh         = "mesh"
+	KindMeshResolved = "mesh_resolved"
 
 	// Sunucu yeniden başlatıldı (ajanın bildirdiği açılış zamanı değişti;
 	// BootTime yeni açılış). Olaya bağlı değildir; yalnızca "reboot" kuralı
@@ -130,8 +137,12 @@ type Event struct {
 	Locations []LocationNote
 	// MeshLost kontrol noktalarına ulaşılamıyordu; karar yalnız ana sunucunun
 	// (LocalName) sonucuna dayanıyor: gövdenin başına not düşülür.
-	MeshLost  bool
-	LocalName string
+	MeshLost bool
+	// Mesh mesh ve mesh_resolved bildiriminin raporu (bağlantılar, yorum, mesaj sahibi).
+	Mesh *mesh.Report
+	// MeshProbes mesh bildiriminin kanallarının alınacağı kontrol noktaları.
+	MeshProbes []int64
+	LocalName  string
 
 	// Lang bildirim metninin dili (tr/en). Boşsa Dispatcher ayarlardaki
 	// bildirim dilini (AppSettings.NotifyLang) doldurur; yine boşsa tr.
@@ -155,7 +166,7 @@ type Event struct {
 var Kinds = []string{
 	KindDown, KindUp, KindReminder, KindCert, KindLocationDown, KindLocationUp,
 	KindSlow, KindSlowResolved, KindServerAlert, KindServerResolved, KindProbeOffline, KindProbeOnline,
-	KindServerReboot, KindDomain, KindAcked,
+	KindServerReboot, KindDomain, KindAcked, KindMesh, KindMeshResolved,
 }
 
 // DefaultKinds süzgeçsiz (events boş) kanalın aldığı türler: Kinds eksi
@@ -190,6 +201,8 @@ func ProblemOf(kind string) string {
 		return KindServerAlert
 	case KindProbeOnline:
 		return KindProbeOffline
+	case KindMeshResolved:
+		return KindMesh
 	case KindLocationUp:
 		return KindLocationDown
 	case KindSlowResolved:
@@ -201,12 +214,13 @@ func ProblemOf(kind string) string {
 // IsProblemStart olaya bağlı bir sorunun başlangıç bildirimi mi (gecikme
 // kuralı ve sessiz saat ertelemesi bunlara uygulanır; hatırlatma değildir).
 func IsProblemStart(kind string) bool {
-	return kind == KindDown || kind == KindServerAlert || kind == KindProbeOffline || kind == KindLocationDown || kind == KindSlow
+	return kind == KindDown || kind == KindServerAlert || kind == KindProbeOffline || kind == KindLocationDown || kind == KindSlow ||
+		kind == KindMesh
 }
 
 // IsCritical sessiz saatlerin "yalnızca kritik" kipinde geçen kritik türler.
 func IsCritical(kind string) bool {
-	return kind == KindDown || kind == KindServerAlert || kind == KindProbeOffline
+	return kind == KindDown || kind == KindServerAlert || kind == KindProbeOffline || kind == KindMesh
 }
 
 // MetricName sunucu metriğinin bildirimlerdeki adı ("Yük" / "Load").
@@ -299,6 +313,10 @@ func (e Event) Title() string {
 		return i18n.T(l, "notify.probe.offline", e.MonitorName)
 	case KindProbeOnline:
 		return i18n.T(l, "notify.probe.online", e.MonitorName)
+	case KindMesh:
+		return i18n.T(l, "mesh.title")
+	case KindMeshResolved:
+		return i18n.T(l, "mesh.title.resolved")
 	case KindAcked:
 		return i18n.T(l, "notify.acked.title", e.MonitorName, e.AckedBy)
 	}
@@ -443,6 +461,11 @@ func (e Event) Rows() []Row {
 		add("info", e.info())
 	case KindProbeOnline:
 		add("downtime", i18n.Duration(l, e.Downtime))
+	case KindMesh, KindMeshResolved:
+		if e.Kind == KindMeshResolved {
+			add("downtime", i18n.Duration(l, e.Downtime))
+		}
+		rows = append(rows, e.meshRows()...)
 	case KindSlow:
 		add("avg_response", i18n.T(l, "notify.slow.window", int(e.Value), e.Checks))
 		add("threshold", fmt.Sprintf("%d ms", int(e.Threshold)))
@@ -472,6 +495,10 @@ func (e Event) Body() string {
 		}
 		lines = append(lines, r.Label+":")
 		for _, lr := range r.Locations {
+			if lr.Message == "" {
+				lines = append(lines, "• "+lr.Name)
+				continue
+			}
 			lines = append(lines, "• "+lr.Name+": "+lr.Message)
 		}
 	}
@@ -501,13 +528,14 @@ func (e Event) DetailURL() string {
 // IsProblem olayın kötü haber olup olmadığı (öncelik/renk seçimi için).
 func (e Event) IsProblem() bool {
 	return e.Kind == KindDown || e.Kind == KindReminder || e.Kind == KindCert || e.Kind == KindServerAlert || e.Kind == KindLocationDown ||
-		e.Kind == KindProbeOffline || e.Kind == KindSlow || e.Kind == KindServerReboot || e.Kind == KindDomain
+		e.Kind == KindProbeOffline || e.Kind == KindSlow || e.Kind == KindServerReboot || e.Kind == KindDomain || e.Kind == KindMesh
 }
 
 // IsRecovery sorunun bittiğini bildiren olay mı (monitör tekrar çalışıyor,
 // sunucu uyarısı bitti). Olay kapatan servisler (PagerDuty, Opsgenie) için.
 func (e Event) IsRecovery() bool {
-	return e.Kind == KindUp || e.Kind == KindServerResolved || e.Kind == KindLocationUp || e.Kind == KindProbeOnline || e.Kind == KindSlowResolved
+	return e.Kind == KindUp || e.Kind == KindServerResolved || e.Kind == KindLocationUp || e.Kind == KindProbeOnline || e.Kind == KindSlowResolved ||
+		e.Kind == KindMeshResolved
 }
 
 // AlertKey olayın dış servislerdeki kimliği: aynı sorunun başlangıç ve bitiş
@@ -523,6 +551,8 @@ func (e Event) AlertKey() string {
 		prefix = "uptime-sample-"
 	}
 	switch {
+	case e.Kind == KindMesh || e.Kind == KindMeshResolved:
+		return prefix + "mesh"
 	case e.Kind == KindProbeOffline || e.Kind == KindProbeOnline:
 		return fmt.Sprintf("%sprobe-%d-offline", prefix, e.ProbeID)
 	case e.Kind == KindServerReboot:
