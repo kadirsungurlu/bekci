@@ -153,7 +153,7 @@ HTTPS, put a reverse proxy (Caddy, Traefik, Nginx) in front of it or use the
   response time charts
 - Remote **check locations**: monitors are checked from multiple locations at
   the same time, with an outage rule (any / majority / all); optional
-  **notify on location outages**: when a single location goes down while the
+  **notify on partial reachability outages**: when a single location goes down while the
   monitor stays up, a separate warning notification is sent, and a recovery notification when it recovers
   (uptime is not affected)
 
@@ -276,6 +276,7 @@ amd64/arm64, Windows amd64) are included.
 | `TZ` | `Europe/Istanbul` | Time of daily summaries and the nightly backup |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `MAX_CONCURRENT_CHECKS` | `50` | Maximum number of checks running at the same time |
+| `BEAT_BATCH_MS` | `250` | Collects check results for this long (ms) and writes them in one transaction; 0 = one transaction per result |
 | `DATA_DIR` | `/data` | Folder for the SQLite database and backups |
 | `DATABASE_URL` | — | If set, **PostgreSQL** is used: `postgres://kullanıcı:şifre@sunucu:5432/veritabanı?sslmode=disable` (user:password@host:5432/database). Backups must then be taken on the database side (Coolify backups / `pg_dump`) |
 | `ADDR` | `:8080` | Listen address |
@@ -379,6 +380,15 @@ command from the Windows tab in the panel.
   `uptime-agent`).
 - On Windows the load average is approximate (processor queue); temperature
   and Docker containers are not collected.
+
+### Staying connected during a DNS outage
+
+The agent stores the last known IP addresses of the panel's domain in
+`uptime.dns.json` in the program directory (change it with `PROBE_STATE_DIR`;
+resolved again every hour). If DNS fails, the agent keeps connecting with the
+last known IP without a time limit; the TLS certificate is still verified
+against the domain. This only applies to the connection to the panel, not to
+checks.
 
 ### Updating the agent
 

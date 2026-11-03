@@ -58,14 +58,39 @@ type AuditFilter struct {
 	From   int64 // zaman aralığı (unix, dahil); 0 = sınırsız
 	To     int64
 	Query  string // hedef adı, ayrıntı, kullanıcı ve IP'de büyük/küçük harf duyarsız arama
+	Offset int    // sayfa numaralı liste (Before ile birlikte kullanılmaz)
 }
+
+// MaxAuditOffset sayfalama ofsetinin üst sınırı.
+const MaxAuditOffset = 100000
 
 // ListAuditFiltered süzgeçli işlem kaydı, en yeniden eskiye.
 func (s *Store) ListAuditFiltered(ctx context.Context, f AuditFilter) ([]AuditEntry, error) {
 	if f.Limit <= 0 || f.Limit > 500 {
 		f.Limit = 100
 	}
-	q := "SELECT id, time, user_id, username, action, target_type, target_id, target_name, detail, ip FROM audit_log WHERE 1=1"
+	where, args := auditWhere(f)
+	q := "SELECT id, time, user_id, username, action, target_type, target_id, target_name, detail, ip FROM audit_log" + where +
+		" ORDER BY id DESC LIMIT ?"
+	args = append(args, f.Limit)
+	if f.Offset > 0 {
+		q += " OFFSET ?"
+		args = append(args, min(f.Offset, MaxAuditOffset))
+	}
+	return s.queryAudit(ctx, q, args...)
+}
+
+// CountAudit süzgece uyan kayıt sayısı (Before, Limit, Offset yok sayılır).
+func (s *Store) CountAudit(ctx context.Context, f AuditFilter) (int, error) {
+	f.Before = 0
+	where, args := auditWhere(f)
+	var n int
+	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM audit_log"+where, args...).Scan(&n)
+	return n, err
+}
+
+func auditWhere(f AuditFilter) (string, []any) {
+	q := " WHERE 1=1"
 	var args []any
 	if f.Before > 0 {
 		q += " AND id < ?"
@@ -97,8 +122,10 @@ func (s *Store) ListAuditFiltered(ctx context.Context, f AuditFilter) ([]AuditEn
 		q += " AND (LOWER(target_name) LIKE ? OR LOWER(detail) LIKE ? OR LOWER(username) LIKE ? OR ip LIKE ?)"
 		args = append(args, p, p, p, p)
 	}
-	q += " ORDER BY id DESC LIMIT ?"
-	args = append(args, f.Limit)
+	return q, args
+}
+
+func (s *Store) queryAudit(ctx context.Context, q string, args ...any) ([]AuditEntry, error) {
 	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err

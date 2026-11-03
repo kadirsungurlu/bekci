@@ -84,6 +84,14 @@ type View struct {
 	// Update ajanın güncelleme durumu (API katmanı hesaplar, SetUpdateStatus;
 	// nil: hesaplayıcı yok).
 	Update *agentupdate.Status `json:"update,omitempty"`
+	// OOB ikinci hat (store/probes_oob.go): yalnız OOB tanımlıysa dolu. Uplink
+	// etkin hat (primary | oob), UplinkSince geçiş anı, UplinkName hattın adı;
+	// OOBIP ve OOBIfaceMissing yalnızca yöneticiye (HideIPLock atar).
+	Uplink          string `json:"uplink,omitempty"`
+	UplinkSince     int64  `json:"uplink_since,omitempty"`
+	UplinkName      string `json:"uplink_name,omitempty"`
+	OOBIP           string `json:"oob_ip,omitempty"`
+	OOBIfaceMissing bool   `json:"oob_iface_missing,omitempty"`
 }
 
 // SetUpdateStatus ajan güncelleme durumunu hesaplayan işlevi bağlar (panel
@@ -92,7 +100,9 @@ func (s *Service) SetUpdateStatus(f func(store.Probe) *agentupdate.Status) { s.u
 
 // HideIPLock yönetici olmayan kullanıcıya gidecek görünümden IP kilidi
 // bilgisini (sunucunun sabitlenmiş IP adresi dahil) çıkarır.
-func (v *View) HideIPLock() { v.IPLock, v.LockedIP, v.IP = false, "", "" }
+func (v *View) HideIPLock() {
+	v.IPLock, v.LockedIP, v.IP, v.OOBIP, v.OOBIfaceMissing = false, "", "", "", false
+}
 
 // Localize ajanın Türkçe gönderdiği/saklanan notu ("metrik toplanamıyor"
 // nedeni) istenen dile çevirir (bkz. i18n.Message). Canlı akıştaki "server"
@@ -107,6 +117,10 @@ func (s *Service) View(ctx context.Context, p store.Probe, rules []store.ServerA
 		Note: p.MetricsNote, Interval: Interval, LastSeenAt: p.LastSeenAt, MetricsAt: p.MetricsAt,
 		Version: p.Version, Host: hostOf(p), Firing: []string{},
 		IPLock: p.IPLock, LockedIP: p.LockedIP, IP: p.LastIP,
+	}
+	if p.OOBIP != "" {
+		v.Uplink, v.UplinkSince, v.UplinkName = p.Uplink, p.UplinkSince, p.OOBLabel()
+		v.OOBIP, v.OOBIfaceMissing = p.OOBIP, p.OOBIfaceMissing
 	}
 	v.InMaintenance = s.InMaintenance(p.ID, s.now())
 	if s.updateStatus != nil {

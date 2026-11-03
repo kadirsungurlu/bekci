@@ -110,6 +110,9 @@ func viewerEvent(u store.User, msg []byte, groups map[int64]bool) []byte {
 	if isPageAdmin(u) {
 		return msg
 	}
+	if meshOnlyEvent(msg) {
+		return nil // kontrol noktası ağı (bağlantı matrisi, mesh olayı) yalnız yöneticiye
+	}
 	if canSeeConfig(u) && !bytes.Contains(msg, []byte(`"locked_ip"`)) {
 		return msg
 	}
@@ -156,4 +159,23 @@ func viewerEvent(u store.User, msg []byte, groups map[int64]bool) []byte {
 		return msg
 	}
 	return out
+}
+
+// meshOnlyEvent yalnız yöneticiye giden canlı akış olayı mı: "mesh"
+// (bağlantı matrisi; GET /api/mesh yönetici ucu) ya da mesh olayının
+// "incident" bildirimi.
+func meshOnlyEvent(msg []byte) bool {
+	if !bytes.Contains(msg, []byte(`"mesh"`)) {
+		return false
+	}
+	var ev struct {
+		Type string `json:"type"`
+		Data struct {
+			Kind string `json:"kind"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(msg, &ev) != nil {
+		return true // çözülemeyen ve "mesh" geçen olay: güvenli taraf
+	}
+	return ev.Type == "mesh" || (ev.Type == "incident" && ev.Data.Kind == store.IncidentMesh)
 }

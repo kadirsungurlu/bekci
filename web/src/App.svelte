@@ -73,6 +73,7 @@
     try {
       const s = await api.authState();
       session.version = s.version;
+      session.localName = s.local_location_name ?? '';
       authInfo = { password_reset: s.password_reset, oidc: s.oidc };
       if (s.setup_needed) phase = 'setup';
       else if (!s.user) phase = 'login';
@@ -96,6 +97,12 @@
     }
     phase = 'app';
     live.start();
+    // Giriş formundan gelindiyse konum adı henüz alınmadı (durum yanıtında yalnız oturumla gelir).
+    if (!session.localName)
+      void api
+        .authState()
+        .then((s) => (session.localName = s.local_location_name ?? ''))
+        .catch(() => {});
   }
 
   async function logout() {

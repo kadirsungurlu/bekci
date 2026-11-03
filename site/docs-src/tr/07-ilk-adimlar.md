@@ -27,7 +27,7 @@ Paneli ilk açtığınızda **Hoş geldiniz** ekranı yönetici hesabını oluş
 1. **Monitörler** sayfasında **Monitör ekle** (ya da sağ üstteki **Yeni**) düğmesine basın.
 2. **Monitör tipi** olarak **HTTP(S)** seçin (bir web sitesini ya da API'yi izlemek için).
 3. **Ad** alanına anlaşılır bir ad yazın (ör. “Şirket web sitesi”), **Adres (URL)** alanına sitenin adresini yazın (ör. `https://ornek.com`).
-4. **Kontrol aralığı** ne sıklıkla kontrol edileceğidir: en az 20 saniye, en fazla 24 saat. Başlangıç için 60 saniye iyi bir seçimdir.
+4. **Kontrol aralığı** ne sıklıkla kontrol edileceğidir: en az 5 saniye, en fazla 24 saat. Başlangıç için 60 saniye iyi bir seçimdir; 5-15 saniye gibi kısa aralıklar her kontrolde kayıt yazdığından yalnız gerçekten hızlı fark edilmesi gereken hedeflerde kullanılmalıdır. Zaman aşımı kontrol aralığından uzun olamaz.
 5. **Monitörü ekle** düğmesine basın.
 
 ![Yeni monitör formu: web, ağ, veritabanı ve sistem kategorilerinde monitör tipi seçici](/img/yeni-monitor-1600.webp)
@@ -73,7 +73,7 @@ Bir monitör çalışmadığında haberiniz olsun diye en az bir kanal ekleyin. 
 4. Yeni monitörlerde bu kanal otomatik seçili gelsin diye **Yeni monitörlere varsayılan olarak ekle** kutusunu işaretleyin. Mevcut monitörlerinize de eklemek için **Mevcut tüm monitörlere ekle** kutusunu işaretleyin.
 5. **Kaydet** düğmesine basın.
 
-Bildirimler kısa bir başlıkla gelir: kesinti, düzelme (hâlâ çalışmayan konumlar varsa listelenir), konum kesintisi, SSL uyarısı, alan adı bitişi (uyarı ya da kritik); e-posta hem HTML hem düz metin içerir. Kayıtlı bir kanala **Örnek bildirimleri gönder** ile her türden birer örnek gönderebilirsiniz. Geçici bir hata (ağ, HTTP 5xx/429) olursa gönderim 5 ve 20 saniye sonra yeniden denenir; sonuç olayın işlem geçmişine yazılır.
+Bildirimler kısa bir başlıkla gelir: kesinti, düzelme (hâlâ çalışmayan konumlar varsa listelenir), kısmi erişim kesintisi, SSL uyarısı, alan adı bitişi (uyarı ya da kritik); e-posta hem HTML hem düz metin içerir. Kayıtlı bir kanala **Örnek bildirimleri gönder** ile her türden birer örnek gönderebilirsiniz. Geçici bir hata (ağ, HTTP 5xx/429) olursa gönderim 5 ve 20 saniye sonra yeniden denenir; sonuç olayın işlem geçmişine yazılır.
 
 **Webhook** kanalı JSON gönderir: `event` (`down`, `up`, `reminder`, `location_down`, `location_up`, `cert`, `domain`, `server_alert`, `server_resolved`, `test`), `title`, `text`, `message`, `time`, `downtime_seconds` (düzelmede), `cert_days` (SSL uyarısında), `domain` ve `domain_days` (alan adı uyarısında), `monitor` (`id`, `name`, `type`, `target`, `url`), `incident` (`id`, `url`; olaya bağlı bildirimlerde), `locations` (çok konumlu monitörde çalışmayan konumlar: `name`, `message`) ve `server` (yalnızca sunucu uyarılarında: `id`, `name`, `metric`, `value`, `threshold`, `minutes`). Örnek gövde kanal penceresinde görünür.
 
@@ -84,7 +84,7 @@ Kanal penceresinin **Kurallar** bölümü kanalın ne zaman ve neyi alacağını
 | Kural | Ne yapar |
 |---|---|
 | **Alınacak olaylar** | İşareti kaldırılan türler (ör. düzelme, hatırlatma, SSL) bu kanala gitmez. ile ayrı seçilir: "yalnızca kesintiyi istiyorum" diyen bir kanal kurabilirsiniz. |
-| **Sessiz saatler** | Başlangıç-bitiş (kanalın saat diliminde; `22:00`–`07:00` gibi gece yarısını aşan pencere olabilir). **Yalnızca kritik olanlar geçsin** kipinde kesinti, sunucu uyarısı ve kontrol noktası bildirimleri ile bunların düzelmesi hemen gider; yavaş yanıt, konum kesintisi ve SSL uyarısı pencerenin bitimine ertelenir. **Hiçbir bildirim gitmesin** kipinde her şey ertelenir. Ertelenen sorun bildirimi pencere bitince yalnızca sorun hâlâ sürüyorsa gönderilir ("Sessiz saatler bitti" notuyla); hatırlatmalar atılır. |
+| **Sessiz saatler** | Başlangıç-bitiş (kanalın saat diliminde; `22:00`–`07:00` gibi gece yarısını aşan pencere olabilir). **Yalnızca kritik olanlar geçsin** kipinde kesinti, sunucu uyarısı ve kontrol noktası bildirimleri ile bunların düzelmesi hemen gider; yavaş yanıt, kısmi erişim kesintisi ve SSL uyarısı pencerenin bitimine ertelenir. **Hiçbir bildirim gitmesin** kipinde her şey ertelenir. Ertelenen sorun bildirimi pencere bitince yalnızca sorun hâlâ sürüyorsa gönderilir ("Sessiz saatler bitti" notuyla); hatırlatmalar atılır. |
 | **Gecikme** | "Yalnızca N dakika sürerse bildir": kısa kesintilerde (ör. iki dakikalık yeniden başlatma) bildirim gelmez. süre dolunca sorun hâlâ sürüyorsa "Gecikmeli bildirim" notuyla gider; gitmediyse o olayın düzelmesi ve hatırlatmaları da gitmez. |
 | **Eskalasyon** | "N dakikadır süren her olayı buraya da bildir": kanal monitöre ya da sunucuya bağlı olmasa da bu kadar dakikadır açık kalan her kesinti, sunucu uyarısı ve kontrol noktası kesintisi "Eskalasyon" notuyla gelir; olay kapanınca de gelir. Nöbetçi yöneticinin kanalı için uygundur. |
 | **Bildirim dili** | Kanal başına dil (ayarlardaki genel dili geçersiz kılar); test ve örnek bildirimleri de bu dilde gider. |

@@ -16,7 +16,7 @@ import (
 
 // agentEnvKeys kurulumda ortam değişkenlerinden yapılandırma dosyasına
 // aktarılan ayarlar (bkz. probe.go).
-var agentEnvKeys = []string{"PROBE_SERVER", "PROBE_TOKEN", "PROBE_ALLOW_INSECURE", "ADDR", "METRICS", "MAX_CONCURRENT_CHECKS", "LOG_LEVEL"}
+var agentEnvKeys = []string{"PROBE_SERVER", "PROBE_TOKEN", "PROBE_ALLOW_INSECURE", "ADDR", "METRICS", "MAX_CONCURRENT_CHECKS", "LOG_LEVEL", "PROBE_STATE_DIR"}
 
 // parseEnvFile KEY=DEĞER satırlarını okur. Boş satırlar ve # ile başlayan
 // yorumlar atlanır; değerin çevresindeki tek/çift tırnak kaldırılır.

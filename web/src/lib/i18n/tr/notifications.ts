@@ -39,7 +39,7 @@ export default {
     testSent: 'Test bildirimi gönderildi. Kanalınızı kontrol edin.',
     samples: 'Örnek bildirimleri gönder',
     samplesHelp:
-      'Kayıtlı ayarla her bildirim türünden birer örnek gönderir (kesinti, hatırlatma, düzelme, konum kesintisi, SSL, sunucu uyarıları). Mesajlar “örnek” notu taşır; dakikada bir kez istenebilir.',
+      'Kayıtlı ayarla her bildirim türünden birer örnek gönderir (kesinti, hatırlatma, düzelme, kısmi erişim kesintisi, SSL, sunucu uyarıları). Mesajlar “örnek” notu taşır; dakikada bir kez istenebilir.',
     samplesSent: '{count} örnek bildirim sırayla gönderiliyor (ikişer saniye arayla). Kanalınızı kontrol edin.',
     /** {dest}: "Adres ve port" gibi değişen hedef; {fields}: yeniden girilecek alanlar. */
     rebind: '{dest} değiştiği için kayıtlı {fields} güvenlik gereği yeni hedefe taşınmaz; kaydetmeden önce yeniden girin.',
@@ -61,9 +61,9 @@ export default {
       cert: 'SSL sertifikası',
       domain: 'Alan adı bitişi (son 7 gün: kritik)',
       slow: 'Yavaş yanıt (başladı / normale döndü)',
-      location: 'Konum kesintisi (başladı / bitti)',
+      location: 'Kısmi erişim kesintisi (başladı / bitti)',
       server: 'Sunucu uyarıları (başladı / bitti)',
-      probe: 'Kontrol noktası (çevrimdışı / çevrimiçi)',
+      probe: 'Kontrol noktası (çevrimdışı / çevrimiçi / hat geçişi)',
       acked: 'Olay onayı (yalnızca seçilirse gider)',
     },
     quietTitle: 'Sessiz saatler',
@@ -80,7 +80,7 @@ export default {
       none: 'Hiçbir bildirim gitmesin',
     },
     quietModeHelp: {
-      critical: 'Kesinti, sunucu uyarısı ve kontrol noktası bildirimleri ile bunların düzelmesi hemen gider; yavaş yanıt, konum kesintisi ve SSL uyarısı pencere bitince.',
+      critical: 'Kesinti, sunucu uyarısı ve kontrol noktası bildirimleri ile bunların düzelmesi hemen gider; yavaş yanıt, kısmi erişim kesintisi ve SSL uyarısı pencere bitince.',
       none: 'Her şey pencere bitince (sorun o sırada hâlâ sürüyorsa) gönderilir.',
     },
     delayTitle: 'Gecikme',

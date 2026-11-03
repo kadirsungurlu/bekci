@@ -11,6 +11,13 @@ import (
 
 // Monitor hem ayarları hem de son durumu taşır. Zaman damgaları unix saniye;
 // 0 "henüz yok" demektir.
+// Kontrol ve tekrar deneme aralığı sınırları (saniye). API doğrulaması,
+// içe aktarma (yedek, Kuma, UptimeRobot) ve arayüz aynı sınırı kullanır.
+const (
+	MinIntervalSec = 5
+	MaxIntervalSec = 86400
+)
+
 type Monitor struct {
 	ID            int64           `json:"id"`
 	Name          string          `json:"name"`

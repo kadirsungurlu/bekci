@@ -94,7 +94,7 @@ def bekci():
 curl -H "Authorization: Bearer upk_…" "https://⟦bekci.ornek.com⟧/api/incidents?format=csv&kind=monitor" -o olaylar.csv
 ```
 
-`kind` süzgeci: `monitor` (kesintiler), `partial` (konum kesintileri), `server` (sunucu ve kontrol noktası olayları); boşsa hepsi. Sütunlar:
+`kind` süzgeci: `monitor` (kesintiler), `partial` (kısmi erişim kesintileri), `server` (sunucu ve kontrol noktası olayları); boşsa hepsi. Sütunlar:
 
 | Sütun | Anlamı |
 |---|---|

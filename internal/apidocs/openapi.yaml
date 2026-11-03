@@ -99,6 +99,7 @@ components:
       properties:
         error: { type: string }
         code: { type: string, description: "İsteğe bağlı makine kodu (ör. password_change_required, backup_password, reset_invalid)" }
+        field: { type: string, description: "Alan hatasında hatalı alanın adı (ör. mesh_ping_sec, mesh_loss_threshold, panel_sec, mesh_addr)" }
       required: [error]
     OK:
       type: object
@@ -240,7 +241,7 @@ components:
         name: { type: string }
         type: { type: string }
         description: { type: string }
-        interval: { type: integer, minimum: 20 }
+        interval: { type: integer, minimum: 5, maximum: 86400 }
         retry_interval: { type: integer }
         max_retries: { type: integer }
         timeout: { type: integer, description: Kontrol aralığından kısa olmalı }
@@ -468,6 +469,46 @@ components:
         notify_offline: { type: boolean }
         platform: { type: string, description: "Ajanın bildirdiği os/arch (boş: kendini güncelleyemeyen eski ajan)" }
         update: { $ref: "#/components/schemas/AgentUpdate" }
+        mesh_ping_sec: { type: integer, nullable: true, minimum: 1, maximum: 60, description: "Yalnızca kontrol noktası: mesh ping aralığı ezmesi (sn; null: genel ayar)" }
+        mesh_loss_threshold: { type: integer, nullable: true, minimum: 1, maximum: 10, description: "Kopukluk eşiği ezmesi (ardışık kayıp; null: genel ayar)" }
+        panel_sec: { type: integer, nullable: true, minimum: 1, maximum: 60, description: "Panel haberleşme aralığı ezmesi (sn; null: genel ayar)" }
+        mesh_addr: { type: string, maxLength: 255, description: "Eşlerin bağlanacağı host:port; boş: görülen IP + 7480; \"-\": dinlemiyor (NAT)" }
+        fallback_notifier: { type: boolean, description: "Main'e ulaşılamazsa yedek bildirici olabilir (varsayılan açık)" }
+        oob_ip: { type: string, description: "OOB (ikinci hat) IP'si; boş: OOB kapalı. IP kilidi bu adresi de kabul eder" }
+        oob_name: { type: string, maxLength: 40, description: "OOB hattının bildirimlerde görünen adı (boş: \"OOB\")" }
+        uplink: { type: string, enum: [primary, oob], readOnly: true, description: "Ajanın etkin hattı (X-Probe-Uplink)" }
+        uplink_since: { type: integer, format: int64, readOnly: true, description: "Etkin hatta geçiş anı (unix sn; 0: hiç geçiş yok)" }
+        oob_iface_missing: { type: boolean, readOnly: true, description: "Ajan OOB IP'sinin yerel arayüzünü bulamadı (NAT; PROBE_OOB_IFACE gerekir)" }
+        timing: { $ref: "#/components/schemas/ProbeTiming" }
+    ProbeTiming:
+      type: object
+      description: "Kontrol noktasının etkin mesh zamanlaması (genel ayar + ezme). Eşik x aralık en az 3 sn."
+      readOnly: true
+      properties:
+        mesh_enabled: { type: boolean }
+        ping_sec: { type: integer }
+        loss_threshold: { type: integer }
+        panel_sec: { type: integer }
+    ProbeUpdate:
+      type: object
+      description: "PUT /api/probes/{id} gövdesi; gönderilmeyen alan değişmez. Mesh alanları yalnızca kontrol noktasında uygulanır (sunucu ajanında yok sayılır)."
+      additionalProperties: true
+      properties:
+        name: { type: string }
+        active: { type: boolean }
+        metrics: { type: boolean }
+        ip_lock: { type: boolean }
+        reset_ip: { type: boolean }
+        notify_offline: { type: boolean }
+        notification_ids: { type: array, items: { type: integer, format: int64 } }
+        auto_update: { type: boolean, nullable: true }
+        mesh_ping_sec: { type: integer, nullable: true, minimum: 1, maximum: 60 }
+        mesh_loss_threshold: { type: integer, nullable: true, minimum: 1, maximum: 10 }
+        panel_sec: { type: integer, nullable: true, minimum: 1, maximum: 60 }
+        mesh_addr: { type: string, maxLength: 255 }
+        fallback_notifier: { type: boolean }
+        oob_ip: { type: string, description: "OOB (ikinci hat) IP'si; boş dize OOB'yi kapatır. Döngü, çoklu yayın ve belirsiz adres reddedilir (400)" }
+        oob_name: { type: string, maxLength: 40, description: "OOB hattının adı (boş: \"OOB\")" }
     AgentUpdate:
       type: object
       description: Ajanın güncelleme durumu.
@@ -493,12 +534,17 @@ components:
         backup_keep: { type: integer }
         notify_lang: { $ref: "#/components/schemas/Lang" }
         check_user_agent: { type: string }
+        local_location_name: { type: string, maxLength: 60, description: "Ana sunucunun konum adı; boş = varsayılan (Ana sunucu / Main server)" }
         default_user_agent: { type: string, readOnly: true }
         retention_incident_days: { type: integer }
         retention_capture_days: { type: integer }
         retention_audit_days: { type: integer }
         system_mail_channel_id: { type: integer, format: int64, description: Şifre sıfırlama e-postası kanalı (0 kapalı) }
         agent_auto_update: { type: boolean, description: Ajanlar panelin imzalı sürümüne kendiliğinden güncellensin (varsayılan açık) }
+        mesh_enabled: { type: boolean, nullable: true, description: "Kontrol noktaları arası mesh ping (null/yok: açık)" }
+        mesh_ping_sec: { type: integer, minimum: 1, maximum: 60, description: "Mesh ping aralığı (sn; 0 gönderilirse varsayılan 5)" }
+        mesh_loss_threshold: { type: integer, minimum: 1, maximum: 10, description: "Kopukluk eşiği, ardışık kayıp (0: varsayılan 3); eşik x aralık en az 3 sn" }
+        probe_panel_sec: { type: integer, minimum: 1, maximum: 60, description: "Kontrol noktası <-> panel haberleşme aralığı (sn; 0: varsayılan 5). Çevrimdışı sayılma = eşik x bu aralık" }
     OIDCSettings:
       type: object
       properties:
@@ -860,6 +906,7 @@ paths:
         - { name: to, in: query, schema: { type: integer } }
         - { name: q, in: query, schema: { type: string } }
         - { name: before, in: query, schema: { type: integer }, description: "Sayfalama: bu kimlikten küçükler" }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, maximum: 100000 }, description: "Sayfa numaralı liste: verilirse before yok sayılır, limit 1-100 (varsayılan 25) ve toplam X-Total-Count başlığında döner" }
         - { name: limit, in: query, schema: { type: integer, maximum: 500 } }
         - { name: format, in: query, schema: { type: string, enum: [csv] } }
       responses:
@@ -1176,7 +1223,7 @@ paths:
     post: { tags: [servers], summary: Kontrol noktası ekle (yönetici), requestBody: { content: { application/json: { schema: { type: object, properties: { name: { type: string } } } } } }, responses: { "201": { description: Kontrol noktası + token } } }
   /api/probes/{id}:
     parameters: [{ $ref: "#/components/parameters/id" }]
-    put: { tags: [servers], summary: Kontrol noktasını güncelle (yönetici), requestBody: { content: { application/json: { schema: { type: object, additionalProperties: true } } } }, responses: { "200": { description: Kontrol noktası } } }
+    put: { tags: [servers], summary: Kontrol noktasını güncelle (yönetici), requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/ProbeUpdate" } } } }, responses: { "200": { description: Kontrol noktası, content: { application/json: { schema: { $ref: "#/components/schemas/Probe" } } } }, "400": { $ref: "#/components/responses/Error" } } }
     delete: { tags: [servers], summary: Kontrol noktasını sil (yönetici), responses: { "200": { $ref: "#/components/responses/OK" } } }
   /api/probes/{id}/token:
     post: { tags: [servers], summary: Token'ı yenile (yönetici), parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: "{token, command}" } } }
@@ -1188,6 +1235,42 @@ paths:
       summary: Verilen türdeki güncellenebilir tüm ajanlar için güncelleme iste (yönetici)
       parameters: [{ name: kind, in: query, required: true, schema: { type: string, enum: [server, location] } }]
       responses: { "200": { description: "{requested: N}" } }
+  /api/mesh:
+    get:
+      tags: [servers]
+      summary: "Kontrol noktaları arası bağlantı matrisi ve yorum (yönetici). active=false: mesh kapalı ya da kalp atışı gönderen nokta 2'den az"
+      responses:
+        "200":
+          description: "Düğüm 0 = ana sunucu. pairs: a < b, ab = a'nın b'yi ölçümü. links: yönlü bağlantılar (çift başına iki); rtt_ms/loss_streak/last_ok_at yalnız kontrol noktaları arası ölçümde"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  active: { type: boolean }
+                  nodes: { type: array, items: { type: object, properties: { id: { type: integer }, name: { type: string } } } }
+                  pairs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        a: { type: integer }
+                        b: { type: integer }
+                        state: { type: string, enum: [up, down, oneway, unknown] }
+                        ab: { type: string, enum: [up, down, unknown] }
+                        ba: { type: string, enum: [up, down, unknown] }
+                  findings: { type: array, items: { type: string } }
+                  links:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        src: { type: integer }
+                        dst: { type: integer }
+                        state: { type: string, enum: [up, down, unknown] }
+                        rtt_ms: { type: integer, description: "Son ölçülen gidiş-dönüş süresi (ms)" }
+                        loss_streak: { type: integer, description: "Ardışık kayıp sayısı" }
+                        last_ok_at: { type: integer, description: "Son başarılı ölçüm (unix sn; 0: hiç)" }
   /api/maintenance:
     get: { tags: [maintenance], summary: Bakım pencereleri, responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Maintenance" } } } } } } }
     post: { tags: [maintenance], summary: Bakım ekle (editör+), requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/Maintenance" } } } }, responses: { "201": { description: Bakım } } }
@@ -1248,6 +1331,7 @@ paths:
         - { name: to, in: query, schema: { type: integer } }
         - { name: q, in: query, schema: { type: string } }
         - { name: before, in: query, schema: { type: integer } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, maximum: 100000 }, description: "Sayfa numaralı liste: limit 1-100 (varsayılan 25), toplam X-Total-Count başlığında" }
         - { name: limit, in: query, schema: { type: integer, maximum: 500 } }
       responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AuditEntry" } } } } } }
   /api/audit/facets:

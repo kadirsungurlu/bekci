@@ -41,6 +41,7 @@ Uygulamanın **Environment Variables** bölümüne ekleyip yeniden dağıtın.
 | `TZ` | `Europe/Istanbul` | Saat dilimi: günlük özetler ve gece yedeğinin saati buna göredir. Ör. `Europe/Berlin`, `UTC`. |
 | `LOG_LEVEL` | `info` | Günlük ayrıntısı: `debug`, `info`, `warn` ya da `error`. |
 | `MAX_CONCURRENT_CHECKS` | `50` | Aynı anda çalışabilecek en fazla kontrol sayısı. Yüzlerce monitörde artırılabilir. |
+| `BEAT_BATCH_MS` | `250` | Bu süre (milisaniye) içinde gelen kontrol sonuçları tek işlemde yazılır. Kısa aralıklı (5-15 saniye) çok sayıda monitörde disk yazımını azaltır; 0 her sonucu ayrı yazar. |
 | `DATABASE_URL` | — | Verilirse SQLite yerine **PostgreSQL** kullanılır: `postgres://kullanıcı:parola@sunucu:5432/veritabanı?sslmode=disable`. `postgres://` ya da `postgresql://` ile başlamalıdır. Bu durumda Bekci gece yedeği almaz; yedeği veritabanı tarafında alın. `postgres` imajında bu değişken yok sayılır (her zaman gömülü veritabanı kullanılır). |
 | `DATA_DIR` | `/data` | SQLite veritabanı ve yedeklerin klasörü. Docker'da değiştirmeniz gerekmez; birimi `/data`'ya bağlayın. |
 | `ADDR` | `:8080` | Konteynerin içinde dinlenecek adres ve port. |
@@ -62,6 +63,9 @@ Bu değişkenleri panelden aldığınız kurulum komutu sizin için ayarlar (`/e
 | `MAX_CONCURRENT_CHECKS` | `20` | Kontrol noktasında aynı anda en fazla kontrol sayısı. |
 | `METRICS` | `1` | `0` ise sunucu ölçümleri hiç toplanmaz. |
 | `AUTO_UPDATE` | `1` | `0` ise ajan panelin sunduğu imzalı sürüme kendini güncellemez ([güncelleme](/docs/sunucu-ajani/#guncelleme)). |
+| `PROBE_STATE_DIR` | program dizini | Panelin son bilinen IP adreslerinin saklandığı dizin (`uptime.dns.json`); DNS çözülemezse ajan bu IP ile bağlanır ([DNS kesintisi](/docs/sunucu-ajani/#dns-onbellek)). |
+| `PROBE_OOB_IFACE` | — | İkinci hattın (OOB) ağ arayüzü, ör. `eth1`. Boşsa panelde girilen OOB IP'sine göre otomatik bulunur; OOB IP'si NAT arkasındaysa gerekir ([OOB](/docs/sunucu-ajani/#oob)). |
+| `MESH_ADDR` | `:7480` | Kontrol noktaları arası bağlantının (mesh) TCP dinleme adresi; `-` ise dinlemez, yalnız dinleyen eşlere kendisi bağlanır ([mesh](/docs/sunucu-ajani/#mesh)). |
 | `ADDR` | `:8080` | Ajanın sağlık kontrolü adresi; `-` ise kapalı (kurulum komutları `-` kullanır). |
 | `HOST_PROC`, `HOST_SYS`, `HOST_ETC`, `HOST_ROOT` | — | Ajan Docker'da çalışırken sunucunun `/proc`, `/sys`, `/etc` ve kök dizininin bağlandığı yerler. Docker kurulum komutu bunları ayarlar. |
 | `DOCKER_HOST` | `unix:///var/run/docker.sock` | Konteyner ölçümleri için Docker API adresi. |

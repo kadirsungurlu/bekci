@@ -44,10 +44,32 @@ func (s *Server) listAudit(w http.ResponseWriter, r *http.Request) {
 	f.Limit, _ = strconv.Atoi(q.Get("limit"))
 	f.From, _ = strconv.ParseInt(q.Get("from"), 10, 64)
 	f.To, _ = strconv.ParseInt(q.Get("to"), 10, 64)
+	// Sayfa numaralı liste: offset + toplam (X-Total-Count). Sayfa boyu 1-100.
+	paged := q.Has("offset")
+	if paged {
+		f.Before = 0
+		f.Offset, _ = strconv.Atoi(q.Get("offset"))
+		if f.Offset < 0 || f.Offset > store.MaxAuditOffset {
+			writeError(w, http.StatusBadRequest, "Geçersiz sayfa")
+			return
+		}
+		if f.Limit <= 0 {
+			f.Limit = 25
+		}
+		f.Limit = min(f.Limit, 100)
+	}
 	list, err := s.store.ListAuditFiltered(r.Context(), f)
 	if err != nil {
 		s.dbError(w, err)
 		return
+	}
+	if paged {
+		total, err := s.store.CountAudit(r.Context(), f)
+		if err != nil {
+			s.dbError(w, err)
+			return
+		}
+		w.Header().Set("X-Total-Count", strconv.Itoa(total))
 	}
 	// Ayrıntılar Türkçe saklanır; okuma anında yanıt diline çevrilir.
 	lang := responseLang(w)

@@ -199,6 +199,12 @@ func (s *Server) probeOnly(h http.HandlerFunc) http.Handler {
 			return
 		}
 		ip, version := reqIP, cleanVersion(r.Header.Get("X-Probe-Version"))
+		// OOB hattından gelen istek son görülen IP'yi değiştirmez (eşlerin mesh
+		// adresi ve panel ana hattın IP'sini göstermeye devam eder).
+		if p.OOBIP != "" && store.SameIP(reqIP, p.OOBIP) && p.LastIP != "" {
+			ip = p.LastIP
+		}
+		s.probeUplinkHeaders(r, &p, now)
 		// Kendini güncelleyebilen ajanlar platformlarını bildirir ("linux/amd64",
 		// kapalıysa ";off"/";readonly" sonekiyle); eski ajanlar göndermez.
 		platform := cleanPlatform(r.Header.Get("X-Probe-Platform"))
@@ -268,18 +274,22 @@ type probeAdminView struct {
 	Metrics      bool   `json:"metrics"`   // sunucu metrikleri toplanıyor mu
 	IPLock       bool   `json:"ip_lock"`   // yalnızca kilitli IP'den bağlanabilir mi
 	LockedIP     string `json:"locked_ip"` // sabitlenmiş IP (boş: henüz bağlanmadı)
-	// NotifyOffline: 90 sn istek gelmeyince ve tekrar gelince NotificationIDs
+	// NotifyOffline: çevrimdışı kalınca (kalp atışı eşiği; eski ajanda 90 sn) ve tekrar gelince NotificationIDs
 	// kanallarına bildirim gider, probe_offline olayı açılır/kapanır.
 	NotifyOffline   bool    `json:"notify_offline"`
 	NotificationIDs []int64 `json:"notification_ids"`
 	// Platform ajanın bildirdiği os/arch (boş: eski ajan); Update güncelleme durumu.
 	Platform string              `json:"platform"`
 	Update   *agentupdate.Status `json:"update"`
+	// Mesh ezmeleri + etkin zamanlama (yalnızca kontrol noktası; mesh_settings.go).
+	*probeMeshView
+	// OOB ikinci hat: IP, ad, etkin hat ve geçiş anı, arayüz uyarısı (probes_oob.go).
+	store.ProbeOOB
 }
 
 func (s *Server) probeSummaryOf(p store.Probe) probeSummary {
 	// Uzun yoklama bağlantısı koptuysa beklemeden çevrimdışı (konum kartlarıyla aynı anda).
-	online := engine.ProbeOnline(p, s.now()) && !s.engine.ProbeDisconnected(p.ID)
+	online := s.engine.ProbeOnline(p, s.now()) && !s.engine.ProbeDisconnected(p.ID)
 	return probeSummary{ID: p.ID, Name: p.Name, Active: p.Active, Online: online, LastSeenAt: p.LastSeenAt}
 }
 
@@ -291,7 +301,7 @@ func (s *Server) probeAdminOf(p store.Probe, monitors int, notificationIDs []int
 		probeSummary: s.probeSummaryOf(p), Kind: p.Kind, TokenPrefix: p.TokenPrefix, CreatedAt: p.CreatedAt,
 		LastIP: p.LastIP, Version: p.Version, MonitorCount: monitors, Metrics: p.Metrics,
 		IPLock: p.IPLock, LockedIP: p.LockedIP, NotifyOffline: p.NotifyOffline, NotificationIDs: notificationIDs,
-		Platform: p.Platform, Update: s.agentUpdateStatus(p),
+		Platform: p.Platform, Update: s.agentUpdateStatus(p), probeMeshView: s.probeMeshOf(p), ProbeOOB: p.ProbeOOB,
 	}
 }
 
@@ -571,6 +581,11 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 		// AutoUpdate ajan başına otomatik güncelleme: true/false, null genel
 		// ayara dönüş; alan yoksa değişmez (agentupdate.go).
 		AutoUpdate json.RawMessage `json:"auto_update"`
+		// Mesh (yalnızca kontrol noktası; sunucu ajanında yok sayılır).
+		meshProbeInput
+		// OOB ikinci hat; alan yoksa değişmez, boş IP OOB'yi kaldırır.
+		OOBIP   *string `json:"oob_ip"`
+		OOBName *string `json:"oob_name"`
 	}
 	if !readJSON(w, r, &in) {
 		return
@@ -596,6 +611,31 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 		}
 		if _, err := s.notificationIDs(r, &channelIDs); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+	oobIP, oobName := old.OOBIP, old.OOBName
+	if in.OOBIP != nil || in.OOBName != nil {
+		ip, name := oobIP, oobName
+		if in.OOBIP != nil {
+			ip = *in.OOBIP
+		}
+		if in.OOBName != nil {
+			name = *in.OOBName
+		}
+		if oobIP, oobName, err = store.NormalizeOOB(ip, name); err != nil {
+			msg, field := "OOB IP adresi geçersiz", "oob_ip"
+			if errors.Is(err, store.ErrOOBName) {
+				msg, field = "OOB adı en fazla 40 karakter olmalı", "oob_name"
+			}
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg, "field": field})
+			return
+		}
+	}
+	mesh := old.ProbeMesh
+	if old.Kind == store.ProbeKindLocation {
+		if mesh, err = in.meshProbeInput.apply(old, s.engine.Settings()); err != nil {
+			writeTimingError(w, err)
 			return
 		}
 	}
@@ -675,10 +715,40 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 		// yeniden etkinleşen ajan ilk isteğiyle normal akışa döner.
 		s.probeConns.forget(id)
 		s.engine.SetProbeConnected(id, true)
+		if !active {
+			// Pasif probe'un çift anahtarları kalmasın; yeniden etkinleşince yenileri üretilir.
+			if err := s.store.DropProbePairKeys(r.Context(), id); err != nil {
+				s.log.Warn("çift anahtarları silinemedi", "probe", id, "hata", err)
+			}
+		}
 	}
 	if len(changes) > 0 {
 		// Ad mesajlarda, etkinlik konum listesinde kullanılır: monitörler yeniden yüklenir.
 		s.reloadProbeMonitors(r.Context(), id, nil)
+	}
+	// Mesh değişikliği monitörleri etkilemez (yeniden yükleme yok); ajan
+	// zamanlamayı iş listesi yanıtıyla alır (JobsChanged).
+	if mc := meshChanges(old.ProbeMesh, mesh); len(mc) > 0 {
+		if err := s.store.SetProbeMesh(r.Context(), id, mesh); err != nil {
+			s.dbError(w, err)
+			return
+		}
+		changes = append(changes, mc...)
+	}
+	if oobIP != old.OOBIP || oobName != old.OOBName {
+		if err := s.store.SetProbeOOB(r.Context(), id, oobIP, oobName); err != nil {
+			s.dbError(w, err)
+			return
+		}
+		switch {
+		case oobIP == "":
+			changes = append(changes, "OOB hattı kaldırıldı")
+		default:
+			changes = append(changes, "OOB hattı: "+oobIP+" ("+store.ProbeOOB{OOBName: oobName}.OOBLabel()+")")
+		}
+		if oobIP == "" && old.OnOOB() {
+			s.engine.SetProbeUplink(r.Context(), store.Probe{ID: id, Name: in.Name, Kind: old.Kind}, false, s.now(), false)
+		}
 	}
 	if metricsOn != old.Metrics {
 		changes = append(changes, map[bool]string{true: "metrik toplama açıldı", false: "metrik toplama kapatıldı"}[metricsOn])
@@ -916,7 +986,7 @@ func (s *Server) putMonitorLocations(w http.ResponseWriter, r *http.Request) {
 	}
 	names := []string{}
 	if setup.IncludeLocal {
-		names = append(names, engine.LocalName)
+		names = append(names, s.engine.LocalLocationName())
 	}
 	for _, pid := range setup.ProbeIDs {
 		p, ok := probes[pid]
@@ -935,7 +1005,7 @@ func (s *Server) putMonitorLocations(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r, store.User{}, "monitor.locations", "monitor", id, m.Name,
 		"konumlar: "+strings.Join(names, ", ")+"; kural: "+i18n.DownWhenLabel(setup.DownWhen)+
-			map[bool]string{true: "; konum kesintisinde bildirim", false: ""}[setup.NotifyPartial])
+			map[bool]string{true: "; kısmi erişim kesintisinde bildirim", false: ""}[setup.NotifyPartial])
 	v, err := s.locationsOf(r.Context(), m)
 	if err != nil {
 		s.dbError(w, err)
@@ -1001,7 +1071,7 @@ func (s *Server) assignedJobs(ctx context.Context, probeID int64) ([]store.Monit
 const (
 	// probeHold bekletme süresi: ajanın HTTP zaman aşımından (30 sn), sunucunun
 	// okuma (30 sn) / yazma (60 sn) sınırından, Cloudflare'in 100 sn'sinden ve
-	// çevrimdışı sayılma süresinden (engine.ProbeOfflineAfter, 90 sn) epey kısa.
+	// çevrimdışı sayılma süresinden (engine.ProbeLegacyOfflineAfter, 90 sn) epey kısa.
 	probeHold = 20 * time.Second
 	// probeFreshFor eski ajanın önceki iş listesi isteği bundan eskiyse elindeki
 	// liste bilinmiyor sayılır (yeniden başlamış olabilir), hemen yanıtlanır.
@@ -1233,6 +1303,7 @@ func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 	s.probePolls.set(p.ID, version, s.now())
 	out := map[string]any{
 		"probe":      map[string]any{"id": p.ID, "name": p.Name},
+		"oob":        probeOOBConfig(p),
 		"poll_after": probeLongPollAfter,
 		// Listenin sürümü: yeni ajanlar sonraki istekte ?since= ile geri gönderir.
 		"version": version,

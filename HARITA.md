@@ -13,7 +13,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 - `internal/servers/` sunucu ajanı metrikleri · `internal/backup/` dışa/içe aktarma (Kuma, UptimeRobot) · `internal/webpush/`
 - `internal/apidocs/openapi.yaml` — API belgesi (yeni genel uç eklenirse güncelle)
 - `web/` — Svelte 5 + Vite SPA (TS). `src/pages/` sayfalar, `src/components/`, `src/lib/` (api.ts türler+istekler, router, i18n)
-- `web/e2e/` — Playwright betikleri (`push.mjs`, `durum.mjs`, `abonelik.mjs` + `smtp-sink.mjs` sahte SMTP; `ozelalan.mjs` abonelik ve `alanadi.mjs` on-demand TLS: gerçek alan adıyla elle, CI'da yok; `guncelleme.mjs` yeni sürüm şeridi, sahte sürüm sunucusu, CI'da), `statusgrid.test.mjs` (node --test)
+- `web/e2e/` — Playwright betikleri (`push.mjs`, `durum.mjs`, `abonelik.mjs` + `smtp-sink.mjs` sahte SMTP; `ozelalan.mjs` abonelik ve `alanadi.mjs` on-demand TLS: gerçek alan adıyla elle, CI'da yok; `guncelleme.mjs` yeni sürüm şeridi, sahte sürüm sunucusu, CI'da; `olaylar.mjs` olay listesi sayfalama, CI'da; `mesh.mjs` bağlantı matrisi, CI'da), `statusgrid.test.mjs` (node --test)
 - `site/` — tanıtım sitesi + belgeler (`docs-src/{tr,en}`) · `deploy/compose/` — örnek compose · `Dockerfile`, `Dockerfile.postgres`
 - `.github/workflows/imajlar.yml` — CI: go vet/test (sqlite+pg), web check/build, e2e, duman testi, imaj
 
@@ -47,8 +47,8 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 |---|---|
 | Kimlik, oturum, 2FA, OIDC | api/auth.go, sessions.go, twofactor.go, oidc.go; store/users.go, sessions.go |
 | Şifre sıfırlama, sistem e-postası | api/password_reset.go; notify/email.go, email_html.go |
-| İzleyiciler | api/monitors.go; store/monitors.go; check/*; engine/runner.go |
-| Olaylar | engine/incidents.go; api/incidents*.go; store/incident*.go |
+| İzleyiciler | api/monitors.go (aralık sınırı store.MinIntervalSec=5); store/monitors.go, beats.go + beats_batch.go (grup commit, BEAT_BATCH_MS); check/*; engine/runner.go |
+| Olaylar | engine/incidents.go; api/incidents*.go, misc.go listIncidents (offset + X-Total-Count); store/incident*.go; web pages/Incidents, components/Pager (ortak sayfa gezgini) |
 | Bildirim kanalları | api/notifications.go; notify/*; store/notifications.go, notification_rules.go |
 | Durum sayfaları (yönetim) | api/pages.go; store/pages*.go; web pages/StatusPages, StatusPageEditor, PagePreviewPanel |
 | E-posta aboneliği (durum sayfası) | api/subscribers.go, subscribers_notify.go; store/subscribers.go; web components/SubscribePanel, PageSubscribers |
@@ -60,7 +60,13 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 | Sunucu ajanları | api/servers.go, metrics*.go; internal/servers; store/servers*.go |
 | Yedek / içe aktarma | api/backup.go, importer.go; internal/backup |
 | Ayarlar | api/misc.go (settings); store/settings.go; web pages/Settings + settings/* |
+| Ajan (probe) istemcisi | internal/probe/probe.go (yoklama, sonuç gönderimi), dnscache.go (Main adı için son bilinen IP, PROBE_STATE_DIR/uptime.dns.json); cmd/uptime/probe.go env |
+| Çok konum, kısmi erişim kesintisi | engine/locations.go (aggregateDecision, linkHealthy, noVote, meshLost), partial.go, localname_test.go; ana sunucu konum adı AppSettings.LocalLocationName (engine.LocalLocationName); olay ayrıntısı mesh_lost (api/incidents.go, web IncidentDetail); varsayılan all+notify_partial yalnız yeni monitörde (MonitorForm) |
 | İşlem kaydı | store/audit.go; i18n/audit.go; web settings/Audit.svelte |
+| Mesh (probe arası TCP ping, kalp atışı) | store/mesh.go (ayar/ezme, probe_links, probe_pair_keys, migration 40); api/probes_mesh.go (POST /api/probe/mesh, GET /api/probe/mesh/peers), mesh_settings.go; engine/probes.go (ProbeOnline: eşik x panel aralığı, eski ajan 90 sn); probe/meshtcp.go (çerçeve+HMAC), heartbeat.go, meshtypes.go (tel sözleşmesi); cmd/uptime/probe_mesh.go (MESH_ADDR :7480); web settings/Probes |
+| Mesh karar + bildirim | mesh/verdict.go (saf karar: bölünme, düğüm, yol, tek yönlü, yetersiz gözlem), mesh/text.go (TR/EN metin, Report); mesh/render.go (şema PNG, RenderPNG; Inter alt kümesi mesh/font/, altın PNG testdata/topo*.png); engine/mesh.go (evalMesh: ısınma, 1 panel aralığı erteleme, tek olay; probe_offline tekil bildirimi bastırır); store/mesh_incident.go (olay türü mesh, yalnız yönetici, IncidentFilter.NoMesh); notify/mesh.go (KindMesh/KindMeshResolved, kanal = noktaların çevrimdışı kanalları); api/incidents_mesh.go; api/mesh_view.go (GET /api/mesh matris, engine.MeshSnapshot); i18n/mesh.go; web IncidentDetail mesh kartı, components/MeshMatrix (Ayarlar > Kontrol noktaları, SSE "mesh") |
+| OOB ikinci hat (ajan hat yedeği) | store/probes_oob.go (migration 41: oob_ip, oob_name, uplink, uplink_since, oob_iface_missing); api/probe_guard.go (IP kilidi OOB yuvası), probes_oob.go (X-Probe-Uplink / X-Probe-OOB-Iface başlıkları), jobs + kalp atışı yanıtında oob; engine/uplink.go (SetProbeUplink, bildirim, OOB konumu noVote); notify KindUplinkFailover/Restored; probe/bind*.go (arayüz bulma, SO_BINDTODEVICE / IP_UNICAST_IF, PROBE_OOB_IFACE), probe/uplink.go (geçiş/dönüş durum makinesi); web components/UplinkBadge, OobFields; belge 08-sunucu-ajani#oob |
+| Mesh topoloji şeması | web components/MeshDiagram.svelte (elle SVG, lib/meshlayout.ts yerleşimi, ipucu + klavye odağı; MeshMatrix kartında ve IncidentDetail mesh kartında); GET /api/mesh links (yönlü: rtt_ms, loss_streak, last_ok_at; api/mesh_view.go meshLinkViews); olay kaydı nodes + ab/ba (api/incidents_mesh.go); i18n probes.topo; Tooltip focusin |
 
 <!-- OTOMATIK: scripts/harita.sh -->
 
@@ -75,12 +81,14 @@ incidents.go: GET /api/incidents/{id} | GET /api/servers/{id}/incidents
 incidents_ack.go: POST /api/incidents/{id}/ack | DELETE /api/incidents/{id}/ack | POST /api/incidents/{id}/snooze | DELETE /api/incidents/{id}/snooze
 incidents_manual.go: POST /api/incidents | PUT /api/incidents/{id} | DELETE /api/incidents/{id} | POST /api/incidents/{id}/updates | DELETE /api/incidents/{id}/updates/{uid}
 maintenance.go: GET /api/maintenance | POST /api/maintenance | GET /api/maintenance/{id} | PUT /api/maintenance/{id} | DELETE /api/maintenance/{id} | POST /api/maintenance/{id}/pause | POST /api/maintenance/{id}/resume | POST /api/maintenance/{id}/end
+mesh_view.go: GET /api/mesh
 metrics.go: GET /metrics
 oidc.go: GET /api/settings/oidc | PUT /api/settings/oidc | POST /api/settings/oidc/test | GET /api/auth/oidc/start | GET /api/auth/oidc/callback
 openapi.go: GET /api/openapi.json
 pages.go: GET /api/status-pages | POST /api/status-pages | GET /api/status-pages/{id} | PUT /api/status-pages/{id} | DELETE /api/status-pages/{id} | GET /api/status-pages/{id}/preview | POST /api/status-pages/preview-data | GET /api/status-pages/{id}/logo | PUT /api/status-pages/{id}/logo | DELETE /api/status-pages/{id}/logo | GET /api/status-pages/{id}/announcements | POST /api/status-pages/{id}/announcements | PUT /api/announcements/{id} | DELETE /api/announcements/{id} | GET /api/public/resolve | GET /api/public/pages/{slug} | POST /api/public/pages/{slug}/unlock | GET /api/public/pages/{slug}/logo | GET /api/public/pages/{slug}/events
 password_reset.go: POST /api/auth/email | POST /api/auth/forgot | POST /api/auth/reset
 probes.go: GET /api/probes | POST /api/probes | PUT /api/probes/{id} | DELETE /api/probes/{id} | POST /api/probes/{id}/token | GET /api/monitors/{id}/locations | PUT /api/monitors/{id}/locations | GET /api/probe/jobs | GET /api/probe/binary | POST /api/probe/results
+probes_mesh.go: POST /api/probe/mesh | GET /api/probe/mesh/peers
 public_feed.go: GET /api/public/pages/{slug}/feed.xml | GET /durum/{slug}/feed.xml
 quick.go: POST /api/monitors/{id}/clone | POST /api/monitors/{id}/reset-stats | POST /api/monitors/{id}/push-token | PUT /api/monitors/{id}/notifications | POST /api/monitors/bulk | POST /api/status-pages/{id}/monitors
 server.go: GET /healthz | GET /api/push/{token} | POST /api/push/{token} | GET /api/auth/state | POST /api/auth/setup | POST /api/auth/login | POST /api/auth/logout | POST /api/auth/password | PUT /api/auth/preferences | GET /api/summary | GET /api/monitors | POST /api/monitors | GET /api/monitors/{id} | PUT /api/monitors/{id} | DELETE /api/monitors/{id} | POST /api/monitors/{id}/pause | POST /api/monitors/{id}/resume | GET /api/monitors/{id}/series | GET /api/monitors/{id}/beats | GET /api/monitors/{id}/incidents | GET /api/incidents | GET /api/notifications | POST /api/notifications | PUT /api/notifications/{id} | DELETE /api/notifications/{id} | POST /api/notifications/test | POST /api/notifications/{id}/samples | GET /api/settings | PUT /api/settings | GET /api/events | GET /api/users | POST /api/users | PUT /api/users/{id} | DELETE /api/users/{id} | POST /api/users/{id}/password | GET /api/audit | GET /api/audit/facets | /api/ | /
@@ -99,7 +107,8 @@ webpush.go: GET /api/webpush/vapid | GET /api/webpush/subscriptions | POST /api/
 10: servers.go 11: incident_events.go 12: user_servers.go 13: pages_incidents.go 14: pages_incidents.go 15: probes_iplock.go 16: i18n.go 
 17: pages_layout.go 18: incident_kinds.go 19: probes.go 20: maintenance.go 21: probes.go 22: monitors.go 23: notification_rules.go 24: 
 pages_period.go 25: incident_manual.go 26: servers_ext.go 27: beats_recent.go 28: domain.go 29: incident_ack.go 30: tag_rules.go 31: 
-auth_ext.go 32: webpush.go 33: auth_ext.go 34: sessions.go 35: probes_update.go 36: subscribers.go 37: subscribers.go 38: updates.go
+auth_ext.go 32: webpush.go 33: auth_ext.go 34: sessions.go 35: probes_update.go 36: subscribers.go 37: subscribers.go 38: updates.go 39: 
+incident_kinds.go 40: mesh.go 41: probes_oob.go
 ```
 
 ### Arayüz sayfaları / bileşenler / i18n ad alanları
@@ -108,9 +117,9 @@ pages: Announcements Auth ForcePassword IncidentDetail Incidents MaintenanceForm
 pages/settings: Account ApiKeys Audit Backup General Login Probes Tags TwoFactor UserForm Users
 components: AgentAutoUpdate AgentVersion AlertRulesEditor BadgeBuilder BulkEditModal ConfigFields ConfirmDialog ConnectionDetails 
 ContainerTable CopyButton DateTimeField DomainStatus FilePick Icon ImportResult IncidentAck IncidentEditModal IncidentTable IncidentUpdates 
-LangSwitch LineChart Modal MonitorMenu MonitorPicker MonitorRow NotificationForm PagePreviewPanel PageSubscribers PageThumb PingChart 
-PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu ServerPicker ServerSettingsModal 
-ServerSetupModal Sessions Sparkline StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker ThemeToggle Toasts Tooltip 
-TypeBadge UpdateBanner UptimeBars UsageBar
+LangSwitch LineChart MeshDiagram MeshMatrix Modal MonitorMenu MonitorPicker MonitorRow NotificationForm OobFields PagePreviewPanel 
+PageSubscribers PageThumb Pager PingChart PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu 
+ServerPicker ServerSettingsModal ServerSetupModal Sessions Sparkline StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker 
+ThemeToggle Toasts Tooltip TypeBadge UpdateBanner UplinkBadge UptimeBars UsageBar
 i18n: account ale.ts apiKeys audit auth backup common incide.ts maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles servers settings status tags users
 ```

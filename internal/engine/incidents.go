@@ -64,7 +64,7 @@ func (r *runner) addEvents(ctx context.Context, id int64, evs ...store.IncidentE
 func (r *runner) rememberRetry(now time.Time, res check.Result) {
 	ev := store.IncidentEvent{Time: now.Unix(), Kind: store.EventRetry, Message: res.Message}
 	if r.locs == nil {
-		ev.Location = LocalName
+		ev.Location = r.e.LocalLocationName()
 		ev.Data = store.EventData(map[string]int{"attempt": r.retries, "max": r.m.MaxRetries})
 	}
 	if len(r.preDown) >= maxPreDown {
@@ -91,10 +91,10 @@ func (r *runner) openIncident(ctx context.Context, now time.Time, res check.Resu
 	}
 
 	var locs []incidentLocation
-	where := LocalName
-	c := locCapture{detail: res.Detail, at: now, loc: LocalName}
+	where := r.e.LocalLocationName()
+	c := locCapture{detail: res.Detail, at: now, loc: where}
 	if r.locs == nil {
-		locs = []incidentLocation{{ProbeID: LocalProbeID, Name: LocalName, Status: locDown, Message: res.Message}}
+		locs = []incidentLocation{{ProbeID: LocalProbeID, Name: where, Status: locDown, Message: res.Message}}
 	} else {
 		var failing []string
 		locs, failing = r.locationSnapshot(now, &r.locPrev)
@@ -103,7 +103,7 @@ func (r *runner) openIncident(ctx context.Context, now time.Time, res check.Resu
 	}
 	evs := append(pre, store.IncidentEvent{
 		Time: now.Unix(), Kind: store.EventDown, Location: where, Message: res.Message,
-		Data: store.EventData(downData{Locations: locs, Monitor: r.snapshot()}),
+		Data: store.EventData(downData{Locations: locs, Monitor: r.snapshot(), MeshLost: r.locs != nil && r.meshLost}),
 	})
 	r.addEvents(ctx, id, evs...)
 	r.saveCapture(ctx, id, c)
@@ -122,6 +122,9 @@ type MonitorSnapshot struct {
 type downData struct {
 	Locations []incidentLocation `json:"locations"`
 	Monitor   MonitorSnapshot    `json:"monitor"`
+	// MeshLost kontrol noktalarına ulaşılamıyordu; karar yalnız ana sunucunun
+	// sonucuna dayanıyor (arayüz ve bildirim not düşer).
+	MeshLost bool `json:"mesh_lost,omitempty"`
 }
 
 func (r *runner) snapshot() MonitorSnapshot {

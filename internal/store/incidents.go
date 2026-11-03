@@ -98,22 +98,48 @@ type IncidentFilter struct {
 	ServerID   int64
 	MonitorIDs []int64 // müşteri kısıtı: görebileceği monitörler
 	ServerIDs  []int64 // müşteri kısıtı: görebileceği sunucular
+	NoMesh     bool    // mesh (kontrol noktası ağı) olaylarını gizle: yönetici olmayanlar
 	Kind       string  // süzgeç grubu: monitor | partial | server | degraded | manual ("" = hepsi)
 	Before     int64   // sayfalama: bu id'den küçükler
 	Since      int64
 	Open       bool // yalnızca süren (çözülmemiş) olaylar
 	Limit      int
+	Offset     int // sayfa numaralı liste (Before ile birlikte kullanılmaz)
 	// Süzgeçler (olay listesi): From/To başlangıç zamanı aralığı (unix; 0 = yok),
 	// Query başlık, neden, monitör/sunucu adında (büyük/küçük harf duyarsız) arama.
 	From, To int64
 	Query    string
 }
 
+// MaxIncidentOffset sayfalama ofsetinin üst sınırı (çok derin sayfa taraması olmasın).
+const MaxIncidentOffset = 100000
+
 func (s *Store) ListIncidents(ctx context.Context, f IncidentFilter) ([]Incident, error) {
 	if f.Limit <= 0 || f.Limit > 500 {
 		f.Limit = 100
 	}
-	q := `SELECT ` + incidentCols + incidentFrom + ` WHERE 1 = 1`
+	where, args := incidentWhere(f)
+	q := `SELECT ` + incidentCols + incidentFrom + where + " ORDER BY i.id DESC LIMIT ?"
+	args = append(args, f.Limit)
+	if f.Offset > 0 {
+		q += " OFFSET ?"
+		args = append(args, min(f.Offset, MaxIncidentOffset))
+	}
+	return s.queryIncidents(ctx, q, args...)
+}
+
+// CountIncidents süzgece uyan olay sayısı (Before, Limit ve Offset yok sayılır).
+func (s *Store) CountIncidents(ctx context.Context, f IncidentFilter) (int, error) {
+	f.Before = 0
+	where, args := incidentWhere(f)
+	var n int
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*)`+incidentFrom+where, args...).Scan(&n)
+	return n, err
+}
+
+// incidentWhere süzgecin WHERE bölümü (incidentFrom'daki takma adlarla).
+func incidentWhere(f IncidentFilter) (string, []any) {
+	q := ` WHERE 1 = 1`
 	var args []any
 	if f.MonitorID > 0 {
 		q += " AND i.monitor_id = ?"
@@ -122,6 +148,9 @@ func (s *Store) ListIncidents(ctx context.Context, f IncidentFilter) ([]Incident
 	if f.ServerID > 0 {
 		q += " AND i.server_id = ?"
 		args = append(args, f.ServerID)
+	}
+	if f.NoMesh {
+		q += " AND i.kind <> '" + IncidentMesh + "'"
 	}
 	if f.MonitorIDs != nil || f.ServerIDs != nil {
 		// Manuel olaylar (durum sayfası iletişimi) herkese görünür.
@@ -168,9 +197,10 @@ func (s *Store) ListIncidents(ctx context.Context, f IncidentFilter) ([]Incident
 		q += " AND (i.started_at >= ? OR i.resolved_at IS NULL OR i.resolved_at >= ?)"
 		args = append(args, f.Since, f.Since)
 	}
-	q += " ORDER BY i.id DESC LIMIT ?"
-	args = append(args, f.Limit)
+	return q, args
+}
 
+func (s *Store) queryIncidents(ctx context.Context, q string, args ...any) ([]Incident, error) {
 	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err

@@ -30,7 +30,7 @@ Click **Create account** and you're taken straight into the panel. This screen a
 1. On the **Monitors** page, click **Add monitor** (or **New** at the top right).
 2. Choose **HTTP(S)** as the **Monitor type** (to watch a website or an API).
 3. Give it a clear **Name** (e.g. “Company website”) and enter the site's address in **URL** (e.g. `https://example.com`).
-4. **Check interval** is how often it's checked: at least 20 seconds, at most 24 hours. 60 seconds is a good start.
+4. **Check interval** is how often it's checked: at least 5 seconds, at most 24 hours. 60 seconds is a good start; short intervals such as 5-15 seconds write a record on every check, so use them only for targets that really need fast detection. The timeout cannot be longer than the check interval.
 5. Click **Add monitor**.
 
 ![New monitor form: monitor type picker with web, network, database and system categories](/img/yeni-monitor-1600.webp)
@@ -76,7 +76,7 @@ Add at least one channel so you hear about it when a monitor goes down. There ar
 4. Tick **Add to new monitors by default** so new monitors get this channel automatically. To add it to your existing monitors as well, tick **Add to all existing monitors**.
 5. Click **Save**.
 
-Notifications arrive with a short title: outage, recovery (locations that are still down are listed), location outage, SSL warning, domain expiry (warning or critical); emails contain both HTML and plain text. For a saved channel, **Send sample notifications** sends one sample of every type. On a temporary failure (network, HTTP 5xx/429) delivery is retried after 5 and 20 seconds; the result is written to the incident's timeline.
+Notifications arrive with a short title: outage, recovery (locations that are still down are listed), partial reachability outage, SSL warning, domain expiry (warning or critical); emails contain both HTML and plain text. For a saved channel, **Send sample notifications** sends one sample of every type. On a temporary failure (network, HTTP 5xx/429) delivery is retried after 5 and 20 seconds; the result is written to the incident's timeline.
 
 The **Webhook** channel sends JSON: `event` (`down`, `up`, `reminder`, `location_down`, `location_up`, `cert`, `domain`, `server_alert`, `server_resolved`, `test`), `title`, `text`, `message`, `time`, `downtime_seconds` (on recovery), `cert_days` (on SSL warnings), `domain` and `domain_days` (on domain alerts), `monitor` (`id`, `name`, `type`, `target`, `url`), `incident` (`id`, `url`; on incident-bound notifications), `locations` (failing locations of a multi-location monitor: `name`, `message`) and `server` (server alerts only: `id`, `name`, `metric`, `value`, `threshold`, `minutes`). An example payload is shown in the channel dialog.
 
@@ -87,7 +87,7 @@ The **Rules** section of the channel dialog decides when the channel is notified
 | Rule | What it does |
 |---|---|
 | **Events to receive** | Unchecked types (e.g. recovery, reminder, SSL) are not sent to this channel. and are selected separately, so you can build a channel that only wants outages. |
-| **Quiet hours** | A start-end window in the channel's time zone (`22:00`–`07:00` style windows across midnight are fine). In **Let only critical ones through** mode, outage, server alert and check-location notifications and their recovery go out immediately; slow response, location outage and SSL warnings are deferred to the end of the window. In **Send nothing** mode everything is deferred. A deferred problem notification is sent when the window ends only if the problem is still ongoing (with a "Quiet hours ended" note); reminders are dropped. |
+| **Quiet hours** | A start-end window in the channel's time zone (`22:00`–`07:00` style windows across midnight are fine). In **Let only critical ones through** mode, outage, server alert and check-location notifications and their recovery go out immediately; slow response, partial reachability outage and SSL warnings are deferred to the end of the window. In **Send nothing** mode everything is deferred. A deferred problem notification is sent when the window ends only if the problem is still ongoing (with a "Quiet hours ended" note); reminders are dropped. |
 | **Delay** | "Notify only if it lasts N minutes": short outages (e.g. a two-minute restart) produce no notification. goes out once the time has passed if the problem persists (with a "Delayed notification" note); if it never went out, that incident's recovery and reminders are skipped too. |
 | **Escalation** | "Also report every incident that has lasted N minutes": even when the channel is not attached to the monitor or server, every outage, server alert and check-location outage open for this many minutes arrives here with an "Escalation" note, followed by when it resolves. Good for the on-call manager's channel. |
 | **Notification language** | Per-channel language (overrides the global setting); tests and samples use it too. |

@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
 // UptimeRobotAPI testlerde sahte sunucuya yönlendirmek için değiştirilebilir.
@@ -151,7 +153,7 @@ func FromUptimeRobot(list []URMonitor) *Result {
 		if interval <= 0 {
 			interval = 300
 		}
-		m.Interval = clamp(interval, 20, 86400)
+		m.Interval = clamp(interval, store.MinIntervalSec, store.MaxIntervalSec)
 		m.RetryInterval = m.Interval
 		m.Timeout = 30
 		if u.Timeout > 0 {

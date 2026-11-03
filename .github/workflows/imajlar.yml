@@ -125,13 +125,19 @@ jobs:
         run: node push.mjs
       - name: Durum sayfası (ızgara + canlı akış) uçtan uca
         working-directory: web/e2e
-        run: node --test --experimental-strip-types statusgrid.test.mjs && node durum.mjs
+        run: node --test --experimental-strip-types statusgrid.test.mjs meshlayout.test.mjs && node durum.mjs
       - name: Durum sayfası e-posta aboneliği (sahte SMTP) uçtan uca
         working-directory: web/e2e
         run: node abonelik.mjs
       - name: Yeni sürüm şeridi (sahte sürüm sunucusu) uçtan uca
         working-directory: web/e2e
         run: node guncelleme.mjs
+      - name: Olaylar listesi sayfalama uçtan uca
+        working-directory: web/e2e
+        run: node olaylar.mjs
+      - name: Mesh bağlantı matrisi uçtan uca
+        working-directory: web/e2e
+        run: node mesh.mjs
       - name: Panel günlüğü
         if: failure()
         run: tail -n 80 "$RUNNER_TEMP/panel.log" || true

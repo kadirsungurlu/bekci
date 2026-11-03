@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -428,10 +429,10 @@ func (in *monitorInput) toMonitor(strict bool) (store.Monitor, error) {
 		in.Timeout = min(30, max(1, in.Interval/2))
 	}
 	switch {
-	case !between(in.Interval, 20, 86400):
-		return store.Monitor{}, errors.New("Kontrol aralığı 20 saniye ile 24 saat arasında olmalı")
-	case !between(in.RetryInterval, 20, 86400):
-		return store.Monitor{}, errors.New("Tekrar deneme aralığı 20 saniye ile 24 saat arasında olmalı")
+	case !between(in.Interval, store.MinIntervalSec, store.MaxIntervalSec):
+		return store.Monitor{}, fmt.Errorf("Kontrol aralığı %d saniye ile 24 saat arasında olmalı", store.MinIntervalSec)
+	case !between(in.RetryInterval, store.MinIntervalSec, store.MaxIntervalSec):
+		return store.Monitor{}, fmt.Errorf("Tekrar deneme aralığı %d saniye ile 24 saat arasında olmalı", store.MinIntervalSec)
 	case !between(in.MaxRetries, 0, 20):
 		return store.Monitor{}, errors.New("Tekrar deneme sayısı 0-20 olmalı")
 	case !between(in.Timeout, 1, 300):

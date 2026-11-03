@@ -46,6 +46,7 @@ import (
 	"io"
 	"log/slog"
 	"math/rand/v2"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -75,13 +76,35 @@ type Config struct {
 	AllowInsecure bool             // true değilse http:// ana sunucu reddedilir (yalnızca PROBE_ALLOW_INSECURE=1)
 	Metrics       MetricsCollector // varsayılan metrics.NewCollector
 	HTTPClient    *http.Client
-	Log           *slog.Logger
+	// StateDir ajanın kalıcı durum dizini (PROBE_STATE_DIR): ana sunucunun son
+	// bilinen IP'leri burada saklanır (bkz. dnscache.go). Boşsa yalnızca bellekte.
+	// HTTPClient verilmişse kullanılmaz.
+	StateDir string
+	Log      *slog.Logger
 	// Updater kendini güncelleme (agentupdate.New); nil: "update" teklifleri yok
 	// sayılır ve platform başlığı gönderilmez (ajan güncelleme desteklemez gibi görünür).
 	Updater *agentupdate.Updater
 	// UpdateReport açılışta Updater.Startup'ın verdiği, panele iletilecek
 	// durum (önceki güncelleme geri alındı vb.); ilk başarılı yoklamadan sonra gönderilir.
 	UpdateReport *agentupdate.Report
+
+	// Mesh kancaları (heartbeat.go); hepsi isteğe bağlı.
+	// MeshSource kalp atışına eklenen eş ölçümleri ve dinleme portu (nil: yok).
+	MeshSource MeshSource
+	// OnMeshPeers eş listesi sürümü değişince yeni liste ile çağrılır.
+	OnMeshPeers func(MeshPeersResponse)
+	// OnMeshTiming her başarılı kalp atışında panelin bildirdiği zamanlamayla çağrılır.
+	OnMeshTiming func(MeshTiming)
+	// HeartbeatRetry panel kalp atışını tanımıyorsa (404, eski panel) yeniden
+	// deneme aralığı (varsayılan 300 birim).
+	HeartbeatRetry time.Duration
+
+	// OOB hat yedeği (uplink.go). OOBIface OOB IP'sinin arayüzünü elle verir
+	// (PROBE_OOB_IFACE; boş: IP'ye göre bulunur). OOBMinStay OOB'ye geçtikten
+	// sonra ana hatta dönüş denemesinden önceki en kısa süre (vars. 300 birim).
+	// HTTPClient verilmişse hat geçişi yapılmaz.
+	OOBIface   string
+	OOBMinStay time.Duration
 }
 
 // MetricsCollector sunucu ölçümlerini toplar (metrics.Collector; testlerde sahtesi).
@@ -136,12 +159,13 @@ type jobsResponse struct {
 		ID   int64  `json:"id"`
 		Name string `json:"name"`
 	} `json:"probe"`
-	PollAfter       int    `json:"poll_after"`
-	Version         *int64 `json:"version"`          // iş listesi sürümü; yok (eski sunucu) = uzun yoklama yok
-	MetricsInterval int    `json:"metrics_interval"` // sn; 0 veya alan yok (eski sunucu) = metrik gönderilmez
-	ServerTime      int64  `json:"server_time"`      // unix ms; 0 veya alan yok (eski sunucu) = saat farkı bilinmez
-	UserAgent       string `json:"user_agent"`       // kontrol isteklerinin User-Agent'ı; boş (eski sunucu) = ajanın varsayılanı
-	Jobs            []Job  `json:"jobs"`
+	PollAfter       int        `json:"poll_after"`
+	Version         *int64     `json:"version"`          // iş listesi sürümü; yok (eski sunucu) = uzun yoklama yok
+	MetricsInterval int        `json:"metrics_interval"` // sn; 0 veya alan yok (eski sunucu) = metrik gönderilmez
+	ServerTime      int64      `json:"server_time"`      // unix ms; 0 veya alan yok (eski sunucu) = saat farkı bilinmez
+	UserAgent       string     `json:"user_agent"`       // kontrol isteklerinin User-Agent'ı; boş (eski sunucu) = ajanın varsayılanı
+	Jobs            []Job      `json:"jobs"`
+	OOB             *OOBConfig `json:"oob"` // yok (eski sunucu) = OOB ayarı değişmez
 	// Update imzalı güncelleme teklifi; yok (eski sunucu, güncel ajan, kapalı) = güncelleme yok.
 	Update *agentupdate.Offer `json:"update"`
 }
@@ -188,6 +212,9 @@ type Client struct {
 	updateReport  *agentupdate.Report  // panele iletilmeyi bekleyen durum
 	updateRefused map[string]time.Time // sürüm → yeniden denenebileceği zaman (tekrar denemeyi seyreltir)
 	updateFirst   bool                 // ilk başarılı yoklama yapıldı (Confirm çağrıldı)
+
+	hb heartbeatState // kalp atışı (heartbeat.go)
+	up *uplink        // OOB hat yedeği (uplink.go)
 }
 
 type task struct {
@@ -208,9 +235,25 @@ var ErrForbidden = errors.New("kontrol noktası devre dışı veya başka bir IP
 // izlenmez (yanıt olduğu gibi döner): Authorization: Bearer token'ı başka bir
 // adrese (ör. https'ten http'ye düşüren bir yönlendirmeyle açık metin) tekrar
 // gönderilmesin. Ana sunucu yönlendirme yapmaz; 3xx beklenmeyen yanıt sayılır.
-func newHTTPClient() *http.Client {
+//
+// Yalnızca DialContext değişir (DNS son bilinen IP önbelleği): TLS el sıkışması
+// Transport'un kendisinde kalır, SNI ve sertifika doğrulaması URL'deki alan
+// adıyla yapılır. Uzun yoklama, sonuç/metrik gönderimi ve güncelleme indirmesi
+// bu Transport'u paylaşır.
+//
+// up verilirse bağlantılar etkin hattan kurulur (uplink.go): ana hat OS
+// yönlendirmesi, OOB hattı OOB IP'sine bağlı dialer.
+func newHTTPClient(dns *dnsCache, up *uplink) *http.Client {
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	base := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
+	tr.DialContext = dns.dialContext(base)
+	if up != nil {
+		up.primary, up.base, up.tr, up.wrap = tr.DialContext, base, tr, dns.dialContext
+		tr.DialContext = up.dial
+	}
 	return &http.Client{
-		Timeout: 30 * time.Second,
+		Transport: tr,
+		Timeout:   30 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
@@ -249,11 +292,18 @@ func New(cfg Config) (*Client, error) {
 	if cfg.MaxBackoff <= 0 {
 		cfg.MaxBackoff = 60 * cfg.Unit
 	}
-	if cfg.HTTPClient == nil {
-		cfg.HTTPClient = newHTTPClient()
+	if cfg.HeartbeatRetry <= 0 {
+		cfg.HeartbeatRetry = 300 * cfg.Unit
 	}
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+	if cfg.OOBMinStay <= 0 {
+		cfg.OOBMinStay = 300 * cfg.Unit
+	}
+	up := newUplink(cfg.OOBIface)
+	if cfg.HTTPClient == nil {
+		cfg.HTTPClient = newHTTPClient(newDNSCache(cfg.StateDir, cfg.Log), up)
 	}
 	if cfg.Version == "" {
 		cfg.Version = "dev"
@@ -272,6 +322,7 @@ func New(cfg Config) (*Client, error) {
 		tasks: map[int64]*task{}, unknown: map[string]bool{}, reach: map[string]bool{},
 		metricsIv: make(chan int, 1), jobsHTTP: jobsHTTP, flushNow: make(chan struct{}, 1),
 		restart: make(chan struct{}), updateReport: cfg.UpdateReport, updateRefused: map[string]time.Time{},
+		up: up,
 	}, nil
 }
 
@@ -294,9 +345,11 @@ func (c *Client) Run(ctx context.Context) error {
 		}
 	}()
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(4)
+	go func() { defer wg.Done(); c.uplinkLoop(ctx) }()
 	go func() { defer wg.Done(); c.jobsLoop(ctx) }()
 	go func() { defer wg.Done(); c.flushLoop(ctx) }()
+	go func() { defer wg.Done(); c.heartbeatLoop(ctx) }()
 	if c.cfg.NoMetrics {
 		c.log.Info("sunucu metrikleri bu ajanda kapalı (METRICS=0)")
 	} else {
@@ -639,7 +692,7 @@ func (c *Client) clearBuffer() {
 
 func (c *Client) flushLoop(ctx context.Context) {
 	backoff := time.Duration(0)
-	wait := c.cfg.FlushEvery
+	wait := c.flushEvery()
 	for {
 		now := c.flushNow
 		if backoff > 0 {
@@ -651,7 +704,7 @@ func (c *Client) flushLoop(ctx context.Context) {
 		case <-time.After(wait):
 		case <-now:
 		}
-		wait = c.cfg.FlushEvery
+		wait = c.flushEvery()
 		for c.pending() > 0 && ctx.Err() == nil {
 			retryAfter, err := c.flushOnce(ctx)
 			if err != nil {
@@ -877,10 +930,18 @@ func (c *Client) do(ctx context.Context, hc *http.Client, method, path string, i
 		return 0, nil, err
 	}
 	c.setHeaders(req, in != nil)
-	resp, err := hc.Do(req)
+	rctx, line, done := c.up.request(ctx)
+	defer done()
+	resp, err := hc.Do(req.WithContext(rctx))
 	if err != nil {
+		// Taşıma hatası (bağlantı, zaman aşımı) hat sayacına; üst bağlamın
+		// iptali (kapanış) ya da hat değişimi sayılmaz.
+		if !errors.Is(ctx.Err(), context.Canceled) {
+			c.up.observe(line, true)
+		}
 		return 0, nil, err
 	}
+	c.up.observe(line, false)
 	defer resp.Body.Close()
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
 	if err != nil {
@@ -903,6 +964,7 @@ func (c *Client) setHeaders(req *http.Request, hasBody bool) {
 		req.Header.Set("X-Probe-Platform", p)
 	}
 	req.Header.Set("User-Agent", "uptime-probe/"+c.cfg.Version)
+	c.up.headers(req.Header)
 	if hasBody {
 		req.Header.Set("Content-Type", "application/json")
 	}

@@ -248,6 +248,8 @@ func (s *Server) authState(w http.ResponseWriter, r *http.Request) {
 	resp["oidc"] = s.oidcPublic(r.Context())
 	if u, _, ok := s.currentUser(r); ok {
 		resp["user"] = viewOf(u)
+		// Ana sunucu konum adı (boş: varsayılan, arayüz dile göre yazar).
+		resp["local_location_name"] = s.engine.Settings().LocalLocationName
 		setResponseLang(w, u.Lang)
 	}
 	writeJSON(w, http.StatusOK, resp)

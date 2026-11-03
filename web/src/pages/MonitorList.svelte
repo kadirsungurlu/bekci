@@ -794,7 +794,7 @@
                     {inc.resolved_at ? t('overview.side.lasted', { d: fmtDuration(inc.resolved_at - inc.started_at) }) : t('overview.side.ongoingFor', { d: fmtDuration(clock.now - inc.started_at) })}
                   </span>
                   <span class="msub" title={fmtDate(inc.started_at)}>
-                    {#if degraded}<span class="badge pending mk">{t('incidents.kind.degraded')}</span>{:else if partial}<span class="badge pending mk">{t('incidents.kind.partial')}</span>{:else if manual}<span class="badge accent mk">{t('incidents.kind.manual')}</span>{:else if srv}<span class="badge accent mk">{t(inc.kind === 'probe_offline' ? 'incidents.kind.probe' : 'incidents.kind.server')}</span>{/if}
+                    {#if degraded}<span class="badge pending mk">{t('incidents.kind.degraded')}</span>{:else if partial}<span class="badge pending mk">{t('incidents.kind.partial')}</span>{:else if manual}<span class="badge accent mk">{t('incidents.kind.manual')}</span>{:else if srv}<span class="badge accent mk">{t(inc.kind === 'probe_offline' || inc.kind === 'mesh' ? 'incidents.kind.probe' : 'incidents.kind.server')}</span>{/if}
                     {fmtRelative(inc.started_at, clock.now)}{#if inc.cause && !manual}{' · '}{inc.cause}{/if}
                   </span>
                 </li>

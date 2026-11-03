@@ -95,6 +95,11 @@ func checkIPLock(locked, ip string) (next string, allowed, pin bool) {
 // okunduğu gibiyse yapılır; kaybeden istek kaydı yeniden okuyup kazananın
 // değeriyle karşılaştırılır. p.LockedIP güncel değerle doldurulur.
 func (s *Server) enforceIPLock(ctx context.Context, p *store.Probe, reqIP string) (bool, error) {
+	// OOB yuvası: panelde girilen ikinci hat IP'si kilitten bağımsız kabul
+	// edilir ve kilidi sabitlemez (ana hat yuvası ana hattan gelen ilk istekle dolar).
+	if p.IPLock && p.OOBIP != "" && store.SameIP(reqIP, p.OOBIP) {
+		return true, nil
+	}
 	for range 3 {
 		if !p.IPLock {
 			return true, nil

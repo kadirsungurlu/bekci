@@ -39,9 +39,28 @@
     target = null;
     text = '';
   }
+
+  // Klavye odağı: yalnız tabindex verilmiş data-tip öğelerinde (ör. mesh şeması
+  // bağlantıları). Tıklamanın getirdiği odak ipucu açmaz.
+  let downAt = 0;
+  function down() {
+    downAt = Date.now();
+    hide();
+  }
+  function focusIn(e: FocusEvent) {
+    const t = e.target as Element | null;
+    if (!t?.hasAttribute?.('data-tip') || !t.hasAttribute('tabindex') || Date.now() - downAt < 300) return;
+    target = t;
+    ready = false;
+    text = t.getAttribute('data-tip') ?? '';
+    requestAnimationFrame(() => target === t && place(t));
+  }
+  function focusOut(e: FocusEvent) {
+    if (e.target === target) hide();
+  }
 </script>
 
-<svelte:document onpointerover={over} onscrollcapture={hide} onpointerdown={hide} />
+<svelte:document onpointerover={over} onscrollcapture={hide} onpointerdown={down} onfocusin={focusIn} onfocusout={focusOut} />
 
 {#if text}
   <div class="tip" bind:this={el} style="left:{x}px;top:{y}px;visibility:{ready ? 'visible' : 'hidden'}" role="tooltip">{text}</div>

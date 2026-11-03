@@ -41,6 +41,7 @@ Add them under the application's **Environment Variables** and redeploy.
 | `TZ` | `Europe/Istanbul` | Time zone: daily summaries and the time of the nightly backup follow it. E.g. `Europe/Berlin`, `UTC`. |
 | `LOG_LEVEL` | `info` | Log detail: `debug`, `info`, `warn` or `error`. |
 | `MAX_CONCURRENT_CHECKS` | `50` | The maximum number of checks running at the same time. Can be raised for hundreds of monitors. |
+| `BEAT_BATCH_MS` | `250` | Check results arriving within this window (milliseconds) are written in a single transaction. Lowers disk writes with many short-interval monitors (5-15 seconds); 0 writes every result separately. |
 | `DATABASE_URL` | — | If set, **PostgreSQL** is used instead of SQLite: `postgres://user:password@host:5432/database?sslmode=disable`. Must start with `postgres://` or `postgresql://`. Bekci then takes no nightly backup; back up on the database side. Ignored by the `postgres` image (it always uses its embedded database). |
 | `DATA_DIR` | `/data` | Folder for the SQLite database and backups. No need to change it in Docker; mount the volume at `/data`. |
 | `ADDR` | `:8080` | Address and port to listen on inside the container. |
@@ -62,6 +63,9 @@ The install command from the panel sets these for you (in `/etc/uptime-agent.env
 | `MAX_CONCURRENT_CHECKS` | `20` | The maximum number of simultaneous checks on a check location. |
 | `METRICS` | `1` | `0` turns off collecting server metrics entirely. |
 | `AUTO_UPDATE` | `1` | `0` stops the agent from updating itself to the signed version the panel offers ([updating](/en/docs/server-agent/#update)). |
+| `PROBE_STATE_DIR` | program directory | Directory that stores the panel's last known IP addresses (`uptime.dns.json`); if DNS fails the agent connects with that IP ([DNS outage](/en/docs/server-agent/#dns-cache)). |
+| `PROBE_OOB_IFACE` | — | Network interface of the second line (OOB), e.g. `eth1`. If empty it is found from the OOB IP entered in the panel; needed when the OOB IP is behind NAT ([OOB](/en/docs/server-agent/#oob)). |
+| `MESH_ADDR` | `:7480` | TCP listen address for connections between check locations (mesh); `-` turns listening off and the agent only connects to listening peers itself ([mesh](/en/docs/server-agent/#mesh)). |
 | `ADDR` | `:8080` | The agent's health check address; `-` turns it off (install commands use `-`). |
 | `HOST_PROC`, `HOST_SYS`, `HOST_ETC`, `HOST_ROOT` | — | Where the server's `/proc`, `/sys`, `/etc` and root directory are mounted when the agent runs in Docker. The Docker install command sets them. |
 | `DOCKER_HOST` | `unix:///var/run/docker.sock` | Docker API address for container metrics. |

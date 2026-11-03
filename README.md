@@ -142,7 +142,7 @@ aşağıdaki [Compose kurulumunu](#docker-compose-bağımsız-sunucu) kullanın.
   yöneticiler görür), 24 saat / 7 / 30 / 90 gün uptime ve yanıt süresi grafikleri
 - Uzak **kontrol noktaları**: monitörler birden çok konumdan aynı anda kontrol
   edilir, kesinti kuralı (herhangi biri / çoğunluk / hepsi); isteğe bağlı
-  **konum kesintisinde de bildirim**: monitör genel olarak çalışırken tek bir
+  **kısmi erişim kesintisinde de bildirim**: monitör genel olarak çalışırken tek bir
   konum düşerse ayrı bir uyarı bildirimi, düzelince düzelme bildirimi (uptime etkilenmez)
 
 **Sunucu takibi**
@@ -265,6 +265,7 @@ amd64/arm64, Windows amd64) da içinde hazır gelir.
 | `TZ` | `Europe/Istanbul` | Günlük özetler ve gece yedeği saati |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `MAX_CONCURRENT_CHECKS` | `50` | Aynı anda çalışacak en fazla kontrol |
+| `BEAT_BATCH_MS` | `250` | Kontrol sonuçlarını bu süre (ms) içinde biriktirip tek işlemde yazar; 0 = her sonuç ayrı işlem |
 | `DATA_DIR` | `/data` | SQLite veritabanı ve yedeklerin klasörü |
 | `DATABASE_URL` | — | Verilirse **PostgreSQL** kullanılır: `postgres://kullanıcı:şifre@sunucu:5432/veritabanı?sslmode=disable`. Yedek bu durumda veritabanı tarafında alınmalıdır (Coolify yedekleri / `pg_dump`) |
 | `ADDR` | `:8080` | Dinlenecek adres |
@@ -361,6 +362,14 @@ Windows sekmesindeki komutu yapıştırın.
   `uptime-agent`).
 - Windows'ta yük ortalaması yaklaşıktır (işlemci kuyruğu); sıcaklık ve Docker
   konteynerleri toplanmaz.
+
+### DNS kesintisinde bağlantı
+
+Ajan panelin alan adının son bilinen IP adreslerini program dizininde
+`uptime.dns.json` dosyasında saklar (`PROBE_STATE_DIR` ile değiştirilir; saatte
+bir yeniden çözülür). DNS çözülemezse ajan süre sınırı olmadan son bilinen IP
+ile bağlanır; TLS sertifikası yine alan adıyla doğrulanır. Yalnızca panele
+bağlantı için geçerlidir, kontroller etkilenmez.
 
 ### Ajan güncelleme
 

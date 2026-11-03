@@ -200,7 +200,7 @@ func TestFullFlow(t *testing.T) {
 	// Geçersiz monitörler reddedilir.
 	e.mustDo("POST", "/api/monitors", map[string]any{"name": "x", "type": "http", "config": map[string]any{"url": "bozuk"}}, nil, 400)
 	e.mustDo("POST", "/api/monitors", map[string]any{"name": "x", "type": "yok", "config": map[string]any{}}, nil, 400)
-	e.mustDo("POST", "/api/monitors", map[string]any{"name": "x", "type": "tcp", "interval": 5, "config": map[string]any{"host": "a", "port": 1}}, nil, 400)
+	e.mustDo("POST", "/api/monitors", map[string]any{"name": "x", "type": "tcp", "interval": 4, "config": map[string]any{"host": "a", "port": 1}}, nil, 400)
 
 	// Site çöker: tekrar denemeden sonra DOWN ve bildirim.
 	failing.Store(true)

@@ -83,4 +83,13 @@ export default {
     uploadAborted: 'Yükleme iptal edildi.',
     unexpected: 'Beklenmeyen bir hata oluştu',
   },
+  pager: {
+    label: 'Sayfalama',
+    total: 'Toplam {n} kayıt',
+    range: '{from}-{to} / {n}',
+    perPage: 'Sayfa başına',
+    prev: 'Önceki sayfa',
+    next: 'Sonraki sayfa',
+    page: 'Sayfa {n}',
+  },
 };

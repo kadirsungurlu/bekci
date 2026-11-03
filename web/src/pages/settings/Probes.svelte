@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { api, errorMessage, type NotificationChannel, type Probe, type ProbeSetup } from '../../lib/api';
+  import { api, ApiError, errorMessage, oobLabel, type AppSettings, type NotificationChannel, type Probe, type ProbeSetup } from '../../lib/api';
   import { NOTIFY_LABELS } from '../../lib/notifyTypes';
   import { live } from '../../lib/live.svelte';
   import { clock, confirmDialog, toast } from '../../lib/ui.svelte';
@@ -10,6 +10,9 @@
   import Icon from '../../components/Icon.svelte';
   import CopyButton from '../../components/CopyButton.svelte';
   import AgentVersion from '../../components/AgentVersion.svelte';
+  import UplinkBadge from '../../components/UplinkBadge.svelte';
+  import OobFields from '../../components/OobFields.svelte';
+  import MeshMatrix from '../../components/MeshMatrix.svelte';
   import AgentAutoUpdate, { autoChoice, autoValue, type AutoChoice } from '../../components/AgentAutoUpdate.svelte';
   import { t, tParts } from '../../lib/i18n';
   import { session } from '../../lib/session.svelte';
@@ -34,8 +37,19 @@
   let timer: ReturnType<typeof setInterval> | undefined;
   onMount(() => {
     load();
+    loadMesh();
     unsub = live.onProbe((ev) => {
-      probes = probes.map((p) => (p.id === ev.probe_id ? { ...p, online: ev.online, last_seen_at: ev.last_seen_at || p.last_seen_at } : p));
+      // Yükler kısmidir (çevrimiçi / hat geçişi / OOB arayüzü): yalnız gelen alanlar birleştirilir.
+      probes = probes.map((p) => {
+        if (p.id !== ev.probe_id) return p;
+        const n = { ...p };
+        if (ev.online !== undefined) n.online = ev.online;
+        if (ev.last_seen_at) n.last_seen_at = ev.last_seen_at;
+        if (ev.uplink !== undefined) n.uplink = ev.uplink;
+        if (ev.uplink_since !== undefined) n.uplink_since = ev.uplink_since;
+        if (ev.oob_iface_missing !== undefined) n.oob_iface_missing = ev.oob_iface_missing;
+        return n;
+      });
     });
     timer = setInterval(load, 30_000);
   });
@@ -128,6 +142,93 @@
   }
 
 
+  // Mesh genel ayarları ---------------------------------------------------------------
+  const MESH_DEF = { ping: 5, loss: 3, panel: 5 };
+  let settings = $state.raw<AppSettings | null>(null);
+  let meshError = $state('');
+  let meshField = $state('');
+  let meshBusy = $state(false);
+  let meshOn = $state(true);
+  let meshPing = $state<number | null>(MESH_DEF.ping);
+  let meshLoss = $state<number | null>(MESH_DEF.loss);
+  let meshPanel = $state<number | null>(MESH_DEF.panel);
+  // Kaydedilmiş genel değerler (probe penceresindeki "genel değer" etiketleri).
+  const globalMesh = $derived({
+    ping: settings?.mesh_ping_sec || MESH_DEF.ping,
+    loss: settings?.mesh_loss_threshold || MESH_DEF.loss,
+    panel: settings?.probe_panel_sec || MESH_DEF.panel,
+  });
+
+  function applyMesh(st: AppSettings) {
+    settings = st;
+    meshOn = st.mesh_enabled ?? true;
+    meshPing = st.mesh_ping_sec || MESH_DEF.ping;
+    meshLoss = st.mesh_loss_threshold || MESH_DEF.loss;
+    meshPanel = st.probe_panel_sec || MESH_DEF.panel;
+  }
+
+  async function loadMesh() {
+    try {
+      applyMesh(await api.settings());
+    } catch (e) {
+      meshError = errorMessage(e);
+    }
+  }
+
+  const isInt = (v: number | null, lo: number, hi: number) => v !== null && Number.isInteger(v) && v >= lo && v <= hi;
+
+  /** Etkin zamanlamayı denetler (sunucudaki ValidateProbeTiming ile aynı kurallar); hata: [alan, metin]. */
+  function timingError(ping: number | null, loss: number | null, panel: number | null): [string, string] | null {
+    if (!isInt(ping, 1, 60)) return ['mesh_ping_sec', t('probes.mesh.errPing')];
+    if (!isInt(loss, 1, 10)) return ['mesh_loss_threshold', t('probes.mesh.errLoss')];
+    if (!isInt(panel, 1, 60)) return ['panel_sec', t('probes.mesh.errPanel')];
+    if (loss! * ping! < 3 || loss! * panel! < 3) return ['mesh_loss_threshold', t('probes.mesh.errWindow')];
+    return null;
+  }
+
+  /** Sunucunun alan hatası (400 {error, field}): alan + arayüz dilinde metin. */
+  function fieldError(e: unknown): [string, string] {
+    const field = e instanceof ApiError ? ((e.data as { field?: string } | null)?.field ?? '') : '';
+    const msg: Record<string, string> = {
+      mesh_ping_sec: t('probes.mesh.errPing'),
+      panel_sec: t('probes.mesh.errPanel'),
+      mesh_addr: t('probes.mesh.errAddr'),
+      oob_ip: t('probes.oob.errIp'),
+      oob_name: t('probes.oob.errName'),
+      mesh_loss_threshold: / x /.test(errorMessage(e)) ? t('probes.mesh.errWindow') : t('probes.mesh.errLoss'),
+    };
+    return [field, msg[field] ?? errorMessage(e)];
+  }
+
+  const offlineAfter = $derived(isInt(meshLoss, 1, 10) && isInt(meshPanel, 1, 60) ? meshLoss! * meshPanel! : null);
+
+  async function saveMesh(e: SubmitEvent) {
+    e.preventDefault();
+    if (!settings) return;
+    const bad = timingError(meshPing, meshLoss, meshPanel);
+    [meshField, meshError] = bad ?? ['', ''];
+    if (bad) return;
+    meshBusy = true;
+    try {
+      // Kayıtlı ayarlar korunur; yalnızca mesh alanları değişir.
+      applyMesh(
+        await api.saveSettings({
+          ...settings,
+          mesh_enabled: meshOn,
+          mesh_ping_sec: meshPing!,
+          mesh_loss_threshold: meshLoss!,
+          probe_panel_sec: meshPanel!,
+        }),
+      );
+      toast.success(t('probes.mesh.saved'));
+      load();
+    } catch (err) {
+      [meshField, meshError] = fieldError(err);
+    } finally {
+      meshBusy = false;
+    }
+  }
+
   // Düzenle ----------------------------------------------------------------------------
   let editOpen = $state(false);
   let editing = $state<Probe | null>(null);
@@ -137,6 +238,18 @@
   let editNotify = $state(false);
   let editChannels = $state<number[]>([]);
   let editAuto = $state<AutoChoice>('inherit');
+  // Mesh ezmeleri: *Own false ise genel değer kullanılır (null gönderilir).
+  let editPingOwn = $state(false);
+  let editPing = $state<number | null>(null);
+  let editLossOwn = $state(false);
+  let editLoss = $state<number | null>(null);
+  let editPanelOwn = $state(false);
+  let editPanel = $state<number | null>(null);
+  let editAddr = $state('');
+  let editFallback = $state(true);
+  let editOobIp = $state('');
+  let editOobName = $state('');
+  let editField = $state('');
   let editError = $state('');
   let editBusy = $state(false);
   // Bildirim kanalları düzenleme penceresi ilk açıldığında bir kez yüklenir.
@@ -159,6 +272,17 @@
     editNotify = p.notify_offline ?? false;
     editChannels = (p.notification_ids ?? []).slice();
     editAuto = autoChoice(p.update);
+    editPingOwn = p.mesh_ping_sec != null;
+    editPing = p.mesh_ping_sec ?? globalMesh.ping;
+    editLossOwn = p.mesh_loss_threshold != null;
+    editLoss = p.mesh_loss_threshold ?? globalMesh.loss;
+    editPanelOwn = p.panel_sec != null;
+    editPanel = p.panel_sec ?? globalMesh.panel;
+    editAddr = p.mesh_addr ?? '';
+    editFallback = p.fallback_notifier ?? true;
+    editOobIp = p.oob_ip ?? '';
+    editOobName = p.oob_name ?? '';
+    editField = '';
     editError = '';
     editOpen = true;
     loadChannels();
@@ -174,6 +298,17 @@
     editError = '';
     const n = editName.trim();
     if (!n) return (editError = t('probes.form.errNameRequired'));
+    // Mesh alanları yalnızca sunucu destekliyorsa (yanıtta timing var) gönderilir.
+    const hasMesh = !!editing.timing;
+    if (hasMesh) {
+      const bad = timingError(
+        editPingOwn ? editPing : globalMesh.ping,
+        editLossOwn ? editLoss : globalMesh.loss,
+        editPanelOwn ? editPanel : globalMesh.panel,
+      );
+      editField = bad?.[0] ?? '';
+      if (bad) return (editError = bad[1]);
+    }
     editBusy = true;
     try {
       await api.updateProbe(editing.id, n, editing.active, undefined, {
@@ -181,12 +316,25 @@
         notifyOffline: editNotify,
         notificationIds: editChannels,
         ...(editing.update ? { autoUpdate: autoValue(editAuto) } : {}),
+        // OOB alanları yalnızca sunucu destekliyorsa (yanıtta uplink var) gönderilir.
+        ...(editing.uplink !== undefined ? { oob: { oob_ip: editOobIp.trim(), oob_name: editOobName.trim() } } : {}),
+        ...(hasMesh
+          ? {
+              mesh: {
+                mesh_ping_sec: editPingOwn ? editPing : null,
+                mesh_loss_threshold: editLossOwn ? editLoss : null,
+                panel_sec: editPanelOwn ? editPanel : null,
+                mesh_addr: editAddr.trim(),
+                fallback_notifier: editFallback,
+              },
+            }
+          : {}),
       });
       toast.success(t('probes.toast.saved'));
       editOpen = false;
       load();
     } catch (err) {
-      editError = errorMessage(err);
+      [editField, editError] = fieldError(err);
     } finally {
       editBusy = false;
     }
@@ -312,7 +460,12 @@
                 </span>
               </span>
             </td>
-            <td data-label={t('probes.col.status')}><span class="badge {st.c}">{st.l}</span></td>
+            <td data-label={t('probes.col.status')}>
+              <span class="stw">
+                <span class="badge {st.c}">{st.l}</span>
+                <UplinkBadge name={oobLabel(p)} ip={p.oob_ip} uplink={p.uplink} since={p.uplink_since} ifaceMissing={p.oob_iface_missing} />
+              </span>
+            </td>
             <td data-label={t('probes.col.lastSeen')} class="nowrap" title={p.last_seen_at ? fmtDate(p.last_seen_at) : ''}>
               {p.last_seen_at ? fmtRelative(p.last_seen_at, clock.now) : t('probes.neverConnected')}
             </td>
@@ -336,6 +489,57 @@
     </p>
   {/if}
 </section>
+
+<MeshMatrix />
+
+<form class="card stack mesh" onsubmit={saveMesh} novalidate>
+  <div>
+    <h2 class="card-title">{t('probes.mesh.title')}</h2>
+    <p class="text-2 small sub">{t('probes.mesh.intro')}</p>
+  </div>
+  {#if !settings}
+    {#if meshError}
+      <div class="alert error">{meshError} <button type="button" class="linkbtn" onclick={loadMesh}>{t('common.retry')}</button></div>
+    {:else}
+      <div class="skeleton" style="height:120px"></div>
+    {/if}
+  {:else}
+    <label class="check">
+      <input type="checkbox" bind:checked={meshOn} />
+      <span>
+        {t('probes.mesh.enabled')}
+        <small>{t('probes.mesh.enabledHelp')}</small>
+      </span>
+    </label>
+    <div class="grid-3">
+      <div class="field">
+        <label for="mesh-ping">{t('probes.mesh.pingSec')}</label>
+        <input id="mesh-ping" class="input" type="number" min="1" max="60" bind:value={meshPing} aria-invalid={meshField === 'mesh_ping_sec'} />
+        <span class="help">{t('probes.mesh.pingSecHelp')}</span>
+      </div>
+      <div class="field">
+        <label for="mesh-loss">{t('probes.mesh.lossThreshold')}</label>
+        <input id="mesh-loss" class="input" type="number" min="1" max="10" bind:value={meshLoss} aria-invalid={meshField === 'mesh_loss_threshold'} />
+        <span class="help">{t('probes.mesh.lossThresholdHelp')}</span>
+      </div>
+      <div class="field">
+        <label for="mesh-panel">{t('probes.mesh.panelSec')}</label>
+        <input id="mesh-panel" class="input" type="number" min="1" max="60" bind:value={meshPanel} aria-invalid={meshField === 'panel_sec'} />
+        <span class="help">{t('probes.mesh.panelSecHelp')}</span>
+      </div>
+    </div>
+    {#if offlineAfter !== null}
+      <p class="info"><Icon name="clock" size={14} /> {t('probes.mesh.offlineAfter', { loss: meshLoss!, panel: meshPanel!, n: offlineAfter })}</p>
+    {/if}
+    {#if meshError}<div class="alert error" role="alert">{meshError}</div>{/if}
+    <div class="actions">
+      <button class="btn primary" type="submit" disabled={meshBusy}>
+        {#if meshBusy}<span class="spinner"></span>{/if}
+        {t('common.save')}
+      </button>
+    </div>
+  {/if}
+</form>
 
 <Modal bind:open={newOpen} title={setup ? setupTitle : t('probes.newProbe')} width={600}>
   {#if setup}
@@ -455,8 +659,51 @@
         {/if}
       </div>
     {/if}
+    {#if editing?.timing}
+      <fieldset class="meshbox">
+        <legend>{t('probes.mesh.probeTitle')}</legend>
+        {#snippet over(id: string, label: string, field: string, globalV: number, min: number, max: number)}
+          <div class="field ov">
+            <label for={id}>{label}</label>
+            <div class="ovrow">
+              {#if field === 'mesh_ping_sec'}
+                <input id={id} class="input" type="number" {min} {max} bind:value={editPing} disabled={!editPingOwn} aria-invalid={editField === field} />
+                <label class="check sm"><input type="checkbox" checked={!editPingOwn} onchange={(e) => (editPingOwn = !e.currentTarget.checked)} /><span>{t('probes.mesh.useGlobal', { v: globalV })}</span></label>
+              {:else if field === 'mesh_loss_threshold'}
+                <input id={id} class="input" type="number" {min} {max} bind:value={editLoss} disabled={!editLossOwn} aria-invalid={editField === field} />
+                <label class="check sm"><input type="checkbox" checked={!editLossOwn} onchange={(e) => (editLossOwn = !e.currentTarget.checked)} /><span>{t('probes.mesh.useGlobal', { v: globalV })}</span></label>
+              {:else}
+                <input id={id} class="input" type="number" {min} {max} bind:value={editPanel} disabled={!editPanelOwn} aria-invalid={editField === field} />
+                <label class="check sm"><input type="checkbox" checked={!editPanelOwn} onchange={(e) => (editPanelOwn = !e.currentTarget.checked)} /><span>{t('probes.mesh.useGlobal', { v: globalV })}</span></label>
+              {/if}
+            </div>
+          </div>
+        {/snippet}
+        {@render over('pre-ping', t('probes.mesh.pingSec'), 'mesh_ping_sec', globalMesh.ping, 1, 60)}
+        {@render over('pre-loss', t('probes.mesh.lossThreshold'), 'mesh_loss_threshold', globalMesh.loss, 1, 10)}
+        {@render over('pre-panel', t('probes.mesh.panelSec'), 'panel_sec', globalMesh.panel, 1, 60)}
+        <div class="field">
+          <label for="pre-addr">{t('probes.mesh.addr')}</label>
+          <input id="pre-addr" class="input mono" maxlength="255" bind:value={editAddr} placeholder={t('probes.mesh.addrPlaceholder')} spellcheck="false" autocomplete="off" aria-invalid={editField === 'mesh_addr'} />
+          <span class="help">{t('probes.mesh.addrHelp')}</span>
+        </div>
+        <label class="check">
+          <input type="checkbox" bind:checked={editFallback} />
+          <span>
+            {t('probes.mesh.fallback')}
+            <small>{t('probes.mesh.fallbackHelp')}</small>
+          </span>
+        </label>
+        <p class="help nomargin">
+          {t('probes.mesh.effective', { ping: editing.timing.ping_sec, loss: editing.timing.loss_threshold, panel: editing.timing.panel_sec })}
+        </p>
+      </fieldset>
+    {/if}
+    {#if editing?.uplink !== undefined}
+      <OobFields id="pre-oob" bind:ip={editOobIp} bind:name={editOobName} field={editField} error={editError} />
+    {/if}
     {#if editing?.update}<AgentAutoUpdate id="pre-auto" bind:value={editAuto} update={editing.update} />{/if}
-    {#if editError}<div class="alert error" role="alert">{editError}</div>{/if}
+    {#if editError && editField !== 'oob_ip' && editField !== 'oob_name'}<div class="alert error" role="alert">{editError}</div>{/if}
   </form>
   {#snippet footer()}
     <div class="spacer"></div>
@@ -595,12 +842,61 @@
   .spacer {
     flex: 1;
   }
+  .mesh {
+    margin-top: 16px;
+  }
+  .info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--text-2);
+    font-size: 0.85rem;
+  }
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+  .meshbox {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 10px 12px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    min-width: 0;
+  }
+  .meshbox legend {
+    padding: 0 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .ovrow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .ovrow .input {
+    width: 96px;
+    flex: 0 0 96px;
+  }
+  .check.sm {
+    font-size: 0.85rem;
+    align-items: center;
+  }
   .chs {
     display: grid;
     gap: 6px;
     max-height: 220px;
     overflow: auto;
     padding: 2px;
+  }
+  .stw {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
   }
   .warn {
     color: var(--pending-text, var(--text-2));

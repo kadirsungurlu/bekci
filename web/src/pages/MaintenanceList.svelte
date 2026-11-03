@@ -8,9 +8,34 @@
   import { MAINT_STATUS, STRATEGY_LABELS, maintRank, nextText, scheduleText } from '../lib/maintenance';
   import RowMenu, { type MenuItem } from '../components/RowMenu.svelte';
   import Icon from '../components/Icon.svelte';
+  import Pager from '../components/Pager.svelte';
+  import { navigate } from '../lib/router.svelte';
   import { t, tParts } from '../lib/i18n';
 
   let list = $state.raw<Maintenance[]>([]);
+
+  // Biten pencereler birikir: liste istemcide sayfalanır; sayfa adreste
+  // (#/maintenance?sayfa=2&adet=50) durur, geri tuşu çalışır.
+  const SIZES = [25, 50, 100];
+  function readUrl() {
+    const q = new URLSearchParams(location.hash.split('?')[1] ?? '');
+    const per = Number(q.get('adet'));
+    return { page: Math.max(1, Math.floor(Number(q.get('sayfa'))) || 1), perPage: SIZES.includes(per) ? per : 25 };
+  }
+  let page = $state(readUrl().page);
+  let perPage = $state(readUrl().perPage);
+  function setPage(p: number) {
+    page = Math.max(1, p);
+    const q = new URLSearchParams();
+    if (page > 1) q.set('sayfa', String(page));
+    if (perPage !== 25) q.set('adet', String(perPage));
+    navigate('/maintenance' + (q.toString() ? '?' + q : ''));
+    window.scrollTo(0, 0);
+  }
+  function onHashChange() {
+    if (!location.hash.startsWith('#/maintenance') || location.hash.startsWith('#/maintenance/')) return;
+    ({ page, perPage } = readUrl());
+  }
   let loading = $state(true);
   let error = $state('');
 
@@ -29,11 +54,13 @@
   let unsub: (() => void) | undefined;
   onMount(() => {
     load();
+    window.addEventListener('hashchange', onHashChange);
     // Durumlar zamanla değişir (planlandı → bakımda → bitti); dakikada bir yenile.
     timer = setInterval(load, 60_000);
     unsub = live.onMaintenance(() => load());
   });
   onDestroy(() => {
+    window.removeEventListener('hashchange', onHashChange);
     clearInterval(timer);
     unsub?.();
   });
@@ -42,6 +69,8 @@
     list.slice().sort((a, b) => maintRank(a) - maintRank(b) || (a.next_start || 0) - (b.next_start || 0) || collator.compare(a.title, b.title)),
   );
   const activeCount = $derived(list.filter((m) => m.status === 'active').length);
+  const pages = $derived(Math.max(1, Math.ceil(sorted.length / perPage)));
+  const shown = $derived(sorted.slice((Math.min(page, pages) - 1) * perPage, Math.min(page, pages) * perPage));
 
   function monitorsText(m: Maintenance): string {
     const parts: string[] = [];
@@ -149,7 +178,7 @@
     </div>
   {/if}
   <div class="card list">
-    {#each sorted as m (m.id)}
+    {#each shown as m (m.id)}
       {@const st = MAINT_STATUS[m.status]}
       <div class="item" class:dim={m.status === 'ended' || m.status === 'inactive'}>
         <span class="ic {m.status}"><Icon name="wrench" size={18} /></span>
@@ -200,6 +229,9 @@
       </div>
     {/each}
   </div>
+  {#if sorted.length > 25}
+    <Pager total={sorted.length} page={Math.min(page, pages)} {perPage} onpage={setPage} onperpage={(n) => ((perPage = n), setPage(1))} />
+  {/if}
 {/if}
 
 <style>

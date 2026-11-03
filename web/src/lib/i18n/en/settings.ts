@@ -48,6 +48,11 @@ export default {
     backupKeepHelp: 'The database is backed up every night and the last N backups are kept. 0 = no backups.',
     notifyLang: 'Notification language',
     userAgent: 'User-Agent for checks',
+    localName: 'Main server location name',
+    localNameDefault: 'Main server',
+    localNameHelp:
+      'Location name for the checks the panel runs itself (e.g. DH-EU). Shown on location cards, in incident records and in notifications. Leave empty for "Main server".',
+    errLocalName: 'The location name can be at most 60 characters and cannot contain control characters.',
     userAgentHelp:
       'Website checks are sent with this value, and every check location uses the same one. If your site is behind Cloudflare or another firewall, allow requests whose User-Agent contains "Bekci" instead of adding IP addresses one by one. Leave empty for the default; a custom User-Agent header on a monitor takes precedence.',
     agentAutoUpdate: 'Update agents automatically',

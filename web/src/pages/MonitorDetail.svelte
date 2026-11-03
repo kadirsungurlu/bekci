@@ -536,6 +536,7 @@
                   .join(' · ')}
               </span>
               {#if l.message && (l.status === 'down' || l.status === 'retrying')}<span class="lm">{l.message}</span>{/if}
+              {#if l.oob}<span class="loob"><Icon name="network" size={12} /> {t('monitors.detail.locationOob')}</span>{/if}
             </span>
           </li>
         {/each}
@@ -597,7 +598,7 @@
                   <td><span class="badge {pointStatusClass(b.status)}">{pointStatusLabel(b.status)}</span></td>
                   <td class="num mono">{b.ping_ms >= 0 ? fmtMs(b.ping_ms) : '—'}</td>
                   <td class="msg">{b.message || '—'}</td>
-                  {#if showBeatLocation}<td class="loc">{b.location || t('monitors.detail.chk.local')}</td>{/if}
+                  {#if showBeatLocation}<td class="loc">{b.location || session.localName || t('monitors.detail.chk.local')}</td>{/if}
                 </tr>
               {/each}
             </tbody>
@@ -805,6 +806,13 @@
   }
   .loc.down .ls {
     color: var(--down-text);
+  }
+  .loob {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: var(--pending);
   }
   .lm {
     font-size: 0.78rem;

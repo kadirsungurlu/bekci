@@ -99,14 +99,14 @@ const (
 	// ortalama yanıt süresi eşiği aşıyor (monitor_id dolu; uptime etkilenmez,
 	// herkese açık sayfalarda görünmez).
 	IncidentDegraded = "degraded"
-	// IncidentProbeOffline kontrol noktasından 90 sn'dir istek gelmiyor
+	// IncidentProbeOffline kontrol noktasından kalp atışı eşiği boyunca istek gelmiyor
 	// (server_id kontrol noktasının kimliğidir; yalnızca "çevrimdışında
 	// bildir" açık kontrol noktalarında açılır).
 	IncidentProbeOffline = "probe_offline"
 )
 
 // IncidentKinds tüm olay türleri (sabit sırayla; /metrics sayaçları için).
-var IncidentKinds = []string{IncidentMonitor, IncidentDegraded, IncidentPartial, IncidentServerOffline, IncidentServerAlert, IncidentProbeOffline, IncidentManual}
+var IncidentKinds = []string{IncidentMonitor, IncidentDegraded, IncidentPartial, IncidentServerOffline, IncidentServerAlert, IncidentProbeOffline, IncidentManual, IncidentMesh}
 
 // İşlem geçmişinin olay türlerine özgü kayıtları.
 const (
@@ -186,7 +186,7 @@ func kindsOf(group string) []string {
 	case KindGroupManual:
 		return []string{IncidentManual}
 	case KindGroupServer:
-		return []string{IncidentServerOffline, IncidentServerAlert, IncidentProbeOffline}
+		return []string{IncidentServerOffline, IncidentServerAlert, IncidentProbeOffline, IncidentMesh}
 	}
 	return nil
 }
@@ -724,4 +724,10 @@ func rawString(data json.RawMessage) string {
 		return ""
 	}
 	return string(data)
+}
+
+// Olay listesi sayfalaması: tür sekmesi + id sırası (ORDER BY id DESC LIMIT/OFFSET)
+// ve sayım tür süzgeciyle tablo taramasına düşmesin.
+func init() {
+	RegisterMigration(39, `CREATE INDEX incidents_kind_id ON incidents(kind, id);`)
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"mime"
@@ -193,7 +194,7 @@ func messageID(from string) string {
 }
 
 func buildMail(from, to string, ev Event) []byte {
-	return buildRawMail(from, to, ev.Title(), ev.Text(), ev.HTML())
+	return buildRawMailImage(from, to, ev.Title(), ev.Text(), ev.HTML(), nil, ev.Image)
 }
 
 // buildRawMail düz metin + (varsa) HTML gövdeli MIME iletisi.
@@ -204,6 +205,17 @@ func buildRawMail(from, to, subject, text, html string) []byte {
 // buildRawMailHeaders buildRawMail'in ek başlıklı hali (başlıklar ada göre
 // sıralı yazılır; değerler çağıranda denetlenmiş olmalı).
 func buildRawMailHeaders(from, to, subject, text, html string, extra map[string]string) []byte {
+	return buildRawMailImage(from, to, subject, text, html, extra, nil)
+}
+
+// mailImageCID HTML'deki satır içi görüntünün (mesh şeması) Content-ID'si.
+const mailImageCID = "mesh"
+
+// buildRawMailImage iletiyi yazar. img (PNG) ve HTML varsa yapı:
+// multipart/alternative{ text/plain, multipart/related{ text/html, image/png
+// (Content-ID <mesh>, inline) } }; yoksa multipart/alternative{ text/plain,
+// text/html }. Düz metin istemci her durumda text/plain okur.
+func buildRawMailImage(from, to, subject, text, html string, extra map[string]string, img []byte) []byte {
 	var b bytes.Buffer
 	h := func(k, v string) { fmt.Fprintf(&b, "%s: %s\r\n", k, v) }
 	h("From", from)
@@ -221,21 +233,37 @@ func buildRawMailHeaders(from, to, subject, text, html string, extra map[string]
 	}
 	h("MIME-Version", "1.0")
 	// Düz metin + HTML: HTML göstermeyen istemci düz metni okur.
-	sep := make([]byte, 12)
-	rand.Read(sep)
-	boundary := fmt.Sprintf("bekci-%x", sep)
+	newBoundary := func() string {
+		sep := make([]byte, 12)
+		rand.Read(sep)
+		return fmt.Sprintf("bekci-%x", sep)
+	}
+	boundary := newBoundary()
 	h("Content-Type", `multipart/alternative; boundary="`+boundary+`"`)
 	b.WriteString("\r\n")
-	part := func(ctype, body string) {
+	part := func(boundary, ctype, body string) {
 		fmt.Fprintf(&b, "--%s\r\nContent-Type: %s; charset=utf-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n", boundary, ctype)
 		qp := quotedprintable.NewWriter(&b)
 		qp.Write([]byte(strings.ReplaceAll(body, "\n", "\r\n")))
 		qp.Close()
 		b.WriteString("\r\n")
 	}
-	part("text/plain", text)
-	if html != "" {
-		part("text/html", html)
+	part(boundary, "text/plain", text)
+	switch {
+	case html != "" && len(img) > 0:
+		rel := newBoundary()
+		fmt.Fprintf(&b, "--%s\r\nContent-Type: multipart/related; boundary=\"%s\"; type=\"text/html\"\r\n\r\n", boundary, rel)
+		part(rel, "text/html", html)
+		fmt.Fprintf(&b, "--%s\r\nContent-Type: image/png; name=\"%[2]s.png\"\r\nContent-Transfer-Encoding: base64\r\nContent-ID: <%[2]s>\r\nContent-Disposition: inline; filename=\"%[2]s.png\"\r\n\r\n", rel, mailImageCID)
+		enc := base64.StdEncoding.EncodeToString(img)
+		for len(enc) > 76 {
+			b.WriteString(enc[:76] + "\r\n")
+			enc = enc[76:]
+		}
+		b.WriteString(enc + "\r\n")
+		fmt.Fprintf(&b, "--%s--\r\n", rel)
+	case html != "":
+		part(boundary, "text/html", html)
 	}
 	fmt.Fprintf(&b, "--%s--\r\n", boundary)
 	return b.Bytes()

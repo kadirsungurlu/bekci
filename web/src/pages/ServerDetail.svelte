@@ -54,6 +54,7 @@
   import AlertRulesEditor from '../components/AlertRulesEditor.svelte';
   import ServerSetupModal from '../components/ServerSetupModal.svelte';
   import ServerSettingsModal from '../components/ServerSettingsModal.svelte';
+  import UplinkBadge from '../components/UplinkBadge.svelte';
   import Icon from '../components/Icon.svelte';
   import AgentVersion from '../components/AgentVersion.svelte';
   import IncidentTable from '../components/IncidentTable.svelte';
@@ -365,6 +366,7 @@
           {#if view.in_maintenance}
             <span class="pill maintenance maint-pill" title={t('servers.inMaintenanceHint')}><Icon name="wrench" size={12} /> {t('servers.inMaintenance')}</span>
           {/if}
+          <UplinkBadge name={view.uplink_name} ip={view.oob_ip} uplink={view.uplink} since={view.uplink_since} ifaceMissing={view.oob_iface_missing} large />
           {#if view.metrics_at}
             <span class="muted small" title={fmtDate(view.metrics_at)}>{t('servers.detail.lastMetric', { ago: fmtRelative(view.metrics_at, now) })}</span>
           {/if}

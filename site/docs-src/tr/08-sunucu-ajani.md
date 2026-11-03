@@ -114,14 +114,94 @@ Kontrol noktası, monitörlerinizi başka bir şehirden ya da ağdan da kontrol 
 2. Konumu anlatan kısa bir ad verin (ör. “Frankfurt”) ve kaydedin.
 3. Gösterilen komutu, kontrol noktası olacak sunucuda (Docker kurulu olmalı) **root** olarak, tamamını yapıştırarak çalıştırın. Komut `/etc/uptime-probe.env` dosyasını ve `uptime-probe` adlı konteyneri oluşturur.
 4. **Kopyaladım, kapat** ile pencereyi kapatın.
-5. Bir monitörün düzenleme sayfasında **Konumlar** bölümünden bu kontrol noktasını seçin ve **Kesinti kuralını** belirleyin: herhangi bir konum, konumların çoğunluğu ya da tüm konumlar çalışmıyorsa. İsterseniz **Konum kesintisinde de bildirim gönder** seçeneğini açın: monitör genel olarak çalışırken tek bir konum düşer ya da ulaşılamaz olursa başlıklı ayrı bir bildirim gider, konum düzelince ile bildirilir; uptime etkilenmez (varsayılan kapalı). Konum kesintileri **Olaylar** sayfasında “Konum kesintisi” türüyle ayrı listelenir.
+5. Bir monitörün düzenleme sayfasında **Konumlar** bölümünden bu kontrol noktasını seçin ve **Kesinti kuralını** belirleyin: herhangi bir konum, konumların çoğunluğu ya da **Kısmi erişim ayrımı** (yalnız tüm konumlar çalışmıyorsa kesinti). **Kısmi erişim kesintisinde de bildirim gönder** açıksa monitör çalışırken bir konum düşer ya da ulaşılamaz olursa ayrı bir bildirim gider, konum düzelince de bildirilir; uptime etkilenmez. Yeni monitörde ikinci konumu seçtiğiniz anda kural **Kısmi erişim ayrımı**na geçer ve bu bildirim açılır; kaydetmeden önce değiştirebilirsiniz. Ayrıntı: [Kısmi erişim kesintisi](#kismi-erisim).
 
 > [!CHECK]
-> Birkaç saniye içinde kontrol noktası listede **Çevrimiçi** görünür. Son 90 saniyede sonuç gönderen kontrol noktası çevrimiçi sayılır; bağlantısı kopan (durdurulan, çöken) nokta anında çevrimdışı görünür. `docker logs uptime-probe` çıktısında `msg="kontrol noktası başladı"` satırı olmalı.
+> Birkaç saniye içinde kontrol noktası listede **Çevrimiçi** görünür. Kontrol noktası panele her **panel haberleşme aralığında** (varsayılan 5 sn) bir kalp atışı gönderir; art arda **kopukluk eşiği** (varsayılan 3) kadar kalp atışı gelmezse, yani varsayılanla 15 saniye içinde, çevrimdışı sayılır. Bağlantısı kopan (durdurulan, çöken) nokta anında çevrimdışı görünür. Kalp atışı göndermeyen eski sürüm ajanlar için eski kural (son 90 saniyede istek) geçerlidir. `docker logs uptime-probe` çıktısında `msg="kontrol noktası başladı"` satırı olmalı.
+
+### Kontrol noktaları arası bağlantı (mesh) {#mesh}
+
+Kontrol noktaları birbirine de bağlanır ve aradaki yolu ölçer: her çift arasında tek bir kalıcı TCP bağlantısı açılır, iki yön de bu bağlantı üzerinden **mesh ping aralığında** (varsayılan 5 sn) ping atar. Art arda kopukluk eşiği kadar yanıt alınamazsa o yön kopuk sayılır. Ölçümler her panel haberleşme aralığında toplu olarak panele raporlanır. Bağlantılar çift başına panelin ürettiği anahtarla imzalanır (HMAC-SHA256); çerçevelerde gizli bilgi yoktur, bu yüzden ayrıca TLS kullanılmaz. Kontrol noktasının token'ını yenilediğinizde ya da onu devre dışı bıraktığınızda anahtarları da yenilenir.
+
+- **Port:** Ajan varsayılan olarak `7480/TCP` portunu dinler (`MESH_ADDR`, `-` dinlemeyi kapatır). Diğer kontrol noktalarının bu porta ulaşabilmesi için güvenlik duvarında açın.
+- **NAT arkasındaki nokta:** Dinleyemeyen (dışarıdan erişilemeyen) nokta yine de dinleyen eşlere kendisi bağlanır ve ölçülür. Kontrol noktası düzenleme penceresindeki **Mesh adresi** alanına `-` yazarak bunu panele bildirin; iki ucu da dinlemeyen çift “ölçülemiyor” sayılır, kopuk sayılmaz.
+- **Mesh adresi:** Boşsa eşler, kontrol noktasının panele bağlandığı IP'nin 7480 portuna bağlanır. Farklı bir adres ya da port gerekiyorsa `host:port` olarak yazın.
+- **Ayarlar:** **Ayarlar > Kontrol noktaları** sayfasında mesh ping aralığı (1-60 sn), kopukluk eşiği (1-10 ardışık kayıp) ve panel haberleşme aralığı (1-60 sn) bulunur. Eşik ile aralığın çarpımı en az 3 saniye olmalıdır (tek paket kaybı alarm üretmesin). Her kontrol noktası düzenleme penceresinde bu değerleri kendisi için ezebilir; **Genel değeri kullan** seçiliyse genel ayar geçerlidir.
+
+**Karar ve bildirim.** En az iki kontrol noktası kalp atışı gönderiyorsa panel tüm bağlantıları (ana sunucu dahil) birlikte yorumlar ve tek tek "çevrimdışı" bildirimleri yerine tek bir mesh bildirimi gönderir:
+
+- **Ağ bölünmesi:** noktalar birbirine ulaşamayan en az iki gruba ayrıldı.
+- **Genel erişim sorunu:** bir nokta en az iki bağlantısında ulaşılamıyor, diğerleri birbirine ulaşıyor (sorun o noktada).
+- **Yol sorunu:** iki nokta birbirine ulaşamıyor ama başka noktalar üzerinden ulaşılıyorlar.
+- **Tek yönlü bağlantı:** bir yön çalışıyor, ters yön kopuk.
+- **Yetersiz gözlem:** bağlantı koptu ama yorum için yeterli ölçüm yok.
+
+Karar bir panel aralığı beklenip kalıcıysa verilir (anlık dalgalanma bildirim üretmez). Bildirim mesaj sahibini (ana sunucu), tüm bağlantıların durumunu ve yorumu içerir; ilgili kontrol noktalarının **çevrimdışında bildir** seçili kanallarına gider. Olay **Olaylar** sayfasında yalnız yöneticilere görünür; bağlantılar düzelince olay kapanır ve düzelme bildirimi gider.
+
+**Topoloji şeması.** **Ayarlar > Kontrol noktaları** sayfasında bağlantı matrisinin üstünde canlı bir şema vardır: ana sunucu tepede, kontrol noktaları çevresinde. Düz çizgi ve onay işareti çift yönlü erişimi, çarpı kopukluğu, ok yalnız çalışan yönü (tek yönlü bağlantı), kesikli gri çizgi ölçülemeyen bağlantıyı gösterir. Bir bağlantının üzerine gelince ya da klavyeyle odaklanınca iki yönün durumu, gecikmesi (RTT), ardışık kayıp sayısı ve son başarılı ölçüm zamanı görünür. Mesh olayının ayrıntı sayfasında aynı şema olay anındaki durumla çizilir. Telegram bildirimine şema PNG olarak eklenir (gönderilemezse yalnız metin gider), e-posta bildiriminde ise satır içi görüntü olarak yer alır; düz metin okuyan istemcilerde metin değişmeden okunur.
+
+### Kısmi erişim kesintisi {#kismi-erisim}
+
+Hedefe bazı konumlardan ulaşılıp bazılarından ulaşılamıyorsa (ör. hedefin güvenlik duvarı bir ülkeyi engelliyor) bu tam kesinti değildir. **Kısmi erişim ayrımı** kuralında:
+
+- Tüm konumlar başarısızsa monitör **Çalışmıyor** olur, olağan kesinti bildirimi gider.
+- Yalnız bir kısmı başarısızsa monitör **Çalışıyor** kalır, uptime etkilenmez; **Olaylar** sayfasında “Kısmi erişim kesintisi” kaydı açılır. Bildirim açıksa başlığı “<monitör> için kısmi erişim kesintisi” olur ve her konum için “Başarılı” ya da “Başarısız” satırı taşır.
+- Kısmi erişim kararı için en az bir konumun, bağlantısı sağlam olarak “çalışıyor” demesi gerekir. Kontrol noktalarının hepsine ulaşılamıyorsa karar yalnız ana sunucunun sonucuna dayanır; bildirimde ve olay ayrıntısında bu durum not olarak yazılır.
+- Bir kısmi erişim kesintisi sürerken onu “çalışıyor” diyen kontrol noktasıyla bağlantı koparsa, kesinti 3 kontrol aralığı daha bekletilir; bağlantı dönmezse monitör **Çalışmıyor** olur.
+
+Ana sunucunun konum adı (varsayılan “Ana sunucu”) **Ayarlar → Genel** bölümünden değiştirilebilir; bildirimlerde ve olaylarda bu ad görünür.
+
+Mevcut monitörlerin kuralı kendiliğinden değişmez. Birkaç monitörü yeni kurala geçirmek için her birinin düzenleme sayfasında kuralı seçin; çok sayıda monitör için API'yi kullanabilirsiniz (her monitör için `PUT /api/monitors/{id}/locations`, gövdede `down_when: "all"` ve `notify_partial: true`; seçili konumlar da `include_local` ve `probe_ids` ile birlikte gönderilmelidir). API anahtarı ve örnek istekler için [Entegrasyonlar](/docs/entegrasyonlar/) belgesine bakın.
 
 ### Çevrimdışı bildirimi {#kontrol-noktasi-bildirim}
 
-Kontrol noktası düşünce haberiniz olsun diye satır menüsünden **Düzenle** → **Çevrimdışı kalınca bildir** seçeneğini açıp bildirim kanallarını seçin. Kontrol noktası 90 saniye boyunca hiç istek göndermezse “*Ad*: kontrol noktasına ulaşılamıyor” bildirimi gider ve **Olaylar** sayfasında “Kontrol noktası çevrimdışı” türünde bir olay açılır; tekrar bağlanınca “… tekrar çevrimiçi” bildirimiyle olay kapanır ve kesinti süresi yazılır. 90 saniyelik tolerans sayesinde ajanın kısa bir yeniden başlatması bildirim üretmez. Kontrol noktasını siz devre dışı bırakırsanız bildirim gitmez, açık olay sessizce kapanır. Bu bildirimler monitörlerin kendi kanallarından bağımsızdır: kontrol noktasına seçtiğiniz kanallara gider.
+Kontrol noktası düşünce haberiniz olsun diye satır menüsünden **Düzenle** → **Çevrimdışı kalınca bildir** seçeneğini açıp bildirim kanallarını seçin. Kontrol noktasından art arda kopukluk eşiği kadar kalp atışı gelmezse (varsayılan 3 x 5 sn = 15 saniye) “*Ad*: kontrol noktasına ulaşılamıyor” bildirimi gider ve **Olaylar** sayfasında “Kontrol noktası çevrimdışı” türünde bir olay açılır; tekrar bağlanınca “… tekrar çevrimiçi” bildirimiyle olay kapanır ve kesinti süresi yazılır. Bu süreden kısa bir yeniden başlatma bildirim üretmez; daha fazla tolerans isterseniz eşiği ya da aralığı artırın. Kontrol noktasını siz devre dışı bırakırsanız bildirim gitmez, açık olay sessizce kapanır. Bu bildirimler monitörlerin kendi kanallarından bağımsızdır: kontrol noktasına seçtiğiniz kanallara gider.
+
+### İkinci hat (OOB) {#oob}
+
+Kontrol noktasının sunucusunda ikinci bir ağ bağlantısı (OOB, yönetim hattı, yedek hat) varsa ajan, ana hattan panele ulaşamadığında panel bağlantısını bu hatta taşır. Böylece ana hat koptuğunda kontrol noktası “çevrimdışı” görünmez; panel hangi hatta olduğunu bilir ve size bildirir.
+
+Yalnız ajanın **panele giden bağlantısı** (iş listesi, sonuçlar, kalp atışı, metrik, güncelleme) hat değiştirir. Ajanın yaptığı denetimler (HTTP, ping, DNS vb.) ve mesh bağlantıları her zaman işletim sisteminin yönlendirmesini izler.
+
+**OOB IP'sini girin.** **Ayarlar → Kontrol noktaları** listesinde satırın menüsünden **Düzenle** → **OOB (ikinci hat)** bölümünde **OOB IP adresi** alanına ikinci hattın IP adresini, isterseniz **Hat adı** alanına bildirimlerde görünecek adı yazın (varsayılan “OOB”, en çok 40 karakter). IP alanını boşaltmak özelliği kapatır. Döngü (`127.0.0.1`, `::1`), çoklu yayın ve `0.0.0.0` gibi adresler kabul edilmez.
+
+**IP kilidi.** [IP kilidi](#ip-kilidi) açıksa panel, kilitli ana IP'ye ek olarak OOB IP'sinden gelen istekleri de kabul eder. OOB IP'sinden gelen istek kilidi değiştirmez; kilit yalnız ana hattan gelen ilk istekle sabitlenir. OOB IP'si tam adres olarak karşılaştırılır (IPv6'da /64 blok değil).
+
+**Arayüzün bulunması.** Ajan, panelin verdiği OOB IP'sini sunucunun ağ arayüzlerinde arar ve panel bağlantısını o arayüze bağlar (kaynak adres = OOB IP'si). OOB IP'si sunucuda değil de önündeki bir NAT cihazındaysa (genel IP) arayüz bulunamaz: panelde **OOB arayüzü bulunamadı** uyarısı görünür ve ajan OOB'ye geçmez. Bu durumda ajanın ayar dosyasına (`/etc/uptime-probe.env`) arayüz adını ekleyin, ör. `PROBE_OOB_IFACE=eth1`; o arayüzün panel adresiyle aynı aileden (IPv4/IPv6) adresi kaynak olarak kullanılır. Ajanı yeniden başlatın; Docker'da konteyneri yeniden oluşturun (`docker restart` ayar dosyasını yeniden okumaz).
+
+**Linux.** Bağlantı `SO_BINDTODEVICE` ile arayüze ve OOB IP'sine bağlanır. Bunun için ajanın `CAP_NET_RAW` yetkisi (ya da root) gerekir; Docker kurulum komutu bu yetkiyi zaten verir (`--cap-add NET_RAW`). Yetki yoksa yalnız kaynak adres bağlanır; bu durumda paketlerin OOB arayüzünden çıkması için aşağıdaki policy routing kuralı **şarttır**. Yetki olsa da OOB arayüzünün kendi ağ geçidi yoksa (varsayılan rota yalnız ana hatta ise) aynı kuralı kurun:
+
+```bash
+# OOB arayüzü için ayrı yönlendirme tablosu (ör. eth1, ağ geçidi 10.20.0.1, OOB IP 10.20.0.15)
+echo "100 oob" >> /etc/iproute2/rt_tables
+ip route add default via 10.20.0.1 dev eth1 table oob
+ip rule add from 10.20.0.15 table oob
+# kontrol
+ip rule
+ip route show table oob
+curl --interface eth1 -sI https://bekci.ornek.com/healthz
+```
+
+Bu komutlar yeniden başlatmada silinir. Kalıcı yapmak için dağıtımınızın ağ yapılandırmasına ekleyin (netplan'da `routing-policy` ve `routes` altında `table: 100`, NetworkManager'da `ipv4.routing-rules` ve `ipv4.routes ... table=100`, ifupdown'da arayüzün `post-up` satırları).
+
+**Docker.** Konteyner varsayılan köprü ağında sunucunun OOB arayüzünü görmez. OOB kullanacak kontrol noktasını sunucunun ağında çalıştırın: kurulum komutundaki `-p 7480:7480` yerine `--network host` yazın (host ağında port yayınlamaya gerek yoktur; mesh doğrudan 7480 portunu dinler). Compose kullanıyorsanız servise `network_mode: host` ekleyin ve `ports:` satırlarını kaldırın.
+
+**Windows.** Bağlantı `IP_UNICAST_IF` ile OOB arayüzüne bağlanır; ek yetki gerekmez. OOB arayüzünde ağ geçidi tanımlı olmalıdır (yoksa Windows paketi gönderemez). NAT durumunda `C:\Program Files\Uptime\agent.env` dosyasına arayüz adını (`PROBE_OOB_IFACE=Ethernet 2`) ekleyin.
+
+**Geçiş.** Ajan şu iki koşul birlikte sağlanınca OOB'ye geçer:
+
+- Ana hattan panele art arda **kopukluk eşiği** (Ayarlar → Kontrol noktaları, varsayılan 3) kadar istek bağlantı hatasıyla (bağlantı kurulamadı, zaman aşımı) sonuçlandı. Panelin `4xx`/`5xx` yanıtları sayılmaz; panel yanıt veriyorsa hat sağlamdır.
+- OOB hattından panelin `GET /healthz` adresi başarılı yanıt verdi.
+
+Mesh açıksa ve ajan ana hattan en az bir eşe hâlâ ulaşıyorsa geçilmez: sorun ana hatta değil panel tarafındadır. Geçiş anında açık bağlantılar kesilir ve OOB'den yeniden kurulur. Varsayılan ayarlarla geçiş, ana hat koptuktan yaklaşık kopukluk eşiği x panel haberleşme aralığı (3 x 5 sn = 15 sn) sonra olur. Günlükte `ana hattan Main'e ulaşılamıyor; OOB hattına geçildi` satırı görünür.
+
+**Dönüş.** Ajan OOB'de en az **5 dakika** kaldıktan sonra ana hattan art arda **3 başarılı** `/healthz` alınca ana hatta döner (günlükte `ana hatta dönüldü`). OOB hattı da koparsa beklemeden, ana hattan tek başarılı `/healthz` yeter.
+
+**Bildirimler.** Geçişte “*Ad* ana hatta erişemiyor, şu an *OOB adı* üzerinden bağlı”, dönüşte “*Ad* ana hatta döndü” bildirimi gider (dönüşte ikinci hatta geçen süre de yazılır). Bildirimler kontrol noktasının **Çevrimdışı kalınca bildir** kanallarına gider ([Çevrimdışı bildirimi](#kontrol-noktasi-bildirim)); sunucu ajanında sunucunun bildirim kanallarına. Kontrol noktaları listesindeki rozet etkin hattı (**Ana hat** ya da “*OOB adı* üzerinden”) ve geçiş zamanını gösterir.
+
+**OOB'deyken denetim sonuçları.** Ajan OOB'deyken denetimleri yine ana hattan (bozuk yoldan) çıkar; bu yüzden o konumun sonuçları kesinti kararına katılmaz ve konum “bilinmiyor” sayılır (konum kartında not olarak yazılır). OOB'deki bir konum “Başarısız” dese de kısmi erişim kesintisi ya da kesinti açılmaz.
+
+Ajan her istekte etkin hattı `X-Probe-Uplink` (`primary` ya da `oob`) ve arayüz durumunu `X-Probe-OOB-Iface` (`ok` ya da `missing`) başlığıyla panele bildirir; panelin önündeki ters vekil bu başlıkları silmemelidir.
 
 ## Kurulumun oluşturduğu dosyalar {#dosyalar}
 
@@ -131,6 +211,14 @@ Kontrol noktası düşünce haberiniz olsun diye satır menüsünden **Düzenle*
 | Sunucu ajanı, systemd | `/usr/local/bin/uptime` | `/etc/uptime-agent.env` | `uptime-agent` hizmeti |
 | Sunucu ajanı, Windows | `C:\Program Files\Uptime\uptime.exe` | `C:\Program Files\Uptime\agent.env` | `uptime-agent` hizmeti |
 | Kontrol noktası, Docker | `uptime-probe-bin` birimi | `/etc/uptime-probe.env` | `uptime-probe` konteyneri |
+
+### DNS kesintisinde bağlantı {#dns-onbellek}
+
+Ajan panelin alan adını çözdüğünde IP adreslerini program dizinindeki `uptime.dns.json` dosyasına yazar (yalnızca sahibi okuyabilir; dizini `PROBE_STATE_DIR` ile değiştirebilirsiniz). Ad saatte bir yeniden çözülür. DNS sunucusu yanıt vermezse ya da ad bulunamazsa ajan **son bilinen IP** ile bağlanmaya devam eder; bunun bir süre sınırı yoktur ve ajan bu sırada yeniden başlasa da dosyadaki IP'yi kullanır. DNS düzelince yeni IP hemen alınır.
+
+- Yalnızca ajanın panele bağlantısı için geçerlidir; ajanın yaptığı kontroller (HTTP, DNS vb.) her zamanki gibi çözülür.
+- Bağlantı yine panelin alan adıyla doğrulanır (TLS sertifikası ve SNI); eski IP'de başka bir sunucu varsa bağlantı reddedilir.
+- Program dizini yazılabilir değilse önbellek yalnızca bellekte tutulur (ajan yeniden başlayınca boşalır).
 
 ## Güncelleme {#guncelleme}
 
@@ -210,6 +298,8 @@ Sunucunun IP adresi değişirse (ör. sunucuyu taşıdınız) kilidi sıfırlay�
 
 - **Sunucu ajanı:** sunucunun sayfasında **Ayarlar** → **Kilidi sıfırla**.
 - **Kontrol noktası:** **Ayarlar → Kontrol noktaları** listesinde satırın menüsünden **Düzenle** → **Kilidi sıfırla**.
+
+Kontrol noktasına [OOB IP'si](#oob) girdiyseniz o adresten gelen istekler de kabul edilir; kilit değişmez.
 
 Kilidi aynı yerden tamamen kapatabilirsiniz (**IP'ye kilitle** anahtarı). Token'ın sızdığından şüpheleniyorsanız token'ı yenileyip kurulum komutunu yeniden çalıştırın ([güncelleme](#guncelleme) adımları).
 

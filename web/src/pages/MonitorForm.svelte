@@ -62,7 +62,9 @@
     );
   });
 
-  const PRESETS = [30, 60, 120, 300, 600, 900, 1800, 3600, 86400];
+  const PRESETS = [5, 10, 15, 20, 30, 60, 120, 300, 600, 900, 1800, 3600, 86400];
+  /** Kontrol / tekrar deneme aralığı alt sınırı (sn); sunucu: store.MinIntervalSec. */
+  const MIN_INTERVAL = 5;
   const METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
   const RECORD_TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'TXT', 'SOA', 'SRV', 'CAA', 'PTR'];
 
@@ -182,9 +184,16 @@
   const interval = $derived(intervalPreset === 'custom' ? (customInterval ?? 0) : Number(intervalPreset));
   /** Zaman aşımı kontrol aralığını aşamaz (tekrar deneme aralığından uzun olabilir: kontroller sırayla). */
   const timeoutLimit = $derived(interval || 0);
-  const timeoutTooLong = $derived(hasTimeout(type) && timeout !== null && timeoutLimit >= 20 && timeout > timeoutLimit);
+  const timeoutTooLong = $derived(hasTimeout(type) && timeout !== null && timeoutLimit >= MIN_INTERVAL && timeout > timeoutLimit);
+  /** Aralık seçimi elle girilmiş zaman aşımının altına inerse zaman aşımı kırpılır (aralığın yarısı) ve bildirilir. */
+  let timeoutClipped = $state<number | null>(null);
+  function clipTimeout() {
+    if (timeoutAuto || !hasTimeout(type) || timeout === null || interval < MIN_INTERVAL || timeout <= interval) return;
+    timeout = Math.max(1, Math.floor(interval / 2));
+    timeoutClipped = timeout;
+  }
   $effect(() => {
-    if (timeoutAuto && hasTimeout(type) && interval >= 20) timeout = Math.min(30, Math.max(1, Math.floor(interval / 2)));
+    if (timeoutAuto && hasTimeout(type) && interval >= MIN_INTERVAL) timeout = Math.min(30, Math.max(1, Math.floor(interval / 2)));
   });
 
   const str = (c: Record<string, unknown>, k: string, d = '') => (typeof c[k] === 'string' ? (c[k] as string) : d);
@@ -362,7 +371,10 @@
       .catch(() => (probes = []))
       .finally(() => (probesLoaded = true));
     unsubProbe = live.onProbe((ev) => {
-      probes = probes.map((p) => (p.id === ev.probe_id ? { ...p, online: ev.online, last_seen_at: ev.last_seen_at } : p));
+      // Hat geçişi yükünde online yoktur: yalnız gelen alanlar birleştirilir.
+      if (ev.online === undefined) return;
+      const online = ev.online;
+      probes = probes.map((p) => (p.id === ev.probe_id ? { ...p, online, last_seen_at: ev.last_seen_at || p.last_seen_at } : p));
     });
     const chP = api
       .notifications()
@@ -444,14 +456,14 @@
             ? { msg: t('monitors.form.v.nameTooLong'), field: 'name' }
             : null,
       () =>
-        !inRange(interval, 20, 86400)
+        !inRange(interval, MIN_INTERVAL, 86400)
           ? { msg: t('monitors.form.v.intervalRange'), field: intervalPreset === 'custom' ? 'cint' : 'int' }
           : null,
       () => (type === 'push' && !inRange(pushGrace ?? 0, 0, 86400) ? { msg: t('monitors.form.v.pushGraceRange'), field: 'pgrace' } : null),
       validateType,
       () => (showLocations && !locLocal && locProbeIds.length === 0 ? { msg: t('monitors.form.v.locEmpty') } : null),
       () =>
-        retryInterval !== null && !inRange(retryInterval, 20, 86400)
+        retryInterval !== null && !inRange(retryInterval, MIN_INTERVAL, 86400)
           ? { msg: t('monitors.form.v.retryIntervalRange'), advanced: true, field: 'ri' }
           : null,
       () => (!inRange(maxRetries, 0, 20) ? { msg: t('monitors.form.v.retriesRange'), advanced: true, field: 'mr' } : null),
@@ -807,6 +819,15 @@
     return same ? null : target;
   }
   const locCount = $derived((locLocal ? 1 : 0) + locProbeIds.length);
+  // Yeni monitörde ikinci konum seçilince bir kez: kural "Kısmi erişim ayrımı"
+  // (all) + kısmi erişim bildirimi. Düzenlemede mevcut ayar korunur.
+  let locDefaulted = false;
+  $effect(() => {
+    if (isEdit || locDefaulted || locCount < 2) return;
+    locDefaulted = true;
+    locDownWhen = 'all';
+    locNotify = true;
+  });
 
   const cancelHref = $derived(isEdit ? `#/monitors/${id}` : '#/');
 </script>
@@ -1038,7 +1059,7 @@
       <div class="grid-int">
         <div class="field">
           <label for="int">{type === 'push' ? t('monitors.form.intervalPush') : t('monitors.form.interval')}</label>
-          <select id="int" class="input" bind:value={intervalPreset}>
+          <select id="int" class="input" bind:value={intervalPreset} onchange={clipTimeout}>
             {#each PRESETS as p (p)}<option value={String(p)}>{fmtInterval(p)}</option>{/each}
             <option value="custom">{t('monitors.form.custom')}</option>
           </select>
@@ -1046,13 +1067,16 @@
         {#if intervalPreset === 'custom'}
           <div class="field">
             <label for="cint">{t('monitors.form.seconds')}</label>
-            <input id="cint" class="input" type="number" min="20" max="86400" bind:value={customInterval} />
+            <input id="cint" class="input" type="number" min={MIN_INTERVAL} max="86400" bind:value={customInterval} onchange={clipTimeout} />
           </div>
         {/if}
       </div>
       <span class="help int-help">
         {type === 'push' ? t('monitors.form.intervalPushHelp') : t('monitors.form.intervalHelp')}
       </span>
+      {#if timeoutClipped !== null}
+        <span class="help clip-note" role="status">{t('monitors.form.timeoutClipped', { n: timeoutClipped })}</span>
+      {/if}
       {#if type === 'push'}
         <div class="field grace">
           <label for="pgrace">{t('monitors.form.pushGrace')}</label>
@@ -1171,7 +1195,7 @@
               <input type="checkbox" bind:checked={locLocal} />
               <span class="loc-t">
                 <span class="odot up" aria-hidden="true"></span>
-                <span>{t('monitors.form.mainServer')}<small>{t('monitors.form.mainServerDesc')}</small></span>
+                <span>{session.localName || t('monitors.form.mainServer')}<small>{t('monitors.form.mainServerDesc')}</small></span>
               </span>
             </label>
             {#each probes as p (p.id)}
@@ -1225,7 +1249,7 @@
                   id="ri"
                   class="input"
                   type="number"
-                  min="20"
+                  min={MIN_INTERVAL}
                   max="86400"
                   bind:value={retryInterval}
                   placeholder={t('monitors.form.retryIntervalPh', { n: interval || 60 })}
@@ -1236,7 +1260,7 @@
             {#if hasTimeout(type)}
               <div class="field">
                 <label for="to">{t('monitors.form.timeout')}</label>
-                <input id="to" class="input" type="number" min="1" max="300" bind:value={timeout} oninput={() => (timeoutAuto = false)} />
+                <input id="to" class="input" type="number" min="1" max="300" bind:value={timeout} oninput={() => ((timeoutAuto = false), (timeoutClipped = null))} />
                 {#if timeoutTooLong}
                   <span class="help tp-warn">{t('monitors.form.timeoutTooLong', { n: timeoutLimit })}</span>
                 {:else}
@@ -1531,6 +1555,10 @@
     display: inline-flex;
     color: var(--muted);
     pointer-events: none;
+  }
+  .clip-note {
+    display: block;
+    color: var(--warn, inherit);
   }
   .tp-warn {
     margin: -6px 0 10px;

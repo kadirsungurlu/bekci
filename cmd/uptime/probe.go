@@ -6,7 +6,9 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"os/signal"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -28,6 +30,8 @@ import (
 //	PROBE_TOKEN            arayüzde (Ayarlar → Kontrol noktaları) verilen token (upr_…)
 //	MAX_CONCURRENT_CHECKS  aynı anda en fazla kontrol (varsayılan 20)
 //	PROBE_ALLOW_INSECURE   "1" ise şifrelenmemiş http ana sunucuya izin verilir (önerilmez)
+//	MESH_ADDR              kontrol noktaları arası bağlantı (mesh) TCP dinleme adresi
+//	                       (varsayılan :7480; "-" ise dinlemez, yalnız dinleyen eşlere bağlanır)
 //	ADDR                   sağlık kontrolü (/healthz) adresi (varsayılan :8080; "-" ise kapalı)
 //	METRICS                "0" ise sunucu metrikleri hiç toplanmaz, ana sunucu istese de
 //	HOST_PROC, HOST_SYS,   Docker içinde çalışırken host'un /proc, /sys, /etc ve kök
@@ -36,6 +40,11 @@ import (
 //	                       kendi değerleri yanıltır), ana sunucuya neden bildirilir.
 //	DOCKER_HOST            Docker API adresi (varsayılan unix:///var/run/docker.sock);
 //	                       erişilebilirse konteyner istatistikleri de gönderilir
+//	PROBE_STATE_DIR        ajanın durum dizini (varsayılan program dizini): ana sunucunun
+//	                       son bilinen IP'leri uptime.dns.json dosyasında saklanır; DNS
+//	                       çözülemezse ajan bu IP'lerle bağlanmaya devam eder
+//	PROBE_OOB_IFACE        OOB (ikinci hat) IP'sinin ağ arayüzü (ör. eth1); boşsa panelde
+//	                       girilen OOB IP'sine göre otomatik bulunur (NAT arkasında gerekir)
 //	AUTO_UPDATE            "0" ise ajan panelin sunduğu imzalı sürüme kendini
 //	                       güncellemez (varsayılan açık; bkz. internal/agentupdate)
 //
@@ -72,12 +81,18 @@ func probeMain(ctx context.Context, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	mesh := newMeshRunner(ctx, env("MESH_ADDR", ":7480"), log)
 	client, err := probe.New(probe.Config{
+		MeshSource:    mesh,
+		OnMeshPeers:   mesh.onPeers,
+		OnMeshTiming:  mesh.onTiming,
 		Server:        env("PROBE_SERVER", ""),
 		Token:         env("PROBE_TOKEN", ""),
 		Version:       version,
 		MaxConcurrent: maxChecks,
 		NoMetrics:     slices.Contains([]string{"0", "false", "off", "no"}, strings.ToLower(env("METRICS", "1"))),
+		StateDir:      probeStateDir(),
+		OOBIface:      env("PROBE_OOB_IFACE", ""),
 		AllowInsecure: slices.Contains([]string{"1", "true", "on", "yes"}, strings.ToLower(env("PROBE_ALLOW_INSECURE", ""))),
 		Log:           log,
 		Updater:       updater,
@@ -103,4 +118,20 @@ func probeMain(ctx context.Context, log *slog.Logger) error {
 		defer srv.Close()
 	}
 	return client.Run(ctx)
+}
+
+// probeStateDir PROBE_STATE_DIR ya da (verilmemişse) programın bulunduğu dizin.
+// Dizin yazılabilir değilse DNS önbelleği yalnızca bellekte tutulur.
+func probeStateDir() string {
+	if d := env("PROBE_STATE_DIR", ""); d != "" {
+		return d
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	if real, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = real
+	}
+	return filepath.Dir(exe)
 }

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/kadirsungurlu/bekci/internal/engine"
 	"github.com/kadirsungurlu/bekci/internal/metrics"
 	"github.com/kadirsungurlu/bekci/internal/servers"
 	"github.com/kadirsungurlu/bekci/internal/store"
@@ -25,7 +24,7 @@ func boolMetric(v bool) int {
 // sensörü listeleri etiketlenmez (en sıcak sensör tek değerdir). Kısıtlı
 // kullanıcı yalnızca atanmış sunucuları ve kendi olaylarının sayısını görür;
 // kontrol noktaları yalnızca kısıtsız kullanıcıya verilir.
-func (s *Server) agentMetrics(r *http.Request, b *strings.Builder, family func(name, typ, help string), vis visibility) error {
+func (s *Server) agentMetrics(r *http.Request, b *strings.Builder, family func(name, typ, help string), vis visibility, admin bool) error {
 	ctx := r.Context()
 	now := s.now()
 	probes, err := s.store.ListProbes(ctx)
@@ -122,7 +121,7 @@ func (s *Server) agentMetrics(r *http.Request, b *strings.Builder, family func(n
 
 	family("uptime_probe_online", "gauge", "Kontrol noktası çevrimiçi mi (1 = çevrimiçi, 0 = çevrimdışı veya devre dışı)")
 	for _, p := range locations {
-		online := engine.ProbeOnline(p, now) && !s.engine.ProbeDisconnected(p.ID)
+		online := s.engine.ProbeOnline(p, now) && !s.engine.ProbeDisconnected(p.ID)
 		fmt.Fprintf(b, "uptime_probe_online{probe_id=\"%d\",probe_name=\"%s\"} %d\n", p.ID, promLabel(p.Name), boolMetric(online))
 	}
 
@@ -136,6 +135,9 @@ func (s *Server) agentMetrics(r *http.Request, b *strings.Builder, family func(n
 	}
 	family("uptime_incidents_open", "gauge", "Süren (çözülmemiş) olay sayısı, türe göre")
 	for _, kind := range store.IncidentKinds {
+		if kind == store.IncidentMesh && !admin {
+			continue // kontrol noktası ağı olayları yalnız yöneticiye
+		}
 		fmt.Fprintf(b, "uptime_incidents_open{kind=\"%s\"} %d\n", kind, open[kind])
 	}
 	return nil

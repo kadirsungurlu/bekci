@@ -248,6 +248,8 @@ class Live {
         const id = (msg.data as { monitor_id?: number })?.monitor_id ?? 0;
         this.emit(this.statsResetListeners, id);
         this.refreshSoon();
+      } else if (msg.type === 'mesh') {
+        this.emit(this.meshListeners, 0);
       } else if (msg.type === 'incident') {
         // Manuel olay açıldı/değişti ya da bir olaya güncelleme yazıldı.
         this.emit(this.incidentListeners, (msg.data as { incident_id?: number })?.incident_id ?? 0);
@@ -256,6 +258,14 @@ class Live {
   }
 
   private incidentListeners = new Set<(id: number) => void>();
+  private meshListeners = new Set<(id: number) => void>();
+
+  /** Mesh bağlantı ölçümleri tazelendiğinde çağrılır (en sık panel aralığında bir). */
+  onMesh(fn: () => void): () => void {
+    const f = () => fn();
+    this.meshListeners.add(f);
+    return () => this.meshListeners.delete(f);
+  }
 
   /** Manuel olay / olay güncellemesi değiştiğinde çağrılır (olay kimliğiyle). */
   onIncident(fn: (id: number) => void): () => void {

@@ -48,6 +48,9 @@ func canSeeIncident(u store.User, inc store.Incident) bool {
 	if store.IsServerIncident(inc.Kind) {
 		return inc.ServerID > 0 && vis.canServer(inc.ServerID)
 	}
+	if inc.Kind == store.IncidentMesh {
+		return u.Role == store.RoleAdmin // kontrol noktası ağı: yalnız yönetici
+	}
 	return vis.can(inc.MonitorID)
 }
 
@@ -60,6 +63,9 @@ func localizeIncidents(lang string, list []store.Incident) {
 }
 
 func incidentCause(lang string, inc store.Incident) string {
+	if inc.Kind == store.IncidentMesh {
+		return store.MeshIncidentCause(lang, string(inc.Data))
+	}
 	if store.IsServerIncident(inc.Kind) && len(inc.Data) > 0 {
 		return store.ServerIncidentCause(lang, inc.Kind, store.ParseServerIncidentData(inc.Data))
 	}
@@ -157,14 +163,16 @@ type incidentLocationView struct {
 
 type incidentDetailView struct {
 	Incident  store.Incident          `json:"incident"`
-	Monitor   incidentMonitor         `json:"monitor"`            // sunucu olayında boş
-	Server    *incidentServer         `json:"server,omitempty"`   // yalnızca sunucu olayında
-	Location  string                  `json:"location"`           // kök nedenin gözlendiği yer
-	Locations []incidentLocationView  `json:"locations"`          // olay başında
-	Events    []store.IncidentEvent   `json:"events"`             // yeniden eskiye
-	Capture   *store.IncidentCapture  `json:"capture"`            // yalnızca yönetici
-	Captures  []store.IncidentCapture `json:"captures,omitempty"` // yalnızca yönetici: Capture + diğer çalışmayan konumlarınki
-	Details   bool                    `json:"details"`            // kullanıcı istek/yanıtı görebilir mi
+	Monitor   incidentMonitor         `json:"monitor"`             // sunucu olayında boş
+	Server    *incidentServer         `json:"server,omitempty"`    // yalnızca sunucu olayında
+	Location  string                  `json:"location"`            // kök nedenin gözlendiği yer
+	Locations []incidentLocationView  `json:"locations"`           // olay başında
+	Mesh      *meshIncidentView       `json:"mesh,omitempty"`      // yalnızca mesh olayında
+	MeshLost  bool                    `json:"mesh_lost,omitempty"` // kontrol noktalarına ulaşılamıyordu; karar yalnız ana sunucunun sonucu
+	Events    []store.IncidentEvent   `json:"events"`              // yeniden eskiye
+	Capture   *store.IncidentCapture  `json:"capture"`             // yalnızca yönetici
+	Captures  []store.IncidentCapture `json:"captures,omitempty"`  // yalnızca yönetici: Capture + diğer çalışmayan konumlarınki
+	Details   bool                    `json:"details"`             // kullanıcı istek/yanıtı görebilir mi
 	// Updates insan eliyle yazılan güncellemeler (yeniden eskiye; manuel ve
 	// otomatik olaylarda). Affected manuel olayın etkilediği monitörler.
 	Updates  []store.IncidentUpdate `json:"updates"`
@@ -252,6 +260,10 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 		s.serverIncident(w, r, u, inc, updates)
 		return
 	}
+	if inc.Kind == store.IncidentMesh {
+		s.meshIncident(w, r, u, inc, updates)
+		return
+	}
 	m, err := s.store.GetMonitor(r.Context(), inc.MonitorID)
 	if err != nil {
 		s.dbError(w, err)
@@ -289,8 +301,10 @@ func (s *Server) getIncident(w http.ResponseWriter, r *http.Request) {
 		var d struct {
 			Locations []incidentLocationView  `json:"locations"`
 			Monitor   *engine.MonitorSnapshot `json:"monitor"`
+			MeshLost  bool                    `json:"mesh_lost"`
 		}
 		if json.Unmarshal(events[i].Data, &d) == nil {
+			out.MeshLost = d.MeshLost
 			if d.Locations != nil {
 				out.Locations = d.Locations
 			}

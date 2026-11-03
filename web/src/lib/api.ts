@@ -1,8 +1,8 @@
 // Go sunucusunun REST API'si için tipler ve küçük bir fetch sarmalayıcısı.
 
-import { i18n, t, type Locale } from './i18n';
+import { i18n, t, type Locale } from "./i18n";
 
-export const MASK = '••••••';
+export const MASK = "••••••";
 
 export const STATUS_DOWN = 0;
 export const STATUS_UP = 1;
@@ -11,26 +11,26 @@ export const STATUS_MAINTENANCE = 3;
 
 /** Bilinen tipler; yeni tip eklenirken monitorTypes.ts'teki kayıt defterine de eklenir. */
 export type MonitorType =
-  | 'http'
-  | 'tcp'
-  | 'ping'
-  | 'dns'
-  | 'tlscert'
-  | 'smtp'
-  | 'websocket'
-  | 'grpc'
-  | 'mqtt'
-  | 'snmp'
-  | 'mysql'
-  | 'postgres'
-  | 'mssql'
-  | 'redis'
-  | 'mongodb'
-  | 'docker'
-  | 'push'
-  | 'group';
+  | "http"
+  | "tcp"
+  | "ping"
+  | "dns"
+  | "tlscert"
+  | "smtp"
+  | "websocket"
+  | "grpc"
+  | "mqtt"
+  | "snmp"
+  | "mysql"
+  | "postgres"
+  | "mssql"
+  | "redis"
+  | "mongodb"
+  | "docker"
+  | "push"
+  | "group";
 
-export type Role = 'admin' | 'editor' | 'viewer';
+export type Role = "admin" | "editor" | "viewer";
 
 export interface User {
   id: number;
@@ -43,13 +43,13 @@ export interface User {
   /** Sunucular ekranı açık mı (kısıtlı izleyicide kendisine sunucu atanmışsa). Eski sunucuda gelmez. */
   servers?: boolean;
   /** Arayüz dili tercihi; "" = tarayıcı dili. Eski sunucuda gelmez. */
-  lang?: '' | Locale;
+  lang?: "" | Locale;
   /** İsteğe bağlı e-posta (şifre sıfırlama); eski sunucuda gelmez. */
   email?: string;
   /** Hesap bir OIDC/SSO sağlayıcısına bağlı. */
   oidc?: boolean;
   /** Arayüz teması tercihi: "" (sistem) | light | dark. */
-  theme?: '' | 'light' | 'dark';
+  theme?: "" | "light" | "dark";
 }
 
 /** Kullanıcılar sayfasındaki kayıt (yalnızca yönetici). */
@@ -113,7 +113,9 @@ export interface AuditEntry {
   ip: string;
 }
 
-export type LoginResult = { user: User; two_factor_required?: undefined } | { two_factor_required: true; challenge: string };
+export type LoginResult =
+  | { user: User; two_factor_required?: undefined }
+  | { two_factor_required: true; challenge: string };
 
 export interface TwoFactorStatus {
   enabled: boolean;
@@ -126,7 +128,7 @@ export interface TwoFactorSetup {
   qr_png?: string;
 }
 
-export type ApiKeyStatus = 'active' | 'expired' | 'revoked';
+export type ApiKeyStatus = "active" | "expired" | "revoked";
 
 export interface ApiKey {
   id: number;
@@ -150,6 +152,8 @@ export interface AuthState {
   password_reset?: boolean;
   /** SSO düğmesi; local_login false ise şifre formu bağlantıyla açılır. */
   oidc?: { enabled: boolean; name: string; local_login: boolean };
+  /** Ana sunucu konum adı (yalnız oturum açıkken; boş: varsayılan). */
+  local_location_name?: string;
 }
 
 /** OIDC/SSO ayarları (yönetici; client_secret maskeli gelir, maskeli gönderilirse korunur). */
@@ -259,10 +263,13 @@ export interface LocationDot {
 
 /** Monitör listesindeki toplu işlemler (POST /api/monitors/bulk). */
 export type BulkAction =
-  | { action: 'pause' | 'resume' | 'delete' }
-  | { action: 'add_tag'; tag_id: number; value: string }
-  | { action: 'remove_tag'; tag_id: number }
-  | { action: 'add_notification' | 'remove_notification'; notification_id: number };
+  | { action: "pause" | "resume" | "delete" }
+  | { action: "add_tag"; tag_id: number; value: string }
+  | { action: "remove_tag"; tag_id: number }
+  | {
+      action: "add_notification" | "remove_notification";
+      notification_id: number;
+    };
 
 export interface BulkResult {
   /** Gerçekten değişen monitör sayısı (zaten durdurulmuş olanlar vb. sayılmaz). */
@@ -327,21 +334,67 @@ export interface Probe {
   platform?: string;
   /** Ajanın güncelleme durumu (yönetici görünümü; eski sunucuda yok). */
   update?: AgentUpdate;
+  // Mesh (yalnızca kontrol noktası, yönetici görünümü; eski sunucuda yok).
+  /** Probe başına ezmeler; null: genel ayar. */
+  mesh_ping_sec?: number | null;
+  mesh_loss_threshold?: number | null;
+  panel_sec?: number | null;
+  /** "" görülen IP + 7480; "-" dinlemiyor (NAT); aksi host:port. */
+  mesh_addr?: string;
+  /** Main'e ulaşılamazsa yedek bildirici olabilir. */
+  fallback_notifier?: boolean;
+  /** Genel + ezme birleşimi etkin zamanlama. */
+  timing?: ProbeTiming;
+  // OOB ikinci hat (yönetici görünümü; eski sunucuda yok).
+  /** OOB hattının IP'si; boş: OOB tanımlı değil. */
+  oob_ip?: string;
+  /** OOB hattının adı; boş: "OOB". */
+  oob_name?: string;
+  /** Ajanın etkin hattı. */
+  uplink?: Uplink;
+  /** Son hat geçişinin anı (unix sn; 0: hiç geçiş yok). */
+  uplink_since?: number;
+  /** Ajan OOB IP'sinin bağlı olduğu arayüzü bulamadı (PROBE_OOB_IFACE gerekir). */
+  oob_iface_missing?: boolean;
+}
+
+/** Ajanın etkin bağlantı hattı (store.UplinkPrimary / UplinkOOB). */
+export type Uplink = "primary" | "oob";
+
+/** OOB tanımlı kontrol noktasının hat adı ("" : OOB yok). */
+export const oobLabel = (p: { oob_ip?: string; oob_name?: string }) =>
+  p.oob_ip ? p.oob_name || "OOB" : "";
+
+/** Bir kontrol noktasının etkin mesh zamanlaması (store.ProbeTiming). */
+export interface ProbeTiming {
+  mesh_enabled: boolean;
+  ping_sec: number;
+  loss_threshold: number;
+  panel_sec: number;
+}
+
+/** PUT /api/probes/{id} mesh alanları: sayı ezme, null genel değer, yok: değişmez. */
+export interface ProbeMeshInput {
+  mesh_ping_sec?: number | null;
+  mesh_loss_threshold?: number | null;
+  panel_sec?: number | null;
+  mesh_addr?: string;
+  fallback_notifier?: boolean;
 }
 
 /** Ajan (sunucu ajanı / kontrol noktası) güncelleme durumu (internal/agentupdate.Status). */
 export type AgentUpdateState =
-  | 'current'
-  | 'outdated'
-  | 'updating'
-  | 'failed'
-  | 'unsupported'
-  | 'unsigned'
-  | 'unversioned'
-  | 'newer'
-  | 'off'
-  | 'readonly'
-  | 'unknown';
+  | "current"
+  | "outdated"
+  | "updating"
+  | "failed"
+  | "unsupported"
+  | "unsigned"
+  | "unversioned"
+  | "newer"
+  | "off"
+  | "readonly"
+  | "unknown";
 
 export interface AgentUpdate {
   state: AgentUpdateState;
@@ -370,7 +423,7 @@ export interface ProbeSetup {
   windows?: string;
 }
 
-export type DownWhen = 'any' | 'majority' | 'all';
+export type DownWhen = "any" | "majority" | "all";
 
 export interface LocationSetup {
   include_local: boolean;
@@ -381,7 +434,7 @@ export interface LocationSetup {
 }
 
 /** waiting: konum yeni eklendi, ilk sonucu henüz gelmedi (süresi dolunca unknown). */
-export type LocationState = 'up' | 'down' | 'retrying' | 'waiting' | 'unknown';
+export type LocationState = "up" | "down" | "retrying" | "waiting" | "unknown";
 
 export interface LocationStatus {
   probe_id: number;
@@ -390,6 +443,8 @@ export interface LocationStatus {
   last_check_at: number;
   ping_ms: number;
   message: string;
+  /** Konumun ajanı OOB hattında: sonucu karara katılmıyor. */
+  oob?: boolean;
 }
 
 export interface MonitorLocations extends LocationSetup {
@@ -397,11 +452,19 @@ export interface MonitorLocations extends LocationSetup {
   locations: LocationStatus[];
 }
 
+/**
+ * SSE "probe" olayı. Çevrimiçi/çevrimdışı yükü online + last_seen_at taşır;
+ * hat geçişi yükü yalnızca uplink + uplink_since, arayüz uyarısı yalnızca
+ * oob_iface_missing taşır. Gelmeyen alanlar değişmemiş sayılmalı.
+ */
 export interface ProbeEvent {
   probe_id: number;
   name: string;
-  online: boolean;
-  last_seen_at: number;
+  online?: boolean;
+  last_seen_at?: number;
+  uplink?: Uplink;
+  uplink_since?: number;
+  oob_iface_missing?: boolean;
 }
 
 // Yedekleme ve içe aktarma ---------------------------------------------------------------
@@ -412,7 +475,7 @@ export interface SessionInfo {
   user_id: number;
   ip: string;
   user_agent: string;
-  via: 'password' | 'oidc';
+  via: "password" | "oidc";
   created_at: number;
   last_seen_at: number;
   expires_at: number;
@@ -435,8 +498,9 @@ export interface ImportCounts {
   users?: number;
 }
 
-export type ImportKind = 'monitor' | 'notification' | 'tag' | 'status_page' | 'settings' | 'user';
-export type ImportResultKind = 'created' | 'existing' | 'skipped';
+export type ImportKind =
+  "monitor" | "notification" | "tag" | "status_page" | "settings" | "user";
+export type ImportResultKind = "created" | "existing" | "skipped";
 
 export interface ImportItem {
   kind: ImportKind;
@@ -448,8 +512,8 @@ export interface ImportItem {
 }
 
 export interface ImportSummary {
-  source: 'bekci' | 'uptime-kadir' | 'uptime-kuma' | 'uptimerobot';
-  mode: 'merge' | 'replace';
+  source: "bekci" | "uptime-kadir" | "uptime-kuma" | "uptimerobot";
+  mode: "merge" | "replace";
   dry_run: boolean;
   created: ImportCounts;
   existing: ImportCounts;
@@ -480,9 +544,10 @@ export interface MonitorInput {
 }
 
 /** Alan adı sorgusunun durumu: ok | unsupported (RDAP yok) | not_found | no_expiry | error (geçici hata). */
-export type DomainStatus = 'ok' | 'unsupported' | 'not_found' | 'no_expiry' | 'error' | '';
+export type DomainStatus =
+  "ok" | "unsupported" | "not_found" | "no_expiry" | "error" | "";
 
-export type UptimeKey = '24h' | '7d' | '30d' | '90d';
+export type UptimeKey = "24h" | "7d" | "30d" | "90d";
 
 export interface MonitorDetail {
   monitor: MonitorView;
@@ -522,26 +587,45 @@ export interface BeatRow {
   location?: string;
 }
 
-export type SeriesRange = '24h' | '7d' | '30d' | '90d';
+export type SeriesRange = "24h" | "7d" | "30d" | "90d";
 
 export type Series =
-  | { range: SeriesRange; kind: 'raw'; points: RawPoint[] }
-  | { range: SeriesRange; kind: 'hourly' | 'daily'; points: Bucket[] };
+  | { range: SeriesRange; kind: "raw"; points: RawPoint[] }
+  | { range: SeriesRange; kind: "hourly" | "daily"; points: Bucket[] };
 
 /**
  * Olay türü: monitor (kesinti), partial (kısmi kesinti: bazı konumlar çalışmıyor,
  * monitör çalışıyor; bildirim yok), server_offline / server_alert (sunucu takibi).
  * Eski sunucular türü göndermez (monitor sayılır).
  */
-export type IncidentKind = 'monitor' | 'partial' | 'server_offline' | 'server_alert' | 'probe_offline' | 'degraded' | 'manual';
+export type IncidentKind =
+  | "monitor"
+  | "partial"
+  | "server_offline"
+  | "server_alert"
+  | "probe_offline"
+  | "mesh"
+  | "degraded"
+  | "manual";
 /** Olay listesi süzgeci (sunucu: sunucu ve kontrol noktası türleri birlikte). */
-export type IncidentFilterKind = '' | 'monitor' | 'server' | 'partial' | 'degraded' | 'manual';
+export type IncidentFilterKind =
+  "" | "monitor" | "server" | "partial" | "degraded" | "manual";
 
 /** Olay güncellemesi aşamaları (sırayla) ve manuel olay önem dereceleri. */
-export type IncidentState = 'investigating' | 'identified' | 'monitoring' | 'resolved';
-export const INCIDENT_STATES: IncidentState[] = ['investigating', 'identified', 'monitoring', 'resolved'];
-export type IncidentSeverity = 'minor' | 'major' | 'critical';
-export const INCIDENT_SEVERITIES: IncidentSeverity[] = ['minor', 'major', 'critical'];
+export type IncidentState =
+  "investigating" | "identified" | "monitoring" | "resolved";
+export const INCIDENT_STATES: IncidentState[] = [
+  "investigating",
+  "identified",
+  "monitoring",
+  "resolved",
+];
+export type IncidentSeverity = "minor" | "major" | "critical";
+export const INCIDENT_SEVERITIES: IncidentSeverity[] = [
+  "minor",
+  "major",
+  "critical",
+];
 
 export interface Incident {
   id: number;
@@ -616,31 +700,34 @@ export interface ServerIncidentData {
 }
 
 /** Ajan olayı: sunucu (server_offline/server_alert) veya kontrol noktası (probe_offline); server_id dolu. */
-export const isServerIncident = (k: IncidentKind | undefined) => k === 'server_offline' || k === 'server_alert' || k === 'probe_offline';
+export const isServerIncident = (k: IncidentKind | undefined) =>
+  k === "server_offline" || k === "server_alert" || k === "probe_offline" || k === "mesh";
 /** Kontrol noktası çevrimdışı olayı (ayrıntı ve bağlantılar kontrol noktaları sayfasına gider). */
-export const isProbeIncident = (k: IncidentKind | undefined) => k === 'probe_offline';
+export const isProbeIncident = (k: IncidentKind | undefined) =>
+  k === "probe_offline" || k === "mesh";
 
 /** Olay ayrıntıları (docs/PLAN.md §13). */
 export type IncidentEventKind =
-  | 'retry'
-  | 'down'
-  | 'change'
-  | 'location'
-  | 'reminder'
-  | 'maint_start'
-  | 'maint_end'
-  | 'notify'
-  | 'edited'
-  | 'paused'
-  | 'up'
-  | 'limit'
-  | 'escalated'
-  | 'from_partial'
-  | 'resumed'
-  | 'ack'
-  | 'unack'
-  | 'snooze'
-  | 'unsnooze';
+  | "retry"
+  | "down"
+  | "change"
+  | "mesh_change"
+  | "location"
+  | "reminder"
+  | "maint_start"
+  | "maint_end"
+  | "notify"
+  | "edited"
+  | "paused"
+  | "up"
+  | "limit"
+  | "escalated"
+  | "from_partial"
+  | "resumed"
+  | "ack"
+  | "unack"
+  | "snooze"
+  | "unsnooze";
 
 export interface IncidentEvent {
   id: number;
@@ -738,6 +825,16 @@ export interface IncidentLocation {
 
 export interface IncidentDetail {
   incident: Incident;
+  /** Kontrol noktalarına ulaşılamıyordu; karar yalnız ana sunucunun (probe_id 0) sonucuna dayanıyor. */
+  mesh_lost?: boolean;
+  /** Mesh olayı: son yorum ve tüm bağlantılar (yanıt dilinde). */
+  mesh?: {
+    owner: string;
+    findings: string[];
+    /** Kayıttaki düğümler (eski kayıt/sunucuda yok). */
+    nodes?: { id: number; name: string }[];
+    pairs: { a: number; b: number; state: 'up' | 'down' | 'oneway' | 'unknown'; ab?: string; ba?: string; text: string }[];
+  };
   /** Sunucu olayında boş (id 0). */
   /** type/target olay anındaki değerler; changed: sonradan değiştirildi (güncel değerler current_*). */
   monitor: {
@@ -771,31 +868,31 @@ export interface IncidentDetail {
 }
 
 export type NotificationType =
-  | 'whatsapp'
-  | 'telegram'
-  | 'email'
-  | 'discord'
-  | 'slack'
-  | 'webhook'
-  | 'ntfy'
-  | 'gotify'
-  | 'pushover'
-  | 'teams'
-  | 'googlechat'
-  | 'mattermost'
-  | 'rocketchat'
-  | 'matrix'
-  | 'signal'
-  | 'pagerduty'
-  | 'opsgenie'
-  | 'homeassistant'
-  | 'netgsm'
-  | 'twilio'
-  | 'pushbullet'
-  | 'bark'
-  | 'line'
-  | 'apprise'
-  | 'webpush';
+  | "whatsapp"
+  | "telegram"
+  | "email"
+  | "discord"
+  | "slack"
+  | "webhook"
+  | "ntfy"
+  | "gotify"
+  | "pushover"
+  | "teams"
+  | "googlechat"
+  | "mattermost"
+  | "rocketchat"
+  | "matrix"
+  | "signal"
+  | "pagerduty"
+  | "opsgenie"
+  | "homeassistant"
+  | "netgsm"
+  | "twilio"
+  | "pushbullet"
+  | "bark"
+  | "line"
+  | "apprise"
+  | "webpush";
 
 /** Web Push cihazı (kullanıcının kendi aboneliği). */
 export interface PushDevice {
@@ -810,21 +907,25 @@ export interface PushDevice {
 
 /** Bildirim türleri (kanal süzgeci için; test hariç). */
 export type NotifyKind =
-  | 'down'
-  | 'up'
-  | 'reminder'
-  | 'cert'
-  | 'domain'
-  | 'location_down'
-  | 'location_up'
-  | 'slow'
-  | 'slow_resolved'
-  | 'server_alert'
-  | 'server_resolved'
-  | 'probe_offline'
-  | 'probe_online'
-  | 'server_reboot'
-  | 'acked';
+  | "down"
+  | "up"
+  | "reminder"
+  | "cert"
+  | "domain"
+  | "location_down"
+  | "location_up"
+  | "slow"
+  | "slow_resolved"
+  | "server_alert"
+  | "server_resolved"
+  | "probe_offline"
+  | "probe_online"
+  | "mesh"
+  | "mesh_resolved"
+  | "probe_uplink_failover"
+  | "probe_uplink_restored"
+  | "server_reboot"
+  | "acked";
 
 /** Sessiz saatler: start/end "SS:DD" (tz diliminde; end <= start gece yarısını aşar). */
 export interface QuietHours {
@@ -833,7 +934,7 @@ export interface QuietHours {
   /** IANA saat dilimi; boş: sunucunun yerel saati. */
   tz: string;
   /** critical: yalnızca kritik olanlar ve onların düzelmesi geçer; none: her şey pencere bitimine ertelenir. */
-  mode: 'critical' | 'none';
+  mode: "critical" | "none";
 }
 
 /** Kanal kuralları (eski sunucuda gelmez → kural yok). */
@@ -846,7 +947,7 @@ export interface NotificationRules {
   /** Eskalasyon (dk): bu kadar süredir açık her olay bağlı olmasa da bu kanala gider. 0 = kapalı. */
   escalate_min?: number;
   /** Kanalın bildirim dili; "" = ayarlardaki. */
-  lang?: '' | Locale;
+  lang?: "" | Locale;
   /** Etiket kuralları: bu etiketi taşıyan monitörlere açık bağlantıya ek olarak gönderir. */
   tag_rules?: TagRule[] | null;
 }
@@ -882,6 +983,8 @@ export interface AppSettings {
   notify_lang?: Locale;
   /** Kontrol isteklerinin User-Agent'ı; boş: varsayılan. */
   check_user_agent?: string;
+  /** Ana sunucunun konum adı; boş: varsayılan ("Ana sunucu" / "Main server"). */
+  local_location_name?: string;
   /** Yalnızca okunur: varsayılan User-Agent (GET yanıtında). */
   default_user_agent?: string;
   /** Saklama süreleri (gün; 0 = süresiz). Eski sunucuda gelmez → 365 / 90 / 365. */
@@ -894,6 +997,14 @@ export interface AppSettings {
   agent_auto_update?: boolean;
   /** Yeni Bekci sürümü denetimi (varsayılan açık). */
   update_check?: boolean;
+  /** Mesh (kontrol noktaları arası ping) açık mı; yoksa/null açık. */
+  mesh_enabled?: boolean | null;
+  /** Mesh ping aralığı (sn, 1-60; 0 = varsayılan 5). */
+  mesh_ping_sec?: number;
+  /** Kopukluk eşiği (ardışık kayıp, 1-10; 0 = varsayılan 3). */
+  mesh_loss_threshold?: number;
+  /** Probe <-> panel haberleşme aralığı (sn, 1-60; 0 = varsayılan 5). */
+  probe_panel_sec?: number;
 }
 
 export interface BeatEvent {
@@ -966,7 +1077,11 @@ export interface PageSummary {
   uptime_30d: number | null;
   sections: { title: string; statuses: PublicMonitorStatus[] }[];
   /** Son 90 günün en yeni olayı (sayfadaki görünen adla). */
-  last_incident: { monitor: string; started_at: number; resolved_at: number } | null;
+  last_incident: {
+    monitor: string;
+    started_at: number;
+    resolved_at: number;
+  } | null;
   ongoing: number;
 }
 
@@ -1023,7 +1138,7 @@ export interface PageDomainStatus {
   /** Hata türü: no_host | refused | timeout | tls | http | not_bekci | unbound | other_page | other. */
   https_code: string;
   published: boolean;
-  state: 'none' | 'unpublished' | 'dns' | 'cert' | 'active';
+  state: "none" | "unpublished" | "dns" | "cert" | "active";
 }
 
 export interface PageSubscribers {
@@ -1036,7 +1151,7 @@ export interface PageSubscribers {
   items: PageSubscriber[];
 }
 
-export type Severity = 'info' | 'warning' | 'danger' | 'success';
+export type Severity = "info" | "warning" | "danger" | "success";
 
 export interface Announcement {
   id: number;
@@ -1065,10 +1180,11 @@ export interface AnnouncementInput {
  * Durum sayfası yerleşimi: liste (çubuklu), ızgara (geniş ekranda iki sütun),
  * sık liste (çubuksuz), tek satır (durum ışığı, ad, çubuklar ve uptime aynı satırda).
  */
-export type PageStyle = 'list' | 'grid' | 'compact' | 'rows';
-export type PageWidth = 'narrow' | 'wide';
+export type PageStyle = "list" | "grid" | "compact" | "rows";
+export type PageWidth = "narrow" | "wide";
 /** Herkese açık sayfanın sıralanabilir bölümleri. */
-export type PageBlockId = 'overall' | 'announcements' | 'maintenance' | 'groups' | 'incidents';
+export type PageBlockId =
+  "overall" | "announcements" | "maintenance" | "groups" | "incidents";
 
 export interface PageLayout {
   style: PageStyle;
@@ -1084,7 +1200,7 @@ export interface PageLayout {
 /** Düzenleyicideki canlı önizleme verisi (POST /api/status-pages/preview-data). */
 export interface PagePreviewData {
   range: BarRange;
-  uptime_window: '24h' | '90d';
+  uptime_window: "24h" | "90d";
   updated_at: number;
   /** Monitör kimliği → herkese açık veri (ad: monitörün kendi adı). */
   monitors: Record<string, PublicMonitor>;
@@ -1093,10 +1209,11 @@ export interface PagePreviewData {
 }
 
 /** Durum sayfası çubukları: son kontroller (her çubuk bir kontrol), son 24 saat (saatlik), son 90 gün (günlük). */
-export type BarRange = 'recent' | '24h' | '90d';
+export type BarRange = "recent" | "24h" | "90d";
 
-export type PublicMonitorStatus = 'up' | 'down' | 'pending' | 'paused' | 'maintenance';
-export type OverallStatus = 'up' | 'partial' | 'down' | 'unknown';
+export type PublicMonitorStatus =
+  "up" | "down" | "pending" | "paused" | "maintenance";
+export type OverallStatus = "up" | "partial" | "down" | "unknown";
 
 export interface PublicBar {
   t: number;
@@ -1119,15 +1236,15 @@ export interface PublicMonitor {
 }
 
 /** Durum sayfasındaki uptime pencereleri (sabit sıra). */
-export type UptimeWindow = '24h' | '7d' | '30d' | '90d';
-export const UPTIME_WINDOWS: UptimeWindow[] = ['24h', '7d', '30d', '90d'];
+export type UptimeWindow = "24h" | "7d" | "30d" | "90d";
+export const UPTIME_WINDOWS: UptimeWindow[] = ["24h", "7d", "30d", "90d"];
 /** Olay bölümünün penceresi (gün). */
 export const INCIDENT_DAY_OPTIONS = [7, 14, 30, 90] as const;
 
 /** Herkese açık sayfadaki olay: monitör kesintisi ya da elle açılan olay (title/severity dolu). */
 export interface PublicIncident {
   id?: number;
-  kind?: 'monitor' | 'manual';
+  kind?: "monitor" | "manual";
   monitor: string;
   monitors?: string[];
   title?: string;
@@ -1170,7 +1287,7 @@ export interface PublicPage {
   updated_at: number;
   /** Eski sunucularda yok → 90d kabul edilir. */
   range?: BarRange;
-  uptime_window?: '24h' | '90d';
+  uptime_window?: "24h" | "90d";
   status: OverallStatus;
   sections: { title: string; monitors: PublicMonitor[] }[];
   announcements: PublicAnnouncement[];
@@ -1206,8 +1323,9 @@ export interface PublicLocked {
 
 // Bakım pencereleri -------------------------------------------------------------------
 
-export type MaintStrategy = 'manual' | 'once' | 'recurring_weekly' | 'recurring_daily' | 'cron';
-export type MaintStatus = 'active' | 'scheduled' | 'ended' | 'inactive';
+export type MaintStrategy =
+  "manual" | "once" | "recurring_weekly" | "recurring_daily" | "cron";
+export type MaintStatus = "active" | "scheduled" | "ended" | "inactive";
 
 export interface MaintenanceInput {
   title: string;
@@ -1306,11 +1424,22 @@ export interface ServerStats {
 }
 
 /** online | offline | unavailable (ajan toplayamıyor) | waiting (hiç örnek yok) | disabled */
-export type ServerState = 'online' | 'offline' | 'unavailable' | 'waiting' | 'disabled';
+export type ServerState =
+  "online" | "offline" | "unavailable" | "waiting" | "disabled";
 
-export type ServerMetric = 'cpu' | 'mem' | 'swap' | 'disk' | 'load' | 'temp' | 'net' | 'offline' | 'container' | 'reboot';
+export type ServerMetric =
+  | "cpu"
+  | "mem"
+  | "swap"
+  | "disk"
+  | "load"
+  | "temp"
+  | "net"
+  | "offline"
+  | "container"
+  | "reboot";
 /** Sunucu uyarı seviyesi (eski kurallarda boş = kritik). */
-export type AlertLevel = 'warning' | 'critical';
+export type AlertLevel = "warning" | "critical";
 
 export interface ServerView {
   id: number;
@@ -1341,6 +1470,14 @@ export interface ServerView {
   in_maintenance?: boolean;
   /** Ajanın güncelleme durumu (eski sunucuda yok). */
   update?: AgentUpdate;
+  // OOB ikinci hat: yalnızca OOB tanımlıysa dolu.
+  uplink?: Uplink;
+  uplink_since?: number;
+  /** OOB hattının görünen adı. */
+  uplink_name?: string;
+  /** Yalnızca yöneticiye. */
+  oob_ip?: string;
+  oob_iface_missing?: boolean;
 }
 
 export interface AlertRule {
@@ -1357,15 +1494,18 @@ export interface AlertRule {
   /** İsteğe bağlı uyarı eşiği (0 = yok; eski sunucuda gelmez). */
   warn_threshold?: number;
   /** Tetiklenmiş kuralın seviyesi. */
-  level?: AlertLevel | '';
+  level?: AlertLevel | "";
 }
 
-export type AlertRuleInput = Pick<AlertRule, 'metric' | 'mount' | 'threshold' | 'minutes' | 'active' | 'warn_threshold'>;
+export type AlertRuleInput = Pick<
+  AlertRule,
+  "metric" | "mount" | "threshold" | "minutes" | "active" | "warn_threshold"
+>;
 
 /** Sunucuya bağlı kanal ve alacağı seviye ("" = hepsi). */
 export interface NotificationBinding {
   notification_id: number;
-  level: AlertLevel | '';
+  level: AlertLevel | "";
 }
 
 export interface ServerDetail extends ServerView {
@@ -1375,7 +1515,7 @@ export interface ServerDetail extends ServerView {
   notification_bindings?: NotificationBinding[] | null;
 }
 
-export type StatsRange = '1h' | '24h' | '7d' | '30d';
+export type StatsRange = "1h" | "24h" | "7d" | "30d";
 
 export interface StatsPoint {
   t: number;
@@ -1426,7 +1566,12 @@ export class ApiError extends Error {
   status: number;
   code: string;
   data: unknown;
-  constructor(status: number, message: string, code = '', data: unknown = null) {
+  constructor(
+    status: number,
+    message: string,
+    code = "",
+    data: unknown = null,
+  ) {
     super(message);
     this.status = status;
     this.code = code;
@@ -1448,26 +1593,46 @@ export function onPasswordChangeRequired(fn: () => void) {
 }
 
 // Bu yollarda 401 oturumun düştüğü anlamına gelmez (hatalı şifre/kod, şifreli durum sayfası).
-const NO_SESSION_401 = ['/api/auth/login', '/api/auth/login/2fa', '/api/auth/setup', '/api/auth/forgot', '/api/auth/reset'];
-const noSession401 = (path: string) => NO_SESSION_401.includes(path) || path.startsWith('/api/public/');
+const NO_SESSION_401 = [
+  "/api/auth/login",
+  "/api/auth/login/2fa",
+  "/api/auth/setup",
+  "/api/auth/forgot",
+  "/api/auth/reset",
+];
+const noSession401 = (path: string) =>
+  NO_SESSION_401.includes(path) || path.startsWith("/api/public/");
 
-async function request<T>(method: string, path: string, body?: unknown, raw?: { type: string; data: Blob }): Promise<T> {
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  raw?: { type: string; data: Blob },
+  meta?: { total?: number },
+): Promise<T> {
   // X-Uptime-Lang: sunucu hata mesajlarını arayüzün dilinde döndürsün.
-  const headers: Record<string, string> = { Accept: 'application/json', 'X-Uptime-Lang': i18n.locale };
-  if (method !== 'GET') {
-    headers['X-Uptime'] = '1';
-    headers['Content-Type'] = raw ? raw.type : 'application/json';
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "X-Uptime-Lang": i18n.locale,
+  };
+  if (method !== "GET") {
+    headers["X-Uptime"] = "1";
+    headers["Content-Type"] = raw ? raw.type : "application/json";
   }
   let res: Response;
   try {
     res = await fetch(path, {
       method,
       headers,
-      credentials: 'same-origin',
-      body: raw ? raw.data : body === undefined ? undefined : JSON.stringify(body),
+      credentials: "same-origin",
+      body: raw
+        ? raw.data
+        : body === undefined
+          ? undefined
+          : JSON.stringify(body),
     });
   } catch {
-    throw new ApiError(0, t('common.errors.unreachable'));
+    throw new ApiError(0, t("common.errors.unreachable"));
   }
   let data: unknown = null;
   const text = await res.text();
@@ -1478,23 +1643,44 @@ async function request<T>(method: string, path: string, body?: unknown, raw?: { 
       data = null;
     }
   }
-  if (!res.ok) throw failure(path, res.status, data, res.headers.get('Retry-After'));
+  if (!res.ok)
+    throw failure(path, res.status, data, res.headers.get("Retry-After"));
+  if (meta) {
+    const total = Number(res.headers.get("X-Total-Count"));
+    if (Number.isFinite(total)) meta.total = total;
+  }
   return data as T;
 }
 
 /** Başarısız yanıttan ApiError üretir; oturum/şifre işleyicilerini tetikler. */
-function failure(path: string, status: number, data: unknown, retryAfter: string | null): ApiError {
-  const obj = data && typeof data === 'object' ? (data as { error?: unknown; code?: unknown }) : null;
-  let msg = typeof obj?.error === 'string' ? obj.error : t('common.errors.requestFailed', { status });
-  const code = typeof obj?.code === 'string' ? obj.code : '';
-  if (status === 429 && typeof obj?.error !== 'string') {
+function failure(
+  path: string,
+  status: number,
+  data: unknown,
+  retryAfter: string | null,
+): ApiError {
+  const obj =
+    data && typeof data === "object"
+      ? (data as { error?: unknown; code?: unknown })
+      : null;
+  let msg =
+    typeof obj?.error === "string"
+      ? obj.error
+      : t("common.errors.requestFailed", { status });
+  const code = typeof obj?.code === "string" ? obj.code : "";
+  if (status === 429 && typeof obj?.error !== "string") {
     const wait = Number(retryAfter);
-    msg = wait > 0 ? t('common.errors.tooManyWait', { min: Math.ceil(wait / 60) }) : t('common.errors.tooMany');
+    msg =
+      wait > 0
+        ? t("common.errors.tooManyWait", { min: Math.ceil(wait / 60) })
+        : t("common.errors.tooMany");
   }
-  if (status === 413 && typeof obj?.error !== 'string') msg = t('common.errors.tooLarge');
+  if (status === 413 && typeof obj?.error !== "string")
+    msg = t("common.errors.tooLarge");
   // Giriş denemesindeki 401 "hatalı şifre" demektir; diğerlerinde oturum düşmüştür.
   if (status === 401 && !noSession401(path)) unauthorizedHandler?.();
-  if (status === 403 && code === 'password_change_required') passwordChangeHandler?.();
+  if (status === 403 && code === "password_change_required")
+    passwordChangeHandler?.();
   return new ApiError(status, msg, code, data);
 }
 
@@ -1511,17 +1697,21 @@ export function upload<T>(
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
-    form.append('file', file, file.name);
+    form.append("file", file, file.name);
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', path);
+    xhr.open("POST", path);
     xhr.withCredentials = true;
-    xhr.setRequestHeader('Accept', 'application/json');
-    xhr.setRequestHeader('X-Uptime', '1');
-    xhr.setRequestHeader('X-Uptime-Lang', i18n.locale);
-    for (const [k, v] of Object.entries(headers ?? {})) if (v) xhr.setRequestHeader(k, v);
-    if (onProgress) xhr.upload.onprogress = (e) => onProgress(e.loaded, e.lengthComputable ? e.total : file.size);
-    xhr.onerror = () => reject(new ApiError(0, t('common.errors.unreachable')));
-    xhr.onabort = () => reject(new ApiError(0, t('common.errors.uploadAborted')));
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.setRequestHeader("X-Uptime", "1");
+    xhr.setRequestHeader("X-Uptime-Lang", i18n.locale);
+    for (const [k, v] of Object.entries(headers ?? {}))
+      if (v) xhr.setRequestHeader(k, v);
+    if (onProgress)
+      xhr.upload.onprogress = (e) =>
+        onProgress(e.loaded, e.lengthComputable ? e.total : file.size);
+    xhr.onerror = () => reject(new ApiError(0, t("common.errors.unreachable")));
+    xhr.onabort = () =>
+      reject(new ApiError(0, t("common.errors.uploadAborted")));
     xhr.onload = () => {
       let data: unknown = null;
       if (xhr.responseText) {
@@ -1532,22 +1722,37 @@ export function upload<T>(
         }
       }
       if (xhr.status >= 200 && xhr.status < 300) resolve(data as T);
-      else reject(failure(path, xhr.status, data, xhr.getResponseHeader('Retry-After')));
+      else
+        reject(
+          failure(path, xhr.status, data, xhr.getResponseHeader("Retry-After")),
+        );
     };
     xhr.send(form);
   });
 }
 
-const get = <T>(p: string) => request<T>('GET', p);
-const post = <T>(p: string, b?: unknown) => request<T>('POST', p, b);
-const put = <T>(p: string, b?: unknown) => request<T>('PUT', p, b);
-const del = <T>(p: string) => request<T>('DELETE', p);
+const get = <T>(p: string) => request<T>("GET", p);
+
+/** Sayfa numaralı liste yanıtı (toplam X-Total-Count başlığından). */
+export interface Paged<T> {
+  items: T[];
+  total: number;
+}
+const getPaged = async <T>(p: string): Promise<Paged<T>> => {
+  const meta: { total?: number } = {};
+  const items = await request<T[]>("GET", p, undefined, undefined, meta);
+  return { items, total: meta.total ?? items.length };
+};
+const post = <T>(p: string, b?: unknown) => request<T>("POST", p, b);
+const put = <T>(p: string, b?: unknown) => request<T>("PUT", p, b);
+const del = <T>(p: string) => request<T>("DELETE", p);
 
 const qs = (params: Record<string, string | number | undefined>) => {
   const u = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== '' && v !== 0) u.set(k, String(v));
+  for (const [k, v] of Object.entries(params))
+    if (v !== undefined && v !== "" && v !== 0) u.set(k, String(v));
   const s = u.toString();
-  return s ? `?${s}` : '';
+  return s ? `?${s}` : "";
 };
 
 /** Yeni sürüm durumu (GET /api/update, yalnız yönetici). */
@@ -1564,51 +1769,98 @@ export interface UpdateInfo {
 }
 
 export const api = {
-  authState: () => get<AuthState>('/api/auth/state'),
-  setup: (username: string, password: string) => post<{ user: User }>('/api/auth/setup', { username, password }),
-  login: (username: string, password: string) => post<LoginResult>('/api/auth/login', { username, password }),
-  login2fa: (challenge: string, code: string) => post<{ user: User }>('/api/auth/login/2fa', { challenge, code }),
-  logout: () => post<{ ok: boolean }>('/api/auth/logout'),
+  authState: () => get<AuthState>("/api/auth/state"),
+  setup: (username: string, password: string) =>
+    post<{ user: User }>("/api/auth/setup", { username, password }),
+  login: (username: string, password: string) =>
+    post<LoginResult>("/api/auth/login", { username, password }),
+  login2fa: (challenge: string, code: string) =>
+    post<{ user: User }>("/api/auth/login/2fa", { challenge, code }),
+  logout: () => post<{ ok: boolean }>("/api/auth/logout"),
   changePassword: (current: string, next: string) =>
-    post<{ ok: boolean }>('/api/auth/password', { current, new: next }),
+    post<{ ok: boolean }>("/api/auth/password", { current, new: next }),
   /** Kendi arayüz dili tercihi; "" = tarayıcı dili. */
-  setPreferences: (p: { lang?: '' | Locale; theme?: '' | 'light' | 'dark' }) => put<{ user: User }>('/api/auth/preferences', p),
+  setPreferences: (p: { lang?: "" | Locale; theme?: "" | "light" | "dark" }) =>
+    put<{ user: User }>("/api/auth/preferences", p),
   // Web Push (bu hesabın cihazları)
-  webpushVapid: () => get<{ public_key: string }>('/api/webpush/vapid'),
-  webpushDevices: () => get<PushDevice[]>('/api/webpush/subscriptions'),
-  webpushSubscribe: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) => post<{ id: number }>('/api/webpush/subscriptions', sub),
-  webpushUnsubscribe: (id: number) => del<{ ok: boolean }>(`/api/webpush/subscriptions/${id}`),
-  webpushTest: () => post<{ sent: number; failed: number }>('/api/webpush/test', {}),
-  changeEmail: (password: string, email: string) => post<{ user: User }>('/api/auth/email', { password, email }),
-  forgotPassword: (login: string) => post<{ ok: boolean }>('/api/auth/forgot', { login }),
-  resetPassword: (token: string, password: string) => post<{ ok: boolean; username: string }>('/api/auth/reset', { token, password }),
-  oidcSettings: () => get<{ settings: OIDCSettings; redirect_uri: string }>('/api/settings/oidc'),
-  saveOidcSettings: (s: OIDCSettings) => put<{ settings: OIDCSettings; redirect_uri: string }>('/api/settings/oidc', s),
+  webpushVapid: () => get<{ public_key: string }>("/api/webpush/vapid"),
+  webpushDevices: () => get<PushDevice[]>("/api/webpush/subscriptions"),
+  webpushSubscribe: (sub: {
+    endpoint: string;
+    keys: { p256dh: string; auth: string };
+  }) => post<{ id: number }>("/api/webpush/subscriptions", sub),
+  webpushUnsubscribe: (id: number) =>
+    del<{ ok: boolean }>(`/api/webpush/subscriptions/${id}`),
+  webpushTest: () =>
+    post<{ sent: number; failed: number }>("/api/webpush/test", {}),
+  changeEmail: (password: string, email: string) =>
+    post<{ user: User }>("/api/auth/email", { password, email }),
+  forgotPassword: (login: string) =>
+    post<{ ok: boolean }>("/api/auth/forgot", { login }),
+  resetPassword: (token: string, password: string) =>
+    post<{ ok: boolean; username: string }>("/api/auth/reset", {
+      token,
+      password,
+    }),
+  oidcSettings: () =>
+    get<{ settings: OIDCSettings; redirect_uri: string }>("/api/settings/oidc"),
+  saveOidcSettings: (s: OIDCSettings) =>
+    put<{ settings: OIDCSettings; redirect_uri: string }>(
+      "/api/settings/oidc",
+      s,
+    ),
   testOidc: (issuer: string) =>
-    post<{ ok: boolean; authorization_endpoint: string; token_endpoint: string; scopes_supported: string[] | null }>('/api/settings/oidc/test', { issuer }),
+    post<{
+      ok: boolean;
+      authorization_endpoint: string;
+      token_endpoint: string;
+      scopes_supported: string[] | null;
+    }>("/api/settings/oidc/test", { issuer }),
 
-  summary: () => get<Summary>('/api/summary'),
-  monitors: () => get<MonitorView[]>('/api/monitors'),
+  summary: () => get<Summary>("/api/summary"),
+  monitors: () => get<MonitorView[]>("/api/monitors"),
   monitor: (id: number) => get<MonitorDetail>(`/api/monitors/${id}`),
-  createMonitor: (m: MonitorInput) => post<MonitorView>('/api/monitors', m),
-  updateMonitor: (id: number, m: MonitorInput) => put<MonitorView>(`/api/monitors/${id}`, m),
+  createMonitor: (m: MonitorInput) => post<MonitorView>("/api/monitors", m),
+  updateMonitor: (id: number, m: MonitorInput) =>
+    put<MonitorView>(`/api/monitors/${id}`, m),
   deleteMonitor: (id: number) => del<{ ok: boolean }>(`/api/monitors/${id}`),
   pauseMonitor: (id: number) => post<MonitorView>(`/api/monitors/${id}/pause`),
-  resumeMonitor: (id: number) => post<MonitorView>(`/api/monitors/${id}/resume`),
+  resumeMonitor: (id: number) =>
+    post<MonitorView>(`/api/monitors/${id}/resume`),
   // Listedeki hızlı işlemler
   cloneMonitor: (id: number) => post<MonitorView>(`/api/monitors/${id}/clone`),
-  resetMonitorStats: (id: number) => post<MonitorView>(`/api/monitors/${id}/reset-stats`),
+  resetMonitorStats: (id: number) =>
+    post<MonitorView>(`/api/monitors/${id}/reset-stats`),
   /** Push monitörünün adresini (token) yeniler; eski adres hemen geçersiz olur. */
-  regeneratePushToken: (id: number) => post<MonitorView>(`/api/monitors/${id}/push-token`),
+  regeneratePushToken: (id: number) =>
+    post<MonitorView>(`/api/monitors/${id}/push-token`),
   setMonitorNotifications: (id: number, ids: number[]) =>
-    put<MonitorView>(`/api/monitors/${id}/notifications`, { notification_ids: ids }),
-  bulkMonitors: (ids: number[], a: BulkAction) => post<BulkResult>('/api/monitors/bulk', { ids, ...a }),
-  addPageMonitor: (pageId: number, body: { monitor_id: number; section: number; section_title: string; name: string }) =>
-    post<StatusPage>(`/api/status-pages/${pageId}/monitors`, body),
-  series: (id: number, range: SeriesRange) => get<Series>(`/api/monitors/${id}/series?range=${range}`),
-  monitorIncidents: (id: number) => get<Incident[]>(`/api/monitors/${id}/incidents`),
+    put<MonitorView>(`/api/monitors/${id}/notifications`, {
+      notification_ids: ids,
+    }),
+  bulkMonitors: (ids: number[], a: BulkAction) =>
+    post<BulkResult>("/api/monitors/bulk", { ids, ...a }),
+  addPageMonitor: (
+    pageId: number,
+    body: {
+      monitor_id: number;
+      section: number;
+      section_title: string;
+      name: string;
+    },
+  ) => post<StatusPage>(`/api/status-pages/${pageId}/monitors`, body),
+  series: (id: number, range: SeriesRange) =>
+    get<Series>(`/api/monitors/${id}/series?range=${range}`),
+  monitorIncidents: (id: number) =>
+    get<Incident[]>(`/api/monitors/${id}/incidents`),
   /** open: yalnızca süren (çözülmemiş) olaylar; diğer süzgeçler isteğe bağlı. */
-  incidents: (before: number, limit: number, kind: IncidentFilterKind = '', open = false, f: IncidentQuery = {}) =>
+  incidents: (
+    before: number,
+    limit: number,
+    kind: IncidentFilterKind = "",
+    open = false,
+    f: IncidentQuery = {},
+  ) =>
     get<Incident[]>(
       `/api/incidents${qs({
         limit,
@@ -1622,66 +1874,125 @@ export const api = {
         q: f.q?.trim() || undefined,
       })}`,
     ),
-  serverIncidents: (id: number) => get<Incident[]>(`/api/servers/${id}/incidents`),
+  /** Sayfa numaralı olay listesi (offset/limit; toplam ile). */
+  incidentsPage: (
+    offset: number,
+    limit: number,
+    kind: IncidentFilterKind = "",
+    open = false,
+    f: IncidentQuery = {},
+  ) =>
+    getPaged<Incident>(
+      `/api/incidents${qs({
+        offset: String(offset),
+        limit,
+        kind: kind || undefined,
+        open: open ? 1 : undefined,
+        monitor_id: f.monitor_id || undefined,
+        server_id: f.server_id || undefined,
+        from: f.from || undefined,
+        to: f.to || undefined,
+        q: f.q?.trim() || undefined,
+      })}`,
+    ),
+  serverIncidents: (id: number) =>
+    get<Incident[]>(`/api/servers/${id}/incidents`),
   incident: (id: number) => get<IncidentDetail>(`/api/incidents/${id}`),
   // Manuel olaylar ve güncellemeler (editör+)
-  createIncident: (m: ManualIncidentInput) => post<Incident>('/api/incidents', m),
-  updateIncident: (id: number, m: Pick<ManualIncidentInput, 'title' | 'severity' | 'monitor_ids'>) => put<Incident>(`/api/incidents/${id}`, m),
+  createIncident: (m: ManualIncidentInput) =>
+    post<Incident>("/api/incidents", m),
+  updateIncident: (
+    id: number,
+    m: Pick<ManualIncidentInput, "title" | "severity" | "monitor_ids">,
+  ) => put<Incident>(`/api/incidents/${id}`, m),
   deleteIncident: (id: number) => del<{ ok: boolean }>(`/api/incidents/${id}`),
-  addIncidentUpdate: (id: number, u: { state: IncidentState; body: string }) => post<IncidentUpdate>(`/api/incidents/${id}/updates`, u),
-  deleteIncidentUpdate: (id: number, uid: number) => del<{ ok: boolean }>(`/api/incidents/${id}/updates/${uid}`),
+  addIncidentUpdate: (id: number, u: { state: IncidentState; body: string }) =>
+    post<IncidentUpdate>(`/api/incidents/${id}/updates`, u),
+  deleteIncidentUpdate: (id: number, uid: number) =>
+    del<{ ok: boolean }>(`/api/incidents/${id}/updates/${uid}`),
   // Onay ve susturma (editör+); yanıt güncel olay satırı.
-  ackIncident: (id: number, note: string) => post<Incident>(`/api/incidents/${id}/ack`, { note }),
+  ackIncident: (id: number, note: string) =>
+    post<Incident>(`/api/incidents/${id}/ack`, { note }),
   unackIncident: (id: number) => del<Incident>(`/api/incidents/${id}/ack`),
-  snoozeIncident: (id: number, minutes: number) => post<Incident>(`/api/incidents/${id}/snooze`, { minutes }),
-  unsnoozeIncident: (id: number) => del<Incident>(`/api/incidents/${id}/snooze`),
+  snoozeIncident: (id: number, minutes: number) =>
+    post<Incident>(`/api/incidents/${id}/snooze`, { minutes }),
+  unsnoozeIncident: (id: number) =>
+    del<Incident>(`/api/incidents/${id}/snooze`),
 
-  notifications: () => get<NotificationChannel[]>('/api/notifications'),
-  createNotification: (n: NotificationInput) => post<NotificationChannel>('/api/notifications', n),
-  updateNotification: (id: number, n: NotificationInput) => put<NotificationChannel>(`/api/notifications/${id}`, n),
-  deleteNotification: (id: number) => del<{ ok: boolean }>(`/api/notifications/${id}`),
-  testNotification: (body: { id?: number; type: NotificationType; config: Record<string, unknown>; lang?: '' | Locale }) =>
-    post<{ ok: boolean }>('/api/notifications/test', body),
+  notifications: () => get<NotificationChannel[]>("/api/notifications"),
+  createNotification: (n: NotificationInput) =>
+    post<NotificationChannel>("/api/notifications", n),
+  updateNotification: (id: number, n: NotificationInput) =>
+    put<NotificationChannel>(`/api/notifications/${id}`, n),
+  deleteNotification: (id: number) =>
+    del<{ ok: boolean }>(`/api/notifications/${id}`),
+  testNotification: (body: {
+    id?: number;
+    type: NotificationType;
+    config: Record<string, unknown>;
+    lang?: "" | Locale;
+  }) => post<{ ok: boolean }>("/api/notifications/test", body),
   /** Kayıtlı kanala her bildirim türünden birer örnek gönderir (arka planda, sırayla). */
-  sampleNotifications: (id: number) => post<{ count: number }>(`/api/notifications/${id}/samples`, {}),
+  sampleNotifications: (id: number) =>
+    post<{ count: number }>(`/api/notifications/${id}/samples`, {}),
 
-  updateInfo: () => get<UpdateInfo>('/api/update'),
-  updateCheck: () => post<UpdateInfo>('/api/update/check', {}),
-  updateDismiss: (version: string) => post<UpdateInfo>('/api/update/dismiss', { version }),
-  settings: () => get<AppSettings>('/api/settings'),
-  saveSettings: (s: AppSettings) => put<AppSettings>('/api/settings', s),
+  updateInfo: () => get<UpdateInfo>("/api/update"),
+  updateCheck: () => post<UpdateInfo>("/api/update/check", {}),
+  updateDismiss: (version: string) =>
+    post<UpdateInfo>("/api/update/dismiss", { version }),
+  settings: () => get<AppSettings>("/api/settings"),
+  saveSettings: (s: AppSettings) => put<AppSettings>("/api/settings", s),
 
   // Kullanıcılar ve işlem kaydı (yönetici)
-  users: () => get<UserRecord[]>('/api/users'),
-  createUser: (u: UserCreateInput) => post<UserRecord>('/api/users', u),
-  updateUser: (id: number, u: UserInput) => put<UserRecord>(`/api/users/${id}`, u),
+  users: () => get<UserRecord[]>("/api/users"),
+  createUser: (u: UserCreateInput) => post<UserRecord>("/api/users", u),
+  updateUser: (id: number, u: UserInput) =>
+    put<UserRecord>(`/api/users/${id}`, u),
   deleteUser: (id: number) => del<{ ok: boolean }>(`/api/users/${id}`),
-  resetUserPassword: (id: number, password: string) => post<{ ok: boolean }>(`/api/users/${id}/password`, { password }),
-  resetUser2fa: (id: number) => post<{ ok: boolean }>(`/api/users/${id}/2fa/reset`),
+  resetUserPassword: (id: number, password: string) =>
+    post<{ ok: boolean }>(`/api/users/${id}/password`, { password }),
+  resetUser2fa: (id: number) =>
+    post<{ ok: boolean }>(`/api/users/${id}/2fa/reset`),
   audit: (q: AuditQuery) => get<AuditEntry[]>(`/api/audit${qs({ ...q })}`),
-  auditFacets: () => get<AuditFacets>('/api/audit/facets'),
+  /** Sayfa numaralı işlem kaydı (offset/limit; toplam ile). */
+  auditPage: (q: AuditQuery & { offset: number }) =>
+    getPaged<AuditEntry>(`/api/audit${qs({ ...q, offset: String(q.offset) })}`),
+  auditFacets: () => get<AuditFacets>("/api/audit/facets"),
 
   // İki adımlı doğrulama
-  twoFactor: () => get<TwoFactorStatus>('/api/auth/2fa'),
-  twoFactorSetup: (password: string) => post<TwoFactorSetup>('/api/auth/2fa/setup', { password }),
-  twoFactorEnable: (code: string) => post<{ recovery_codes: string[] }>('/api/auth/2fa/enable', { code }),
-  twoFactorDisable: (password: string, code: string) => post<{ ok: boolean }>('/api/auth/2fa/disable', { password, code }),
+  twoFactor: () => get<TwoFactorStatus>("/api/auth/2fa"),
+  twoFactorSetup: (password: string) =>
+    post<TwoFactorSetup>("/api/auth/2fa/setup", { password }),
+  twoFactorEnable: (code: string) =>
+    post<{ recovery_codes: string[] }>("/api/auth/2fa/enable", { code }),
+  twoFactorDisable: (password: string, code: string) =>
+    post<{ ok: boolean }>("/api/auth/2fa/disable", { password, code }),
   twoFactorRecovery: (password: string, code: string) =>
-    post<{ recovery_codes: string[] }>('/api/auth/2fa/recovery-codes', { password, code }),
+    post<{ recovery_codes: string[] }>("/api/auth/2fa/recovery-codes", {
+      password,
+      code,
+    }),
 
   // API anahtarları
-  apiKeys: (all = false) => get<ApiKey[]>(`/api/api-keys${all ? '?all=1' : ''}`),
+  apiKeys: (all = false) =>
+    get<ApiKey[]>(`/api/api-keys${all ? "?all=1" : ""}`),
   createApiKey: (name: string, role: Role, expires_at: number) =>
-    post<{ key: ApiKey; secret: string }>('/api/api-keys', { name, role, expires_at }),
+    post<{ key: ApiKey; secret: string }>("/api/api-keys", {
+      name,
+      role,
+      expires_at,
+    }),
   revokeApiKey: (id: number) => del<{ ok: boolean }>(`/api/api-keys/${id}`),
 
   // Durum sayfaları
-  pages: () => get<StatusPageListItem[]>('/api/status-pages'),
+  pages: () => get<StatusPageListItem[]>("/api/status-pages"),
   page: (id: number) => get<StatusPage>(`/api/status-pages/${id}`),
-  createPage: (p: PageInput) => post<StatusPage>('/api/status-pages', p),
-  updatePage: (id: number, p: PageInput) => put<StatusPage>(`/api/status-pages/${id}`, p),
+  createPage: (p: PageInput) => post<StatusPage>("/api/status-pages", p),
+  updatePage: (id: number, p: PageInput) =>
+    put<StatusPage>(`/api/status-pages/${id}`, p),
   deletePage: (id: number) => del<{ ok: boolean }>(`/api/status-pages/${id}`),
-  previewPage: (id: number) => get<PublicPage>(`/api/status-pages/${id}/preview`),
+  previewPage: (id: number) =>
+    get<PublicPage>(`/api/status-pages/${id}/preview`),
   pagePreviewData: (body: {
     page_id?: number;
     monitor_ids: number[];
@@ -1689,59 +2000,92 @@ export const api = {
     show_targets: boolean;
     incident_days?: number;
     uptime_windows?: UptimeWindow[];
-  }) =>
-    post<PagePreviewData>('/api/status-pages/preview-data', body),
+  }) => post<PagePreviewData>("/api/status-pages/preview-data", body),
   uploadLogo: (id: number, file: File) =>
-    request<StatusPage>('PUT', `/api/status-pages/${id}/logo`, undefined, { type: file.type, data: file }),
+    request<StatusPage>("PUT", `/api/status-pages/${id}/logo`, undefined, {
+      type: file.type,
+      data: file,
+    }),
   deleteLogo: (id: number) => del<StatusPage>(`/api/status-pages/${id}/logo`),
-  pageDomainStatus: (pageId: number) => get<PageDomainStatus>(`/api/status-pages/${pageId}/domain`),
-  pageSubscribers: (pageId: number) => get<PageSubscribers>(`/api/status-pages/${pageId}/subscribers`),
-  deletePageSubscriber: (pageId: number, id: number) => del<void>(`/api/status-pages/${pageId}/subscribers/${id}`),
+  pageDomainStatus: (pageId: number) =>
+    get<PageDomainStatus>(`/api/status-pages/${pageId}/domain`),
+  pageSubscribers: (pageId: number) =>
+    get<PageSubscribers>(`/api/status-pages/${pageId}/subscribers`),
+  deletePageSubscriber: (pageId: number, id: number) =>
+    del<void>(`/api/status-pages/${pageId}/subscribers/${id}`),
   /** CSV dışa aktarımı (bağlantı olarak indirilir). */
-  pageSubscribersCsvUrl: (pageId: number) => `/api/status-pages/${pageId}/subscribers.csv`,
-  announcements: (pageId: number) => get<Announcement[]>(`/api/status-pages/${pageId}/announcements`),
+  pageSubscribersCsvUrl: (pageId: number) =>
+    `/api/status-pages/${pageId}/subscribers.csv`,
+  announcements: (pageId: number) =>
+    get<Announcement[]>(`/api/status-pages/${pageId}/announcements`),
   createAnnouncement: (pageId: number, a: AnnouncementInput) =>
-    post<Announcement & { copies?: number }>(`/api/status-pages/${pageId}/announcements`, a),
-  updateAnnouncement: (id: number, a: AnnouncementInput) => put<Announcement>(`/api/announcements/${id}`, a),
-  deleteAnnouncement: (id: number) => del<{ ok: boolean }>(`/api/announcements/${id}`),
+    post<Announcement & { copies?: number }>(
+      `/api/status-pages/${pageId}/announcements`,
+      a,
+    ),
+  updateAnnouncement: (id: number, a: AnnouncementInput) =>
+    put<Announcement>(`/api/announcements/${id}`, a),
+  deleteAnnouncement: (id: number) =>
+    del<{ ok: boolean }>(`/api/announcements/${id}`),
 
   // Herkese açık durum sayfası (oturum gerekmez)
-  publicResolve: () => get<{ slug: string | null }>('/api/public/resolve'),
+  publicResolve: () => get<{ slug: string | null }>("/api/public/resolve"),
   /** fresh: canlı sinyalden sonra tarayıcı önbelleği (max-age=30) atlanır. */
   publicPage: (slug: string, fresh = false) =>
-    get<PublicPage>(`/api/public/pages/${encodeURIComponent(slug)}${fresh ? `?t=${Date.now()}` : ''}`),
+    get<PublicPage>(
+      `/api/public/pages/${encodeURIComponent(slug)}${fresh ? `?t=${Date.now()}` : ""}`,
+    ),
   publicUnlock: (slug: string, password: string) =>
-    post<{ ok: boolean }>(`/api/public/pages/${encodeURIComponent(slug)}/unlock`, { password }),
+    post<{ ok: boolean }>(
+      `/api/public/pages/${encodeURIComponent(slug)}/unlock`,
+      { password },
+    ),
   /** Yanıt her durumda aynıdır (202); 429 çok deneme, 400 geçersiz e-posta. */
   publicSubscribe: (slug: string, email: string, lang: Locale) =>
-    post<{ ok: boolean }>(`/api/public/pages/${encodeURIComponent(slug)}/subscribe`, { email, lang }),
+    post<{ ok: boolean }>(
+      `/api/public/pages/${encodeURIComponent(slug)}/subscribe`,
+      { email, lang },
+    ),
   publicConfirmSubscription: (token: string) =>
-    post<{ ok: boolean; page?: string }>('/api/public/subscriptions/confirm', { token }),
-  publicUnsubscribe: (token: string) => post<{ ok: boolean }>('/api/public/subscriptions/unsubscribe', { token }),
+    post<{ ok: boolean; page?: string }>("/api/public/subscriptions/confirm", {
+      token,
+    }),
+  publicUnsubscribe: (token: string) =>
+    post<{ ok: boolean }>("/api/public/subscriptions/unsubscribe", { token }),
 
   // Bakım pencereleri
-  maintenance: () => get<Maintenance[]>('/api/maintenance'),
+  maintenance: () => get<Maintenance[]>("/api/maintenance"),
   maintenanceItem: (id: number) => get<Maintenance>(`/api/maintenance/${id}`),
-  createMaintenance: (m: MaintenanceInput) => post<Maintenance>('/api/maintenance', m),
-  updateMaintenance: (id: number, m: MaintenanceInput) => put<Maintenance>(`/api/maintenance/${id}`, m),
-  deleteMaintenance: (id: number) => del<{ ok: boolean }>(`/api/maintenance/${id}`),
-  pauseMaintenance: (id: number) => post<Maintenance>(`/api/maintenance/${id}/pause`),
-  resumeMaintenance: (id: number) => post<Maintenance>(`/api/maintenance/${id}/resume`),
+  createMaintenance: (m: MaintenanceInput) =>
+    post<Maintenance>("/api/maintenance", m),
+  updateMaintenance: (id: number, m: MaintenanceInput) =>
+    put<Maintenance>(`/api/maintenance/${id}`, m),
+  deleteMaintenance: (id: number) =>
+    del<{ ok: boolean }>(`/api/maintenance/${id}`),
+  pauseMaintenance: (id: number) =>
+    post<Maintenance>(`/api/maintenance/${id}/pause`),
+  resumeMaintenance: (id: number) =>
+    post<Maintenance>(`/api/maintenance/${id}/resume`),
   /** Süren bakımı hemen bitirir; zamanlama açık kalır. */
-  endMaintenance: (id: number) => post<Maintenance>(`/api/maintenance/${id}/end`),
+  endMaintenance: (id: number) =>
+    post<Maintenance>(`/api/maintenance/${id}/end`),
 
   // Etiketler
-  tags: () => get<Tag[]>('/api/tags'),
-  createTag: (name: string, color: string) => post<Tag>('/api/tags', { name, color }),
-  updateTag: (id: number, name: string, color: string) => put<Tag>(`/api/tags/${id}`, { name, color }),
+  tags: () => get<Tag[]>("/api/tags"),
+  createTag: (name: string, color: string) =>
+    post<Tag>("/api/tags", { name, color }),
+  updateTag: (id: number, name: string, color: string) =>
+    put<Tag>(`/api/tags/${id}`, { name, color }),
   deleteTag: (id: number) => del<{ ok: boolean }>(`/api/tags/${id}`),
-  setMonitorTags: (id: number, tags: { tag_id: number; value: string }[]) => put<MonitorTag[]>(`/api/monitors/${id}/tags`, tags),
+  setMonitorTags: (id: number, tags: { tag_id: number; value: string }[]) =>
+    put<MonitorTag[]>(`/api/monitors/${id}/tags`, tags),
 
   // Kontrol noktaları
-  probes: () => get<Probe[]>('/api/probes'),
-  createProbe: (name: string) => post<ProbeSetup>('/api/probes', { name }),
+  probes: () => get<Probe[]>("/api/probes"),
+  mesh: () => get<MeshMatrix>("/api/mesh"),
+  createProbe: (name: string) => post<ProbeSetup>("/api/probes", { name }),
   /** Takip edilecek sunucu ekler (kontrol noktalarından ayrı kayıt). */
-  createServer: (name: string) => post<ProbeSetup>('/api/servers', { name }),
+  createServer: (name: string) => post<ProbeSetup>("/api/servers", { name }),
   // Yalnızca verilen alanlar gönderilir (sunucu bilinmeyen alanı reddeder):
   // metrics, ip_lock ve reset_ip (kilitli IP'yi sıfırla) isteğe bağlıdır.
   updateProbe: (
@@ -1749,14 +2093,25 @@ export const api = {
     name: string,
     active: boolean,
     metrics?: boolean,
-    opts?: { ipLock?: boolean; resetIp?: boolean; notifyOffline?: boolean; notificationIds?: number[]; autoUpdate?: boolean | null },
+    opts?: {
+      ipLock?: boolean;
+      resetIp?: boolean;
+      notifyOffline?: boolean;
+      notificationIds?: number[];
+      autoUpdate?: boolean | null;
+      mesh?: ProbeMeshInput;
+      /** OOB ikinci hat; boş IP OOB'yi kaldırır, alan yoksa değişmez. */
+      oob?: { oob_ip: string; oob_name: string };
+    },
   ) => {
-    const body: Record<string, unknown> = { name, active };
+    const body: Record<string, unknown> = { name, active, ...opts?.mesh, ...opts?.oob };
     if (metrics !== undefined) body.metrics = metrics;
     if (opts?.ipLock !== undefined) body.ip_lock = opts.ipLock;
     if (opts?.resetIp) body.reset_ip = true;
-    if (opts?.notifyOffline !== undefined) body.notify_offline = opts.notifyOffline;
-    if (opts?.notificationIds !== undefined) body.notification_ids = opts.notificationIds;
+    if (opts?.notifyOffline !== undefined)
+      body.notify_offline = opts.notifyOffline;
+    if (opts?.notificationIds !== undefined)
+      body.notification_ids = opts.notificationIds;
     // null: genel ayara dön; alan yoksa değişmez.
     if (opts?.autoUpdate !== undefined) body.auto_update = opts.autoUpdate;
     return put<Probe>(`/api/probes/${id}`, body);
@@ -1764,41 +2119,74 @@ export const api = {
   /** Ajanı panelin sürümüne şimdi güncelle (otomatik güncelleme kapalı olsa da). */
   updateAgent: (id: number) => post<Probe>(`/api/probes/${id}/update`),
   /** Verilen türdeki güncellenebilir tüm ajanlar için güncelleme ister. */
-  updateAllAgents: (kind: 'server' | 'location') => post<{ requested: number }>(`/api/probes/update-all?kind=${kind}`),
+  updateAllAgents: (kind: "server" | "location") =>
+    post<{ requested: number }>(`/api/probes/update-all?kind=${kind}`),
   deleteProbe: (id: number) => del<{ ok: boolean }>(`/api/probes/${id}`),
-  regenerateProbeToken: (id: number) => post<ProbeSetup>(`/api/probes/${id}/token`),
-  monitorLocations: (id: number) => get<MonitorLocations>(`/api/monitors/${id}/locations`),
-  beats: (id: number, limit = 50) => get<BeatRow[]>(`/api/monitors/${id}/beats${qs({ limit })}`),
-  setMonitorLocations: (id: number, l: LocationSetup) => put<MonitorLocations>(`/api/monitors/${id}/locations`, l),
+  regenerateProbeToken: (id: number) =>
+    post<ProbeSetup>(`/api/probes/${id}/token`),
+  monitorLocations: (id: number) =>
+    get<MonitorLocations>(`/api/monitors/${id}/locations`),
+  beats: (id: number, limit = 50) =>
+    get<BeatRow[]>(`/api/monitors/${id}/beats${qs({ limit })}`),
+  setMonitorLocations: (id: number, l: LocationSetup) =>
+    put<MonitorLocations>(`/api/monitors/${id}/locations`, l),
 
   // Sunucu takibi (sunucular kontrol noktalarından ayrıdır; ekleme createServer ile)
-  listServers: () => get<{ servers: ServerView[] | null }>('/api/servers').then((r) => r.servers ?? []),
+  listServers: () =>
+    get<{ servers: ServerView[] | null }>("/api/servers").then(
+      (r) => r.servers ?? [],
+    ),
   getServer: (id: number) => get<ServerDetail>(`/api/servers/${id}`),
-  getServerStats: (id: number, range: StatsRange) => get<StatsSeries>(`/api/servers/${id}/stats?range=${range}`),
+  getServerStats: (id: number, range: StatsRange) =>
+    get<StatsSeries>(`/api/servers/${id}/stats?range=${range}`),
   getServerEvents: (id: number) =>
-    get<{ events: ServerEvent[] | null }>(`/api/servers/${id}/events`).then((r) => r.events ?? []),
+    get<{ events: ServerEvent[] | null }>(`/api/servers/${id}/events`).then(
+      (r) => r.events ?? [],
+    ),
   putServerAlerts: (id: number, alerts: AlertRuleInput[]) =>
-    put<{ alerts: AlertRule[] | null }>(`/api/servers/${id}/alerts`, { alerts }).then((r) => r.alerts ?? []),
-  putServerNotifications: (id: number, ids: number[], bindings?: NotificationBinding[]) =>
-    put<{ notification_ids?: number[] | null; notification_bindings?: NotificationBinding[] | null }>(`/api/servers/${id}/notifications`, {
+    put<{ alerts: AlertRule[] | null }>(`/api/servers/${id}/alerts`, {
+      alerts,
+    }).then((r) => r.alerts ?? []),
+  putServerNotifications: (
+    id: number,
+    ids: number[],
+    bindings?: NotificationBinding[],
+  ) =>
+    put<{
+      notification_ids?: number[] | null;
+      notification_bindings?: NotificationBinding[] | null;
+    }>(`/api/servers/${id}/notifications`, {
       notification_ids: ids,
       ...(bindings ? { notification_bindings: bindings } : {}),
     }),
 
   // Yedekle / geri yükle ve içe aktarma (yönetici)
-  importBackup: (file: File, mode: 'merge' | 'replace', dryRun: boolean, onProgress?: (l: number, t: number) => void, password = '') =>
+  importBackup: (
+    file: File,
+    mode: "merge" | "replace",
+    dryRun: boolean,
+    onProgress?: (l: number, t: number) => void,
+    password = "",
+  ) =>
     upload<ImportSummary>(
-      `/api/import?mode=${mode}${dryRun ? '&dry_run=1' : mode === 'replace' ? '&confirm=yes' : ''}`,
+      `/api/import?mode=${mode}${dryRun ? "&dry_run=1" : mode === "replace" ? "&confirm=yes" : ""}`,
       file,
       onProgress,
-      password ? { 'X-Backup-Password': password } : undefined,
+      password ? { "X-Backup-Password": password } : undefined,
     ),
   /** Seçenekli yedek: dosya adı ve içerik (indirme istemcide yapılır). */
-  exportBackup: async (opt: ExportOptions): Promise<{ name: string; blob: Blob }> => {
-    const res = await fetch('/api/export', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Uptime': '1', 'X-Uptime-Lang': i18n.locale },
+  exportBackup: async (
+    opt: ExportOptions,
+  ): Promise<{ name: string; blob: Blob }> => {
+    const res = await fetch("/api/export", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-Uptime": "1",
+        "X-Uptime-Lang": i18n.locale,
+      },
       body: JSON.stringify(opt),
     });
     if (!res.ok) {
@@ -1808,24 +2196,64 @@ export const api = {
       } catch {
         data = null;
       }
-      throw failure('/api/export', res.status, data, res.headers.get('Retry-After'));
+      throw failure(
+        "/api/export",
+        res.status,
+        data,
+        res.headers.get("Retry-After"),
+      );
     }
-    const m = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '');
-    return { name: m?.[1] ?? 'uptime-yedek.json', blob: await res.blob() };
+    const m = /filename="([^"]+)"/.exec(
+      res.headers.get("Content-Disposition") ?? "",
+    );
+    return { name: m?.[1] ?? "uptime-yedek.json", blob: await res.blob() };
   },
   // Oturumlar (Hesabım)
-  sessions: () => get<SessionInfo[]>('/api/auth/sessions'),
-  revokeSession: (id: string) => del<{ ok: boolean }>(`/api/auth/sessions/${id}`),
-  revokeOtherSessions: () => del<{ revoked: number }>('/api/auth/sessions'),
-  importKuma: (file: File, dryRun: boolean, onProgress?: (l: number, t: number) => void) =>
-    upload<ImportSummary>(`/api/import/uptime-kuma${dryRun ? '?dry_run=1' : ''}`, file, onProgress),
+  sessions: () => get<SessionInfo[]>("/api/auth/sessions"),
+  revokeSession: (id: string) =>
+    del<{ ok: boolean }>(`/api/auth/sessions/${id}`),
+  revokeOtherSessions: () => del<{ revoked: number }>("/api/auth/sessions"),
+  importKuma: (
+    file: File,
+    dryRun: boolean,
+    onProgress?: (l: number, t: number) => void,
+  ) =>
+    upload<ImportSummary>(
+      `/api/import/uptime-kuma${dryRun ? "?dry_run=1" : ""}`,
+      file,
+      onProgress,
+    ),
   importUptimeRobot: (apiKey: string, dryRun: boolean) =>
-    post<ImportSummary>(`/api/import/uptimerobot${dryRun ? '?dry_run=1' : ''}`, { api_key: apiKey }),
+    post<ImportSummary>(
+      `/api/import/uptimerobot${dryRun ? "?dry_run=1" : ""}`,
+      { api_key: apiKey },
+    ),
 };
 
 /** Hata nesnesinden kullanıcıya gösterilecek mesaj. */
 export function errorMessage(e: unknown): string {
   if (e instanceof ApiError) return e.message;
   if (e instanceof Error) return e.message;
-  return t('common.errors.unexpected');
+  return t("common.errors.unexpected");
+}
+
+/** GET /api/mesh: kontrol noktaları arası bağlantı matrisi (yönetici). */
+export interface MeshMatrix {
+  active: boolean;
+  nodes: { id: number; name: string }[];
+  /** a < b; ab: a'nın b'yi ölçümü, ba: tersi ("up" | "down" | "unknown"). */
+  pairs: { a: number; b: number; state: string; ab: string; ba: string }[];
+  findings: string[];
+  /** Yönlü bağlantılar (çift başına iki); ölçüm ayrıntısı yalnız noktalar arası (eski sunucuda yok). */
+  links?: MeshLink[];
+}
+
+export interface MeshLink {
+  src: number;
+  dst: number;
+  state: string;
+  rtt_ms?: number;
+  loss_streak?: number;
+  /** unix sn; 0: hiç */
+  last_ok_at?: number;
 }

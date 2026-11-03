@@ -144,7 +144,9 @@ func (d *Dispatcher) Notify(ev Event) {
 		defer cancel()
 		var channels []store.Notification
 		var err error
-		if ev.ProbeID != 0 {
+		if ev.Kind == KindMesh || ev.Kind == KindMeshResolved {
+			channels, err = d.meshChannels(ctx, ev.MeshProbes)
+		} else if ev.ProbeID != 0 {
 			channels, err = d.store.NotificationsForProbe(ctx, ev.ProbeID)
 		} else {
 			channels, err = d.store.NotificationsForMonitor(ctx, ev.MonitorID)
@@ -738,4 +740,25 @@ func (d *Dispatcher) Wait(timeout time.Duration) {
 	case <-done:
 	case <-time.After(timeout):
 	}
+}
+
+// meshChannels mesh bildiriminin kanalları: kontrol noktalarına bağlı kanalların
+// birleşimi (kanal başına bir kez).
+func (d *Dispatcher) meshChannels(ctx context.Context, probes []int64) ([]store.Notification, error) {
+	var out []store.Notification
+	seen := map[int64]bool{}
+	for _, id := range probes {
+		list, err := d.store.NotificationsForProbe(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		for _, ch := range list {
+			if !seen[ch.ID] {
+				seen[ch.ID] = true
+				ch.BindLevel = ""
+				out = append(out, ch)
+			}
+		}
+	}
+	return out, nil
 }

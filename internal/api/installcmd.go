@@ -21,8 +21,8 @@ import (
 
 // probeHardenFlags kontrol noktası konteynerinin blast radius'unu küçültür:
 // ayrıcalıkları düşürür, yükseltmeyi engeller, bellek ve süreç sınırı koyar.
-// CAP_NET_RAW ping kontrolü için gerekir.
-const probeHardenFlags = "--cap-drop ALL --cap-add NET_RAW --security-opt no-new-privileges --memory 256m --pids-limit 200 "
+// CAP_NET_RAW ping kontrolü için gerekir. 7480: mesh (kontrol noktaları arası TCP ping).
+const probeHardenFlags = "--cap-drop ALL --cap-add NET_RAW --security-opt no-new-privileges --memory 256m --pids-limit 200 -p 7480:7480 "
 
 // serverHardenFlags sunucu ajanı konteyneri: kontrol yapmadığı için NET_RAW
 // gerekmez; host'u okumak için ayrıcalık gerekmediğinden tüm yetenekler düşer.

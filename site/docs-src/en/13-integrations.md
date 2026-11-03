@@ -94,7 +94,7 @@ The **Download CSV** button on the **Incidents** page downloads the incidents of
 curl -H "Authorization: Bearer upk_…" "https://⟦bekci.example.com⟧/api/incidents?format=csv&kind=monitor" -o incidents.csv
 ```
 
-The `kind` filter: `monitor` (outages), `partial` (location outages), `server` (server and check-location incidents); empty means all. Columns:
+The `kind` filter: `monitor` (outages), `partial` (partial reachability outages), `server` (server and check-location incidents); empty means all. Columns:
 
 | Column | Meaning |
 |---|---|

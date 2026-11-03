@@ -7,6 +7,7 @@ import (
 
 	"github.com/kadirsungurlu/bekci/internal/brand"
 	"github.com/kadirsungurlu/bekci/internal/i18n"
+	"github.com/kadirsungurlu/bekci/internal/mesh"
 )
 
 // E-posta HTML gövdesi: e-posta istemcileri için tablo düzeni ve satır içi
@@ -29,6 +30,9 @@ type mailView struct {
 	Tone             mailTone
 	Notes            []string
 	Rows             []Row
+	// ImageAlt/ImageW satır içi mesh şeması (cid:mesh) alt metni ve genişliği; boş: görüntü yok.
+	ImageAlt string
+	ImageW   int
 }
 
 func (e Event) mailStatus() (string, mailTone) {
@@ -66,7 +70,13 @@ func (e Event) mailStatus() (string, mailTone) {
 		key, tone = "resolved", toneUp
 	case KindProbeOffline:
 		key, tone = "alert", toneDown
-	case KindProbeOnline:
+	case KindProbeOnline, KindMeshResolved:
+		key, tone = "resolved", toneUp
+	case KindMesh:
+		key, tone = "alert", toneDown
+	case KindUplinkFailover:
+		key, tone = "alert", toneWarn
+	case KindUplinkRestored:
 		key, tone = "resolved", toneUp
 	case KindAcked:
 		key, tone = "acked", toneInfo
@@ -122,6 +132,11 @@ func (e Event) HTML() string {
 		Link: e.DetailURL(), Open: i18n.T(e.Lang, "notify.mail.open"),
 		Footer: i18n.T(e.Lang, "notify.mail.footer", brand.Name), Tone: tone, Notes: e.Notes(),
 	}
+	if len(e.Image) > 0 && e.Mesh != nil {
+		t := mesh.BuildTopology(e.Mesh.Verdict)
+		v.ImageAlt = i18n.T(e.Lang, "mesh.topo.alt", mesh.TopologySummary(e.Lang, t))
+		v.ImageW = min(t.Width, 510)
+	}
 	for _, r := range e.Rows() {
 		if r.Key != "link" {
 			v.Rows = append(v.Rows, r)
@@ -147,10 +162,11 @@ var mailTmpl = template.Must(template.New("mail").Parse(`<!DOCTYPE html>
 <span style="display:inline-block;padding:3px 10px;border-radius:999px;background:{{.Tone.Soft}};color:{{.Tone.Ink}};font-size:12px;font-weight:700;letter-spacing:.02em">{{.Status}}</span>
 <h1 style="margin:12px 0 0;font-size:20px;line-height:1.35;font-weight:700;color:#111827">{{.Heading}}</h1>
 {{range .Notes}}<p style="margin:10px 0 0;font-size:14px;line-height:1.5;color:#4b5563">{{.}}</p>{{end}}
+{{if .ImageAlt}}<img src="cid:mesh" alt="{{.ImageAlt}}" width="{{.ImageW}}" style="display:block;width:100%;max-width:{{.ImageW}}px;height:auto;margin-top:16px;border:1px solid #e5e7eb;border-radius:8px">{{end}}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;border-top:1px solid #f1f5f9">
 {{range .Rows}}<tr>
 <td valign="top" style="padding:10px 12px 10px 0;width:104px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f5f9">{{.Label}}</td>
-<td valign="top" style="padding:10px 0;font-size:14px;line-height:1.5;color:#111827;border-bottom:1px solid #f1f5f9;word-break:break-word">{{if .Locations}}{{range .Locations}}<div style="padding:3px 0 5px"><div><span style="display:inline-block;width:8px;height:8px;border-radius:4px;background:{{if .NoData}}#9ca3af{{else}}#dc2626{{end}};margin-right:8px;vertical-align:1px"></span><b style="font-weight:600">{{.Name}}</b></div><div style="padding-left:16px;font-size:13px;color:{{if .NoData}}#6b7280{{else}}#4b5563{{end}}">{{.Message}}</div></div>{{end}}{{else}}{{.Value}}{{end}}</td>
+<td valign="top" style="padding:10px 0;font-size:14px;line-height:1.5;color:#111827;border-bottom:1px solid #f1f5f9;word-break:break-word">{{if .Locations}}{{range .Locations}}<div style="padding:3px 0 5px"><div><span style="display:inline-block;width:8px;height:8px;border-radius:4px;background:{{if .NoData}}#9ca3af{{else if .OK}}#16a34a{{else}}#dc2626{{end}};margin-right:8px;vertical-align:1px"></span><b style="font-weight:600">{{.Name}}</b></div>{{if .Message}}<div style="padding-left:16px;font-size:13px;color:{{if .NoData}}#6b7280{{else}}#4b5563{{end}}">{{.Message}}</div>{{end}}</div>{{end}}{{else}}{{.Value}}{{end}}</td>
 </tr>{{end}}
 </table>
 {{if .Link}}<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:22px"><tr><td style="border-radius:8px;background:#10b981"><a href="{{.Link}}" style="display:inline-block;padding:11px 20px;font-size:14px;font-weight:700;color:#022c22;text-decoration:none">{{.Open}}</a></td></tr></table>{{end}}

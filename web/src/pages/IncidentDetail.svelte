@@ -30,6 +30,7 @@
   import IncidentUpdates from '../components/IncidentUpdates.svelte';
   import IncidentEditModal from '../components/IncidentEditModal.svelte';
   import IncidentAck from '../components/IncidentAck.svelte';
+  import MeshDiagram from '../components/MeshDiagram.svelte';
   import { session } from '../lib/session.svelte';
   import { confirmDialog, toast } from '../lib/ui.svelte';
   import { navigate } from '../lib/router.svelte';
@@ -133,6 +134,7 @@
   const partial = $derived(inc?.kind === 'partial' || degraded);
   const server = $derived(isServerIncident(inc?.kind));
   const probe = $derived(isProbeIncident(inc?.kind));
+  const mesh = $derived(inc?.kind === 'mesh');
   const offline = $derived(inc?.kind === 'server_offline' || probe);
   const sdata = $derived<ServerIncidentData | null>(server ? ((inc?.data ?? null) as ServerIncidentData | null) : null);
   const smetric = $derived((sdata?.metric ?? '') as ServerMetric);
@@ -165,6 +167,13 @@
 
   // Kök neden: çok konumluda birleşik mesaj ("A: …; B: …") yerine ilk çalışmayan
   // konumun kendi hatası; konum adı altta ayrıca yazılır.
+  // Karar yalnız ana sunucunun sonucuna dayanıyorsa onun adı (kimlikle bulunur; ad ayardan değişebilir).
+  const meshLostName = $derived.by(() => {
+    if (!data?.mesh_lost) return '';
+    const l = data.locations.find((x) => x.probe_id === 0);
+    return l ? locName(l.name) : session.localName || t('incidents.localName');
+  });
+
   const rootCause = $derived.by(() => {
     if (!data) return '';
     const down = data.locations.find((l) => l.status === 'down' && l.message);
@@ -208,6 +217,8 @@
     slow_resolved: 'notifyUp',
     probe_offline: 'notifyServerAlert',
     probe_online: 'notifyUp',
+    mesh: 'notifyServerAlert',
+    mesh_resolved: 'notifyUp',
   };
   const LOC_TONE: Record<string, Tone> = { up: 'up', down: 'down', retrying: 'pending', unknown: 'muted' };
 
@@ -247,12 +258,14 @@
           ? t('incidents.ev.degradedStarted')
           : partial
           ? t('incidents.ev.partialStarted')
-          : probe
+          : mesh
+            ? t('incidents.ev.meshStarted')
+            : probe
             ? t('incidents.ev.probeOffline')
             : server
               ? t(offline ? 'incidents.ev.serverOffline' : 'incidents.ev.serverAlert')
               : t('incidents.ev.started');
-        r.sub = offline ? '' : ev.message;
+        r.sub = offline && !mesh ? '' : ev.message;
         r.note = ev.location ? t('incidents.ev.confirmedBy', { where: locName(ev.location) }) : '';
         break;
       case 'escalated':
@@ -267,6 +280,12 @@
         if (other) r.href = `#/incidents/${other}`;
         break;
       }
+      case 'mesh_change':
+        r.icon = 'wifi-off';
+        r.tone = 'down';
+        r.title = t('incidents.ev.meshChanged');
+        r.sub = ev.message;
+        break;
       case 'change':
         r.icon = 'alert';
         r.tone = 'down';
@@ -487,13 +506,24 @@
   }
 
   const locLabel = (s: string) => tOr(`incidents.detail.loc.${s}`, s);
+
+  // Listeye dönüş: son açılan olay listesi sayfası ve süzgeçleri (Incidents.svelte saklar).
+  function listHref(): string {
+    try {
+      const u = sessionStorage.getItem('bekci-olay-listesi');
+      if (u && u.startsWith('/incidents')) return u;
+    } catch {
+      /* gizli mod */
+    }
+    return '/incidents';
+  }
 </script>
 
 {#if notFound}
   <div class="card empty">
     <h3>{t('incidents.detail.notFound')}</h3>
     <p>{t('incidents.detail.notFoundText')}</p>
-    <a class="btn primary" href="#/incidents">{t('incidents.detail.backToList')}</a>
+    <a class="btn primary" href={'#' + listHref()}>{t('incidents.detail.backToList')}</a>
   </div>
 {:else if !data || !inc}
   {#if loadError}
@@ -508,7 +538,7 @@
   {/if}
 {:else}
   <div class="page" class:narrow={!showSide}>
-    <a class="back" href="#/incidents"><Icon name="chevron-left" size={16} /> {t('incidents.detail.back')}</a>
+    <a class="back" href={'#' + listHref()}><Icon name="chevron-left" size={16} /> {t('incidents.detail.back')}</a>
 
     <div class="head">
       <div class="title">
@@ -607,6 +637,22 @@
             {#if data.location}
               <div class="cause-w"><Icon name="map-pin" size={14} /> {locName(data.location)}</div>
             {/if}
+          </div>
+        {/if}
+        {#if mesh && data.mesh}
+          <div class="card mesh">
+            <div class="label">{t('incidents.detail.meshFindings')}</div>
+            <ul class="mesh-l">
+              {#each data.mesh.findings as f, i (i)}<li><span class="dot {ongoing ? 'down' : 'up'}"></span>{f}</li>{/each}
+            </ul>
+            {#if data.mesh.nodes?.length && data.mesh.pairs.every((p) => p.ab !== undefined)}
+              <MeshDiagram nodes={data.mesh.nodes} pairs={data.mesh.pairs.map((p) => ({ ...p, ab: p.ab ?? '', ba: p.ba ?? '' }))} />
+            {/if}
+            <div class="label">{t('incidents.detail.meshLinks')}</div>
+            <ul class="mesh-l">
+              {#each data.mesh.pairs as p (p.a + '-' + p.b)}<li><span class="dot {p.state}"></span>{p.text}</li>{/each}
+            </ul>
+            <div class="muted small">{t('incidents.detail.meshOwner', { owner: data.mesh.owner })}</div>
           </div>
         {/if}
 
@@ -723,6 +769,13 @@
                 <dd class="num">{fmtMetric(smetric, sdata.last)}</dd>
               {/if}
             </dl>
+          </div>
+        {/if}
+
+        {#if meshLostName}
+          <div class="alert warning mesh" role="note" data-testid="mesh-lost">
+            <Icon name="wifi-off" size={14} />
+            <span>{t('incidents.detail.meshLost', { name: meshLostName })}</span>
           </div>
         {/if}
 
@@ -1003,6 +1056,39 @@
     letter-spacing: 0.04em;
     color: var(--muted);
   }
+  .mesh .label {
+    margin-top: 4px;
+  }
+  .mesh-l {
+    list-style: none;
+    margin: 6px 0 12px;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+  .mesh-l li {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .mesh-l .dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--muted);
+  }
+  .mesh-l .dot.up {
+    background: var(--up);
+  }
+  .mesh-l .dot.down {
+    background: var(--down);
+  }
+  .mesh-l .dot.oneway {
+    background: var(--pending);
+  }
   .cause {
     border-left: 3px solid var(--down);
   }
@@ -1046,6 +1132,16 @@
     font-size: 0.85rem;
     color: var(--text-2);
     line-height: 1.45;
+  }
+  .alert.mesh {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin: 0 0 14px;
+  }
+  .alert.mesh :global(svg) {
+    flex: none;
+    margin-top: 3px;
   }
   .note :global(svg) {
     flex: none;

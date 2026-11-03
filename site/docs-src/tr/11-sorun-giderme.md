@@ -131,6 +131,26 @@ Disk dolarsa Bekci yeni ölçümleri yazamaz; SQLite kullanıyorsanız veritaban
 
 `postgres` imajı `HATA: PostgreSQL ana sürümü uyuşmuyor.` diyerek başlamıyorsa [PostgreSQL ana sürüm yükseltmesi](/docs/guncelleme-yedek/#postgresql-yukseltme) adımlarını izleyin.
 
+## “OOB arayüzü bulunamadı” {#oob-arayuz}
+
+Panelde girilen OOB IP'si kontrol noktasının ağ arayüzlerinin hiçbirinde yok. Olası nedenler:
+
+- OOB IP'si sunucuda değil, önündeki NAT cihazında (genel IP). Ajanın ayar dosyasına arayüz adını ekleyin (`PROBE_OOB_IFACE=eth1`) ve ajanı yeniden başlatın (Docker'da `docker restart` ayar dosyasını yeniden okumaz; konteyneri yeniden oluşturun).
+- Ajan Docker'da köprü ağında çalışıyor ve sunucunun OOB arayüzünü görmüyor. Konteyneri `--network host` ile (compose'da `network_mode: host`) çalıştırın.
+- IP yanlış yazıldı. Sunucuda `ip -br addr` (Windows'ta `ipconfig`) çıktısıyla karşılaştırın.
+
+Ayrıntı: [İkinci hat (OOB)](/docs/sunucu-ajani/#oob).
+
+## Ana hat koptu ama OOB'ye geçmiyor {#oob-gecmiyor}
+
+Sırayla kontrol edin:
+
+1. Panelde **OOB arayüzü bulunamadı** uyarısı varsa önce [onu giderin](#oob-arayuz).
+2. Sunucuda `curl --interface <oob_arayuzu> -sI https://bekci.ornek.com/healthz` çalışmalı. Çalışmıyorsa OOB arayüzünün ağ geçidi yoktur ya da paketler ana hattan çıkıyordur: `ip rule` ve `ip route show table oob` ile [policy routing](/docs/sunucu-ajani/#oob) kurulumunu kontrol edin. Ajan `CAP_NET_RAW` yetkisi olmadan çalışıyorsa bu kural şarttır.
+3. Hata türü: geçiş yalnız bağlantı hatalarında (bağlantı kurulamadı, zaman aşımı) olur. Panel `4xx`/`5xx` yanıt veriyorsa ana hat sağlam sayılır ve geçilmez.
+4. Mesh açıksa ve kontrol noktası ana hattan en az bir eşe ulaşıyorsa geçilmez: sorun panel tarafında sayılır.
+5. Süre: geçiş, kopukluk eşiği kadar ardışık hatadan sonra olur (varsayılan 3 x 5 sn = 15 sn). Günlükte `OOB hattına geçildi` satırını arayın.
+
 ## Sık sorulan sorular {#sss}
 
 ### Bekci ücretsiz mi? {#ucretsiz}

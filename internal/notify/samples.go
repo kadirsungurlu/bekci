@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/kadirsungurlu/bekci/internal/i18n"
+	"github.com/kadirsungurlu/bekci/internal/mesh"
 )
 
 // SampleNames örnek bildirimlerde kullanılacak adlar (paneldeki gerçek bir
@@ -56,8 +57,8 @@ func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	up := mon(KindUp)
 	up.Downtime = 1*time.Hour + 12*time.Minute
 	locDown := mon(KindLocationDown)
-	locDown.Message = "Frankfurt: " + i18n.T(lang, "notify.sample.loc_error")
-	locDown.Locations = []LocationNote{{Name: "Frankfurt", Message: i18n.T(lang, "notify.sample.loc_error")}}
+	locDown.Message = i18n.Message(lang, "Ana sunucu") + ": " + i18n.T(lang, "notify.sample.loc_error")
+	locDown.Locations = []LocationNote{{Name: "Ana sunucu", Message: i18n.T(lang, "notify.sample.loc_error")}, {Name: "Frankfurt", OK: true}}
 	locUp := mon(KindLocationUp)
 	locUp.Downtime = 23 * time.Minute
 	slow := mon(KindSlow)
@@ -91,7 +92,18 @@ func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	probeOn := probeOff
 	probeOn.Kind, probeOn.LastSeen, probeOn.Downtime = KindProbeOnline, time.Time{}, 7*time.Minute
 
-	return []Event{down, reminder, up, slow, slowOK, locDown, locUp, cert, dom, cpuWarn, cpu, mem, disk, cont, reboot, offline, cpuOK, offlineOK, probeOff, probeOn}
+	uplinkOff := Event{Kind: KindUplinkFailover, Sample: true, Lang: lang, ProbeID: max(n.ServerID, 1), MonitorName: i18n.T(lang, "notify.sample.probe"),
+		MonitorType: "probe", Target: "203.0.113.10", Time: now, UplinkName: "OOB"}
+	uplinkOn := uplinkOff
+	uplinkOn.Kind, uplinkOn.Downtime = KindUplinkRestored, 12*time.Minute
+
+	meshEv := Event{Kind: KindMesh, Sample: true, Lang: lang, MonitorType: "probe", Time: now, Mesh: sampleMesh()}
+	meshOK := meshEv
+	meshOK.Kind, meshOK.Downtime = KindMeshResolved, 4*time.Minute
+	meshOK.Mesh = &mesh.Report{Names: meshEv.Mesh.Names, Verdict: mesh.Evaluate([]int64{0, 1, 2}, []mesh.Edge{{Src: 0, Dst: 1, State: mesh.StateUp}, {Src: 0, Dst: 2, State: mesh.StateUp}, {Src: 1, Dst: 2, State: mesh.StateUp}})}
+
+	return []Event{down, reminder, up, slow, slowOK, locDown, locUp, cert, dom, cpuWarn, cpu, mem, disk, cont, reboot, offline, cpuOK, offlineOK, probeOff, probeOn,
+		uplinkOff, uplinkOn, meshEv, meshOK}
 }
 
 // sampleDomain örnek hedefin ana makine adı (URL ise host'u; boşsa ornek.com).
@@ -108,4 +120,14 @@ func sampleDomain(target string) string {
 		return "ornek.com"
 	}
 	return host
+}
+
+// sampleMesh örnek mesh raporu: Main ve iki kontrol noktası; B genel erişim sorunu yaşıyor.
+func sampleMesh() *mesh.Report {
+	up, down := mesh.StateUp, mesh.StateDown
+	v := mesh.Evaluate([]int64{0, 1, 2}, []mesh.Edge{
+		{Src: 0, Dst: 1, State: up}, {Src: 1, Dst: 0, State: up},
+		{Src: 0, Dst: 2, State: down}, {Src: 1, Dst: 2, State: down}, {Src: 2, Dst: 1, State: mesh.StateUnknown},
+	})
+	return &mesh.Report{Verdict: v, Names: mesh.Names{0: "Main", 1: "A", 2: "B"}}
 }

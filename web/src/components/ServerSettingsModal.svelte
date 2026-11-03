@@ -3,12 +3,13 @@
   // otomatik güncellemesi ve silme.
   // Sunucular kontrol noktalarından ayrı kayıtlardır; ayarları burada yapılır.
   import { untrack } from 'svelte';
-  import { api, errorMessage, type ServerView } from '../lib/api';
+  import { api, ApiError, errorMessage, type ServerView } from '../lib/api';
   import { servers } from '../lib/servers.svelte';
   import { confirmDialog, toast } from '../lib/ui.svelte';
   import { navigate } from '../lib/router.svelte';
   import { t, tParts } from '../lib/i18n';
   import Modal from './Modal.svelte';
+  import OobFields from './OobFields.svelte';
   import AgentAutoUpdate, { autoChoice, autoValue, type AutoChoice } from './AgentAutoUpdate.svelte';
 
   let {
@@ -27,6 +28,12 @@
   let lockedIp = $state('');
   let auto = $state<AutoChoice>('inherit');
   let error = $state('');
+  let field = $state('');
+  // OOB ikinci hat: görünümde ad yalnızca etiket olarak gelir ("OOB" = varsayılan).
+  let oobIp = $state('');
+  let oobName = $state('');
+  let oobIp0 = '';
+  let oobName0 = '';
   let busy = $state(false);
 
   // Pencere her açıldığında güncel değerlerle başlar. Yalnızca `open` izlenir:
@@ -39,7 +46,10 @@
         ipLock = server.ip_lock;
         lockedIp = server.locked_ip;
         auto = autoChoice(server.update);
+        oobIp = oobIp0 = server.oob_ip ?? '';
+        oobName = oobName0 = server.oob_ip && server.uplink_name !== 'OOB' ? (server.uplink_name ?? '') : '';
         error = '';
+        field = '';
       });
   });
 
@@ -55,16 +65,22 @@
     if (!n) return (error = t('servers.settings.errName'));
     busy = true;
     error = '';
+    field = '';
+    // OOB alanları yalnızca değiştiyse gönderilir (kayıtlı ad görünümde yok).
+    const oobChanged = oobIp.trim() !== oobIp0 || oobName.trim() !== oobName0;
     try {
       await api.updateProbe(server.id, n, server.active, metrics, {
         ipLock,
         ...(server.update ? { autoUpdate: autoValue(auto) } : {}),
+        ...(oobChanged ? { oob: { oob_ip: oobIp.trim(), oob_name: oobName.trim() } } : {}),
       });
       toast.success(t('servers.settings.saved'));
       open = false;
       onsaved();
     } catch (err) {
-      error = errorMessage(err);
+      field = err instanceof ApiError ? ((err.data as { field?: string } | null)?.field ?? '') : '';
+      error =
+        field === 'oob_ip' ? t('probes.oob.errIp') : field === 'oob_name' ? t('probes.oob.errName') : errorMessage(err);
     } finally {
       busy = false;
     }
@@ -135,8 +151,9 @@
         <button type="button" class="btn sm" onclick={resetIp} disabled={busy}>{t('servers.settings.resetLock')}</button>
       </div>
     {/if}
+    <OobFields id="srv-oob" bind:ip={oobIp} bind:name={oobName} {field} {error} />
     {#if server.update}<AgentAutoUpdate id="srv-auto" bind:value={auto} update={server.update} />{/if}
-    {#if error}<div class="alert error" role="alert">{error}</div>{/if}
+    {#if error && field !== 'oob_ip' && field !== 'oob_name'}<div class="alert error" role="alert">{error}</div>{/if}
   </form>
   {#snippet footer()}
     <button type="button" class="btn danger" onclick={remove}>{t('servers.settings.deleteTitle')}</button>
