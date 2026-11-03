@@ -219,6 +219,17 @@ Mevcut 610-640 bölümlemesi uyuyor; öneriler:
 Öneri (farklılık): 610 büyük; yük dengesi için "610a heartbeats/özetler" ve "610b sunucu metrikleri sütunlu şema + mesh_samples"
 olarak iki commit grubu, tek iş numarası altında yeterli. Ayrı iş numarası gerekmez.
 
+### 9.1 610 uygulama notu (2026-11-03; kod: store/timescale.go, server_metrics.go)
+- Algılama migration kilidi altında, her açılışta, tablo başına idempotent (`ensureTimescale`); `DB_TIMESCALE=off` kapatır; `/healthz?detail` -> `db_mode`.
+- Tasarımdan sapma: sürekli özetin adı `stats_hourly_ts`; `stats_hourly` adı bir **görünüm** = özet (dönüşüm saatinden sonrası,
+  `monitors.stats_reset_at` ve silinmiş monitör süzgeci) + `stats_hourly_legacy` (dönüşüm öncesi Go özeti). Gerekçe: ham saklamanın
+  ötesindeki geçmiş korunur, sıfırlama (özette satır silinemez) ve monitör silme okuma tarafında çözülür, sorgu metni değişmez.
+- Ham saklama politikası yerine Go bakımı `drop_chunks` (ayardaki gün sayısı geçerli kalır); atmadan önce saatlik özet o aralık için yenilenir.
+- `stats_daily` Timescale kipinde de Go ile yazılmaya devam ediyor (yerel gün okuması 620'de saatlikten olacak, sonra kapanır).
+  `stats_daily_utc` kuruldu ama henüz okuyan yok (620). Histogram sütunları (h00..h16) iki kipte de yazılıyor; p95 okuması 620.
+- `mesh_samples` ve `server_*_metrics` yalnız TSL kipinde yazılıyor (düz PG/SQLite'ta okuyan ve saklama yok); okuma 660.
+- Parça aralığı sabit 1 gün (monitör sayısına göre ayar 620). Apache kipi kodda var, CI'da denenmedi.
+
 ## 10. Açık sorular (kullanıcı)
 1. Ham kontrol kaydı varsayılan saklaması 14 -> 30 gün olsun mu? (Öneri: 30; 7 gün sonrası sıkıştırıldığı için ek disk küçük, 620 ölçecek.)
 2. Yerel gün çubuklarında yarım saatlik saat dilimi yuvarlaması kabul mü? (Öneri: kabul, belgeye yaz.)
