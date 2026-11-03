@@ -48,6 +48,8 @@ type Store struct {
 	opts     Options
 	lockFile *os.File    // InstanceLock: süreç boyunca tutulan veri klasörü kilidi (SQLite)
 	pgLock   *sql.Conn   // InstanceLock: süreç boyunca tutulan danışma kilidinin bağlantısı (PostgreSQL)
+	mode     DBMode      // ensureTimescale (timescale.go)
+	tsExt    string      // timescaledb eklentisinin şeması
 	beats    beatBatcher // Options.BeatBatch > 0 ise kontrol sonuçlarının toplu yazımı (beats_batch.go)
 }
 
@@ -73,6 +75,9 @@ type Options struct {
 	// tek işlemde yazılır (grup commit); çağıran yazım bitene kadar bekler.
 	// Kısa aralıklı çok monitörde disk yazımını ve işlem sayısını düşürür.
 	BeatBatch time.Duration
+	// TimescaleOff TimescaleDB eklentisi olsa da düz PostgreSQL yolunda
+	// kalır (DB_TIMESCALE=off); var olan dönüşüm geri alınmaz.
+	TimescaleOff bool
 }
 
 // IsPostgresDSN bağlantı adresinin PostgreSQL olup olmadığını söyler.

@@ -114,7 +114,7 @@ func (s *Store) ResetMonitorStats(ctx context.Context, id int64) error {
 	return s.tx(ctx, func(tx *Tx) error {
 		for _, q := range []string{
 			"DELETE FROM heartbeats WHERE monitor_id = ?",
-			"DELETE FROM stats_hourly WHERE monitor_id = ?",
+			"DELETE FROM " + s.hourlyTable() + " WHERE monitor_id = ?",
 			"DELETE FROM stats_daily WHERE monitor_id = ?",
 			"DELETE FROM incidents WHERE monitor_id = ? AND resolved_at IS NOT NULL",
 		} {
@@ -122,7 +122,11 @@ func (s *Store) ResetMonitorStats(ctx context.Context, id int64) error {
 				return err
 			}
 		}
-		return nil
+		// Sürekli özette (TimescaleDB) satır silinemez: okuma görünümü bu
+		// saatten öncesini gizler. Süren saat ham veriden hesaplanır.
+		now := time.Now().Unix()
+		_, err := tx.ExecContext(ctx, "UPDATE monitors SET stats_reset_at = ? WHERE id = ?", now-now%3600, id)
+		return err
 	})
 }
 

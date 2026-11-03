@@ -297,7 +297,8 @@ func (s *Store) migrate(ctx context.Context) error {
 			return err
 		}
 	}
-	return nil
+	// Migration kilidi tutulurken: TimescaleDB algılama ve dönüşüm.
+	return s.ensureTimescale(ctx)
 }
 
 // applyMigration v numaralı migration'ı tek işlemde uygular. setVersion:

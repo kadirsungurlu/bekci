@@ -72,6 +72,34 @@ jobs:
           UPTIME_TEST_PG: postgres://postgres:test@localhost:5432/postgres?sslmode=disable
         run: go test -race -count=1 ./...
 
+  # Varsayılan veritabanı: PostgreSQL + TimescaleDB (iş 600/610). Testler
+  # hypertable + sürekli özet kipinde çalışır (ensureTimescale dönüşümü);
+  # var olan veriyle dönüşüm testi: store TestTimescaleConvertExisting.
+  # İmaj sürümü sabit (latest yok).
+  test-timescale:
+    runs-on: ubuntu-latest
+    services:
+      timescale:
+        image: timescale/timescaledb:2.31.0-pg18
+        env:
+          POSTGRES_PASSWORD: test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.27"
+      - name: Testler (PostgreSQL + TimescaleDB)
+        env:
+          UPTIME_TEST_PG: postgres://postgres:test@localhost:5432/postgres?sslmode=disable
+        run: |
+          # Dönüşüm testi atlanmamalı (eklenti algılanmadıysa SKIP olur).
+          go test -count=1 -run 'TestTimescale' -v ./internal/store/ | grep -E '^(=== RUN|--- |PASS|FAIL|ok)' | tee /tmp/ts.log
+          ! grep -q -- '--- SKIP' /tmp/ts.log
+          go test -count=1 -timeout 30m ./...
+
   arayuz:
     runs-on: ubuntu-latest
     defaults:
@@ -255,7 +283,7 @@ jobs:
         run: docker logs duman || true
 
   yayinla:
-    needs: [test, arayuz, arayuz-e2e, duman]
+    needs: [test, test-timescale, arayuz, arayuz-e2e, duman]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     permissions:

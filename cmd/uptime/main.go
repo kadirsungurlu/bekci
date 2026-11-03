@@ -139,12 +139,13 @@ func run() error {
 		LockWait:     time.Duration(lockWait) * time.Second,
 		StandbyFile:  filepath.Join(os.TempDir(), "uptime-bekliyor"),
 		BeatBatch:    time.Duration(beatBatch) * time.Millisecond,
+		TimescaleOff: strings.EqualFold(env("DB_TIMESCALE", "auto"), "off"),
 	})
 	if err != nil {
 		return fmt.Errorf("veritabanı açılamadı: %w", err)
 	}
 	defer st.Close()
-	log.Info("veritabanı", "tür", dbDesc)
+	log.Info("veritabanı", "tür", dbDesc, "kip", st.DBMode())
 
 	if len(os.Args) > 1 {
 		return runCommand(st, os.Args[1:])

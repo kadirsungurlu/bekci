@@ -49,10 +49,19 @@ func TestBatchedDeletes(t *testing.T) {
 	if got := countRows(t, s, "heartbeats"); got != 2 {
 		t.Fatalf("kalan kontrol kaydı %d, 2 bekleniyordu", got)
 	}
-	if n, err := s.DeleteHourlyBefore(ctx, 1_500_000); err != nil || n != 10 {
+	if s.tsFull() {
+		// Sürekli özette saklama parça düzeyinde (drop_chunks); satır sayısı
+		// yerine özetin ham silmeden sağ çıktığı denetlenir.
+		if got := countRows(t, s, "stats_hourly"); got != 11 {
+			t.Fatalf("TimescaleDB: ham silme sonrası saatlik özet %d, 11 bekleniyordu", got)
+		}
+		if _, err := s.DeleteHourlyBefore(ctx, 1_500_000); err != nil {
+			t.Fatal(err)
+		}
+	} else if n, err := s.DeleteHourlyBefore(ctx, 1_500_000); err != nil || n != 10 {
 		t.Fatalf("saatlik özetler: %d %v", n, err)
 	}
-	if got := countRows(t, s, "stats_hourly"); got != 1 {
+	if got := countRows(t, s, "stats_hourly"); got != 1 && !s.tsFull() {
 		t.Fatalf("kalan saatlik özet %d, 1 bekleniyordu", got)
 	}
 

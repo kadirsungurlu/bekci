@@ -46,6 +46,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 ## Nerede ne var
 | Özellik | Dosyalar |
 |---|---|
+| Veritabanı kipi (TimescaleDB) | store/timescale.go (ensureTimescale: migration kilidi altında algılama, DBMode timescale/timescale-apache/postgres/sqlite, DB_TIMESCALE=off; heartbeats+mesh_samples hypertable, sıkıştırma, stats_hourly_ts + stats_daily_utc sürekli özet, okuma adı stats_hourly = görünüm (özet + stats_hourly_legacy, monitors.stats_reset_at); gecikme histogramı h00..h16 PingBounds; migration 43); saklama cleanup.go (drop_chunks); test timescale_test.go (var olan veriyle dönüşüm); /healthz?detail db_mode; CI işi test-timescale |
 | Kimlik, oturum, 2FA, OIDC | api/auth.go, sessions.go, twofactor.go, oidc.go; store/users.go, sessions.go |
 | Şifre sıfırlama, sistem e-postası | api/password_reset.go; notify/email.go, email_html.go |
 | İzleyiciler | api/monitors.go (aralık sınırı store.MinIntervalSec=5); store/monitors.go, beats.go + beats_batch.go (grup commit, BEAT_BATCH_MS); check/*; engine/runner.go |
@@ -111,7 +112,7 @@ webpush.go: GET /api/webpush/vapid | GET /api/webpush/subscriptions | POST /api/
 17: pages_layout.go 18: incident_kinds.go 19: probes.go 20: maintenance.go 21: probes.go 22: monitors.go 23: notification_rules.go 24: 
 pages_period.go 25: incident_manual.go 26: servers_ext.go 27: beats_recent.go 28: domain.go 29: incident_ack.go 30: tag_rules.go 31: 
 auth_ext.go 32: webpush.go 33: auth_ext.go 34: sessions.go 35: probes_update.go 36: subscribers.go 37: subscribers.go 38: updates.go 39: 
-incident_kinds.go 40: mesh.go 41: probes_oob.go 42: channel_sends.go
+incident_kinds.go 40: mesh.go 41: probes_oob.go 42: channel_sends.go 43: timescale.go
 ```
 
 ### Arayüz sayfaları / bileşenler / i18n ad alanları

@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -55,15 +56,50 @@ func (s *Store) deleteBatched(ctx context.Context, batch int, q string, args ...
 }
 
 // DeleteBeatsBefore t'den eski ham kontrol kayıtlarını siler.
+// TimescaleDB'de önce t'den tamamen eski parçalar atılır (drop_chunks), sınır
+// parçadaki kalan satırlar silinir.
 func (s *Store) DeleteBeatsBefore(ctx context.Context, t int64) (int64, error) {
+	if s.tsHyper() {
+		var n int64
+		if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM heartbeats WHERE time < ?", t).Scan(&n); err != nil || n == 0 {
+			return 0, err
+		}
+		if s.tsFull() {
+			// Atılacak aralık saatlik sürekli özete işlenmiş olsun (normalde
+			// yenileme politikası çoktan işlemiştir; işlem dışında çalışmalı).
+			// Arka plan yenileme işiyle çakışırsa kısa aralıkla yeniden dene.
+			var err error
+			for try := range 3 {
+				if _, err = s.db.ExecContext(ctx, "CALL "+s.tsExt+".refresh_continuous_aggregate('stats_hourly_ts', NULL, CAST(? AS BIGINT))", t-t%3600); err == nil {
+					break
+				}
+				time.Sleep(time.Duration(try+1) * time.Second)
+			}
+			if err != nil {
+				return 0, fmt.Errorf("saatlik özet yenilenemedi (ham kayıt silinmedi): %w", err)
+			}
+		}
+		if _, err := s.tsDropChunks(ctx, "heartbeats", t); err != nil {
+			return 0, fmt.Errorf("drop_chunks: %w", err)
+		}
+		_, err := s.deleteBatched(ctx, deleteBatchSize, `DELETE FROM heartbeats WHERE id IN
+			(SELECT id FROM heartbeats WHERE time < ? LIMIT ?)`, t)
+		return n, err
+	}
 	return s.deleteBatched(ctx, deleteBatchSize, `DELETE FROM heartbeats WHERE id IN
 		(SELECT id FROM heartbeats WHERE time < ? LIMIT ?)`, t)
 }
 
 // DeleteHourlyBefore t'den eski saatlik özetleri siler.
 func (s *Store) DeleteHourlyBefore(ctx context.Context, t int64) (int64, error) {
-	return s.deleteBatched(ctx, deleteBatchSize, `DELETE FROM stats_hourly WHERE (monitor_id, bucket) IN
-		(SELECT monitor_id, bucket FROM stats_hourly WHERE bucket < ? LIMIT ?)`, t)
+	table := s.hourlyTable()
+	n, err := s.deleteBatched(ctx, deleteBatchSize, `DELETE FROM `+table+` WHERE (monitor_id, bucket) IN
+		(SELECT monitor_id, bucket FROM `+table+` WHERE bucket < ? LIMIT ?)`, t)
+	if err != nil || !s.tsFull() {
+		return n, err
+	}
+	c, err := s.tsDropChunks(ctx, "stats_hourly_ts", t)
+	return n + c, err
 }
 
 // DeleteAuditBefore t'den eski işlem kayıtlarını siler.
