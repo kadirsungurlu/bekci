@@ -2,6 +2,8 @@ package api
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -93,6 +95,19 @@ func TestProbeMeshOverrides(t *testing.T) {
 		if code := e.do("PUT", path, c.body, &fe); code != 400 || fe.Field != c.field {
 			t.Fatalf("%v: 400 + alan %q bekleniyordu: %d %+v", c.body, c.field, code, fe)
 		}
+	}
+	// Hata metni yanıt dilinde (EN).
+	req, _ := http.NewRequest("PUT", e.srv.URL+path, strings.NewReader(`{"mesh_ping_sec":0}`))
+	req.Header.Set("X-Uptime", "1")
+	req.Header.Set(langHeader, "en")
+	resp, err := e.client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 400 || !strings.Contains(string(body), "The mesh ping interval must be 1-60 s") {
+		t.Fatalf("EN hata metni: %d %s", resp.StatusCode, body)
 	}
 	var list []meshProbeResp
 	e.mustDo("GET", "/api/probes", nil, &list, 200)

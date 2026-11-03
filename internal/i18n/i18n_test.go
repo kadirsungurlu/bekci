@@ -76,6 +76,14 @@ func TestError(t *testing.T) {
 		{"Cron ifadesinin ayın günü alanı geçersiz: 32 (izin verilen: 1-31)", "Invalid day-of-month field in the cron expression: 32 (allowed: 1-31)"},
 		{"Cron ifadesinin ay alanı geçersiz: FOO (izin verilen: 1-12 veya JAN-DEC)",
 			"Invalid month field in the cron expression: FOO (allowed: 1-12 or JAN-DEC)"},
+		// Mesh zamanlama ve adres doğrulaması (store/mesh.go).
+		{"Mesh ping aralığı 1-60 sn olmalı", "The mesh ping interval must be 1-60 s"},
+		{"Kopukluk eşiği 1-10 olmalı", "The loss threshold must be 1-10"},
+		{"Panel haberleşme aralığı 1-60 sn olmalı", "The panel interval must be 1-60 s"},
+		{"Kopukluk eşiği x ping aralığı en az 3 sn olmalı", "Loss threshold x ping interval must be at least 3 s"},
+		{"Kopukluk eşiği x panel aralığı en az 3 sn olmalı", "Loss threshold x panel interval must be at least 3 s"},
+		{"Mesh adresi host:port biçiminde olmalı", "The mesh address must be in host:port form"},
+		{"mesh_ping_sec tamsayı veya null olmalı", "mesh_ping_sec must be an integer or null"},
 		// Bilinmeyen mesaj olduğu gibi kalır.
 		{"Hiç görülmemiş bir mesaj", "Hiç görülmemiş bir mesaj"},
 		{"", ""},
