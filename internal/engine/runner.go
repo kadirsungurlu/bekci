@@ -42,6 +42,9 @@ type runner struct {
 	partialPrev   map[int64]locMark // kısmi olayda konumların son yazılan durumu
 	partialFailed []string          // kısmi olay boyunca çalışmayan konumlar (olay verisi)
 	partialLearn  bool              // yeniden başlatıldı: konumların ilk sonuçları yalnızca öğrenilir
+	// meshLost son kararda kontrol noktalarının hiçbirinin oyu sayılmadı
+	// (bağlantı kopuk/sonuç yok); karar yalnız ana sunucunun sonucuna dayanıyor.
+	meshLost bool
 	// Tam kesintiye dönüşerek kapanan kısmi olay: tam kesinti bitince konum
 	// hâlâ çalışmıyorsa aynı olay yeniden açılır (yeni uyarı gitmez, geçmiş bölünmez).
 	escalatedPartial int64

@@ -92,6 +92,10 @@ type location struct {
 	detail  *check.Detail // son başarısız sonucun istek/yanıtı (olay kaydı için)
 	gone    bool          // kontrol noktasının bağlantısı koptu (bkz. SetProbeConnected)
 	goneAt  time.Time     // kopma anı
+	// noVote konumun sonucu karara katılmaz (kanca: ajan ana hat yerine OOB
+	// üzerinden bağlıyken denetimleri bozuk ana hattan çıkar, "çalışmıyor" oyu
+	// sahte kesinti üretir). Konum "bilinmiyor" sayılır.
+	noVote bool
 }
 
 type inboxItem struct {
@@ -300,6 +304,10 @@ type locRules struct {
 	grace      time.Duration // hiç sonuç vermemiş konum bu süre "ilk sonuç bekleniyor"
 	maxRetries int
 	goneGrace  time.Duration // kopan kontrol noktasının son "çalışıyor" sonucu bu süre geçerli
+	// holdGone açık kısmi kesinti varken kopan kontrol noktasının son
+	// "çalışıyor" sonucu goneGrace yerine staleAfter boyunca geçerli kalır:
+	// bağlantı kopması kısmi olayı hemen tam kesintiye çevirmez.
+	holdGone bool
 }
 
 // firstResultSlack ilk sonuç süresine eklenen pay (aralık birimi): ajanın
@@ -454,8 +462,17 @@ const (
 	locUnknown  = "unknown"
 )
 
+// linkHealthy konumun ana sunucuyla bağlantısı sağlam mı: ana sunucu her
+// zaman; kontrol noktası uzun yoklama bağlantısı kopmamışsa ve oyu yok
+// sayılmıyorsa. (Mesh ölçümü gelince Main-probe kenarının durumuna bakar.)
+func linkHealthy(l *location) bool {
+	return l.probeID == LocalProbeID || (!l.gone && !l.noVote)
+}
+
 func classify(l *location, now time.Time, rules locRules) string {
 	switch {
+	case l.noVote:
+		return locUnknown
 	case !l.have && !l.gone && now.Sub(l.added) < rules.grace:
 		return locWaiting
 	case !l.have || l.gone || now.Sub(l.at) > rules.staleAfter:
@@ -518,8 +535,14 @@ func (r *runner) publishSnapshot(now time.Time) {
 }
 
 // aggregate konum sonuçlarını kesinti kuralına göre tek sonuca indirir.
+// Karar yalnız ana sunucunun sonucuna dayanıyorsa (tüm kontrol noktaları
+// kopuk/sonuçsuz) r.meshLost işaretlenir; açılan olaya not düşülür.
 func (r *runner) aggregate(now time.Time) check.Result {
-	return aggregateLocations(r.locs.locs, r.locs.downWhen, now, r.rules())
+	rules := r.rules()
+	rules.holdGone = r.partialID != 0
+	res, meshLost := aggregateDecision(r.locs.locs, r.locs.downWhen, now, rules)
+	r.meshLost = meshLost
+	return res
 }
 
 // aggregateLocations genel sonucu hesaplar:
@@ -536,12 +559,29 @@ func (r *runner) aggregate(now time.Time) check.Result {
 //
 // Ping, çalışan konumların ortalamasıdır; SSL bilgisi ilk (ana sunucu önce)
 // güncel konumdan alınır.
+//
+// Bağlantısı kopan kontrol noktasının son "çalışıyor" oyu goneGrace (açık
+// kısmi olay varsa staleAfter) boyunca sayılır; bu oy genel durumu ayakta
+// tutar ama kısmi olay açmaz (partialStep yalnız bağlantısı sağlam konumun
+// "çalışıyor" sonucuyla açar).
 func aggregateLocations(locs []*location, downWhen string, now time.Time, rules locRules) check.Result {
+	res, _ := aggregateDecision(locs, downWhen, now, rules)
+	return res
+}
+
+// aggregateDecision aggregateLocations'ın sonucu ve meshLost: konumlar
+// arasında kontrol noktası var ama hiçbirinin oyu sayılmadı, karar yalnız
+// ana sunucunun sonucuna dayanıyor.
+func aggregateDecision(locs []*location, downWhen string, now time.Time, rules locRules) (check.Result, bool) {
 	var failing, stale []string
+	remotes, remoteVotes, localVoted := 0, 0, false
 	var up []*location
 	var n, down, retrying, waiting int
 	var cert *check.CertInfo
 	for _, l := range locs {
+		if l.probeID != LocalProbeID {
+			remotes++
+		}
 		st := classify(l, now, rules)
 		if st == locWaiting {
 			waiting++
@@ -549,14 +589,17 @@ func aggregateLocations(locs []*location, downWhen string, now time.Time, rules 
 		}
 		if st == locUnknown {
 			switch {
-			case l.gone && l.have && l.res.Up && now.Sub(l.goneAt) < rules.goneGrace:
+			case l.gone && !l.noVote && l.have && l.res.Up && (now.Sub(l.goneAt) < rules.goneGrace ||
+				rules.holdGone && now.Sub(l.goneAt) < rules.staleAfter):
 				// Az önce kopan, son sonucu "çalışıyor" konum: tolerans süresince
 				// genel kararda son sonucu geçerli sayılır (kart "sonuç yok"
-				// gösterir); ajanın yeniden başlaması yanlış kesinti açmaz.
+				// gösterir); ajanın yeniden başlaması yanlış kesinti açmaz. Açık kısmi
+				// olay varsa süre staleAfter'dır: kopma onu hemen tam kesintiye çevirmez.
 				n++
+				remoteVotes++
 				up = append(up, l)
 				continue
-			case l.gone && l.have && !l.res.Up && !l.res.Pending && l.fails > rules.maxRetries &&
+			case l.gone && !l.noVote && l.have && !l.res.Up && !l.res.Pending && l.fails > rules.maxRetries &&
 				now.Sub(l.at) <= rules.staleAfter:
 				// Kopan konumun son sonucu "çalışmıyor" (deneme hakkı bitmiş):
 				// sonuç eskiyene kadar (staleAfter) oy geçerli kalır. Aksi halde
@@ -564,6 +607,7 @@ func aggregateLocations(locs []*location, downWhen string, now time.Time, rules 
 				// saniye sonra yeniden açar (sahte düzelme + kritik). Konum düzeldiği
 				// bilinmeden kesinti bitmiş sayılmaz.
 				n++
+				remoteVotes++
 				down++
 				failing = append(failing, l.name+": "+l.res.Message)
 				continue
@@ -572,6 +616,11 @@ func aggregateLocations(locs []*location, downWhen string, now time.Time, rules 
 			continue
 		}
 		n++
+		if l.probeID == LocalProbeID {
+			localVoted = true
+		} else {
+			remoteVotes++
+		}
 		if cert == nil && l.res.Cert != nil {
 			cert = l.res.Cert
 		}
@@ -587,8 +636,9 @@ func aggregateLocations(locs []*location, downWhen string, now time.Time, rules 
 		}
 	}
 	if n == 0 {
-		return check.Result{Pending: true, PingMs: -1, Message: NoLocationData}
+		return check.Result{Pending: true, PingMs: -1, Message: NoLocationData}, false
 	}
+	meshLost := remotes > 0 && remoteVotes == 0 && localVoted
 	suffix := ""
 	if len(stale) > 0 {
 		suffix = " (ulaşılamayan: " + nameList(stale) + ")"
@@ -604,9 +654,9 @@ func aggregateLocations(locs []*location, downWhen string, now time.Time, rules 
 	}
 	switch {
 	case quorum(down, n+waiting):
-		return check.Result{PingMs: -1, Message: strings.Join(failing, "; ") + suffix, Cert: cert}
+		return check.Result{PingMs: -1, Message: strings.Join(failing, "; ") + suffix, Cert: cert}, meshLost
 	case quorum(down+retrying, n):
-		return check.Result{Pending: true, PingMs: -1, Message: strings.Join(failing, "; ") + suffix, Cert: cert}
+		return check.Result{Pending: true, PingMs: -1, Message: strings.Join(failing, "; ") + suffix, Cert: cert}, meshLost
 	}
 	var sum, cnt int64
 	for _, l := range up {
@@ -623,7 +673,7 @@ func aggregateLocations(locs []*location, downWhen string, now time.Time, rules 
 	if len(failing) > 0 {
 		msg = fmt.Sprintf("%d/%d konum çalışıyor — %s", len(up), n, strings.Join(failing, "; "))
 	}
-	return check.Result{Up: true, PingMs: ping, Message: msg + suffix, Cert: cert}
+	return check.Result{Up: true, PingMs: ping, Message: msg + suffix, Cert: cert}, meshLost
 }
 
 // beatLocation kaydedilen sonucu üreten konumların adı: çok konumlu

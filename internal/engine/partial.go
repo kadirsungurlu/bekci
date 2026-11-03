@@ -47,8 +47,13 @@ func (r *runner) partialStep(ctx context.Context, now time.Time, status int, inM
 	st := r.locs.statuses(now, r.rules())
 	var down []LocationStatus
 	unsettled := false // sonucu henüz kesinleşmemiş konum
+	healthyUp := false // bağlantısı sağlam bir konumdan "çalışıyor" sonucu
 	for _, s := range st {
 		switch s.Status {
+		case locUp:
+			// statuses kopan/oyu sayılmayan konumu "bilinmiyor" gösterir:
+			// buradaki "çalışıyor" bağlantısı sağlam konumdan gelir.
+			healthyUp = true
 		case locDown:
 			down = append(down, s)
 		case locRetrying, locWaiting:
@@ -66,6 +71,9 @@ func (r *runner) partialStep(ctx context.Context, now time.Time, status int, inM
 	case r.partialID == 0:
 		switch {
 		case status != store.StatusUp || inMaint || r.incidentID != 0:
+		case len(down) > 0 && !healthyUp:
+			// Genel durum yalnız az önce kopan kontrol noktasının son "çalışıyor"
+			// oyuyla ayakta (goneGrace): kısmi kesinti doğrulanamaz, olay açılmaz.
 		case len(down) > 0:
 			if r.escalatedPartial != 0 && r.reopenPartial(ctx, now, down) {
 				break

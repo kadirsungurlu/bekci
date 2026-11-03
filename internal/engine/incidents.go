@@ -103,7 +103,7 @@ func (r *runner) openIncident(ctx context.Context, now time.Time, res check.Resu
 	}
 	evs := append(pre, store.IncidentEvent{
 		Time: now.Unix(), Kind: store.EventDown, Location: where, Message: res.Message,
-		Data: store.EventData(downData{Locations: locs, Monitor: r.snapshot()}),
+		Data: store.EventData(downData{Locations: locs, Monitor: r.snapshot(), MeshLost: r.locs != nil && r.meshLost}),
 	})
 	r.addEvents(ctx, id, evs...)
 	r.saveCapture(ctx, id, c)
@@ -122,6 +122,9 @@ type MonitorSnapshot struct {
 type downData struct {
 	Locations []incidentLocation `json:"locations"`
 	Monitor   MonitorSnapshot    `json:"monitor"`
+	// MeshLost kontrol noktalarına ulaşılamıyordu; karar yalnız ana sunucunun
+	// sonucuna dayanıyor (arayüz ve bildirim not düşer).
+	MeshLost bool `json:"mesh_lost,omitempty"`
 }
 
 func (r *runner) snapshot() MonitorSnapshot {
