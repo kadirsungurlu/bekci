@@ -935,7 +935,7 @@ func (s *Server) putMonitorLocations(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r, store.User{}, "monitor.locations", "monitor", id, m.Name,
 		"konumlar: "+strings.Join(names, ", ")+"; kural: "+i18n.DownWhenLabel(setup.DownWhen)+
-			map[bool]string{true: "; konum kesintisinde bildirim", false: ""}[setup.NotifyPartial])
+			map[bool]string{true: "; kısmi erişim kesintisinde bildirim", false: ""}[setup.NotifyPartial])
 	v, err := s.locationsOf(r.Context(), m)
 	if err != nil {
 		s.dbError(w, err)

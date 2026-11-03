@@ -74,7 +74,7 @@ var messages = map[string]Msg{
 	"notify.mail.status.cert":     {"SSL uyarısı", "SSL warning"},
 	"notify.mail.status.domain":   {"Alan adı uyarısı", "Domain warning"},
 	"notify.mail.status.alert":    {"Sunucu uyarısı", "Server alert"},
-	"notify.mail.status.location": {"Konum kesintisi", "Location outage"},
+	"notify.mail.status.location": {"Kısmi erişim kesintisi", "Partial reachability outage"},
 	"notify.mail.status.resolved": {"Düzeldi", "Resolved"},
 	"notify.mail.status.test":     {"Test", "Test"},
 	"notify.mail.open":            {"Ayrıntıları aç", "Open details"},

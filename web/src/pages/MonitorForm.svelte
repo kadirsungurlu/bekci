@@ -816,6 +816,15 @@
     return same ? null : target;
   }
   const locCount = $derived((locLocal ? 1 : 0) + locProbeIds.length);
+  // Yeni monitörde ikinci konum seçilince bir kez: kural "Kısmi erişim ayrımı"
+  // (all) + kısmi erişim bildirimi. Düzenlemede mevcut ayar korunur.
+  let locDefaulted = false;
+  $effect(() => {
+    if (isEdit || locDefaulted || locCount < 2) return;
+    locDefaulted = true;
+    locDownWhen = 'all';
+    locNotify = true;
+  });
 
   const cancelHref = $derived(isEdit ? `#/monitors/${id}` : '#/');
 </script>

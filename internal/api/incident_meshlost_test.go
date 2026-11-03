@@ -48,3 +48,22 @@ func TestIncidentMeshLost(t *testing.T) {
 		t.Fatal("olağan olayda mesh_lost olmamalı")
 	}
 }
+
+// 420: yeni varsayılan (all + kısmi erişim bildirimi) yalnız arayüzde yeni
+// monitör oluştururken uygulanır; sunucu mevcut/yeni kaydın kuralını değiştirmez.
+func TestLocationDefaultsUnchanged(t *testing.T) {
+	admin, _ := setupAdminSrv(t)
+	var mon monitorView
+	admin.mustDo("POST", "/api/monitors", map[string]any{
+		"name": "Eski", "type": "tcp", "interval": 60, "retry_interval": 60, "max_retries": 0, "timeout": 5,
+		"config": map[string]any{"host": "127.0.0.1", "port": 1},
+	}, &mon, 201)
+	var loc struct {
+		DownWhen      string `json:"down_when"`
+		NotifyPartial bool   `json:"notify_partial"`
+	}
+	admin.mustDo("GET", fmt.Sprintf("/api/monitors/%d/locations", mon.ID), nil, &loc, 200)
+	if loc.DownWhen != "any" || loc.NotifyPartial {
+		t.Fatalf("mevcut kural değişmemeli: %+v", loc)
+	}
+}

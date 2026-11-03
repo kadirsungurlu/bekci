@@ -40,7 +40,7 @@ export default {
     testSent: 'Test notification sent. Check your channel.',
     samples: 'Send sample notifications',
     samplesHelp:
-      'Sends one sample of every notification type with the saved settings (outage, reminder, recovery, location outage, SSL, server alerts). Messages carry a “sample” note; can be requested once a minute.',
+      'Sends one sample of every notification type with the saved settings (outage, reminder, recovery, partial reachability outage, SSL, server alerts). Messages carry a “sample” note; can be requested once a minute.',
     samplesSent: '{count} sample notifications are being sent one by one (two seconds apart). Check your channel.',
     rebind:
       '{dest} changed, so for security the saved {fields} won’t be carried over to the new destination. Re-enter before saving.',
@@ -61,7 +61,7 @@ export default {
       cert: 'SSL certificate',
       domain: 'Domain expiry (last 7 days: critical)',
       slow: 'Slow response (started / back to normal)',
-      location: 'Location outage (started / ended)',
+      location: 'Partial reachability outage (started / ended)',
       server: 'Server alerts (started / ended)',
       probe: 'Check location (offline / online)',
       acked: 'Incident acknowledged (only when selected)',
@@ -80,7 +80,7 @@ export default {
       none: 'Send nothing',
     },
     quietModeHelp: {
-      critical: 'Outage, server alert and check-location notifications and their recovery go out immediately; slow response, location outage and SSL warnings wait until the window ends.',
+      critical: 'Outage, server alert and check-location notifications and their recovery go out immediately; slow response, partial reachability outage and SSL warnings wait until the window ends.',
       none: 'Everything is sent when the window ends (if the problem is still ongoing).',
     },
     delayTitle: 'Delay',
