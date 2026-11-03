@@ -116,6 +116,18 @@ func TestTimescaleConvertExisting(t *testing.T) {
 			histCols("")+"), ';' ORDER BY monitor_id, bucket) FROM "+rel+" WHERE bucket >= ? AND bucket < ?", now-3*86400+3600, now-now%3600).Scan(&out)
 		return out
 	}
+	// Arka plan politikası ilk yenilemeyi parça parça (yeniden eskiye) yapar;
+	// ara durumda eski saatler henüz işlenmemiş olabilir. Karşılaştırmadan önce
+	// tüm aralık eşzamanlı yenilenir (eşzamanlı iş varsa birkaç deneme).
+	for i := range 10 {
+		_, err := s.db.ExecContext(ctx, "CALL "+s.tsExt+".refresh_continuous_aggregate('stats_hourly_ts', NULL, CAST(? AS BIGINT))", now-now%3600)
+		if err == nil {
+			break
+		} else if i == 9 {
+			t.Fatal(err)
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 	if a, b := cmp("stats_hourly_ts"), cmp("stats_hourly_legacy"); a != b || a == "" {
 		t.Fatalf("sürekli özet Go özetinden farklı\nts:     %.300s\nlegacy: %.300s", a, b)
 	}
