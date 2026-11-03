@@ -1,0 +1,88 @@
+import type { Shape } from '../types';
+import type tr from '../tr/topology';
+
+export default {
+  title: 'Live topology',
+  subtitle: 'Monitors, probes, servers and notification channels in this panel; live data.',
+  stats: {
+    probes: 'Connected probes',
+    rate: 'Results / s',
+    incidents: 'Open incidents',
+  },
+  live: {
+    sse: 'Live',
+    sseTip: 'Updated by the live stream',
+    poll: 'Polling',
+    pollTip: 'Live stream disconnected; refreshing every {s} seconds',
+    updated: 'Updated {time}',
+  },
+  col: {
+    monitors: 'Monitors',
+    probes: 'Probes',
+    panel: 'Bekci panel',
+    servers: 'Servers',
+    channels: 'Notification channels',
+  },
+  state: {
+    up: 'Up',
+    partial: 'Partial outage',
+    down: 'Down',
+    pending: 'Pending',
+    paused: 'Paused',
+    maintenance: 'In maintenance',
+  },
+  loc: {
+    up: 'Succeeded',
+    down: 'Failed',
+    retrying: 'Retrying',
+    waiting: 'Waiting for first result',
+    unknown: 'No results',
+    oob: 'On OOB line, not voting',
+  },
+  probe: {
+    online: 'Online',
+    offline: 'Offline',
+    rtt: 'Panel RTT',
+    uplink: 'Line',
+    primary: 'Primary',
+    oob: 'OOB',
+    peers: 'Peers',
+    version: 'Version',
+  },
+  server: {
+    cpu: 'CPU',
+    mem: 'RAM',
+    disk: 'Disk',
+    noMetrics: 'No metrics',
+    firing: 'Threshold exceeded: {list}',
+    metricsAt: 'Last metrics {ago}',
+  },
+  channel: {
+    neverSent: 'Nothing sent since the panel started',
+    sentOk: 'Last sent {ago}, succeeded',
+    sentFail: 'Last sent {ago}, failed',
+    inactive: 'Off',
+  },
+  panel: {
+    online: '{n}/{total} probes connected',
+    rate: '{n} results/s',
+    monitors: '{count} monitor|{count} monitors',
+  },
+  decision: {
+    title: "Panel's decision",
+    count: '{count} open incident|{count} open incidents',
+    started: 'started {ago}',
+    acked: 'Acknowledged',
+    more: 'and {count} more',
+    all: 'All incidents',
+  },
+  empty: {
+    title: 'Nothing to show yet',
+    text: 'Once monitors, probes or servers are added, the topology is drawn here live.',
+    restricted: 'No monitors are assigned to your account.',
+    add: 'Add monitor',
+  },
+  error: 'Could not load topology',
+  retry: 'Try again',
+  noneInCol: 'None',
+} satisfies Shape<typeof tr>;

@@ -2083,6 +2083,7 @@ export const api = {
   // Kontrol noktaları
   probes: () => get<Probe[]>("/api/probes"),
   mesh: () => get<MeshMatrix>("/api/mesh"),
+  topology: () => get<Topology>("/api/topology"),
   createProbe: (name: string) => post<ProbeSetup>("/api/probes", { name }),
   /** Takip edilecek sunucu ekler (kontrol noktalarından ayrı kayıt). */
   createServer: (name: string) => post<ProbeSetup>("/api/servers", { name }),
@@ -2256,4 +2257,91 @@ export interface MeshLink {
   loss_streak?: number;
   /** unix sn; 0: hiç */
   last_ok_at?: number;
+}
+
+/** Canlı topoloji (GET /api/topology): sayfanın tüm verisi tek yanıtta, kullanıcının yetkisine göre süzülmüş. */
+export type TopoLocationStatus = "up" | "down" | "retrying" | "waiting" | "unknown";
+export type TopoMonitorState = "up" | "partial" | "down" | "pending" | "paused" | "maintenance";
+
+export interface TopoLocation {
+  /** 0: ana sunucu (panel). */
+  probe_id: number;
+  name: string;
+  /** unknown: sonuç gelmiyor; oob: ajan ikinci hatta, sonucu karara katılmıyor. */
+  status: TopoLocationStatus;
+  oob?: boolean;
+  last_check_at: number;
+  ping_ms: number;
+}
+
+export interface TopoMonitor {
+  id: number;
+  name: string;
+  type: string;
+  state: TopoMonitorState;
+  last_check_at: number;
+  ping_ms: number;
+  locations: TopoLocation[];
+}
+
+export interface TopoProbe {
+  id: number;
+  name: string;
+  online: boolean;
+  /** Yalnız yönetici: panel RTT (ms), hat (primary | oob), mesh eşleri, sürüm. */
+  panel_rtt_ms?: number;
+  uplink?: string;
+  peers?: number;
+  peers_up?: number;
+  version?: string;
+  last_seen_at: number;
+}
+
+export interface TopoServer {
+  id: number;
+  name: string;
+  state: string;
+  cpu?: number;
+  mem?: number;
+  disk?: number;
+  /** Eşiği aşılan ölçütler. */
+  firing: string[];
+  version: string;
+  metrics_at: number;
+  last_seen_at: number;
+}
+
+export interface TopoChannel {
+  id: number;
+  name: string;
+  type: string;
+  active: boolean;
+  /** Panel açıldığından beri son gönderim; yok: henüz gönderilmedi. */
+  last_send?: { at: number; ok: boolean };
+}
+
+export interface TopoIncident {
+  id: number;
+  kind: string;
+  monitor_id?: number;
+  monitor_name?: string;
+  server_id?: number;
+  server_name?: string;
+  started_at: number;
+  cause: string;
+  acked: boolean;
+}
+
+export interface Topology {
+  now: number;
+  admin: boolean;
+  stats: { probes_online: number; probes_total: number; results_per_sec?: number; open_incidents: number };
+  monitors: TopoMonitor[];
+  probes: TopoProbe[];
+  /** Yalnız yönetici. */
+  mesh?: MeshMatrix;
+  servers: TopoServer[];
+  /** Yalnız düzenleyici ve üstü. */
+  channels?: TopoChannel[];
+  incidents: TopoIncident[];
 }

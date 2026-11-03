@@ -10,6 +10,8 @@
 
   const items = $derived.by(() => {
     const out: { href: string; label: string; desc: string; icon: IconName }[] = [];
+    if (!session.restricted || session.canSeeServers)
+      out.push({ href: '#/topology', label: t('nav.topology'), desc: t('nav.moreItems.topologyDesc'), icon: 'network' });
     if (session.canEdit)
       out.push({ href: '#/status-pages', label: t('nav.statusPages'), desc: t('nav.moreItems.statusPagesDesc'), icon: 'layout' });
     out.push({ href: '#/maintenance', label: t('nav.titles.maintenanceWindows'), desc: t('nav.moreItems.maintenanceDesc'), icon: 'wrench' });
