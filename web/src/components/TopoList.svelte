@@ -217,6 +217,10 @@
     background: var(--card);
   }
   .sub.inc {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    align-self: flex-start;
     color: var(--down-text);
     font-weight: 600;
   }

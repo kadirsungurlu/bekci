@@ -111,7 +111,7 @@ type topologyResp struct {
 	Probes    []topoProbe    `json:"probes"`
 	Mesh      *meshViewResp  `json:"mesh,omitempty"` // yalnız yönetici
 	Servers   []topoServer   `json:"servers"`
-	Channels  []topoChannel  `json:"channels,omitempty"` // yalnız düzenleyici ve üstü
+	Channels  []topoChannel  `json:"channels,omitzero"` // yalnız düzenleyici ve üstü
 	Incidents []topoIncident `json:"incidents"`
 }
 

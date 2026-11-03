@@ -169,9 +169,14 @@
   const tipPos = $derived.by(() => {
     if (!tip) return { left: 0, top: 0 };
     const h = tipEl?.offsetHeight ?? 160;
+    // Alt sınır: tuvalin ve görüntü alanının alt kenarı (ipucu ekrandan taşmasın); sığmazsa bağlantının üstüne açılır.
+    const vis = wrap ? window.innerHeight - wrap.getBoundingClientRect().top : L.height;
+    const bottom = Math.min(L.height, vis) - 8;
+    const below = tip.y + 12;
+    const top = below + h <= bottom ? below : tip.y - 12 - h;
     return {
       left: Math.max(8, Math.min(tip.x + 12, L.width - TIP_W - 8)),
-      top: Math.max(8, Math.min(tip.y + 12, L.height - h - 8)),
+      top: Math.max(8, Math.min(top, bottom - h)),
     };
   });
   function at(e: MouseEvent): [number, number] {
@@ -202,7 +207,8 @@
   });
   const emptyIcon: Record<GroupKey, IconName> = { monitors: 'activity', channels: 'bell', probes: 'network', servers: 'server' };
   const style = (r: Rect) => `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px`;
-  const hubCls = $derived(d.stats.open_incidents > 0 ? 'bad' : d.stats.probes_online < d.stats.probes_total ? 'warn' : 'ok');
+  // Kenarlık panelin kendi sağlığı (bağlı noktalar); açık olaylar kart içindeki kırmızı metinle gösterilir.
+  const hubCls = $derived(d.stats.probes_total > 0 && d.stats.probes_online === 0 ? 'bad' : d.stats.probes_online < d.stats.probes_total ? 'warn' : 'ok');
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -489,12 +495,13 @@
     cursor: pointer;
     outline: none;
   }
+  /* Vurgu nötr: sorunlu (turuncu/kırmızı) bağlantı yeşil bantla 'sağlıklı' görünmesin. */
   .hit:focus-visible,
   .hit.active {
-    stroke: var(--accent-soft);
+    stroke: color-mix(in srgb, var(--text) 12%, transparent);
   }
   .hit:focus-visible {
-    stroke: var(--accent-border);
+    stroke: color-mix(in srgb, var(--text) 22%, transparent);
   }
   .node,
   .hub,
