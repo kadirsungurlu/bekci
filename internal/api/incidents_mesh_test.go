@@ -28,15 +28,20 @@ func TestMeshIncidentDetail(t *testing.T) {
 		Incident store.Incident `json:"incident"`
 		Mesh     struct {
 			Findings []string `json:"findings"`
-			Pairs    []struct {
-				State, Text string
+			Nodes    []struct {
+				ID   int64
+				Name string
+			} `json:"nodes"`
+			Pairs []struct {
+				State, Text, AB, BA string
 			} `json:"pairs"`
 		} `json:"mesh"`
 		Events []store.IncidentEvent `json:"events"`
 	}
 	admin.mustDo("GET", "/api/incidents/"+strconv.FormatInt(id, 10), nil, &out, 200)
 	if out.Incident.Cause != "Kontrol noktası bağlantı sorunu: B genel erişim sorunu yaşıyor." ||
-		len(out.Mesh.Findings) != 1 || len(out.Mesh.Pairs) != 3 || out.Mesh.Pairs[0].Text != "Main > A arası bağlantı sağlıklı" {
+		len(out.Mesh.Findings) != 1 || len(out.Mesh.Pairs) != 3 || out.Mesh.Pairs[0].Text != "Main > A arası bağlantı sağlıklı" ||
+		len(out.Mesh.Nodes) != 3 || out.Mesh.Nodes[2].Name != "B" || out.Mesh.Pairs[0].AB == "" {
 		t.Fatalf("ayrıntı: %+v", out)
 	}
 	if len(out.Events) == 0 || !strings.Contains(out.Events[len(out.Events)-1].Message, "B genel erişim") {

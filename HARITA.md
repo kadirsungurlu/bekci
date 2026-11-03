@@ -64,6 +64,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 | Çok konum, kısmi erişim kesintisi | engine/locations.go (aggregateDecision, linkHealthy, noVote, meshLost), partial.go, localname_test.go; ana sunucu konum adı AppSettings.LocalLocationName (engine.LocalLocationName); olay ayrıntısı mesh_lost (api/incidents.go, web IncidentDetail); varsayılan all+notify_partial yalnız yeni monitörde (MonitorForm) |
 | İşlem kaydı | store/audit.go; i18n/audit.go; web settings/Audit.svelte |
 | Mesh (probe arası TCP ping, kalp atışı) | store/mesh.go (ayar/ezme, probe_links, probe_pair_keys, migration 40); api/probes_mesh.go (POST /api/probe/mesh, GET /api/probe/mesh/peers), mesh_settings.go; engine/probes.go (ProbeOnline: eşik x panel aralığı, eski ajan 90 sn); probe/meshtcp.go (çerçeve+HMAC), heartbeat.go, meshtypes.go (tel sözleşmesi); cmd/uptime/probe_mesh.go (MESH_ADDR :7480); web settings/Probes |
+| Mesh topoloji şeması | web components/MeshDiagram.svelte (elle SVG, lib/meshlayout.ts yerleşimi, ipucu + klavye odağı; MeshMatrix kartında ve IncidentDetail mesh kartında); GET /api/mesh links (yönlü: rtt_ms, loss_streak, last_ok_at; api/mesh_view.go meshLinkViews); olay kaydı nodes + ab/ba (api/incidents_mesh.go); i18n probes.topo; Tooltip focusin |
 
 <!-- OTOMATIK: scripts/harita.sh -->
 
@@ -114,8 +115,8 @@ pages: Announcements Auth ForcePassword IncidentDetail Incidents MaintenanceForm
 pages/settings: Account ApiKeys Audit Backup General Login Probes Tags TwoFactor UserForm Users
 components: AgentAutoUpdate AgentVersion AlertRulesEditor BadgeBuilder BulkEditModal ConfigFields ConfirmDialog ConnectionDetails 
 ContainerTable CopyButton DateTimeField DomainStatus FilePick Icon ImportResult IncidentAck IncidentEditModal IncidentTable IncidentUpdates 
-LangSwitch LineChart MeshMatrix Modal MonitorMenu MonitorPicker MonitorRow NotificationForm PagePreviewPanel PageSubscribers PageThumb 
-Pager PingChart PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu ServerPicker 
+LangSwitch LineChart MeshDiagram MeshMatrix Modal MonitorMenu MonitorPicker MonitorRow NotificationForm PagePreviewPanel PageSubscribers 
+PageThumb Pager PingChart PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu ServerPicker 
 ServerSettingsModal ServerSetupModal Sessions Sparkline StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker ThemeToggle 
 Toasts Tooltip TypeBadge UpdateBanner UptimeBars UsageBar
 i18n: account ale.ts apiKeys audit auth backup common incide.ts maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles servers settings status tags users

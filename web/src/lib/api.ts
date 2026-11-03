@@ -800,7 +800,13 @@ export interface IncidentDetail {
   /** Kontrol noktalarına ulaşılamıyordu; karar yalnız ana sunucunun (probe_id 0) sonucuna dayanıyor. */
   mesh_lost?: boolean;
   /** Mesh olayı: son yorum ve tüm bağlantılar (yanıt dilinde). */
-  mesh?: { owner: string; findings: string[]; pairs: { a: number; b: number; state: 'up' | 'down' | 'oneway' | 'unknown'; text: string }[] };
+  mesh?: {
+    owner: string;
+    findings: string[];
+    /** Kayıttaki düğümler (eski kayıt/sunucuda yok). */
+    nodes?: { id: number; name: string }[];
+    pairs: { a: number; b: number; state: 'up' | 'down' | 'oneway' | 'unknown'; ab?: string; ba?: string; text: string }[];
+  };
   /** Sunucu olayında boş (id 0). */
   /** type/target olay anındaki değerler; changed: sonradan değiştirildi (güncel değerler current_*). */
   monitor: {
@@ -2198,4 +2204,16 @@ export interface MeshMatrix {
   /** a < b; ab: a'nın b'yi ölçümü, ba: tersi ("up" | "down" | "unknown"). */
   pairs: { a: number; b: number; state: string; ab: string; ba: string }[];
   findings: string[];
+  /** Yönlü bağlantılar (çift başına iki); ölçüm ayrıntısı yalnız noktalar arası (eski sunucuda yok). */
+  links?: MeshLink[];
+}
+
+export interface MeshLink {
+  src: number;
+  dst: number;
+  state: string;
+  rtt_ms?: number;
+  loss_streak?: number;
+  /** unix sn; 0: hiç */
+  last_ok_at?: number;
 }

@@ -163,6 +163,17 @@ export default {
       "Server URL: {url}. The check location must be able to reach this URL from outside; it shows up as {online} in the list within a few seconds.",
     copiedClose: "I've copied it, close",
   },
+  topo: {
+    label: "Check location link diagram",
+    healthy: "Two-way reachability OK",
+    pair: "{a} - {b}: {state}",
+    dir: "{src} > {dst}: {state}",
+    loss: "consecutive losses: {n}",
+    lastOk: "last success {when}",
+    never: "no successful measurement yet",
+    state: { up: "Healthy", down: "Broken", oneway: "One-way", unknown: "Not measured" },
+    count: { up: "{n} healthy", down: "{n} broken", oneway: "{n} one-way", unknown: "{n} not measured" },
+  },
   matrix: {
     title: "Link status",
     intro: "Whether the location in the row can reach the one in the column. Refreshes live once per panel interval.",

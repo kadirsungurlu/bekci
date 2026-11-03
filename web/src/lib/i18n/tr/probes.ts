@@ -168,6 +168,18 @@ export default {
       "Sunucu adresi: {url}. Kontrol noktası bu adrese dışarıdan erişebilmeli; birkaç saniye içinde listede {online} görünür.",
     copiedClose: "Kopyaladım, kapat",
   },
+  topo: {
+    label: "Kontrol noktası bağlantı şeması",
+    healthy: "Çift yönlü erişim başarılı",
+    /** Bağlantı ipucunun ilk satırı: {a}, {b} düğüm adları; {state} çift durumu. */
+    pair: "{a} - {b}: {state}",
+    dir: "{src} > {dst}: {state}",
+    loss: "ardışık kayıp: {n}",
+    lastOk: "son başarı {when}",
+    never: "hiç başarılı ölçüm yok",
+    state: { up: "Sağlıklı", down: "Koptu", oneway: "Tek yönlü", unknown: "Ölçülemiyor" },
+    count: { up: "{n} sağlıklı", down: "{n} koptu", oneway: "{n} tek yönlü", unknown: "{n} ölçülemiyor" },
+  },
   matrix: {
     title: "Bağlantı durumu",
     intro: "Satırdaki nokta sütundakine ulaşabiliyor mu. Panel aralığında bir canlı tazelenir.",

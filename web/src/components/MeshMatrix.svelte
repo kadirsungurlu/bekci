@@ -5,6 +5,7 @@
   import { api, type MeshMatrix } from '../lib/api';
   import { live } from '../lib/live.svelte';
   import { t } from '../lib/i18n';
+  import MeshDiagram from './MeshDiagram.svelte';
 
   let data = $state<MeshMatrix | null>(null);
   let busy = false;
@@ -52,6 +53,7 @@
   {#if data && !data.active}
     <p class="muted small">{t('probes.matrix.inactive')}</p>
   {:else if data}
+    <MeshDiagram nodes={data.nodes} pairs={data.pairs} links={data.links} />
     <div class="scroll">
       <table class="grid">
         <thead>

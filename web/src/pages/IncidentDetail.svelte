@@ -30,6 +30,7 @@
   import IncidentUpdates from '../components/IncidentUpdates.svelte';
   import IncidentEditModal from '../components/IncidentEditModal.svelte';
   import IncidentAck from '../components/IncidentAck.svelte';
+  import MeshDiagram from '../components/MeshDiagram.svelte';
   import { session } from '../lib/session.svelte';
   import { confirmDialog, toast } from '../lib/ui.svelte';
   import { navigate } from '../lib/router.svelte';
@@ -644,6 +645,9 @@
             <ul class="mesh-l">
               {#each data.mesh.findings as f, i (i)}<li><span class="dot {ongoing ? 'down' : 'up'}"></span>{f}</li>{/each}
             </ul>
+            {#if data.mesh.nodes?.length && data.mesh.pairs.every((p) => p.ab !== undefined)}
+              <MeshDiagram nodes={data.mesh.nodes} pairs={data.mesh.pairs.map((p) => ({ ...p, ab: p.ab ?? '', ba: p.ba ?? '' }))} />
+            {/if}
             <div class="label">{t('incidents.detail.meshLinks')}</div>
             <ul class="mesh-l">
               {#each data.mesh.pairs as p (p.a + '-' + p.b)}<li><span class="dot {p.state}"></span>{p.text}</li>{/each}

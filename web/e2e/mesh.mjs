@@ -1,7 +1,8 @@
 // Mesh bağlantı matrisi uçtan uca: iki kontrol noktası kalp atışı gönderir
 // (A -> B ulaşıyor, B -> A ulaşamıyor); Ayarlar > Kontrol noktaları'nda matris
 // Main dahil 3 düğümle görünür, tek yönlü yorum yazar; B düzelince canlı akışla
-// "sağlıklı"ya döner. Çalışan bir panele karşı:
+// "sağlıklı"ya döner. Topoloji şeması: 3 bağlantı, tek yönlü işaret, klavye
+// odağında ipucu (yön, RTT), düzelince "çift yönlü" özeti. Çalışan bir panele karşı:
 //   BASE=http://127.0.0.1:8080 node mesh.mjs
 // SHOTS=<klasör> verilirse koyu/açık 1920 ve 390 görüntüleri kaydedilir.
 import { chromium } from 'playwright';
@@ -35,7 +36,7 @@ try {
   const b = await mk('E2E Mesh B ' + Date.now());
   const beat = async (who, peer, state) => {
     const r = await rq.post(BASE + '/api/probe/mesh', {
-      data: { listen_port: 7480, links: [{ peer: peer.probe.id, state }] },
+      data: { listen_port: 7480, links: [{ peer: peer.probe.id, state, rtt_ms: state === 'up' ? 9 : 0, loss_streak: state === 'up' ? 0 : 3 }] },
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + who.token },
     });
     if (!r.ok()) fail('kalp atışı: ' + r.status() + ' ' + (await r.text()));
@@ -54,6 +55,21 @@ try {
   if ((await m.locator('.findings li').count()) !== 1) fail('tek yorum bekleniyordu: ' + (await m.innerText()));
   console.log('mesh: matris ve tek yönlü yorum tamam');
 
+  // Topoloji şeması
+  const d = m.getByTestId('mesh-diagram');
+  if (!(await d.locator('svg').first().isVisible())) fail('şema görünmüyor');
+  const nl = await d.locator('g.link').count();
+  if (nl !== 3) fail('3 bağlantı bekleniyordu: ' + nl);
+  const one = d.locator('g.link[data-state="oneway"]');
+  if ((await one.count()) !== 1) fail('tek yönlü bağlantı bekleniyordu');
+  await one.focus();
+  const tip = p.locator('.tip');
+  await tip.waitFor({ timeout: 3000 }).catch(() => fail('odakta ipucu yok'));
+  const tt = await tip.innerText();
+  if (!tt.includes('9 ms') || !/3/.test(tt)) fail('ipucu ayrıntısı eksik: ' + tt);
+  await one.blur();
+  console.log('mesh: şema ve ipucu tamam');
+
   if (SHOTS) {
     mkdirSync(SHOTS, { recursive: true });
     for (const scheme of ['dark', 'light']) {
@@ -63,7 +79,7 @@ try {
         const q = await c.newPage();
         await q.goto(BASE + '/#/settings/probes');
         await q.getByTestId('mesh-matrix').locator('table').waitFor();
-        await q.getByTestId('mesh-matrix').scrollIntoViewIfNeeded();
+        await q.getByTestId('mesh-diagram').evaluate((el) => el.scrollIntoView({ block: 'center' }));
         await q.waitForTimeout(400);
         await q.screenshot({ path: `${SHOTS}/mesh-${scheme}-${w}.jpg`, type: 'jpeg', quality: 60 });
         await c.close();
@@ -82,6 +98,8 @@ try {
   }
   if (!healed) fail('düzelme canlı yansımadı: ' + (await m.innerText()));
   if ((await m.locator('td .cell.down').count()) !== 0) fail('kopuk hücre kalmamalı');
+  if ((await m.locator('g.link[data-state="up"]').count()) !== 3) fail('şemada 3 sağlıklı bağlantı bekleniyordu');
+  if ((await m.locator('[data-testid="mesh-summary"] .item').count()) !== 1) fail('özet tek satır olmalı');
   console.log('TAMAM');
 } finally {
   await browser.close();

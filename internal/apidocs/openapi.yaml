@@ -1232,7 +1232,38 @@ paths:
     get:
       tags: [servers]
       summary: "Kontrol noktaları arası bağlantı matrisi ve yorum (yönetici). active=false: mesh kapalı ya da kalp atışı gönderen nokta 2'den az"
-      responses: { "200": { description: "{active, nodes: [{id, name}], pairs: [{a, b, state, ab, ba}], findings: [metin]} (düğüm 0 = ana sunucu)" } }
+      responses:
+        "200":
+          description: "Düğüm 0 = ana sunucu. pairs: a < b, ab = a'nın b'yi ölçümü. links: yönlü bağlantılar (çift başına iki); rtt_ms/loss_streak/last_ok_at yalnız kontrol noktaları arası ölçümde"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  active: { type: boolean }
+                  nodes: { type: array, items: { type: object, properties: { id: { type: integer }, name: { type: string } } } }
+                  pairs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        a: { type: integer }
+                        b: { type: integer }
+                        state: { type: string, enum: [up, down, oneway, unknown] }
+                        ab: { type: string, enum: [up, down, unknown] }
+                        ba: { type: string, enum: [up, down, unknown] }
+                  findings: { type: array, items: { type: string } }
+                  links:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        src: { type: integer }
+                        dst: { type: integer }
+                        state: { type: string, enum: [up, down, unknown] }
+                        rtt_ms: { type: integer, description: "Son ölçülen gidiş-dönüş süresi (ms)" }
+                        loss_streak: { type: integer, description: "Ardışık kayıp sayısı" }
+                        last_ok_at: { type: integer, description: "Son başarılı ölçüm (unix sn; 0: hiç)" }
   /api/maintenance:
     get: { tags: [maintenance], summary: Bakım pencereleri, responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Maintenance" } } } } } } }
     post: { tags: [maintenance], summary: Bakım ekle (editör+), requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/Maintenance" } } } }, responses: { "201": { description: Bakım } } }

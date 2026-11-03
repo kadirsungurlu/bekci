@@ -12,6 +12,7 @@ import (
 // meshIncidentView mesh olayının son yorumu, yanıt dilinde.
 type meshIncidentView struct {
 	Owner    string         `json:"owner"`
+	Nodes    []meshNodeView `json:"nodes"` // kayıttaki düğümler (topoloji şeması)
 	Findings []string       `json:"findings"`
 	Pairs    []meshPairView `json:"pairs"`
 }
@@ -20,14 +21,19 @@ type meshPairView struct {
 	A     int64  `json:"a"`
 	B     int64  `json:"b"`
 	State string `json:"state"` // up | down | oneway | unknown
+	AB    string `json:"ab"`    // A'nın B'yi ölçümü
+	BA    string `json:"ba"`
 	Text  string `json:"text"`
 }
 
 func meshView(lang string, r mesh.Report) *meshIncidentView {
 	v := &meshIncidentView{Owner: r.Names.In(lang, r.Owner), Findings: mesh.FindingLines(lang, r.Verdict, r.Names),
-		Pairs: make([]meshPairView, 0, len(r.Verdict.Pairs))}
+		Nodes: make([]meshNodeView, 0, len(r.Verdict.Nodes)), Pairs: make([]meshPairView, 0, len(r.Verdict.Pairs))}
+	for _, id := range r.Verdict.Nodes {
+		v.Nodes = append(v.Nodes, meshNodeView{ID: id, Name: r.Names.In(lang, id)})
+	}
 	for _, p := range r.Verdict.Pairs {
-		v.Pairs = append(v.Pairs, meshPairView{A: p.A, B: p.B, State: p.State, Text: mesh.PairText(lang, p, r.Names)})
+		v.Pairs = append(v.Pairs, meshPairView{A: p.A, B: p.B, State: p.State, AB: p.AB, BA: p.BA, Text: mesh.PairText(lang, p, r.Names)})
 	}
 	return v
 }
