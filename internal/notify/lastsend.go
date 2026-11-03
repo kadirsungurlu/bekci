@@ -1,24 +1,28 @@
 package notify
 
-import "time"
+import (
+	"context"
+	"time"
+
+	"github.com/kadirsungurlu/bekci/internal/store"
+)
 
 // SendStatus bir kanala yapılan son gönderimin sonucu (canlı topoloji).
-// Bellekte tutulur: panel yeniden başlayınca ilk gönderime kadar boştur.
-type SendStatus struct {
-	At int64 `json:"at"` // unix sn
-	OK bool  `json:"ok"`
-}
+// DB'de tutulur (store.channel_last_send): yeniden başlatmada kaybolmaz.
+type SendStatus = store.ChannelSend
 
 func (d *Dispatcher) noteSend(channelID int64, at time.Time, err error) {
-	d.lastSend.Store(channelID, SendStatus{At: at.Unix(), OK: err == nil})
+	if d.store == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if werr := d.store.SetChannelSend(ctx, channelID, at.Unix(), err == nil); werr != nil && d.log != nil {
+		d.log.Error("kanal son gönderim yazılamadı", "kanal", channelID, "hata", werr)
+	}
 }
 
-// LastSends kanal başına son gönderim sonucu (yalnız bu açılıştan beri gönderim yapılan kanallar).
-func (d *Dispatcher) LastSends() map[int64]SendStatus {
-	out := map[int64]SendStatus{}
-	d.lastSend.Range(func(k, v any) bool {
-		out[k.(int64)] = v.(SendStatus)
-		return true
-	})
-	return out
+// LastSends kanal başına son gönderim sonucu.
+func (d *Dispatcher) LastSends(ctx context.Context) (map[int64]SendStatus, error) {
+	return d.store.ChannelSends(ctx)
 }

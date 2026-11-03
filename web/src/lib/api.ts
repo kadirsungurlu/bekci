@@ -2290,7 +2290,9 @@ export interface TopoProbe {
   online: boolean;
   /** Yalnız yönetici: panel RTT (ms), hat (primary | oob), mesh eşleri, sürüm. */
   panel_rtt_ms?: number;
+  late?: boolean;
   uplink?: string;
+  oob_name?: string;
   peers?: number;
   peers_up?: number;
   version?: string;

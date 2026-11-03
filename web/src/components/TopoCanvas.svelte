@@ -117,7 +117,8 @@
     const mk = (x: number, y: number, hx: number) => (fromHub ? vCurve(hx, hy, x, y) : vCurve(x, y, hx, hy));
     if (g.perCard) {
       return g.cards.map((c, i) => {
-        const y = up ? c.y + c.h : c.y;
+        // Alttaki grupta bağlantı kutunun üst kenarında biter: başlığın üstünden geçmez.
+        const y = up ? c.y + c.h : g.box.y;
         const curve = mk(c.x + c.w / 2, y, lerp(range, i, g.cards.length));
         const tip = edgeTip(`${prefix}:${c.id}`, d, now);
         return { id: `${prefix}:${c.id}`, cls: clsOf(c.id), ...curve, label: tip?.title ?? '' };

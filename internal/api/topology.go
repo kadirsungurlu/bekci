@@ -55,10 +55,13 @@ type topoProbe struct {
 	ID     int64  `json:"id"`
 	Name   string `json:"name"`
 	Online bool   `json:"online"`
+	// Late: çevrimiçi ama kalp atışı iki aralıktır gelmiyor (eşikten önce erken uyarı).
+	Late bool `json:"late,omitempty"`
 	// Yalnız yönetici: panel RTT (son kalp atışı, ms; yok: ölçülmedi / eski ajan),
 	// etkin hat (primary | oob), mesh eş sayısı (ulaşılan / toplam), sürüm.
 	PanelRTTms *int64 `json:"panel_rtt_ms,omitempty"`
 	Uplink     string `json:"uplink,omitempty"`
+	OOBName    string `json:"oob_name,omitempty"` // yalnız OOB tanımlıysa: hattın görünen adı
 	Peers      *int   `json:"peers,omitempty"`
 	PeersUp    *int   `json:"peers_up,omitempty"`
 	Version    string `json:"version,omitempty"`
@@ -79,7 +82,7 @@ type topoServer struct {
 	LastSeenAt int64    `json:"last_seen_at"`
 }
 
-// topoChannel LastSend: bu açılıştan beri son gönderim (yok: henüz gönderilmedi).
+// topoChannel LastSend: son gönderim (DB'de; yok: henüz gönderilmedi).
 type topoChannel struct {
 	ID       int64              `json:"id"`
 	Name     string             `json:"name"`
@@ -206,10 +209,14 @@ func (s *Server) topology(w http.ResponseWriter, r *http.Request) {
 			resp.Stats.ProbesOnline++
 		}
 		tp := topoProbe{ID: p.ID, Name: p.Name, Online: online, LastSeenAt: p.LastSeenAt}
+		tp.Late = online && s.engine.ProbeLate(p, now)
 		if admin {
 			tp.Version, tp.Uplink = p.Version, p.Uplink
 			if tp.Uplink == "" {
 				tp.Uplink = store.UplinkPrimary
+			}
+			if p.OOBIP != "" {
+				tp.OOBName = p.OOBLabel()
 			}
 			peers, up := 0, 0
 			for _, l := range links {
@@ -272,7 +279,11 @@ func (s *Server) topology(w http.ResponseWriter, r *http.Request) {
 			s.dbError(w, err)
 			return
 		}
-		sends := s.notifier.LastSends()
+		sends, err := s.notifier.LastSends(ctx)
+		if err != nil {
+			s.dbError(w, err)
+			return
+		}
 		resp.Channels = make([]topoChannel, 0, len(chs))
 		for _, c := range chs {
 			tc := topoChannel{ID: c.ID, Name: c.Name, Type: c.Type, Active: c.Active}

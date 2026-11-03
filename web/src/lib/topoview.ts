@@ -26,7 +26,7 @@ const MON_CLS: Record<TopoMonitor['state'], Cls> = {
 const RANK: Record<Cls, number> = { bad: 0, warn: 1, pend: 2, maint: 3, ok: 4, off: 5 };
 
 export const monClass = (m: TopoMonitor): Cls => MON_CLS[m.state] ?? 'off';
-export const probeClass = (p: TopoProbe): Cls => (!p.online ? 'bad' : p.uplink === 'oob' ? 'warn' : 'ok');
+export const probeClass = (p: TopoProbe): Cls => (!p.online ? 'bad' : p.late || p.uplink === 'oob' ? 'warn' : 'ok');
 export const serverClass = (s: TopoServer): Cls =>
   s.state === 'offline' ? 'bad' : s.firing.length ? 'warn' : s.state === 'online' ? 'ok' : 'off';
 export const channelClass = (c: TopoChannel): Cls =>
@@ -71,6 +71,7 @@ export function monitorSub(m: TopoMonitor): string {
 }
 export function probeSub(p: TopoProbe, admin: boolean): string {
   if (!p.online) return t('topology.probe.offline');
+  if (p.late) return t('topology.probe.late');
   const parts: string[] = [];
   if (admin && p.panel_rtt_ms !== undefined) parts.push(`${t('topology.probe.rtt')} ${fmtMs(p.panel_rtt_ms)}`);
   if (p.uplink === 'oob') parts.push(t('topology.probe.oob'));
@@ -94,7 +95,7 @@ export function checkEdge(m: TopoMonitor): EdgeCls {
   const c = monClass(m);
   return c === 'bad' ? 'down' : c === 'warn' ? 'warn' : c === 'off' || c === 'maint' ? 'off' : 'check';
 }
-export const linkEdge = (p: TopoProbe): EdgeCls => (!p.online ? 'down' : p.uplink === 'oob' ? 'warn' : 'link');
+export const linkEdge = (p: TopoProbe): EdgeCls => (!p.online ? 'down' : p.late || p.uplink === 'oob' ? 'warn' : 'link');
 export const metricEdge = (s: TopoServer): EdgeCls =>
   s.state === 'offline' ? 'down' : s.firing.length ? 'warn' : s.cpu === undefined ? 'off' : 'metric';
 export const notifyEdge = (c: TopoChannel): EdgeCls =>
@@ -107,8 +108,10 @@ export function meshEdge(ab: string, ba: string): EdgeCls {
 }
 /** Toplu bağlantı: en kötü durumun çizgisi, hepsi normalse grubun olağan türü. */
 export function worstEdge(list: EdgeCls[], normal: EdgeCls): EdgeCls {
-  if (list.includes('down')) return 'down';
-  if (list.includes('warn')) return 'warn';
+  // Hepsi (kapalılar dışında) çökmüşse kırmızı; bir kısmı çökmüşse kısmi (uyarı rengi).
+  const live = list.filter((e) => e !== 'off');
+  if (live.length && live.every((e) => e === 'down')) return 'down';
+  if (live.some((e) => e === 'down' || e === 'warn')) return 'warn';
   if (list.length && list.every((e) => e === 'off')) return 'off';
   return normal;
 }
@@ -165,11 +168,14 @@ export function edgeTip(id: string, d: Topology, now: number): EdgeTip | null {
     }
     const p = d.probes.find((x) => x.id === +a);
     if (!p) return null;
-    const rows: [string, string][] = [[t('topology.tip.state'), p.online ? t('topology.probe.online') : t('topology.probe.offline')]];
+    const rows: [string, string][] = [
+      [t('topology.tip.state'), !p.online ? t('topology.probe.offline') : p.late ? t('topology.probe.late') : t('topology.probe.online')],
+    ];
     if (d.admin) {
       rows.push([t('topology.probe.rtt'), p.panel_rtt_ms !== undefined ? fmtMs(p.panel_rtt_ms) : '—']);
       // Çevrimdışı noktanın hat ve eş bilgisi son raporundan kalır, gösterilmez.
-      if (p.online) rows.push([t('topology.probe.uplink'), p.uplink === 'oob' ? t('topology.probe.oob') : t('topology.probe.primary')]);
+      if (p.online) rows.push([t('topology.probe.uplink'), p.uplink === 'oob' ? p.oob_name || t('topology.probe.oob') : t('topology.probe.primary')]);
+      if (p.oob_name && p.uplink !== 'oob') rows.push([t('topology.probe.oobLine'), p.oob_name]);
       if (p.online && p.peers) rows.push([t('topology.probe.peers'), `${p.peers_up ?? 0}/${p.peers}`]);
       if (p.version) rows.push([t('topology.probe.version'), p.version]);
     }

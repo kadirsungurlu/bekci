@@ -71,8 +71,6 @@ type Dispatcher struct {
 	// observer her Notify çağrısında olayı (kanal seçiminden bağımsız) alır:
 	// durum sayfası abone e-postaları (api/subscribers_notify.go). Bloklamamalı.
 	observer atomic.Pointer[func(Event)]
-
-	lastSend sync.Map // kanal id -> SendStatus (lastsend.go)
 }
 
 // SetObserver Notify'a gelen her olayı fn'e de iletir (nil: kapatır). fn

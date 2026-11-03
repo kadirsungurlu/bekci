@@ -147,7 +147,9 @@ function pair(a: GroupInput | null, b: GroupInput | null, y: number, width: numb
     if (a.mesh && a.ids.length >= 2 && a.ids.length <= MESH_MAX) {
       const span = (cw: number) => a.ids.length * (cw + GAP) - GAP + 2 * PAD;
       const room = width - GROUP_GAP;
-      for (const [cw, rest] of [[MESH_CARD_COMFY_W, 420], [MESH_CARD_MID_W, 300], [MESH_CARD_MIN_W, 260]]) {
+      // Diğer grupta en az iki kart varsa iki sütun sığacak yer bırakılır (1440 px'te sunucular tek sütuna düşmesin).
+      const two = b.ids.length >= 2 ? 2 * CARD_MIN_W + GAP + 2 * PAD : 260;
+      for (const [cw, rest] of [[MESH_CARD_COMFY_W, Math.max(420, two)], [MESH_CARD_MID_W, two], [MESH_CARD_MIN_W, two]]) {
         if (span(cw) <= wa) break;
         if (span(cw) <= room - rest) {
           wa = span(cw);

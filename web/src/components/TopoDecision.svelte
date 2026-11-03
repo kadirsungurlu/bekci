@@ -138,13 +138,16 @@
     display: inline-flex;
     align-items: center;
     min-height: 44px;
-    font-weight: 600;
-    font-size: 1rem;
+    font-weight: 650;
+    font-size: 1.02rem;
     color: var(--text);
     overflow-wrap: anywhere;
   }
   .cause {
     margin: 0 0 8px;
+    font-size: 0.88rem;
+    line-height: 1.45;
+    color: var(--text-2);
     overflow-wrap: anywhere;
   }
   .findings {

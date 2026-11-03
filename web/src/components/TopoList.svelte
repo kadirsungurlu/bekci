@@ -85,6 +85,11 @@
           .filter(Boolean)
           .join(' · ')}
       </span>
+      {#if d.stats.open_incidents}
+        <a class="sub inc" href="#/incidents" data-testid="topology-list-incidents">{t('topology.decision.count', { count: d.stats.open_incidents })}</a>
+      {:else}
+        <span class="sub">{t('topology.panel.noIncident')}</span>
+      {/if}
     </span>
   </div>
   {#each groups as g (g.key)}
@@ -210,6 +215,10 @@
     border-top: 3px solid var(--up);
     border-radius: var(--radius-sm);
     background: var(--card);
+  }
+  .sub.inc {
+    color: var(--down-text);
+    font-weight: 600;
   }
   .hub.bad {
     border-top-color: var(--down);

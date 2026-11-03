@@ -53,3 +53,12 @@ test('mesh: 10 noktaya kadar yay, fazlasında matrise düşer', () => {
   assert.equal(b.groups.probes.meshFallback, true);
   assert.equal(layoutTopology(100, { monitors: g('monitors', 1), channels: null, probes: g('probes', 0), servers: g('servers', 0) }).width, MIN_CANVAS_W);
 });
+
+test('mesh yayları sunucuları tek sütuna düşürmez (1440 px tuvali ~1100-1200)', () => {
+  for (const w of [1100, 1150, 1200, 1400]) {
+    const l = layoutTopology(w, { monitors: g('monitors', 20), channels: g('channels', 3), probes: g('probes', 4, { mesh: true }), servers: g('servers', 6) });
+    const cols = new Set(l.groups.servers.cards.map((c) => c.x)).size;
+    assert.ok(cols >= 2, `${w}: sunucu sütunu ${cols}`);
+    assert.equal(l.groups.probes.meshArcs, true, `${w}: mesh yayları`);
+  }
+});

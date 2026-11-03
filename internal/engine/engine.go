@@ -86,7 +86,7 @@ func New(st *store.Store, n Notifier, hub *Hub, log *slog.Logger, cfg Config) *E
 		jobs:       newJobsSignal(),
 
 		// Kalp atışı eşiği (vars. 15 sn) içinde yakalansın; tarama tek sorgu.
-		probeWatchEvery: 2 * time.Second,
+		probeWatchEvery: time.Second,
 	}
 	def := store.DefaultSettings()
 	e.settings.Store(&def)
