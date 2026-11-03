@@ -47,7 +47,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 |---|---|
 | Kimlik, oturum, 2FA, OIDC | api/auth.go, sessions.go, twofactor.go, oidc.go; store/users.go, sessions.go |
 | Şifre sıfırlama, sistem e-postası | api/password_reset.go; notify/email.go, email_html.go |
-| İzleyiciler | api/monitors.go; store/monitors.go; check/*; engine/runner.go |
+| İzleyiciler | api/monitors.go (aralık sınırı store.MinIntervalSec=5); store/monitors.go, beats.go + beats_batch.go (grup commit, BEAT_BATCH_MS); check/*; engine/runner.go |
 | Olaylar | engine/incidents.go; api/incidents*.go, misc.go listIncidents (offset + X-Total-Count); store/incident*.go; web pages/Incidents, components/Pager (ortak sayfa gezgini) |
 | Bildirim kanalları | api/notifications.go; notify/*; store/notifications.go, notification_rules.go |
 | Durum sayfaları (yönetim) | api/pages.go; store/pages*.go; web pages/StatusPages, StatusPageEditor, PagePreviewPanel |
