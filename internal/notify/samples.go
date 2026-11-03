@@ -56,8 +56,8 @@ func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	up := mon(KindUp)
 	up.Downtime = 1*time.Hour + 12*time.Minute
 	locDown := mon(KindLocationDown)
-	locDown.Message = "Frankfurt: " + i18n.T(lang, "notify.sample.loc_error")
-	locDown.Locations = []LocationNote{{Name: "Frankfurt", Message: i18n.T(lang, "notify.sample.loc_error")}}
+	locDown.Message = i18n.Message(lang, "Ana sunucu") + ": " + i18n.T(lang, "notify.sample.loc_error")
+	locDown.Locations = []LocationNote{{Name: "Ana sunucu", Message: i18n.T(lang, "notify.sample.loc_error")}, {Name: "Frankfurt", OK: true}}
 	locUp := mon(KindLocationUp)
 	locUp.Downtime = 23 * time.Minute
 	slow := mon(KindSlow)

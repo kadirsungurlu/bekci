@@ -166,7 +166,7 @@ func TestPartialNotifications(t *testing.T) {
 			t.Fatalf("bildirimler %v", got)
 		}
 		ev := f.n.events[0]
-		if ev.IncidentID == 0 || len(ev.Locations) != 1 || ev.Locations[0].Name != "Frankfurt" || ev.Locations[0].Message != "DNS hatası" {
+		if ev.IncidentID == 0 || len(ev.Locations) != 2 || !ev.Locations[0].OK || ev.Locations[1].Name != "Frankfurt" || ev.Locations[1].Message != "DNS hatası" {
 			t.Fatalf("konum kesintisi bildirimi: %+v", ev)
 		}
 		if f.n.events[1].IncidentID != ev.IncidentID {

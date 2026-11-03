@@ -437,7 +437,7 @@ func TestEscalatedPartialResumesWithoutSecondNotification(t *testing.T) {
 		if len(upEv.Locations) != 1 || upEv.Locations[0].Name != "Frankfurt" || upEv.Locations[0].Message != "DNS hatası" {
 			t.Fatalf("düzelme bildirimi hâlâ çalışmayan konumu listelemeli: %+v", upEv.Locations)
 		}
-		if body := upEv.Body(); !strings.Contains(body, "Frankfurt: DNS hatası") {
+		if body := upEv.Body(); !strings.Contains(body, "Frankfurt: Başarısız (DNS hatası)") {
 			t.Fatalf("bildirim gövdesi: %q", body)
 		}
 		// Frankfurt düzelir: kısmi olay kapanır, düzelme aynı olaya bağlı.

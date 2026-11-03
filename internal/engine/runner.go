@@ -418,6 +418,9 @@ func (r *runner) notify(kind string, now time.Time, msg string, downtime time.Du
 	switch kind {
 	case notify.KindDown, notify.KindReminder:
 		ev.Locations = r.locationNotes(now)
+		if r.locs != nil && r.meshLost {
+			ev.MeshLost, ev.LocalName = true, r.e.LocalLocationName()
+		}
 	case notify.KindUp:
 		// Düzelme bildiriminde hâlâ çalışmayan konumlar ayrı satırda: tam
 		// kesinti bitti ama konum kesintisi sürüyorsa ikinci bir uyarı gitmez,
@@ -459,8 +462,9 @@ func (r *runner) notifyPartial(kind string, now time.Time, incidentID int64, msg
 	r.e.notifier.Notify(ev)
 }
 
-// locationNotes çok konumlu monitörde çalışmayan ve ulaşılamayan konumlar
-// (bildirimde ayrı satırlar); tek konumluda nil.
+// locationNotes çok konumlu monitörde tüm konumlar (bildirimde ayrı satırlar:
+// çalışan "Başarılı", çalışmayan "Başarısız", ulaşılamayan); tek konumluda nil.
+// İlk sonucu beklenen konum yazılmaz.
 func (r *runner) locationNotes(now time.Time) []notify.LocationNote {
 	if r.locs == nil {
 		return nil
@@ -470,6 +474,8 @@ func (r *runner) locationNotes(now time.Time) []notify.LocationNote {
 		switch s.Status {
 		case locDown, locRetrying:
 			out = append(out, notify.LocationNote{Name: s.Name, Message: s.Message})
+		case locUp:
+			out = append(out, notify.LocationNote{Name: s.Name, OK: true})
 		case locUnknown:
 			out = append(out, notify.LocationNote{Name: s.Name, NoData: true})
 		}

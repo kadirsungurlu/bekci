@@ -8,8 +8,8 @@ package i18n
 var messages = map[string]Msg{
 	// Monitör bildirimleri: başlıklar (%s: monitör adı)
 	"notify.down.title":          {"%s çalışmıyor", "%s is down"},
-	"notify.location_down.title": {"%s: konum kesintisi", "%s: location outage"},
-	"notify.location_up.title":   {"%s: tüm konumlar çalışıyor", "%s: all locations up"},
+	"notify.location_down.title": {"%s için kısmi erişim kesintisi", "Partial reachability outage: %s"},
+	"notify.location_up.title":   {"%s için kısmi erişim kesintisi bitti", "Partial reachability outage resolved: %s"},
 	"notify.up.title":            {"%s tekrar çalışıyor", "%s is up again"},
 	"notify.reminder.title":      {"%s hâlâ çalışmıyor", "%s is still down"},
 	"notify.cert.expired":        {"%s: SSL sertifikasının süresi doldu", "%s: SSL certificate has expired"},
@@ -80,6 +80,10 @@ var messages = map[string]Msg{
 	"notify.mail.open":            {"Ayrıntıları aç", "Open details"},
 	"notify.mail.footer":          {"Bu e-posta %s tarafından gönderildi.", "This email was sent by %s."},
 	"notify.loc.no_data":          {"Kontrol noktasına ulaşılamıyor", "Check location unreachable"},
+	"notify.loc.ok":               {"Başarılı", "Successful"},
+	"notify.loc.failed":           {"Başarısız", "Failed"},
+	"notify.loc.failed_msg":       {"Başarısız (%s)", "Failed (%s)"},
+	"notify.mesh_lost.note":       {"Kontrol noktalarına ulaşılamıyor; karar yalnız %s sonucuna dayanıyor.", "Check locations are unreachable; the decision rests only on the %s result."},
 	"notify.field.downtime":       {"Kesinti süresi", "Downtime"},
 	"notify.field.duration":       {"Süre", "Duration"},
 	"notify.field.expires":        {"Bitiş", "Expires"},

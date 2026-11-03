@@ -26,7 +26,8 @@ func TestSampleEvents(t *testing.T) {
 				t.Errorf("disk başlığı: %s", got)
 			}
 		}
-		if ev.Kind == KindLocationDown && (len(ev.Locations) != 1 || !strings.Contains(ev.Body(), "Frankfurt")) {
+		if ev.Kind == KindLocationDown && (len(ev.Locations) != 2 || !strings.Contains(ev.Body(), "Frankfurt: Başarılı") ||
+			!strings.Contains(ev.Body(), "Ana sunucu: Başarısız") || !strings.Contains(ev.Title(), "kısmi erişim kesintisi")) {
 			t.Errorf("konum kesintisi örneği konum satırı taşımalı: %q", ev.Body())
 		}
 	}

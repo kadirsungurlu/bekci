@@ -128,6 +128,10 @@ type Event struct {
 	// Locations çok konumlu monitörde çalışmayan / sonuç gelmeyen konumlar:
 	// doluysa "Neden" yerine her konum ayrı satırda yazılır.
 	Locations []LocationNote
+	// MeshLost kontrol noktalarına ulaşılamıyordu; karar yalnız ana sunucunun
+	// (LocalName) sonucuna dayanıyor: gövdenin başına not düşülür.
+	MeshLost  bool
+	LocalName string
 
 	// Lang bildirim metninin dili (tr/en). Boşsa Dispatcher ayarlardaki
 	// bildirim dilini (AppSettings.NotifyLang) doldurur; yine boşsa tr.
@@ -301,11 +305,13 @@ func (e Event) Title() string {
 	return e.MonitorName
 }
 
-// LocationNote bildirimde bir konumun satırı. NoData: konumdan sonuç gelmiyor.
+// LocationNote bildirimde bir konumun satırı. NoData: konumdan sonuç gelmiyor;
+// OK: konum çalışıyor ("Başarılı"); ikisi de değilse "Başarısız".
 type LocationNote struct {
 	Name    string `json:"name"`
 	Message string `json:"message,omitempty"`
 	NoData  bool   `json:"no_data,omitempty"`
+	OK      bool   `json:"ok,omitempty"`
 }
 
 // Text başlık dahil tam düz metin (başlığı ayrı alanda gitmeyen kanallar).
@@ -320,10 +326,10 @@ type Row struct {
 	Locations []LocRow
 }
 
-// LocRow konum satırı (bildirim dilinde). NoData: sonuç gelmiyor.
+// LocRow konum satırı (bildirim dilinde). NoData: sonuç gelmiyor; OK: çalışıyor.
 type LocRow struct {
 	Name, Message string
-	NoData        bool
+	NoData, OK    bool
 }
 
 // Notes test/örnek bildirim açıklamaları (gövdenin başında).
@@ -334,6 +340,9 @@ func (e Event) Notes() []string {
 	}
 	if e.Sample {
 		out = append(out, i18n.T(e.Lang, "notify.sample.note"))
+	}
+	if e.MeshLost {
+		out = append(out, i18n.T(e.Lang, "notify.mesh_lost.note", i18n.Message(e.Lang, e.LocalName)))
 	}
 	switch {
 	case e.Escalated:
@@ -368,9 +377,17 @@ func (e Event) Rows() []Row {
 	locations := func(key string) {
 		r := Row{Key: key, Label: i18n.T(l, "notify.field."+key)}
 		for _, n := range e.Locations {
-			lr := LocRow{Name: n.Name, Message: i18n.Message(l, n.Message), NoData: n.NoData}
-			if n.NoData {
+			// Satır: "<konum>: Başarılı" / "<konum>: Başarısız (hata)".
+			lr := LocRow{Name: i18n.Message(l, n.Name), NoData: n.NoData, OK: n.OK}
+			switch {
+			case n.NoData:
 				lr.Message = i18n.T(l, "notify.loc.no_data")
+			case n.OK:
+				lr.Message = i18n.T(l, "notify.loc.ok")
+			case n.Message != "":
+				lr.Message = i18n.T(l, "notify.loc.failed_msg", i18n.Message(l, n.Message))
+			default:
+				lr.Message = i18n.T(l, "notify.loc.failed")
 			}
 			r.Locations = append(r.Locations, lr)
 		}

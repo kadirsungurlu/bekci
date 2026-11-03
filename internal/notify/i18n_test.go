@@ -34,8 +34,8 @@ func TestEnglishEvents(t *testing.T) {
 		2:  "Example Site is up again",
 		3:  "Example Site is responding slowly",
 		4:  "Example Site response time back to normal",
-		5:  "Example Site: location outage",
-		6:  "Example Site: all locations up",
+		5:  "Partial reachability outage: Example Site",
+		6:  "Partial reachability outage resolved: Example Site",
 		7:  "Example Site: SSL certificate expires in 7 days",
 		8:  "Example Site: domain example.com expires in 14 days",
 		9:  "Example Server: CPU 82% (10 min average, warning threshold 80%)",
@@ -111,9 +111,9 @@ func TestLocationLinesAndBody(t *testing.T) {
 	ev := Event{Kind: KindDown, Lang: "tr", MonitorName: "Ayder", Target: "https://a.example",
 		Message:   "Ana sunucu: HTTP 403 Forbidden (ulaşılamayan: CP Server IST)",
 		Time:      time.Date(2026, 10, 1, 10, 58, 1, 0, time.Local),
-		Locations: []LocationNote{{Name: "Ana sunucu", Message: "HTTP 403 Forbidden"}, {Name: "CP Server IST", NoData: true}}}
+		Locations: []LocationNote{{Name: "Ana sunucu", Message: "HTTP 403 Forbidden"}, {Name: "CP Server IST", NoData: true}, {Name: "Frankfurt", OK: true}}}
 	body := ev.Body()
-	want := "Hedef: https://a.example\nKonumlar:\n• Ana sunucu: HTTP 403 Forbidden\n• CP Server IST: Kontrol noktasına ulaşılamıyor\nZaman: "
+	want := "Hedef: https://a.example\nKonumlar:\n• Ana sunucu: Başarısız (HTTP 403 Forbidden)\n• CP Server IST: Kontrol noktasına ulaşılamıyor\n• Frankfurt: Başarılı\nZaman: "
 	if !strings.HasPrefix(body, want) {
 		t.Fatalf("gövde:\n%s", body)
 	}
@@ -124,12 +124,27 @@ func TestLocationLinesAndBody(t *testing.T) {
 		t.Fatalf("Text = başlık + gövde olmalı:\n%s", ev.Text())
 	}
 	ev.Lang = "en"
-	if b := ev.Body(); !strings.Contains(b, "Locations:\n• Ana sunucu: HTTP 403 Forbidden\n• CP Server IST: Check location unreachable") {
+	if b := ev.Body(); !strings.Contains(b, "Locations:\n• Main server: Failed (HTTP 403 Forbidden)\n• CP Server IST: Check location unreachable\n• Frankfurt: Successful") {
 		t.Fatalf("İngilizce gövde:\n%s", b)
 	}
 	// Konum bilgisi yoksa eskisi gibi "Neden".
 	ev.Lang, ev.Locations = "tr", nil
 	if b := ev.Body(); !strings.Contains(b, "\nNeden: Ana sunucu: HTTP 403") {
 		t.Fatalf("konumsuz gövde:\n%s", b)
+	}
+}
+
+// Karar yalnız ana sunucuya dayanıyorsa (kontrol noktalarına ulaşılamıyor)
+// gövdenin başında not; ana sunucunun varsayılan adı dile çevrilir.
+func TestMeshLostNote(t *testing.T) {
+	ev := Event{Kind: KindDown, MonitorName: "Lin4", Target: "https://x", Time: time.Now(), MeshLost: true, LocalName: "Ana sunucu",
+		Locations: []LocationNote{{Name: "Ana sunucu", Message: "Zaman aşımı"}, {Name: "Frankfurt", NoData: true}}}
+	ev.Lang = "tr"
+	if b := ev.Body(); !strings.HasPrefix(b, "Kontrol noktalarına ulaşılamıyor; karar yalnız Ana sunucu sonucuna dayanıyor.\n") {
+		t.Fatalf("tr not:\n%s", b)
+	}
+	ev.Lang, ev.LocalName = "en", "DH-EU"
+	if b := ev.Body(); !strings.HasPrefix(b, "Check locations are unreachable; the decision rests only on the DH-EU result.\n") {
+		t.Fatalf("en not:\n%s", b)
 	}
 }
