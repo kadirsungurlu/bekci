@@ -43,6 +43,8 @@ import (
 //	PROBE_STATE_DIR        ajanın durum dizini (varsayılan program dizini): ana sunucunun
 //	                       son bilinen IP'leri uptime.dns.json dosyasında saklanır; DNS
 //	                       çözülemezse ajan bu IP'lerle bağlanmaya devam eder
+//	PROBE_OOB_IFACE        OOB (ikinci hat) IP'sinin ağ arayüzü (ör. eth1); boşsa panelde
+//	                       girilen OOB IP'sine göre otomatik bulunur (NAT arkasında gerekir)
 //	AUTO_UPDATE            "0" ise ajan panelin sunduğu imzalı sürüme kendini
 //	                       güncellemez (varsayılan açık; bkz. internal/agentupdate)
 //
@@ -90,6 +92,7 @@ func probeMain(ctx context.Context, log *slog.Logger) error {
 		MaxConcurrent: maxChecks,
 		NoMetrics:     slices.Contains([]string{"0", "false", "off", "no"}, strings.ToLower(env("METRICS", "1"))),
 		StateDir:      probeStateDir(),
+		OOBIface:      env("PROBE_OOB_IFACE", ""),
 		AllowInsecure: slices.Contains([]string{"1", "true", "on", "yes"}, strings.ToLower(env("PROBE_ALLOW_INSECURE", ""))),
 		Log:           log,
 		Updater:       updater,

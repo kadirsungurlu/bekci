@@ -178,7 +178,7 @@ func TestDNSCacheTransport(t *testing.T) {
 	d, f, now := testDNSCache(t, t.TempDir())
 	f.set("example.com", []string{"127.0.0.1"}, nil)
 	f.set("yanlis.test", []string{"127.0.0.1"}, nil) // httptest sertifikası bu adı içermez
-	hc := newHTTPClient(d)
+	hc := newHTTPClient(d, nil)
 	pool := x509.NewCertPool()
 	pool.AddCert(srv.Certificate())
 	hc.Transport.(*http.Transport).TLSClientConfig = &tls.Config{RootCAs: pool}

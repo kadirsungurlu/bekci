@@ -107,8 +107,10 @@ func (c *Client) heartbeatOnce(ctx context.Context) time.Duration {
 	c.hb.mainLoss.Store(0)
 	c.hb.unsupported = false
 	c.reachable("mesh")
+	c.up.setConfig(resp.OOB, c.oobLog)
 	if t := resp.Timing; t.PanelSec > 0 {
 		c.hb.panelSec.Store(int64(t.PanelSec))
+		c.up.lossThr.Store(int64(t.LossThreshold))
 		if c.cfg.OnMeshTiming != nil {
 			c.cfg.OnMeshTiming(t)
 		}
