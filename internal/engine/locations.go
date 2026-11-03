@@ -79,6 +79,8 @@ type LocationStatus struct {
 	LastCheckAt int64  `json:"last_check_at"`
 	PingMs      int64  `json:"ping_ms"`
 	Message     string `json:"message"`
+	// OOB konumun ajanı OOB hattında: sonucu karara katılmıyor (uplink.go).
+	OOB bool `json:"oob,omitempty"`
 }
 
 type location struct {
@@ -351,6 +353,7 @@ func (r *runner) drainInbox() {
 	for _, l := range ls.locs {
 		if l != ls.local {
 			l.goneAt, l.gone = r.e.probeGoneAt(l.probeID)
+			l.noVote = r.e.ProbeOnOOB(l.probeID)
 		}
 	}
 	for _, it := range items {
@@ -491,7 +494,7 @@ func classify(l *location, now time.Time, rules locRules) string {
 func (ls *locationSet) statuses(now time.Time, rules locRules) []LocationStatus {
 	out := make([]LocationStatus, len(ls.locs))
 	for i, l := range ls.locs {
-		st := LocationStatus{ProbeID: l.probeID, Name: l.name, Status: classify(l, now, rules), PingMs: -1}
+		st := LocationStatus{ProbeID: l.probeID, Name: l.name, Status: classify(l, now, rules), PingMs: -1, OOB: l.noVote}
 		if l.have {
 			st.LastCheckAt, st.PingMs, st.Message = l.at.Unix(), l.res.PingMs, l.res.Message
 			if st.Status == locUnknown {

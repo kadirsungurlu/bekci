@@ -106,12 +106,16 @@ type Probe struct {
 
 	// Mesh ezmeleri ve adresi (migration 40; mesh.go).
 	ProbeMesh
+
+	// OOB ikinci hat (migration 41; probes_oob.go).
+	ProbeOOB
 }
 
 const probeCols = `id, name, token_prefix, active, created_at, last_seen_at, last_ip, version, token_hash,
 	metrics, host_info, metrics_at, metrics_note, kind, ip_lock, locked_ip, notify_offline,
 	platform, auto_update, update_requested_at, update_status, update_target, update_note, update_at,
-	mesh_ping_sec, mesh_loss_threshold, panel_sec, mesh_addr, fallback_notifier`
+	mesh_ping_sec, mesh_loss_threshold, panel_sec, mesh_addr, fallback_notifier,
+	oob_ip, oob_name, uplink, uplink_since, oob_iface_missing`
 
 func scanProbe(sc scanner) (Probe, error) {
 	var p Probe
@@ -119,7 +123,8 @@ func scanProbe(sc scanner) (Probe, error) {
 	err := sc.Scan(&p.ID, &p.Name, &p.TokenPrefix, &p.Active, &p.CreatedAt, &seen, &p.LastIP, &p.Version, &p.Hash,
 		&p.Metrics, &p.HostInfo, &metricsAt, &p.MetricsNote, &p.Kind, &p.IPLock, &p.LockedIP, &p.NotifyOffline,
 		&p.Platform, &autoUpdate, &p.UpdateRequestedAt, &p.UpdateStatus, &p.UpdateTarget, &p.UpdateNote, &p.UpdateAt,
-		&meshPing, &meshLoss, &panelSec, &p.MeshAddr, &p.FallbackNotifier)
+		&meshPing, &meshLoss, &panelSec, &p.MeshAddr, &p.FallbackNotifier,
+		&p.OOBIP, &p.OOBName, &p.Uplink, &p.UplinkSince, &p.OOBIfaceMissing)
 	p.MeshPingSec, p.MeshLossThreshold, p.PanelSec = scanIntPtr(meshPing), scanIntPtr(meshLoss), scanIntPtr(panelSec)
 	p.LastSeenAt, p.MetricsAt = seen.Int64, metricsAt.Int64
 	if autoUpdate.Valid {

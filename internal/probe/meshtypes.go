@@ -54,4 +54,6 @@ type MeshHeartbeatResponse struct {
 	Timing       MeshTiming `json:"timing"`
 	PeersVersion string     `json:"peers_version"`
 	ServerTime   int64      `json:"server_time"`
+	// OOB ikinci hat ayarı (oobtypes.go); eski panel göndermez.
+	OOB OOBConfig `json:"oob"`
 }

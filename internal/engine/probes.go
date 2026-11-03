@@ -151,6 +151,7 @@ func (e *Engine) scanProbes(ctx context.Context, known map[int64]bool) map[int64
 		}
 		return known
 	}
+	e.syncUplinks(probes)
 	now := e.now()
 	set := e.Settings()
 	next := make(map[int64]bool, len(probes))

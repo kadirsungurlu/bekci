@@ -138,6 +138,7 @@ func (s *Server) probeMeshHeartbeat(w http.ResponseWriter, r *http.Request) {
 		Timing:       meshTimingOf(store.EffectiveProbeTiming(p, set)),
 		PeersVersion: peers.Version,
 		ServerTime:   now.UnixMilli(),
+		OOB:          probeOOBConfig(p),
 	})
 }
 

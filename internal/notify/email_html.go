@@ -74,6 +74,10 @@ func (e Event) mailStatus() (string, mailTone) {
 		key, tone = "resolved", toneUp
 	case KindMesh:
 		key, tone = "alert", toneDown
+	case KindUplinkFailover:
+		key, tone = "alert", toneWarn
+	case KindUplinkRestored:
+		key, tone = "resolved", toneUp
 	case KindAcked:
 		key, tone = "acked", toneInfo
 	}

@@ -133,11 +133,15 @@ var messages = map[string]Msg{
 	"incident.degraded.disabled": {"Yanıt süresi eşiği kaldırıldı; olay kapatıldı", "Response-time threshold removed; incident closed"},
 
 	// Kontrol noktası çevrimdışı/çevrimiçi (%s: kontrol noktasının adı)
-	"notify.probe.offline":   {"%s: kontrol noktasına ulaşılamıyor", "%s: check location unreachable"},
-	"notify.probe.online":    {"%s: kontrol noktası tekrar çevrimiçi", "%s: check location back online"},
-	"notify.field.probe":     {"Kontrol noktası", "Check location"},
-	"incident.probe.offline": {"Kontrol noktasına ulaşılamıyor", "Check location unreachable"},
-	"notify.sample.probe":    {"Frankfurt", "Frankfurt"},
+	"notify.probe.offline":     {"%s: kontrol noktasına ulaşılamıyor", "%s: check location unreachable"},
+	"notify.probe.online":      {"%s: kontrol noktası tekrar çevrimiçi", "%s: check location back online"},
+	"notify.field.probe":       {"Kontrol noktası", "Check location"},
+	"notify.uplink.failover":   {"%s ana hatta erişemiyor, şu an %s üzerinden bağlı", "%s cannot connect over the primary line, now connected via %s"},
+	"notify.uplink.restored":   {"%s ana hatta döndü", "%s is back on the primary line"},
+	"notify.field.uplink":      {"Etkin hat", "Active line"},
+	"notify.field.uplink_time": {"İkinci hatta geçen süre", "Time on the second line"},
+	"incident.probe.offline":   {"Kontrol noktasına ulaşılamıyor", "Check location unreachable"},
+	"notify.sample.probe":      {"Frankfurt", "Frankfurt"},
 
 	// Sunucu uyarıları (%s: sunucu adı)
 	"notify.server.offline":             {"%s: sunucuya ulaşılamıyor", "%s: server unreachable"},

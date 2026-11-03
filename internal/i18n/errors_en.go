@@ -224,6 +224,8 @@ var errorsEN = map[string]string{
 	"Kontrol noktası devre dışı":                                                "Check location is disabled",
 	"Geçersiz kontrol noktası token'ı":                                          "Invalid check location token",
 	"Bu ajan başka bir IP'ye kilitli; taşındıysa Ayarlar'dan kilidi sıfırlayın": "This agent is locked to another IP; if it has moved, reset the lock in Settings",
+	"OOB IP adresi geçersiz":                                                    "Invalid OOB IP address",
+	"OOB adı en fazla 40 karakter olmalı":                                       "OOB name must be at most 40 characters",
 	"Bu adda bir %s zaten var":                                                  "A %s with this name already exists",
 	"Bu adda bir sunucu zaten var":                                              "A server with this name already exists",
 	"Bu adda bir kontrol noktası zaten var":                                     "A check location with this name already exists",

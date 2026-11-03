@@ -53,6 +53,10 @@ const (
 	// Kontrol noktaları arası bağlantı sorunu (Mesh: tüm bağlantılar + yorum)
 	// / tüm bağlantılar düzeldi. Kanallar: yorumda geçen ve "çevrimdışında
 	// bildir" açık kontrol noktalarının kanalları (MeshProbes).
+	// Ajanın OOB ikinci hattına geçişi ve ana hatta dönüşü (engine/uplink.go).
+	KindUplinkFailover = "probe_uplink_failover"
+	KindUplinkRestored = "probe_uplink_restored"
+
 	KindMesh         = "mesh"
 	KindMeshResolved = "mesh_resolved"
 
@@ -144,6 +148,8 @@ type Event struct {
 	// başına bir kez çizer; boşsa yalnız metin). Kuyruğa yazılmaz: ertelenen
 	// bildirim yalnız metinle gider.
 	Image []byte `json:"-"`
+	// UplinkName OOB hat geçişi bildiriminde ikinci hattın adı (vars. "OOB").
+	UplinkName string
 	// MeshProbes mesh bildiriminin kanallarının alınacağı kontrol noktaları.
 	MeshProbes []int64
 	LocalName  string
@@ -170,7 +176,7 @@ type Event struct {
 var Kinds = []string{
 	KindDown, KindUp, KindReminder, KindCert, KindLocationDown, KindLocationUp,
 	KindSlow, KindSlowResolved, KindServerAlert, KindServerResolved, KindProbeOffline, KindProbeOnline,
-	KindServerReboot, KindDomain, KindAcked, KindMesh, KindMeshResolved,
+	KindServerReboot, KindDomain, KindAcked, KindMesh, KindMeshResolved, KindUplinkFailover, KindUplinkRestored,
 }
 
 // DefaultKinds süzgeçsiz (events boş) kanalın aldığı türler: Kinds eksi
@@ -317,6 +323,10 @@ func (e Event) Title() string {
 		return i18n.T(l, "notify.probe.offline", e.MonitorName)
 	case KindProbeOnline:
 		return i18n.T(l, "notify.probe.online", e.MonitorName)
+	case KindUplinkFailover:
+		return i18n.T(l, "notify.uplink.failover", e.MonitorName, e.UplinkName)
+	case KindUplinkRestored:
+		return i18n.T(l, "notify.uplink.restored", e.MonitorName)
 	case KindMesh:
 		return i18n.T(l, "mesh.title")
 	case KindMeshResolved:
@@ -389,7 +399,7 @@ func (e Event) Rows() []Row {
 		}
 	}
 	switch {
-	case e.Kind == KindProbeOffline || e.Kind == KindProbeOnline:
+	case e.Kind == KindProbeOffline || e.Kind == KindProbeOnline || ((e.Kind == KindUplinkFailover || e.Kind == KindUplinkRestored) && e.MonitorType == "probe"):
 		add("probe", e.Target)
 	case e.ProbeID != 0:
 		add("server", e.Target)
@@ -465,6 +475,12 @@ func (e Event) Rows() []Row {
 		add("info", e.info())
 	case KindProbeOnline:
 		add("downtime", i18n.Duration(l, e.Downtime))
+	case KindUplinkFailover:
+		add("uplink", e.UplinkName)
+	case KindUplinkRestored:
+		if e.Downtime > 0 {
+			add("uplink_time", i18n.Duration(l, e.Downtime))
+		}
 	case KindMesh, KindMeshResolved:
 		if e.Kind == KindMeshResolved {
 			add("downtime", i18n.Duration(l, e.Downtime))
@@ -532,14 +548,15 @@ func (e Event) DetailURL() string {
 // IsProblem olayın kötü haber olup olmadığı (öncelik/renk seçimi için).
 func (e Event) IsProblem() bool {
 	return e.Kind == KindDown || e.Kind == KindReminder || e.Kind == KindCert || e.Kind == KindServerAlert || e.Kind == KindLocationDown ||
-		e.Kind == KindProbeOffline || e.Kind == KindSlow || e.Kind == KindServerReboot || e.Kind == KindDomain || e.Kind == KindMesh
+		e.Kind == KindProbeOffline || e.Kind == KindSlow || e.Kind == KindServerReboot || e.Kind == KindDomain || e.Kind == KindMesh ||
+		e.Kind == KindUplinkFailover
 }
 
 // IsRecovery sorunun bittiğini bildiren olay mı (monitör tekrar çalışıyor,
 // sunucu uyarısı bitti). Olay kapatan servisler (PagerDuty, Opsgenie) için.
 func (e Event) IsRecovery() bool {
 	return e.Kind == KindUp || e.Kind == KindServerResolved || e.Kind == KindLocationUp || e.Kind == KindProbeOnline || e.Kind == KindSlowResolved ||
-		e.Kind == KindMeshResolved
+		e.Kind == KindMeshResolved || e.Kind == KindUplinkRestored
 }
 
 // AlertKey olayın dış servislerdeki kimliği: aynı sorunun başlangıç ve bitiş
@@ -559,6 +576,8 @@ func (e Event) AlertKey() string {
 		return prefix + "mesh"
 	case e.Kind == KindProbeOffline || e.Kind == KindProbeOnline:
 		return fmt.Sprintf("%sprobe-%d-offline", prefix, e.ProbeID)
+	case e.Kind == KindUplinkFailover || e.Kind == KindUplinkRestored:
+		return fmt.Sprintf("%sprobe-%d-uplink", prefix, e.ProbeID)
 	case e.Kind == KindServerReboot:
 		return fmt.Sprintf("%sserver-%d-reboot-%d", prefix, e.ProbeID, e.BootTime.Unix())
 	case e.ProbeID != 0 && e.Metric == "container":
