@@ -25,6 +25,7 @@ type MeshSource interface {
 type heartbeatState struct {
 	panelSec atomic.Int64 // panelin bildirdiği aralık (sn); 0: henüz bilinmiyor
 	mainLoss atomic.Int64 // art arda başarısız kalp atışı
+	mainRTT  atomic.Int64 // son başarılı kalp atışının gidiş-dönüş süresi (ms); 0: henüz yok
 
 	peersVersion string // son alınan eş listesi sürümü
 	unsupported  bool   // panel 404 döndü (log bir kez)
@@ -68,7 +69,7 @@ func (c *Client) heartbeatLoop(ctx context.Context) {
 
 // heartbeatOnce bir kalp atışı gönderir; bir sonrakine kadar beklenecek süreyi döner.
 func (c *Client) heartbeatOnce(ctx context.Context) time.Duration {
-	hb := MeshHeartbeat{MainLoss: c.MainLoss(), PeersVersion: c.hb.peersVersion}
+	hb := MeshHeartbeat{MainLoss: c.MainLoss(), MainRTTms: c.hb.mainRTT.Load(), PeersVersion: c.hb.peersVersion}
 	if src := c.cfg.MeshSource; src != nil {
 		hb.Links = src.Report()
 		hb.ListenPort = src.ListenPort()
@@ -78,7 +79,9 @@ func (c *Client) heartbeatOnce(ctx context.Context) time.Duration {
 	hctx, cancel := context.WithTimeout(ctx, every)
 	defer cancel()
 	var resp MeshHeartbeatResponse
+	sent := time.Now()
 	status, err := c.call(hctx, http.MethodPost, "/api/probe/mesh", hb, &resp)
+	rtt := time.Since(sent)
 	if ctx.Err() != nil {
 		return every
 	}
@@ -105,6 +108,7 @@ func (c *Client) heartbeatOnce(ctx context.Context) time.Duration {
 		return max(every, c.cfg.MaxBackoff)
 	}
 	c.hb.mainLoss.Store(0)
+	c.hb.mainRTT.Store(max(rtt.Milliseconds(), 1))
 	c.hb.unsupported = false
 	c.reachable("mesh")
 	c.up.setConfig(resp.OOB, c.oobLog)

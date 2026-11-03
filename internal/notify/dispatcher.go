@@ -71,6 +71,8 @@ type Dispatcher struct {
 	// observer her Notify çağrısında olayı (kanal seçiminden bağımsız) alır:
 	// durum sayfası abone e-postaları (api/subscribers_notify.go). Bloklamamalı.
 	observer atomic.Pointer[func(Event)]
+
+	lastSend sync.Map // kanal id -> SendStatus (lastsend.go)
 }
 
 // SetObserver Notify'a gelen her olayı fn'e de iletir (nil: kapatır). fn
@@ -375,6 +377,7 @@ func (d *Dispatcher) deliver(ch store.Notification, ev Event, queueID int64) {
 		ev.Delayed = true
 	}
 	attempts, err := d.sendRetry(ch.Type, ch.Config, ev)
+	d.noteSend(ch.ID, d.now(), err)
 	if ev.IncidentID != 0 {
 		if rerr := d.store.RecordDelivery(ctx, ev.IncidentID, ch.ID, ev.Kind, now.Unix()); rerr != nil {
 			d.log.Error("teslimat kaydı yazılamadı", "olay", ev.IncidentID, "hata", rerr)

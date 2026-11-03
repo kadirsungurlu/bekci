@@ -51,6 +51,7 @@ type Engine struct {
 	// heartbeats son kalp atışı (ProbeHeartbeat); mainDown kalp atışı kesilen
 	// probe'lar ve kesilme anı (scanProbes). Bkz. probes.go.
 	heartbeats map[int64]time.Time
+	rate       resultRate // canlı topoloji: saniyedeki sonuç (rate.go)
 	mainDown   map[int64]time.Time
 	oob        map[int64]bool        // OOB hattındaki ajanlar (uplink.go; sonuçları karara katılmaz)
 	meshEv     meshEval              // mesh kararı (watchProbes döngüsü)

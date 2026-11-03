@@ -283,6 +283,7 @@ func (e *Engine) ProbeResults(probeID int64, results []ProbeResult) int {
 		}
 		n++
 	}
+	e.rate.add(time.Now(), n)
 	return n
 }
 

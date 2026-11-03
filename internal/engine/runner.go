@@ -307,6 +307,9 @@ func (r *runner) process(res check.Result) {
 		Beat:         store.Beat{MonitorID: r.m.ID, Time: now.Unix(), Status: status, PingMs: res.PingMs, Message: res.Message, Location: r.beatLocation(now)},
 		LastChangeAt: lastChange,
 	})
+	if err == nil {
+		r.e.rate.add(now, 1)
+	}
 	if err != nil {
 		// Kaydedilemeyen sonuç için bildirim gönderilmez; durum bellekte de
 		// değişmez (deneme sayacı dahil: kaydedilmeyen deneme hak düşürmez),

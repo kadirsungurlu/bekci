@@ -45,7 +45,10 @@ type MeshHeartbeat struct {
 	ListenPort int `json:"listen_port"`
 	// MainLoss ajanın bir önceki başarılı kalp atışından beri art arda
 	// başaramadığı kalp atışı sayısı (probe -> Main yönü).
-	MainLoss     int    `json:"main_loss"`
+	MainLoss int `json:"main_loss"`
+	// MainRTTms bir önceki başarılı kalp atışının gidiş-dönüş süresi (ms);
+	// 0: henüz ölçülmedi (eski ajan da göndermez).
+	MainRTTms    int64  `json:"main_rtt_ms,omitempty"`
 	PeersVersion string `json:"peers_version"`
 }
 
