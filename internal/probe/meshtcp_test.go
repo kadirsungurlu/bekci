@@ -272,3 +272,41 @@ func TestMeshRejectsBadFrames(t *testing.T) {
 		expectClosed(t, c1)
 	})
 }
+
+// Doğrulanmamış bağlantı seli: sınırı aşan bağlantı hemen kapatılır,
+// yuva boşalınca geçerli eş yine bağlanabilir.
+func TestMeshPendingHelloLimit(t *testing.T) {
+	keyHex, key := meshTestKey(t)
+	a := startTestMesh(t, 1, "127.0.0.1:0")
+	addr := meshAddr(a)
+	a.SetPeers(true, []MeshPeer{{ID: 2, Key: keyHex}})
+	idle := make([]net.Conn, 0, meshMaxPendingHello)
+	for range meshMaxPendingHello {
+		c, err := net.Dial("tcp", addr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		idle = append(idle, c)
+	}
+	waitMesh(t, "yuvalar dolsun", func() bool { return len(a.hsSem) == meshMaxPendingHello })
+	extra, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer extra.Close()
+	expectClosed(t, extra)
+	for _, c := range idle {
+		c.Close()
+	}
+	waitMesh(t, "yuvalar boşalsın", func() bool { return len(a.hsSem) == 0 })
+	c, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	c.Write(rawFrame(t, meshHello, 2, 1, 5000, time.Now(), key))
+	c.SetReadDeadline(time.Now().Add(3 * time.Second))
+	if _, err := readMeshBody(c); err != nil {
+		t.Fatalf("geçerli hello kabul edilmedi: %v", err)
+	}
+}

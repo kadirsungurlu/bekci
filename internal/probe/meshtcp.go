@@ -48,6 +48,9 @@ const (
 	meshStateDown     = "down"
 	meshStateUnknown  = "unknown"
 	meshMinIdleWindow = 2 * time.Second
+	// meshMaxPendingHello doğrulanmamış (hello bekleyen) eşzamanlı bağlantı
+	// sınırı; aşan bağlantı hemen kapatılır (bağlantı seli ile bellek tüketimi olmasın).
+	meshMaxPendingHello = 32
 )
 
 type meshFrameType uint8
@@ -209,6 +212,7 @@ type Mesh struct {
 	peers         map[int64]*meshPeer
 	helloSeq      map[int64]uint64 // eşten kabul edilen son hello sırası (yeniden oynatma koruması)
 	sendSeq       map[int64]uint64 // eşe giden yönün son sıra no'su
+	hsSem         chan struct{}    // hello bekleyen bağlantı yuvaları
 	ctx           context.Context
 	cancel        context.CancelFunc
 	ln            net.Listener
@@ -225,6 +229,7 @@ func NewMesh(cfg MeshConfig) *Mesh {
 		peers:    map[int64]*meshPeer{},
 		helloSeq: map[int64]uint64{},
 		sendSeq:  map[int64]uint64{},
+		hsSem:    make(chan struct{}, meshMaxPendingHello),
 	}
 	if m.now == nil {
 		m.now = time.Now
@@ -514,6 +519,13 @@ func (m *Mesh) acceptLoop(ln net.Listener) {
 			}
 			continue
 		}
+		select {
+		case m.hsSem <- struct{}{}:
+		default:
+			m.logf("mesh: çok sayıda doğrulanmamış bağlantı, %s kapatıldı", conn.RemoteAddr())
+			conn.Close()
+			continue
+		}
 		m.wg.Add(1)
 		go m.handshake(conn)
 	}
@@ -522,6 +534,9 @@ func (m *Mesh) acceptLoop(ln net.Listener) {
 // handshake gelen bağlantının ilk çerçevesini (hello) doğrular ve eş döngüsüne verir.
 func (m *Mesh) handshake(conn net.Conn) {
 	defer m.wg.Done()
+	var relOnce sync.Once
+	release := func() { relOnce.Do(func() { <-m.hsSem }) }
+	defer release()
 	stopAF := context.AfterFunc(m.ctx, func() { conn.Close() })
 	defer stopAF()
 	remote := conn.RemoteAddr().String()
@@ -566,6 +581,7 @@ func (m *Mesh) handshake(conn net.Conn) {
 	m.helloSeq[f.From] = f.Seq
 	m.mu.Unlock()
 	conn.SetReadDeadline(time.Time{})
+	release() // doğrulandı; yuva eş döngüsünü beklerken tutulmaz
 	s := newMeshSession(m, p, conn, f.From)
 	s.lastSeq = f.Seq
 	select {
