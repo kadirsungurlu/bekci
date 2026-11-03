@@ -210,3 +210,25 @@ func unionIDs(a, b []int64) []int64 {
 	}
 	return out
 }
+
+// MeshSnapshot arayüz için güncel bağlantı kararı. Mesh kapalıysa ya da
+// kalp atışı gönderen kontrol noktası 2'den azsa ok=false.
+func (e *Engine) MeshSnapshot(ctx context.Context, now time.Time) (mesh.Report, bool, error) {
+	probes, err := e.store.ListProbesOfKind(ctx, store.ProbeKindLocation)
+	if err != nil {
+		return mesh.Report{}, false, err
+	}
+	nodes := e.meshNodes(probes)
+	if nodes == nil {
+		return mesh.Report{}, false, nil
+	}
+	links, err := e.store.ListProbeLinks(ctx)
+	if err != nil {
+		return mesh.Report{}, false, err
+	}
+	online := make(map[int64]bool, len(nodes))
+	for id, p := range nodes {
+		online[id] = e.ProbeOnline(p, now)
+	}
+	return e.meshReport(nodes, online, links, now), true, nil
+}

@@ -163,4 +163,15 @@ export default {
       "Server URL: {url}. The check location must be able to reach this URL from outside; it shows up as {online} in the list within a few seconds.",
     copiedClose: "I've copied it, close",
   },
+  matrix: {
+    title: "Link status",
+    intro: "Whether the location in the row can reach the one in the column. Refreshes live once per panel interval.",
+    inactive: "Link status needs mesh enabled and at least two check locations sending heartbeats with a current agent.",
+    healthy: "All known links are healthy.",
+    from: "Source",
+    up: "Reaches",
+    down: "Cannot reach",
+    unknown: "Not measured",
+    cell: "{src} > {dst}: {state}",
+  },
 } satisfies Shape<typeof tr>;

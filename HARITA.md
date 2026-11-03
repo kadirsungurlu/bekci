@@ -78,6 +78,7 @@ incidents.go: GET /api/incidents/{id} | GET /api/servers/{id}/incidents
 incidents_ack.go: POST /api/incidents/{id}/ack | DELETE /api/incidents/{id}/ack | POST /api/incidents/{id}/snooze | DELETE /api/incidents/{id}/snooze
 incidents_manual.go: POST /api/incidents | PUT /api/incidents/{id} | DELETE /api/incidents/{id} | POST /api/incidents/{id}/updates | DELETE /api/incidents/{id}/updates/{uid}
 maintenance.go: GET /api/maintenance | POST /api/maintenance | GET /api/maintenance/{id} | PUT /api/maintenance/{id} | DELETE /api/maintenance/{id} | POST /api/maintenance/{id}/pause | POST /api/maintenance/{id}/resume | POST /api/maintenance/{id}/end
+mesh_view.go: GET /api/mesh
 metrics.go: GET /metrics
 oidc.go: GET /api/settings/oidc | PUT /api/settings/oidc | POST /api/settings/oidc/test | GET /api/auth/oidc/start | GET /api/auth/oidc/callback
 openapi.go: GET /api/openapi.json
@@ -113,9 +114,9 @@ pages: Announcements Auth ForcePassword IncidentDetail Incidents MaintenanceForm
 pages/settings: Account ApiKeys Audit Backup General Login Probes Tags TwoFactor UserForm Users
 components: AgentAutoUpdate AgentVersion AlertRulesEditor BadgeBuilder BulkEditModal ConfigFields ConfirmDialog ConnectionDetails 
 ContainerTable CopyButton DateTimeField DomainStatus FilePick Icon ImportResult IncidentAck IncidentEditModal IncidentTable IncidentUpdates 
-LangSwitch LineChart Modal MonitorMenu MonitorPicker MonitorRow NotificationForm PagePreviewPanel PageSubscribers PageThumb Pager PingChart 
-PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu ServerPicker ServerSettingsModal 
-ServerSetupModal Sessions Sparkline StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker ThemeToggle Toasts Tooltip 
-TypeBadge UpdateBanner UptimeBars UsageBar
+LangSwitch LineChart MeshMatrix Modal MonitorMenu MonitorPicker MonitorRow NotificationForm PagePreviewPanel PageSubscribers PageThumb 
+Pager PingChart PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu ServerPicker 
+ServerSettingsModal ServerSetupModal Sessions Sparkline StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker ThemeToggle 
+Toasts Tooltip TypeBadge UpdateBanner UptimeBars UsageBar
 i18n: account ale.ts apiKeys audit auth backup common incide.ts maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles servers settings status tags users
 ```

@@ -1228,6 +1228,11 @@ paths:
       summary: Verilen türdeki güncellenebilir tüm ajanlar için güncelleme iste (yönetici)
       parameters: [{ name: kind, in: query, required: true, schema: { type: string, enum: [server, location] } }]
       responses: { "200": { description: "{requested: N}" } }
+  /api/mesh:
+    get:
+      tags: [servers]
+      summary: "Kontrol noktaları arası bağlantı matrisi ve yorum (yönetici). active=false: mesh kapalı ya da kalp atışı gönderen nokta 2'den az"
+      responses: { "200": { description: "{active, nodes: [{id, name}], pairs: [{a, b, state, ab, ba}], findings: [metin]} (düğüm 0 = ana sunucu)" } }
   /api/maintenance:
     get: { tags: [maintenance], summary: Bakım pencereleri, responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Maintenance" } } } } } } }
     post: { tags: [maintenance], summary: Bakım ekle (editör+), requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/Maintenance" } } } }, responses: { "201": { description: Bakım } } }

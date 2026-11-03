@@ -168,4 +168,15 @@ export default {
       "Sunucu adresi: {url}. Kontrol noktası bu adrese dışarıdan erişebilmeli; birkaç saniye içinde listede {online} görünür.",
     copiedClose: "Kopyaladım, kapat",
   },
+  matrix: {
+    title: "Bağlantı durumu",
+    intro: "Satırdaki nokta sütundakine ulaşabiliyor mu. Panel aralığında bir canlı tazelenir.",
+    inactive: "Bağlantı durumu için mesh açık olmalı ve en az iki kontrol noktası güncel ajanla kalp atışı göndermeli.",
+    healthy: "Tüm bilinen bağlantılar sağlıklı.",
+    from: "Kaynak",
+    up: "Ulaşıyor",
+    down: "Ulaşamıyor",
+    unknown: "Ölçülemiyor",
+    cell: "{src} > {dst}: {state}",
+  },
 };

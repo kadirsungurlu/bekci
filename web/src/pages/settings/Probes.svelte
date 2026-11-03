@@ -10,6 +10,7 @@
   import Icon from '../../components/Icon.svelte';
   import CopyButton from '../../components/CopyButton.svelte';
   import AgentVersion from '../../components/AgentVersion.svelte';
+  import MeshMatrix from '../../components/MeshMatrix.svelte';
   import AgentAutoUpdate, { autoChoice, autoValue, type AutoChoice } from '../../components/AgentAutoUpdate.svelte';
   import { t, tParts } from '../../lib/i18n';
   import { session } from '../../lib/session.svelte';
@@ -463,6 +464,8 @@
     </p>
   {/if}
 </section>
+
+<MeshMatrix />
 
 <form class="card stack mesh" onsubmit={saveMesh} novalidate>
   <div>

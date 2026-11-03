@@ -2038,6 +2038,7 @@ export const api = {
 
   // Kontrol noktaları
   probes: () => get<Probe[]>("/api/probes"),
+  mesh: () => get<MeshMatrix>("/api/mesh"),
   createProbe: (name: string) => post<ProbeSetup>("/api/probes", { name }),
   /** Takip edilecek sunucu ekler (kontrol noktalarından ayrı kayıt). */
   createServer: (name: string) => post<ProbeSetup>("/api/servers", { name }),
@@ -2188,4 +2189,13 @@ export function errorMessage(e: unknown): string {
   if (e instanceof ApiError) return e.message;
   if (e instanceof Error) return e.message;
   return t("common.errors.unexpected");
+}
+
+/** GET /api/mesh: kontrol noktaları arası bağlantı matrisi (yönetici). */
+export interface MeshMatrix {
+  active: boolean;
+  nodes: { id: number; name: string }[];
+  /** a < b; ab: a'nın b'yi ölçümü, ba: tersi ("up" | "down" | "unknown"). */
+  pairs: { a: number; b: number; state: string; ab: string; ba: string }[];
+  findings: string[];
 }
