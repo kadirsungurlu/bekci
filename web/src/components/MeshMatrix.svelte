@@ -105,6 +105,9 @@
   }
   .scroll {
     overflow-x: auto;
+    /* Hücrelerdeki mutlak konumlu .sr metni kaydırma kutusunda kalsın; yoksa
+       dar ekranda sayfayı yatay kaydırır. */
+    position: relative;
   }
   .grid {
     border-collapse: collapse;
