@@ -75,7 +75,7 @@
       {#each sends as s (s.id)}
         <li>
           <span class={`res ${s.res}`}>{t(`topology.decision.send.${s.res}`)}</span>
-          <span class="ch">{s.channel || '—'}</span>
+          {#if s.channel}<span class="ch">{s.channel}</span>{/if}
           <span class="muted small tm">{fmtTimeSec(s.time)}</span>
         </li>
       {/each}

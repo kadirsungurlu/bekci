@@ -81,7 +81,9 @@
     <span class="txt">
       <span class="nm">{t('topology.col.panel')}</span>
       <span class="sub">
-        {t('topology.panel.online', { n: d.stats.probes_online, total: d.stats.probes_total })}{#if rate !== null} · {t('topology.panel.rate', { n: rate })}{/if}
+        {[t('topology.panel.online', { n: d.stats.probes_online, total: d.stats.probes_total }), rate !== null ? t('topology.panel.rate', { n: rate }) : '']
+          .filter(Boolean)
+          .join(' · ')}
       </span>
     </span>
   </div>
