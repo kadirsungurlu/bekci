@@ -62,7 +62,7 @@
                 <a href="#/incidents/{inc.id}"><Icon name="megaphone" size={13} /> {inc.title}</a>
                 {#if inc.page_title}<span class="muted small page">{inc.page_title}</span>{/if}
               {:else if probe}
-                <a href="#/settings/probes"><Icon name="map-pin" size={13} /> {inc.server_name}</a>
+                <a href="#/settings/probes"><Icon name="map-pin" size={13} /> {inc.server_name || inc.title}</a>
               {:else if server}
                 <a href="#/servers/{inc.server_id}"><Icon name="server" size={13} /> {inc.server_name}</a>
               {:else}
