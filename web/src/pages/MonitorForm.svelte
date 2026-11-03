@@ -371,7 +371,10 @@
       .catch(() => (probes = []))
       .finally(() => (probesLoaded = true));
     unsubProbe = live.onProbe((ev) => {
-      probes = probes.map((p) => (p.id === ev.probe_id ? { ...p, online: ev.online, last_seen_at: ev.last_seen_at } : p));
+      // Hat geçişi yükünde online yoktur: yalnız gelen alanlar birleştirilir.
+      if (ev.online === undefined) return;
+      const online = ev.online;
+      probes = probes.map((p) => (p.id === ev.probe_id ? { ...p, online, last_seen_at: ev.last_seen_at || p.last_seen_at } : p));
     });
     const chP = api
       .notifications()

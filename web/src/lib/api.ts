@@ -345,7 +345,25 @@ export interface Probe {
   fallback_notifier?: boolean;
   /** Genel + ezme birleşimi etkin zamanlama. */
   timing?: ProbeTiming;
+  // OOB ikinci hat (yönetici görünümü; eski sunucuda yok).
+  /** OOB hattının IP'si; boş: OOB tanımlı değil. */
+  oob_ip?: string;
+  /** OOB hattının adı; boş: "OOB". */
+  oob_name?: string;
+  /** Ajanın etkin hattı. */
+  uplink?: Uplink;
+  /** Son hat geçişinin anı (unix sn; 0: hiç geçiş yok). */
+  uplink_since?: number;
+  /** Ajan OOB IP'sinin bağlı olduğu arayüzü bulamadı (PROBE_OOB_IFACE gerekir). */
+  oob_iface_missing?: boolean;
 }
+
+/** Ajanın etkin bağlantı hattı (store.UplinkPrimary / UplinkOOB). */
+export type Uplink = "primary" | "oob";
+
+/** OOB tanımlı kontrol noktasının hat adı ("" : OOB yok). */
+export const oobLabel = (p: { oob_ip?: string; oob_name?: string }) =>
+  p.oob_ip ? p.oob_name || "OOB" : "";
 
 /** Bir kontrol noktasının etkin mesh zamanlaması (store.ProbeTiming). */
 export interface ProbeTiming {
@@ -425,6 +443,8 @@ export interface LocationStatus {
   last_check_at: number;
   ping_ms: number;
   message: string;
+  /** Konumun ajanı OOB hattında: sonucu karara katılmıyor. */
+  oob?: boolean;
 }
 
 export interface MonitorLocations extends LocationSetup {
@@ -432,11 +452,19 @@ export interface MonitorLocations extends LocationSetup {
   locations: LocationStatus[];
 }
 
+/**
+ * SSE "probe" olayı. Çevrimiçi/çevrimdışı yükü online + last_seen_at taşır;
+ * hat geçişi yükü yalnızca uplink + uplink_since, arayüz uyarısı yalnızca
+ * oob_iface_missing taşır. Gelmeyen alanlar değişmemiş sayılmalı.
+ */
 export interface ProbeEvent {
   probe_id: number;
   name: string;
-  online: boolean;
-  last_seen_at: number;
+  online?: boolean;
+  last_seen_at?: number;
+  uplink?: Uplink;
+  uplink_since?: number;
+  oob_iface_missing?: boolean;
 }
 
 // Yedekleme ve içe aktarma ---------------------------------------------------------------
@@ -894,6 +922,8 @@ export type NotifyKind =
   | "probe_online"
   | "mesh"
   | "mesh_resolved"
+  | "probe_uplink_failover"
+  | "probe_uplink_restored"
   | "server_reboot"
   | "acked";
 
@@ -1440,6 +1470,14 @@ export interface ServerView {
   in_maintenance?: boolean;
   /** Ajanın güncelleme durumu (eski sunucuda yok). */
   update?: AgentUpdate;
+  // OOB ikinci hat: yalnızca OOB tanımlıysa dolu.
+  uplink?: Uplink;
+  uplink_since?: number;
+  /** OOB hattının görünen adı. */
+  uplink_name?: string;
+  /** Yalnızca yöneticiye. */
+  oob_ip?: string;
+  oob_iface_missing?: boolean;
 }
 
 export interface AlertRule {
@@ -2062,9 +2100,11 @@ export const api = {
       notificationIds?: number[];
       autoUpdate?: boolean | null;
       mesh?: ProbeMeshInput;
+      /** OOB ikinci hat; boş IP OOB'yi kaldırır, alan yoksa değişmez. */
+      oob?: { oob_ip: string; oob_name: string };
     },
   ) => {
-    const body: Record<string, unknown> = { name, active, ...opts?.mesh };
+    const body: Record<string, unknown> = { name, active, ...opts?.mesh, ...opts?.oob };
     if (metrics !== undefined) body.metrics = metrics;
     if (opts?.ipLock !== undefined) body.ip_lock = opts.ipLock;
     if (opts?.resetIp) body.reset_ip = true;

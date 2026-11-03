@@ -63,7 +63,7 @@ export default {
       slow: 'Slow response (started / back to normal)',
       location: 'Partial reachability outage (started / ended)',
       server: 'Server alerts (started / ended)',
-      probe: 'Check location (offline / online)',
+      probe: 'Check location (offline / online / line switch)',
       acked: 'Incident acknowledged (only when selected)',
     },
     quietTitle: 'Quiet hours',

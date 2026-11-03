@@ -223,6 +223,7 @@ export default {
     pushFailMsg: 'Yedekleme%20basarisiz',
     pushParams: 'İsteğe bağlı parametreler: {status}, {msg} (mesaj), {ping} (ms cinsinden süre). GET veya POST kullanılabilir.',
     locations: 'Konumlar',
+    locationOob: 'OOB üzerinden, karara katılmıyor',
     downAll: 'Tüm konumlar çalışmıyorsa kesinti',
     downMajority: 'Konumların çoğunluğu çalışmıyorsa kesinti',
     downAny: 'Herhangi bir konum çalışmıyorsa kesinti',

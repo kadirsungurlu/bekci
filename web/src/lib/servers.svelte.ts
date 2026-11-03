@@ -1,7 +1,7 @@
 // Sunucu takibi: liste deposu (canlı akışla güncellenir) ve ekranlarda ortak
 // kullanılan etiketler, eşik bilgileri ve küçük hesaplar.
 
-import { api, errorMessage, type ServerMetric, type ServerState, type ServerStats, type ServerView, type StatsPoint } from './api';
+import { api, errorMessage, type ServerMetric, type ServerState, type ServerStats, type ProbeEvent, type ServerView, type StatsPoint } from './api';
 import { collator, fmtDec, fmtPctInt, fmtTemp } from './format';
 import { t } from './i18n';
 import { live } from './live.svelte';
@@ -271,6 +271,8 @@ class Servers {
     if (!this.subscribed) {
       this.subscribed = true;
       live.onServer((v) => this.apply(v));
+      // OOB hat geçişi / arayüz uyarısı "probe" olayıyla gelir (sunucu ajanı da bir probe satırı).
+      live.onProbe((ev) => this.applyUplink(ev));
       live.onResume(() => this.loaded && this.load());
     }
     if (!this.loaded || Date.now() - this.lastLoad > 15_000) this.load();
@@ -310,6 +312,20 @@ class Servers {
     const list = this.list.slice();
     if (i >= 0) list[i] = v;
     else list.push(v);
+    this.list = list;
+  }
+
+  /** "probe" olayındaki hat alanlarını (gelenleri) OOB tanımlı sunucuya yazar. */
+  private applyUplink(ev: ProbeEvent) {
+    if (ev.uplink === undefined && ev.oob_iface_missing === undefined) return;
+    const i = this.list.findIndex((s) => s.id === ev.probe_id);
+    if (i < 0 || !this.list[i].uplink_name) return;
+    const n = { ...this.list[i] };
+    if (ev.uplink !== undefined) n.uplink = ev.uplink;
+    if (ev.uplink_since !== undefined) n.uplink_since = ev.uplink_since;
+    if (ev.oob_iface_missing !== undefined) n.oob_iface_missing = ev.oob_iface_missing;
+    const list = this.list.slice();
+    list[i] = n;
     this.list = list;
   }
 

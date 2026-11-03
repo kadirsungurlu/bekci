@@ -223,6 +223,7 @@ export default {
     pushFailMsg: 'Backup%20failed',
     pushParams: 'Optional parameters: {status}, {msg} (message), {ping} (duration in ms). GET or POST can be used.',
     locations: 'Locations',
+    locationOob: 'Via OOB, not counted',
     downAll: 'Outage if all locations are down',
     downMajority: 'Outage if most locations are down',
     downAny: 'Outage if any location is down',

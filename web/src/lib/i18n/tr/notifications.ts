@@ -63,7 +63,7 @@ export default {
       slow: 'Yavaş yanıt (başladı / normale döndü)',
       location: 'Kısmi erişim kesintisi (başladı / bitti)',
       server: 'Sunucu uyarıları (başladı / bitti)',
-      probe: 'Kontrol noktası (çevrimdışı / çevrimiçi)',
+      probe: 'Kontrol noktası (çevrimdışı / çevrimiçi / hat geçişi)',
       acked: 'Olay onayı (yalnızca seçilirse gider)',
     },
     quietTitle: 'Sessiz saatler',

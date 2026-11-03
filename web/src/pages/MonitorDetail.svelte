@@ -536,6 +536,7 @@
                   .join(' · ')}
               </span>
               {#if l.message && (l.status === 'down' || l.status === 'retrying')}<span class="lm">{l.message}</span>{/if}
+              {#if l.oob}<span class="loob"><Icon name="network" size={12} /> {t('monitors.detail.locationOob')}</span>{/if}
             </span>
           </li>
         {/each}
@@ -805,6 +806,13 @@
   }
   .loc.down .ls {
     color: var(--down-text);
+  }
+  .loob {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: var(--pending);
   }
   .lm {
     font-size: 0.78rem;

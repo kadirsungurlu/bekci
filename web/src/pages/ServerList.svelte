@@ -24,6 +24,7 @@
   import Sparkline from '../components/Sparkline.svelte';
   import ServerSetupModal from '../components/ServerSetupModal.svelte';
   import Icon from '../components/Icon.svelte';
+  import UplinkBadge from '../components/UplinkBadge.svelte';
 
   onMount(() => servers.ensure());
 
@@ -207,6 +208,7 @@
                 <span class="name">{s.name}</span>
                 {#each fl as l (l)}<span class="badge pending fire" title={t('servers.list.firingTitle', { metric: l })}><Icon name="alert" size={11} /> {l}</span>{/each}
                 {#if s.in_maintenance}<span class="badge maintenance fire" title={t('servers.inMaintenanceHint')}><Icon name="wrench" size={11} /> {t('servers.inMaintenance')}</span>{/if}
+                <UplinkBadge name={s.uplink_name} ip={s.oob_ip} uplink={s.uplink} since={s.uplink_since} ifaceMissing={s.oob_iface_missing} focus={false} />
               </div>
               {#if s.state === 'offline'}
                 <div class="sub c-down">{t('servers.list.offlineSince', { ago: fmtRelative(s.metrics_at, clock.now) })}</div>
@@ -313,6 +315,7 @@
             <div class="n1">
               <a class="name" href="#/servers/{s.id}">{s.name}</a>
               <span class="badge paused">{STATE_LABELS[s.state]}</span>
+              <UplinkBadge name={s.uplink_name} ip={s.oob_ip} uplink={s.uplink} since={s.uplink_since} ifaceMissing={s.oob_iface_missing} />
             </div>
             <div class="sub">{inactiveReason(s)}</div>
           </div>

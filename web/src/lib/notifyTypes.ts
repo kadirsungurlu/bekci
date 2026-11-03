@@ -1205,7 +1205,7 @@ export const NOTIFY_EVENT_GROUPS: { id: NotifyEventGroupId; kinds: NotifyKind[];
   { id: 'slow', kinds: ['slow', 'slow_resolved'] },
   { id: 'location', kinds: ['location_down', 'location_up'] },
   { id: 'server', kinds: ['server_alert', 'server_resolved', 'server_reboot'] },
-  { id: 'probe', kinds: ['probe_offline', 'probe_online', 'mesh', 'mesh_resolved'] },
+  { id: 'probe', kinds: ['probe_offline', 'probe_online', 'mesh', 'mesh_resolved', 'probe_uplink_failover', 'probe_uplink_restored'] },
   // optIn: süzgeçsiz kanal bu türü ALMAZ; yalnızca açıkça seçilince gider (olay onayı).
   { id: 'acked', kinds: ['acked'], optIn: true },
 ];

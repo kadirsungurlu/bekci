@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { api, ApiError, errorMessage, type AppSettings, type NotificationChannel, type Probe, type ProbeSetup } from '../../lib/api';
+  import { api, ApiError, errorMessage, oobLabel, type AppSettings, type NotificationChannel, type Probe, type ProbeSetup } from '../../lib/api';
   import { NOTIFY_LABELS } from '../../lib/notifyTypes';
   import { live } from '../../lib/live.svelte';
   import { clock, confirmDialog, toast } from '../../lib/ui.svelte';
@@ -10,6 +10,8 @@
   import Icon from '../../components/Icon.svelte';
   import CopyButton from '../../components/CopyButton.svelte';
   import AgentVersion from '../../components/AgentVersion.svelte';
+  import UplinkBadge from '../../components/UplinkBadge.svelte';
+  import OobFields from '../../components/OobFields.svelte';
   import MeshMatrix from '../../components/MeshMatrix.svelte';
   import AgentAutoUpdate, { autoChoice, autoValue, type AutoChoice } from '../../components/AgentAutoUpdate.svelte';
   import { t, tParts } from '../../lib/i18n';
@@ -37,7 +39,17 @@
     load();
     loadMesh();
     unsub = live.onProbe((ev) => {
-      probes = probes.map((p) => (p.id === ev.probe_id ? { ...p, online: ev.online, last_seen_at: ev.last_seen_at || p.last_seen_at } : p));
+      // Yükler kısmidir (çevrimiçi / hat geçişi / OOB arayüzü): yalnız gelen alanlar birleştirilir.
+      probes = probes.map((p) => {
+        if (p.id !== ev.probe_id) return p;
+        const n = { ...p };
+        if (ev.online !== undefined) n.online = ev.online;
+        if (ev.last_seen_at) n.last_seen_at = ev.last_seen_at;
+        if (ev.uplink !== undefined) n.uplink = ev.uplink;
+        if (ev.uplink_since !== undefined) n.uplink_since = ev.uplink_since;
+        if (ev.oob_iface_missing !== undefined) n.oob_iface_missing = ev.oob_iface_missing;
+        return n;
+      });
     });
     timer = setInterval(load, 30_000);
   });
@@ -181,6 +193,8 @@
       mesh_ping_sec: t('probes.mesh.errPing'),
       panel_sec: t('probes.mesh.errPanel'),
       mesh_addr: t('probes.mesh.errAddr'),
+      oob_ip: t('probes.oob.errIp'),
+      oob_name: t('probes.oob.errName'),
       mesh_loss_threshold: / x /.test(errorMessage(e)) ? t('probes.mesh.errWindow') : t('probes.mesh.errLoss'),
     };
     return [field, msg[field] ?? errorMessage(e)];
@@ -233,6 +247,8 @@
   let editPanel = $state<number | null>(null);
   let editAddr = $state('');
   let editFallback = $state(true);
+  let editOobIp = $state('');
+  let editOobName = $state('');
   let editField = $state('');
   let editError = $state('');
   let editBusy = $state(false);
@@ -264,6 +280,8 @@
     editPanel = p.panel_sec ?? globalMesh.panel;
     editAddr = p.mesh_addr ?? '';
     editFallback = p.fallback_notifier ?? true;
+    editOobIp = p.oob_ip ?? '';
+    editOobName = p.oob_name ?? '';
     editField = '';
     editError = '';
     editOpen = true;
@@ -298,6 +316,8 @@
         notifyOffline: editNotify,
         notificationIds: editChannels,
         ...(editing.update ? { autoUpdate: autoValue(editAuto) } : {}),
+        // OOB alanları yalnızca sunucu destekliyorsa (yanıtta uplink var) gönderilir.
+        ...(editing.uplink !== undefined ? { oob: { oob_ip: editOobIp.trim(), oob_name: editOobName.trim() } } : {}),
         ...(hasMesh
           ? {
               mesh: {
@@ -440,7 +460,12 @@
                 </span>
               </span>
             </td>
-            <td data-label={t('probes.col.status')}><span class="badge {st.c}">{st.l}</span></td>
+            <td data-label={t('probes.col.status')}>
+              <span class="stw">
+                <span class="badge {st.c}">{st.l}</span>
+                <UplinkBadge name={oobLabel(p)} ip={p.oob_ip} uplink={p.uplink} since={p.uplink_since} ifaceMissing={p.oob_iface_missing} />
+              </span>
+            </td>
             <td data-label={t('probes.col.lastSeen')} class="nowrap" title={p.last_seen_at ? fmtDate(p.last_seen_at) : ''}>
               {p.last_seen_at ? fmtRelative(p.last_seen_at, clock.now) : t('probes.neverConnected')}
             </td>
@@ -674,8 +699,11 @@
         </p>
       </fieldset>
     {/if}
+    {#if editing?.uplink !== undefined}
+      <OobFields id="pre-oob" bind:ip={editOobIp} bind:name={editOobName} field={editField} error={editError} />
+    {/if}
     {#if editing?.update}<AgentAutoUpdate id="pre-auto" bind:value={editAuto} update={editing.update} />{/if}
-    {#if editError}<div class="alert error" role="alert">{editError}</div>{/if}
+    {#if editError && editField !== 'oob_ip' && editField !== 'oob_name'}<div class="alert error" role="alert">{editError}</div>{/if}
   </form>
   {#snippet footer()}
     <div class="spacer"></div>
@@ -863,6 +891,12 @@
     max-height: 220px;
     overflow: auto;
     padding: 2px;
+  }
+  .stw {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
   }
   .warn {
     color: var(--pending-text, var(--text-2));
