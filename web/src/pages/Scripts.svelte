@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import ScriptsShell from '../components/ScriptsShell.svelte';
+  import ScriptFilters from '../components/ScriptFilters.svelte';
   import CodeModal from '../components/CodeModal.svelte';
   import FilePick from '../components/FilePick.svelte';
   import Icon from '../components/Icon.svelte';
@@ -21,6 +22,14 @@
 
   const canWrite = $derived(!!session.user?.two_factor_enabled);
   const stopped = $derived(!!data?.control.stopped);
+
+  let q = $state('');
+  const shown = $derived.by(() => {
+    const k = q.trim().toLocaleLowerCase();
+    const all = data?.scripts ?? [];
+    if (!k) return all;
+    return all.filter((s) => s.id.includes(k) || (s.latest.manifest.groups ?? []).some((g) => g.includes(k)) || s.hosts.some((h) => h.probe_name.toLocaleLowerCase().includes(k)));
+  });
 
   async function load() {
     try {
@@ -102,6 +111,15 @@
       <button class="btn primary" disabled={!canWrite} onclick={() => (uploadOpen = true)}><Icon name="upload" size={16} /> {t('scripts.upload.title')}</button>
     </div>
   {:else}
+    <ScriptFilters bind:q placeholder={t('scripts.filter.libraryPlaceholder')} />
+    {#if shown.length === 0}
+      <div class="empty">
+        <Icon name="search" size={28} />
+        <h3>{t('scripts.filter.emptyTitle')}</h3>
+        <p>{t('scripts.filter.emptyText')}</p>
+        <button class="btn" onclick={() => (q = '')}>{t('scripts.filter.clear')}</button>
+      </div>
+    {:else}
     <section class="card">
       <table class="table responsive">
         <thead>
@@ -116,7 +134,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each data.scripts as s (s.id)}
+          {#each shown as s (s.id)}
             {@const blockedBy = versionBlocked(s.latest, clock.now)}
             <tr>
               <td data-label={t('scripts.col.script')}><code>{s.id}</code></td>
@@ -126,7 +144,7 @@
                 {#if blockedBy === 'expired'}<span class="badge paused">{t('scripts.badge.expired')}</span>{/if}
                 {#if blockedBy === 'not_yet'}<span class="badge pending">{t('scripts.badge.notYet')}</span>{/if}
               </td>
-              <td data-label={t('scripts.col.approval')}>{approvalText(s.latest.approval)}</td>
+              <td data-label={t('scripts.col.approval')} class="nowrap">{approvalText(s.latest.approval)}</td>
               <td data-label={t('scripts.col.validity')} class="nowrap" title="{fmtDate(s.latest.not_before)} - {fmtDate(s.latest.not_after)}">{fmtDay(s.latest.not_after)}</td>
               <td data-label={t('scripts.col.key')}><code>{shortId(s.latest.key_id)}</code></td>
               <td data-label={t('scripts.col.hosts')}>
@@ -154,6 +172,7 @@
       </table>
       <p class="text-2 small note">{t('scripts.hostsNote')}</p>
     </section>
+    {/if}
   {/if}
 </ScriptsShell>
 

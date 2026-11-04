@@ -19,7 +19,7 @@
   ];
 </script>
 
-<div class="page-head">
+<div class="page-head shead">
   <h1>{t('scripts.title')}<span class="dot">.</span></h1>
   {#if actions && !pg}<div class="actions">{@render actions()}</div>{/if}
 </div>
@@ -51,6 +51,10 @@
 {/if}
 
 <style>
+  /* Düğmesi olan ve olmayan sekmelerde başlık aynı yerde kalsın. */
+  .shead {
+    min-height: 38px;
+  }
   .actions {
     display: flex;
     gap: 8px;

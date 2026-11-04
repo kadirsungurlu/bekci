@@ -229,7 +229,7 @@
       <section class="card">
         <div class="head">
           <h2 class="card-title">{t('scripts.settings.channelsTitle')}</h2>
-          <button class="btn sm primary" disabled={!canWrite || channels.length === 0} onclick={() => (chanOpen = true)}>{t('common.save')}</button>
+          {#if channels.length}<button class="btn sm primary" disabled={!canWrite} onclick={() => (chanOpen = true)}>{t('common.save')}</button>{/if}
         </div>
         <p class="text-2 small sub">{t('scripts.settings.channelsHelp')}</p>
         {#if channels.length === 0}

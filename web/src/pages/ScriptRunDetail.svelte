@@ -24,7 +24,7 @@
   const run = $derived(data?.run);
   const runState = $derived(run?.state ?? '');
   const awaiting = $derived(runState === 'awaiting_approval' || runState === 'awaiting_ticket');
-  const cancellable = $derived(awaiting || runState === 'queued' || runState === 'accepted');
+  const cancellable = $derived(runState === 'queued' || runState === 'accepted');
   const ticketJson = $derived(data?.ticket_request ? JSON.stringify(data.ticket_request, null, 2) : '');
 
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -145,7 +145,7 @@
             {@const extra = eventDetail(e.data)}
             <li>
               <span class="when text-2 small">{fmtDateSec(e.time)}</span>
-              <span class="what">{eventText(e.kind)}{#if extra}<span class="text-2 small"> · {extra}</span>{/if}</span>
+              <span class="what">{eventText(e.kind)}{#if extra}<span class="text-2 small">{' · '}{extra}</span>{/if}</span>
             </li>
           {/each}
         </ol>

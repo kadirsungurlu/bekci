@@ -431,7 +431,7 @@
     <main class="main">
       <div
         class="content"
-        class:wide={route.name === 'list' || route.name === 'topology' || route.name === 'servers' || route.name === 'page-edit' || route.name === 'page-new' || route.name === 'scripts' || route.name === 'script-runs' || route.name === 'script-settings'}
+        class:wide={route.name === 'list' || route.name === 'topology' || route.name === 'servers' || route.name === 'page-edit' || route.name === 'page-new' || route.name === 'scripts' || route.name === 'script-runs' || route.name === 'script-run' || route.name === 'script-settings'}
         class:form-page={route.name === 'new' || route.name === 'edit' || route.name === 'maint-new' || route.name === 'maint-edit'}
       >
         {#if session.isAdmin}<UpdateBanner />{/if}

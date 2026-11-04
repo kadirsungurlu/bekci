@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/http/cookiejar"
@@ -54,6 +55,12 @@ func pubOf(k ed25519.PrivateKey) ed25519.PublicKey { return k.Public().(ed25519.
 
 func setupScripts(t *testing.T) *sEnv {
 	t.Helper()
+	return setupScriptsStatic(t, fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, 0)
+}
+
+// setupScriptsStatic: off saati baştan kaydırır (2FA adımı da o saate göre kurulur).
+func setupScriptsStatic(t *testing.T, static fs.FS, off time.Duration) *sEnv {
+	t.Helper()
 	if os.Getenv("UPTIME_TEST_PG") == "" {
 		t.Skip("UPTIME_TEST_PG yok")
 	}
@@ -66,9 +73,9 @@ func setupScripts(t *testing.T) *sEnv {
 	if err := eng.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
-	static := fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}
 	s := New(st, eng, hub, disp, log, static, "test")
 	clk := &testClock{}
+	clk.advance(off)
 	s.now = clk.now
 	s.probeHold = 10 * time.Millisecond
 	srv := httptest.NewServer(s.Handler())
