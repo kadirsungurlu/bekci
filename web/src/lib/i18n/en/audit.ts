@@ -75,6 +75,7 @@ export default {
       samples: 'Sample notifications sent',
     },
     server: {
+      cert_ignore: 'Certificate alert changed',
       create: 'Server added',
       alerts: 'Server alert rules changed',
       notifications: 'Server notification channels changed',

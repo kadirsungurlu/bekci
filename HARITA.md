@@ -86,6 +86,7 @@ domains.go: GET /api/tls/ask | GET /api/status-pages/{id}/domain
 incidents.go: GET /api/incidents/{id} | GET /api/servers/{id}/incidents
 incidents_ack.go: POST /api/incidents/{id}/ack | DELETE /api/incidents/{id}/ack | POST /api/incidents/{id}/snooze | DELETE /api/incidents/{id}/snooze
 incidents_manual.go: POST /api/incidents | PUT /api/incidents/{id} | DELETE /api/incidents/{id} | POST /api/incidents/{id}/updates | DELETE /api/incidents/{id}/updates/{uid}
+inventory.go: GET /api/servers/{id}/inventory | PUT /api/servers/{id}/inventory/certs/{fingerprint} | POST /api/probe/inventory
 maintenance.go: GET /api/maintenance | POST /api/maintenance | GET /api/maintenance/{id} | PUT /api/maintenance/{id} | DELETE /api/maintenance/{id} | POST /api/maintenance/{id}/pause | POST /api/maintenance/{id}/resume | POST /api/maintenance/{id}/end
 mesh_view.go: GET /api/mesh
 metrics.go: GET /metrics
@@ -115,7 +116,7 @@ webpush.go: GET /api/webpush/vapid | GET /api/webpush/subscriptions | POST /api/
 17: pages_layout.go 18: incident_kinds.go 19: probes.go 20: maintenance.go 21: probes.go 22: monitors.go 23: notification_rules.go 24: 
 pages_period.go 25: incident_manual.go 26: servers_ext.go 27: beats_recent.go 28: domain.go 29: incident_ack.go 30: tag_rules.go 31: 
 auth_ext.go 32: webpush.go 33: auth_ext.go 34: sessions.go 35: probes_update.go 36: subscribers.go 37: subscribers.go 38: updates.go 39: 
-incident_kinds.go 40: mesh.go 41: probes_oob.go 42: channel_sends.go 43: timescale.go 44: server_metrics.go
+incident_kinds.go 40: mesh.go 41: probes_oob.go 42: channel_sends.go 43: timescale.go 44: server_metrics.go 45: inventory.go
 ```
 
 ### Arayüz sayfaları / bileşenler / i18n ad alanları
@@ -126,7 +127,7 @@ components: AgentAutoUpdate AgentVersion AlertRulesEditor BadgeBuilder BulkEditM
 ContainerTable CopyButton DateTimeField DomainStatus FilePick Icon ImportResult IncidentAck IncidentEditModal IncidentTable IncidentUpdates 
 LangSwitch LineChart MeshDiagram MeshMatrix Modal MonitorMenu MonitorPicker MonitorRow NotificationForm OobFields PagePreviewPanel 
 PageSubscribers PageThumb Pager PingChart PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu 
-ServerPicker ServerSettingsModal ServerSetupModal Sessions Sparkline StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker 
-ThemeToggle Toasts Tooltip TopoCanvas TopoDecision TopoList TopoMatrix TypeBadge UpdateBanner UplinkBadge UptimeBars UsageBar
+ServerInventory ServerPicker ServerSettingsModal ServerSetupModal Sessions Sparkline StatusIcon StatusView SubscribePanel TagChip TagDialog 
+TagRulePicker ThemeToggle Toasts Tooltip TopoCanvas TopoDecision TopoList TopoMatrix TypeBadge UpdateBanner UplinkBadge UptimeBars UsageBar
 i18n: account ale.ts apiKeys audit auth backup common incide.ts maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles servers settings status tags topology users
 ```

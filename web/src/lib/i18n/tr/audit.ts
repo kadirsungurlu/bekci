@@ -73,6 +73,7 @@ export default {
       samples: 'Örnek bildirimler gönderildi',
     },
     server: {
+      cert_ignore: 'Sertifika uyarısı değiştirildi',
       create: 'Sunucu eklendi',
       alerts: 'Sunucu uyarı kuralları değiştirildi',
       notifications: 'Sunucu bildirim kanalları değiştirildi',

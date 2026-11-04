@@ -220,6 +220,29 @@ Ajan panelin alan adını çözdüğünde IP adreslerini program dizinindeki `up
 - Bağlantı yine panelin alan adıyla doğrulanır (TLS sertifikası ve SNI); eski IP'de başka bir sunucu varsa bağlantı reddedilir.
 - Program dizini yazılabilir değilse önbellek yalnızca bellekte tutulur (ajan yeniden başlayınca boşalır).
 
+## Sunucu envanteri {#envanter}
+
+Ajan beş dakikada bir sunucunun envanterini toplar; içerik değişince, değişmese de saatte bir panele gönderir. Sunucu sayfasındaki **Envanter** sekmesinde arama ve süzgeçle görünür:
+
+- **Servisler:** systemd birimleri, çalışma durumu, açılışta başlama ayarı.
+- **Konteynerler:** ad, imaj, durum, sağlık, yeniden başlama sayısı. Satırı açınca son 24 saatin CPU ve bellek grafiği gelir.
+- **Portlar:** dinleyen TCP/UDP portları ve süreci. Geçici UDP portları listelenmez.
+- **Sertifikalar:** yerel dosyalar (`/etc/letsencrypt/live`, `/etc/ssl`, Docker birimleri) ve dinleyen portlardan TLS el sıkışmasıyla okunan sertifikalar.
+- **Disk bölümleri:** bağlama noktası, aygıt, dosya sistemi, boyut. Satırı açınca doluluk grafiği gelir.
+
+Ortam değişkenleri ve özel anahtarlar **toplanmaz**. Komut satırlarındaki parola, belirteç ve bağlantı adresi parolaları ajanda, gönderilmeden önce maskelenir; panel kaydederken bir kez daha maskeler.
+
+Sertifikanın bitmesine 14, 7 ve 1 gün kala olay açılır ve sunucunun bildirim kanallarına bildirim gider. Eşikleri **Ayarlar > Genel > Sunucu sertifikası uyarı günleri** alanından değiştirebilirsiniz; boş bırakırsanız uyarı kapanır. Sertifika yenilenince olay kendiliğinden kapanır. Uyarı istemediğiniz sertifikayı Envanter sekmesinden **Yoksay** ile dışarıda bırakabilirsiniz.
+
+| Değişken | Varsayılan | Görevi |
+|---|---|---|
+| `INVENTORY` | `1` | `0` envanteri bu ajanda kapatır. |
+| `PROBE_CERT_DIRS` | boş | Ek sertifika klasörleri (`:` ile ayrılır). |
+| `PROBE_TLS_SCAN` | `on` | `off` dinleyen portlara bağlanmayı kapatır. |
+| `PROBE_TLS_SNI` | boş | Port taramasında kullanılacak alan adı. |
+
+Windows'ta şimdilik yalnız disk bölümleri toplanır; servis ve port listesi desteklenmez. Docker içinde çalışan ajan, sunucunun dosya sistemi bağlıysa (`HOST_ROOT`, `HOST_PROC`, `HOST_SYS`) servisleri ve portları görür. Eski sürüm ajanlar envanter göndermez; sekme bu durumda ajanı güncellemenizi söyler.
+
 ## Güncelleme {#guncelleme}
 
 Bekci 1.4.0 ve sonrasında kurulan ajanlar **kendini günceller**: Bekci'yi yeni bir sürüme yükselttiğinizde sunucu ajanları ve kontrol noktaları birkaç saniye içinde aynı sürüme geçer. Ajan, panelden gelen programı yalnızca **projenin imzası** doğrulanırsa kurar. İmzanın açık anahtarı ajanın içine gömülüdür; özel anahtar yalnızca resmi sürüm derlemesinde kullanılır. Bu yüzden panelinizin bulunduğu sunucu ele geçirilse bile sunucularınıza imzasız ya da değiştirilmiş bir program inmez ve ajan eski bir sürüme döndürülemez.

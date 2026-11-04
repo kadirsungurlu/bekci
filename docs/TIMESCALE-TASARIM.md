@@ -221,11 +221,16 @@ Mevcut 610-640 bölümlemesi uyuyor; öneriler:
 - **630 kurulum/taşıma/belgeler**: compose, `bekci migrate` (SQLite -> PG, devam edebilir), `-postgres` imajı için dump yolu,
   kullanımdan kalkma uyarıları, belgeler TR/EN, lisans notu, sürüm notu taslağı, CI etiketleri.
 - **640 gerçek kullanım denetimi**: değişiklik yok.
-- **650 envanter**: kayıt tabloları (3.5) + ajan toplama. `servers` kayıt tablosu kararı (probes genişler mi, ayrı mı) 650 başında.
+- **650 envanter**: kayıt tabloları (3.5) + ajan toplama. `servers` kayıt tablosu kararı: ayrı tablo yok, sunucu kaydı `probes` (kind=server) olarak kalır, inv_* tabloları server_id ile ona bağlanır (bkz. 9.2).
 - **660 olaylar + tahmin**: `server_events` hypertable, `server_disk_1h` + regr_slope tahmini, uyarı.
 - **670-695**: değişiklik yok. 680 (güvenlik) onayı olmadan 690 başlamaz.
 Öneri (farklılık): 610 büyük; yük dengesi için "610a heartbeats/özetler" ve "610b sunucu metrikleri sütunlu şema + mesh_samples"
 olarak iki commit grubu, tek iş numarası altında yeterli. Ayrı iş numarası gerekmez.
+
+### 9.2 650 uygulama notu (2026-11-04; kod: store/inventory.go, servers/inventory.go, metrics/inventory*.go)
+- Migration 45: inv_state, inv_services, inv_containers, inv_ports, inv_certs, inv_disks, inv_cert_alerts (normal tablo, tüm kiplerde aynı).
+- Toplanamayan bölüm notes'a yazılır, son bilinen hâli silinmez. Değişim olayları (server_events) 660'ta.
+- Konteyner/disk başına grafik mevcut /stats noktalarından; ayrı uç yok.
 
 ### 9.1 610 uygulama notu (2026-11-03; kod: store/timescale.go, server_metrics.go)
 - Algılama migration kilidi altında, her açılışta, tablo başına idempotent (`ensureTimescale`); `DB_TIMESCALE=off` kapatır; `/healthz?detail` -> `db_mode`.

@@ -220,6 +220,29 @@ When the agent resolves the panel's domain, it writes the IP addresses to `uptim
 - The connection is still verified against the panel's domain (TLS certificate and SNI); if a different server now sits at the old IP, the connection is refused.
 - If the program directory is not writable, the cache is kept in memory only (it is empty after the agent restarts).
 
+## Server inventory {#inventory}
+
+Every five minutes the agent collects the server's inventory and sends it to the panel when something changes, and at least once an hour. It appears on the **Inventory** tab of the server page, with search and filters:
+
+- **Services:** systemd units, their state and whether they start at boot.
+- **Containers:** name, image, state, health and restart count. Opening a row shows CPU and memory charts for the last 24 hours.
+- **Ports:** listening TCP/UDP ports and their process. Ephemeral UDP ports are left out.
+- **Certificates:** local files (`/etc/letsencrypt/live`, `/etc/ssl`, Docker volumes) and certificates read from listening ports with a TLS handshake.
+- **Disk partitions:** mount point, device, file system and size. Opening a row shows a usage chart.
+
+Environment variables and private keys are **not collected**. Passwords, tokens and connection string passwords in command lines are masked on the agent before sending, and again by the panel when saving.
+
+An incident opens and the server's notification channels are alerted 14, 7 and 1 days before a certificate expires. Change the thresholds under **Settings > General > Server certificate alert days**; leave the field empty to turn alerts off. The incident closes by itself when the certificate is renewed. To leave a certificate out of alerts, use **Ignore** on the Inventory tab.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `INVENTORY` | `1` | `0` turns the inventory off on this agent. |
+| `PROBE_CERT_DIRS` | empty | Extra certificate folders (separated by `:`). |
+| `PROBE_TLS_SCAN` | `on` | `off` stops connecting to listening ports. |
+| `PROBE_TLS_SNI` | empty | Domain name used when scanning ports. |
+
+On Windows only disk partitions are collected for now; services and ports are not supported. An agent running in Docker sees services and ports when the host file system is mounted (`HOST_ROOT`, `HOST_PROC`, `HOST_SYS`). Older agents do not send an inventory; the tab then asks you to update the agent.
+
 ## Updating {#update}
 
 Agents installed with Bekci 1.4.0 or later **update themselves**: when you upgrade Bekci, server agents and check locations switch to the same version within seconds. An agent installs the program from the panel only if the **project signature** verifies. The signature's public key is built into the agent, and the private key is only used by the official release build. So even if the server running your panel is compromised, no unsigned or modified program lands on your servers, and agents can't be downgraded.
