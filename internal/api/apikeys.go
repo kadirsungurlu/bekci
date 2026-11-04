@@ -99,6 +99,7 @@ func sessionOnly(method, path string) bool {
 	if strings.HasPrefix(path, "/api/auth/") ||
 		path == "/api/api-keys" || strings.HasPrefix(path, "/api/api-keys/") ||
 		path == "/api/export" || strings.HasPrefix(path, "/api/import") ||
+		path == "/api/scripts" || strings.HasPrefix(path, "/api/scripts/") ||
 		strings.Contains(path, "/2fa/") {
 		return true
 	}

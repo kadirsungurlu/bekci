@@ -54,7 +54,12 @@ CREATE TABLE script_keys (
 CREATE TABLE script_hosts (
 	probe_id    BIGINT PRIMARY KEY REFERENCES probes(id) ON DELETE CASCADE,
 	host_key    TEXT   NOT NULL DEFAULT '',
+	public_key  TEXT   NOT NULL DEFAULT '',
 	pending_key TEXT   NOT NULL DEFAULT '',
+	pending_pub TEXT   NOT NULL DEFAULT '',
+	receipt_seq  BIGINT NOT NULL DEFAULT 0,
+	receipt_hash TEXT  NOT NULL DEFAULT '',
+	reason      TEXT   NOT NULL DEFAULT '',
 	approved_at BIGINT NOT NULL DEFAULT 0,
 	approved_by_name TEXT NOT NULL DEFAULT '',
 	schemas     TEXT   NOT NULL DEFAULT '',
@@ -292,35 +297,49 @@ func (s *Store) ListScriptKeys(ctx context.Context) ([]ScriptKey, error) {
 type ScriptHost struct {
 	ProbeID        int64  `json:"probe_id"`
 	HostKey        string `json:"host_key"`
+	PublicKey      string `json:"-"`
 	PendingKey     string `json:"pending_key"`
+	PendingPub     string `json:"-"`
+	ReceiptSeq     int64  `json:"receipt_seq"`
+	ReceiptHash    string `json:"-"`
 	ApprovedAt     int64  `json:"approved_at"`
 	ApprovedByName string `json:"approved_by_name"`
 	Schemas        string `json:"schemas"`
 	State          string `json:"state"`
+	Reason         string `json:"reason"`
 	SeenAt         int64  `json:"seen_at"`
 }
 
-// ObserveScriptHost ajanın yetenek başlığını işler. Yeni host_key onaylı
-// anahtarın yerine geçmez, pending_key'e yazılır (§7). keyChanged: bekleyen
-// anahtar bu çağrıyla değişti.
-func (s *Store) ObserveScriptHost(ctx context.Context, probeID int64, hostKey, schemas, state string, now int64) (keyChanged bool, err error) {
+const scriptHostCols = "probe_id, host_key, public_key, pending_key, pending_pub, receipt_seq, receipt_hash, approved_at, approved_by_name, schemas, state, reason, seen_at"
+
+func scanScriptHost(row interface{ Scan(...any) error }) (ScriptHost, error) {
+	var h ScriptHost
+	err := row.Scan(&h.ProbeID, &h.HostKey, &h.PublicKey, &h.PendingKey, &h.PendingPub, &h.ReceiptSeq, &h.ReceiptHash,
+		&h.ApprovedAt, &h.ApprovedByName, &h.Schemas, &h.State, &h.Reason, &h.SeenAt)
+	return h, err
+}
+
+// ObserveScriptHost ajanın yetenek başlığını işler. Yeni anahtar onaylı anahtarın
+// yerine geçmez, bekleyen olarak yazılır (§7, D14). keyChanged: bekleyen anahtar
+// bu çağrıyla değişti. hostKey boşsa (state=off) anahtar alanlarına dokunulmaz.
+func (s *Store) ObserveScriptHost(ctx context.Context, probeID int64, hostKey, pub, schemas, state, reason string, now int64) (keyChanged bool, err error) {
 	err = s.tx(ctx, func(tx *Tx) error {
-		var cur, pending string
-		e := tx.QueryRowContext(ctx, `SELECT host_key, pending_key FROM script_hosts WHERE probe_id = ? FOR UPDATE`, probeID).Scan(&cur, &pending)
-		if errors.Is(e, sql.ErrNoRows) {
-			_, e = tx.ExecContext(ctx, `INSERT INTO script_hosts (probe_id) VALUES (?) ON CONFLICT DO NOTHING`, probeID)
+		if _, e := tx.ExecContext(ctx, `INSERT INTO script_hosts (probe_id) VALUES (?) ON CONFLICT DO NOTHING`, probeID); e != nil {
+			return e
 		}
-		if e != nil {
+		var cur, pending, pendingPub string
+		if e := tx.QueryRowContext(ctx, `SELECT host_key, pending_key, pending_pub FROM script_hosts WHERE probe_id = ? FOR UPDATE`, probeID).
+			Scan(&cur, &pending, &pendingPub); e != nil {
 			return e
 		}
 		if hostKey != "" && hostKey != cur && hostKey != pending {
-			pending, keyChanged = hostKey, true
+			pending, pendingPub, keyChanged = hostKey, pub, true
 		}
-		if hostKey == cur {
-			pending = ""
+		if hostKey != "" && hostKey == cur {
+			pending, pendingPub = "", ""
 		}
-		_, e = tx.ExecContext(ctx, `UPDATE script_hosts SET pending_key = ?, schemas = ?, state = ?, seen_at = ? WHERE probe_id = ?`,
-			pending, schemas, state, now, probeID)
+		_, e := tx.ExecContext(ctx, `UPDATE script_hosts SET pending_key = ?, pending_pub = ?, schemas = ?, state = ?, reason = ?, seen_at = ? WHERE probe_id = ?`,
+			pending, pendingPub, schemas, state, reason, now, probeID)
 		return e
 	})
 	return keyChanged, err
@@ -328,9 +347,7 @@ func (s *Store) ObserveScriptHost(ctx context.Context, probeID int64, hostKey, s
 
 // ScriptHostInfo bir ajanın kaydı; yoksa boş değer.
 func (s *Store) ScriptHostInfo(ctx context.Context, probeID int64) (ScriptHost, error) {
-	var h ScriptHost
-	err := s.db.QueryRowContext(ctx, `SELECT probe_id, host_key, pending_key, approved_at, approved_by_name, schemas, state, seen_at
-		FROM script_hosts WHERE probe_id = ?`, probeID).Scan(&h.ProbeID, &h.HostKey, &h.PendingKey, &h.ApprovedAt, &h.ApprovedByName, &h.Schemas, &h.State, &h.SeenAt)
+	h, err := scanScriptHost(s.db.QueryRowContext(ctx, `SELECT `+scriptHostCols+` FROM script_hosts WHERE probe_id = ?`, probeID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return ScriptHost{ProbeID: probeID}, nil
 	}
@@ -339,20 +356,45 @@ func (s *Store) ScriptHostInfo(ctx context.Context, probeID int64) (ScriptHost, 
 
 // ListScriptHosts bilinen tüm ajan kayıtları.
 func (s *Store) ListScriptHosts(ctx context.Context) ([]ScriptHost, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT probe_id, host_key, pending_key, approved_at, approved_by_name, schemas, state, seen_at FROM script_hosts`)
+	rows, err := s.db.QueryContext(ctx, `SELECT `+scriptHostCols+` FROM script_hosts`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := []ScriptHost{}
 	for rows.Next() {
-		var h ScriptHost
-		if err := rows.Scan(&h.ProbeID, &h.HostKey, &h.PendingKey, &h.ApprovedAt, &h.ApprovedByName, &h.Schemas, &h.State, &h.SeenAt); err != nil {
+		h, err := scanScriptHost(rows)
+		if err != nil {
 			return nil, err
 		}
 		out = append(out, h)
 	}
 	return out, rows.Err()
+}
+
+// ApproveHostKey bekleyen anahtarı onaylar; makbuz zinciri kapanır, yeni anahtar
+// sıfırdan başlar (D14). Beklenen anahtar değişmişse false.
+func (l *ScriptLog) ApproveHostKey(ctx context.Context, probeID int64, key, byName string, now int64) (pub string, ok bool, err error) {
+	if err = l.tx.QueryRowContext(ctx, `SELECT pending_pub FROM script_hosts WHERE probe_id = ? AND pending_key = ? FOR UPDATE`, probeID, key).Scan(&pub); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	_, err = l.tx.ExecContext(ctx, `UPDATE script_hosts SET host_key = pending_key, public_key = pending_pub, pending_key = '', pending_pub = '',
+		receipt_seq = 0, receipt_hash = '', approved_at = ?, approved_by_name = ? WHERE probe_id = ?`, now, byName, probeID)
+	return pub, err == nil, err
+}
+
+// HostForReceipt onaylı anahtar ve makbuz zinciri başı (satır kilidiyle).
+func (l *ScriptLog) HostForReceipt(ctx context.Context, probeID int64) (ScriptHost, error) {
+	return scanScriptHost(l.tx.QueryRowContext(ctx, `SELECT `+scriptHostCols+` FROM script_hosts WHERE probe_id = ? FOR UPDATE`, probeID))
+}
+
+// SetReceiptHead makbuz zinciri başını ilerletir.
+func (l *ScriptLog) SetReceiptHead(ctx context.Context, probeID, seq int64, hash string) error {
+	_, err := l.tx.ExecContext(ctx, `UPDATE script_hosts SET receipt_seq = ?, receipt_hash = ? WHERE probe_id = ?`, seq, hash, probeID)
+	return err
 }
 
 // ScriptControl acil durdurma ve bildirim kanalları.
@@ -439,6 +481,11 @@ func (l *ScriptLog) Append(ctx context.Context, runID, kind string, actorID int6
 	return e, nil
 }
 
+// Requested çalıştırmanın başlatma olayı; run yoksa sql.ErrNoRows.
+func (l *ScriptLog) Requested(ctx context.Context, runID string) (betikkayit.Event, error) {
+	return scanScriptEvent(l.tx.QueryRowContext(ctx, `SELECT `+scriptEventCols+` FROM script_runs WHERE run_id = ? AND kind = 'requested' ORDER BY seq LIMIT 1`, runID))
+}
+
 // LastKind çalıştırmanın son olayı; run yoksa sql.ErrNoRows.
 func (l *ScriptLog) LastKind(ctx context.Context, runID string) (betikkayit.Event, error) {
 	return scanScriptEvent(l.tx.QueryRowContext(ctx, `SELECT `+scriptEventCols+` FROM script_runs WHERE run_id = ? ORDER BY seq DESC LIMIT 1`, runID))
@@ -464,7 +511,8 @@ func (l *ScriptLog) RequestCancel(ctx context.Context, runID string) error {
 	return err
 }
 
-// MarkDelivered teslim zamanını yazar ve ilk teslimde true döner.
+// MarkDelivered ajanın "accepted" bildirdiği zamanı yazar (sözleşme §4: bu ana
+// kadar her yoklamada yeniden gönderilir); ilk bildirimde true döner.
 func (l *ScriptLog) MarkDelivered(ctx context.Context, runID string, now int64) (bool, error) {
 	res, err := l.tx.ExecContext(ctx, `UPDATE script_queue SET delivered_at = ? WHERE run_id = ? AND delivered_at = 0`, now, runID)
 	if err != nil {
@@ -559,6 +607,29 @@ func (s *Store) ScriptJobsFor(ctx context.Context, probeID, now int64) ([]Script
 		out = append(out, j)
 	}
 	return out, rows.Err()
+}
+
+// StaleScriptJobs ajan kabul etmiş ama cutoff'tan beri makbuz göndermemiş işler.
+func (s *Store) StaleScriptJobs(ctx context.Context, cutoff int64) ([]string, error) {
+	return s.stringList(ctx, `SELECT run_id FROM script_queue WHERE delivered_at > 0 AND delivered_at < ?`, cutoff)
+}
+
+// LastScriptEvent verilen türdeki son olay; yoksa ok=false.
+func (s *Store) LastScriptEvent(ctx context.Context, kind string) (betikkayit.Event, bool, error) {
+	e, err := scanScriptEvent(s.db.QueryRowContext(ctx, `SELECT `+scriptEventCols+` FROM script_runs WHERE kind = ? ORDER BY seq DESC LIMIT 1`, kind))
+	if errors.Is(err, sql.ErrNoRows) {
+		return e, false, nil
+	}
+	return e, err == nil, err
+}
+
+// ScriptEventAt bir seq'teki olayın özeti; saklama nedeniyle yoksa ok=false.
+func (s *Store) ScriptEventAt(ctx context.Context, seq int64) (hash string, ok bool, err error) {
+	err = s.db.QueryRowContext(ctx, `SELECT hash FROM script_runs WHERE seq = ?`, seq).Scan(&hash)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	return hash, err == nil, err
 }
 
 // ExpiredScriptJobs süresi dolmuş, teslim edilmemiş işler.

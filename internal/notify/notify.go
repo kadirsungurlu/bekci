@@ -64,6 +64,10 @@ const (
 	// BootTime yeni açılış). Olaya bağlı değildir; yalnızca "reboot" kuralı
 	// açık sunucularda gider.
 	KindServerReboot = "server_reboot"
+	// KindScript betik çalıştırma olayı: kanalları betik ayarı seçer, Kinds
+	// listesinde yoktur (kanal süzgeci güvenlik bildirimini susturamasın). Metin
+	// Message'tadır, çıktı gövdesi hiçbir zaman girmez. Mount tekilleştirme anahtarı.
+	KindScript = "script"
 
 	// Olay bir kullanıcı tarafından onaylandı (AckedBy, AckNote). Olayın
 	// kanallarına gider ama yalnızca bu türü AÇIKÇA seçen kanallara
@@ -329,6 +333,8 @@ func (e Event) Title() string {
 		return i18n.T(l, "notify.location_up.title", e.MonitorName)
 	case KindServerAlert, KindServerResolved, KindServerReboot:
 		return e.serverTitle()
+	case KindScript:
+		return i18n.T(l, "notify.script.title", e.MonitorName)
 	case KindSlow:
 		return i18n.T(l, "notify.slow.title", e.MonitorName)
 	case KindSlowResolved:
@@ -601,6 +607,8 @@ func (e Event) AlertKey() string {
 		return fmt.Sprintf("%sprobe-%d-uplink", prefix, e.ProbeID)
 	case e.Kind == KindServerReboot:
 		return fmt.Sprintf("%sserver-%d-reboot-%d", prefix, e.ProbeID, e.BootTime.Unix())
+	case e.Kind == KindScript:
+		return fmt.Sprintf("%sscript-%s-%d", prefix, e.Mount, e.Time.UnixNano())
 	case e.ProbeID != 0 && e.Metric == "container":
 		return fmt.Sprintf("%sserver-%d-container-%s", prefix, e.ProbeID, e.Mount)
 	case e.ProbeID != 0:
