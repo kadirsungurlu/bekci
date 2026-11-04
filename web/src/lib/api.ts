@@ -1561,7 +1561,8 @@ export interface InvContainer {
   health?: string;
   restart_count: number;
   command?: string;
-  started_at?: number;
+  /** Docker'dan gelen RFC 3339 zaman damgası. */
+  started_at?: string;
   first_seen: number;
   last_seen: number;
 }

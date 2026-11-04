@@ -67,6 +67,8 @@
     open = '';
   }
 
+  /** Docker hiç başlamamış konteynerde 0001 yılını verir: sıfır sayılır. */
+  const startedAt = (s?: string) => Math.max(0, Math.floor(Date.parse(s ?? '') / 1000) || 0);
   const daysLeft = (c: InvCert) => Math.floor((c.not_after - now) / 86400);
   const isPublic = (addr: string) => addr === '0.0.0.0' || addr === '::' || addr === '*';
   const stopped = (state: string) => state !== 'running' && state !== 'restarting' && state !== 'paused';
@@ -290,15 +292,17 @@
           {#each containers as c (c.name)}
             <tr>
               <td data-label={t('servers.inventory.colContainer')}>
-                {@render expander('c:' + c.name, c.name)}
-                {#if c.command}<div class="cmd" title={c.command}>{c.command}</div>{/if}
+                <div class="cell">
+                  {@render expander('c:' + c.name, c.name)}
+                  {#if c.command}<div class="cmd" title={c.command}>{c.command}</div>{/if}
+                </div>
               </td>
               <td data-label={t('servers.inventory.colImage')} class="break">{c.image}</td>
               <td data-label={t('servers.inventory.colState')}>
                 <span class="pill {c.health === 'unhealthy' ? 'down' : stateClass(c.state)}">{c.state}{c.health ? ` · ${c.health}` : ''}</span>
               </td>
               <td data-label={t('servers.inventory.colRestarts')} class="num" class:hot={c.restart_count > 0}>{c.restart_count}</td>
-              <td data-label={t('servers.inventory.colStarted')}>{c.started_at ? fmtRelative(c.started_at, now) : '-'}</td>
+              <td data-label={t('servers.inventory.colStarted')}>{startedAt(c.started_at) ? fmtRelative(startedAt(c.started_at), now) : '-'}</td>
             </tr>
             {@render chart('c:' + c.name, 'c', c.name)}
           {/each}
@@ -313,12 +317,16 @@
               <td data-label={t('servers.inventory.colPort')} class="num"><b>{p.port}</b></td>
               <td data-label={t('servers.inventory.colProto')}>{p.proto.toUpperCase()}</td>
               <td data-label={t('servers.inventory.colAddr')}>
-                <span class="mono-name">{p.addr}</span>
-                {#if isPublic(p.addr)}<span class="pill pending tag">{t('servers.inventory.public')}</span>{/if}
+                <div class="cell">
+                  <span class="mono-name">{p.addr}</span>
+                  {#if isPublic(p.addr)}<span class="pill pending tag">{t('servers.inventory.public')}</span>{/if}
+                </div>
               </td>
               <td data-label={t('servers.inventory.colProcess')}>
-                {p.process || '-'}
-                {#if p.cmd}<div class="cmd" title={p.cmd}>{p.cmd}</div>{/if}
+                <div class="cell">
+                  {p.process || '-'}
+                  {#if p.cmd}<div class="cmd" title={p.cmd}>{p.cmd}</div>{/if}
+                </div>
               </td>
             </tr>
           {/each}
@@ -331,14 +339,18 @@
           {#each certs as c (`${c.source}/${c.location}`)}
             <tr>
               <td data-label={t('servers.inventory.colCert')}>
-                <span class="mono-name">{c.subject || c.location}</span>
-                {#if c.sans?.length}<div class="cmd" title={c.sans.join(', ')}>{c.sans.join(', ')}</div>{/if}
+                <div class="cell">
+                  <span class="mono-name">{c.subject || c.location}</span>
+                  {#if c.sans?.length}<div class="cmd" title={c.sans.join(', ')}>{c.sans.join(', ')}</div>{/if}
+                </div>
               </td>
               <td data-label={t('servers.inventory.colLocation')} class="break">{c.location}</td>
               <td data-label={t('servers.inventory.colIssuer')}>{c.issuer || '-'}</td>
               <td data-label={t('servers.inventory.colExpires')}>
-                <span class="pill {certClass(c)}">{certLabel(c)}</span>
-                <div class="muted small">{fmtDate(c.not_after)}</div>
+                <div class="cell">
+                  <span class="pill {certClass(c)}">{certLabel(c)}</span>
+                  <div class="muted small">{fmtDate(c.not_after)}</div>
+                </div>
               </td>
               {#if session.canEdit}
                 <td data-label="" class="act">
@@ -363,7 +375,9 @@
               <td data-label={t('servers.inventory.colFs')}>{d.fs || '-'}</td>
               <td data-label={t('servers.inventory.colSize')} class="num">{fmtBytes(d.total)}</td>
               <td data-label={t('servers.inventory.colUsage')} class="usage">
-                {#if pct !== null}<span class="pct">{fmtPctInt(pct)}</span><UsageBar value={pct} bare />{:else}-{/if}
+                <div class="cell">
+                  {#if pct !== null}<span class="pct">{fmtPctInt(pct)}</span><UsageBar value={pct} bare />{:else}-{/if}
+                </div>
               </td>
             </tr>
             {@render chart('d:' + d.mount, 'd', d.mount)}
@@ -485,6 +499,10 @@
     color: var(--muted);
     margin-bottom: 6px;
   }
+  .cell {
+    flex: 1;
+    min-width: 0;
+  }
   .mono-name {
     font-weight: 600;
     overflow-wrap: anywhere;
@@ -504,7 +522,7 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    min-height: 32px;
+    min-height: 22px;
     padding: 0;
     background: none;
     border: none;
@@ -558,13 +576,18 @@
       justify-content: center;
     }
     .cmd {
-      max-width: 220px;
+      max-width: 100%;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
     .usage {
       min-width: 0;
     }
     .exp {
       min-height: 44px;
+    }
+    :global(.table.responsive) td.act::before {
+      display: none;
     }
     .act :global(.btn) {
       min-height: 44px;
