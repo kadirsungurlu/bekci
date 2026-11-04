@@ -159,6 +159,9 @@ func (s *Store) ensureTimescale(ctx context.Context) error {
 	if err := s.tsServerMetrics(cctx, ext, license == "timescale"); err != nil {
 		return fmt.Errorf("TimescaleDB sunucu metrikleri: %w", err)
 	}
+	if err := s.tsScriptRuns(cctx, ext, license == "timescale"); err != nil {
+		return fmt.Errorf("TimescaleDB betik kaydı: %w", err)
+	}
 	s.mode = DBModeTimescaleApache
 	if license != "timescale" {
 		s.opts.Log.Warn("TimescaleDB Apache lisansı: sıkıştırma ve sürekli özet yok, özetler uygulamada", "license", license)
