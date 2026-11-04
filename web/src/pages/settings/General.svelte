@@ -13,6 +13,7 @@
   let hourlyDays = $state<number | null>(365);
   let certDays = $state('21, 14, 7, 3, 1');
   let domainDays = $state('30, 14, 7, 1');
+  let serverCertDays = $state('14, 7, 1');
   let backupKeep = $state<number | null>(7);
   let notifyLang = $state<Locale>('tr');
   let userAgent = $state('');
@@ -47,6 +48,7 @@
     hourlyDays = s.retention_hourly_days;
     certDays = (s.cert_days ?? []).join(', ');
     domainDays = (s.domain_days ?? [30, 14, 7, 1]).join(', ');
+    serverCertDays = (s.server_cert_days ?? [14, 7, 1]).join(', ');
     backupKeep = s.backup_keep;
     notifyLang = s.notify_lang ?? 'tr';
     userAgent = s.check_user_agent ?? '';
@@ -68,6 +70,7 @@
       hourlyDays,
       certDays: certDays.trim(),
       domainDays: domainDays.trim(),
+      serverCertDays: serverCertDays.trim(),
       backupKeep,
       notifyLang,
       userAgent: userAgent.trim(),
@@ -116,6 +119,12 @@
     if (days.some((d) => !Number.isInteger(d) || d < 0 || d > 90))
       return (stError = t('settings.general.errCertDays'));
     if (days.length > 10) return (stError = t('settings.general.errCertCount'));
+    const sdays = serverCertDays
+      .split(/[,\s]+/)
+      .filter(Boolean)
+      .map(Number);
+    if (sdays.length > 5 || sdays.some((d) => !Number.isInteger(d) || d < 1 || d > 365))
+      return (stError = t('settings.general.errServerCertDays'));
     const dparts = domainDays
       .split(/[,\s]+/)
       .map((s) => s.trim())
@@ -140,6 +149,7 @@
         retention_hourly_days: hourlyDays!,
         cert_days: days,
         domain_days: ddays,
+        server_cert_days: sdays,
         backup_keep: backupKeep!,
         notify_lang: notifyLang,
         check_user_agent: ua,
@@ -230,6 +240,11 @@
           <label for="domd">{t('settings.general.domainDays')}</label>
           <input id="domd" class="input" bind:value={domainDays} placeholder={t('settings.general.domainDaysPlaceholder')} />
           <span class="help">{t('settings.general.domainDaysHelp')}</span>
+        </div>
+        <div class="field">
+          <label for="scert">{t('settings.general.serverCertDays')}</label>
+          <input id="scert" class="input" bind:value={serverCertDays} placeholder={t('settings.general.serverCertDaysPlaceholder')} />
+          <span class="help">{t('settings.general.serverCertDaysHelp')}</span>
         </div>
       </div>
       <div class="grid-2">

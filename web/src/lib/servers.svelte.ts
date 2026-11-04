@@ -53,6 +53,7 @@ export const METRICS: Record<ServerMetric, MetricInfo> = {
   offline: metric('offline', 'none', 0, 3, 0, 0, 1),
   container: metric('container', 'none', 0, 2, 0, 0, 1),
   reboot: metric('reboot', 'none', 0, 1, 0, 0, 1),
+  cert: metric('cert', 'none', 0, 0, 0, 0, 1),
 };
 
 export const METRIC_ORDER: ServerMetric[] = ['offline', 'cpu', 'mem', 'disk', 'swap', 'load', 'temp', 'net', 'container', 'reboot'];

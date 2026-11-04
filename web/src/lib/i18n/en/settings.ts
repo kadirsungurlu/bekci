@@ -37,6 +37,11 @@ export default {
     errIncidentDays: 'Incident retention must be 7-3650 days or 0 (forever).',
     errCaptureDays: 'Capture retention must be 1-3650 days or 0 (forever).',
     errAuditDays: 'Audit log retention must be 7-3650 days or 0 (forever).',
+    serverCertDays: 'Server certificate alert days',
+    serverCertDaysPlaceholder: 'e.g. 14, 7, 1',
+    serverCertDaysHelp:
+      'An incident opens and a notification is sent this many days before a certificate in the server inventory expires; the lowest threshold and expired certificates are critical. Separate with commas (at most 5); leave empty to turn alerts off.',
+    errServerCertDays: 'Server certificate alert days must be whole numbers from 1 to 365 (at most 5).',
     certDays: 'SSL alert days',
     certDaysPlaceholder: 'e.g. 21, 14, 7',
     certDaysHelp:

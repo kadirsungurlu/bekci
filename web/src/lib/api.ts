@@ -976,6 +976,8 @@ export interface AppSettings {
   retention_raw_days: number;
   retention_hourly_days: number;
   cert_days: number[];
+  /** Sunucu sertifikası uyarı eşikleri (gün); boş = kapalı. */
+  server_cert_days?: number[];
   /** Alan adı bitiş uyarı eşikleri (gün; [] = kapalı; eski sunucuda gelmez). */
   domain_days?: number[];
   backup_keep: number;
@@ -1437,7 +1439,8 @@ export type ServerMetric =
   | "net"
   | "offline"
   | "container"
-  | "reboot";
+  | "reboot"
+  | "cert";
 /** Sunucu uyarı seviyesi (eski kurallarda boş = kritik). */
 export type AlertLevel = "warning" | "critical";
 
@@ -1538,6 +1541,73 @@ export interface StatsPoint {
   disks?: { mount: string; pct: number }[];
   temp?: number | null;
   containers?: { name: string; cpu: number; mem: number }[] | null;
+}
+
+export interface InvService {
+  name: string;
+  active: string;
+  sub?: string;
+  enabled?: string;
+  description?: string;
+  first_seen: number;
+  last_seen: number;
+}
+
+export interface InvContainer {
+  id?: string;
+  name: string;
+  image: string;
+  state: string;
+  health?: string;
+  restart_count: number;
+  command?: string;
+  started_at?: number;
+  first_seen: number;
+  last_seen: number;
+}
+
+export interface InvPort {
+  proto: string;
+  addr: string;
+  port: number;
+  process?: string;
+  cmd?: string;
+  first_seen: number;
+  last_seen: number;
+}
+
+export interface InvCert {
+  source: string;
+  location: string;
+  subject?: string;
+  sans?: string[] | null;
+  issuer?: string;
+  not_before?: number;
+  not_after: number;
+  fingerprint: string;
+  ignored: boolean;
+  first_seen: number;
+  last_seen: number;
+}
+
+export interface InvDisk {
+  mount: string;
+  device?: string;
+  fs?: string;
+  total: number;
+  first_seen: number;
+  last_seen: number;
+}
+
+/** collected_at 0: ajan envanter göndermedi (eski ajan). */
+export interface ServerInventory {
+  collected_at: number;
+  notes: Record<string, string> | null;
+  services: InvService[];
+  containers: InvContainer[];
+  ports: InvPort[];
+  certs: InvCert[];
+  disks: InvDisk[];
 }
 
 export interface StatsSeries {
@@ -2140,6 +2210,9 @@ export const api = {
   getServer: (id: number) => get<ServerDetail>(`/api/servers/${id}`),
   getServerStats: (id: number, range: StatsRange) =>
     get<StatsSeries>(`/api/servers/${id}/stats?range=${range}`),
+  getServerInventory: (id: number) => get<ServerInventory>(`/api/servers/${id}/inventory`),
+  setInventoryCertIgnored: (id: number, fingerprint: string, ignored: boolean) =>
+    put<void>(`/api/servers/${id}/inventory/certs/${encodeURIComponent(fingerprint)}`, { ignored }),
   getServerEvents: (id: number) =>
     get<{ events: ServerEvent[] | null }>(`/api/servers/${id}/events`).then(
       (r) => r.events ?? [],

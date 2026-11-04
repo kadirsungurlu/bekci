@@ -15,6 +15,7 @@
     type StatsRange,
     type StatsSeries,
   } from '../lib/api';
+  import ServerInventory from '../components/ServerInventory.svelte';
   import { live } from '../lib/live.svelte';
   import { session } from '../lib/session.svelte';
   import { clock, toast } from '../lib/ui.svelte';
@@ -333,6 +334,7 @@
   const lvl = (v: number | null) => ({ ok: '', warn: 'c-pending', danger: 'c-down' })[usageLevel(v)];
 
   const TONE_ICON = { up: 'server', warn: 'alert', down: 'server', muted: 'server' } as const;
+  let pageTab = $state<'overview' | 'inventory'>('overview');
   const PILL = { up: 'up', warn: 'pending', down: 'down', muted: 'paused' } as const;
 </script>
 
@@ -419,6 +421,14 @@
     </div>
   {/if}
 
+  <div class="ptabs" role="tablist" aria-label={t('servers.inventory.pageTabs')}>
+    <button role="tab" aria-selected={pageTab === 'overview'} class:active={pageTab === 'overview'} onclick={() => (pageTab = 'overview')}>{t('servers.inventory.tabOverview')}</button>
+    <button role="tab" aria-selected={pageTab === 'inventory'} class:active={pageTab === 'inventory'} onclick={() => (pageTab = 'inventory')}>{t('servers.inventory.title')}</button>
+  </div>
+
+  {#if pageTab === 'inventory'}
+    <ServerInventory {id} disks={st?.disks ?? []} />
+  {:else}
   {#if st}
     <div class="tiles" class:dimmed={view.state === 'offline'}>
       <div class="card tile" class:fire={view.firing?.includes('cpu')}>
@@ -774,7 +784,7 @@
     {/if}
   </section>
   {/if}
-
+  {/if}
 
   {#if session.isAdmin}
     <ServerSetupModal bind:open={renewOpen} renew={view} />
@@ -783,6 +793,32 @@
 {/if}
 
 <style>
+  .ptabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ptabs button {
+    min-height: 44px;
+    padding: 0 14px;
+    margin-bottom: -1px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-2);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .ptabs button:hover {
+    color: var(--text);
+  }
+  .ptabs button.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+  }
   .legacy {
     margin: -6px 0 10px;
   }
