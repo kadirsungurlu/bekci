@@ -6,7 +6,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 ## Klasör düzeni (repo/)
 - `cmd/uptime/` — tek ikili: panel (`main.go`), kontrol noktası/ajan (`probe.go`), Windows hizmeti; `cmd/ajanimza/` ajan imza aracı
 - `internal/api/` — HTTP katmanı (stdlib net/http). `server.go`: çekirdek rotalar + ara katmanlar (CSRF, güvenlik başlıkları, dil)
-- `internal/store/` — SQL (SQLite varsayılan, PostgreSQL destekli); migration'lar Go içinde; `storetest/` test veritabanı
+- `internal/store/` — SQL (PostgreSQL + TimescaleDB varsayılan; düz PG uyumlu; SQLite kullanımdan kalkıyor); migration'lar Go içinde; `storetest/` test veritabanı
 - `internal/engine/` — denetim döngüsü, olay (incident) açma/kapama (`incidents.go`), bakım, `hub.go` (SSE yayını)
 - `internal/notify/` — kanal sağlayıcıları (her tür bir dosya), `dispatcher.go` (kuyruk, tekrar, sessize alma, yükseltme), `email.go` (SMTP)
 - `internal/check/` — izleyici türleri (http, tcp, dns, ping, sql, ...); `internal/i18n/` — sunucu tarafı TR/EN metinler
@@ -16,8 +16,8 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 - `docs/TIMESCALE-TASARIM.md` — Postgres+TimescaleDB ve sunucu bilgi kaynağı tasarımı (600; 610-695 buna uyar): hypertable/cagg/saklama, uyumluluk modları, yükseltme yolları, lisans
 - `web/` — Svelte 5 + Vite SPA (TS). `src/pages/` sayfalar, `src/components/`, `src/lib/` (api.ts türler+istekler, router, i18n)
 - `web/e2e/` — Playwright betikleri (`push.mjs`, `durum.mjs`, `abonelik.mjs` + `smtp-sink.mjs` sahte SMTP; `ozelalan.mjs` abonelik ve `alanadi.mjs` on-demand TLS: gerçek alan adıyla elle, CI'da yok; `guncelleme.mjs` yeni sürüm şeridi, sahte sürüm sunucusu, CI'da; `olaylar.mjs` olay listesi sayfalama, CI'da; `mesh.mjs` bağlantı matrisi, CI'da; `topoloji.mjs` canlı topoloji, CI'da), `statusgrid.test.mjs`, `meshlayout.test.mjs`, `topolayout.test.mjs` (node --test)
-- `site/` — tanıtım sitesi + belgeler (`docs-src/{tr,en}`) · `deploy/compose/` — örnek compose · `Dockerfile`, `Dockerfile.postgres`
-- `.github/workflows/imajlar.yml` — CI: go vet/test (sqlite+pg), web check/build, e2e, duman testi, imaj
+- `site/` — tanıtım sitesi + belgeler (`docs-src/{tr,en}`) · `deploy/compose/` — varsayılan compose (TimescaleDB 2.31.0-pg18, Caddy); `site/indir/` indirilebilir compose/env (belgedeki kod bloklarıyla aynı olmalı, `site/docs-build/build.mjs` denetler) · `Dockerfile` (pg_dump dahil), `Dockerfile.postgres` (kullanımdan kalkıyor)
+- `.github/workflows/imajlar.yml` — CI: go vet/test (sqlite+pg), web check/build, e2e, duman testi, `duman-veritabani` (`scripts/duman-db.sh`: compose, SQLite->TS, düz PG, eklenti), imaj
 
 ## Katmanlar ve kalıplar
 - Yön: api -> engine/notify -> store. İşleyiciler `func (s *Server) x(w, r)`; JSON için `writeJSON`/`writeError`, DB hatası `s.dbError`.
@@ -71,6 +71,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 | Mesh karar + bildirim | mesh/verdict.go (saf karar: bölünme, düğüm, yol, tek yönlü, yetersiz gözlem), mesh/text.go (TR/EN metin, Report); mesh/render.go (şema PNG, RenderPNG; Inter alt kümesi mesh/font/, altın PNG testdata/topo*.png); engine/mesh.go (evalMesh: ısınma, 1 panel aralığı erteleme, tek olay; probe_offline tekil bildirimi bastırır); store/mesh_incident.go (olay türü mesh, yalnız yönetici, IncidentFilter.NoMesh); notify/mesh.go (KindMesh/KindMeshResolved, kanal = noktaların çevrimdışı kanalları); api/incidents_mesh.go; api/mesh_view.go (GET /api/mesh matris, engine.MeshSnapshot); i18n/mesh.go; web IncidentDetail mesh kartı, components/MeshMatrix (Ayarlar > Kontrol noktaları, SSE "mesh") |
 | OOB ikinci hat (ajan hat yedeği) | store/probes_oob.go (migration 41: oob_ip, oob_name, uplink, uplink_since, oob_iface_missing); api/probe_guard.go (IP kilidi OOB yuvası), probes_oob.go (X-Probe-Uplink / X-Probe-OOB-Iface başlıkları), jobs + kalp atışı yanıtında oob; engine/uplink.go (SetProbeUplink, bildirim, OOB konumu noVote); notify KindUplinkFailover/Restored; probe/bind*.go (arayüz bulma, SO_BINDTODEVICE / IP_UNICAST_IF, PROBE_OOB_IFACE), probe/uplink.go (geçiş/dönüş durum makinesi); web components/UplinkBadge, OobFields; belge 08-sunucu-ajani#oob |
 | Canlı topoloji sayfası | api/topology.go (GET /api/topology: tek istekte panel özeti, monitör x konum son sonucu, noktalar + panel RTT/hat/eş, mesh, sunucu son metrik, kanal son gönderim, açık olaylar; rol/müşteri süzgeci), mesh_view.go meshView; engine/probes.go ProbeLate (kalp atışı gecikiyor, erken uyarı); engine/rate.go (saniyedeki sonuç), notify/lastsend.go + store/channel_sends.go (kanal son gönderim, DB migration 42); ajan panel RTT'si kalp atışında (probe/heartbeat.go main_rtt_ms -> probe_links src=nokta dst=0 rtt_ms); web pages/Topology.svelte, lib/topology.svelte.ts (SSE tetikli + 5 sn yedek yoklama, gizli sekmede durur); geniş ekran components/TopoCanvas.svelte (HTML kartlar + SVG bağlantılar, ipucu klavye/Escape) ve yerleşim lib/topolayout.ts (genişliğe göre ızgara, 'N tane daha', mesh tek sıra <=10 nokta yoksa matrise düşer; test e2e/topolayout.test.mjs), kurallar lib/topoview.ts (durum sınıfı, sorunlular önce, kenar türü, ipucu satırları); dar ekran (<640 px) components/TopoList.svelte; TopoMatrix (bağlantı matrisi), TopoDecision (açık olay: neden, mesh bulguları, olay ayrıntısındaki notify kayıtları); i18n topology; e2e topoloji.mjs (CI) |
+| SQLite -> PostgreSQL taşıma | `uptime migrate`: cmd/uptime/migrate.go, store/sqlite_migrate.go (kopya, partiler, devam, doğrulama, CheckSQLiteLeftover); belge site/docs-src/{tr/15-veritabani,en/15-database}.md; Ayarlar uyarısı settings/General (/healthz?detail db_mode) |
 | Mesh topoloji şeması | web components/MeshDiagram.svelte (elle SVG, lib/meshlayout.ts yerleşimi, ipucu + klavye odağı; MeshMatrix kartında ve IncidentDetail mesh kartında); GET /api/mesh links (yönlü: rtt_ms, loss_streak, last_ok_at; api/mesh_view.go meshLinkViews); olay kaydı nodes + ab/ba (api/incidents_mesh.go); i18n probes.topo; Tooltip focusin |
 
 <!-- OTOMATIK: scripts/harita.sh -->
@@ -114,7 +115,7 @@ webpush.go: GET /api/webpush/vapid | GET /api/webpush/subscriptions | POST /api/
 17: pages_layout.go 18: incident_kinds.go 19: probes.go 20: maintenance.go 21: probes.go 22: monitors.go 23: notification_rules.go 24: 
 pages_period.go 25: incident_manual.go 26: servers_ext.go 27: beats_recent.go 28: domain.go 29: incident_ack.go 30: tag_rules.go 31: 
 auth_ext.go 32: webpush.go 33: auth_ext.go 34: sessions.go 35: probes_update.go 36: subscribers.go 37: subscribers.go 38: updates.go 39: 
-incident_kinds.go 40: mesh.go 41: probes_oob.go 42: channel_sends.go 43: timescale.go
+incident_kinds.go 40: mesh.go 41: probes_oob.go 42: channel_sends.go 43: timescale.go 44: server_metrics.go
 ```
 
 ### Arayüz sayfaları / bileşenler / i18n ad alanları

@@ -150,7 +150,7 @@
         <li><b>One image</b><span>UI, API, check engine and agents</span></li>
         <li><b>~15 MB RAM</b><span>with 10 monitors and 3 servers</span></li>
         <li><b>amd64&nbsp;+&nbsp;arm64</b><span>Linux hosts, plus a Windows agent</span></li>
-        <li><b>SQLite · PostgreSQL</b><span>SQLite by default, PostgreSQL if you prefer</span></li>
+        <li><b>PostgreSQL + TimescaleDB</b><span>Compressed measurements, ready rollups</span></li>
       </ul>
     </div>
   </section>
@@ -473,7 +473,7 @@ PROBE_TOKEN=upr_…
         <p class="install-note">Then open <code>http://SERVER-IP:8080</code> and create your admin account.</p>
         <ul class="guides" aria-label="Install guides">
           <li><a class="guide" href="/en/docs/install/docker/"><b>Docker (one command)</b><span>The quickest way to try it.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-          <li><a class="guide" href="/en/docs/install/docker-compose/"><b>Docker Compose</b><span>Settings in one file; SQLite or PostgreSQL.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a class="guide" href="/en/docs/install/docker-compose/"><b>Docker Compose</b><span>Settings in one file; PostgreSQL + TimescaleDB.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
           <li><a class="guide" href="/en/docs/install/caddy/"><b>HTTPS install (Caddy)</b><span>Your domain with an automatic certificate. Recommended.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
           <li><a class="guide" href="/en/docs/install/coolify/"><b>Coolify</b><span>Add it as a Docker image.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
           <li><a class="guide" href="/en/docs/install/reverse-proxy/"><b>Behind a reverse proxy</b><span>Nginx, Traefik, Apache or Caddy.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
@@ -507,7 +507,7 @@ PROBE_TOKEN=upr_…
         <details>
           <summary>Which database does it use?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
           <div class="answer">
-            <p>SQLite by default — no extra services, and the lightest option. If you'd rather use PostgreSQL, point <code>DATABASE_URL</code> at your own server or run the <code>kadirsungurlu/bekci:postgres</code> image with embedded PostgreSQL 18 (about 200 MB of extra RAM).</p>
+            <p>The default setup uses PostgreSQL + TimescaleDB; the compose file starts the database too. Plain PostgreSQL such as RDS also works but isn't recommended. SQLite is deprecated; move with <code>uptime migrate</code> (<a href="/en/docs/database/">guide</a>).</p>
             <p>Data can't be moved between the two images, so pick one up front.</p>
           </div>
         </details>
@@ -524,14 +524,14 @@ PROBE_TOKEN=upr_…
         </details>
         <details>
           <summary>Where is my data stored?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
-          <div class="answer"><p>Entirely on your server: monitors, measurements, incidents and users live in the SQLite database on the <code>/data</code> volume (or in your own PostgreSQL). With SQLite, a backup is written to <code>/data/backups/</code> every night — we recommend copying that folder off the server too.</p></div>
+          <div class="answer"><p>Entirely on your server: monitors, measurements, incidents and users live in your own PostgreSQL database. A backup is written every night to <code>/data/backups/</code> every night — we recommend copying that folder off the server too.</p></div>
         </details>
         <details>
           <summary>How do I update?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
           <div class="answer">
             <p>Take a backup, then pull the new image and recreate the container. With Compose:</p>
             <div class="cmd"><pre><code>docker compose pull &amp;&amp; docker compose up -d</code></pre></div>
-            <p>If a new version changes the database schema (SQLite), Bekci takes an automatic backup first and won't migrate if that backup fails. To pin a version or roll back, use version tags such as <code>kadirsungurlu/bekci:1.0.0</code>. Details: <a href="/en/docs/updates-backups/">Updates, backups and rollback</a>.</p>
+            <p>Bekci takes an automatic backup every night; take one by hand before updating too. To pin a version or roll back, use version tags such as <code>kadirsungurlu/bekci:1.0.0</code>. Details: <a href="/en/docs/updates-backups/">Updates, backups and rollback</a>.</p>
           </div>
         </details>
         <details>

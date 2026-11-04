@@ -164,7 +164,7 @@ Ek öneri: kaldırma sürümünde bile **salt okunur SQLite okuyucu yalnız taş
 böylece 1.x SQLite kurulumu doğrudan 2.x'e geçebilir, ara sürüm şartı olmaz. `modernc.org/sqlite` bağımlılığı bu yüzden kalır (~boyut maliyeti).
 Panel SQLite ile açılınca: log + arayüz şeridi "SQLite kullanımdan kalkıyor; taşıma: belge bağlantısı".
 
-### 5.4 Yükseltme yolları [denenmedi; 630/640]
+### 5.4 Yükseltme yolları [630 uygulandı, aşağıdaki nota bakın]
 | Başlangıç | Yol | Kesinti |
 |---|---|---|
 | SQLite 1.6.0 | compose'a `timescale/timescaledb:2.31.0-pg18` servisi eklenir, `DATABASE_URL` verilir; panel açılışta boş PG + `/data/uptime.db` görürse taşıma önerir; ya da `bekci migrate`. Kopya: tablo tablo, 10 bin satırlık partiler, ilerleme, kesintide kaldığı yerden (hedefte `migrate_progress`), sonda satır sayısı karşılaştırması; SQLite dosyasına dokunmaz (geri dönüş = eski imaj) | canlı ölçeğinde (~200 K satır) saniyeler; 10 M satırda tahmini birkaç dakika |
@@ -174,6 +174,12 @@ Panel SQLite ile açılınca: log + arayüz şeridi "SQLite kullanımdan kalkıy
 
 Ana sürüm şartı: Timescale imajının PG ana sürümü mevcut veri klasörüyle aynı olmalı (18). Farklıysa yalnız dump/restore.
 Timescale eklenti sürüm güncellemesi (2.31 -> 2.32): `ALTER EXTENSION timescaledb UPDATE` (açılışta, ilk bağlantı `-X`).
+
+Uygulama notu (630, 2026-11-04). Rehber: `site/docs-src/tr/15-veritabani.md`. Duman: `scripts/duman-db.sh`.
+- `uptime migrate` şöyle çalışır: VACUUM INTO kopya, kopyayı şemaya yükseltme, hedefi `TimescaleOff` ile düz açma, tablo başına `CopyFrom` partileri + aynı işlemde `migrate_progress`, sayaçlar, satır sayısı doğrulama, `migrate_meta.finished_at`, sonra normal açılışla hypertable dönüşümü. Panel `CheckSQLiteLeftover` ile yarım taşımada açılmaz (`SQLITE_IGNORE=1` atlar).
+- [ölçüldü] 3.144.401 satır: ~31.750 satır/sn, kill -9 sonrası devam dahil 5 dk 24 sn; dönüşüm tablo kilidi altında sessizdir.
+- [ölçüldü] Düz PG -> eklenti: `postgres:18-alpine` veri birimi + timescale imajı + `-c shared_preload_libraries=timescaledb`. `pg_dump`/`pg_restore` (pre/post restore) 3 M satırda çalıştı.
+- [denenmedi] Gerçek 1.6.0 imajından yükseltme, canlı veri kopyası, gerçek `-postgres` imajından döküm (yalnız düz PG dökümüyle benzetildi), Coolify, Apache kipi, süper kullanıcı olmayan hedef/RDS, arm64.
 
 ## 6. İmaj ve dağıtım
 - Tek Bekci imajı (yalnız uygulama). Varsayılan compose: `bekci` + `db: timescale/timescaledb:2.31.0-pg18` (sabit, `latest` yok)
