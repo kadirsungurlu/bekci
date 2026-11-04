@@ -20,6 +20,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -53,6 +54,8 @@ type Store struct {
 	// Dönüşüm sınırları: öncesi stats_*_legacy tablolarında (timescale_read.go).
 	tsDailyCutoff, tsHourlyCutoff int64
 	beats                         beatBatcher // Options.BeatBatch > 0 ise kontrol sonuçlarının toplu yazımı (beats_batch.go)
+	tsCacheMu                     sync.Mutex
+	tsCache                       map[string]tsCacheEntry
 }
 
 // Options Open'ın isteğe bağlı ayarları.
@@ -77,6 +80,9 @@ type Options struct {
 	// tek işlemde yazılır (grup commit); çağıran yazım bitene kadar bekler.
 	// Kısa aralıklı çok monitörde disk yazımını ve işlem sayısını düşürür.
 	BeatBatch time.Duration
+	// ReadCache > 0 ise Timescale kipinde tüm monitörleri tarayan okumalar bu süre
+	// paylaşılır (tsCached).
+	ReadCache time.Duration
 	// TimescaleOff TimescaleDB eklentisi olsa da düz PostgreSQL yolunda
 	// kalır (DB_TIMESCALE=off); var olan dönüşüm geri alınmaz.
 	TimescaleOff bool

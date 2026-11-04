@@ -10,7 +10,7 @@ CG=/sys/fs/cgroup/system.slice/docker-$(docker inspect $C --format '{{.Id}}').sc
 cpu() { awk '/usage_usec/{print $2}' "$CG"; }
 J() { echo "$1" | tee -a "$OUT"; }
 panel() { # db port off
-  ( cd $W; DATABASE_URL="$DSN/$1?sslmode=disable" ADDR=127.0.0.1:$2 DATA_DIR=$W/d$2 DB_TIMESCALE=$3 UPDATE_CHECK=off TZ=UTC nohup ./uptime >$W/panel-$2.log 2>&1 & echo $! >$W/panel-$2.pid )
+  ( cd $W; DATABASE_URL="$DSN/$1?sslmode=disable" ADDR=127.0.0.1:$2 DATA_DIR=$W/d$2 DB_TIMESCALE=$3 UPDATE_CHECK=off READ_CACHE_SEC=0 TZ=UTC nohup ./uptime >$W/panel-$2.log 2>&1 & echo $! >$W/panel-$2.pid )
   for i in $(seq 120); do curl -fs 127.0.0.1:$2/healthz >/dev/null && break; /usr/bin/sleep 1; done
 }
 stop() { kill "$(cat $W/panel-$1.pid)" 2>/dev/null; /usr/bin/sleep 2; }
@@ -40,7 +40,7 @@ cols="monitor_id, bucket, up, down, ping_sum, ping_count, ping_min, ping_max"
 hist=$(seq -f 'h%02g' 0 16 | paste -sd, | sed 's/,/, /g')
 now=$(date +%s); mid=$((N / 2 + 1))
 page=$(python3 -c "print(','.join(str(1+i*$N//50) for i in range(min(50,$N))))")
-docker exec $C bash -c "psql -U postgres -d $DB -qAtX -c \"COPY (SELECT $cols, $hist FROM stats_hourly_ts) TO STDOUT\" | psql -U postgres -d $OLD -q -c \"COPY stats_hourly ($cols, $hist) FROM STDIN\"
+docker exec -e PGOPTIONS='-c session_replication_role=replica -c synchronous_commit=off' $C bash -c "psql -U postgres -d $DB -qAtX -c \"COPY (SELECT $cols, $hist FROM stats_hourly_ts) TO STDOUT\" | psql -U postgres -d $OLD -q -c \"COPY stats_hourly ($cols, $hist) FROM STDIN\"
   psql -U postgres -d $DB -qAtX -c \"COPY (SELECT $cols FROM stats_daily_utc) TO STDOUT\" | psql -U postgres -d $OLD -q -c \"COPY stats_daily ($cols) FROM STDIN\"
   psql -U postgres -d $DB -qAtX -c \"COPY (SELECT monitor_id, time, status, ping_ms, message, location FROM heartbeats WHERE time >= $((now - OLDRAW)) OR (time >= $((now - 86400)) AND monitor_id IN ($mid,$page))) TO STDOUT\" | psql -U postgres -d $OLD -q -c \"COPY heartbeats (monitor_id, time, status, ping_ms, message, location) FROM STDIN\""
 Q $OLD "ANALYZE"; Q $DB "ANALYZE monitors"

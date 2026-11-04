@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strconv"
 )
 
 // 5: API anahtarları. Anahtarın kendisi değil SHA-256 özeti tutulur; prefix
@@ -144,6 +145,12 @@ type UpDown struct{ Up, Down int64 }
 // sayıları (Prometheus metrikleri için tek sorgu). since saat başına yuvarlanır,
 // Uptime ile aynı pencere.
 func (s *Store) UptimeCounts(ctx context.Context, since int64) (map[int64]UpDown, error) {
+	return tsCached(s, "counts:"+strconv.FormatInt(hourCeil(since), 10), func() (map[int64]UpDown, error) {
+		return s.uptimeCounts(ctx, since)
+	})
+}
+
+func (s *Store) uptimeCounts(ctx context.Context, since int64) (map[int64]UpDown, error) {
 	rows, err := s.db.QueryContext(ctx,
 		"SELECT monitor_id, SUM(up), SUM(down) FROM stats_hourly WHERE bucket >= ? GROUP BY monitor_id",
 		hourCeil(since))

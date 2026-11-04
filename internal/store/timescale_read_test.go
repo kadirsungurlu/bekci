@@ -232,3 +232,25 @@ func TestTsChunkPlan(t *testing.T) {
 		}
 	}
 }
+
+func TestTsCached(t *testing.T) {
+	calls := 0
+	f := func() (int, error) { calls++; return calls, nil }
+	s := &Store{mode: DBModeTimescale, opts: Options{ReadCache: time.Hour}}
+	for range 3 {
+		if v, _ := tsCached(s, "a", f); v != 1 {
+			t.Fatalf("önbellek kullanılmadı: %d", v)
+		}
+	}
+	if v, _ := tsCached(s, "b", f); v != 2 {
+		t.Fatalf("anahtar ayrı olmalı: %d", v)
+	}
+	s.opts.ReadCache = 0
+	if v, _ := tsCached(s, "a", f); v != 3 {
+		t.Fatalf("0 süre önbelleği kapatmalı: %d", v)
+	}
+	s = &Store{mode: DBModePostgres, opts: Options{ReadCache: time.Hour}}
+	if a, _ := tsCached(s, "a", f); a != 4 {
+		t.Fatalf("Timescale dışında önbellek olmamalı: %d", a)
+	}
+}

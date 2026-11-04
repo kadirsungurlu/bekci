@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -149,6 +150,12 @@ const bucketCols = "monitor_id, bucket, up, down, ping_sum, ping_count, ping_min
 
 // HourlyAll tüm monitörlerin since'den itibaren saatlik özetleri (liste çubukları için).
 func (s *Store) HourlyAll(ctx context.Context, since int64) (map[int64][]Bucket, error) {
+	return tsCached(s, "hourly:"+strconv.FormatInt(since, 10), func() (map[int64][]Bucket, error) {
+		return s.hourlyAll(ctx, since)
+	})
+}
+
+func (s *Store) hourlyAll(ctx context.Context, since int64) (map[int64][]Bucket, error) {
 	rows, err := s.db.QueryContext(ctx,
 		"SELECT "+bucketCols+" FROM stats_hourly WHERE bucket >= ? ORDER BY monitor_id, bucket", since)
 	if err != nil {

@@ -10,6 +10,7 @@
 //	LOG_LEVEL              debug | info | warn | error (varsayılan info)
 //	MAX_CONCURRENT_CHECKS  aynı anda en fazla kontrol sayısı (varsayılan 50)
 //	BEAT_BATCH_MS          kontrol sonuçlarını bu pencerede biriktirip tek işlemde yazar (varsayılan 250; 0 = her sonuç ayrı işlem)
+//	READ_CACHE_SEC         Timescale kipinde tüm monitörleri tarayan özet okumalarını paylaşma süresi (varsayılan 15; 0 = kapalı)
 //	TZ                     saat dilimi (günlük özetler ve yedek saati için)
 //	PROBE_IMAGE            kontrol noktası kurulum komutunda kullanılacak Docker imajı; boşsa (varsayılan)
 //	                       komut herkese açık alpine imajıyla programı bu sunucudan indirir
@@ -139,6 +140,7 @@ func run() error {
 		LockWait:     time.Duration(lockWait) * time.Second,
 		StandbyFile:  filepath.Join(os.TempDir(), "uptime-bekliyor"),
 		BeatBatch:    time.Duration(beatBatch) * time.Millisecond,
+		ReadCache:    envSeconds("READ_CACHE_SEC", 15),
 		TimescaleOff: strings.EqualFold(env("DB_TIMESCALE", "auto"), "off"),
 	})
 	if err != nil {
@@ -301,4 +303,13 @@ func redactDSN(dsn string) string {
 		u.User = url.UserPassword(u.User.Username(), "***")
 	}
 	return u.Redacted()
+}
+
+// envSeconds tam saniye ortam değişkeni; geçersizse varsayılan.
+func envSeconds(key string, def int) time.Duration {
+	n, err := strconv.Atoi(env(key, ""))
+	if err != nil {
+		n = def
+	}
+	return time.Duration(n) * time.Second
 }

@@ -117,7 +117,7 @@ const (
 	tsCompressBeats   = 7 * 86400
 	tsCompressMesh    = 3 * 86400
 	tsCaggStart       = 3 * 86400 // sürekli özet yenileme penceresi başı
-	tsCaggEnd         = 3600      // ... sonu (süren saat gerçek zamanlı)
+	tsCaggEnd         = 0         // ... sonu: kapanan saat 5 dk içinde özete geçer; ham okunan yalnız süren saat
 	tsDailyStart      = 7 * 86400
 	tsDailyEnd        = 86400
 	tsMeshRetainDays  = 30
@@ -317,7 +317,7 @@ func (s *Store) tsConvertFull(ctx context.Context, ext string) error {
 					min(ping_ms) AS ping_min, max(ping_ms) AS ping_max,
 					%s
 				FROM heartbeats GROUP BY 1, 2 WITH NO DATA`, ext, StatusUp, StatusDown, strings.Join(hist, ",\n")),
-			fmt.Sprintf(`SELECT %s.add_continuous_aggregate_policy('stats_hourly_ts', start_offset => CAST(%d AS BIGINT), end_offset => CAST(%d AS BIGINT), schedule_interval => INTERVAL '15 minutes')`, ext, tsCaggStart, tsCaggEnd),
+			fmt.Sprintf(`SELECT %s.add_continuous_aggregate_policy('stats_hourly_ts', start_offset => CAST(%d AS BIGINT), end_offset => CAST(%d AS BIGINT), schedule_interval => INTERVAL '5 minutes')`, ext, tsCaggStart, tsCaggEnd),
 			// UTC gün özeti (uzun pencere toplamları; yerel gün saatlikten, iş 620).
 			fmt.Sprintf(`CREATE MATERIALIZED VIEW stats_daily_utc
 				WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS

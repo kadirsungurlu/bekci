@@ -293,3 +293,39 @@ func (s *Store) tsTuneChunks(ctx context.Context) error {
 	s.opts.Log.Info("TimescaleDB: parça planı", "tahmini_satir_gun", int64(rows.Float64), "parca_sn", chunk, "sikistirma_sn", compress)
 	return nil
 }
+
+// tsCached tüm monitörleri tarayan okumaları (liste, özet, metrikler) kısa süre
+// paylaştırır: bu sorgular kapanmamış saati ham veriden toplar ve maliyeti
+// monitör sayısıyla büyür (ölçüm: docs/PERFORMANS-620.md). Süre dolunca tek
+// istek yeniler, ötekiler onu bekler. Süre Options.ReadCache; 0 ya da
+// Timescale dışı kipte önbellek yoktur. Dönen değer paylaşılır, değiştirilmez.
+func tsCached[T any](s *Store, key string, f func() (T, error)) (T, error) {
+	if s.opts.ReadCache <= 0 || !s.tsFull() {
+		return f()
+	}
+	s.tsCacheMu.Lock()
+	defer s.tsCacheMu.Unlock()
+	now := time.Now()
+	if e, ok := s.tsCache[key]; ok && now.Before(e.until) {
+		return e.val.(T), nil
+	}
+	v, err := f()
+	if err != nil {
+		return v, err
+	}
+	if s.tsCache == nil {
+		s.tsCache = map[string]tsCacheEntry{}
+	}
+	for k, e := range s.tsCache { // süresi geçen anahtar birikmesin (since saatle değişir)
+		if now.After(e.until) {
+			delete(s.tsCache, k)
+		}
+	}
+	s.tsCache[key] = tsCacheEntry{val: v, until: time.Now().Add(s.opts.ReadCache)}
+	return v, nil
+}
+
+type tsCacheEntry struct {
+	val   any
+	until time.Time
+}

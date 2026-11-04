@@ -42,6 +42,7 @@ Add them under the application's **Environment Variables** and redeploy.
 | `LOG_LEVEL` | `info` | Log detail: `debug`, `info`, `warn` or `error`. |
 | `MAX_CONCURRENT_CHECKS` | `50` | The maximum number of checks running at the same time. Can be raised for hundreds of monitors. |
 | `BEAT_BATCH_MS` | `250` | Check results arriving within this window (milliseconds) are written in a single transaction. Lowers disk writes with many short-interval monitors (5-15 seconds); 0 writes every result separately. |
+| `READ_CACHE_SEC` | `15` | TimescaleDB mode only: summary reads that scan all monitors (monitor list, overview, `/metrics`) are shared for this many seconds. The running hour is aggregated from raw data, so the cost grows with the monitor count. `0` disables it. |
 | `DATABASE_URL` | — | If set, **PostgreSQL** is used instead of SQLite: `postgres://user:password@host:5432/database?sslmode=disable`. Must start with `postgres://` or `postgresql://`. Bekci then takes no nightly backup; back up on the database side. Ignored by the `postgres` image (it always uses its embedded database). |
 | `DATA_DIR` | `/data` | Folder for the SQLite database and backups. No need to change it in Docker; mount the volume at `/data`. |
 | `ADDR` | `:8080` | Address and port to listen on inside the container. |

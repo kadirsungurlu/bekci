@@ -77,6 +77,17 @@ func (s *Store) RecentPings(ctx context.Context, ids []int64, n int) (map[int64]
 // özetten, ilk (yarım) günün saatleri saatlik özetten toplanır: günlük özet
 // o günün saatlik özetlerinin toplamıdır, sonuç aynıdır. ids boşsa tüm monitörler.
 func (s *Store) UptimeWindows(ctx context.Context, ids []int64, since ...int64) (map[int64][]*float64, error) {
+	if len(ids) > 0 {
+		return s.uptimeWindows(ctx, ids, since)
+	}
+	key := "windows"
+	for _, t := range since {
+		key += ":" + strconv.FormatInt(hourCeil(t), 10)
+	}
+	return tsCached(s, key, func() (map[int64][]*float64, error) { return s.uptimeWindows(ctx, nil, since) })
+}
+
+func (s *Store) uptimeWindows(ctx context.Context, ids []int64, since []int64) (map[int64][]*float64, error) {
 	out := map[int64][]*float64{}
 	if len(since) == 0 {
 		return out, nil
