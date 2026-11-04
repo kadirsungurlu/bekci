@@ -157,7 +157,7 @@ func (s *Store) uptimeWindowsSQL(ids []int64, since []int64) (string, []any) {
 		}
 		parts = append(parts,
 			hourly+" AND h.bucket < ?"+filter,
-			"SELECT d.monitor_id, "+w+", d.up, d.down FROM monitors m "+
+			"SELECT d.monitor_id AS mid, "+w+" AS w, d.up AS up, d.down AS down FROM monitors m "+
 				"JOIN stats_daily d ON d.monitor_id = m.id AND d.bucket >= ?"+filter)
 		args = append(append(args, t, d0), idArgs...)
 		args = append(append(args, d0), idArgs...)
