@@ -94,6 +94,9 @@ try {
   if ((await rows()) !== 3) fail('servis satırı: ' + (await rows()));
 
   // Arama + süzgeç + temizleme.
+  // Servis durumları çevrilmiş: ham systemd değeri görünmez, ipucunda kalır.
+  const pill = page.locator('tbody .pill[title="running"]').first();
+  if (!/^(Çalışıyor|Running)$/.test((await pill.textContent()).trim())) fail('servis durumu çevrilmemiş');
   await page.getByRole('searchbox').fill('nginx');
   if ((await rows()) !== 1) fail('arama');
   await page.getByRole('searchbox').fill('olmayan-şey');

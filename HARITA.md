@@ -134,8 +134,8 @@ components: AgentAutoUpdate AgentVersion AlertRulesEditor BadgeBuilder BulkEditM
 ContainerTable CopyButton DateTimeField DomainStatus FilePick Icon ImportResult IncidentAck IncidentEditModal IncidentTable IncidentUpdates 
 LangSwitch LineChart MeshDiagram MeshMatrix Modal MonitorMenu MonitorPicker MonitorRow NotificationForm OobFields PagePreviewPanel 
 PageSubscribers PageThumb Pager PingChart PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu 
-ServerInventory ServerPicker ServerSettingsModal ServerSetupModal ServerTimeline Sessions Sparkline StatusIcon StatusView SubscribePanel 
-TagChip TagDialog TagRulePicker ThemeToggle Toasts Tooltip TopoCanvas TopoDecision TopoList TopoMatrix TypeBadge UpdateBanner UplinkBadge 
-UptimeBars UsageBar
+ServerInventory ServerPicker ServerSettingsModal ServerSetupModal ServerTimeline Sessions Sparkline StateMark StatusIcon StatusView 
+SubscribePanel TagChip TagDialog TagRulePicker ThemeToggle Toasts Tooltip TopoCanvas TopoCounts TopoDecision TopoList TopoMatrix TypeBadge 
+UpdateBanner UplinkBadge UptimeBars UsageBar
 i18n: account ale.ts apiKeys audit auth backup common incide.ts maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles servers settings status tags topology users
 ```

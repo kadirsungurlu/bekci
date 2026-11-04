@@ -1,9 +1,10 @@
 <script lang="ts">
   import { api, type ServerMetric, type TimelineEvent } from '../lib/api';
   import { fmtDate, fmtDay } from '../lib/format';
-  import { t, type TKey } from '../lib/i18n';
+  import { t, tOr, type TKey } from '../lib/i18n';
   import { fmtMetric, metricLabel } from '../lib/servers.svelte';
   import Icon from './Icon.svelte';
+  import StateMark from './StateMark.svelte';
 
   let { id }: { id: number } = $props();
 
@@ -78,7 +79,7 @@
       case 'container_added':
         return String(d.image ?? '');
       case 'container_stopped':
-        return String(d.state ?? '');
+        return tOr(`servers.inventory.st.${d.state}`, String(d.state ?? ''));
       case 'container_restarted':
         return t('servers.timeline.restarts', { n: Number(d.count ?? 0) });
       case 'port_opened':
@@ -132,7 +133,13 @@
         {#each g.list as e (`${e.time}-${e.kind}-${e.subject}`)}
           {@const sub = detail(e)}
           <li class={e.level}>
-            <span class="edot" aria-hidden="true"></span>
+            <span class="emark">
+              {#if e.level === 'error' || e.level === 'warning'}
+                <StateMark cls={e.level === 'error' ? 'bad' : 'warn'} label={t(`servers.timeline.level.${e.level}`)} />
+              {:else}
+                <span class="edot" aria-hidden="true"></span>
+              {/if}
+            </span>
             <span class="time" title={fmtDate(e.time)}>{fmtDate(e.time).slice(-5)}</span>
             <span class="txt">
               <span class="t1">{title(e)}</span>
@@ -196,24 +203,26 @@
   }
   .evs li {
     display: grid;
-    grid-template-columns: 10px 48px minmax(0, 1fr);
+    grid-template-columns: 14px 48px minmax(0, 1fr);
     gap: 10px;
-    align-items: baseline;
+    align-items: start;
+    line-height: 1.4;
     padding: 7px 0;
     border-top: 1px solid var(--border);
+  }
+  /* İşaret ilk satırla hizalı: metin satır atlasa da dikey ortaya kaymaz. */
+  .emark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 1.4em;
+    font-size: 0.88rem;
   }
   .edot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
     background: var(--text-3, var(--text-2));
-    align-self: center;
-  }
-  li.warning .edot {
-    background: var(--pending, var(--warn));
-  }
-  li.error .edot {
-    background: var(--down);
   }
   .time {
     color: var(--text-2);

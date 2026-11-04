@@ -40,18 +40,26 @@ export const sortProbes = (l: TopoProbe[]) => bySeverity(l, probeClass);
 export const sortServers = (l: TopoServer[]) => bySeverity(l, serverClass);
 export const sortChannels = (l: TopoChannel[]) => bySeverity(l, channelClass);
 
-/** Grup köşesindeki sayılar: çalışan / uyarı / sorunlu. */
-export function counts(classes: Cls[]): { ok: number; warn: number; bad: number; total: number } {
-  const r = { ok: 0, warn: 0, bad: 0, total: classes.length };
+/** Grup köşesindeki sayılar: çalışan / uyarı / sorunlu / kapalı-duraklatılmış. */
+export interface Counts {
+  ok: number;
+  warn: number;
+  bad: number;
+  off: number;
+  total: number;
+}
+export function counts(classes: Cls[]): Counts {
+  const r: Counts = { ok: 0, warn: 0, bad: 0, off: 0, total: classes.length };
   for (const c of classes) {
     if (c === 'bad') r.bad++;
     else if (c === 'warn' || c === 'pend') r.warn++;
     else if (c === 'ok' || c === 'maint') r.ok++;
+    else r.off++;
   }
   return r;
 }
 /** Grubun genel durumu (kutu kenar rengi). */
-export const groupLevel = (c: { ok: number; warn: number; bad: number; total: number }): Cls =>
+export const groupLevel = (c: Counts): Cls =>
   c.bad ? 'bad' : c.warn ? 'warn' : c.ok ? 'ok' : 'off';
 
 const pct = (v: number | undefined) => (v === undefined ? '—' : `${Math.round(v)}%`);

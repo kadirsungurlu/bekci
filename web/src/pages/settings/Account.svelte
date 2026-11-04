@@ -3,7 +3,7 @@
   import { ROLE_LABELS, session } from '../../lib/session.svelte';
   import { toast } from '../../lib/ui.svelte';
   import { live } from '../../lib/live.svelte';
-  import { browserLocale, forgetLocale, isLocale, LOCALES, setLocale, t, type Locale } from '../../lib/i18n';
+  import { browserLocale, forgetLocale, i18n, isLocale, LOCALES, setLocale, t, type Locale } from '../../lib/i18n';
   import TwoFactor from './TwoFactor.svelte';
   import { onMount } from 'svelte';
   import { guardUnsaved } from '../../lib/forms';
@@ -93,6 +93,8 @@
 
   // Dil tercihi: "" = tarayıcı dili; hesapta saklanır (her cihazda geçerli).
   const langPref = $derived<'' | Locale>(isLocale(session.user?.lang) ? session.user.lang : '');
+  // Hesapta dil yokken geçerli olan: bu cihazın dili (kenar çubuğundaki seçimle aynı).
+  const autoLang = $derived(langPref === '' ? i18n.locale : browserLocale());
   let langBusy = $state(false);
 
   async function changeLang(e: Event) {
@@ -155,7 +157,7 @@
     <div class="field">
       <label for="ui-lang">{t('account.language.label')}</label>
       <select id="ui-lang" class="input" value={langPref} onchange={changeLang} disabled={langBusy}>
-        <option value="">{t('account.language.auto', { lang: t(`common.languages.${browserLocale()}`) })}</option>
+        <option value="">{t('account.language.auto', { lang: t(`common.languages.${autoLang}`) })}</option>
         {#each LOCALES as l (l)}
           <option value={l} lang={l}>{t(`common.languages.${l}`)}</option>
         {/each}

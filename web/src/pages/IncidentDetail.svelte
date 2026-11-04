@@ -643,7 +643,7 @@
           <div class="card mesh">
             <div class="label">{t('incidents.detail.meshFindings')}</div>
             <ul class="mesh-l">
-              {#each data.mesh.findings as f, i (i)}<li><span class="dot {ongoing ? 'down' : 'up'}"></span>{f}</li>{/each}
+              {#each data.mesh.findings as f, i (i)}<li><span class="dot" class:down={ongoing}></span>{f}</li>{/each}
             </ul>
             {#if data.mesh.nodes?.length && data.mesh.pairs.every((p) => p.ab !== undefined)}
               <MeshDiagram nodes={data.mesh.nodes} pairs={data.mesh.pairs.map((p) => ({ ...p, ab: p.ab ?? '', ba: p.ba ?? '' }))} />

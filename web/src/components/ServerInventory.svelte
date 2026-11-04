@@ -2,7 +2,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { api, type DiskInfo, type InvCert, type ServerInventory as Inv, type StatsSeries } from '../lib/api';
   import { collator, fmtBytes, fmtDate, fmtDec, fmtPctInt, fmtRelative, nowSec } from '../lib/format';
-  import { t } from '../lib/i18n';
+  import { t, tOr } from '../lib/i18n';
   import { session } from '../lib/session.svelte';
   import { toast } from '../lib/ui.svelte';
   import Icon from './Icon.svelte';
@@ -133,6 +133,8 @@
   const note = $derived((inv?.notes?.[section] ?? '') as NoteCode | '');
   const collected = $derived(!!inv?.collected_at);
 
+  // Bilinmeyen değer olduğu gibi görünür; özgün değer ipucunda.
+  const stLabel = (s: string) => tOr(`servers.inventory.st.${s}`, s);
   const stateClass = (s: string) =>
     s === 'active' || s === 'running' ? 'up' : s === 'failed' || s === 'dead' || s === 'exited' ? 'down' : s === 'restarting' ? 'pending' : 'paused';
   const certClass = (c: InvCert) => {
@@ -278,8 +280,8 @@
           {#each services as s (s.name)}
             <tr>
               <td data-label={t('servers.inventory.colService')}><span class="mono-name">{s.name}</span></td>
-              <td data-label={t('servers.inventory.colState')}><span class="pill {stateClass(s.active)}">{s.sub || s.active}</span></td>
-              <td data-label={t('servers.inventory.colBoot')}>{s.enabled || '-'}</td>
+              <td data-label={t('servers.inventory.colState')}><span class="pill {stateClass(s.active)}" title={s.sub || s.active}>{stLabel(s.sub || s.active)}</span></td>
+              <td data-label={t('servers.inventory.colBoot')} title={s.enabled}>{s.enabled ? tOr(`servers.inventory.boot.${s.enabled}`, s.enabled) : '-'}</td>
               <td data-label={t('servers.inventory.colDesc')} class="text-2">{s.description || '-'}</td>
             </tr>
           {/each}
@@ -299,7 +301,7 @@
               </td>
               <td data-label={t('servers.inventory.colImage')} class="break">{c.image}</td>
               <td data-label={t('servers.inventory.colState')}>
-                <span class="pill {c.health === 'unhealthy' ? 'down' : stateClass(c.state)}">{c.state}{c.health ? ` · ${c.health}` : ''}</span>
+                <span class="pill {c.health === 'unhealthy' ? 'down' : stateClass(c.state)}">{stLabel(c.state)}{c.health ? ` · ${stLabel(c.health)}` : ''}</span>
               </td>
               <td data-label={t('servers.inventory.colRestarts')} class="num" class:hot={c.restart_count > 0}>{c.restart_count}</td>
               <td data-label={t('servers.inventory.colStarted')}>{startedAt(c.started_at) ? fmtRelative(startedAt(c.started_at), now) : '-'}</td>

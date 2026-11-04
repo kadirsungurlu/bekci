@@ -37,7 +37,9 @@ Düzenek: varsayılan compose + Caddy, 3 sunucu ajanı (Docker kipi, systemd yen
 - Canlı verinin kopyasıyla yeni imajda prova bu turda yinelenmedi (640 turunda yapıldı; o tur sonrası kod değişti).
 - API anahtarları kartı Fable incelemesine girmedi (görüntü kadrajı üst kısımda kaldı); e2e `apikeys.mjs` CI'da.
 
-## Tasarım incelemesi (Fable, 10 görüntü): yayına engel yok, açık kozmetikler
+## Tasarım incelemesi (Fable, 10 görüntü): yayına engel yok, kozmetikler
+Hepsi 2026-11-04'te `gelistirme`de düzeltildi (madde 7'deki mobil şema düğümü dışında: düğüm etkileşimsiz, boyutu değişmedi; bağlantı dokunma alanı 44 px yapıldı). Şema PNG'si (`internal/mesh/render.go`) madde 2'nin işaret kuralını kullanmıyor.
+
 1. Topoloji kartlarında durum yalnız renkle (nokta, sunucu, kanal); sayaç rozetlerinde etiket yok, duraklatılmış sayısı anlaşılmıyor.
 2. Mesh şemasında kesişen kenarın işareti tam kesişimde; hangi bağlantıya ait okunmuyor.
 3. Ayarlar > Kontrol noktaları: ad altında etiketsiz `upr_...` öneki.

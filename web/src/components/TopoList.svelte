@@ -22,6 +22,8 @@
     type Cls,
   } from '../lib/topoview';
   import Icon, { type IconName } from './Icon.svelte';
+  import StateMark from './StateMark.svelte';
+  import TopoCounts from './TopoCounts.svelte';
 
   let { d, now, canEdit, rate }: { d: Topology; now: number; canEdit: boolean; rate: string | null } = $props();
 
@@ -99,17 +101,12 @@
       <header>
         <h3>{t(`topology.col.${g.key}`)}</h3>
         {#if c.total}
-          <span class="cnt" aria-label={t('topology.countsAria', { ok: c.ok, warn: c.warn, bad: c.bad })}>
-            {#if c.bad}<span class="n bad">{c.bad}</span>{/if}
-            {#if c.warn}<span class="n warn">{c.warn}</span>{/if}
-            <span class="n ok">{c.ok}</span>
-            <span class="tot">/ {c.total}</span>
-          </span>
+          <TopoCounts {c} />
         {/if}
       </header>
       {#each shown as r (r.id)}
         <svelte:element this={r.href ? 'a' : 'div'} href={r.href} class={`row c-${r.cls}`}>
-          <i class={`sd ${r.cls}`}></i>
+          <StateMark cls={r.cls} size={16} />
           <span class="txt"><span class="nm">{r.name}</span><span class="sub">{r.sub}</span></span>
           {#if r.href}<Icon name="chevron-right" size={16} />{/if}
         </svelte:element>
@@ -165,35 +162,6 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-2);
-  }
-  .cnt {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    font-size: 0.78rem;
-    font-variant-numeric: tabular-nums;
-  }
-  .n {
-    min-width: 20px;
-    padding: 1px 6px;
-    border-radius: 999px;
-    text-align: center;
-    font-weight: 600;
-  }
-  .n.ok {
-    background: var(--up-soft);
-    color: var(--up-text);
-  }
-  .n.warn {
-    background: var(--pending-soft);
-    color: var(--pending-text);
-  }
-  .n.bad {
-    background: var(--down-soft);
-    color: var(--down-text);
-  }
-  .tot {
-    color: var(--muted);
   }
   .row {
     display: flex;
@@ -251,26 +219,6 @@
   .row :global(svg) {
     flex: none;
     color: var(--muted);
-  }
-  .sd {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    flex: none;
-    background: var(--paused);
-  }
-  .sd.ok {
-    background: var(--up);
-  }
-  .sd.warn,
-  .sd.pend {
-    background: var(--warn);
-  }
-  .sd.bad {
-    background: var(--down);
-  }
-  .sd.maint {
-    background: var(--maint);
   }
   .gempty {
     display: flex;

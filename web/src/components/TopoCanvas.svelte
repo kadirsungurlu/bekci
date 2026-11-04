@@ -37,6 +37,8 @@
     type EdgeCls,
   } from '../lib/topoview';
   import Icon, { type IconName } from './Icon.svelte';
+  import StateMark from './StateMark.svelte';
+  import TopoCounts from './TopoCounts.svelte';
 
   let { d, now, canEdit, rate }: { d: Topology; now: number; canEdit: boolean; rate: string | null } = $props();
 
@@ -117,9 +119,12 @@
     const mk = (x: number, y: number, hx: number) => (fromHub ? vCurve(hx, hy, x, y) : vCurve(x, y, hx, hy));
     if (g.perCard) {
       return g.cards.map((c, i) => {
-        // Alttaki grupta bağlantı kutunun üst kenarında biter: başlığın üstünden geçmez.
-        const y = up ? c.y + c.h : g.box.y;
-        const curve = mk(c.x + c.w / 2, y, lerp(range, i, g.cards.length));
+        // Bağlantı kutunun panele bakan kenarında biter: alttaki grupta başlığın, üstteki grupta
+        // komşu grubun üstünden geçmez. Üstte kart kutudan kısaysa kutu içinde karta düz iner.
+        const cx = c.x + c.w / 2;
+        const y = up ? g.box.y + g.box.h : g.box.y;
+        const curve = mk(cx, y, lerp(range, i, g.cards.length));
+        if (up && c.y + c.h < y) curve.d += ` L${cx},${c.y + c.h}`;
         const tip = edgeTip(`${prefix}:${c.id}`, d, now);
         return { id: `${prefix}:${c.id}`, cls: clsOf(c.id), ...curve, label: tip?.title ?? '' };
       });
@@ -220,12 +225,7 @@
       <header>
         <h3>{groupTitle(g.key)}</h3>
         {#if c.total}
-          <span class="cnt" aria-label={t('topology.countsAria', { ok: c.ok, warn: c.warn, bad: c.bad })}>
-            {#if c.bad}<span class="n bad">{c.bad}</span>{/if}
-            {#if c.warn}<span class="n warn">{c.warn}</span>{/if}
-            <span class="n ok">{c.ok}</span>
-            <span class="tot">/ {c.total}</span>
-          </span>
+          <TopoCounts {c} />
         {/if}
       </header>
       {#if g.empty}
@@ -278,7 +278,7 @@
         title={`${n.name} · ${n.sub}`}
         data-testid={`node-${g.key}-${c.id}`}
       >
-        <span class="r1"><i class={`sd ${n.cls}`}></i><span class="nm">{n.name}</span></span>
+        <span class="r1"><StateMark cls={n.cls} /><span class="nm">{n.name}</span></span>
         <span class="r2">{n.sub}</span>
       </svelte:element>
     {/each}
@@ -356,7 +356,7 @@
   }
   /* Başlık metni ve sayaçlar bağlantı çizgilerinin üstünde kalır. */
   .grp header h3,
-  .grp header .cnt {
+  .grp header :global(.cnt) {
     position: relative;
     z-index: 3;
     background: var(--card-2);
@@ -379,36 +379,6 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-  .cnt {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.78rem;
-    font-variant-numeric: tabular-nums;
-    flex: none;
-  }
-  .n {
-    min-width: 20px;
-    padding: 1px 6px;
-    border-radius: 999px;
-    text-align: center;
-    font-weight: 600;
-  }
-  .n.ok {
-    background: var(--up-soft);
-    color: var(--up-text);
-  }
-  .n.warn {
-    background: var(--pending-soft);
-    color: var(--pending-text);
-  }
-  .n.bad {
-    background: var(--down-soft);
-    color: var(--down-text);
-  }
-  .tot {
-    color: var(--muted);
   }
   .gempty {
     display: flex;
@@ -598,26 +568,6 @@
   }
   .bad-text {
     color: var(--down-text-2);
-  }
-  .sd {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex: none;
-    background: var(--paused);
-  }
-  .sd.ok {
-    background: var(--up);
-  }
-  .sd.warn,
-  .sd.pend {
-    background: var(--warn);
-  }
-  .sd.bad {
-    background: var(--down);
-  }
-  .sd.maint {
-    background: var(--maint);
   }
   .etip {
     position: absolute;

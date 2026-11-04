@@ -89,3 +89,49 @@ export function buildTopology(ids: number[], pairs: MeshPairIn[]): Topology {
     }
   return { width, height, nodes, links, summary };
 }
+
+export interface Segment {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+function distToSegment(px: number, py: number, s: Segment): number {
+  const dx = s.x2 - s.x1;
+  const dy = s.y2 - s.y1;
+  const len2 = dx * dx + dy * dy;
+  const k = len2 ? Math.max(0, Math.min(1, ((px - s.x1) * dx + (py - s.y1) * dy) / len2)) : 0;
+  return Math.hypot(px - (s.x1 + dx * k), py - (s.y1 + dy * k));
+}
+
+// İşaret r=10; başka çizgi kenarına değmesin, iki işaret üst üste gelmesin.
+export const MARK_CLEAR = 18;
+export const MARK_GAP = 30;
+const FRACTIONS = [0.5, 0.42, 0.58, 0.34, 0.66, 0.28, 0.72, 0.22, 0.78];
+
+/**
+ * Her çizginin durum işareti için nokta seçer: işaret kendi çizgisinde durur, başka çizginin
+ * (kesişimin) üstüne ve başka işaretin üstüne düşmez. Yoğun şemada koşul sağlanamazsa en az
+ * sıkışan nokta alınır. Şema PNG'si (internal/mesh/render.go) bu kuralı kullanmaz.
+ */
+export function placeMarks(segs: Segment[]): [number, number][] {
+  const placed: [number, number][] = [];
+  segs.forEach((s, i) => {
+    let best: [number, number] = [(s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2];
+    let bestScore = -1;
+    for (const f of FRACTIONS) {
+      const p: [number, number] = [s.x1 + (s.x2 - s.x1) * f, s.y1 + (s.y2 - s.y1) * f];
+      const clear = Math.min(Infinity, ...segs.filter((_, j) => j !== i).map((o) => distToSegment(p[0], p[1], o)));
+      const gap = Math.min(Infinity, ...placed.map(([x, y]) => Math.hypot(p[0] - x, p[1] - y)));
+      const score = Math.min(clear / MARK_CLEAR, gap / MARK_GAP);
+      if (score > bestScore) {
+        best = p;
+        bestScore = score;
+      }
+      if (score >= 1) break;
+    }
+    placed.push(best);
+  });
+  return placed;
+}

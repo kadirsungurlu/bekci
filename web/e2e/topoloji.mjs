@@ -55,6 +55,9 @@ try {
   const board = p.getByTestId('topology-board');
   await board.waitFor({ timeout: 10_000 }).catch(() => fail('topoloji panosu yok'));
   await p.getByTestId('topology-canvas').waitFor({ timeout: 5000 }).catch(() => fail('tuval yok'));
+  // Durum yalnız renkle verilmez: kartta işaret + metin, sayaçta etiketli rozet.
+  await p.locator('[data-testid^="node-"] [role="img"][aria-label]').first().waitFor({ timeout: 5000 }).catch(() => fail('kartta durum işareti yok'));
+  if (!(await p.locator('[data-count][title]').count())) fail('sayaç rozetinde etiket yok');
   // Gizli kart varsa grubu aç (çok monitörde "N tane daha").
   const node = async (group, id) => {
     const loc = p.getByTestId(`node-${group}-${id}`);

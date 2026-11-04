@@ -1,6 +1,6 @@
 # Betik çalıştırma güvenlik tasarımı (iş 680)
 
-Durum: TASARIM (2026-11-04). Kod yok. 690 bu belge ve §12 kararları onaylanmadan başlamaz.
+Durum: TASARIM (2026-11-04). Kod yok. §12 kararları D1-D15 onaylandı 2026-11-04 (yönetici); 690 bu belgeye uyar.
 Üst belge: `docs/TIMESCALE-TASARIM.md` (600); `scripts` / `script_runs` için orada "Ayrıntı 680" denen konu buradadır (§9).
 
 Etiketler: **[kod]** bugünkü kodda doğrulandı (dosya verildi); **[tasarım]** henüz yok, 690'da yazılır ve denenir;
@@ -308,9 +308,11 @@ Tek yeni alan `script_jobs` (`omitempty`); `POST /api/probe/script-result` yaln�
 - Kurulum betiği ikiliyi ajan imzasıyla da doğrulasın (bugün özet paneldendir, P10).
 - `uptime` ajanında yerel "otomatik güncellemeyi reddet" ayarı (S4); bugün yalnız panel ayarı var.
 
-## 12. Açık kararlar (ONAY GEREKİYOR)
+## 12. Kararlar (D1-D15 onaylandı 2026-11-04 (yönetici))
 
-| # | Karar | Öneri |
+Kullanıcı karar yetkisini yöneticiye verdi; aşağıdaki öneriler aynen onaylandı. Fable yeniden incelemesi yok (filtre kesiyor); yerine 690 sonunda bağımsız bir Opus incelemesi yapılır.
+
+| # | Karar | Onaylanan |
 |---|---|---|
 | D1 | Güven kökü: yalnız operatör anahtarı mı, proje başlangıç anahtarı da mı? | Yalnız operatör; başlangıç betikleri repoda, operatör okuyup imzalar |
 | D2 | `K_yayın` ve `K_onay` nerede, ayrı mı? | Ayrı; ikisi de kullanıcının kendi makinesinde parola korumalı, bu sunucuda ve CI'da değil; yedek çevrimdışı. Donanım anahtarı sonra |
