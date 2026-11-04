@@ -179,6 +179,9 @@ jobs:
       - name: Sunucu olayları uçtan uca
         working-directory: web/e2e
         run: node sunucu-olaylar.mjs
+      - name: Salt okunur API anahtarı uçtan uca
+        working-directory: web/e2e
+        run: node apikeys.mjs
       - name: Panel günlüğü
         if: failure()
         run: tail -n 80 "$RUNNER_TEMP/panel.log" || true
