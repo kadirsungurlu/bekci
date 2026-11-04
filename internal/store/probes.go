@@ -260,6 +260,9 @@ func (s *Store) DeleteProbe(ctx context.Context, id int64) ([]int64, error) {
 		if err := deleteProbeMesh(ctx, tx, id); err != nil {
 			return err
 		}
+		if _, err := tx.ExecContext(ctx, "DELETE FROM server_events WHERE probe_id = ?", id); err != nil {
+			return err
+		}
 		const noProbes = "NOT EXISTS (SELECT 1 FROM monitor_locations l WHERE l.monitor_id = monitor_location_settings.monitor_id)"
 		if _, err := tx.ExecContext(ctx,
 			"UPDATE monitor_location_settings SET include_local = 1 WHERE include_local = 0 AND "+noProbes); err != nil {

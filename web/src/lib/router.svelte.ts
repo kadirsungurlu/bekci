@@ -26,6 +26,7 @@ export type Route =
   | { name: 'servers' }
   | { name: 'server'; id: number }
   | { name: 'more' }
+  | { name: 'topology' }
   | { name: 'notfound' };
 
 const SETTINGS_TABS: Record<string, SettingsTab> = {
@@ -56,6 +57,7 @@ export function parse(path: string): Route {
   if (clean === '/maintenance') return { name: 'maintenance' };
   if (clean === '/maintenance/new') return { name: 'maint-new' };
   if (clean === '/more') return { name: 'more' };
+  if (clean === '/topology') return { name: 'topology' };
   if (clean === '/servers') return { name: 'servers' };
   let m = clean.match(/^\/settings(?:\/([a-z]+))?$/);
   if (m) {

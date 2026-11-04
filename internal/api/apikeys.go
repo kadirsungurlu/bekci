@@ -28,6 +28,9 @@ import (
 // kullanıcı yönetiminin yazma uçları (kullanıcı ekleme/düzenleme/silme, şifre
 // sıfırlama) anahtarla kullanılamaz, gerçek oturum gerekir: sızan bir anahtar
 // kendini çoğaltamaz, yeni yönetici açamaz veya hesabı ele geçiremez.
+//
+// Salt okunur kapsam (store.ScopeRead): rol her zaman izleyicidir ve anahtar
+// yalnız apikeys_read.go izin listesindeki GET uçlarına girer.
 
 const (
 	apiKeyPrefix     = "upk_"
@@ -122,12 +125,18 @@ func (s *Server) userForAPIKey(r *http.Request, secret string) (store.User, bool
 	if err != nil || !k.Usable(now) {
 		return store.User{}, false
 	}
+	// Kapsam burada denetlenir: anahtar kabul eden her uç (/metrics, rozet, canlı
+	// akış dahil) izin listesinin arkasında kalır, yeni uç kendiliğinden kapalıdır.
+	if k.Scope == store.ScopeRead && !readScopeAllows(r.Method, r.URL.Path) {
+		return store.User{}, false
+	}
 	u, err := s.store.UserByID(ctx, k.UserID)
 	if err != nil || u.Disabled {
 		return store.User{}, false
 	}
 	if store.RoleRank(k.Role) < store.RoleRank(u.Role) {
 		u.Role = k.Role
+		u.AllMonitors = true // sahibi kısıtsız: izleyiciye düşen anahtar da her şeyi görür
 	}
 	u.MustChangePassword = false
 	u.APIKeyName = k.Name
@@ -184,16 +193,26 @@ func (s *Server) createAPIKey(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Name      string `json:"name"`
 		Role      string `json:"role"`
+		Scope     string `json:"scope"`      // full (varsayılan) | read
 		ExpiresAt int64  `json:"expires_at"` // unix saniye; 0/boş: süresiz
 	}
 	if !readJSON(w, r, &in) {
 		return
 	}
 	in.Name = strings.TrimSpace(in.Name)
+	if in.Scope == "" {
+		in.Scope = store.ScopeFull
+	}
+	if in.Scope == store.ScopeRead {
+		in.Role = store.RoleViewer // salt okunur anahtar yönetici verisi görmez
+	}
 	now := s.now().Unix()
 	switch {
 	case in.Name == "" || utf8.RuneCountInString(in.Name) > 100:
 		writeError(w, http.StatusBadRequest, "Anahtar adı 1-100 karakter olmalı")
+		return
+	case in.Scope != store.ScopeFull && in.Scope != store.ScopeRead:
+		writeError(w, http.StatusBadRequest, "Kapsam full veya read olmalı")
 		return
 	case store.RoleRank(in.Role) == 0:
 		writeError(w, http.StatusBadRequest, "Rol yönetici (admin), editör (editor) veya izleyici (viewer) olmalı")
@@ -220,13 +239,17 @@ func (s *Server) createAPIKey(w http.ResponseWriter, r *http.Request) {
 	secret := newAPIKeySecret()
 	k := store.APIKey{
 		UserID: u.ID, Username: u.Username, Name: in.Name, Prefix: secret[:apiKeyShownLen],
-		Role: in.Role, CreatedAt: now, ExpiresAt: in.ExpiresAt, Hash: hashToken(secret),
+		Role: in.Role, Scope: in.Scope, CreatedAt: now, ExpiresAt: in.ExpiresAt, Hash: hashToken(secret),
 	}
 	if err := s.store.CreateAPIKey(r.Context(), &k); err != nil {
 		s.dbError(w, err)
 		return
 	}
-	s.audit(r, store.User{}, "apikey.create", "apikey", k.ID, k.Name, "rol: "+k.Role)
+	detail := "rol: " + k.Role
+	if k.Scope == store.ScopeRead {
+		detail += ", salt okunur"
+	}
+	s.audit(r, store.User{}, "apikey.create", "apikey", k.ID, k.Name, detail)
 	writeJSON(w, http.StatusCreated, map[string]any{"key": s.viewAPIKey(k), "secret": secret})
 }
 

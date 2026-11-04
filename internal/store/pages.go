@@ -378,9 +378,8 @@ func (s *Store) DailyFor(ctx context.Context, ids []int64, since int64) (map[int
 		return out, nil
 	}
 	q, args := inClause(ids)
-	rows, err := s.db.QueryContext(ctx,
-		"SELECT "+bucketCols+" FROM stats_daily WHERE monitor_id IN ("+q+") AND bucket >= ? ORDER BY monitor_id, bucket",
-		append(args, since)...)
+	query, qargs := s.dailySQL("monitor_id IN ("+q+")", args, since)
+	rows, err := s.db.QueryContext(ctx, query, qargs...)
 	if err != nil {
 		return nil, err
 	}

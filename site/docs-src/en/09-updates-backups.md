@@ -14,16 +14,16 @@ Bekci images are published for amd64 and arm64 on Docker Hub as [`kadirsungurlu/
 
 | Tag | Content | When |
 |---|---|---|
-| `latest` | Latest released stable version, SQLite | If you always want the latest stable version |
-| `postgres` | Latest released stable version, embedded PostgreSQL 18 | The latest stable version with embedded PostgreSQL |
-| `1.0.0`, `1.0` | A specific version, SQLite | To pin the version and to roll back (recommended) |
-| `1.0.0-postgres`, `1.0-postgres` | A specific version, embedded PostgreSQL | The same, for PostgreSQL |
+| `latest` | Latest released stable version | If you always want the latest stable version |
+| `postgres` | Deprecated: latest stable version, embedded PostgreSQL 18 | Existing embedded installs only |
+| `1.0.0`, `1.0` | A specific version | To pin the version and to roll back (recommended) |
+| `1.0.0-postgres`, `1.0-postgres` | Deprecated: a specific version, embedded PostgreSQL | Existing embedded installs only |
 | `ghcr.io/kadirsungurlu/bekci:2718268`, `…:postgres-2718268` | A specific development build (short commit code); GHCR only, for every build of the main branch | To go back to a development build you saw in the log |
 
 Two-part tags such as `1.0` follow the latest patch of that series (e.g. once `1.0.1` is out, `1.0` points to it).
 
 > [!IMPORTANT]
-> **Don't** switch between the SQLite (`latest`, `1.0.0`) and PostgreSQL (`postgres`, `1.0.0-postgres`) tags: data isn't carried over between them.
+> Changing the tag isn't enough to move from SQLite or embedded PostgreSQL to the default setup; follow the [Database and migration](/en/docs/database/) guide.
 
 ## Before you update {#before}
 
@@ -78,12 +78,12 @@ Bekci takes two kinds of backups on its own. Both live inside the data volume, i
 | Backup | File name | When |
 |---|---|---|
 | Nightly backup (SQLite) | `uptime-2026-09-28.db` | Once a day, after 03:00 (in the `TZ` time zone); the last 7 are kept by default. If Bekci starts after 03:00, that day's backup is taken within a few minutes |
-| Nightly backup (embedded PostgreSQL) | `uptime-2026-09-28.dump` | The same, in `pg_dump` format |
+| Nightly backup (PostgreSQL) | `uptime-2026-09-28.dump` | The same, in `pg_dump` format |
 | Pre-update backup (SQLite) | `pre-migrate-v16-to-v17-20260928-030000.db` | Right before a new version changes the database structure |
 
 - Change how many nightly backups are kept under **Settings → General → Nightly backups to keep** (0 turns nightly backups off).
 - If the pre-update backup can't be taken (e.g. the disk is full), the update isn't applied and Bekci doesn't start; it starts once there's space again. These files are never deleted automatically; you can delete old ones by hand.
-- With **external PostgreSQL** (`DATABASE_URL`) Bekci takes **no** backups; back up on the database side ([below](#external-postgresql)).
+- With **PostgreSQL** the nightly backup is written under `/data/backups` with the `pg_dump` in the image. Restoring a TimescaleDB dump needs [extra steps](/en/docs/database/#backup).
 
 To list the backups:
 
@@ -163,7 +163,7 @@ docker exec ⟦bekci⟧ pg_restore -h /run/postgresql -U postgres --clean --if-e
 docker restart ⟦bekci⟧
 ```
 @tab External PostgreSQL {#external-postgresql}
-Bekci doesn't back up an external database; you take the backup with `pg_dump`. For the PostgreSQL setup from the [Docker Compose guide](/en/docs/install/docker-compose/), back up with:
+Besides the nightly backup you can also take one by hand with `pg_dump`. For the setup from the [Docker Compose guide](/en/docs/install/docker-compose/):
 
 ```bash
 cd /opt/bekci

@@ -75,9 +75,10 @@ CREATE TABLE probe_notifications (
 
 // Özet çözünürlükleri (dakika).
 const (
-	ServerRes1  = 1
-	ServerRes10 = 10
-	ServerRes60 = 60
+	ServerRes1    = 1
+	ServerRes10   = 10
+	ServerRes60   = 60
+	ServerRes1440 = 1440
 )
 
 // SetProbeMetrics ajanın metrik toplamasını açar/kapatır.
@@ -120,6 +121,9 @@ func (s *Store) SaveServerSample(ctx context.Context, in ServerSample) (first bo
 			INSERT INTO server_stats (probe_id, res, time, data) VALUES (?, 1, ?, ?)
 			ON CONFLICT (probe_id, res, time) DO UPDATE SET data = excluded.data`,
 			in.ProbeID, in.Time, string(in.Data)); err != nil {
+			return err
+		}
+		if err := s.writeServerMetrics(ctx, tx, in.ProbeID, in.Time, in.Data); err != nil {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `

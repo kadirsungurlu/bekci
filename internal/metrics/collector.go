@@ -43,6 +43,9 @@ type Collector struct {
 	prevCont  map[string]contCounters
 	dockerErr string // son Docker hatası (log tekrarını önler)
 	dockerOK  bool
+
+	tlsMu    sync.Mutex
+	tlsCache map[string]tlsCached // envanter: port başına son TLS sonucu
 }
 
 // source işletim sisteminden ham değerleri okur (Linux'ta gopsutil ve
@@ -70,6 +73,11 @@ type ioFilter interface {
 type memStat struct {
 	Total, Available, Free, Buffers, Cached, SReclaimable uint64
 	SwapTotal, SwapFree                                   uint64
+}
+
+// eventSource anlık olay üreten kaynak (Linux: OOM). Windows'ta yoktur.
+type eventSource interface {
+	hostEvents(now time.Time) []HostEvent
 }
 
 // ioCounter iki kümülatif sayaç: disklerde okunan/yazılan, ağda alınan/gönderilen bayt.
@@ -181,6 +189,9 @@ func (c *Collector) Collect(ctx context.Context) (Sample, bool) {
 		st.Temps = filterTemps(ts)
 	}
 	st.Containers, host.Docker = c.containers(ctx, host.Threads, host.MemTotal)
+	if e, ok := c.src.(eventSource); ok {
+		s.Events = e.hostEvents(now) // ilk çağrı başlangıç noktasını kurar
+	}
 
 	prev := c.prev
 	c.prev = cur

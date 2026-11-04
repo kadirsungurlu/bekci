@@ -4,7 +4,7 @@
   // (Go aynası); SVG viewBox ile ölçeklenir. Özet satırı SVG altında HTML'dir
   // (dar ekranda satır kayabilsin).
   import type { MeshLink } from '../lib/api';
-  import { BOX_H, BOX_W, SUMMARY_H, buildTopology, type MeshPairIn, type PairState, type TopoLink } from '../lib/meshlayout';
+  import { BOX_H, BOX_W, SUMMARY_H, buildTopology, placeMarks, type MeshPairIn, type PairState, type TopoLink } from '../lib/meshlayout';
   import { fmtMs, fmtRelative } from '../lib/format';
   import { t } from '../lib/i18n';
 
@@ -53,9 +53,6 @@
   }
   const segs = $derived.by(() => {
     const out: Seg[] = [];
-    const placed: [number, number][] = [];
-    // Çaprazlar ortada kesişir: işaret başka işaretin üstüne düşmesin diye kaydır.
-    const FR = [0.5, 0.38, 0.62, 0.3, 0.7];
     for (const l of topo.links) {
       const a = pos.get(l.a);
       const b = pos.get(l.b);
@@ -69,20 +66,12 @@
       const y1 = a.y + dy * k;
       const x2 = b.x - dx * k;
       const y2 = b.y - dy * k;
-      let mx = (x1 + x2) / 2;
-      let my = (y1 + y2) / 2;
-      for (const f of FR) {
-        const px = x1 + (x2 - x1) * f;
-        const py = y1 + (y2 - y1) * f;
-        if (placed.every(([qx, qy]) => Math.hypot(px - qx, py - qy) >= 26)) {
-          mx = px;
-          my = py;
-          break;
-        }
-      }
-      placed.push([mx, my]);
-      out.push({ l, x1, y1, x2, y2, mx, my, angle });
+      out.push({ l, x1, y1, x2, y2, mx: 0, my: 0, angle });
     }
+    placeMarks(out).forEach(([mx, my], i) => {
+      out[i].mx = mx;
+      out[i].my = my;
+    });
     return out;
   });
 
@@ -125,6 +114,10 @@
     return { x, y, w: Math.max(...xs) + BOX_W / 2 + m - x, h: Math.max(...ys) + BOX_H / 2 + m - y };
   });
 
+  // Dar ekranda SVG küçülür: bağlantı dokunma alanı ekranda en az 44 px kalır.
+  let figW = $state(0);
+  const tapR = $derived(22 / (figW ? Math.min(1, figW / box.w) : 1));
+
   const total = $derived(topo.links.length);
   const healthy = $derived(total > 0 && topo.summary.up === total);
   const ORDER: PairState[] = ['down', 'oneway', 'unknown', 'up'];
@@ -142,7 +135,7 @@
   {/if}
 {/snippet}
 
-<figure class="topo" data-testid="mesh-diagram">
+<figure class="topo" data-testid="mesh-diagram" bind:clientWidth={figW}>
   <svg
     viewBox="{box.x} {box.y} {box.w} {box.h}"
     style="max-width:{box.w}px"
@@ -156,6 +149,7 @@
         <line class="hit" x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />
         <line class="ln" x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />
         <g transform="translate({s.mx} {s.my})">
+          <circle class="tap" r={tapR} />
           <circle class="ring" r="14" />
           <circle class="badge" r="10" />
           <g class="mk" transform={s.l.state === 'oneway' ? `rotate(${s.angle})` : undefined}>{@render mark(s.l.state)}</g>
@@ -238,6 +232,9 @@
   .hit {
     stroke: transparent;
     stroke-width: 16;
+  }
+  .tap {
+    fill: transparent;
   }
   .badge {
     fill: var(--card);

@@ -51,6 +51,7 @@ type Engine struct {
 	// heartbeats son kalp atışı (ProbeHeartbeat); mainDown kalp atışı kesilen
 	// probe'lar ve kesilme anı (scanProbes). Bkz. probes.go.
 	heartbeats map[int64]time.Time
+	rate       resultRate // canlı topoloji: saniyedeki sonuç (rate.go)
 	mainDown   map[int64]time.Time
 	oob        map[int64]bool        // OOB hattındaki ajanlar (uplink.go; sonuçları karara katılmaz)
 	meshEv     meshEval              // mesh kararı (watchProbes döngüsü)
@@ -85,7 +86,7 @@ func New(st *store.Store, n Notifier, hub *Hub, log *slog.Logger, cfg Config) *E
 		jobs:       newJobsSignal(),
 
 		// Kalp atışı eşiği (vars. 15 sn) içinde yakalansın; tarama tek sorgu.
-		probeWatchEvery: 2 * time.Second,
+		probeWatchEvery: time.Second,
 	}
 	def := store.DefaultSettings()
 	e.settings.Store(&def)

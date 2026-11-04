@@ -1,3 +1,7 @@
+# KULLANIMDAN KALKIYOR: gömülü PostgreSQL imajı (:postgres, :1.2.3-postgres)
+# sonraki büyük sürümde kaldırılacak. Yeni kurulum: varsayılan compose (uygulama
+# imajı + timescale/timescaledb). Taşıma: belgeler, "Veritabanı".
+#
 # Uptime + gömülü PostgreSQL — tek imaj.
 # Coolify: Build Pack = Dockerfile, Dockerfile Location = /Dockerfile.postgres,
 # Port 8080, kalıcı depolama /data (veritabanı /data/postgres, yedekler /data/backups).

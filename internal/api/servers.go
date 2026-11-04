@@ -36,6 +36,7 @@ func init() {
 		mux.Handle("POST /api/servers", s.admin(s.createServer))
 		mux.Handle("GET /api/servers/{id}", s.auth(s.serversOnly(s.getServer)))
 		mux.Handle("GET /api/servers/{id}/stats", s.auth(s.serversOnly(s.serverStats)))
+		mux.Handle("GET /api/servers/{id}/timeline", s.auth(s.serversOnly(s.serverTimeline)))
 		mux.Handle("GET /api/servers/{id}/events", s.auth(s.serversOnly(s.serverEvents)))
 		mux.Handle("PUT /api/servers/{id}/alerts", s.editor(s.putServerAlerts))
 		mux.Handle("PUT /api/servers/{id}/notifications", s.editor(s.putServerNotifications))
@@ -172,6 +173,60 @@ type serverEventView struct {
 	EndedAt   *int64  `json:"ended_at"`
 }
 
+// timelineKinds süzgeç için geçerli sayılan olay türü biçimi.
+var timelineKindRe = regexp.MustCompile(`^[a-z_]{1,32}$`)
+
+// serverTimeline sunucu olay zaman çizelgesi (sayfalı: before = son satırın zamanı).
+func (s *Server) serverTimeline(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	if _, err := s.serverProbe(r, id); err != nil {
+		s.dbError(w, err)
+		return
+	}
+	q := r.URL.Query()
+	limit := 50
+	if n, err := strconv.Atoi(q.Get("limit")); err == nil && n > 0 {
+		limit = min(n, 200)
+	}
+	before, _ := strconv.ParseInt(q.Get("before"), 10, 64)
+	var kinds []string
+	for k := range strings.SplitSeq(q.Get("kind"), ",") {
+		if timelineKindRe.MatchString(k) {
+			kinds = append(kinds, k)
+		}
+	}
+	if len(kinds) > 20 {
+		kinds = kinds[:20]
+	}
+	// Bir fazla okunur: aynı saniyedeki satırlar sayfa sınırında bölünmesin.
+	list, err := s.store.TimelineEvents(r.Context(), store.TimelineFilter{ProbeIDs: []int64{id}, Before: before, Kinds: kinds, Limit: limit + 1})
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	list, more := timelinePage(list, limit)
+	writeJSON(w, http.StatusOK, map[string]any{"events": list, "more": more})
+}
+
+// timelinePage limit+1 satırlık sonucu sayfaya indirir. Son saniyenin tamamı
+// sonraki sayfaya kalır (tek saniyede sayfadan fazla olay yoksa): before sınırı
+// saniyedir, aynı saniyedeki satırlar bölünmemeli.
+func timelinePage(list []store.TimelineEvent, limit int) ([]store.TimelineEvent, bool) {
+	if len(list) <= limit {
+		return list, false
+	}
+	list = list[:limit]
+	if last := list[len(list)-1].Time; list[0].Time != last {
+		for len(list) > 0 && list[len(list)-1].Time == last {
+			list = list[:len(list)-1]
+		}
+	}
+	return list, true
+}
+
 func (s *Server) serverEvents(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -227,7 +282,7 @@ func validateAlerts(in []alertInput) ([]store.ServerAlert, error) {
 	for _, a := range in {
 		a.Metric = strings.TrimSpace(a.Metric)
 		if !servers.ValidMetric(a.Metric) {
-			return nil, errors.New("Metrik cpu, mem, swap, disk, load, temp, net, offline, container veya reboot olmalı")
+			return nil, errors.New("Metrik cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast veya disk_fast olmalı")
 		}
 		a.Mount = strings.TrimSpace(a.Mount)
 		switch {
@@ -251,8 +306,11 @@ func validateAlerts(in []alertInput) ([]store.ServerAlert, error) {
 		} else {
 			seen[key] = true
 		}
-		if a.Metric == servers.MetricReboot {
+		if a.Metric == servers.MetricReboot || a.Metric == servers.MetricDiskForecast {
 			a.Minutes = 1 // kullanılmaz
+		}
+		if a.Metric == servers.MetricDiskForecast || a.Metric == servers.MetricDiskFast {
+			a.WarnThreshold = 0 // hep "uyarı" seviyesinde; tek eşik
 		}
 		if a.Minutes < 1 || a.Minutes > 60 {
 			return nil, errors.New("Süre 1-60 dakika olmalı")

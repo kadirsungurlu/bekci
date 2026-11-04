@@ -25,6 +25,7 @@ import backup from './backup';
 import audit from './audit';
 import tags from './tags';
 import overview from './overview';
+import topology from './topology';
 
 import type { Shape } from '../types';
 import type tr from '../tr';
@@ -54,6 +55,7 @@ const en = {
   audit,
   tags,
   overview,
+  topology,
 } satisfies Shape<typeof tr>;
 
 export default en;

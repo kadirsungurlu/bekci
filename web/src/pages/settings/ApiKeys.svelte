@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { api, errorMessage, type ApiKey, type ApiKeyStatus, type Role } from '../../lib/api';
+  import { api, errorMessage, type ApiKey, type ApiKeyScope, type ApiKeyStatus, type Role } from '../../lib/api';
   import { ROLE_LABELS, roleRank, session } from '../../lib/session.svelte';
   import { clock, confirmDialog, toast } from '../../lib/ui.svelte';
   import { fmtDate, fmtDay, fmtRelative, isoDay, nowSec, parseLocal } from '../../lib/format';
@@ -67,6 +67,7 @@
   let open = $state(false);
   let name = $state('');
   let role = $state<Role>('viewer');
+  let scope = $state<ApiKeyScope>('read');
   let expires = $state('');
   let secret = $state('');
   let error = $state('');
@@ -78,6 +79,7 @@
   function openNew() {
     name = '';
     role = 'viewer';
+    scope = 'read';
     expires = '';
     secret = '';
     error = '';
@@ -97,7 +99,7 @@
     }
     busy = true;
     try {
-      const res = await api.createApiKey(n, role, exp);
+      const res = await api.createApiKey(n, scope === 'read' ? 'viewer' : role, scope, exp);
       secret = res.secret;
       load();
     } catch (err) {
@@ -109,7 +111,7 @@
 
 
   const origin = location.origin;
-  const curl = $derived(`curl -H "Authorization: Bearer ${secret || 'upk_…'}" ${origin}/api/monitors`);
+  const curl = $derived(`curl -H "Authorization: Bearer ${secret || 'upk_…'}" ${origin}/api/${scope === 'read' ? 'servers' : 'monitors'}`);
 </script>
 
 <section class="card">
@@ -157,7 +159,9 @@
           <tr class:dim={k.status !== 'active'}>
             <td data-label={t('common.name')} class="nm">{k.name}</td>
             {#if showAll}<td data-label={t('apiKeys.col.owner')}>{k.username}</td>{/if}
-            <td data-label={t('apiKeys.col.scope')}>{ROLE_LABELS[k.role] ?? k.role}</td>
+            <td data-label={t('apiKeys.col.scope')}>
+              {#if k.scope === 'read'}<span class="badge">{t('apiKeys.scope.read')}</span>{:else}{ROLE_LABELS[k.role] ?? k.role}{/if}
+            </td>
             <td data-label={t('apiKeys.col.prefix')}><code>{k.prefix}…</code></td>
             <td data-label={t('apiKeys.col.lastUsed')} class="nowrap" title={k.last_used_at ? fmtDate(k.last_used_at) : ''}>
               {k.last_used_at ? fmtRelative(k.last_used_at, clock.now) : t('apiKeys.never')}
@@ -200,19 +204,28 @@
         <label for="ak-name">{t('common.name')}</label>
         <input id="ak-name" class="input" maxlength="100" bind:value={name} placeholder={t('apiKeys.form.namePlaceholder')} />
       </div>
-      <div class="grid-2">
-        <div class="field">
-          <label for="ak-role">{t('apiKeys.col.scope')}</label>
-          <select id="ak-role" class="input" bind:value={role}>
-            {#each roles as r (r)}<option value={r}>{ROLE_LABELS[r]}</option>{/each}
-          </select>
-        </div>
+      <div class="field">
+        <label for="ak-scope">{t('apiKeys.form.access')}</label>
+        <select id="ak-scope" class="input" bind:value={scope}>
+          <option value="read">{t('apiKeys.scope.read')}</option>
+          <option value="full">{t('apiKeys.scope.full')}</option>
+        </select>
+        <span class="help">{scope === 'read' ? t('apiKeys.form.readHelp') : t('apiKeys.form.help', { viewer: ROLE_LABELS.viewer })}</span>
+      </div>
+      <div class:grid-2={scope === 'full'}>
+        {#if scope === 'full'}
+          <div class="field">
+            <label for="ak-role">{t('apiKeys.col.scope')}</label>
+            <select id="ak-role" class="input" bind:value={role}>
+              {#each roles as r (r)}<option value={r}>{ROLE_LABELS[r]}</option>{/each}
+            </select>
+          </div>
+        {/if}
         <div class="field">
           <label for="ak-exp">{t('apiKeys.col.expires')} <span class="muted">{t('apiKeys.form.optional')}</span></label>
           <DateTimeField id="ak-exp" type="date" min={minDay} bind:value={expires} />
         </div>
       </div>
-      <span class="help">{t('apiKeys.form.help', { viewer: ROLE_LABELS.viewer })}</span>
       {#if error}<div class="alert error" role="alert">{error}</div>{/if}
     </form>
   {/if}

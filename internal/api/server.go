@@ -339,6 +339,11 @@ func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "veritabanı erişilemiyor", http.StatusServiceUnavailable)
 		return
 	}
+	if r.URL.Query().Has("detail") {
+		// db_mode: timescale | timescale-apache | postgres | sqlite
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "db_mode": string(s.store.DBMode())})
+		return
+	}
 	w.Header().Set("Content-Type", "text/plain")
 	io.WriteString(w, "ok")
 }

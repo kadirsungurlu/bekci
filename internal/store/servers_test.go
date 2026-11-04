@@ -228,10 +228,13 @@ func TestServerAlertsStore(t *testing.T) {
 	}
 	s.SetProbeNotifications(ctx, p.ID, []int64{def.ID})
 	s.SaveServerSample(ctx, ServerSample{ProbeID: p.ID, Time: 60, At: 60, Data: []byte(`{}`)})
+	if err := s.AddTimelineEvents(ctx, []TimelineEvent{{ProbeID: p.ID, Time: 60, Kind: "oom", Level: EventError}}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := s.DeleteProbe(ctx, p.ID); err != nil {
 		t.Fatal(err)
 	}
-	for _, table := range []string{"server_stats", "server_alerts", "server_alert_events", "probe_notifications"} {
+	for _, table := range []string{"server_stats", "server_alerts", "server_alert_events", "server_events", "probe_notifications"} {
 		var n int
 		if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&n); err != nil || n != 0 {
 			t.Errorf("%s: %d satır kaldı (%v)", table, n, err)

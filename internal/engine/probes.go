@@ -45,6 +45,22 @@ func probeOnlineAt(p store.Probe, lastHB time.Time, haveHB bool, set store.AppSe
 	return now.Sub(lastHB) <= store.EffectiveProbeTiming(p, set).OfflineAfter()
 }
 
+// ProbeLate çevrimiçi sayılan ajanın kalp atışı iki panel aralığından uzun
+// süredir gelmiyor: çevrimdışı eşiği (LossThreshold x aralık) dolmadan erken
+// uyarı (canlı topoloji "gecikiyor"). Eşik 2 ve altıysa erken uyarı yok.
+func (e *Engine) ProbeLate(p store.Probe, now time.Time) bool {
+	last, ok := e.lastHeartbeat(p.ID)
+	set := e.Settings()
+	if !heartbeatBased(p, last, ok) || !probeOnlineAt(p, last, ok, set, now) {
+		return false
+	}
+	t := store.EffectiveProbeTiming(p, set)
+	if t.LossThreshold <= 2 {
+		return false
+	}
+	return now.Sub(last) > time.Duration(2*t.PanelSec)*time.Second+500*time.Millisecond
+}
+
 // heartbeatBased ajanın çevrimiçi durumu kalp atışından mı hesaplanıyor.
 func heartbeatBased(p store.Probe, lastHB time.Time, haveHB bool) bool {
 	return haveHB && p.LastSeenAt-lastHB.Unix() <= int64(ProbeLegacyOfflineAfter/time.Second)

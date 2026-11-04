@@ -10,7 +10,7 @@
 [![Go 1.27](https://img.shields.io/badge/Go-1.27-0d9488?logo=go&logoColor=white)](go.mod)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-475569)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-475569)](https://hub.docker.com/r/kadirsungurlu/bekci/tags)
-[![Database](https://img.shields.io/badge/database-SQLite%20%7C%20PostgreSQL-475569)](#environment-variables)
+[![Database](https://img.shields.io/badge/database-PostgreSQL%20%2B%20TimescaleDB-475569)](#environment-variables)
 [![UI](https://img.shields.io/badge/UI-English%20%7C%20Turkish-475569)](#why)
 
 [Türkçe](README.md) · **English**
@@ -23,8 +23,8 @@
 
 **Bekci** (Turkish for "night watchman") is a monitoring system written in Go with a simple interface:
 uptime checks for websites and services and resource tracking for servers.
-One Docker image, SQLite or
-PostgreSQL; designed to stay fast with hundreds of monitors.
+One Docker image, PostgreSQL +
+TimescaleDB; designed to stay fast with hundreds of monitors.
 
 > [!NOTE]
 > **The UI is available in English and Turkish.** Each user picks their own
@@ -38,9 +38,9 @@ PostgreSQL; designed to stay fast with hundreds of monitors.
 - **One image, one container** — UI, API, check engine and the agent binaries
   (Linux amd64/arm64, Windows amd64) ship in the same image; no extra services.
 - **Lightweight** — ~15 MB RAM with 10 monitors and 3 servers.
-- **SQLite or PostgreSQL** — SQLite by default; optionally an external
-  PostgreSQL via `DATABASE_URL`, or the `:postgres` image with embedded
-  PostgreSQL 18.
+- **PostgreSQL + TimescaleDB** — the default setup; measurements are compressed,
+  charts read rollups. Plain PostgreSQL also works (not recommended); SQLite and the
+  `:postgres` image are deprecated, move with `uptime migrate`.
 - **Secure agents** — tokens are stored as hashes, IP lock, pinned version
   verified by SHA-256 that never updates itself.
 - **Works like an app on your phone (PWA)** — add to home screen, live updates.
@@ -257,14 +257,14 @@ docker compose up -d
 
 | Tag (`kadirsungurlu/bekci`) | Contents |
 |---|---|
-| `:latest` | Latest stable release, SQLite (recommended, lightest) |
-| `:postgres` | Latest stable release, embedded PostgreSQL 18 (data still under `/data`) |
+| `:latest` | Latest stable release (recommended) |
+| `:postgres` | Deprecated: latest stable release, embedded PostgreSQL 18 |
 | `:1.2.3`, `:1.2`, `:1` / `:1.2.3-postgres`, `:1.2-postgres`, `:1-postgres` | A specific version or the latest of a series (for pinning / rollback) |
 | `ghcr.io/kadirsungurlu/bekci:<short-sha>` / `:postgres-<short-sha>` | A specific commit — GitHub Container Registry only (main branch builds); only released versions go to Docker Hub |
 
-Data cannot be moved between the two images; pick one from the start. Minimum
-1 vCPU, 512 MB RAM (1 GB recommended), 10 GB disk. The app uses ~15 MB RAM with
-10 monitors and 3 servers; embedded PostgreSQL adds ~200 MB. The image is for
+Hardware (with the database): 4 GB RAM for 100 monitors, 8-16 GB for 1,000; see
+[Database and migration](https://bekci.app/en/docs/database/). The app itself uses
+~15 MB RAM with 10 monitors and 3 servers. The image is for
 linux/amd64 and linux/arm64; agent binaries for the other platforms (Linux
 amd64/arm64, Windows amd64) are included.
 
@@ -280,7 +280,7 @@ amd64/arm64, Windows amd64) are included.
 | `DATA_DIR` | `/data` | Folder for the SQLite database and backups |
 | `DATABASE_URL` | — | If set, **PostgreSQL** is used: `postgres://kullanıcı:şifre@sunucu:5432/veritabanı?sslmode=disable` (user:password@host:5432/database). Backups must then be taken on the database side (Coolify backups / `pg_dump`) |
 | `ADDR` | `:8080` | Listen address |
-| `TRUSTED_PROXY` | — | Trusted reverse proxy networks (comma-separated CIDRs, e.g. `172.17.0.1/32`). When set, `X-Forwarded-For` is accepted only on connections from these networks; when empty, all private/local addresses are trusted and a warning is logged at startup. For a directly published install without a proxy, set `127.0.0.1/32` |
+| `TRUSTED_PROXY` | — | Trusted reverse proxy networks (comma-separated CIDRs, e.g. `172.18.0.0/16`). When set, `X-Forwarded-For` is accepted only on connections from these networks; when empty, all private/local addresses are trusted and a warning is logged at startup. For a directly published install without a proxy, set `127.0.0.1/32` |
 | `AGENT_DIR` | `/usr/local/share/uptime/agents` | Agent binaries for other platforms (`uptime-windows-amd64.exe`, `uptime-linux-arm64`); included in the image |
 | `PROBE_IMAGE` | — | If set, the check location install command uses this Docker image instead of downloading the binary |
 | `UPTIME_LOCK_WAIT` | `600` | Maximum number of seconds a second copy waits for the single-instance lock (SQLite: data folder, PostgreSQL: database advisory lock) before exiting with an error. Only one copy (replica) runs per database |
@@ -291,7 +291,7 @@ preset in the install command: [bekci.app/en/docs/environment-variables](https:/
 
 ## Updates, backups and rollback
 
-- **Nightly backup** (SQLite): taken every night under `/data/backups/`, old
+- **Nightly backup**: taken every night under `/data/backups/`, old
   ones are rotated. Copy them off the server as well.
 - **Automatic pre-update backup** (SQLite): if a new version changes the
   database schema, a copy

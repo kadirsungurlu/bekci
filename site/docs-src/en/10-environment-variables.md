@@ -42,10 +42,13 @@ Add them under the application's **Environment Variables** and redeploy.
 | `LOG_LEVEL` | `info` | Log detail: `debug`, `info`, `warn` or `error`. |
 | `MAX_CONCURRENT_CHECKS` | `50` | The maximum number of checks running at the same time. Can be raised for hundreds of monitors. |
 | `BEAT_BATCH_MS` | `250` | Check results arriving within this window (milliseconds) are written in a single transaction. Lowers disk writes with many short-interval monitors (5-15 seconds); 0 writes every result separately. |
-| `DATABASE_URL` | — | If set, **PostgreSQL** is used instead of SQLite: `postgres://user:password@host:5432/database?sslmode=disable`. Must start with `postgres://` or `postgresql://`. Bekci then takes no nightly backup; back up on the database side. Ignored by the `postgres` image (it always uses its embedded database). |
+| `READ_CACHE_SEC` | `15` | TimescaleDB mode only: summary reads that scan all monitors (monitor list, overview, `/metrics`) are shared for this many seconds. The running hour is aggregated from raw data, so the cost grows with the monitor count. `0` disables it. |
+| `DATABASE_URL` | — | Database address; required for PostgreSQL + TimescaleDB (the default compose sets it). If unset, the deprecated SQLite is used: `postgres://user:password@host:5432/database?sslmode=disable`. Must start with `postgres://` or `postgresql://`. Bekci then takes no nightly backup; back up on the database side. Ignored by the `postgres` image (it always uses its embedded database). |
+| `DB_TIMESCALE` | `auto` | `off`: use the plain PostgreSQL path even if the extension is installed. An existing conversion isn't undone. |
+| `SQLITE_IGNORE` | — | `1`: allow starting on an empty PostgreSQL while unmigrated SQLite is in the data folder ([migration](/en/docs/database/#sqlite)). |
 | `DATA_DIR` | `/data` | Folder for the SQLite database and backups. No need to change it in Docker; mount the volume at `/data`. |
 | `ADDR` | `:8080` | Address and port to listen on inside the container. |
-| `TRUSTED_PROXY` | — | Trusted reverse proxy networks as a comma-separated CIDR list (e.g. `172.17.0.1/32,10.0.0.0/8`). When set, the `X-Forwarded-For` header is only trusted on connections from these networks. When empty, all private and local addresses are trusted and a warning is logged at startup; for an install without a proxy, set `127.0.0.1/32` ([details](/en/docs/install/reverse-proxy/#trusted-proxy)). |
+| `TRUSTED_PROXY` | — | Trusted reverse proxy networks as a comma-separated CIDR list (e.g. `172.18.0.0/16,10.0.0.0/8`). When set, the `X-Forwarded-For` header is only trusted on connections from these networks. When empty, all private and local addresses are trusted and a warning is logged at startup; for an install without a proxy, set `127.0.0.1/32` ([details](/en/docs/install/reverse-proxy/#trusted-proxy)). |
 | `UPDATE_CHECK` | on | `off` (or `0`, `false`) turns off the new version check: no request leaves the server (offline installs). When on, the panel looks at the releases on GitHub every 6 hours and tells admins at the top of the panel; it can also be turned off in Settings > General. |
 | `UPTIME_LOCK_WAIT` | `600` | How many seconds a second copy using the same data folder (SQLite) or the same database (PostgreSQL) waits at most for the first one to stop. When the time is up it exits with an error. Only one copy (replica) runs per database. |
 | `AGENT_DIR` | `/usr/local/share/uptime/agents` | Folder with the agent programs for other platforms. Ready in the official image; don't change it. |
@@ -78,6 +81,6 @@ The `/opt/bekci/.env` file of the [Caddy install](/en/docs/install/caddy/) reads
 |---|---|
 | `UPTIME_DOMAIN` | The panel's domain (without `https://`). `BASE_URL` is built from it. Required. |
 | `ACME_EMAIL` | Email for Let's Encrypt notices. Required. |
-| `UPTIME_TAG` | Image tag: `latest`, `postgres`, `1.0.0`, `1.0.0-postgres`… Default `latest`. |
+| `UPTIME_TAG` | Image tag: `latest`, `1.0.0`… (`postgres`, `1.0.0-postgres` are deprecated). Default `latest`. |
 | `STATUS_DOMAIN` | No longer needed: status page custom domains get HTTPS automatically. Only used by an older, hand-written `{$STATUS_DOMAIN}` Caddy block ([details](/en/docs/install/caddy/#status-domain-migrate)). |
 | `TZ`, `LOG_LEVEL`, `MAX_CONCURRENT_CHECKS` | Same as in the table above. |

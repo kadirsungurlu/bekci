@@ -456,7 +456,7 @@
                 <span class="odot {st.c}" aria-hidden="true"></span>
                 <span>
                   {p.name}
-                  {#if p.token_prefix}<code class="pfx">{p.token_prefix}…</code>{/if}
+                  {#if p.token_prefix}<span class="pfx">{t('probes.col.tokenPrefix')}: <code>{p.token_prefix}…</code></span>{/if}
                 </span>
               </span>
             </td>

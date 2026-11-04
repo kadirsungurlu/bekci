@@ -220,6 +220,44 @@ Ajan panelin alan adını çözdüğünde IP adreslerini program dizinindeki `up
 - Bağlantı yine panelin alan adıyla doğrulanır (TLS sertifikası ve SNI); eski IP'de başka bir sunucu varsa bağlantı reddedilir.
 - Program dizini yazılabilir değilse önbellek yalnızca bellekte tutulur (ajan yeniden başlayınca boşalır).
 
+## Sunucu envanteri {#envanter}
+
+Ajan beş dakikada bir sunucunun envanterini toplar; içerik değişince, değişmese de saatte bir panele gönderir. Sunucu sayfasındaki **Envanter** sekmesinde arama ve süzgeçle görünür:
+
+- **Servisler:** systemd birimleri, çalışma durumu, açılışta başlama ayarı.
+- **Konteynerler:** ad, imaj, durum, sağlık, yeniden başlama sayısı. Satırı açınca son 24 saatin CPU ve bellek grafiği gelir.
+- **Portlar:** dinleyen TCP/UDP portları ve süreci. Geçici UDP portları listelenmez.
+- **Sertifikalar:** yerel dosyalar (`/etc/letsencrypt/live`, `/etc/ssl/private`, web sunucusu klasörleri, Caddy Docker birimi) ve dinleyen portlardan TLS el sıkışmasıyla okunan sertifikalar.
+- **Disk bölümleri:** bağlama noktası, aygıt, dosya sistemi, boyut. Satırı açınca doluluk grafiği gelir.
+
+Ortam değişkenleri ve özel anahtarlar **toplanmaz**. Komut satırlarındaki parola, belirteç ve bağlantı adresi parolaları ajanda, gönderilmeden önce maskelenir; panel kaydederken bir kez daha maskeler.
+
+Sertifikanın bitmesine 14, 7 ve 1 gün kala olay açılır ve sunucunun bildirim kanallarına bildirim gider. Eşikleri **Ayarlar > Genel > SSL uyarı günleri** alanından değiştirebilirsiniz; boş bırakırsanız uyarı kapanır. Sertifika yenilenince olay kendiliğinden kapanır. Uyarı istemediğiniz sertifikayı Envanter sekmesinden **Yoksay** ile dışarıda bırakabilirsiniz.
+
+| Değişken | Varsayılan | Görevi |
+|---|---|---|
+| `INVENTORY` | `1` | `0` envanteri bu ajanda kapatır. |
+| `PROBE_CERT_DIRS` | boş | Ek sertifika klasörleri (`:` ile ayrılır). |
+| `PROBE_TLS_SCAN` | `on` | `off` dinleyen portlara bağlanmayı kapatır. |
+| `PROBE_TLS_SNI` | boş | Port taramasında denenecek alan adları (virgülle ayrılır). |
+
+Windows'ta şimdilik yalnız disk bölümleri toplanır; servis ve port listesi desteklenmez. Docker içinde çalışan ajan, sunucunun dosya sistemi bağlıysa (`HOST_ROOT`, `HOST_PROC`, `HOST_SYS`) servisleri ve portları görür. Eski sürüm ajanlar envanter göndermez; sekme bu durumda ajanı güncellemenizi söyler.
+
+## Sunucu olayları ve disk tahmini {#olaylar}
+
+Sunucu sayfasındaki **Olaylar** sekmesi şunları tarih sırasıyla gösterir: yeniden başlatma, bellek yetmediği için kapatılan süreç (OOM), çöken ya da düzelen servis, duran, yeniden başlayan, güncellenen konteyner, açılan ya da kapanan port, başlayan ve biten uyarılar. Kayıtlar bir yıl saklanır.
+
+OOM için ajan `/proc/vmstat` sayacını izler; süreç adını `/dev/kmsg` satırından alır. Çekirdek günlüğü okunamıyorsa olay yine kaydedilir, süreç adı boş kalır. Servis, konteyner ve port olayları envanter turuyla (5 dakikada bir) yakalanır.
+
+**Disk tahmini:** panel her bölümün son 7 günlük saatlik doluluğundan büyüme hızını hesaplar. Sunucu sayfasının Diskler tablosunda kalan gün ve günlük büyüme, Sunucular listesinde 30 günden kısa kalan bölüm için uyarı görünür. Tahmin için en az 12 saatlik veri gerekir; o zamana kadar "Veri toplanıyor" yazar. Doluluk artmıyorsa "Sabit" yazar.
+
+İki uyarı kuralı her sunucuda varsayılan olarak açıktır, eşikleri sunucunun Ayarlar penceresinden değiştirilir:
+
+- **Disk dolma tahmini:** bir bölüm 7 gün içinde dolacaksa uyarı olayı açılır ve bildirim gider. Kalan süre eşiğin 1,5 katını aşınca kapanır. Düzensiz büyümede (R² 0,5 altı) yeni uyarı açılmaz.
+- **Hızlı disk dolumu:** bir bölüm son 60 dakikada 5 puan ya da daha çok dolarsa uyarır. Artış eşiğin %60'ının altına inince kapanır.
+
+Eski panel `events` alanını yok sayar; eski ajan olay göndermez, envanterden gelen olaylar ve tahmin yine çalışır.
+
 ## Güncelleme {#guncelleme}
 
 Bekci 1.4.0 ve sonrasında kurulan ajanlar **kendini günceller**: Bekci'yi yeni bir sürüme yükselttiğinizde sunucu ajanları ve kontrol noktaları birkaç saniye içinde aynı sürüme geçer. Ajan, panelden gelen programı yalnızca **projenin imzası** doğrulanırsa kurar. İmzanın açık anahtarı ajanın içine gömülüdür; özel anahtar yalnızca resmi sürüm derlemesinde kullanılır. Bu yüzden panelinizin bulunduğu sunucu ele geçirilse bile sunucularınıza imzasız ya da değiştirilmiş bir program inmez ve ajan eski bir sürüme döndürülemez.

@@ -260,6 +260,20 @@ func (e Event) serverTitle() string {
 		return i18n.T(l, "notify.server.container_up", e.MonitorName, e.Mount)
 	case e.Kind == KindServerReboot:
 		return i18n.T(l, "notify.server.reboot", e.MonitorName)
+	case e.Metric == "disk_forecast" && e.Kind == KindServerAlert:
+		return i18n.T(l, "notify.server.disk_forecast", e.MonitorName, e.Mount, FormatMetric(l, e.Metric, e.Value))
+	case e.Metric == "disk_forecast":
+		return i18n.T(l, "notify.server.disk_forecast_ok", e.MonitorName, e.Mount, FormatMetric(l, e.Metric, e.Value))
+	case e.Metric == "disk_fast" && e.Kind == KindServerAlert:
+		return i18n.T(l, "notify.server.disk_fast", e.MonitorName, e.Mount, e.Minutes, FormatMetric(l, e.Metric, e.Value))
+	case e.Metric == "disk_fast":
+		return i18n.T(l, "notify.server.disk_fast_ok", e.MonitorName, e.Mount)
+	case e.Metric == "cert" && e.Kind == KindServerAlert && e.Value < 0:
+		return i18n.T(l, "notify.server.cert_expired", e.MonitorName, e.Mount)
+	case e.Metric == "cert" && e.Kind == KindServerAlert:
+		return i18n.T(l, "notify.server.cert_expiring", e.MonitorName, e.Mount, int(e.Value))
+	case e.Metric == "cert":
+		return i18n.T(l, "notify.server.cert_renewed", e.MonitorName, e.Mount)
 	case e.Kind == KindServerAlert:
 		detail := i18n.T(l, "notify.server.avg")
 		if e.Metric == "load" {
@@ -457,6 +471,13 @@ func (e Event) Rows() []Row {
 			add("container", e.Mount)
 			if e.Kind == KindServerAlert {
 				add("info", e.LocalMessage())
+			}
+			break
+		}
+		if e.Metric == "cert" {
+			add("certificate", e.Mount)
+			if e.Level != "" {
+				add("level", i18n.T(l, "notify.level."+e.Level))
 			}
 			break
 		}

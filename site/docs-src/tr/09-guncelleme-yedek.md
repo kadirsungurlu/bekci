@@ -14,16 +14,16 @@ Bekci imajları Docker Hub'da [`kadirsungurlu/bekci`](https://hub.docker.com/r/k
 
 | Etiket | İçerik | Ne zaman |
 |---|---|---|
-| `latest` | En son yayınlanmış kararlı sürüm, SQLite | Her zaman son kararlı sürümü istiyorsanız |
-| `postgres` | En son yayınlanmış kararlı sürüm, gömülü PostgreSQL 18 | Gömülü PostgreSQL ile son kararlı sürüm |
-| `1.0.0`, `1.0` | Belirli bir sürüm, SQLite | Sürümü sabitlemek ve geri dönmek için (önerilen) |
-| `1.0.0-postgres`, `1.0-postgres` | Belirli bir sürüm, gömülü PostgreSQL | Aynısı, PostgreSQL için |
+| `latest` | En son yayınlanmış kararlı sürüm | Her zaman son kararlı sürümü istiyorsanız |
+| `postgres` | Kullanımdan kalkıyor: son kararlı sürüm, gömülü PostgreSQL 18 | Yalnız var olan gömülü kurulumlar |
+| `1.0.0`, `1.0` | Belirli bir sürüm | Sürümü sabitlemek ve geri dönmek için (önerilen) |
+| `1.0.0-postgres`, `1.0-postgres` | Kullanımdan kalkıyor: belirli bir sürüm, gömülü PostgreSQL | Yalnız var olan gömülü kurulumlar |
 | `ghcr.io/kadirsungurlu/bekci:2718268`, `…:postgres-2718268` | Belirli bir geliştirme derlemesi (commit kısa kodu); yalnızca GHCR'de, ana dalın her derlemesinde | Günlükte gördüğünüz bir geliştirme derlemesine dönmek için |
 
 `1.0` gibi iki parçalı etiketler o serinin en son yamasını izler (ör. `1.0.1` çıkınca `1.0` onu gösterir).
 
 > [!IMPORTANT]
-> SQLite (`latest`, `1.0.0`) ile PostgreSQL (`postgres`, `1.0.0-postgres`) etiketleri arasında geçiş **yapmayın**: veriler birbirine taşınmaz.
+> SQLite ya da gömülü PostgreSQL'den varsayılan kuruluma geçmek için etiketi değiştirmek yetmez; [Veritabanı ve taşıma](/docs/veritabani/) rehberini izleyin.
 
 ## Güncellemeden önce {#once}
 
@@ -78,12 +78,12 @@ Bekci iki tür yedeği kendisi alır. İkisi de veri biriminin içinde, `/data/b
 | Yedek | Dosya adı | Ne zaman |
 |---|---|---|
 | Gece yedeği (SQLite) | `uptime-2026-09-28.db` | Günde bir kez, saat 03:00'ten (`TZ` saat dilimine göre) sonra; varsayılan olarak son 7 tanesi tutulur. Bekci 03:00'ten sonra başlatıldıysa o günün yedeği birkaç dakika içinde alınır |
-| Gece yedeği (gömülü PostgreSQL) | `uptime-2026-09-28.dump` | Aynı şekilde, `pg_dump` biçiminde |
+| Gece yedeği (PostgreSQL) | `uptime-2026-09-28.dump` | Aynı şekilde, `pg_dump` biçiminde |
 | Güncelleme öncesi yedek (SQLite) | `pre-migrate-v16-to-v17-20260928-030000.db` | Yeni sürüm veritabanı yapısını değiştirecekse, değiştirmeden hemen önce |
 
 - Kaç gece yedeği tutulacağını **Ayarlar → Genel → Gece yedeği sayısı** ile değiştirebilirsiniz (0 gece yedeğini kapatır).
 - Güncelleme öncesi yedek alınamazsa (ör. disk dolu) güncelleme uygulanmaz ve Bekci açılmaz; yer açınca açılır. Bu dosyalar kendiliğinden silinmez; eski olanları elle silebilirsiniz.
-- **Harici PostgreSQL** (`DATABASE_URL`) kullanıyorsanız Bekci yedek **almaz**; yedeği veritabanı tarafında alın ([aşağıda](#harici-postgresql)).
+- **PostgreSQL** kullanıyorsanız gece yedeği imajdaki `pg_dump` ile `/data/backups` altına yazılır. TimescaleDB dökümünü geri yüklemek için [ek adımlar](/docs/veritabani/#yedek) gerekir.
 
 Yedekleri listelemek için:
 
@@ -163,7 +163,7 @@ docker exec ⟦bekci⟧ pg_restore -h /run/postgresql -U postgres --clean --if-e
 docker restart ⟦bekci⟧
 ```
 @tab Harici PostgreSQL {#harici-postgresql}
-Bekci harici veritabanında yedek almaz; yedeği `pg_dump` ile siz alırsınız. [Docker Compose rehberindeki](/docs/kurulum/docker-compose/) PostgreSQL kurulumu için yedek:
+Gece yedeğine ek olarak `pg_dump` ile elle de yedek alabilirsiniz. [Docker Compose rehberindeki](/docs/kurulum/docker-compose/) kurulum için yedek:
 
 ```bash
 cd /opt/bekci

@@ -149,7 +149,7 @@
         <li><b>Tek imaj</b><span>Arayüz, API, kontrol motoru ve ajanlar</span></li>
         <li><b>~15 MB RAM</b><span>10 monitör ve 3 sunucuda</span></li>
         <li><b>amd64&nbsp;+&nbsp;arm64</b><span>Linux sunucular, ayrıca Windows ajanı</span></li>
-        <li><b>SQLite · PostgreSQL</b><span>Varsayılan SQLite, istenirse PostgreSQL</span></li>
+        <li><b>PostgreSQL + TimescaleDB</b><span>Sıkıştırılmış ölçümler, hazır özetler</span></li>
       </ul>
     </div>
   </section>
@@ -472,7 +472,7 @@ PROBE_TOKEN=upr_…
         <p class="install-note">Ardından <code>http://SUNUCU-IP:8080</code> adresini açıp yönetici hesabınızı oluşturun.</p>
         <ul class="guides" aria-label="Kurulum rehberleri">
           <li><a class="guide" href="/docs/kurulum/docker/"><b>Docker (tek komut)</b><span>Denemek için en kısa yol.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-          <li><a class="guide" href="/docs/kurulum/docker-compose/"><b>Docker Compose</b><span>Ayarlar bir dosyada; SQLite ya da PostgreSQL.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+          <li><a class="guide" href="/docs/kurulum/docker-compose/"><b>Docker Compose</b><span>Ayarlar bir dosyada; PostgreSQL + TimescaleDB.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
           <li><a class="guide" href="/docs/kurulum/caddy/"><b>HTTPS’li kurulum (Caddy)</b><span>Alan adınız ve otomatik sertifikayla, önerilen.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
           <li><a class="guide" href="/docs/kurulum/coolify/"><b>Coolify</b><span>Docker imajı olarak ekleyin.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
           <li><a class="guide" href="/docs/kurulum/ters-vekil/"><b>Ters vekil arkasında</b><span>Nginx, Traefik, Apache ya da Caddy.</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
@@ -502,7 +502,7 @@ PROBE_TOKEN=upr_…
         <details>
           <summary>Hangi veritabanını kullanıyor?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
           <div class="answer">
-            <p>Varsayılan olarak SQLite — ek servis gerekmez ve en hafif seçenek budur. İsterseniz <code>DATABASE_URL</code> ile kendi PostgreSQL sunucunuzu bağlayabilir ya da gömülü PostgreSQL 18 içeren <code>kadirsungurlu/bekci:postgres</code> imajını kullanabilirsiniz (yaklaşık 200 MB ek RAM).</p>
+            <p>Varsayılan kurulum PostgreSQL + TimescaleDB kullanır; compose dosyası veritabanını da başlatır. RDS gibi düz PostgreSQL de çalışır ama önerilmez. SQLite kullanımdan kalkıyor; <code>uptime migrate</code> ile taşınır (<a href="/docs/veritabani/">rehber</a>).</p>
             <p>İki imajın verisi birbirine taşınmaz; baştan birini seçin.</p>
           </div>
         </details>
@@ -519,14 +519,14 @@ PROBE_TOKEN=upr_…
         </details>
         <details>
           <summary>Verilerim nerede duruyor?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
-          <div class="answer"><p>Tamamen sizin sunucunuzda: monitörler, ölçümler, olaylar ve kullanıcılar <code>/data</code> birimindeki SQLite veritabanında (ya da kendi PostgreSQL'inizde) tutulur. SQLite kullanırken her gece <code>/data/backups/</code> altına otomatik yedek alınır; bu klasörü sunucu dışına da kopyalamanızı öneririz.</p></div>
+          <div class="answer"><p>Tamamen sizin sunucunuzda: monitörler, ölçümler, olaylar ve kullanıcılar kendi PostgreSQL veritabanınızda tutulur. Her gece <code>/data/backups/</code> altına otomatik yedek alınır; bu klasörü sunucu dışına da kopyalamanızı öneririz.</p></div>
         </details>
         <details>
           <summary>Nasıl güncellerim?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
           <div class="answer">
             <p>Önce yedek alın, sonra yeni imajı çekip konteyneri yeniden oluşturun. Compose ile:</p>
             <div class="cmd"><pre><code>docker compose pull &amp;&amp; docker compose up -d</code></pre></div>
-            <p>Yeni sürüm veritabanı yapısını değiştirecekse (SQLite) Bekci önce otomatik bir yedek alır; yedek alınamazsa güncellemeyi uygulamaz. Belirli bir sürüme sabitlemek ya da geri dönmek için <code>kadirsungurlu/bekci:1.0.0</code> gibi sürüm etiketlerini kullanın. Ayrıntılar: <a href="/docs/guncelleme-yedek/">Güncelleme, yedek ve geri dönüş</a>.</p>
+            <p>Bekci her gece otomatik yedek alır; güncellemeden önce de elle yedek alın. Belirli bir sürüme sabitlemek ya da geri dönmek için <code>kadirsungurlu/bekci:1.0.0</code> gibi sürüm etiketlerini kullanın. Ayrıntılar: <a href="/docs/guncelleme-yedek/">Güncelleme, yedek ve geri dönüş</a>.</p>
           </div>
         </details>
         <details>

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -62,15 +63,25 @@ func (s *Store) writeBeat(ctx context.Context, tx *Tx, u BeatUpdate) error {
 		b.MonitorID, b.Time, b.Status, ping, b.Message, b.Location); err != nil {
 		return err
 	}
-	for _, t := range []struct {
+	tables := []struct {
 		table  string
 		bucket int64
-	}{{"stats_hourly", hour}, {"stats_daily", day}} {
+	}{{"stats_hourly", hour}, {"stats_daily", day}}
+	if s.tsFull() {
+		tables = nil // özetler sürekli özetten (timescale.go)
+	}
+	for _, t := range tables {
+		// Saatlik özette gecikme histogramı: tek kova sütunu artar.
+		hcol, hset, hval := "", "", ""
+		if t.table == "stats_hourly" && pingCount > 0 {
+			c := histCol(pingSum)
+			hcol, hval, hset = ", "+c, ", 1", ",\n\t\t\t\t"+c+" = T."+c+" + 1"
+		}
 		// ping_min/max: yeni değer NULL ise eskisi korunur. Sütunlar tablo adıyla
 		// nitelenir: PostgreSQL'de "up" tek başına excluded.up ile belirsiz olur.
 		if _, err := tx.ExecContext(ctx, strings.ReplaceAll(`
-			INSERT INTO `+t.table+` (monitor_id, bucket, up, down, ping_sum, ping_count, ping_min, ping_max)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO `+t.table+` (monitor_id, bucket, up, down, ping_sum, ping_count, ping_min, ping_max`+hcol+`)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?`+hval+`)
 			ON CONFLICT (monitor_id, bucket) DO UPDATE SET
 				up = T.up + excluded.up,
 				down = T.down + excluded.down,
@@ -81,7 +92,7 @@ func (s *Store) writeBeat(ctx context.Context, tx *Tx, u BeatUpdate) error {
 					ELSE T.ping_min END,
 				ping_max = CASE WHEN excluded.ping_max IS NULL THEN T.ping_max
 					WHEN T.ping_max IS NULL OR excluded.ping_max > T.ping_max THEN excluded.ping_max
-					ELSE T.ping_max END`, "T.", t.table+"."),
+					ELSE T.ping_max END`+hset, "T.", t.table+"."),
 			b.MonitorID, t.bucket, up, down, pingSum, pingCount, ping, ping); err != nil {
 			return err
 		}
@@ -139,6 +150,12 @@ const bucketCols = "monitor_id, bucket, up, down, ping_sum, ping_count, ping_min
 
 // HourlyAll tüm monitörlerin since'den itibaren saatlik özetleri (liste çubukları için).
 func (s *Store) HourlyAll(ctx context.Context, since int64) (map[int64][]Bucket, error) {
+	return tsCached(s, "hourly:"+strconv.FormatInt(since, 10), func() (map[int64][]Bucket, error) {
+		return s.hourlyAll(ctx, since)
+	})
+}
+
+func (s *Store) hourlyAll(ctx context.Context, since int64) (map[int64][]Bucket, error) {
 	rows, err := s.db.QueryContext(ctx,
 		"SELECT "+bucketCols+" FROM stats_hourly WHERE bucket >= ? ORDER BY monitor_id, bucket", since)
 	if err != nil {
@@ -158,13 +175,11 @@ func (s *Store) HourlyAll(ctx context.Context, since int64) (map[int64][]Bucket,
 
 // Series bir monitörün since'den itibaren özet serisi; daily=false saatlik.
 func (s *Store) Series(ctx context.Context, monitorID int64, since int64, daily bool) ([]Bucket, error) {
-	table := "stats_hourly"
+	q, args := "SELECT "+bucketCols+" FROM stats_hourly WHERE monitor_id = ? AND bucket >= ? ORDER BY bucket", []any{monitorID, since}
 	if daily {
-		table = "stats_daily"
+		q, args = s.dailySQL("monitor_id = ?", []any{monitorID}, since)
 	}
-	rows, err := s.db.QueryContext(ctx,
-		"SELECT "+bucketCols+" FROM "+table+" WHERE monitor_id = ? AND bucket >= ? ORDER BY bucket",
-		monitorID, since)
+	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}

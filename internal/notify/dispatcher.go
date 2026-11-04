@@ -375,8 +375,14 @@ func (d *Dispatcher) deliver(ch store.Notification, ev Event, queueID int64) {
 		ev.Delayed = true
 	}
 	attempts, err := d.sendRetry(ch.Type, ch.Config, ev)
+	d.noteSend(ch.ID, d.now(), err)
 	if ev.IncidentID != 0 {
-		if rerr := d.store.RecordDelivery(ctx, ev.IncidentID, ch.ID, ev.Kind, now.Unix()); rerr != nil {
+		// sendRetry bekleme süreleri ctx'in süresini aşabilir; kayıt yeni bağlamla yazılır,
+		// yoksa teslimat kaybolur ve aynı olay yeniden bildirilir.
+		rctx, rcancel := context.WithTimeout(context.Background(), 5*time.Second)
+		rerr := d.store.RecordDelivery(rctx, ev.IncidentID, ch.ID, ev.Kind, now.Unix())
+		rcancel()
+		if rerr != nil {
 			d.log.Error("teslimat kaydı yazılamadı", "olay", ev.IncidentID, "hata", rerr)
 		}
 		dd := base

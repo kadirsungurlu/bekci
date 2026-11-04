@@ -10,6 +10,7 @@ export default {
   notifications: 'Bildirimler',
   settings: 'Ayarlar',
   more: 'Daha fazla',
+  topology: 'Canlı topoloji',
   myAccount: 'Hesabım',
   titles: {
     newMonitor: 'Yeni monitör',
@@ -45,6 +46,7 @@ export default {
   notFoundTitle: 'Sayfa bulunamadı',
   notFoundText: 'Aradığınız sayfa mevcut değil.',
   moreItems: {
+    topologyDesc: 'Monitörler, kontrol noktaları, sunucular ve kanallar tek şemada',
     statusPagesDesc: 'Müşterilerinize açık durum sayfaları',
     maintenanceDesc: 'Planlı bakımlarda bildirimleri sustur',
     notificationsDesc: 'WhatsApp, Telegram, e-posta ve diğer kanallar',

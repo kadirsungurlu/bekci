@@ -758,7 +758,12 @@ func (s *Server) monitorSeries(w http.ResponseWriter, r *http.Request) {
 		if daily {
 			kind = "daily"
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"range": rng, "kind": kind, "points": buckets})
+		p95, err := s.store.PingPercentile(r.Context(), id, now-days*86400, 0.95)
+		if err != nil {
+			s.dbError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"range": rng, "kind": kind, "points": buckets, "p95": p95})
 	default:
 		writeError(w, http.StatusBadRequest, "Geçersiz aralık")
 	}

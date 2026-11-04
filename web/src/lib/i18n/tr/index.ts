@@ -25,6 +25,7 @@ import backup from './backup';
 import audit from './audit';
 import tags from './tags';
 import overview from './overview';
+import topology from './topology';
 
 const tr = {
   common,
@@ -51,6 +52,7 @@ const tr = {
   audit,
   tags,
   overview,
+  topology,
 };
 
 export default tr;

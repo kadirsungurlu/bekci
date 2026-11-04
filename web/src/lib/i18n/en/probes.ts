@@ -15,6 +15,7 @@ export default {
     offline: "Offline",
   },
   col: {
+    tokenPrefix: "Token prefix",
     status: "Status",
     lastSeen: "Last seen",
     address: "Address",

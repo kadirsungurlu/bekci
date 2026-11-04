@@ -83,6 +83,10 @@ func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	mem := srv(KindServerAlert, "mem", 92, 90, 10)
 	disk := srv(KindServerAlert, "disk", 91, 85, 1)
 	disk.Mount = mount
+	forecast := srv(KindServerAlert, "disk_forecast", 5, 7, 1)
+	forecast.Mount, forecast.Level = mount, "warning"
+	fast := srv(KindServerAlert, "disk_fast", 6.5, 5, 60)
+	fast.Mount, fast.Level = mount, "warning"
 	offline := srv(KindServerAlert, "offline", 3, 0, 3)
 	offline.LastSeen = now.Add(-3 * time.Minute)
 	cpuOK := srv(KindServerResolved, "cpu", 41, 90, 10)
@@ -103,7 +107,7 @@ func SampleEvents(n SampleNames, now time.Time, lang string) []Event {
 	meshOK.Mesh = &mesh.Report{Names: meshEv.Mesh.Names, Verdict: mesh.Evaluate([]int64{0, 1, 2}, []mesh.Edge{{Src: 0, Dst: 1, State: mesh.StateUp}, {Src: 0, Dst: 2, State: mesh.StateUp}, {Src: 1, Dst: 2, State: mesh.StateUp}})}
 
 	return []Event{down, reminder, up, slow, slowOK, locDown, locUp, cert, dom, cpuWarn, cpu, mem, disk, cont, reboot, offline, cpuOK, offlineOK, probeOff, probeOn,
-		uplinkOff, uplinkOn, meshEv, meshOK}
+		uplinkOff, uplinkOn, meshEv, meshOK, forecast, fast}
 }
 
 // sampleDomain örnek hedefin ana makine adı (URL ise host'u; boşsa ornek.com).

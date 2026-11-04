@@ -10,7 +10,7 @@
 [![Go 1.27](https://img.shields.io/badge/Go-1.27-0d9488?logo=go&logoColor=white)](go.mod)
 [![Lisans](https://img.shields.io/badge/lisans-AGPL--3.0-475569)](LICENSE)
 [![Platformlar](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-475569)](https://hub.docker.com/r/kadirsungurlu/bekci/tags)
-[![Veritabanı](https://img.shields.io/badge/veritaban%C4%B1-SQLite%20%7C%20PostgreSQL-475569)](#ortam-değişkenleri)
+[![Veritabanı](https://img.shields.io/badge/veritaban%C4%B1-PostgreSQL%20%2B%20TimescaleDB-475569)](#ortam-değişkenleri)
 [![Arayüz](https://img.shields.io/badge/aray%C3%BCz-T%C3%BCrk%C3%A7e%20%7C%20English-475569)](#neden)
 
 **Türkçe** · [English](README.en.md)
@@ -23,16 +23,17 @@
 
 **Bekci** (bekçi), Go ile yazılmış, Sade arayüzü olan izleme sistemi: web
 siteleri ve servisler için uptime kontrolü ve sunucular için kaynak takibi.
-Tek Docker imajı, SQLite veya
-PostgreSQL; yüzlerce monitörde de hızlı kalacak şekilde tasarlanmıştır.
+Tek Docker imajı, PostgreSQL +
+TimescaleDB; yüzlerce monitörde de hızlı kalacak şekilde tasarlanmıştır.
 
 ## Neden?
 
 - **Tek imaj, tek konteyner** — arayüz, API, kontrol motoru ve ajan programları
   (Linux amd64/arm64, Windows amd64) aynı imajda; ek servis gerekmez.
 - **Hafif** — 10 monitör ve 3 sunucuda ~15 MB RAM.
-- **SQLite veya PostgreSQL** — varsayılan SQLite; istenirse `DATABASE_URL` ile
-  harici PostgreSQL ya da gömülü PostgreSQL 18 içeren `:postgres` imajı.
+- **PostgreSQL + TimescaleDB** — varsayılan kurulum; ölçümler sıkıştırılır, grafikler
+  özetlerden gelir. Düz PostgreSQL de çalışır (önerilmez); SQLite ve `:postgres`
+  imajı kullanımdan kalkıyor, `uptime migrate` ile taşınır.
 - **Güvenli ajanlar** — token'lar özet (hash) olarak saklanır, IP kilidi, SHA-256
   ile doğrulanan ve kendiliğinden güncellenmeyen sabit sürüm.
 - **Telefonda uygulama gibi (PWA)** — ana ekrana eklenir, canlı güncellenir.
@@ -246,14 +247,14 @@ docker compose up -d
 
 | Etiket (`kadirsungurlu/bekci`) | İçerik |
 |---|---|
-| `:latest` | Son kararlı sürüm, SQLite (önerilen, en hafif) |
-| `:postgres` | Son kararlı sürüm, gömülü PostgreSQL 18 (veriler yine `/data` altında) |
+| `:latest` | Son kararlı sürüm (önerilen) |
+| `:postgres` | Kullanımdan kalkıyor: son kararlı sürüm, gömülü PostgreSQL 18 |
 | `:1.2.3`, `:1.2`, `:1` / `:1.2.3-postgres`, `:1.2-postgres`, `:1-postgres` | Belirli bir sürüm ya da serinin en sonu (sabitleme / geri dönüş için) |
 | `ghcr.io/kadirsungurlu/bekci:<kısa-sha>` / `:postgres-<kısa-sha>` | Belirli bir commit — yalnızca GitHub Container Registry'de (ana dal derlemeleri); Docker Hub'a yalnızca yayınlanmış sürümler gider |
 
-İki imajın verisi birbirine taşınmaz; baştan birini seçin. En az 1 vCPU,
-512 MB RAM (1 GB önerilir), 10 GB disk. Uygulama 10 monitör ve 3 sunucuda
-~15 MB RAM kullanır; gömülü PostgreSQL ~200 MB ekler. İmaj linux/amd64 ve
+Donanım önerisi (veritabanıyla): 100 monitör 4 GB RAM, 1.000 monitör 8-16 GB;
+ayrıntı [Veritabanı ve taşıma](https://bekci.app/docs/veritabani/) belgesinde.
+Uygulama 10 monitör ve 3 sunucuda ~15 MB RAM kullanır. İmaj linux/amd64 ve
 linux/arm64 içindir; ajanlar için diğer platformların programları (Linux
 amd64/arm64, Windows amd64) da içinde hazır gelir.
 
@@ -269,7 +270,7 @@ amd64/arm64, Windows amd64) da içinde hazır gelir.
 | `DATA_DIR` | `/data` | SQLite veritabanı ve yedeklerin klasörü |
 | `DATABASE_URL` | — | Verilirse **PostgreSQL** kullanılır: `postgres://kullanıcı:şifre@sunucu:5432/veritabanı?sslmode=disable`. Yedek bu durumda veritabanı tarafında alınmalıdır (Coolify yedekleri / `pg_dump`) |
 | `ADDR` | `:8080` | Dinlenecek adres |
-| `TRUSTED_PROXY` | — | Güvenilir ters vekil ağları (virgülle CIDR, ör. `172.17.0.1/32`). Ayarlıysa `X-Forwarded-For` yalnızca bu ağlardan gelen bağlantılarda kabul edilir; boşsa tüm özel/yerel adreslere güvenilir ve açılışta bir uyarı yazılır. Vekilsiz, doğrudan yayınlanan kurulumda `127.0.0.1/32` verin |
+| `TRUSTED_PROXY` | — | Güvenilir ters vekil ağları (virgülle CIDR, ör. `172.18.0.0/16`). Ayarlıysa `X-Forwarded-For` yalnızca bu ağlardan gelen bağlantılarda kabul edilir; boşsa tüm özel/yerel adreslere güvenilir ve açılışta bir uyarı yazılır. Vekilsiz, doğrudan yayınlanan kurulumda `127.0.0.1/32` verin |
 | `AGENT_DIR` | `/usr/local/share/uptime/agents` | Diğer platformların ajan programları (`uptime-windows-amd64.exe`, `uptime-linux-arm64`); imajda hazır gelir |
 | `PROBE_IMAGE` | — | Verilirse kontrol noktası kurulum komutu programı indirmek yerine bu Docker imajını kullanır |
 | `UPTIME_LOCK_WAIT` | `600` | İkinci bir kopya tek-örnek kilidini (SQLite: veri klasörü, PostgreSQL: veritabanı danışma kilidi) en fazla kaç saniye bekler (sonra hata ile çıkar). Aynı veritabanıyla tek kopya (replika) çalışır |
@@ -280,7 +281,7 @@ komutunda hazır gelir: [bekci.app/docs/ortam-degiskenleri](https://bekci.app/do
 
 ## Güncelleme, yedek ve geri dönüş
 
-- **Gece yedeği** (SQLite): `/data/backups/` altında her gece alınır, eskiler
+- **Gece yedeği**: `/data/backups/` altında her gece alınır, eskiler
   döndürülür. Sunucu dışına da kopyalayın.
 - **Güncelleme öncesi otomatik yedek** (SQLite): yeni sürüm veritabanı yapısını
   değiştirecekse önce `/data/backups/pre-migrate-v<eski>-to-v<yeni>-<zaman>.db`

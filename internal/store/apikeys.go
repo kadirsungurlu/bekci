@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strconv"
 )
 
 // 5: API anahtarları. Anahtarın kendisi değil SHA-256 özeti tutulur; prefix
@@ -24,7 +25,16 @@ CREATE TABLE api_keys (
 );
 CREATE INDEX api_keys_user ON api_keys(user_id);
 `)
+	// 47: anahtar kapsamı. Var olan anahtarlar "full" kalır (davranış değişmez).
+	RegisterMigration(47, `ALTER TABLE api_keys ADD COLUMN scope TEXT NOT NULL DEFAULT 'full';`)
 }
+
+// Anahtar kapsamları. ScopeFull: rolün izin verdiği her şey (oturuma özel uçlar
+// hariç). ScopeRead: yalnız izin listesindeki okuma uçları (api/apikeys_read.go).
+const (
+	ScopeFull = "full"
+	ScopeRead = "read"
+)
 
 // APIKey kullanıcıya ait bir API anahtarı. Role anahtarın yetki üst sınırıdır;
 // kullanımda sahibin o anki rolünü aşamaz. Zaman damgaları unix saniye, 0 "yok".
@@ -35,6 +45,7 @@ type APIKey struct {
 	Name       string `json:"name"`
 	Prefix     string `json:"prefix"`
 	Role       string `json:"role"`
+	Scope      string `json:"scope"` // full | read
 	CreatedAt  int64  `json:"created_at"`
 	LastUsedAt int64  `json:"last_used_at"`
 	ExpiresAt  int64  `json:"expires_at"` // 0: süresiz
@@ -47,13 +58,13 @@ func (k APIKey) Usable(now int64) bool {
 	return k.RevokedAt == 0 && (k.ExpiresAt == 0 || now < k.ExpiresAt)
 }
 
-const apiKeyCols = `k.id, k.user_id, u.username, k.name, k.prefix, k.role, k.created_at,
+const apiKeyCols = `k.id, k.user_id, u.username, k.name, k.prefix, k.role, k.scope, k.created_at,
 	k.last_used_at, k.expires_at, k.revoked_at, k.key_hash`
 
 func scanAPIKey(sc scanner) (APIKey, error) {
 	var k APIKey
 	var used, exp, rev sql.NullInt64
-	err := sc.Scan(&k.ID, &k.UserID, &k.Username, &k.Name, &k.Prefix, &k.Role, &k.CreatedAt,
+	err := sc.Scan(&k.ID, &k.UserID, &k.Username, &k.Name, &k.Prefix, &k.Role, &k.Scope, &k.CreatedAt,
 		&used, &exp, &rev, &k.Hash)
 	k.LastUsedAt, k.ExpiresAt, k.RevokedAt = used.Int64, exp.Int64, rev.Int64
 	return k, err
@@ -113,9 +124,9 @@ func (s *Store) CountUsableAPIKeys(ctx context.Context, userID, now int64) (int,
 
 func (s *Store) CreateAPIKey(ctx context.Context, k *APIKey) error {
 	return s.db.QueryRowContext(ctx, `
-		INSERT INTO api_keys (user_id, name, prefix, key_hash, role, created_at, expires_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-		k.UserID, k.Name, k.Prefix, k.Hash, k.Role, k.CreatedAt, nullInt(k.ExpiresAt)).Scan(&k.ID)
+		INSERT INTO api_keys (user_id, name, prefix, key_hash, role, scope, created_at, expires_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		k.UserID, k.Name, k.Prefix, k.Hash, k.Role, k.Scope, k.CreatedAt, nullInt(k.ExpiresAt)).Scan(&k.ID)
 }
 
 // RevokeAPIKey anahtarı iptal eder; zaten iptal edilmişse ilk iptal zamanı korunur.
@@ -144,6 +155,12 @@ type UpDown struct{ Up, Down int64 }
 // sayıları (Prometheus metrikleri için tek sorgu). since saat başına yuvarlanır,
 // Uptime ile aynı pencere.
 func (s *Store) UptimeCounts(ctx context.Context, since int64) (map[int64]UpDown, error) {
+	return tsCached(s, "counts:"+strconv.FormatInt(hourCeil(since), 10), func() (map[int64]UpDown, error) {
+		return s.uptimeCounts(ctx, since)
+	})
+}
+
+func (s *Store) uptimeCounts(ctx context.Context, since int64) (map[int64]UpDown, error) {
 	rows, err := s.db.QueryContext(ctx,
 		"SELECT monitor_id, SUM(up), SUM(down) FROM stats_hourly WHERE bucket >= ? GROUP BY monitor_id",
 		hourCeil(since))

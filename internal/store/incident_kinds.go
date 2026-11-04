@@ -461,6 +461,19 @@ func ServerIncidentCause(lang, kind string, d ServerIncidentData) string {
 		}
 		return i18n.T(lang, "incident.server.container", d.Mount, state)
 	}
+	if d.Metric == "cert" {
+		// Value açılıştaki gündür; Last her turda güncellenir.
+		if d.Last < 0 {
+			return i18n.T(lang, "incident.server.cert_expired", d.Mount)
+		}
+		return i18n.T(lang, "incident.server.cert", d.Mount, int(d.Last))
+	}
+	if d.Metric == "disk_forecast" {
+		return i18n.T(lang, "incident.server.disk_forecast", d.Mount, i18n.MetricValue(lang, d.Metric, d.Last), i18n.MetricValue(lang, d.Metric, d.Threshold))
+	}
+	if d.Metric == "disk_fast" {
+		return i18n.T(lang, "incident.server.disk_fast", d.Mount, d.Minutes, i18n.MetricValue(lang, d.Metric, d.Value), i18n.MetricValue(lang, d.Metric, d.Threshold))
+	}
 	name := d.Metric
 	if i18n.Has("metric." + d.Metric) {
 		name = i18n.T(lang, "metric."+d.Metric)

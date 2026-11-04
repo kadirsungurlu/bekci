@@ -19,6 +19,9 @@ export default {
     'Only accounts with the admin role can see users, general settings, check locations, backups and the audit log; editors can also manage tags.',
   backToAccount: 'Back to my account',
   general: {
+    dbSqlite: 'Database: SQLite. It is deprecated and will be removed in the next major version. Use the uptime migrate command to move to PostgreSQL + TimescaleDB.',
+    dbPlain: 'Database: PostgreSQL without TimescaleDB. It works but is not recommended; it slows down at large scale.',
+    dbDocs: 'Database guide',
     retentionTitle: 'Data retention and alerts',
     rawDays: 'Raw check history (days)',
     rawDaysHelp: 'A separate record for every check. 1-90 days.',
@@ -34,6 +37,11 @@ export default {
     errIncidentDays: 'Incident retention must be 7-3650 days or 0 (forever).',
     errCaptureDays: 'Capture retention must be 1-3650 days or 0 (forever).',
     errAuditDays: 'Audit log retention must be 7-3650 days or 0 (forever).',
+    serverCertDays: 'Server certificate alert days',
+    serverCertDaysPlaceholder: 'e.g. 14, 7, 1',
+    serverCertDaysHelp:
+      'An incident opens and a notification is sent this many days before a certificate in the server inventory expires; the lowest threshold and expired certificates are critical. Separate with commas (at most 5); leave empty to turn alerts off.',
+    errServerCertDays: 'Server certificate alert days must be whole numbers from 1 to 365 (at most 5).',
     certDays: 'SSL alert days',
     certDaysPlaceholder: 'e.g. 21, 14, 7',
     certDaysHelp:

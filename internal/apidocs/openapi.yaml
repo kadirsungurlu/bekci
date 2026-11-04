@@ -530,6 +530,7 @@ components:
         retention_raw_days: { type: integer }
         retention_hourly_days: { type: integer }
         cert_days: { type: array, items: { type: integer } }
+        server_cert_days: { type: array, items: { type: integer }, description: "Sunucu sertifikası uyarı eşikleri (gün); boş liste kapatır, varsayılan 14, 7, 1" }
         domain_days: { type: array, items: { type: integer } }
         backup_keep: { type: integer }
         notify_lang: { $ref: "#/components/schemas/Lang" }
@@ -862,7 +863,7 @@ paths:
       tags: [monitors]
       summary: Grafik serisi
       parameters: [{ $ref: "#/components/parameters/id" }, { name: range, in: query, schema: { type: string, enum: [24h, 7d, 30d, 90d] } }]
-      responses: { "200": { description: Kovalar, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Bucket" } } } } } }
+      responses: { "200": { description: "{range, kind, points[] (Bucket), p95 (7d/30d/90d: histogramdan ms, -1 = ölçüm yok)}" } }
   /api/monitors/{id}/beats:
     get:
       tags: [monitors]
@@ -1200,8 +1201,51 @@ paths:
       summary: Metrik serisi
       parameters: [{ $ref: "#/components/parameters/id" }, { name: range, in: query, schema: { type: string, enum: [1h, 24h, 7d, 30d] } }]
       responses: { "200": { description: "{range, res, from, to, interval, points[]}" } }
+  /api/servers/{id}/inventory:
+    get:
+      tags: [servers]
+      summary: Sunucu envanteri (servis, konteyner, port, sertifika, disk bölümü)
+      description: "collected_at 0 ise ajan henüz envanter göndermemiştir (eski ajan). notes: bölüm -> toplanamama nedeni (unsupported, no_systemd, no_docker, no_host, failed)."
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "200": { description: "{collected_at, notes, services[], containers[], ports[], certs[], disks[]}" } }
+  /api/servers/{id}/inventory/certs/{fingerprint}:
+    put:
+      tags: [servers]
+      summary: Sertifika için bitiş uyarısını kapat/aç (düzenleyici)
+      parameters: [{ $ref: "#/components/parameters/id" }, { name: fingerprint, in: path, required: true, schema: { type: string } }]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { ignored: { type: boolean } } } } } }
+      responses: { "204": { description: Kaydedildi }, "404": { description: Sertifika bulunamadı } }
   /api/servers/{id}/events:
     get: { tags: [servers], summary: Uyarı olayları, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: "{events[]}" } } }
+  /api/servers/{id}/timeline:
+    get:
+      tags: [servers]
+      summary: Sunucu olay zaman çizelgesi (OOM, yeniden başlatma, servis, konteyner, port, uyarı)
+      parameters:
+        - { $ref: "#/components/parameters/id" }
+        - { name: before, in: query, description: "Bu unix saniyesinden önceki sayfa", schema: { type: integer, format: int64 } }
+        - { name: limit, in: query, description: "Sayfa boyutu (1-200, varsayılan 50)", schema: { type: integer } }
+        - { name: kind, in: query, description: "Virgülle ayrılmış olay türleri", schema: { type: string } }
+      responses: { "200": { description: "{events[], more}" } }
+  /api/server-events:
+    get:
+      tags: [servers]
+      summary: Görünür tüm sunucuların olayları (yeniden eskiye)
+      parameters:
+        - { name: since, in: query, description: "Bu unix saniyesinden sonrası", schema: { type: integer, format: int64 } }
+        - { name: before, in: query, description: "Bu unix saniyesinden önceki sayfa", schema: { type: integer, format: int64 } }
+        - { name: limit, in: query, description: "Sayfa boyutu (1-200, varsayılan 50)", schema: { type: integer } }
+        - { name: kind, in: query, description: "Virgülle ayrılmış olay türleri", schema: { type: string } }
+        - { name: level, in: query, description: "Virgülle ayrılmış seviyeler (info, warning, error)", schema: { type: string } }
+      responses: { "200": { description: "{events[] (server_id, server dahil), more}" } }
+  /api/certs:
+    get:
+      tags: [servers]
+      summary: Görünür tüm sunucuların sertifikaları (bitişi en yakın önce)
+      parameters:
+        - { name: days, in: query, description: "Yalnız bu kadar gün içinde bitenler", schema: { type: integer } }
+        - { name: ignored, in: query, description: "1: yoksayılanlar da gelsin", schema: { type: string } }
+      responses: { "200": { description: "{certs[] (server_id, server, days_left dahil)}" } }
   /api/servers/{id}/incidents:
     get: { tags: [servers], summary: Sunucunun olayları, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Incident" } } } } } } }
   /api/servers/{id}/alerts:
@@ -1271,6 +1315,34 @@ paths:
                         rtt_ms: { type: integer, description: "Son ölçülen gidiş-dönüş süresi (ms)" }
                         loss_streak: { type: integer, description: "Ardışık kayıp sayısı" }
                         last_ok_at: { type: integer, description: "Son başarılı ölçüm (unix sn; 0: hiç)" }
+  /api/topology:
+    get:
+      tags: [monitors]
+      summary: "Canlı topoloji: sayfanın tüm verisi tek yanıtta (oturum). Kısıtlı izleyici yalnız izinli monitörleri, kullandıkları kontrol noktalarını (ad + çevrimiçi) ve atanmış sunucuları görür; mesh ve nokta ayrıntısı (panel RTT, hat, eşler, sürüm) yalnız yöneticiye, kanallar düzenleyici ve üstüne"
+      responses:
+        "200":
+          description: "monitors[].state: up | partial | down | pending | paused | maintenance; locations[].status: up | down | retrying | waiting | unknown (sonuç gelmiyor), oob: karara katılmıyor. stats.results_per_sec yalnız tüm monitörleri görene. channels[].last_send panel açıldığından beri son gönderim. incidents en çok 50 açık olay (stats.open_incidents toplam, en çok 500)"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  now: { type: integer }
+                  admin: { type: boolean }
+                  stats:
+                    type: object
+                    properties:
+                      probes_online: { type: integer }
+                      probes_total: { type: integer }
+                      results_per_sec: { type: number }
+                      open_incidents: { type: integer }
+                  monitors: { type: array, items: { type: object } }
+                  probes: { type: array, items: { type: object } }
+                  mesh: { type: object, description: "GET /api/mesh ile aynı (yalnız yönetici)" }
+                  servers: { type: array, items: { type: object } }
+                  channels: { type: array, items: { type: object } }
+                  incidents: { type: array, items: { type: object } }
+        "401": { description: "Oturum yok" }
   /api/maintenance:
     get: { tags: [maintenance], summary: Bakım pencereleri, responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Maintenance" } } } } } } }
     post: { tags: [maintenance], summary: Bakım ekle (editör+), requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/Maintenance" } } } }, responses: { "201": { description: Bakım } } }
@@ -1308,7 +1380,7 @@ paths:
     post:
       tags: [auth]
       summary: API anahtarı oluştur (anahtar bir kez döner)
-      requestBody: { content: { application/json: { schema: { type: object, properties: { name: { type: string }, role: { $ref: "#/components/schemas/Role" }, expires_in_days: { type: integer } } } } } }
+      requestBody: { content: { application/json: { schema: { type: object, properties: { name: { type: string }, role: { $ref: "#/components/schemas/Role" }, scope: { type: string, enum: [full, read], description: "read: salt okunur, rol izleyici olur, yalnız okuma uçları" }, expires_at: { type: integer, format: int64, description: "Unix saniye; 0 süresiz" } } } } } }
       responses: { "201": { description: Anahtar, content: { application/json: { schema: { $ref: "#/components/schemas/APIKey" } } } } }
   /api/api-keys/{id}:
     delete: { tags: [auth], summary: Anahtarı iptal et, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { $ref: "#/components/responses/OK" } } }

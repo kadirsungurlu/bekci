@@ -79,7 +79,7 @@ export default {
   language: {
     title: 'Dil',
     label: 'Arayüz dili',
-    auto: 'Tarayıcı dili ({lang})',
+    auto: 'Bu cihazın dili ({lang})',
     help: 'Bu hesapla giriş yaptığınız her cihazda geçerlidir.',
     saved: 'Dil kaydedildi',
   },

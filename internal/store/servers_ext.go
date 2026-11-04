@@ -140,3 +140,13 @@ func (s *Store) ServerAlertByMetric(ctx context.Context, probeID int64, metric s
 	}
 	return a, err
 }
+
+// SetServerAlertActive kuralı açar ya da kapatır.
+func (s *Store) SetServerAlertActive(ctx context.Context, id int64, active bool) error {
+	v := 0
+	if active {
+		v = 1
+	}
+	_, err := s.db.ExecContext(ctx, "UPDATE server_alerts SET active = ? WHERE id = ?", v, id)
+	return err
+}

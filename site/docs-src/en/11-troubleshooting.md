@@ -59,7 +59,7 @@ Or, on the server, `docker exec -it ⟦container-name⟧ uptime sifre-sifirla �
 docker compose exec bekci uptime sifre-sifirla ⟦admin⟧ --2fa-kapat
 ```
 
-The command works the same way with both images (SQLite and PostgreSQL).
+The command works the same way with all images.
 
 ## Is Bekci running? {#health}
 
@@ -167,7 +167,7 @@ Not with the same data — neither with SQLite nor with an external PostgreSQL (
 
 ### Can I move from SQLite to PostgreSQL? {#sqlite-postgresql}
 
-The database can't be moved directly. You can carry monitors, notification channels, tags and status pages over to a new install with the JSON backup under **Settings → Backup / Restore**; users and check history aren't included ([details](/en/docs/updates-backups/#json-backup)).
+Yes. The `uptime migrate` command moves all data (including users and check history), resumes after an interruption and doesn't change the SQLite file: [guide](/en/docs/database/#sqlite).
 
 ### How much disk does it use? {#disk-usage}
 

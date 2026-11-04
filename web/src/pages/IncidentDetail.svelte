@@ -570,7 +570,7 @@
               {#if inc.page_title}<span class="text-2">{t('incidents.manual.onPage', { page: inc.page_title })}</span>{/if}
               {#if inc.created_by && session.canEdit}<span class="muted small">· {t('incidents.manual.openedBy', { user: inc.created_by })}</span>{/if}
             {:else if data.server}
-              <span class="badge accent">{t(probe ? 'incidents.kind.probeOffline' : offline ? 'incidents.kind.serverOffline' : 'incidents.kind.serverAlert')}</span>
+              <span class="badge accent">{t(mesh ? 'incidents.kind.meshName' : probe ? 'incidents.kind.probeOffline' : offline ? 'incidents.kind.serverOffline' : 'incidents.kind.serverAlert')}</span>
               {#if data.server.hostname}<span class="text-2"
                   >{#each tParts('incidents.detail.hostname') as p, i (i)}{#if p.slot === 'name'}<span class="mono">{data.server.hostname}</span
                       >{:else}{p.text}{/if}{/each}</span
@@ -643,7 +643,7 @@
           <div class="card mesh">
             <div class="label">{t('incidents.detail.meshFindings')}</div>
             <ul class="mesh-l">
-              {#each data.mesh.findings as f, i (i)}<li><span class="dot {ongoing ? 'down' : 'up'}"></span>{f}</li>{/each}
+              {#each data.mesh.findings as f, i (i)}<li><span class="dot" class:down={ongoing}></span>{f}</li>{/each}
             </ul>
             {#if data.mesh.nodes?.length && data.mesh.pairs.every((p) => p.ab !== undefined)}
               <MeshDiagram nodes={data.mesh.nodes} pairs={data.mesh.pairs.map((p) => ({ ...p, ab: p.ab ?? '', ba: p.ba ?? '' }))} />
@@ -758,13 +758,17 @@
                 <dt>{t('incidents.detail.metric')}</dt>
                 <dd>{metricLabel(smetric)}{sdata.mount ? ` · ${sdata.mount}` : ''}</dd>
                 <dt>{t('incidents.detail.threshold')}</dt>
-                <dd>≥ {fmtMetric(smetric, sdata.threshold ?? 0)}</dd>
+                <dd>{smetric === 'disk_forecast' ? '≤' : '≥'} {fmtMetric(smetric, sdata.threshold ?? 0)}</dd>
+                {#if smetric !== 'disk_forecast'}
                 <dt>{t('incidents.detail.window')}</dt>
                 <dd>{t('incidents.detail.minutes', { n: sdata.minutes })}</dd>
+                {/if}
                 <dt>{t('incidents.detail.valueAtStart')}</dt>
                 <dd class="num">{fmtMetric(smetric, sdata.value)}</dd>
+                {#if smetric !== 'disk_forecast'}
                 <dt>{t('incidents.detail.peak')}</dt>
                 <dd class="num c-down">{fmtMetric(smetric, sdata.peak)}</dd>
+                {/if}
                 <dt>{ongoing ? t('incidents.detail.last') : t('incidents.detail.lastAtEnd')}</dt>
                 <dd class="num">{fmtMetric(smetric, sdata.last)}</dd>
               {/if}

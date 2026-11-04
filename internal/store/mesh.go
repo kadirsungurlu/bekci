@@ -233,6 +233,18 @@ func (s *Store) UpsertProbeLinks(ctx context.Context, links []ProbeLink) error {
 				l.Src, l.Dst, l.State, l.RTTms, l.LossStreak, l.LastOKAt, l.UpdatedAt); err != nil {
 				return err
 			}
+			// Zaman serisi yalnız TimescaleDB'de (saklama politikası orada;
+			// düz PG/SQLite'ta okuyan yok, büyümesin). Bilinmeyen durum örnek değil.
+			if s.tsFull() && l.State != LinkUnknown {
+				var rtt any
+				if l.State == LinkUp && l.RTTms >= 0 {
+					rtt = l.RTTms
+				}
+				if _, err := tx.ExecContext(ctx, "INSERT INTO mesh_samples (src_id, dst_id, time, rtt_ms, ok) VALUES (?, ?, ?, ?, ?)",
+					l.Src, l.Dst, l.UpdatedAt, rtt, boolInt(l.State == LinkUp)); err != nil {
+					return err
+				}
+			}
 		}
 		return nil
 	})

@@ -14,6 +14,7 @@ export default {
     offline: "Çevrimdışı",
   },
   col: {
+    tokenPrefix: "Token öneki",
     status: "Durum",
     lastSeen: "Son görülme",
     address: "Adres",

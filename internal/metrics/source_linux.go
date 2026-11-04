@@ -44,6 +44,9 @@ type systemSource struct {
 	statfs      func(string, *syscall.Statfs_t) error
 	diskTimeout time.Duration
 
+	oom     *oomWatch
+	oomOnce sync.Once
+
 	// inflight zaman aşımına uğramış ve hâlâ dönmemiş disk sorgularının
 	// bağlama noktaları: askıdaki bir bağlama için her toplamada yeni bir
 	// goroutine (ve çekirdekte takılı bir iş parçacığı) açılmaz.

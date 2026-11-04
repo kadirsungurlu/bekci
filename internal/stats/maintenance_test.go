@@ -34,7 +34,7 @@ func TestMaintenance(t *testing.T) {
 		}
 	}
 
-	mt := NewMaintenance(st, slog.New(slog.NewTextHandler(io.Discard, nil)), dir, loc)
+	mt := NewMaintenance(st, slog.New(slog.NewTextHandler(t.Output(), nil)), dir, loc)
 	mt.now = func() time.Time { return now }
 
 	if st.Postgres() {

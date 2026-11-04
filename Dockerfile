@@ -65,7 +65,9 @@ RUN --mount=type=secret,id=agent_signing_key \
 # 3) Çalışma imajı
 # alpine:3.24
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
-RUN apk add --no-cache ca-certificates \
+# postgresql18-client: gece yedeği (pg_dump) dış veritabanında da çalışsın.
+# Ana sürüm compose'daki veritabanıyla aynı (18).
+RUN apk add --no-cache ca-certificates postgresql18-client \
     && adduser -D -H -u 1000 uptime \
     && mkdir -p /data \
     && chown uptime:uptime /data
@@ -82,6 +84,6 @@ VOLUME ["/data"]
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --start-interval=2s --retries=3 \
-    CMD [ -e /tmp/uptime-bekliyor ] || wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1
+    CMD [ "$ADDR" = "-" ] || [ -e /tmp/uptime-bekliyor ] || wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1
 
 ENTRYPOINT ["uptime"]

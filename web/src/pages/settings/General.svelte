@@ -5,7 +5,7 @@
   import { toast } from '../../lib/ui.svelte';
   import { guardUnsaved, snapshot } from '../../lib/forms';
   import CopyButton from '../../components/CopyButton.svelte';
-  import { LOCALES, t, tParts, type Locale } from '../../lib/i18n';
+  import { LOCALES, i18n, t, tParts, type Locale } from '../../lib/i18n';
 
   let loaded = $state(false);
   let loadError = $state('');
@@ -13,6 +13,7 @@
   let hourlyDays = $state<number | null>(365);
   let certDays = $state('21, 14, 7, 3, 1');
   let domainDays = $state('30, 14, 7, 1');
+  let serverCertDays = $state('14, 7, 1');
   let backupKeep = $state<number | null>(7);
   let notifyLang = $state<Locale>('tr');
   let userAgent = $state('');
@@ -27,11 +28,27 @@
   let stError = $state('');
   let stBusy = $state(false);
 
+  // Önerilen veritabanı değilse uyarı (tasarım §5.1). timescale: şerit yok.
+  let dbMode = $state('');
+  const dbWarn = $derived.by(() => {
+    switch (dbMode) {
+      case 'sqlite':
+        return t('settings.general.dbSqlite');
+      case 'postgres':
+      case 'timescale-apache':
+        return t('settings.general.dbPlain');
+      default:
+        return '';
+    }
+  });
+  const dbDocs = $derived(i18n.locale === 'en' ? 'https://bekci.app/en/docs/database/' : 'https://bekci.app/docs/veritabani/');
+
   function apply(s: AppSettings) {
     rawDays = s.retention_raw_days;
     hourlyDays = s.retention_hourly_days;
     certDays = (s.cert_days ?? []).join(', ');
     domainDays = (s.domain_days ?? [30, 14, 7, 1]).join(', ');
+    serverCertDays = (s.server_cert_days ?? [14, 7, 1]).join(', ');
     backupKeep = s.backup_keep;
     notifyLang = s.notify_lang ?? 'tr';
     userAgent = s.check_user_agent ?? '';
@@ -53,6 +70,7 @@
       hourlyDays,
       certDays: certDays.trim(),
       domainDays: domainDays.trim(),
+      serverCertDays: serverCertDays.trim(),
       backupKeep,
       notifyLang,
       userAgent: userAgent.trim(),
@@ -63,6 +81,15 @@
       captureDays,
       auditDays,
     });
+  onMount(() => {
+    fetch('/healthz?detail')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) dbMode = d.db_mode ?? '';
+      })
+      .catch(() => {});
+  });
+
   onMount(() => guardUnsaved(() => loaded && !stBusy && !!baseline && current() !== baseline));
 
   async function load() {
@@ -92,6 +119,12 @@
     if (days.some((d) => !Number.isInteger(d) || d < 0 || d > 90))
       return (stError = t('settings.general.errCertDays'));
     if (days.length > 10) return (stError = t('settings.general.errCertCount'));
+    const sdays = serverCertDays
+      .split(/[,\s]+/)
+      .filter(Boolean)
+      .map(Number);
+    if (sdays.length > 5 || sdays.some((d) => !Number.isInteger(d) || d < 1 || d > 365))
+      return (stError = t('settings.general.errServerCertDays'));
     const dparts = domainDays
       .split(/[,\s]+/)
       .map((s) => s.trim())
@@ -116,6 +149,7 @@
         retention_hourly_days: hourlyDays!,
         cert_days: days,
         domain_days: ddays,
+        server_cert_days: sdays,
         backup_keep: backupKeep!,
         notify_lang: notifyLang,
         check_user_agent: ua,
@@ -148,6 +182,13 @@
       password: upk_…`;
 
 </script>
+
+{#if dbWarn}
+  <div class="db-warn" role="status">
+    <span>{dbWarn}</span>
+    <a href={dbDocs} target="_blank" rel="noopener noreferrer">{t('settings.general.dbDocs')}</a>
+  </div>
+{/if}
 
 <div class="cols">
   <form class="card stack" onsubmit={saveSettings} novalidate>
@@ -199,6 +240,11 @@
           <label for="domd">{t('settings.general.domainDays')}</label>
           <input id="domd" class="input" bind:value={domainDays} placeholder={t('settings.general.domainDaysPlaceholder')} />
           <span class="help">{t('settings.general.domainDaysHelp')}</span>
+        </div>
+        <div class="field">
+          <label for="scert">{t('settings.general.serverCertDays')}</label>
+          <input id="scert" class="input" bind:value={serverCertDays} placeholder={t('settings.general.serverCertDaysPlaceholder')} />
+          <span class="help">{t('settings.general.serverCertDaysHelp')}</span>
         </div>
       </div>
       <div class="grid-2">
@@ -285,6 +331,17 @@
 </div>
 
 <style>
+  .db-warn {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    align-items: baseline;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border: 1px solid var(--warn, #b7791f);
+    border-radius: 8px;
+    font-size: 14px;
+  }
   .cols {
     display: grid;
     grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);

@@ -130,6 +130,8 @@ export interface TwoFactorSetup {
 
 export type ApiKeyStatus = "active" | "expired" | "revoked";
 
+export type ApiKeyScope = "full" | "read";
+
 export interface ApiKey {
   id: number;
   user_id: number;
@@ -137,6 +139,7 @@ export interface ApiKey {
   name: string;
   prefix: string;
   role: Role;
+  scope: ApiKeyScope;
   created_at: number;
   last_used_at: number;
   expires_at: number;
@@ -976,6 +979,8 @@ export interface AppSettings {
   retention_raw_days: number;
   retention_hourly_days: number;
   cert_days: number[];
+  /** Sunucu sertifikası uyarı eşikleri (gün); boş = kapalı. */
+  server_cert_days?: number[];
   /** Alan adı bitiş uyarı eşikleri (gün; [] = kapalı; eski sunucuda gelmez). */
   domain_days?: number[];
   backup_keep: number;
@@ -1437,11 +1442,36 @@ export type ServerMetric =
   | "net"
   | "offline"
   | "container"
-  | "reboot";
+  | "reboot"
+  | "disk_forecast"
+  | "disk_fast"
+  | "cert";
 /** Sunucu uyarı seviyesi (eski kurallarda boş = kritik). */
 export type AlertLevel = "warning" | "critical";
 
+/** Bir bölümün dolma tahmini. days yalnızca status "growing" iken doludur. */
+export interface DiskForecast {
+  mount: string;
+  status: "growing" | "flat" | "learning";
+  days: number | null;
+  per_day: number;
+  per_day_30: number;
+  used: number;
+  total: number;
+  r2: number;
+}
+
+/** Sunucu zaman çizelgesi kaydı; metin kind + data'dan üretilir. */
+export interface TimelineEvent {
+  time: number;
+  kind: string;
+  subject: string;
+  level: "info" | "warning" | "error";
+  data: Record<string, string | number> | null;
+}
+
 export interface ServerView {
+  disk_forecast?: DiskForecast[] | null;
   id: number;
   name: string;
   active: boolean;
@@ -1515,7 +1545,7 @@ export interface ServerDetail extends ServerView {
   notification_bindings?: NotificationBinding[] | null;
 }
 
-export type StatsRange = "1h" | "24h" | "7d" | "30d";
+export type StatsRange = "1h" | "24h" | "7d" | "30d" | "1y";
 
 export interface StatsPoint {
   t: number;
@@ -1538,6 +1568,74 @@ export interface StatsPoint {
   disks?: { mount: string; pct: number }[];
   temp?: number | null;
   containers?: { name: string; cpu: number; mem: number }[] | null;
+}
+
+export interface InvService {
+  name: string;
+  active: string;
+  sub?: string;
+  enabled?: string;
+  description?: string;
+  first_seen: number;
+  last_seen: number;
+}
+
+export interface InvContainer {
+  id?: string;
+  name: string;
+  image: string;
+  state: string;
+  health?: string;
+  restart_count: number;
+  command?: string;
+  /** Docker'dan gelen RFC 3339 zaman damgası. */
+  started_at?: string;
+  first_seen: number;
+  last_seen: number;
+}
+
+export interface InvPort {
+  proto: string;
+  addr: string;
+  port: number;
+  process?: string;
+  cmd?: string;
+  first_seen: number;
+  last_seen: number;
+}
+
+export interface InvCert {
+  source: string;
+  location: string;
+  subject?: string;
+  sans?: string[] | null;
+  issuer?: string;
+  not_before?: number;
+  not_after: number;
+  fingerprint: string;
+  ignored: boolean;
+  first_seen: number;
+  last_seen: number;
+}
+
+export interface InvDisk {
+  mount: string;
+  device?: string;
+  fs?: string;
+  total: number;
+  first_seen: number;
+  last_seen: number;
+}
+
+/** collected_at 0: ajan envanter göndermedi (eski ajan). */
+export interface ServerInventory {
+  collected_at: number;
+  notes: Record<string, string> | null;
+  services: InvService[];
+  containers: InvContainer[];
+  ports: InvPort[];
+  certs: InvCert[];
+  disks: InvDisk[];
 }
 
 export interface StatsSeries {
@@ -1976,10 +2074,16 @@ export const api = {
   // API anahtarları
   apiKeys: (all = false) =>
     get<ApiKey[]>(`/api/api-keys${all ? "?all=1" : ""}`),
-  createApiKey: (name: string, role: Role, expires_at: number) =>
+  createApiKey: (
+    name: string,
+    role: Role,
+    scope: ApiKeyScope,
+    expires_at: number,
+  ) =>
     post<{ key: ApiKey; secret: string }>("/api/api-keys", {
       name,
       role,
+      scope,
       expires_at,
     }),
   revokeApiKey: (id: number) => del<{ ok: boolean }>(`/api/api-keys/${id}`),
@@ -2083,6 +2187,7 @@ export const api = {
   // Kontrol noktaları
   probes: () => get<Probe[]>("/api/probes"),
   mesh: () => get<MeshMatrix>("/api/mesh"),
+  topology: () => get<Topology>("/api/topology"),
   createProbe: (name: string) => post<ProbeSetup>("/api/probes", { name }),
   /** Takip edilecek sunucu ekler (kontrol noktalarından ayrı kayıt). */
   createServer: (name: string) => post<ProbeSetup>("/api/servers", { name }),
@@ -2139,6 +2244,19 @@ export const api = {
   getServer: (id: number) => get<ServerDetail>(`/api/servers/${id}`),
   getServerStats: (id: number, range: StatsRange) =>
     get<StatsSeries>(`/api/servers/${id}/stats?range=${range}`),
+  getServerInventory: (id: number) => get<ServerInventory>(`/api/servers/${id}/inventory`),
+  setInventoryCertIgnored: (id: number, fingerprint: string, ignored: boolean) =>
+    put<void>(`/api/servers/${id}/inventory/certs/${encodeURIComponent(fingerprint)}`, { ignored }),
+  getServerTimeline: (id: number, q: { before?: number; limit?: number; kinds?: string[] } = {}) => {
+    const p = new URLSearchParams();
+    if (q.before) p.set("before", String(q.before));
+    if (q.limit) p.set("limit", String(q.limit));
+    if (q.kinds?.length) p.set("kind", q.kinds.join(","));
+    return get<{ events: TimelineEvent[] | null; more: boolean }>(`/api/servers/${id}/timeline?${p}`).then((r) => ({
+      events: r.events ?? [],
+      more: r.more,
+    }));
+  },
   getServerEvents: (id: number) =>
     get<{ events: ServerEvent[] | null }>(`/api/servers/${id}/events`).then(
       (r) => r.events ?? [],
@@ -2256,4 +2374,93 @@ export interface MeshLink {
   loss_streak?: number;
   /** unix sn; 0: hiç */
   last_ok_at?: number;
+}
+
+/** Canlı topoloji (GET /api/topology): sayfanın tüm verisi tek yanıtta, kullanıcının yetkisine göre süzülmüş. */
+export type TopoLocationStatus = "up" | "down" | "retrying" | "waiting" | "unknown";
+export type TopoMonitorState = "up" | "partial" | "down" | "pending" | "paused" | "maintenance";
+
+export interface TopoLocation {
+  /** 0: ana sunucu (panel). */
+  probe_id: number;
+  name: string;
+  /** unknown: sonuç gelmiyor; oob: ajan ikinci hatta, sonucu karara katılmıyor. */
+  status: TopoLocationStatus;
+  oob?: boolean;
+  last_check_at: number;
+  ping_ms: number;
+}
+
+export interface TopoMonitor {
+  id: number;
+  name: string;
+  type: string;
+  state: TopoMonitorState;
+  last_check_at: number;
+  ping_ms: number;
+  locations: TopoLocation[];
+}
+
+export interface TopoProbe {
+  id: number;
+  name: string;
+  online: boolean;
+  /** Yalnız yönetici: panel RTT (ms), hat (primary | oob), mesh eşleri, sürüm. */
+  panel_rtt_ms?: number;
+  late?: boolean;
+  uplink?: string;
+  oob_name?: string;
+  peers?: number;
+  peers_up?: number;
+  version?: string;
+  last_seen_at: number;
+}
+
+export interface TopoServer {
+  id: number;
+  name: string;
+  state: string;
+  cpu?: number;
+  mem?: number;
+  disk?: number;
+  /** Eşiği aşılan ölçütler. */
+  firing: string[];
+  version: string;
+  metrics_at: number;
+  last_seen_at: number;
+}
+
+export interface TopoChannel {
+  id: number;
+  name: string;
+  type: string;
+  active: boolean;
+  /** Panel açıldığından beri son gönderim; yok: henüz gönderilmedi. */
+  last_send?: { at: number; ok: boolean };
+}
+
+export interface TopoIncident {
+  id: number;
+  kind: string;
+  monitor_id?: number;
+  monitor_name?: string;
+  server_id?: number;
+  server_name?: string;
+  started_at: number;
+  cause: string;
+  acked: boolean;
+}
+
+export interface Topology {
+  now: number;
+  admin: boolean;
+  stats: { probes_online: number; probes_total: number; results_per_sec?: number; open_incidents: number };
+  monitors: TopoMonitor[];
+  probes: TopoProbe[];
+  /** Yalnız yönetici. */
+  mesh?: MeshMatrix;
+  servers: TopoServer[];
+  /** Yalnız düzenleyici ve üstü. */
+  channels?: TopoChannel[];
+  incidents: TopoIncident[];
 }

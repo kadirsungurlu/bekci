@@ -19,6 +19,7 @@
     servers,
     swapPct,
     usageLevel,
+    fmtDays,
   } from '../lib/servers.svelte';
   import UsageBar from '../components/UsageBar.svelte';
   import Sparkline from '../components/Sparkline.svelte';
@@ -119,6 +120,11 @@
   const dpct = (d: DiskInfo) => (d.total > 0 ? (100 * d.used) / d.total : 0);
   /** Birden çok bölümlü sunucuda bölümler (en dolu önce), en çok 3'ü gösterilir. */
   const MAX_DISKS = 3;
+  // 30 günden kısa sürede dolacak en yakın bölüm.
+  const nearFull = (s: ServerView) =>
+    (s.disk_forecast ?? [])
+      .filter((f) => f.status === 'growing' && f.days !== null && f.days <= 30)
+      .sort((a, b) => (a.days ?? 0) - (b.days ?? 0))[0] ?? null;
   const sortedDisks = (s: ServerView) => (s.latest?.disks ?? []).slice().sort((a, b) => dpct(b) - dpct(a));
   /** CPU grafiğinin ölçeği: 0'dan en yüksek değerin biraz üstüne (en az %25, en çok %100). */
   function cpuScale(h: number[]): { max: number; peak: number } {
@@ -245,6 +251,10 @@
                 <!-- Tek bölümlü sunucuda telefonda yalnızca "/" yazan satır gösterilmez. -->
                 {#if fm}<span class="dm" class:root={fm === '/'} aria-hidden="true">{fm}</span>{/if}
               </div>
+              {#if nearFull(s)}
+                {@const fc = nearFull(s)!}
+                <span class="dfc" class:crit={fc.days! <= 7} title={t('servers.list.fullInTitle', { mount: fc.mount, d: fmtDays(fc.days!) })}>{fc.days! < 1 ? t('servers.list.fullSoon') : t('servers.list.fullIn', { d: fmtDays(fc.days!) })}</span>
+              {/if}
               {#if disks.length > 1}
                 <div class="dlist">
                   {#each disks.slice(0, disks.length > MAX_DISKS ? MAX_DISKS - 1 : MAX_DISKS) as d (d.mount)}
@@ -338,6 +348,17 @@
 {/if}
 
 <style>
+  .dfc {
+    display: block;
+    margin-top: 2px;
+    color: var(--pending, var(--warn));
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .dfc.crit {
+    color: var(--down);
+  }
   .ph {
     display: flex;
     align-items: baseline;

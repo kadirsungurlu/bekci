@@ -6,3 +6,5 @@ web/dist/*
 /.gorun.sh
 /.claude/
 site/docs-build/node_modules/
+.docs-out/
+web/e2e/.shots/

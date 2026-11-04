@@ -111,9 +111,10 @@ func (m *Maintenance) Tick(ctx context.Context) {
 
 // Sunucu metriklerinin saklama süreleri (docs/PLAN.md §12.4); ayarlardan değişmez.
 var serverStatsKeep = map[int]time.Duration{
-	store.ServerRes1:  24 * time.Hour,
-	store.ServerRes10: 7 * 24 * time.Hour,
-	store.ServerRes60: 90 * 24 * time.Hour,
+	store.ServerRes1:    24 * time.Hour,
+	store.ServerRes10:   7 * 24 * time.Hour,
+	store.ServerRes60:   90 * 24 * time.Hour,
+	store.ServerRes1440: 730 * 24 * time.Hour,
 }
 
 // serverEventsKeep bitmiş sunucu uyarılarının saklama süresi.
@@ -121,13 +122,16 @@ const serverEventsKeep = 90 * 24 * time.Hour
 
 // pruneServerStats eski sunucu örneklerini, özetlerini ve uyarı geçmişini siler.
 func (m *Maintenance) pruneServerStats(ctx context.Context, now time.Time) {
-	for _, res := range []int{store.ServerRes1, store.ServerRes10, store.ServerRes60} {
+	for _, res := range []int{store.ServerRes1, store.ServerRes10, store.ServerRes60, store.ServerRes1440} {
 		if _, err := m.store.DeleteServerStatsBefore(ctx, res, now.Add(-serverStatsKeep[res]).Unix()); err != nil {
 			m.log.Error("eski sunucu metrikleri silinemedi", "çözünürlük", res, "hata", err)
 		}
 	}
 	if _, err := m.store.DeleteServerAlertEventsBefore(ctx, now.Add(-serverEventsKeep).Unix()); err != nil {
 		m.log.Error("eski sunucu uyarıları silinemedi", "hata", err)
+	}
+	if err := m.store.PruneTimelineEvents(ctx, now.Unix()); err != nil {
+		m.log.Error("eski sunucu olayları silinemedi", "hata", err)
 	}
 }
 
@@ -138,8 +142,8 @@ func (m *Maintenance) backup(ctx context.Context, local time.Time, keep int) err
 	}
 	ext, dump := ".db", m.store.Backup
 	if m.store.Postgres() {
-		// PostgreSQL: gömülü imajda pg_dump var; dış veritabanında yedek
-		// veritabanı tarafında (Coolify yedekleri vb.) alınmalı.
+		// PostgreSQL: imajlarda pg_dump var (uygulama imajında istemci paketi);
+		// yoksa yedek veritabanı tarafında alınmalı.
 		if m.pgDumpDSN == "" {
 			return nil
 		}

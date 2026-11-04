@@ -1127,6 +1127,7 @@ input[type='search'].input::-webkit-search-decoration {
   --down-border: rgba(220, 38, 38, 0.35);
   --down-solid: #b91c1c;
   --pending: #996000;
+  --on-pending: #ffffff;
   --pending-soft: rgba(202, 138, 4, 0.1);
   --pending-text: #854d0e;
   --pending-border: rgba(202, 138, 4, 0.35);

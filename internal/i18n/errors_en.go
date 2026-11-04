@@ -119,6 +119,8 @@ var errorsEN = map[string]string{
 	// API anahtarları
 	// ---------------------------------------------------------------------
 	"Anahtar adı 1-100 karakter olmalı":                                            "Key name must be 1-100 characters",
+	"Kapsam full veya read olmalı": "Scope must be full or read",
+	"Salt okunur API anahtarı bu uca erişemez": "A read-only API key cannot access this endpoint",
 	"Anahtara kendi rolünüzden yüksek bir yetki veremezsiniz":                      "You can't give a key more permissions than your own role",
 	"Son kullanma tarihi gelecekte olmalı":                                         "Expiry date must be in the future",
 	"Son kullanma tarihi en fazla 10 yıl sonrası olabilir":                         "Expiry date can be at most 10 years from now",
@@ -360,7 +362,7 @@ var errorsEN = map[string]string{
 	"En fazla %d monitör seçilebilir":                                                     "You can select at most %d monitors",
 	"En az bir monitör ya da sunucu seçin veya tüm monitörleri seçin":                     "Select at least one monitor or server, or select all monitors",
 	"En fazla %d sunucu seçilebilir":                                                      "You can select at most %d servers",
-	"Metrik cpu, mem, swap, disk, load, temp, net, offline, container veya reboot olmalı": "Metric must be cpu, mem, swap, disk, load, temp, net, offline, container or reboot",
+	"Metrik cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast veya disk_fast olmalı": "Metric must be cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast or disk_fast",
 	"Konteyner adı harf, rakam, alt çizgi, nokta ve tireden oluşmalı":                     "Container name may contain letters, digits, underscores, dots and hyphens",
 	"%s konteyneri için birden fazla kural olamaz":                                        "There can't be more than one rule for container %s",
 	"%s uyarı eşiği %s ile kritik eşik arasında olmalı":                                   "%s warning threshold must be between %s and the critical threshold",

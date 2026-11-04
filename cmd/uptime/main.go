@@ -4,12 +4,16 @@
 //
 //	ADDR                   dinlenecek adres (varsayılan :8080)
 //	DATA_DIR               SQLite veritabanı ve yedeklerin klasörü (varsayılan ./data)
-//	DATABASE_URL           verilirse PostgreSQL kullanılır (postgres://kullanıcı:şifre@sunucu:5432/vt)
+//	DATABASE_URL           verilirse PostgreSQL kullanılır (postgres://kullanıcı:şifre@sunucu:5432/vt);
+//	                       boşsa SQLite (kullanımdan kalkıyor)
+//	DB_TIMESCALE           auto | off (off: eklenti olsa da düz PostgreSQL yolu)
+//	SQLITE_IGNORE          1: veri klasöründe SQLite varken boş PostgreSQL ile açılmaya izin verir
 //	BASE_URL               bildirimlerdeki bağlantılar için dış adres, ör. https://bekci.alanadi.com
 //	                       (durum sayfası özel alan adı bu adresle aynı olamaz)
 //	LOG_LEVEL              debug | info | warn | error (varsayılan info)
 //	MAX_CONCURRENT_CHECKS  aynı anda en fazla kontrol sayısı (varsayılan 50)
 //	BEAT_BATCH_MS          kontrol sonuçlarını bu pencerede biriktirip tek işlemde yazar (varsayılan 250; 0 = her sonuç ayrı işlem)
+//	READ_CACHE_SEC         Timescale kipinde tüm monitörleri tarayan özet okumalarını paylaşma süresi (varsayılan 15; 0 = kapalı)
 //	TZ                     saat dilimi (günlük özetler ve yedek saati için)
 //	PROBE_IMAGE            kontrol noktası kurulum komutunda kullanılacak Docker imajı; boşsa (varsayılan)
 //	                       komut herkese açık alpine imajıyla programı bu sunucudan indirir
@@ -23,6 +27,11 @@
 //	                        PROBE_SERVER ve PROBE_TOKEN ortamdan okunur (bkz. service_windows.go)
 //	uptime service uninstall
 //	uptime version          sürümü yazar
+//
+// Veritabanı taşıma (panel durdurulmuşken; bkz. migrate.go):
+//
+//	uptime migrate [--from dosya] [--to adres] [--dry-run] [--restart]
+//	  SQLite verisini DATABASE_URL'deki boş PostgreSQL/TimescaleDB'ye kopyalar
 //
 // Şifre sıfırlama (giriş yapılamadığında, container içinde):
 //
@@ -107,6 +116,8 @@ func run() error {
 		case "version", "surum":
 			fmt.Println(version)
 			return nil
+		case "migrate":
+			return runMigrate(log, os.Args[2:])
 		}
 	}
 
@@ -120,6 +131,13 @@ func run() error {
 			return errors.New("DATABASE_URL postgres:// veya postgresql:// ile başlamalı")
 		}
 		target, dbDesc = u, "PostgreSQL "+redactDSN(u)
+	}
+	// Dolu SQLite varken boş PostgreSQL ile açılmak eski veriyi kaybolmuş
+	// gösterirdi (yeni compose eski birimle başlatılınca).
+	if len(os.Args) <= 1 && store.IsPostgresDSN(target) && env("SQLITE_IGNORE", "") == "" {
+		if err := store.CheckSQLiteLeftover(context.Background(), target, filepath.Join(dataDir, "uptime.db")); err != nil {
+			return err
+		}
 	}
 	// Sunucu modunda tek örnek kilidi alınır: SQLite dosyasına flock,
 	// PostgreSQL'de süreç boyunca tutulan danışma kilidi (Coolify yeni
@@ -139,12 +157,17 @@ func run() error {
 		LockWait:     time.Duration(lockWait) * time.Second,
 		StandbyFile:  filepath.Join(os.TempDir(), "uptime-bekliyor"),
 		BeatBatch:    time.Duration(beatBatch) * time.Millisecond,
+		ReadCache:    envSeconds("READ_CACHE_SEC", 15),
+		TimescaleOff: strings.EqualFold(env("DB_TIMESCALE", "auto"), "off"),
 	})
 	if err != nil {
 		return fmt.Errorf("veritabanı açılamadı: %w", err)
 	}
 	defer st.Close()
-	log.Info("veritabanı", "tür", dbDesc)
+	log.Info("veritabanı", "tür", dbDesc, "kip", st.DBMode())
+	if st.DBMode() == store.DBModeSQLite && serverMode {
+		log.Warn("SQLite kullanımdan kalkıyor ve sonraki büyük sürümde kaldırılacak; PostgreSQL + TimescaleDB'ye geçin: uptime migrate (bkz. belgeler: Veritabanı)")
+	}
 
 	if len(os.Args) > 1 {
 		return runCommand(st, os.Args[1:])
@@ -185,7 +208,7 @@ func run() error {
 		// yayınlanan (-p 8080:8080) kurulumda Docker NAT yüzünden herkes özel
 		// adresten görünür ve X-Forwarded-For ile istemci adresi uydurulabilir.
 		log.Warn("TRUSTED_PROXY ayarlı değil: tüm özel ağ adreslerinden gelen X-Forwarded-For başlığına güveniliyor; " +
-			"ters vekilin adresini TRUSTED_PROXY ile verin (ör. 172.17.0.1/32), vekilsiz kurulumda loopback verin (127.0.0.1/32)")
+			"ters vekilin bulunduğu Docker ağını TRUSTED_PROXY ile verin (ör. 172.18.0.0/16; ağı öğrenmek için: docker network inspect bekci_default -f '{{(index .IPAM.Config 0).Subnet}}'), vekilsiz kurulumda 127.0.0.1/32 verin")
 	}
 	apiServer.ProbeImage = env("PROBE_IMAGE", "")
 	if d := env("AGENT_DIR", ""); d != "" {
@@ -300,4 +323,13 @@ func redactDSN(dsn string) string {
 		u.User = url.UserPassword(u.User.Username(), "***")
 	}
 	return u.Redacted()
+}
+
+// envSeconds tam saniye ortam değişkeni; geçersizse varsayılan.
+func envSeconds(key string, def int) time.Duration {
+	n, err := strconv.Atoi(env(key, ""))
+	if err != nil {
+		n = def
+	}
+	return time.Duration(n) * time.Second
 }

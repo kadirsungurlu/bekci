@@ -105,7 +105,8 @@ func (s *Server) probeMeshHeartbeat(w http.ResponseWriter, r *http.Request) {
 		// Main kalp atışını aldı.
 		{Src: store.MeshMainID, Dst: p.ID, State: store.LinkUp, LastOKAt: ts, UpdatedAt: ts},
 		// Ajan Main'e ulaştı; öncesindeki başarısız deneme sayısı bilgi olarak.
-		{Src: p.ID, Dst: store.MeshMainID, State: store.LinkUp, LossStreak: max(hb.MainLoss, 0), LastOKAt: ts, UpdatedAt: ts},
+		{Src: p.ID, Dst: store.MeshMainID, State: store.LinkUp, LossStreak: max(hb.MainLoss, 0), RTTms: min(max(hb.MainRTTms, 0), 600000),
+			LastOKAt: ts, UpdatedAt: ts},
 	}
 	seen := map[int64]bool{}
 	for _, l := range hb.Links {

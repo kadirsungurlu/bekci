@@ -12,6 +12,7 @@ export default {
   notifications: 'Notifications',
   settings: 'Settings',
   more: 'More',
+  topology: 'Live topology',
   myAccount: 'My account',
   titles: {
     newMonitor: 'New monitor',
@@ -46,6 +47,7 @@ export default {
   notFoundTitle: 'Page not found',
   notFoundText: "The page you're looking for doesn't exist.",
   moreItems: {
+    topologyDesc: 'Monitors, probes, servers and channels on one live map',
     statusPagesDesc: 'Public status pages for your customers',
     maintenanceDesc: 'Mute notifications during planned maintenance',
     notificationsDesc: 'WhatsApp, Telegram, email and other channels',

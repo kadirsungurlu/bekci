@@ -74,6 +74,15 @@ func MetricValue(lang, metric string, v float64) string {
 		return Decimal(lang, v, 2)
 	case "temp":
 		return fmt.Sprintf("%.0f °C", v)
+	case "cert", "disk_forecast":
+		// "yaklaşık 0 gün sonra" yerine en az 1 gün yazılır.
+		if metric == "disk_forecast" {
+			v = max(v, 1)
+		}
+		if lang == EN {
+			return fmt.Sprintf("%.0f days", v)
+		}
+		return fmt.Sprintf("%.0f gün", v)
 	case "net":
 		if v >= 1000 {
 			return Decimal(lang, v/1000, 2) + " Gbit/s"

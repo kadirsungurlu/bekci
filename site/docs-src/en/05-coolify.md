@@ -87,11 +87,11 @@ Click **Deploy** at the top right. Coolify pulls the image and starts the contai
 
 ## With PostgreSQL {#postgresql}
 
-The default SQLite is enough for most installs ([which database?](/en/docs/#database)). If you want PostgreSQL, there are two ways:
+The steps above install with SQLite; SQLite is deprecated and will be removed in the next major version. For a lasting install follow the second tab and set the database image to `timescale/timescaledb:2.31.0-pg18` ([database and migration](/en/docs/database/)).
 
 :::tabs key=coolify-db label="PostgreSQL option"
 @tab Embedded PostgreSQL
-The easiest: in step 1 use the tag `postgres` instead of `latest` (for a fixed version `1.0.0-postgres`). PostgreSQL 18 runs inside the same container; the database still lives in the `/data` volume and nightly backups go to `/data/backups`. All other steps are the same. It uses roughly 200 MB of extra memory.
+Deprecated; don't choose it for a new install. In step 1 use the tag `postgres` instead of `latest` (for a fixed version `1.0.0-postgres`). PostgreSQL 18 runs inside the same container; the database stays on the `/data` volume.
 @tab PostgreSQL in Coolify
 1. In the same project create a database with **New resource** → **PostgreSQL** and start it.
 2. On the database's page, copy the internal connection URL (shown with a name such as **Postgres URL (internal)**). It looks like `postgres://user:password@…:5432/…`.
@@ -103,7 +103,7 @@ The easiest: in step 1 use the tag `postgres` instead of `latest` (for a fixed v
 
    The value looks like `postgres://postgres:…@…:5432/postgres`.
 
-4. Keep the tag `latest` (the SQLite image); with `DATABASE_URL` set, this image connects to PostgreSQL. Redeploy with **Deploy**.
+4. Keep the tag `latest`; with `DATABASE_URL` set, the image connects to PostgreSQL. Redeploy with **Deploy**.
 
 Bekci and the database must be on the same Coolify server (the internal URL only works there). In this setup Bekci does **not** take nightly backups; schedule them under **Backups** on the database's page.
 :::

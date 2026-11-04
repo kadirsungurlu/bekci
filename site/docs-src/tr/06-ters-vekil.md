@@ -220,7 +220,7 @@ Caddy'niz Docker'da çalışıyorsa Bekci'yi Caddy ile aynı Docker ağına ekle
 
 Bekci, `X-Forwarded-For` başlığındaki istemci adresine yalnızca isteği ileten bağlantı güvenilir bir adresten geliyorsa inanır. Varsayılan olarak tüm özel (`10.x`, `172.16–31.x`, `192.168.x`) ve yerel (`127.x`) adresler güvenilir sayılır; vekil aynı sunucuda ya da aynı Docker ağında çalışıyorsa ayar gerekmez.
 
-Daha sıkı olmak isterseniz güvenilir ağları `TRUSTED_PROXY` ortam değişkeniyle virgülle ayırarak verin, ör. `TRUSTED_PROXY=172.17.0.1/32`. Ayarlıysa yalnızca bu ağlardan gelen başlıklara güvenilir.
+Daha sıkı olmak isterseniz güvenilir ağları `TRUSTED_PROXY` ortam değişkeniyle virgülle ayırarak verin, ör. `TRUSTED_PROXY=172.18.0.0/16`. Ayarlıysa yalnızca bu ağlardan gelen başlıklara güvenilir. Vekilin bulunduğu Docker ağını şu komut gösterir (Compose kurulumunda ağ adı `bekci_default`): `docker network inspect bekci_default -f '{{(index .IPAM.Config 0).Subnet}}'`. Compose kurulumunda değeri `.env` dosyasına yazıp `docker compose up -d` çalıştırmanız yeterlidir.
 
 Değişken boşken Bekci açılışta bir kez uyarı yazar (`TRUSTED_PROXY ayarlı değil …`). Varsayılan, mevcut Coolify/Traefik/Caddy kurulumları bozulmasın diye gevşek bırakılmıştır. **Ters vekilsiz**, doğrudan `-p 8080:8080` ile yayınlanan bir kurulumda ise Docker NAT yüzünden her istek özel bir adresten (Docker ağ geçidi) gelir; o zaman bir istemci `X-Forwarded-For` başlığıyla adres uydurup giriş sınırlarını ve IP kilidini aşabilir, işlem kaydına sahte adres yazdırabilir. Böyle kurulumlarda `TRUSTED_PROXY=127.0.0.1/32` verin: başlıklara güvenilmez, bağlanan adres kullanılır.
 

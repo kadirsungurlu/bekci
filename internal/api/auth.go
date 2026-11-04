@@ -148,6 +148,12 @@ func (s *Server) role(min string, h http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		u, sess, ok := s.authenticate(r)
 		if !ok {
+			if s.readKeyBlocked(r) {
+				writeJSON(w, http.StatusForbidden, map[string]string{
+					"error": "Salt okunur API anahtarı bu uca erişemez", "code": "read_only_key",
+				})
+				return
+			}
 			writeError(w, http.StatusUnauthorized, "Oturum açmanız gerekiyor")
 			return
 		}

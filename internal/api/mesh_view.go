@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/kadirsungurlu/bekci/internal/mesh"
@@ -65,27 +66,34 @@ func meshLinkViews(pairs []mesh.Pair, stored []store.ProbeLink) []meshLinkView {
 }
 
 func (s *Server) meshMatrix(w http.ResponseWriter, r *http.Request) {
-	rep, ok, err := s.engine.MeshSnapshot(r.Context(), s.now())
+	resp, _, err := s.meshView(r.Context(), responseLang(w))
 	if err != nil {
 		s.dbError(w, err)
 		return
 	}
-	resp := meshViewResp{Active: ok, Nodes: []meshNodeView{}, Pairs: []mesh.Pair{}, Findings: []string{}, Links: []meshLinkView{}}
-	if ok {
-		lang := responseLang(w)
-		for _, id := range rep.Verdict.Nodes {
-			resp.Nodes = append(resp.Nodes, meshNodeView{ID: id, Name: rep.Names.In(lang, id)})
-		}
-		resp.Pairs = rep.Verdict.Pairs
-		stored, err := s.store.ListProbeLinks(r.Context())
-		if err != nil {
-			s.dbError(w, err)
-			return
-		}
-		resp.Links = meshLinkViews(rep.Verdict.Pairs, stored)
-		if !rep.Verdict.Healthy() { // sağlıklıyken FindingLines "sağlıklı" satırı döner; arayüz kendi metnini yazar
-			resp.Findings = mesh.FindingLines(lang, rep.Verdict, rep.Names)
-		}
-	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// meshView GET /api/mesh ve canlı topoloji (topology.go) için matris; stored
+// kalıcı bağlantı ölçümleri (Main kenarları dahil) çağırana da döner.
+func (s *Server) meshView(ctx context.Context, lang string) (meshViewResp, []store.ProbeLink, error) {
+	resp := meshViewResp{Nodes: []meshNodeView{}, Pairs: []mesh.Pair{}, Findings: []string{}, Links: []meshLinkView{}}
+	stored, err := s.store.ListProbeLinks(ctx)
+	if err != nil {
+		return resp, nil, err
+	}
+	rep, ok, err := s.engine.MeshSnapshot(ctx, s.now())
+	if err != nil || !ok {
+		return resp, stored, err
+	}
+	resp.Active = true
+	for _, id := range rep.Verdict.Nodes {
+		resp.Nodes = append(resp.Nodes, meshNodeView{ID: id, Name: rep.Names.In(lang, id)})
+	}
+	resp.Pairs = rep.Verdict.Pairs
+	resp.Links = meshLinkViews(rep.Verdict.Pairs, stored)
+	if !rep.Verdict.Healthy() { // sağlıklıyken FindingLines "sağlıklı" satırı döner; arayüz kendi metnini yazar
+		resp.Findings = mesh.FindingLines(lang, rep.Verdict, rep.Names)
+	}
+	return resp, stored, nil
 }

@@ -81,7 +81,7 @@ export default {
   language: {
     title: 'Language',
     label: 'Interface language',
-    auto: 'Browser language ({lang})',
+    auto: "This device's language ({lang})",
     help: 'Applies on every device you sign in to with this account.',
     saved: 'Language saved',
   },

@@ -17,6 +17,9 @@ export default {
     'Kullanıcıları, genel ayarları, kontrol noktalarını, yedekleri ve işlem kaydını yalnızca yönetici rolündeki hesaplar görebilir; etiketleri editörler de yönetebilir.',
   backToAccount: 'Hesabıma dön',
   general: {
+    dbSqlite: 'Veritabanı: SQLite. Kullanımdan kalkıyor, sonraki büyük sürümde kaldırılacak. PostgreSQL + TimescaleDB\'ye geçmek için uptime migrate komutunu kullanın.',
+    dbPlain: 'Veritabanı: TimescaleDB olmadan PostgreSQL. Çalışır ama önerilmez, büyük ölçekte yavaşlar.',
+    dbDocs: 'Veritabanı belgesi',
     retentionTitle: 'Veri saklama ve uyarılar',
     rawDays: 'Ham kayıt süresi (gün)',
     rawDaysHelp: 'Her kontrolün ayrı kaydı. 1-90 gün.',
@@ -32,6 +35,11 @@ export default {
     errIncidentDays: 'Olay saklama süresi 7-3650 gün ya da 0 (süresiz) olmalı.',
     errCaptureDays: 'İstek/yanıt kaydı saklama süresi 1-3650 gün ya da 0 (süresiz) olmalı.',
     errAuditDays: 'İşlem kaydı saklama süresi 7-3650 gün ya da 0 (süresiz) olmalı.',
+    serverCertDays: 'Sunucu sertifikası uyarı günleri',
+    serverCertDaysPlaceholder: 'Ör. 14, 7, 1',
+    serverCertDaysHelp:
+      'Sunucu envanterindeki sertifikaların bitmesine bu kadar gün kala olay açılır ve bildirim gönderilir; en küçük eşik ve süresi dolan sertifika kritiktir. Virgülle ayırın (en fazla 5); boş bırakırsanız uyarı kapanır.',
+    errServerCertDays: 'Sunucu sertifikası uyarı günleri 1-365 arasında tam sayı olmalı (en fazla 5).',
     certDays: 'SSL uyarı günleri',
     certDaysPlaceholder: 'Ör. 21, 14, 7',
     certDaysHelp:
