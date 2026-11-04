@@ -78,7 +78,7 @@ Parça aralığı gerekçesi: Timescale önerisi "en yeni parçalar + dizinleri 
 ### 3.3 Sürekli özetler (continuous aggregate)
 | Özet | Kaynak | Sütunlar | Yenileme politikası | Saklama |
 |---|---|---|---|---|
-| `stats_hourly` (cagg, adı ve sütunları bugünkü tabloyla AYNI) | heartbeats | up, down, ping_sum, ping_count, ping_min, ping_max + `h_*` histogram sayaçları | start 3 gün, end 1 sa, her 15 dk; `materialized_only=false` (gerçek zamanlı) | 400 gün / 90-3650 |
+| `stats_hourly` (cagg, adı ve sütunları bugünkü tabloyla AYNI) | heartbeats | up, down, ping_sum, ping_count, ping_min, ping_max + `h_*` histogram sayaçları | start 3 gün, end 0, her 5 dk (620 ölçümü: end 1 sa her okumada 1-2 saatlik ham toplatıyordu); `materialized_only=false` (gerçek zamanlı) | 400 gün / 90-3650 |
 | `stats_daily_utc` (hiyerarşik cagg) | stats_hourly | aynı | her 1 sa | süresiz |
 | `mesh_hourly` | mesh_samples | rtt avg/min/max, ok/fail sayısı, histogram | 15 dk | 365 gün |
 | `server_metrics_10m`, `server_metrics_1h` (1h, 10m üzerine hiyerarşik) | server_metrics | cpu avg/max, mem avg/max, load avg, net/disk bps avg/max | 5 dk / 30 dk | 30 gün / 2 yıl |
@@ -136,6 +136,8 @@ Ortam: bu sunucu, `timescale/timescaledb:2.31.0-pg18` (PG 18.6), varsayılan aya
 Bugünkü Bekci zaten Go tarafında saatlik/günlük özet tuttuğu için okuma tarafındaki kazanç "ham -> özet" değil
 "Go UPSERT -> cagg" farkıdır: sonuç başına 4 deyim yerine 2, sıcak özet satırlarında kilit çekişmesi yok, disk 10-40x küçük,
 ham saklama uzatılabilir, p95 ve sunucu metrikleri sütunlu olur. Yük karşılaştırması (eski Go özetleri vs cagg) 620'de.
+
+620 sonucu (`docs/PERFORMANS-620.md`): bugünkü Go tablolarına göre okuma yükü azalmıyor, artıyor; kazanç disk (20x) ve yazma CPU'su (%3-23). Bugünkü yazma yolu ~483 sonuç/sn ile sınırlı, 10.000 monitör x 5 konum için toplu yazım gerekir.
 
 ## 5. Uyumluluk kararları
 

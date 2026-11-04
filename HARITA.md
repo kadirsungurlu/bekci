@@ -12,6 +12,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 - `internal/check/` — izleyici türleri (http, tcp, dns, ping, sql, ...); `internal/i18n/` — sunucu tarafı TR/EN metinler
 - `internal/servers/` sunucu ajanı metrikleri · `internal/backup/` dışa/içe aktarma (Kuma, UptimeRobot) · `internal/webpush/`
 - `internal/apidocs/openapi.yaml` — API belgesi (yeni genel uç eklenirse güncelle)
+- `docs/PERFORMANS-620.md` — ölçüm raporu (ham / Go özet / Timescale, disk, RAM, kaynak önerisi); `scripts/perf/` (tohum.sh, olcum.sh, istek.py) + `internal/store/perf_test.go` (BEKCI_PERF_*)
 - `docs/TIMESCALE-TASARIM.md` — Postgres+TimescaleDB ve sunucu bilgi kaynağı tasarımı (600; 610-695 buna uyar): hypertable/cagg/saklama, uyumluluk modları, yükseltme yolları, lisans
 - `web/` — Svelte 5 + Vite SPA (TS). `src/pages/` sayfalar, `src/components/`, `src/lib/` (api.ts türler+istekler, router, i18n)
 - `web/e2e/` — Playwright betikleri (`push.mjs`, `durum.mjs`, `abonelik.mjs` + `smtp-sink.mjs` sahte SMTP; `ozelalan.mjs` abonelik ve `alanadi.mjs` on-demand TLS: gerçek alan adıyla elle, CI'da yok; `guncelleme.mjs` yeni sürüm şeridi, sahte sürüm sunucusu, CI'da; `olaylar.mjs` olay listesi sayfalama, CI'da; `mesh.mjs` bağlantı matrisi, CI'da; `topoloji.mjs` canlı topoloji, CI'da), `statusgrid.test.mjs`, `meshlayout.test.mjs`, `topolayout.test.mjs` (node --test)
@@ -55,6 +56,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 | Durum sayfaları (yönetim) | api/pages.go; store/pages*.go; web pages/StatusPages, StatusPageEditor, PagePreviewPanel |
 | E-posta aboneliği (durum sayfası) | api/subscribers.go, subscribers_notify.go; store/subscribers.go; web components/SubscribePanel, PageSubscribers |
 | Özel alan adı, otomatik HTTPS | api/domains.go (GET /api/tls/ask: Caddy on-demand TLS onayı; alan adı durum denetimi); web components/DomainStatus; deploy/compose/Caddyfile; belge site/docs-src/*/04-caddy.md |
+| Timescale okuma yolları | store/timescale_read.go (tsConvertDaily: stats_daily -> stats_daily_legacy, timescale_meta; dailySQL yerel gün saatlikten; tsWindowParts uzun pencere ekseni; PingPercentile; tsChunkPlan/tsTuneChunks; tsCached READ_CACHE_SEC); eşitlik testi timescale_read_test.go |
 | Yeni sürüm bildirimi | api/updatecheck.go (GitHub yayın+etiket, semver, 6 sa; UPDATE_CHECK=off, UPDATE_CHECK_URL); store/updates.go (kapatma, migration 38); web components/UpdateBanner, settings/General |
 | Durum sayfası (genel) | api/public.go, public_feed.go, public_incidents.go, public_live.go; web pages/PublicStatus.svelte, lib/statusgrid.ts |
 | Durum sayfası e-posta aboneliği | api/subscribers.go (uçlar, belirteçler), subscribers_notify.go (birleştirme, hız sınırı, e-posta); store/subscribers.go; notify Dispatcher.SetObserver, SendMailHeaders |

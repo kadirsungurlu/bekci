@@ -84,7 +84,7 @@ Q $DB "INSERT INTO heartbeats (monitor_id, time, status, ping_ms, message, locat
   SELECT m, t + m % 30 + l, 1, 15 + (m * 37) % 180, '200 - OK', 'loc-' || l FROM generate_series(1, $N) m CROSS JOIN generate_series(0, 4) l
   CROSS JOIN generate_series($(( $(date +%s) - 900 )), $(date +%s), 30) t WHERE m % 4 = $k" &
 done; wait
-job() { Q $DB "SELECT job_id FROM timescaledb_information.jobs WHERE proc_name = 'policy_refresh_continuous_aggregate' AND hypertable_name = (SELECT materialization_hypertable_name FROM timescaledb_information.continuous_aggregates WHERE view_name = '$1')"; }
+job() { Q $DB "SELECT job_id FROM timescaledb_information.jobs WHERE proc_name = 'policy_refresh_continuous_aggregate' AND hypertable_name = '$1'"; }
 for v in stats_hourly_ts stats_daily_utc; do
   c0=$(cpu); s=$(date +%s%3N); Q $DB "CALL run_job($(job $v))"
   J "{\"adim\":\"is_$v\",\"ms\":$(( $(date +%s%3N) - s )),\"cpu_ms\":$(( ($(cpu) - c0) / 1000 ))}"
