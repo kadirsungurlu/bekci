@@ -5,7 +5,7 @@ Amaç: canlı uptime sunucusunun verisiyle SQLite -> TimescaleDB geçişini son 
 ## Prova düzeni
 - Veri: canlının gece yedeği `uptime-2026-11-04.db` (77,7 MB, 00:07), `ssh uptime cat` ile kopyalandı. SHA-256 iki uçta aynı (`abda5d24...`), `integrity_check` ok. Veri 1.6.0 şeması: 9 monitör, 5 nokta, 3 kullanıcı, 181.535 heartbeat, 42 olay.
 - İmaj: `kadirsungurlu/bekci:gelistirme` (`c5f7ed33`, commit 45ab408). Ajan güncellemesi için aynı kaynaktan test anahtarıyla imzalı yerel imaj.
-- Ağ: internetsiz Docker ağı. Bildirim çıkamaz, canlı ajanlar bağlanamaz (panelin mail.dh.web.tr adresine gönderemediği log'da görüldü). Sınır: tek çekirdek, db 400 MB, panel 256 MB, `TS_TUNE_MEMORY=400MB`.
+- Ağ: internetsiz Docker ağı. Bildirim çıkamaz, canlı ajanlar bağlanamaz (log'daki tek ERROR "abone bildirimi gönderilemedi" bunu doğruluyor). Sınır: tek çekirdek, db 400 MB, panel 256 MB, `TS_TUNE_MEMORY=400MB`.
 - Kopya ve test anahtarı prova sonunda silindi. Ham çıktı repo dışı `prova-canli/sonuc/`.
 
 ## Sonuçlar
@@ -16,7 +16,7 @@ Amaç: canlı uptime sunucusunun verisiyle SQLite -> TimescaleDB geçişini son 
 | Fark | ÇALIŞIYOR | Araç satır sayılarını doğruladı. API karşılaştırması: 14.425 hizalı grafik noktasında 0 fark |
 | SQLite | ÇALIŞIYOR | Taşıma öncesi ve sonrası özet aynı |
 | Belirteçler | ÇALIŞIYOR | 5 ajanın `token_hash` özeti iki tarafta aynı; canlı API anahtarı yeni panelde çalıştı |
-| Panel | ÇALIŞIYOR | `db_mode: timescale`; giriş 200; özet, topoloji, sunucular, olaylar 200; en yavaş API 204 ms; zamanlı işlerde hata 0/25 |
+| Panel | ÇALIŞIYOR | `db_mode: timescale`; giriş 200; özet, topoloji, sunucular, olaylar 200; zamanlı işlerde hata 0/25 |
 | Ajan: resmi 1.6.0 -> yeni panel | ÇALIŞIYOR | Sunucu ajanı bağlandı, metrik gönderdi |
 | Ajan: yeni sürüm | ÇALIŞIYOR | Sunucu ajanı bağlandı, envanter geldi |
 | Otomatik güncelleme (test anahtarı) | ÇALIŞIYOR | Konum ajanı 1.6.0 -> 1.7.0-prova, ~1 sn, durum `current`, 9 işi geri aldı |
@@ -104,7 +104,7 @@ docker compose stop bekci
 sed -i '/^DATABASE_URL=/d; s/^UPTIME_TAG=.*/UPTIME_TAG=1.6.0/' .env
 docker compose up -d --no-deps bekci
 ```
-Geçişten sonra PostgreSQL'e yazılan veri 1.6.0'a dönmez. Güncellenmiş ajanlar 1.6.0 panelle çalışır (DENETIM-695). Yeniden deneme: `docker compose down db` yerine yalnız DB birimi yenilenir (`stop db`, `rm -f db`, `docker volume rm bekci_bekci-db`, `up -d db`), sonra geçiş adımları.
+Geçişten sonra PostgreSQL'e yazılan veri 1.6.0'a dönmez. Güncellenmiş ajanlar 1.6.0 panelle çalışır (DENETIM-695). Yeniden deneme: yalnız DB birimi yenilenir (`docker compose stop db`, `docker compose rm -f db`, `docker volume rm bekci_bekci-db`, `docker compose up -d db`), `UPTIME_TAG` yeniden `<yeni>` yapılır, sonra geçiş adımları.
 
 Ajanlar: 5 ajan otomatik güncellemeyle geçer. Önce tek ajanda görmek için panelde otomatik güncelleme kapalı başlatılıp tek ajan elle güncellenir.
 
