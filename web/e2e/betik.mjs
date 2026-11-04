@@ -69,7 +69,7 @@ try {
   for (const id of ['kaldirilan-gecici-yama', 'eski-kayit-arsivle']) {
     if (!(await row(id).getByRole('button', { name: 'Çalıştır' }).isDisabled())) fail(id + ' başlatılabilir görünüyor');
   }
-  await row('kaldirilan-gecici-yama').getByText('İptal').first().waitFor();
+  await row('kaldirilan-gecici-yama').getByText('Geri çekildi').first().waitFor();
   await row('eski-kayit-arsivle').getByText('Süresi doldu').waitFor();
 
   // Arama: süzgeç ve boş durum.

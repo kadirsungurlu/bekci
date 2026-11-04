@@ -137,7 +137,7 @@
           {#each shown as s (s.id)}
             {@const blockedBy = versionBlocked(s.latest, clock.now)}
             <tr>
-              <td data-label={t('scripts.col.script')}><code>{s.id}</code></td>
+              <td class="sname"><code>{s.id}</code></td>
               <td data-label={t('scripts.col.version')} class="nowrap">
                 v{s.latest.version}
                 {#if s.latest.revoked}<span class="badge down">{t('scripts.badge.revoked')}</span>{/if}
@@ -146,7 +146,7 @@
               </td>
               <td data-label={t('scripts.col.approval')} class="nowrap">{approvalText(s.latest.approval)}</td>
               <td data-label={t('scripts.col.validity')} class="nowrap" title="{fmtDate(s.latest.not_before)} - {fmtDate(s.latest.not_after)}">{fmtDay(s.latest.not_after)}</td>
-              <td data-label={t('scripts.col.key')}><code>{shortId(s.latest.key_id)}</code></td>
+              <td class="skey" data-label={t('scripts.col.key')}><code>{shortId(s.latest.key_id)}</code></td>
               <td data-label={t('scripts.col.hosts')}>
                 {#if s.hosts.length === 0}
                   <span class="text-2">{t('scripts.noResults')}</span>
@@ -192,6 +192,26 @@
 <ScriptRunModal bind:open={runOpen} version={runVersion} {hosts} />
 
 <style>
+  /* Başlatılamayan satırda düğme ikincil gibi değil, kapalı görünsün. */
+  td .btn.primary:disabled {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text-2);
+  }
+  @media (max-width: 640px) {
+    td.sname {
+      display: block !important;
+    }
+    td.sname::before {
+      display: none !important;
+    }
+    td.sname code {
+      font-weight: 600;
+    }
+    td.skey {
+      display: none !important;
+    }
+  }
   .gap {
     margin-bottom: 18px;
   }

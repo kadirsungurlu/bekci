@@ -85,6 +85,19 @@
     white-space: nowrap;
     text-decoration: none;
   }
+  /* Dar ekranda üç sekme de kesilmeden sığsın. */
+  @media (max-width: 480px) {
+    .stabs {
+      gap: 0;
+    }
+    .stabs a {
+      padding-inline: 8px;
+      font-size: 0.86rem;
+    }
+    .stabs a :global(svg) {
+      display: none;
+    }
+  }
   .stabs a.active {
     color: var(--text);
     border-bottom-color: var(--accent);

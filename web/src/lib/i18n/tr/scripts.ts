@@ -53,7 +53,7 @@ export default {
     time: "Zaman",
   },
   badge: {
-    revoked: "İptal",
+    revoked: "Geri çekildi",
     expired: "Süresi doldu",
     notYet: "Henüz geçerli değil",
   },

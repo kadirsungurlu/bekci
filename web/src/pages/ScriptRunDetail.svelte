@@ -104,7 +104,7 @@
           {#if isLive(runState)}<span class="text-2 small">{t('scripts.detail.live')}</span>{/if}
           <div class="btns">
             {#if cancellable}<button class="btn danger" onclick={cancel}>{t('scripts.detail.cancel')}</button>{/if}
-            {#if awaiting}<button class="btn danger" onclick={reject}>{t('scripts.detail.reject')}</button>{/if}
+            {#if awaiting && !ticketJson}<button class="btn danger" onclick={reject}>{t('scripts.detail.reject')}</button>{/if}
             {#if data?.can_approve}<button class="btn primary" disabled={!canWrite} onclick={() => (approveOpen = true)}>{t('scripts.detail.approve')}</button>{/if}
           </div>
         </div>
@@ -129,6 +129,7 @@
           <div class="head">
             <h2 class="card-title">{t('scripts.detail.ticketTitle')}</h2>
             <div class="btns">
+              <button class="btn danger" onclick={reject}>{t('scripts.detail.reject')}</button>
               <CopyButton text={ticketJson} class="btn" />
               <button class="btn primary" disabled={!canWrite} onclick={() => (ticketOpen = true)}>{t('scripts.detail.ticketPaste')}</button>
             </div>
@@ -186,6 +187,11 @@
     min-height: 32px;
     margin-bottom: 8px;
     text-decoration: none;
+  }
+  @media (max-width: 900px), (pointer: coarse) {
+    .back {
+      min-height: 44px;
+    }
   }
   .head {
     display: flex;

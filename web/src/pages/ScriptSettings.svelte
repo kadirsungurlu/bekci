@@ -213,7 +213,7 @@
                     {#if h.reason}<span class="text-2 small" title={h.reason}>{reasonText(h.reason)}</span>{/if}
                   </td>
                   <td data-label={t('scripts.settings.fingerprint')}>{#if h.host_key}<code title={h.host_key}>{shortId(h.host_key)}</code>{:else}<span class="text-2">-</span>{/if}</td>
-                  <td data-label={t('scripts.settings.pending')}>{#if h.pending_key}<code class="brk">{h.pending_key}</code>{:else}<span class="text-2">-</span>{/if}</td>
+                  <td data-label={t('scripts.settings.pending')}>{#if h.pending_key}<code title={h.pending_key}>{shortId(h.pending_key)}</code>{:else}<span class="text-2">-</span>{/if}</td>
                   <td class="act">
                     {#if h.pending_key}
                       <button class="btn sm primary" disabled={!canWrite} onclick={() => { host = h; hostOpen = true; }}>{t('scripts.settings.hostApprove')}</button>
