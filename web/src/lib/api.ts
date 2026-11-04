@@ -1440,11 +1440,35 @@ export type ServerMetric =
   | "offline"
   | "container"
   | "reboot"
+  | "disk_forecast"
+  | "disk_fast"
   | "cert";
 /** Sunucu uyarı seviyesi (eski kurallarda boş = kritik). */
 export type AlertLevel = "warning" | "critical";
 
+/** Bir bölümün dolma tahmini. days yalnızca status "growing" iken doludur. */
+export interface DiskForecast {
+  mount: string;
+  status: "growing" | "flat" | "learning";
+  days: number | null;
+  per_day: number;
+  per_day_30: number;
+  used: number;
+  total: number;
+  r2: number;
+}
+
+/** Sunucu zaman çizelgesi kaydı; metin kind + data'dan üretilir. */
+export interface TimelineEvent {
+  time: number;
+  kind: string;
+  subject: string;
+  level: "info" | "warning" | "error";
+  data: Record<string, string | number> | null;
+}
+
 export interface ServerView {
+  disk_forecast?: DiskForecast[] | null;
   id: number;
   name: string;
   active: boolean;
@@ -1518,7 +1542,7 @@ export interface ServerDetail extends ServerView {
   notification_bindings?: NotificationBinding[] | null;
 }
 
-export type StatsRange = "1h" | "24h" | "7d" | "30d";
+export type StatsRange = "1h" | "24h" | "7d" | "30d" | "1y";
 
 export interface StatsPoint {
   t: number;
@@ -2214,6 +2238,16 @@ export const api = {
   getServerInventory: (id: number) => get<ServerInventory>(`/api/servers/${id}/inventory`),
   setInventoryCertIgnored: (id: number, fingerprint: string, ignored: boolean) =>
     put<void>(`/api/servers/${id}/inventory/certs/${encodeURIComponent(fingerprint)}`, { ignored }),
+  getServerTimeline: (id: number, q: { before?: number; limit?: number; kinds?: string[] } = {}) => {
+    const p = new URLSearchParams();
+    if (q.before) p.set("before", String(q.before));
+    if (q.limit) p.set("limit", String(q.limit));
+    if (q.kinds?.length) p.set("kind", q.kinds.join(","));
+    return get<{ events: TimelineEvent[] | null; more: boolean }>(`/api/servers/${id}/timeline?${p}`).then((r) => ({
+      events: r.events ?? [],
+      more: r.more,
+    }));
+  },
   getServerEvents: (id: number) =>
     get<{ events: ServerEvent[] | null }>(`/api/servers/${id}/events`).then(
       (r) => r.events ?? [],

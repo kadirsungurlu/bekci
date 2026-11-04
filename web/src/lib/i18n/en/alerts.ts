@@ -22,6 +22,9 @@ export default {
   sentOffline: 'if no data for {n} min',
   sentOver: 'if the {n}-min average is {v} or higher',
   sentWarn: 'warning at {v}',
+  sentForecast: 'Alert if full within {n} days',
+  sentFast: 'If it grows by {v} or more within {n} min',
+  unitWindow: 'window',
   sentReboot: 'Notify when the boot time changes',
   sentContainer: 'if {name} is not running for {n} min',
   aria: {

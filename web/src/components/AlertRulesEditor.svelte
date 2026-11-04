@@ -127,7 +127,8 @@
     r.mount = m === 'disk' ? (freeMount ?? '') : m === 'container' ? (freeContainer ?? '') : '';
     if (thresholdless(m)) r.threshold = 0;
     r.warn = 0;
-    if (m === 'reboot') r.minutes = 1;
+    if (m === 'reboot' || m === 'disk_forecast') r.minutes = 1;
+    if (m === 'disk_fast') r.minutes = info.minutes;
   }
 
   // Hatalı alan (kutuyu kırmızı çizmek için) ve mesajı.
@@ -135,7 +136,7 @@
   function rowError(r: Row): RowError {
     const info = METRICS[r.metric];
     const min = Number(r.minutes);
-    if (r.metric !== 'reboot' && (!Number.isInteger(min) || min < 1 || min > 60)) return { field: 'minutes', msg: t('alerts.err.minutes') };
+    if (r.metric !== 'reboot' && r.metric !== 'disk_forecast' && (!Number.isInteger(min) || min < 1 || min > 60)) return { field: 'minutes', msg: t('alerts.err.minutes') };
     if (rows.some((o) => o !== r && ruleKey(o) === ruleKey(r))) {
       return {
         field: 'dup',
@@ -181,7 +182,7 @@
         mount: r.metric === 'disk' || r.metric === 'container' ? r.mount : '',
         threshold: thresholdless(r.metric) ? 0 : Number(r.threshold),
         warn_threshold: thresholdless(r.metric) ? 0 : Number(r.warn) || 0,
-        minutes: r.metric === 'reboot' ? 1 : Number(r.minutes),
+        minutes: r.metric === 'reboot' || r.metric === 'disk_forecast' ? 1 : Number(r.minutes),
         active: r.active,
       }));
       const saved = await api.putServerAlerts(serverId, body);
@@ -207,6 +208,8 @@
     if (r.metric === 'offline') return t('alerts.sentOffline', { n: r.minutes });
     if (r.metric === 'reboot') return t('alerts.sentReboot');
     if (r.metric === 'container') return t('alerts.sentContainer', { n: r.minutes, name: r.mount || t('alerts.anyContainer') });
+    if (r.metric === 'disk_forecast') return t('alerts.sentForecast', { n: r.threshold });
+    if (r.metric === 'disk_fast') return t('alerts.sentFast', { n: r.minutes, v: fmtMetric(r.metric, r.threshold) });
     const s = t('alerts.sentOver', { n: r.minutes, v: fmtMetric(r.metric, r.threshold) });
     return r.warn_threshold ? `${s} · ${t('alerts.sentWarn', { v: fmtMetric(r.metric, r.warn_threshold) })}` : s;
   }
@@ -290,6 +293,7 @@
               />
               {#if info.unit !== 'pct'}<span class="u">{UNIT_LABELS[info.unit]}</span>{/if}
             </label>
+            {#if r.metric !== 'disk_forecast' && r.metric !== 'disk_fast'}
             <label class="unitbox warnbox" class:wide={info.unit === 'load' || info.unit === 'net'} title={t('alerts.warnTitle')}>
               <span class="u pre wl">{t('alerts.warnShort')}</span>
               {#if info.unit === 'pct'}<span class="u pre">%</span>{/if}
@@ -307,9 +311,12 @@
               />
               {#if info.unit !== 'pct'}<span class="u">{UNIT_LABELS[info.unit]}</span>{/if}
             </label>
+            {/if}
             <span class="w sep">·</span>
           {/if}
-          {#if r.metric !== 'reboot'}
+          {#if r.metric === 'disk_forecast'}
+            <span class="rs reboot-note">{t('alerts.sentForecast', { n: r.threshold })}</span>
+          {:else if r.metric !== 'reboot'}
             <label class="unitbox">
               <input
                 class="input num sm"
@@ -322,7 +329,7 @@
                 bind:value={r.minutes}
                 aria-label={t('alerts.aria.minutes', { ctx })}
               />
-              <span class="u">{r.metric === 'offline' ? t('alerts.unitNoData') : r.metric === 'container' ? t('alerts.unitNotRunning') : t('alerts.unitAvg')}</span>
+              <span class="u">{r.metric === 'offline' ? t('alerts.unitNoData') : r.metric === 'container' ? t('alerts.unitNotRunning') : r.metric === 'disk_fast' ? t('alerts.unitWindow') : t('alerts.unitAvg')}</span>
             </label>
           {:else}
             <span class="rs reboot-note">{t('alerts.sentReboot')}</span>

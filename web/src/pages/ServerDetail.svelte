@@ -16,6 +16,7 @@
     type StatsSeries,
   } from '../lib/api';
   import ServerInventory from '../components/ServerInventory.svelte';
+  import ServerTimeline from '../components/ServerTimeline.svelte';
   import { live } from '../lib/live.svelte';
   import { session } from '../lib/session.svelte';
   import { clock, toast } from '../lib/ui.svelte';
@@ -47,6 +48,7 @@
     servers,
     swapPct,
     usageLevel,
+    fmtDays,
   } from '../lib/servers.svelte';
   import { NOTIFY_LABELS } from '../lib/notifyTypes';
   import LineChart, { type ChartSeries } from '../components/LineChart.svelte';
@@ -80,6 +82,7 @@
     { key: '24h', sec: 86400 },
     { key: '7d', sec: 7 * 86400 },
     { key: '30d', sec: 30 * 86400 },
+    { key: '1y', sec: 365 * 86400 },
   ];
   let range = $state<StatsRange>('24h');
   let stats = $state.raw<StatsSeries | null>(null);
@@ -334,7 +337,8 @@
   const lvl = (v: number | null) => ({ ok: '', warn: 'c-pending', danger: 'c-down' })[usageLevel(v)];
 
   const TONE_ICON = { up: 'server', warn: 'alert', down: 'server', muted: 'server' } as const;
-  let pageTab = $state<'overview' | 'inventory'>('overview');
+  let pageTab = $state<'overview' | 'inventory' | 'timeline'>('overview');
+  const forecastOf = (mount: string) => view?.disk_forecast?.find((f) => f.mount === mount) ?? null;
   const PILL = { up: 'up', warn: 'pending', down: 'down', muted: 'paused' } as const;
 </script>
 
@@ -424,10 +428,13 @@
   <div class="ptabs" role="tablist" aria-label={t('servers.inventory.pageTabs')}>
     <button role="tab" aria-selected={pageTab === 'overview'} class:active={pageTab === 'overview'} onclick={() => (pageTab = 'overview')}>{t('servers.inventory.tabOverview')}</button>
     <button role="tab" aria-selected={pageTab === 'inventory'} class:active={pageTab === 'inventory'} onclick={() => (pageTab = 'inventory')}>{t('servers.inventory.title')}</button>
+    <button role="tab" aria-selected={pageTab === 'timeline'} class:active={pageTab === 'timeline'} onclick={() => (pageTab = 'timeline')}>{t('servers.timeline.title')}</button>
   </div>
 
   {#if pageTab === 'inventory'}
     <ServerInventory {id} disks={st?.disks ?? []} />
+  {:else if pageTab === 'timeline'}
+    <ServerTimeline {id} />
   {:else}
   {#if st}
     <div class="tiles" class:dimmed={view.state === 'offline'}>
@@ -628,6 +635,7 @@
             <th>{t('servers.detail.disks.device')}</th>
             <th class="w-bar">{t('servers.detail.disks.usage')}</th>
             <th>{t('servers.detail.disks.free')}</th>
+            <th>{t('servers.detail.disks.forecast')}</th>
           </tr>
         </thead>
         <tbody>
@@ -639,6 +647,15 @@
                 <UsageBar value={d.total ? (100 * d.used) / d.total : null} detail="{fmtBytes(d.used)} / {fmtBytes(d.total)}" />
               </td>
               <td data-label={t('servers.detail.disks.free')} class="nowrap">{fmtBytes(d.total - d.used)}</td>
+              <td data-label={t('servers.detail.disks.forecast')} class="fc">
+                {#if forecastOf(d.mount)?.status === 'growing' && forecastOf(d.mount)?.days != null}
+                  {@const fc = forecastOf(d.mount)!}
+                  <span class="nowrap" class:c-down={fc.days! <= 7} class:c-pending={fc.days! > 7 && fc.days! <= 30}>{t('servers.detail.disks.fullIn', { d: fmtDays(fc.days!) })}</span>
+                  <span class="muted small nowrap">{t('servers.detail.disks.perDay', { v: fmtBytes(fc.per_day) })}</span>
+                {:else}
+                  <span class="muted small">{forecastOf(d.mount)?.status === 'flat' ? t('servers.detail.disks.stable') : t('servers.detail.disks.learning')}</span>
+                {/if}
+              </td>
             </tr>
           {/each}
         </tbody>
@@ -793,6 +810,9 @@
 {/if}
 
 <style>
+  .fc span {
+    display: block;
+  }
   .ptabs {
     display: flex;
     gap: 2px;

@@ -758,13 +758,17 @@
                 <dt>{t('incidents.detail.metric')}</dt>
                 <dd>{metricLabel(smetric)}{sdata.mount ? ` · ${sdata.mount}` : ''}</dd>
                 <dt>{t('incidents.detail.threshold')}</dt>
-                <dd>≥ {fmtMetric(smetric, sdata.threshold ?? 0)}</dd>
+                <dd>{smetric === 'disk_forecast' ? '≤' : '≥'} {fmtMetric(smetric, sdata.threshold ?? 0)}</dd>
+                {#if smetric !== 'disk_forecast'}
                 <dt>{t('incidents.detail.window')}</dt>
                 <dd>{t('incidents.detail.minutes', { n: sdata.minutes })}</dd>
+                {/if}
                 <dt>{t('incidents.detail.valueAtStart')}</dt>
                 <dd class="num">{fmtMetric(smetric, sdata.value)}</dd>
+                {#if smetric !== 'disk_forecast'}
                 <dt>{t('incidents.detail.peak')}</dt>
                 <dd class="num c-down">{fmtMetric(smetric, sdata.peak)}</dd>
+                {/if}
                 <dt>{ongoing ? t('incidents.detail.last') : t('incidents.detail.lastAtEnd')}</dt>
                 <dd class="num">{fmtMetric(smetric, sdata.last)}</dd>
               {/if}

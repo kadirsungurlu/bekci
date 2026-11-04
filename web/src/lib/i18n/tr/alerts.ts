@@ -21,6 +21,9 @@ export default {
   sentOffline: '{n} dk veri gelmezse',
   sentOver: '{n} dk ortalaması {v} veya üzerindeyse',
   sentWarn: 'uyarı {v}',
+  sentForecast: '{n} gün içinde dolacaksa uyar',
+  sentFast: '{n} dk içinde {v} veya daha fazla dolarsa',
+  unitWindow: 'içinde',
   sentReboot: 'Açılış zamanı değişince bildir',
   sentContainer: '{name} {n} dk çalışmıyorsa',
   aria: {

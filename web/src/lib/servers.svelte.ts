@@ -9,7 +9,7 @@ import { session } from './session.svelte';
 
 // Metrikler -----------------------------------------------------------------------------
 
-export type MetricUnit = 'pct' | 'load' | 'temp' | 'net' | 'none';
+export type MetricUnit = 'pct' | 'load' | 'temp' | 'net' | 'days' | 'none';
 
 export interface MetricInfo {
   label: string;
@@ -53,10 +53,12 @@ export const METRICS: Record<ServerMetric, MetricInfo> = {
   offline: metric('offline', 'none', 0, 3, 0, 0, 1),
   container: metric('container', 'none', 0, 2, 0, 0, 1),
   reboot: metric('reboot', 'none', 0, 1, 0, 0, 1),
+  disk_forecast: metric('disk_forecast', 'days', 7, 1, 1, 365, 1),
+  disk_fast: metric('disk_fast', 'pct', 5, 60, 1, 100, 1),
   cert: metric('cert', 'none', 0, 0, 0, 0, 1),
 };
 
-export const METRIC_ORDER: ServerMetric[] = ['offline', 'cpu', 'mem', 'disk', 'swap', 'load', 'temp', 'net', 'container', 'reboot'];
+export const METRIC_ORDER: ServerMetric[] = ['offline', 'cpu', 'mem', 'disk', 'swap', 'load', 'temp', 'net', 'container', 'reboot', 'disk_forecast', 'disk_fast'];
 
 /** Eşik kullanmayan metrikler (offline, container, reboot). */
 export const thresholdless = (m: ServerMetric) => m === 'offline' || m === 'container' || m === 'reboot';
@@ -69,6 +71,9 @@ export const UNIT_LABELS: Record<MetricUnit, string> = {
     return t('servers.units.load');
   },
   temp: '°C',
+  get days() {
+    return t('servers.units.days');
+  },
   get net() {
     return t('servers.units.net');
   },
@@ -79,6 +84,11 @@ export const UNIT_LABELS: Record<MetricUnit, string> = {
 export const fmtPct1 = (v: number) => t('servers.pct', { v: fmtDec(v, 1) });
 
 /** Eşik veya ölçülen değeri metriğin birimiyle yazar: "%90", "1,50 / çekirdek", "80 °C". */
+/** Dolmasına kalan gün: 1'in altında "1 günden az". */
+export function fmtDays(v: number): string {
+  return v < 1 ? t('servers.fmt.daysLess') : t('servers.fmt.days', { n: Math.round(v) });
+}
+
 export function fmtMetric(m: ServerMetric, v: number): string {
   switch (METRICS[m]?.unit) {
     case 'pct':
@@ -87,6 +97,8 @@ export function fmtMetric(m: ServerMetric, v: number): string {
       return t('servers.fmt.load', { v: fmtDec(v, 2) });
     case 'temp':
       return fmtTemp(v);
+    case 'days':
+      return fmtDays(v);
     case 'net':
       return v >= 1000 ? t('servers.fmt.gbit', { v: fmtDec(v / 1000, 2) }) : t('servers.fmt.mbit', { v: Math.round(v) });
     default:
