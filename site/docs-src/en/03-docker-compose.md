@@ -2,7 +2,7 @@
 id: compose
 title: Install with Docker Compose
 nav: Docker Compose
-description: Install Bekci in /opt/bekci with a docker-compose.yml file. SQLite or external PostgreSQL; updating is a single command.
+description: Install Bekci in /opt/bekci with a docker-compose.yml file. The default setup is PostgreSQL + TimescaleDB; updating is a single command.
 section: Install
 order: 3
 slug: install/docker-compose
@@ -32,7 +32,7 @@ cd /opt/bekci
 
 ## 3. Create docker-compose.yml {#file}
 
-Pick your database. If in doubt, choose **SQLite**: it needs no extra service and is the lightest option ([which database?](/en/docs/#database)).
+The default setup uses **PostgreSQL + TimescaleDB**. SQLite is deprecated and stays for existing installs only ([database and migration](/en/docs/database/)).
 
 Create the file with the `nano` text editor:
 
@@ -43,35 +43,11 @@ nano docker-compose.yml
 Copy the content below and paste it into the nano window (in most terminals: right-click or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>):
 
 :::tabs key=db label="Database"
-@tab SQLite (recommended)
+@tab PostgreSQL + TimescaleDB (recommended)
+This file also starts a PostgreSQL 18 + TimescaleDB container next to Bekci. Use letters and digits only in the password (`openssl rand -hex 24`). If you'll use your own PostgreSQL server instead, delete the `db` service and point `DATABASE_URL` at that server.
+
 ```yaml title="/opt/bekci/docker-compose.yml" download="/indir/en/docker-compose.yml"
-# Bekci — install with Docker Compose (SQLite)
-# Guide: https://bekci.app/en/docs/install/docker-compose/
-name: bekci
-services:
-  bekci:
-    # To pin a version, replace "latest" with e.g. 1.0.0.
-    # For embedded PostgreSQL: kadirsungurlu/bekci:postgres
-    image: kadirsungurlu/bekci:latest
-    restart: unless-stopped
-    stop_grace_period: 30s
-    ports:
-      - "8080:8080"
-    environment:
-      BASE_URL: http://⟦203.0.113.10⟧:8080   # the address you open the panel at
-      TZ: Europe/Istanbul
-    volumes:
-      - bekci-data:/data
-volumes:
-  bekci-data:
-```
-
-The only thing to change is the highlighted part: replace `203.0.113.10` with your server's IP address.
-@tab External PostgreSQL
-This file also starts a PostgreSQL 18 container next to Bekci. If you'll use your own PostgreSQL server instead, delete the `db` service and point `DATABASE_URL` at that server.
-
-```yaml title="/opt/bekci/docker-compose.yml" download="/indir/en/docker-compose.postgres.yml"
-# Bekci — install with Docker Compose (external PostgreSQL)
+# Bekci — install with Docker Compose (PostgreSQL + TimescaleDB)
 # Guide: https://bekci.app/en/docs/install/docker-compose/
 # Change the password in BOTH places the same way (DATABASE_URL and POSTGRES_PASSWORD).
 name: bekci
@@ -92,16 +68,17 @@ services:
       db:
         condition: service_healthy
   db:
-    image: postgres:18-alpine
+    image: timescale/timescaledb:2.31.0-pg18
     restart: unless-stopped
     environment:
       POSTGRES_USER: bekci
       POSTGRES_PASSWORD: ⟦A-STRONG-PASSWORD⟧
       POSTGRES_DB: bekci
+      TIMESCALEDB_TELEMETRY: "off"
     volumes:
       - db-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bekci -d bekci"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U bekci -d bekci"]
       interval: 5s
       retries: 10
 volumes:
@@ -110,6 +87,29 @@ volumes:
 ```
 
 Change the highlighted parts: your server's IP address and a strong password, **the same in both places**. Use only letters and digits in the password (e.g. a random 24-character string); characters such as `@`, `:`, `/`, `?` and `#` break the connection URL.
+@tab SQLite (deprecated)
+```yaml title="/opt/bekci/docker-compose.yml" download="/indir/en/docker-compose.sqlite.yml"
+# Bekci — install with Docker Compose (SQLite)
+# Guide: https://bekci.app/en/docs/install/docker-compose/
+name: bekci
+services:
+  bekci:
+    # To pin a version, replace "latest" with e.g. 1.0.0.
+    image: kadirsungurlu/bekci:latest
+    restart: unless-stopped
+    stop_grace_period: 30s
+    ports:
+      - "8080:8080"
+    environment:
+      BASE_URL: http://⟦203.0.113.10⟧:8080   # the address you open the panel at
+      TZ: Europe/Istanbul
+    volumes:
+      - bekci-data:/data
+volumes:
+  bekci-data:
+```
+
+The only thing to change is the highlighted part: replace `203.0.113.10` with your server's IP address.
 :::
 
 Save and exit: <kbd>Ctrl</kbd>+<kbd>O</kbd>, then <kbd>Enter</kbd> (save), then <kbd>Ctrl</kbd>+<kbd>X</kbd> (exit).
@@ -122,7 +122,7 @@ Save and exit: <kbd>Ctrl</kbd>+<kbd>O</kbd>, then <kbd>Enter</kbd> (save), then 
 > nano docker-compose.yml
 > ```
 >
-> For external PostgreSQL the address is `https://bekci.app/indir/en/docker-compose.postgres.yml` (the downloaded file must still be named `docker-compose.yml`).
+> For the SQLite file the address is `https://bekci.app/indir/en/docker-compose.sqlite.yml` (the downloaded file must still be named `docker-compose.yml`).
 
 > [!CHECK]
 > `docker compose config --quiet` should finish without printing anything. If it prints an error, the indentation was most likely damaged: YAML files are indented with spaces and the number of leading spaces matters. Delete the file (`rm docker-compose.yml`) and create it again.
@@ -136,7 +136,7 @@ docker compose up -d
 The first time, the image is downloaded from Docker Hub (a few seconds to a minute).
 
 > [!CHECK]
-> The command should end with a `Container bekci-bekci-1  Started` line. A few seconds later the **STATUS** column of `docker compose ps` should read `Up … (healthy)`. If you chose PostgreSQL you'll see two rows: `bekci` and `db`.
+> The command should end with a `Container bekci-bekci-1  Started` line. A few seconds later the **STATUS** column of `docker compose ps` should read `Up … (healthy)`. You'll see two lines: `bekci` and `db`.
 
 ## 5. Open the panel {#open}
 

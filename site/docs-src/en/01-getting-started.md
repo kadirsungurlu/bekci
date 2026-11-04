@@ -24,7 +24,7 @@ These docs are written so that you can install Bekci end to end on your own, eve
 
 - **Docker:** Bekci ships as a Docker image. If Docker isn't installed yet, [the first step of the Docker guide](/en/docs/install/docker/#install-docker) shows you how.
 - **A domain (optional):** to open the panel at a secure address such as `https://bekci.example.com` you need a domain (or subdomain). You don't need one to try Bekci out.
-- **Memory use:** Bekci itself uses about 15 MB of RAM with 10 monitors and 3 servers. Add roughly 200 MB if you choose the image with embedded PostgreSQL.
+- **Memory use:** Bekci itself uses about 15 MB of RAM with 10 monitors and 3 servers. With the database, 4 GB is recommended for 100 monitors ([hardware](/en/docs/database/#hardware)).
 
 > [!NOTE]
 > The commands in these docs assume you are logged in as **root**. If you connect to the server as another user, put `sudo` in front of the commands (e.g. `sudo docker ps`).
@@ -46,7 +46,7 @@ Find the row closest to your situation and open that guide. If you are unsure: *
 
 <div class="doc-cards">
 <a class="doc-card" href="/en/docs/install/docker/"><b>Docker (one command)</b>Run one command and open it in your browser. The quickest way to try Bekci.</a>
-<a class="doc-card" href="/en/docs/install/docker-compose/"><b>Docker Compose</b>Settings live in one file; easier updates and backups. SQLite or PostgreSQL.</a>
+<a class="doc-card" href="/en/docs/install/docker-compose/"><b>Docker Compose</b>Settings live in one file; easier updates and backups. PostgreSQL + TimescaleDB.</a>
 <a class="doc-card" href="/en/docs/install/caddy/"><b>HTTPS install (Caddy)</b>A complete setup on your own domain with an automatic Let's Encrypt certificate.</a>
 <a class="doc-card" href="/en/docs/install/coolify/"><b>Coolify</b>Add it as a Docker image and let Coolify handle the domain and certificate.</a>
 <a class="doc-card" href="/en/docs/install/reverse-proxy/"><b>Behind a reverse proxy</b>Put it behind your existing Nginx, Traefik, Apache or Caddy.</a>
@@ -55,16 +55,15 @@ Find the row closest to your situation and open that guide. If you are unsure: *
 
 ## Which database? {#database}
 
-For most installs there is nothing to decide: Bekci uses **SQLite** by default. It needs no extra service, is the lightest option and stays fast with hundreds of monitors.
+There is nothing to decide: new installs use **PostgreSQL + TimescaleDB**; the [Docker Compose](/en/docs/install/docker-compose/) file starts the database too.
 
-| Option | How | When |
+| Option | Status | When |
 |---|---|---|
-| **SQLite** (default) | The `kadirsungurlu/bekci:latest` image, nothing else | Most installs |
-| **Embedded PostgreSQL** | The `kadirsungurlu/bekci:postgres` image; PostgreSQL 18 runs inside the same container | You want PostgreSQL but don't want to run a separate database |
-| **External PostgreSQL** | The `latest` image + the `DATABASE_URL` environment variable | You already run a PostgreSQL server |
+| **PostgreSQL + TimescaleDB** | Default | All new installs |
+| **Plain PostgreSQL** (`DATABASE_URL`) | Works, not recommended; slows down at large scale | Managed services such as RDS where the extension can't be installed |
+| **SQLite**, **embedded PostgreSQL** (`:postgres`) | Deprecated, removed in the next major version | Existing installs only |
 
-> [!IMPORTANT]
-> Data can **not** be moved between SQLite and PostgreSQL. Pick one from the start. (You can carry monitors, notification channels and status pages over to a new install with the JSON backup under **Settings → Backup / Restore** in the panel; check history is not included.)
+To move older installs and to choose hardware, see [Database and migration](/en/docs/database/).
 
 ## A few terms {#terms}
 

@@ -43,7 +43,9 @@ Uygulamanın **Environment Variables** bölümüne ekleyip yeniden dağıtın.
 | `MAX_CONCURRENT_CHECKS` | `50` | Aynı anda çalışabilecek en fazla kontrol sayısı. Yüzlerce monitörde artırılabilir. |
 | `BEAT_BATCH_MS` | `250` | Bu süre (milisaniye) içinde gelen kontrol sonuçları tek işlemde yazılır. Kısa aralıklı (5-15 saniye) çok sayıda monitörde disk yazımını azaltır; 0 her sonucu ayrı yazar. |
 | `READ_CACHE_SEC` | `15` | Yalnız TimescaleDB kipi: tüm monitörleri tarayan özet okumaları (monitör listesi, özet, `/metrics`) bu süre (saniye) paylaşılır. Süren saat ham veriden toplandığı için maliyeti monitör sayısıyla büyür. `0` kapatır. |
-| `DATABASE_URL` | — | Verilirse SQLite yerine **PostgreSQL** kullanılır: `postgres://kullanıcı:parola@sunucu:5432/veritabanı?sslmode=disable`. `postgres://` ya da `postgresql://` ile başlamalıdır. Bu durumda Bekci gece yedeği almaz; yedeği veritabanı tarafında alın. `postgres` imajında bu değişken yok sayılır (her zaman gömülü veritabanı kullanılır). |
+| `DATABASE_URL` | — | Veritabanı adresi; PostgreSQL + TimescaleDB için gereklidir (varsayılan compose yazar). Verilmezse kullanımdan kalkan SQLite kullanılır: `postgres://kullanıcı:parola@sunucu:5432/veritabanı?sslmode=disable`. `postgres://` ya da `postgresql://` ile başlamalıdır. Bu durumda Bekci gece yedeği almaz; yedeği veritabanı tarafında alın. `postgres` imajında bu değişken yok sayılır (her zaman gömülü veritabanı kullanılır). |
+| `DB_TIMESCALE` | `auto` | `off`: eklenti kurulu olsa da düz PostgreSQL yolu kullanılır. Var olan dönüşüm geri alınmaz. |
+| `SQLITE_IGNORE` | — | `1`: veri klasöründe taşınmamış SQLite varken boş PostgreSQL ile açılmaya izin verir ([taşıma](/docs/veritabani/#sqlite)). |
 | `DATA_DIR` | `/data` | SQLite veritabanı ve yedeklerin klasörü. Docker'da değiştirmeniz gerekmez; birimi `/data`'ya bağlayın. |
 | `ADDR` | `:8080` | Konteynerin içinde dinlenecek adres ve port. |
 | `TRUSTED_PROXY` | — | Güvenilir ters vekil ağları, virgülle ayrılmış CIDR listesi (ör. `172.17.0.1/32,10.0.0.0/8`). Ayarlıysa `X-Forwarded-For` başlığına yalnızca bu ağlardan gelen bağlantılarda güvenilir. Boşsa tüm özel ve yerel adresler güvenilir sayılır ve açılışta bir uyarı yazılır; vekilsiz kurulumda `127.0.0.1/32` verin ([ayrıntı](/docs/kurulum/ters-vekil/#trusted-proxy)). |
@@ -79,6 +81,6 @@ Bu değişkenleri panelden aldığınız kurulum komutu sizin için ayarlar (`/e
 |---|---|
 | `UPTIME_DOMAIN` | Panelin alan adı (`https://` olmadan). `BASE_URL` bundan oluşturulur. Zorunlu. |
 | `ACME_EMAIL` | Let's Encrypt bildirimleri için e-posta. Zorunlu. |
-| `UPTIME_TAG` | İmaj etiketi: `latest`, `postgres`, `1.0.0`, `1.0.0-postgres`… Varsayılan `latest`. |
+| `UPTIME_TAG` | İmaj etiketi: `latest`, `1.0.0`… (`postgres`, `1.0.0-postgres` kullanımdan kalkıyor). Varsayılan `latest`. |
 | `STATUS_DOMAIN` | Artık gerekmez: durum sayfası özel alan adları otomatik HTTPS alır. Yalnız eski, elle eklenmiş `{$STATUS_DOMAIN}` Caddy bloğu için kullanılır ([ayrıntı](/docs/kurulum/caddy/#durum-alan-adi-gecis)). |
 | `TZ`, `LOG_LEVEL`, `MAX_CONCURRENT_CHECKS` | Yukarıdaki tabloyla aynı. |

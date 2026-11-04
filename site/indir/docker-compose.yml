@@ -1,10 +1,9 @@
-# Bekci — Docker Compose ile kurulum (SQLite)
+# Bekci — Docker Compose ile kurulum (PostgreSQL + TimescaleDB)
 # Rehber: https://bekci.app/docs/kurulum/docker-compose/
+# Parolayı İKİ yerde de aynı şekilde değiştirin (DATABASE_URL ve POSTGRES_PASSWORD).
 name: bekci
 services:
   bekci:
-    # Sürümü sabitlemek için "latest" yerine ör. 1.0.0 yazın.
-    # Gömülü PostgreSQL için: kadirsungurlu/bekci:postgres
     image: kadirsungurlu/bekci:latest
     restart: unless-stopped
     stop_grace_period: 30s
@@ -13,7 +12,26 @@ services:
     environment:
       BASE_URL: http://203.0.113.10:8080   # panelin dışarıdan açıldığı adres
       TZ: Europe/Istanbul
+      DATABASE_URL: postgres://bekci:GUCLU-BIR-PAROLA@db:5432/bekci?sslmode=disable
     volumes:
-      - bekci-data:/data
+      - bekci-data:/data   # yedekler ve geçici dosyalar
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: timescale/timescaledb:2.31.0-pg18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bekci
+      POSTGRES_PASSWORD: GUCLU-BIR-PAROLA
+      POSTGRES_DB: bekci
+      TIMESCALEDB_TELEMETRY: "off"
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U bekci -d bekci"]
+      interval: 5s
+      retries: 10
 volumes:
   bekci-data:
+  db-data:

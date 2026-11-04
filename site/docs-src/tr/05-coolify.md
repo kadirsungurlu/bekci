@@ -87,11 +87,11 @@ Sağ üstteki **Deploy** düğmesine basın. Coolify imajı indirir ve konteyner
 
 ## PostgreSQL ile {#postgresql}
 
-Varsayılan SQLite çoğu kurulum için yeterlidir ([hangi veritabanı?](/docs/#veritabani)). PostgreSQL istiyorsanız iki yol var:
+Yukarıdaki adımlar SQLite ile kurar; SQLite kullanımdan kalkıyor, sonraki büyük sürümde kaldırılır. Kalıcı bir kurulum için ikinci sekmeyi izleyin ve veritabanının imajını `timescale/timescaledb:2.31.0-pg18` yapın ([veritabanı ve taşıma](/docs/veritabani/)).
 
 :::tabs key=coolify-db label="PostgreSQL seçeneği"
 @tab Gömülü PostgreSQL
-En kolayı: 1. adımda etiketi `latest` yerine `postgres` yazın (sabit sürüm için `1.0.0-postgres`). PostgreSQL 18 aynı konteynerin içinde çalışır; veritabanı yine `/data` biriminde durur ve gece yedekleri `/data/backups` altına alınır. Diğer adımlar aynıdır. Yaklaşık 200 MB ek bellek kullanır.
+Kullanımdan kalkıyor; yeni kurulumda seçmeyin. 1. adımda etiketi `latest` yerine `postgres` yazın (sabit sürüm için `1.0.0-postgres`). PostgreSQL 18 aynı konteynerin içinde çalışır; veritabanı `/data` biriminde durur.
 @tab Coolify'daki PostgreSQL
 1. Aynı projede **New resource** → **PostgreSQL** ile bir veritabanı oluşturun ve başlatın.
 2. Veritabanının sayfasında iç bağlantı adresini kopyalayın (**Postgres URL (internal)** gibi bir adla gösterilir). Adres `postgres://kullanıcı:parola@…:5432/…` biçimindedir.
@@ -103,7 +103,7 @@ En kolayı: 1. adımda etiketi `latest` yerine `postgres` yazın (sabit sürüm 
 
    Değer `postgres://postgres:…@…:5432/postgres` gibi görünür.
 
-4. Etiketi `latest` (SQLite imajı) olarak bırakın; `DATABASE_URL` verildiğinde bu imaj PostgreSQL'e bağlanır. **Deploy** ile yeniden dağıtın.
+4. Etiketi `latest` olarak bırakın; `DATABASE_URL` verildiğinde imaj PostgreSQL'e bağlanır. **Deploy** ile yeniden dağıtın.
 
 Bekci ile veritabanı aynı Coolify sunucusunda olmalıdır (iç adres yalnızca orada çalışır). Bu durumda Bekci gece yedeğini **almaz**; yedeği veritabanının sayfasındaki **Backups** bölümünden zamanlayın.
 :::

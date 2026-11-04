@@ -24,7 +24,7 @@ Bu belgeler, Linux'a ve Docker'a çok alışkın değilseniz bile Bekci'yi başt
 
 - **Docker:** Bekci bir Docker imajı olarak gelir. Docker kurulu değilse [Docker rehberindeki ilk adım](/docs/kurulum/docker/#docker-kurun) nasıl kuracağınızı anlatır.
 - **Alan adı (isteğe bağlı):** Paneli `https://bekci.ornek.com` gibi güvenli bir adresten açmak istiyorsanız bir alan adına (ya da alt alan adına) ihtiyacınız var. Denemek için gerekmez.
-- **Bellek kullanımı:** Bekci'nin kendisi 10 monitör ve 3 sunucuda yaklaşık 15 MB RAM kullanır. Gömülü PostgreSQL'li imajı seçerseniz yaklaşık 200 MB daha ekleyin.
+- **Bellek kullanımı:** Bekci'nin kendisi 10 monitör ve 3 sunucuda yaklaşık 15 MB RAM kullanır. Veritabanıyla birlikte 100 monitör için 4 GB önerilir ([donanım](/docs/veritabani/#donanim)).
 
 > [!NOTE]
 > Bu belgelerdeki komutlar **root** kullanıcısıyla çalıştırıldığı varsayılarak yazıldı. Sunucuya root dışında bir kullanıcıyla bağlanıyorsanız komutların başına `sudo` ekleyin (ör. `sudo docker ps`).
@@ -46,7 +46,7 @@ Aşağıdaki tablodan durumunuza en yakın satırı bulun ve o rehberi açın. E
 
 <div class="doc-cards">
 <a class="doc-card" href="/docs/kurulum/docker/"><b>Docker (tek komut)</b>Tek komutla çalıştırın, tarayıcıdan açın. Denemek için en kısa yol.</a>
-<a class="doc-card" href="/docs/kurulum/docker-compose/"><b>Docker Compose</b>Ayarlar bir dosyada; güncelleme ve yedek daha kolay. SQLite ya da PostgreSQL.</a>
+<a class="doc-card" href="/docs/kurulum/docker-compose/"><b>Docker Compose</b>Ayarlar bir dosyada; güncelleme ve yedek daha kolay. PostgreSQL + TimescaleDB.</a>
 <a class="doc-card" href="/docs/kurulum/caddy/"><b>HTTPS'li kurulum (Caddy)</b>Alan adınızla, otomatik Let's Encrypt sertifikasıyla eksiksiz kurulum.</a>
 <a class="doc-card" href="/docs/kurulum/coolify/"><b>Coolify</b>Docker imajı olarak ekleyin; alan adı ve sertifikayı Coolify yönetsin.</a>
 <a class="doc-card" href="/docs/kurulum/ters-vekil/"><b>Ters vekil arkasında</b>Mevcut Nginx, Traefik, Apache ya da Caddy'nizin arkasına yerleştirin.</a>
@@ -55,16 +55,15 @@ Aşağıdaki tablodan durumunuza en yakın satırı bulun ve o rehberi açın. E
 
 ## Hangi veritabanı? {#veritabani}
 
-Çoğu kurulum için karar vermenize gerek yok: Bekci varsayılan olarak **SQLite** kullanır. Ek bir servis gerektirmez, en hafif seçenektir ve yüzlerce monitörde de hızlıdır.
+Karar vermenize gerek yok: yeni kurulumlar **PostgreSQL + TimescaleDB** kullanır; [Docker Compose](/docs/kurulum/docker-compose/) dosyası veritabanını da başlatır.
 
-| Seçenek | Nasıl | Ne zaman |
+| Seçenek | Durum | Ne zaman |
 |---|---|---|
-| **SQLite** (varsayılan) | `kadirsungurlu/bekci:latest` imajı, başka bir şey gerekmez | Çoğu kurulum |
-| **Gömülü PostgreSQL** | `kadirsungurlu/bekci:postgres` imajı; PostgreSQL 18 aynı konteynerin içinde çalışır | PostgreSQL istiyorsunuz ama ayrı bir veritabanı yönetmek istemiyorsunuz |
-| **Harici PostgreSQL** | `latest` imajı + `DATABASE_URL` ortam değişkeni | Zaten yönettiğiniz bir PostgreSQL sunucunuz var |
+| **PostgreSQL + TimescaleDB** | Varsayılan | Tüm yeni kurulumlar |
+| **Düz PostgreSQL** (`DATABASE_URL`) | Çalışır, önerilmez; büyük ölçekte yavaşlar | RDS gibi eklenti kurulamayan yönetilen servisler |
+| **SQLite**, **gömülü PostgreSQL** (`:postgres`) | Kullanımdan kalkıyor, sonraki büyük sürümde kaldırılır | Yalnız var olan kurulumlar |
 
-> [!IMPORTANT]
-> SQLite ile PostgreSQL arasında veri **taşınmaz**. Baştan birini seçin. (Monitörleri, bildirim kanallarını ve durum sayfalarını panelin **Ayarlar → Yedekle / Geri yükle** bölümündeki JSON yedeğiyle yeni kuruluma aktarabilirsiniz; kontrol geçmişi aktarılmaz.)
+Eski kurulumları taşımak ve donanım seçimi için: [Veritabanı ve taşıma](/docs/veritabani/).
 
 ## Birkaç kavram {#kavramlar}
 

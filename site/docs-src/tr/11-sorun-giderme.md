@@ -59,7 +59,7 @@ Komut `Yeni şifre:` diye sorar; yeni şifreyi (en az 8 karakter) yazıp <kbd>En
 docker compose exec bekci uptime sifre-sifirla ⟦admin⟧ --2fa-kapat
 ```
 
-Bu komut iki imajda da (SQLite ve PostgreSQL) aynı şekilde çalışır.
+Bu komut tüm imajlarda aynı şekilde çalışır.
 
 ## Bekci çalışıyor mu? {#saglik}
 
@@ -167,7 +167,7 @@ Aynı verilerle hayır — SQLite'ta da harici PostgreSQL'de de (veritabanı üz
 
 ### SQLite'tan PostgreSQL'e geçebilir miyim? {#sqlite-postgresql}
 
-Veritabanı doğrudan taşınmaz. Monitörleri, bildirim kanallarını, etiketleri ve durum sayfalarını **Ayarlar → Yedekle / Geri yükle** bölümündeki JSON yedeğiyle yeni kuruluma aktarabilirsiniz; kullanıcılar ve kontrol geçmişi aktarılmaz ([ayrıntı](/docs/guncelleme-yedek/#json-yedek)).
+Evet. `uptime migrate` komutu tüm veriyi (kullanıcılar ve kontrol geçmişi dahil) taşır, kesilirse kaldığı yerden devam eder, SQLite dosyasını değiştirmez: [rehber](/docs/veritabani/#sqlite).
 
 ### Ne kadar disk kullanır? {#disk-kullanimi}
 

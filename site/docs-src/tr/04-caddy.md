@@ -139,14 +139,16 @@ name: bekci
 
 services:
   bekci:
-    # UPTIME_TAG: latest (SQLite, önerilen) | postgres (gömülü PostgreSQL)
-    # ya da sabit bir sürüm: 1.0.0 / 1.0.0-postgres. İki türün verisi
-    # birbirine taşınmaz: baştan birini seçin.
+    # UPTIME_TAG: latest ya da sabit bir sürüm (ör. 1.0.0).
     image: kadirsungurlu/bekci:${UPTIME_TAG:-latest}
     restart: unless-stopped
-    # Kapanışta uygulama (ve gömülü PostgreSQL) düzgünce kapansın.
+    # Kapanışta uygulama düzgünce kapansın.
     stop_grace_period: 30s
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
+      DATABASE_URL: postgres://bekci:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD}@db:5432/bekci?sslmode=disable
       BASE_URL: https://${UPTIME_DOMAIN:?UPTIME_DOMAIN .env dosyasında tanımlı olmalı}
       TZ: ${TZ:-Europe/Istanbul}
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -161,6 +163,26 @@ services:
       options:
         max-size: 10m
         max-file: "3"
+
+  db:
+    image: timescale/timescaledb:2.31.0-pg18
+    restart: unless-stopped
+    stop_grace_period: 60s
+    environment:
+      POSTGRES_USER: bekci
+      POSTGRES_DB: bekci
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD}
+      TIMESCALEDB_TELEMETRY: "off"
+    volumes:
+      - bekci-db:/var/lib/postgresql
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U bekci -d bekci"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
 
   caddy:
     # caddy:2-alpine (digest ile sabit)
@@ -189,6 +211,7 @@ services:
 
 volumes:
   bekci-data:
+  bekci-db:
   caddy-data:
   caddy-config:
 ```
@@ -248,8 +271,11 @@ UPTIME_DOMAIN=⟦bekci.ornek.com⟧
 # Let's Encrypt sertifika bildirimleri için e-posta adresiniz.
 ACME_EMAIL=⟦admin@ornek.com⟧
 
-# latest: SQLite (önerilen) | postgres: gömülü PostgreSQL
-# Sürümü sabitlemek için: 1.0.0 (SQLite) ya da 1.0.0-postgres.
+# Veritabanı parolası. Yalnız harf ve rakam kullanın; üretmek için:
+# openssl rand -hex 24
+POSTGRES_PASSWORD=
+
+# latest ya da sabit bir sürüm (ör. 1.0.0).
 UPTIME_TAG=latest
 
 TZ=Europe/Istanbul

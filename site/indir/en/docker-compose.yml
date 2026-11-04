@@ -1,10 +1,9 @@
-# Bekci — install with Docker Compose (SQLite)
+# Bekci — install with Docker Compose (PostgreSQL + TimescaleDB)
 # Guide: https://bekci.app/en/docs/install/docker-compose/
+# Change the password in BOTH places the same way (DATABASE_URL and POSTGRES_PASSWORD).
 name: bekci
 services:
   bekci:
-    # To pin a version, replace "latest" with e.g. 1.0.0.
-    # For embedded PostgreSQL: kadirsungurlu/bekci:postgres
     image: kadirsungurlu/bekci:latest
     restart: unless-stopped
     stop_grace_period: 30s
@@ -13,7 +12,26 @@ services:
     environment:
       BASE_URL: http://203.0.113.10:8080   # the address you open the panel at
       TZ: Europe/Istanbul
+      DATABASE_URL: postgres://bekci:A-STRONG-PASSWORD@db:5432/bekci?sslmode=disable
     volumes:
-      - bekci-data:/data
+      - bekci-data:/data   # backups and temporary files
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: timescale/timescaledb:2.31.0-pg18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bekci
+      POSTGRES_PASSWORD: A-STRONG-PASSWORD
+      POSTGRES_DB: bekci
+      TIMESCALEDB_TELEMETRY: "off"
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U bekci -d bekci"]
+      interval: 5s
+      retries: 10
 volumes:
   bekci-data:
+  db-data:

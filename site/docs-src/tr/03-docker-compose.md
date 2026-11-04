@@ -2,7 +2,7 @@
 id: compose
 title: Docker Compose ile kurulum
 nav: Docker Compose
-description: Bekci'yi /opt/bekci klasöründe bir docker-compose.yml dosyasıyla kurun. SQLite ya da harici PostgreSQL; güncelleme tek komut.
+description: Bekci'yi /opt/bekci klasöründe bir docker-compose.yml dosyasıyla kurun. Varsayılan kurulum PostgreSQL + TimescaleDB; güncelleme tek komut.
 section: Kurulum
 order: 3
 slug: kurulum/docker-compose
@@ -32,7 +32,7 @@ cd /opt/bekci
 
 ## 3. docker-compose.yml dosyasını oluşturun {#dosya}
 
-Veritabanı seçiminizi yapın. Kararsızsanız **SQLite** seçin: ek servis gerektirmez ve en hafif seçenektir ([hangi veritabanı?](/docs/#veritabani)).
+Varsayılan kurulum **PostgreSQL + TimescaleDB** kullanır. SQLite kullanımdan kalkıyor; yalnız var olan kurulumlar için durur ([veritabanı ve taşıma](/docs/veritabani/)).
 
 Dosyayı `nano` metin düzenleyicisiyle oluşturun:
 
@@ -43,35 +43,11 @@ nano docker-compose.yml
 Aşağıdaki içeriği kopyalayıp nano penceresine yapıştırın (çoğu terminalde sağ tık ya da <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>):
 
 :::tabs key=db label="Veritabanı"
-@tab SQLite (önerilen)
+@tab PostgreSQL + TimescaleDB (önerilen)
+Bu dosya Bekci'nin yanında PostgreSQL 18 + TimescaleDB konteyneri de başlatır. Parolayı yalnız harf ve rakamla seçin (`openssl rand -hex 24`). Kendi PostgreSQL sunucunuzu kullanacaksanız `db` servisini silin ve `DATABASE_URL`'i o sunucunun adresiyle değiştirin.
+
 ```yaml title="/opt/bekci/docker-compose.yml" download="/indir/docker-compose.yml"
-# Bekci — Docker Compose ile kurulum (SQLite)
-# Rehber: https://bekci.app/docs/kurulum/docker-compose/
-name: bekci
-services:
-  bekci:
-    # Sürümü sabitlemek için "latest" yerine ör. 1.0.0 yazın.
-    # Gömülü PostgreSQL için: kadirsungurlu/bekci:postgres
-    image: kadirsungurlu/bekci:latest
-    restart: unless-stopped
-    stop_grace_period: 30s
-    ports:
-      - "8080:8080"
-    environment:
-      BASE_URL: http://⟦203.0.113.10⟧:8080   # panelin dışarıdan açıldığı adres
-      TZ: Europe/Istanbul
-    volumes:
-      - bekci-data:/data
-volumes:
-  bekci-data:
-```
-
-Değiştirmeniz gereken tek yer vurgulu olan: `203.0.113.10` yerine sunucunuzun IP adresini yazın.
-@tab Harici PostgreSQL
-Bu dosya Bekci'nin yanında bir PostgreSQL 18 konteyneri de başlatır. Kendi PostgreSQL sunucunuzu kullanacaksanız `db` servisini silin ve `DATABASE_URL`'i o sunucunun adresiyle yazın.
-
-```yaml title="/opt/bekci/docker-compose.yml" download="/indir/docker-compose.postgres.yml"
-# Bekci — Docker Compose ile kurulum (harici PostgreSQL)
+# Bekci — Docker Compose ile kurulum (PostgreSQL + TimescaleDB)
 # Rehber: https://bekci.app/docs/kurulum/docker-compose/
 # Parolayı İKİ yerde de aynı şekilde değiştirin (DATABASE_URL ve POSTGRES_PASSWORD).
 name: bekci
@@ -92,16 +68,17 @@ services:
       db:
         condition: service_healthy
   db:
-    image: postgres:18-alpine
+    image: timescale/timescaledb:2.31.0-pg18
     restart: unless-stopped
     environment:
       POSTGRES_USER: bekci
       POSTGRES_PASSWORD: ⟦GUCLU-BIR-PAROLA⟧
       POSTGRES_DB: bekci
+      TIMESCALEDB_TELEMETRY: "off"
     volumes:
       - db-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bekci -d bekci"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U bekci -d bekci"]
       interval: 5s
       retries: 10
 volumes:
@@ -110,6 +87,29 @@ volumes:
 ```
 
 Vurgulu yerleri değiştirin: sunucunuzun IP adresi ve **iki yerde aynı** güçlü bir parola. Parolada yalnızca harf ve rakam kullanın (ör. 24 karakterlik rastgele bir dizi); `@`, `:`, `/`, `?`, `#` gibi karakterler bağlantı adresini bozar.
+@tab SQLite (kullanımdan kalkıyor)
+```yaml title="/opt/bekci/docker-compose.yml" download="/indir/docker-compose.sqlite.yml"
+# Bekci — Docker Compose ile kurulum (SQLite)
+# Rehber: https://bekci.app/docs/kurulum/docker-compose/
+name: bekci
+services:
+  bekci:
+    # Sürümü sabitlemek için "latest" yerine ör. 1.0.0 yazın.
+    image: kadirsungurlu/bekci:latest
+    restart: unless-stopped
+    stop_grace_period: 30s
+    ports:
+      - "8080:8080"
+    environment:
+      BASE_URL: http://⟦203.0.113.10⟧:8080   # panelin dışarıdan açıldığı adres
+      TZ: Europe/Istanbul
+    volumes:
+      - bekci-data:/data
+volumes:
+  bekci-data:
+```
+
+Değiştirmeniz gereken tek yer vurgulu olan: `203.0.113.10` yerine sunucunuzun IP adresini yazın.
 :::
 
 Kaydedip çıkın: <kbd>Ctrl</kbd>+<kbd>O</kbd>, ardından <kbd>Enter</kbd> (kaydet), sonra <kbd>Ctrl</kbd>+<kbd>X</kbd> (çık).
@@ -122,7 +122,7 @@ Kaydedip çıkın: <kbd>Ctrl</kbd>+<kbd>O</kbd>, ardından <kbd>Enter</kbd> (kay
 > nano docker-compose.yml
 > ```
 >
-> Harici PostgreSQL için adres `https://bekci.app/indir/docker-compose.postgres.yml` olur (indirilen dosyanın adı yine `docker-compose.yml` olmalı).
+> SQLite dosyası için adres `https://bekci.app/indir/docker-compose.sqlite.yml` olur (indirilen dosyanın adı yine `docker-compose.yml` olmalı).
 
 > [!CHECK]
 > `docker compose config --quiet` komutu hiçbir şey yazmadan bitmeli. Hata veriyorsa büyük olasılıkla girintiler bozulmuştur: YAML dosyalarında girinti boşlukla yapılır ve satır başlarındaki boşluk sayısı önemlidir. Dosyayı silip (`rm docker-compose.yml`) yeniden oluşturun.
@@ -136,7 +136,7 @@ docker compose up -d
 İlk seferde imaj Docker Hub'dan indirilir (birkaç saniye ile bir dakika arası).
 
 > [!CHECK]
-> Komut `Container bekci-bekci-1  Started` satırıyla bitmeli. Birkaç saniye sonra `docker compose ps` çıktısında **STATUS** sütunu `Up … (healthy)` olmalı. PostgreSQL seçtiyseniz iki satır görürsünüz: `bekci` ve `db`.
+> Komut `Container bekci-bekci-1  Started` satırıyla bitmeli. Birkaç saniye sonra `docker compose ps` çıktısında **STATUS** sütunu `Up … (healthy)` olmalı. İki satır görürsünüz: `bekci` ve `db`.
 
 ## 5. Paneli açın {#paneli-acin}
 
