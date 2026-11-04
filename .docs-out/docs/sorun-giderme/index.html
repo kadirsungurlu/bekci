@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="tr" class="docs-page">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sorun giderme ve SSS — Bekci belgeleri</title>
+<meta name="description" content="Şifre sıfırlama, sağlık kontrolü, günlükler, dolu portlar, gelmeyen canlı güncellemeler, saat dilimi ve sık sorulan diğer sorular.">
+<link rel="canonical" href="https://bekci.app/docs/sorun-giderme/">
+<link rel="alternate" hreflang="tr" href="https://bekci.app/docs/sorun-giderme/">
+<link rel="alternate" hreflang="en" href="https://bekci.app/en/docs/troubleshooting/">
+<link rel="alternate" hreflang="x-default" href="https://bekci.app/docs/sorun-giderme/">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b111b">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg?v=dev" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=dev">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Bekci">
+<meta property="og:locale" content="tr_TR">
+<meta property="og:url" content="https://bekci.app/docs/sorun-giderme/">
+<meta property="og:title" content="Sorun giderme ve SSS — Bekci belgeleri">
+<meta property="og:description" content="Şifre sıfırlama, sağlık kontrolü, günlükler, dolu portlar, gelmeyen canlı güncellemeler, saat dilimi ve sık sorulan diğer sorular.">
+<meta property="og:image" content="https://bekci.app/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="/assets/fonts/inter-4.1.1-bekci.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=dev">
+<link rel="stylesheet" href="/assets/docs.css?v=dev">
+<script src="/assets/site.js?v=dev"></script>
+<script src="/assets/docs.js?v=dev" defer></script>
+</head>
+<body>
+<a class="skip" href="#icerik">İçeriğe geç</a>
+<header class="site-header">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/" aria-label="Bekci ana sayfa">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <nav class="nav" aria-label="Ana menü">
+      <ul>
+        <li><a href="/#ozellikler">Özellikler</a></li>
+        <li><a href="/#ekranlar">Ekranlar</a></li>
+        <li><a href="/#neden">Karşılaştırma</a></li>
+        <li><a href="/#kurulum">Kurulum</a></li>
+        <li><a href="/#sss">SSS</a></li>
+        <li><a href="/docs/" class="active" aria-current="true">Belgeler</a></li>
+      </ul>
+    </nav>
+    <div class="header-actions">
+      <a class="lang" href="/en/docs/troubleshooting/" hreflang="en" lang="en" aria-label="English version">EN</a>
+      <button class="icon-btn theme-toggle" type="button" aria-label="Temayı değiştir">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+      <a class="icon-btn header-gh" href="https://github.com/kadirsungurlu/bekci" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg></a>
+      <a class="btn btn-primary btn-sm header-hub" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Docker Hub
+      </a>
+      <button class="icon-btn menu-toggle" type="button" aria-expanded="false" aria-controls="mobil-menu" aria-label="Menü">
+        <svg class="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <svg class="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobil-menu" aria-label="Mobil menü" hidden>
+    <ul>
+      <li><a href="/#ozellikler">Özellikler</a></li>
+        <li><a href="/#ekranlar">Ekranlar</a></li>
+        <li><a href="/#neden">Karşılaştırma</a></li>
+        <li><a href="/#kurulum">Kurulum</a></li>
+        <li><a href="/#sss">SSS</a></li>
+      <li><a href="/docs/" class="active" aria-current="true">Belgeler</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+    </ul>
+    <a class="btn btn-primary" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a>
+  </nav>
+</header>
+<div class="docs-bar">
+  <button class="docs-bar-btn" type="button" aria-expanded="false" aria-controls="belge-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Menü</span></button>
+  <span class="docs-bar-where">Bakım ve başvuru<span aria-hidden="true"> › </span>Sorun giderme ve SSS</span>
+</div>
+<div class="docs-shade" hidden></div>
+<div class="docs wrap-docs">
+<aside class="docs-side" id="belge-menu" aria-label="Belgeler menüsü">
+  <div class="side-head">
+    <p class="side-head-title">Belgeler</p>
+    <button class="icon-btn side-close" type="button" aria-label="Kapat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="doc-search" role="search" data-index="/assets/docs-search-tr.json?v=dev">
+    <label class="sr-only" for="ara">Belgelerde ara</label>
+    <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+    <input id="ara" type="text" inputmode="search" enterkeyhint="search" placeholder="Belgelerde ara…" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="ara-sonuc" aria-autocomplete="list">
+    <kbd class="search-kbd" aria-hidden="true">/</kbd>
+    <div class="search-results" id="ara-sonuc" role="listbox" aria-label="Belgelerde ara" hidden></div>
+  </div>
+  <nav class="side-nav" aria-label="Belgeler">
+    <ul>
+<li class="side-group"><p class="side-title">Başlarken</p><ul><li><a href="/docs/">Başlarken</a></li></ul></li>
+<li class="side-group"><p class="side-title">Kurulum</p><ul><li><a href="/docs/kurulum/docker/">Docker (tek komut)</a></li><li><a href="/docs/kurulum/docker-compose/">Docker Compose</a></li><li><a href="/docs/kurulum/caddy/">HTTPS'li kurulum (Caddy)</a></li><li><a href="/docs/kurulum/coolify/">Coolify</a></li><li><a href="/docs/kurulum/ters-vekil/">Ters vekil arkasında</a></li></ul></li>
+<li class="side-group"><p class="side-title">Kullanım</p><ul><li><a href="/docs/ilk-adimlar/">İlk adımlar</a></li><li><a href="/docs/sunucu-ajani/">Sunucu ajanı ve kontrol noktası</a></li><li><a href="/docs/guvenlik-duvari/">Güvenlik duvarı ve Cloudflare</a></li><li><a href="/docs/entegrasyonlar/">Entegrasyonlar</a></li><li><a href="/docs/giris-ve-sso/">Giriş ve SSO</a></li></ul></li>
+<li class="side-group"><p class="side-title">Bakım ve başvuru</p><ul><li><a href="/docs/guncelleme-yedek/">Güncelleme, yedek, geri dönüş</a></li><li><a href="/docs/ortam-degiskenleri/">Ortam değişkenleri</a></li><li><a href="/docs/sorun-giderme/" aria-current="page">Sorun giderme ve SSS</a></li><li><a href="/docs/veritabani/">Veritabanı ve taşıma</a></li></ul></li>
+    </ul>
+  </nav>
+</aside>
+<main id="icerik" class="docs-main">
+<article class="doc">
+<nav class="crumbs" aria-label="Konum"><ol><li><a href="/docs/">Belgeler</a></li><li><span>Bakım ve başvuru</span></li></ol></nav>
+<h1>Sorun giderme ve SSS</h1>
+<p class="doc-lead">Şifre sıfırlama, sağlık kontrolü, günlükler, dolu portlar, gelmeyen canlı güncellemeler, saat dilimi ve sık sorulan diğer sorular.</p>
+<details class="toc-inline"><summary>Bu sayfada</summary><ul><li class="toc-2"><a href="#konteyner-adi">Konteynerin adını bulun</a></li><li class="toc-2"><a href="#sifre-sifirlama">Şifremi unuttum</a></li><li class="toc-2"><a href="#saglik">Bekci çalışıyor mu?</a></li><li class="toc-2"><a href="#gunlukler">Günlükler</a></li><li class="toc-2"><a href="#kilit">Konteyner “başka bir örnekte açık” diyerek bekliyor</a></li><li class="toc-2"><a href="#port">Port zaten kullanımda</a></li><li class="toc-2"><a href="#canli">Panel açılıyor ama canlı güncellemeler gelmiyor</a></li><li class="toc-2"><a href="#cok-fazla-deneme">“Çok fazla hatalı deneme”</a></li><li class="toc-2"><a href="#saat">Saatler yanlış görünüyor</a></li><li class="toc-2"><a href="#base-url">Bildirimlerdeki bağlantılar ya da ajan komutundaki adres yanlış</a></li><li class="toc-2"><a href="#disk">Disk doldu</a></li><li class="toc-2"><a href="#postgresql-surum">PostgreSQL sürümü uyuşmuyor</a></li><li class="toc-2"><a href="#oob-arayuz">“OOB arayüzü bulunamadı”</a></li><li class="toc-2"><a href="#oob-gecmiyor">Ana hat koptu ama OOB'ye geçmiyor</a></li><li class="toc-2"><a href="#sss">Sık sorulan sorular</a></li><li class="toc-3"><a href="#ucretsiz">Bekci ücretsiz mi?</a></li><li class="toc-3"><a href="#internet">İnternet bağlantısı gerekir mi?</a></li><li class="toc-3"><a href="#iki-kopya">Aynı anda iki Bekci kopyası çalıştırabilir miyim?</a></li><li class="toc-3"><a href="#sqlite-postgresql">SQLite'tan PostgreSQL'e geçebilir miyim?</a></li><li class="toc-3"><a href="#disk-kullanimi">Ne kadar disk kullanır?</a></li><li class="toc-3"><a href="#hata-bildir">Bir hata buldum ya da bir özellik istiyorum</a></li></ul></details>
+<div class="doc-body">
+<h2 id="konteyner-adi">Konteynerin adını bulun<a class="h-anchor" href="#konteyner-adi" aria-label="Bu bölümün bağlantısı: Konteynerin adını bulun">#</a></h2>
+<p>Bu sayfadaki komutlarda Bekci konteynerinin adını kullanacaksınız. Kurulum yoluna göre ad değişir:</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="Tablo: Kurulum, Konteyner adı"><table><thead><tr><th>Kurulum</th><th>Konteyner adı</th></tr></thead><tbody><tr><td><a href="/docs/kurulum/docker/">Docker (tek komut)</a></td><td><code>bekci</code></td></tr><tr><td><a href="/docs/kurulum/docker-compose/">Docker Compose</a> ve <a href="/docs/kurulum/caddy/">Caddy&#39;li kurulum</a></td><td><code>bekci-bekci-1</code> (ya da <code>/opt/bekci</code> içinde <code>docker compose exec bekci …</code>)</td></tr><tr><td>Coolify</td><td>Uygulamanın rastgele adı; <code>docker ps</code> listesinde <code>kadirsungurlu/bekci</code> imajını kullanan satır</td></tr></tbody></table></div>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-1" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-1" class="hljs language-bash">docker ps --filter ancestor=kadirsungurlu/bekci:latest</code></pre></div>
+<p>(Sabit bir sürüm kullanıyorsanız <code>latest</code> yerine o etiketi yazın, ör. <code>kadirsungurlu/bekci:1.0.0</code>.)</p>
+<h2 id="sifre-sifirlama">Şifremi unuttum<a class="h-anchor" href="#sifre-sifirlama" aria-label="Bu bölümün bağlantısı: Şifremi unuttum">#</a></h2>
+<p>Panele giremiyorsanız şifreyi sunucudan sıfırlayabilirsiniz. Bekci çalışırken şu komutu çalıştırın; <code>admin</code> yerine kendi kullanıcı adınızı yazın:</p>
+<div class="tabs" data-key="kurulum"><div class="tab-list" role="tablist" aria-label="Kurulum yolu"><button type="button" role="tab" id="sekme-docker-compose" aria-controls="docker-compose" aria-selected="true" tabindex="0" data-tab="docker-compose" class="active">Docker Compose</button><button type="button" role="tab" id="sekme-docker-run" aria-controls="docker-run" aria-selected="false" tabindex="-1" data-tab="docker-run">docker run</button><button type="button" role="tab" id="sekme-coolify" aria-controls="coolify" aria-selected="false" tabindex="-1" data-tab="coolify">Coolify</button></div>
+<div class="tab-panel active" role="tabpanel" id="docker-compose" aria-labelledby="sekme-docker-compose" data-tab="docker-compose"><p class="tab-label">Docker Compose</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-7" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-7" class="hljs language-bash"><span class="hljs-built_in">cd</span> /opt/bekci
+docker compose <span class="hljs-built_in">exec</span> bekci <span class="hljs-built_in">uptime</span> sifre-sifirla <mark class="ph">admin</mark></code></pre></div>
+</div>
+<div class="tab-panel" role="tabpanel" id="docker-run" aria-labelledby="sekme-docker-run" data-tab="docker-run"><p class="tab-label">docker run</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-8" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-8" class="hljs language-bash">docker <span class="hljs-built_in">exec</span> -it bekci <span class="hljs-built_in">uptime</span> sifre-sifirla <mark class="ph">admin</mark></code></pre></div>
+</div>
+<div class="tab-panel" role="tabpanel" id="coolify" aria-labelledby="sekme-coolify" data-tab="coolify"><p class="tab-label">Coolify</p>
+<p>Coolify&#39;da uygulamanın <strong>Terminal</strong> bölümünü açıp şunu çalıştırın:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-9" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-9" class="hljs language-bash"><span class="hljs-built_in">uptime</span> sifre-sifirla <mark class="ph">admin</mark></code></pre></div>
+<p>Ya da sunucuda <code>docker exec -it <mark class="ph">konteyner-adı</mark> uptime sifre-sifirla <mark class="ph">admin</mark></code>.</p>
+</div>
+</div>
+<p>Komut <code>Yeni şifre:</code> diye sorar; yeni şifreyi (en az 8 karakter) yazıp <kbd>Enter</kbd>&#39;a basın. Yazdığınız şifre ekranda görünür; çevrenize dikkat edin.</p>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>Ne görmelisiniz?</span></p>
+<p><code>Şifre değiştirildi, tüm oturumlar kapatıldı.</code> mesajını görürsünüz ve yeni şifreyle giriş yapabilirsiniz. <code>hata: kullanıcı bulunamadı</code> görüyorsanız kullanıcı adını yanlış yazmışsınızdır.</p>
+</aside>
+<p><strong>İki adımlı doğrulamayı da kapatmak</strong> için (telefonunuzu ve kurtarma kodlarınızı kaybettiyseniz) komutun sonuna <code>--2fa-kapat</code> ekleyin:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-2" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-2" class="hljs language-bash">docker compose <span class="hljs-built_in">exec</span> bekci <span class="hljs-built_in">uptime</span> sifre-sifirla <mark class="ph">admin</mark> --2fa-kapat</code></pre></div>
+<p>Bu komut tüm imajlarda aynı şekilde çalışır.</p>
+<h2 id="saglik">Bekci çalışıyor mu?<a class="h-anchor" href="#saglik" aria-label="Bu bölümün bağlantısı: Bekci çalışıyor mu?">#</a></h2>
+<p>Sağlık kontrolü adresi <code>/healthz</code>, veritabanına erişilebiliyorsa <code>ok</code> döndürür:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-3" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-3" class="hljs language-bash">curl http://localhost:8080/healthz          <span class="hljs-comment"># sunucunun içinden (port yayınlıysa)</span>
+curl https://<mark class="ph">bekci.ornek.com</mark>/healthz          <span class="hljs-comment"># dışarıdan</span></code></pre></div>
+<p><code>docker ps</code> çıktısındaki <strong>STATUS</strong> sütunu da imajın kendi sağlık kontrolünü gösterir: <code>(healthy)</code> her şey yolunda, <code>(unhealthy)</code> sorun var demektir. Veritabanına ulaşılamıyorsa <code>/healthz</code> <code>503</code> ve <code>veritabanı erişilemiyor</code> döndürür.</p>
+<h2 id="gunlukler">Günlükler<a class="h-anchor" href="#gunlukler" aria-label="Bu bölümün bağlantısı: Günlükler">#</a></h2>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-4" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-4" class="hljs language-bash">docker logs --<span class="hljs-built_in">tail</span> 100 bekci                 <span class="hljs-comment"># docker run</span>
+<span class="hljs-built_in">cd</span> /opt/bekci &amp;&amp; docker compose logs --<span class="hljs-built_in">tail</span> 100 bekci   <span class="hljs-comment"># Compose</span></code></pre></div>
+<p>Coolify&#39;da uygulamanın <strong>Logs</strong> bölümüne bakın. Daha ayrıntılı günlük için <code>LOG_LEVEL=debug</code> ortam değişkenini verip konteyneri yeniden oluşturun (<a href="/docs/ortam-degiskenleri/">ortam değişkenleri</a>). Hatalı bir açılışın son satırı <code>hata:</code> ile başlar ve nedeni söyler.</p>
+<h2 id="kilit">Konteyner “başka bir örnekte açık” diyerek bekliyor<a class="h-anchor" href="#kilit" aria-label="Bu bölümün bağlantısı: Konteyner “başka bir örnekte açık” diyerek bekliyor">#</a></h2>
+<p>Günlükte şunu görüyorsanız:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><span></span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-5" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-5" class="hljs language-plaintext">level=WARN msg=&quot;veri klasörü başka bir örnekte açık; o kapanana kadar bekleniyor&quot; kilit=/data/uptime.db.lock en_fazla=10m0s
+level=WARN msg=&quot;hâlâ bekleniyor: diğer örnek veri klasörünü bırakmadı&quot; gecen=30s</code></pre></div>
+<p>Aynı veri birimini kullanan ikinci bir Bekci konteyneri başlatılmış demektir. İki kopya aynı anda çalışıp çift kontrol ve çift bildirim yapmasın diye yeni kopya, eskisi kapanana kadar bekler.</p>
+<ul>
+<li><strong>Coolify&#39;da güncelleme sırasında</strong> bu normaldir: eski konteyner kapanınca yenisi bir iki saniyede devralır.</li>
+<li><strong>Başka bir durumda</strong> aynı birimi kullanan eski konteyneri bulup durdurun: <code>docker ps -a</code>. 10 dakika (<code>UPTIME_LOCK_WAIT</code>) içinde kilit bırakılmazsa yeni konteyner <code>aynı veri klasörüyle iki uygulama çalıştırılamaz</code> hatasıyla kapanır.</li>
+</ul>
+<h2 id="port">Port zaten kullanımda<a class="h-anchor" href="#port" aria-label="Bu bölümün bağlantısı: Port zaten kullanımda">#</a></h2>
+<p><code>port is already allocated</code> ya da <code>address already in use</code> hatası, seçtiğiniz portu başka bir programın kullandığını söyler:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-6" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-6" class="hljs language-bash">docker ps --filter publish=<mark class="ph">8080</mark>        <span class="hljs-comment"># portu kullanan konteyner</span>
+ss -ltnp <span class="hljs-string">&#x27;sport = :<mark class="ph">8080</mark>&#x27;</span>              <span class="hljs-comment"># portu kullanan program</span></code></pre></div>
+<ul>
+<li><strong>8080:</strong> Coolify kurulu sunucularda Coolify&#39;ın vekili 8080&#39;i kullanır. Başka bir port seçin (<code>-p 8081:8080</code>) ya da <a href="/docs/kurulum/coolify/">Coolify rehberini</a> izleyin.</li>
+<li><strong>80 / 443:</strong> Sunucuda zaten bir web sunucusu var. Caddy&#39;li kurulum yerine <a href="/docs/kurulum/ters-vekil/">ters vekil</a> ya da <a href="/docs/kurulum/coolify/">Coolify</a> rehberini izleyin.</li>
+</ul>
+<h2 id="canli">Panel açılıyor ama canlı güncellemeler gelmiyor<a class="h-anchor" href="#canli" aria-label="Bu bölümün bağlantısı: Panel açılıyor ama canlı güncellemeler gelmiyor">#</a></h2>
+<p>Sayfanın üst kısmında sürekli <strong>Bağlantı yok</strong> uyarısı görüyorsanız ya da monitörlerin durumu ancak sayfayı yenileyince değişiyorsa, önünüzdeki ters vekil canlı akışı (<code>/api/events</code>) tamponluyordur. Vekilinize göre gereken ayar <a href="/docs/kurulum/ters-vekil/#canli-guncelleme-yok">ters vekil sayfasında</a>.</p>
+<h2 id="cok-fazla-deneme">“Çok fazla hatalı deneme”<a class="h-anchor" href="#cok-fazla-deneme" aria-label="Bu bölümün bağlantısı: “Çok fazla hatalı deneme”">#</a></h2>
+<p>Aynı IP adresinden 15 dakika içinde 5 hatalı giriş denemesi yapılırsa o adres 15 dakika bekletilir. Süre dolunca yeniden deneyin ya da <a href="#sifre-sifirlama">şifreyi sıfırlayın</a>. Bekci bir ters vekilin arkasındaysa ve tüm kullanıcılar aynı anda engelleniyorsa vekil <code>X-Forwarded-For</code> başlığını iletmiyordur (<a href="/docs/kurulum/ters-vekil/">ters vekil ayarları</a>).</p>
+<h2 id="saat">Saatler yanlış görünüyor<a class="h-anchor" href="#saat" aria-label="Bu bölümün bağlantısı: Saatler yanlış görünüyor">#</a></h2>
+<p>Arayüz saatleri şu anda her zaman Türkiye saatiyle (<code>Europe/Istanbul</code>) gösterir. Günlük özetler, gece yedeğinin saati ve günlük satırları ise sunucudaki <code>TZ</code> ortam değişkenine göredir (varsayılan <code>Europe/Istanbul</code>). Başka bir saat dilimi için ör. <code>TZ=Europe/Berlin</code> verip konteyneri yeniden oluşturun. Günlükteki <code>Bekci başladı</code> satırı kullanılan saat dilimini gösterir (<code>saat_dilimi=</code>).</p>
+<h2 id="base-url">Bildirimlerdeki bağlantılar ya da ajan komutundaki adres yanlış<a class="h-anchor" href="#base-url" aria-label="Bu bölümün bağlantısı: Bildirimlerdeki bağlantılar ya da ajan komutundaki adres yanlış">#</a></h2>
+<p><code>BASE_URL</code> ayarlı değil ya da yanlış. Panelin dışarıdan açıldığı adresi (<code>https://…</code>) verip konteyneri yeniden oluşturun (<a href="/docs/ortam-degiskenleri/">ortam değişkenleri</a>).</p>
+<h2 id="disk">Disk doldu<a class="h-anchor" href="#disk" aria-label="Bu bölümün bağlantısı: Disk doldu">#</a></h2>
+<p>Disk dolarsa Bekci yeni ölçümleri yazamaz; SQLite kullanıyorsanız veritabanını yükselten bir güncellemeden önceki otomatik yedek de alınamaz ve Bekci açılmaz. Yer açın: eski güncelleme öncesi yedekler (<code>/data/backups/pre-migrate-…db</code>) kendiliğinden silinmez, Docker&#39;ın kullanılmayan imajları da yer kaplar. Ham kayıtların ne kadar süre tutulacağını <strong>Ayarlar → Genel</strong> bölümünden kısaltabilirsiniz.</p>
+<h2 id="postgresql-surum">PostgreSQL sürümü uyuşmuyor<a class="h-anchor" href="#postgresql-surum" aria-label="Bu bölümün bağlantısı: PostgreSQL sürümü uyuşmuyor">#</a></h2>
+<p><code>postgres</code> imajı <code>HATA: PostgreSQL ana sürümü uyuşmuyor.</code> diyerek başlamıyorsa <a href="/docs/guncelleme-yedek/#postgresql-yukseltme">PostgreSQL ana sürüm yükseltmesi</a> adımlarını izleyin.</p>
+<h2 id="oob-arayuz">“OOB arayüzü bulunamadı”<a class="h-anchor" href="#oob-arayuz" aria-label="Bu bölümün bağlantısı: “OOB arayüzü bulunamadı”">#</a></h2>
+<p>Panelde girilen OOB IP&#39;si kontrol noktasının ağ arayüzlerinin hiçbirinde yok. Olası nedenler:</p>
+<ul>
+<li>OOB IP&#39;si sunucuda değil, önündeki NAT cihazında (genel IP). Ajanın ayar dosyasına arayüz adını ekleyin (<code>PROBE_OOB_IFACE=eth1</code>) ve ajanı yeniden başlatın (Docker&#39;da <code>docker restart</code> ayar dosyasını yeniden okumaz; konteyneri yeniden oluşturun).</li>
+<li>Ajan Docker&#39;da köprü ağında çalışıyor ve sunucunun OOB arayüzünü görmüyor. Konteyneri <code>--network host</code> ile (compose&#39;da <code>network_mode: host</code>) çalıştırın.</li>
+<li>IP yanlış yazıldı. Sunucuda <code>ip -br addr</code> (Windows&#39;ta <code>ipconfig</code>) çıktısıyla karşılaştırın.</li>
+</ul>
+<p>Ayrıntı: <a href="/docs/sunucu-ajani/#oob">İkinci hat (OOB)</a>.</p>
+<h2 id="oob-gecmiyor">Ana hat koptu ama OOB&#39;ye geçmiyor<a class="h-anchor" href="#oob-gecmiyor" aria-label="Bu bölümün bağlantısı: Ana hat koptu ama OOB'ye geçmiyor">#</a></h2>
+<p>Sırayla kontrol edin:</p>
+<ol>
+<li>Panelde <strong>OOB arayüzü bulunamadı</strong> uyarısı varsa önce <a href="#oob-arayuz">onu giderin</a>.</li>
+<li>Sunucuda <code>curl --interface &lt;oob_arayuzu&gt; -sI https://bekci.ornek.com/healthz</code> çalışmalı. Çalışmıyorsa OOB arayüzünün ağ geçidi yoktur ya da paketler ana hattan çıkıyordur: <code>ip rule</code> ve <code>ip route show table oob</code> ile <a href="/docs/sunucu-ajani/#oob">policy routing</a> kurulumunu kontrol edin. Ajan <code>CAP_NET_RAW</code> yetkisi olmadan çalışıyorsa bu kural şarttır.</li>
+<li>Hata türü: geçiş yalnız bağlantı hatalarında (bağlantı kurulamadı, zaman aşımı) olur. Panel <code>4xx</code>/<code>5xx</code> yanıt veriyorsa ana hat sağlam sayılır ve geçilmez.</li>
+<li>Mesh açıksa ve kontrol noktası ana hattan en az bir eşe ulaşıyorsa geçilmez: sorun panel tarafında sayılır.</li>
+<li>Süre: geçiş, kopukluk eşiği kadar ardışık hatadan sonra olur (varsayılan 3 x 5 sn = 15 sn). Günlükte <code>OOB hattına geçildi</code> satırını arayın.</li>
+</ol>
+<h2 id="sss">Sık sorulan sorular<a class="h-anchor" href="#sss" aria-label="Bu bölümün bağlantısı: Sık sorulan sorular">#</a></h2>
+<h3 id="ucretsiz">Bekci ücretsiz mi?<a class="h-anchor" href="#ucretsiz" aria-label="Bu bölümün bağlantısı: Bekci ücretsiz mi?">#</a></h3>
+<p>Evet. Bekci açık kaynaklıdır ve <a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">AGPL-3.0</a> lisansıyla dağıtılır; lisans ücreti, abonelik ya da ücretli plan yoktur. Kaynak kodu <a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub&#39;da</a>.</p>
+<h3 id="internet">İnternet bağlantısı gerekir mi?<a class="h-anchor" href="#internet" aria-label="Bu bölümün bağlantısı: İnternet bağlantısı gerekir mi?">#</a></h3>
+<p>Kurulum ve güncelleme sırasında imaj Docker Hub&#39;dan indirilir. Sonrasında Bekci dışarıya yalnızca sizin tanımladığınız kontroller ve bildirimler için bağlanır; iç ağdaki hedefleri de izleyebilir.</p>
+<h3 id="iki-kopya">Aynı anda iki Bekci kopyası çalıştırabilir miyim?<a class="h-anchor" href="#iki-kopya" aria-label="Bu bölümün bağlantısı: Aynı anda iki Bekci kopyası çalıştırabilir miyim?">#</a></h3>
+<p>Aynı verilerle hayır — SQLite&#39;ta da harici PostgreSQL&#39;de de (veritabanı üzerinde tek-örnek kilidi tutulur); ikinci kopya ilki kapanana kadar <a href="#kilit">bekler</a>. Birden çok replika çalıştırılamaz. Farklı konumlardan kontrol için <a href="/docs/sunucu-ajani/#kontrol-noktasi">kontrol noktası</a> kullanın.</p>
+<h3 id="sqlite-postgresql">SQLite&#39;tan PostgreSQL&#39;e geçebilir miyim?<a class="h-anchor" href="#sqlite-postgresql" aria-label="Bu bölümün bağlantısı: SQLite'tan PostgreSQL'e geçebilir miyim?">#</a></h3>
+<p>Evet. <code>uptime migrate</code> komutu tüm veriyi (kullanıcılar ve kontrol geçmişi dahil) taşır, kesilirse kaldığı yerden devam eder, SQLite dosyasını değiştirmez: <a href="/docs/veritabani/#sqlite">rehber</a>.</p>
+<h3 id="disk-kullanimi">Ne kadar disk kullanır?<a class="h-anchor" href="#disk-kullanimi" aria-label="Bu bölümün bağlantısı: Ne kadar disk kullanır?">#</a></h3>
+<p>Monitör sayısına ve kontrol aralığına bağlıdır. Her kontrolün ayrı kaydı varsayılan olarak 14 gün tutulur, sonra saatlik ve günlük özetlere dönüştürülür; bu süreleri <strong>Ayarlar → Genel</strong> bölümünden değiştirebilirsiniz. Aynı yerde çözülmüş olayların (varsayılan 365 gün), olayı açan istek/yanıt kaydının (90 gün) ve işlem kaydının (365 gün) saklama süreleri de ayarlanır; 0 yazarsanız o kayıtlar süresiz tutulur. Gece yedekleri de veritabanı boyutunun katları kadar yer kaplar.</p>
+<h3 id="hata-bildir">Bir hata buldum ya da bir özellik istiyorum<a class="h-anchor" href="#hata-bildir" aria-label="Bu bölümün bağlantısı: Bir hata buldum ya da bir özellik istiyorum">#</a></h3>
+<p><a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">GitHub&#39;da bir kayıt (issue) açın</a>.</p>
+</div>
+<div class="doc-feedback"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg><p>Bu sayfada eksik ya da hatalı bir şey mi var? <a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">GitHub’da bildirin</a></p></div>
+<nav class="pn-nav" aria-label="Önceki / Sonraki"><a class="pn pn-prev" href="/docs/ortam-degiskenleri/" rel="prev"><span class="pn-dir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Önceki</span><span class="pn-title">Ortam değişkenleri</span></a><a class="pn pn-next" href="/docs/guvenlik-duvari/" rel="next"><span class="pn-dir">Sonraki<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span><span class="pn-title">Güvenlik duvarı ve Cloudflare</span></a></nav>
+</article>
+</main>
+<nav class="docs-toc" aria-labelledby="bu-sayfada"><p class="toc-title" id="bu-sayfada">Bu sayfada</p><ul><li class="toc-2"><a href="#konteyner-adi">Konteynerin adını bulun</a></li><li class="toc-2"><a href="#sifre-sifirlama">Şifremi unuttum</a></li><li class="toc-2"><a href="#saglik">Bekci çalışıyor mu?</a></li><li class="toc-2"><a href="#gunlukler">Günlükler</a></li><li class="toc-2"><a href="#kilit">Konteyner “başka bir örnekte açık” diyerek bekliyor</a></li><li class="toc-2"><a href="#port">Port zaten kullanımda</a></li><li class="toc-2"><a href="#canli">Panel açılıyor ama canlı güncellemeler gelmiyor</a></li><li class="toc-2"><a href="#cok-fazla-deneme">“Çok fazla hatalı deneme”</a></li><li class="toc-2"><a href="#saat">Saatler yanlış görünüyor</a></li><li class="toc-2"><a href="#base-url">Bildirimlerdeki bağlantılar ya da ajan komutundaki adres yanlış</a></li><li class="toc-2"><a href="#disk">Disk doldu</a></li><li class="toc-2"><a href="#postgresql-surum">PostgreSQL sürümü uyuşmuyor</a></li><li class="toc-2"><a href="#oob-arayuz">“OOB arayüzü bulunamadı”</a></li><li class="toc-2"><a href="#oob-gecmiyor">Ana hat koptu ama OOB'ye geçmiyor</a></li><li class="toc-2"><a href="#sss">Sık sorulan sorular</a></li><li class="toc-3"><a href="#ucretsiz">Bekci ücretsiz mi?</a></li><li class="toc-3"><a href="#internet">İnternet bağlantısı gerekir mi?</a></li><li class="toc-3"><a href="#iki-kopya">Aynı anda iki Bekci kopyası çalıştırabilir miyim?</a></li><li class="toc-3"><a href="#sqlite-postgresql">SQLite'tan PostgreSQL'e geçebilir miyim?</a></li><li class="toc-3"><a href="#disk-kullanimi">Ne kadar disk kullanır?</a></li><li class="toc-3"><a href="#hata-bildir">Bir hata buldum ya da bir özellik istiyorum</a></li></ul></nav>
+</div>
+<footer class="site-footer">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/" aria-label="Bekci ana sayfa">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <ul class="foot-links">
+      <li><a href="/docs/">Belgeler</a></li>
+      <li><a href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">Lisans: AGPL-3.0</a></li>
+      <li><a href="/en/docs/troubleshooting/" hreflang="en" lang="en">English</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">İletişim: GitHub</a></li>
+    </ul>
+    <p>© 2026 Bekci · Türkiye’de geliştirildi.</p>
+  </div>
+</footer>
+<div id="duyuru" class="sr-only" aria-live="polite"></div>
+</body>
+</html>

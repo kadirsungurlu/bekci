@@ -163,7 +163,7 @@ func (s *Store) tsWindowParts(t int64, w, filter string, idArgs []any) ([]string
 			if t < d0 {
 				add(hourly(" AND h.bucket < ?"), t, d0)
 			}
-			add("SELECT d.monitor_id, "+w+", d.up, d.down FROM monitors m "+
+			add("SELECT d.monitor_id AS mid, "+w+" AS w, d.up AS up, d.down AS down FROM monitors m "+
 				"JOIN stats_daily_legacy d ON d.monitor_id = m.id AND d.bucket >= ? AND d.bucket < ?"+filter, d0, s.tsDailyCutoff)
 			lo = s.tsDailyCutoff
 		}
@@ -179,7 +179,7 @@ func (s *Store) tsWindowParts(t int64, w, filter string, idArgs []any) ([]string
 		return parts, args
 	}
 	add(hourly(" AND h.bucket < ?"), lo, u1)
-	add("SELECT d.monitor_id, "+w+", d.up, d.down FROM monitors m "+
+	add("SELECT d.monitor_id AS mid, "+w+" AS w, d.up AS up, d.down AS down FROM monitors m "+
 		"JOIN stats_daily_utc d ON d.monitor_id = m.id AND d.bucket >= ? AND d.bucket < ? AND d.bucket >= "+resetDay+filter, u1, de)
 	add(hourly(" AND h.bucket < ?"+" AND h.bucket < "+resetDay+" AND m.stats_reset_at > ?"), u1, de, u1)
 	add(hourly(""), de)

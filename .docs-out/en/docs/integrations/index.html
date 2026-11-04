@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en" class="docs-page">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Integrations: webhook, Prometheus, RSS and CSV — Bekci docs</title>
+<meta name="description" content="The JSON body of webhook notifications and how to verify their HMAC signature, the Prometheus /metrics endpoint, the status page RSS feed and the CSV export of incidents.">
+<link rel="canonical" href="https://bekci.app/en/docs/integrations/">
+<link rel="alternate" hreflang="tr" href="https://bekci.app/docs/entegrasyonlar/">
+<link rel="alternate" hreflang="en" href="https://bekci.app/en/docs/integrations/">
+<link rel="alternate" hreflang="x-default" href="https://bekci.app/docs/entegrasyonlar/">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b111b">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg?v=dev" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=dev">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Bekci">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://bekci.app/en/docs/integrations/">
+<meta property="og:title" content="Integrations: webhook, Prometheus, RSS and CSV — Bekci docs">
+<meta property="og:description" content="The JSON body of webhook notifications and how to verify their HMAC signature, the Prometheus /metrics endpoint, the status page RSS feed and the CSV export of incidents.">
+<meta property="og:image" content="https://bekci.app/og-en.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="/assets/fonts/inter-4.1.1-bekci.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=dev">
+<link rel="stylesheet" href="/assets/docs.css?v=dev">
+<script src="/assets/site.js?v=dev"></script>
+<script src="/assets/docs.js?v=dev" defer></script>
+</head>
+<body>
+<a class="skip" href="#icerik">Skip to content</a>
+<header class="site-header">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/en/" aria-label="Bekci home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <nav class="nav" aria-label="Main">
+      <ul>
+        <li><a href="/en/#features">Features</a></li>
+        <li><a href="/en/#screenshots">Screenshots</a></li>
+        <li><a href="/en/#compare">Compare</a></li>
+        <li><a href="/en/#install">Install</a></li>
+        <li><a href="/en/#faq">FAQ</a></li>
+        <li><a href="/en/docs/" class="active" aria-current="true">Docs</a></li>
+      </ul>
+    </nav>
+    <div class="header-actions">
+      <a class="lang" href="/docs/entegrasyonlar/" hreflang="tr" lang="tr" aria-label="Türkçe sürüm">TR</a>
+      <button class="icon-btn theme-toggle" type="button" aria-label="Toggle theme">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+      <a class="icon-btn header-gh" href="https://github.com/kadirsungurlu/bekci" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg></a>
+      <a class="btn btn-primary btn-sm header-hub" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Docker Hub
+      </a>
+      <button class="icon-btn menu-toggle" type="button" aria-expanded="false" aria-controls="mobil-menu" aria-label="Menu">
+        <svg class="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <svg class="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobil-menu" aria-label="Mobile" hidden>
+    <ul>
+      <li><a href="/en/#features">Features</a></li>
+        <li><a href="/en/#screenshots">Screenshots</a></li>
+        <li><a href="/en/#compare">Compare</a></li>
+        <li><a href="/en/#install">Install</a></li>
+        <li><a href="/en/#faq">FAQ</a></li>
+      <li><a href="/en/docs/" class="active" aria-current="true">Docs</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+    </ul>
+    <a class="btn btn-primary" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a>
+  </nav>
+</header>
+<div class="docs-bar">
+  <button class="docs-bar-btn" type="button" aria-expanded="false" aria-controls="belge-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Menu</span></button>
+  <span class="docs-bar-where">Usage<span aria-hidden="true"> › </span>Integrations</span>
+</div>
+<div class="docs-shade" hidden></div>
+<div class="docs wrap-docs">
+<aside class="docs-side" id="belge-menu" aria-label="Docs menu">
+  <div class="side-head">
+    <p class="side-head-title">Docs</p>
+    <button class="icon-btn side-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="doc-search" role="search" data-index="/assets/docs-search-en.json?v=dev">
+    <label class="sr-only" for="ara">Search the docs</label>
+    <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+    <input id="ara" type="text" inputmode="search" enterkeyhint="search" placeholder="Search the docs…" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="ara-sonuc" aria-autocomplete="list">
+    <kbd class="search-kbd" aria-hidden="true">/</kbd>
+    <div class="search-results" id="ara-sonuc" role="listbox" aria-label="Search the docs" hidden></div>
+  </div>
+  <nav class="side-nav" aria-label="Docs">
+    <ul>
+<li class="side-group"><p class="side-title">Getting started</p><ul><li><a href="/en/docs/">Getting started</a></li></ul></li>
+<li class="side-group"><p class="side-title">Install</p><ul><li><a href="/en/docs/install/docker/">Docker (one command)</a></li><li><a href="/en/docs/install/docker-compose/">Docker Compose</a></li><li><a href="/en/docs/install/caddy/">HTTPS install (Caddy)</a></li><li><a href="/en/docs/install/coolify/">Coolify</a></li><li><a href="/en/docs/install/reverse-proxy/">Behind a reverse proxy</a></li></ul></li>
+<li class="side-group"><p class="side-title">Usage</p><ul><li><a href="/en/docs/first-steps/">First steps</a></li><li><a href="/en/docs/server-agent/">Server agent and check locations</a></li><li><a href="/en/docs/firewall/">Firewalls and Cloudflare</a></li><li><a href="/en/docs/integrations/" aria-current="page">Integrations</a></li><li><a href="/en/docs/sign-in-and-sso/">Sign-in &amp; SSO</a></li></ul></li>
+<li class="side-group"><p class="side-title">Maintenance and reference</p><ul><li><a href="/en/docs/updates-backups/">Updates, backups, rollback</a></li><li><a href="/en/docs/environment-variables/">Environment variables</a></li><li><a href="/en/docs/troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="/en/docs/database/">Database and migration</a></li></ul></li>
+    </ul>
+  </nav>
+</aside>
+<main id="icerik" class="docs-main">
+<article class="doc">
+<nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="/en/docs/">Docs</a></li><li><span>Usage</span></li></ol></nav>
+<h1>Integrations: webhook, Prometheus, RSS and CSV</h1>
+<p class="doc-lead">The JSON body of webhook notifications and how to verify their HMAC signature, the Prometheus /metrics endpoint, the status page RSS feed and the CSV export of incidents.</p>
+<details class="toc-inline"><summary>On this page</summary><ul><li class="toc-2"><a href="#webhook">Webhook notifications</a></li><li class="toc-3"><a href="#webhook-signature">HMAC signature</a></li><li class="toc-2"><a href="#csv">Exporting incidents as CSV</a></li><li class="toc-3"><a href="#json-lists">Recent checks and the audit log</a></li><li class="toc-2"><a href="#openapi">OpenAPI document</a></li><li class="toc-2"><a href="#prometheus">Prometheus metrics</a></li><li class="toc-2"><a href="#rss">Status page RSS feed</a></li></ul></details>
+<div class="doc-body">
+<p>Four ways to connect Bekci to your own systems: the generic <strong>webhook</strong> channel (signed), <strong>Prometheus</strong> metrics, the status pages&#39; <strong>RSS</strong> feed and the <strong>CSV</strong> export of incidents.</p>
+<h2 id="webhook">Webhook notifications<a class="h-anchor" href="#webhook" aria-label="Link to this section: Webhook notifications">#</a></h2>
+<p>Choose <strong>Notifications → New channel → Webhook</strong>. On every event a JSON body is sent to your URL with <code>POST</code> (or <code>PUT</code>). The optional <strong>Headers</strong> field (such as <code>Authorization: Bearer …</code>) is added to every request.</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>Request body (example)</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-1" aria-label="Copy code: Request body (example)"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-1" class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;event&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;down&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Website is down&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Website is down\nTarget: https://example.com\n…&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;HTTP 503 Service Unavailable&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;time&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-27T10:15:00+03:00&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;downtime_seconds&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;monitor&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Website&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;http&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;target&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;https://example.com&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;url&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;https://bekci.example.com/#/monitors/1&quot;</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;incident&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">42</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;url&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;https://bekci.example.com/#/incidents/42&quot;</span> <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span></code></pre></div>
+<p><code>event</code> values: <code>down</code>, <code>up</code>, <code>reminder</code>, <code>cert</code>, <code>slow</code>, <code>slow_resolved</code>, <code>location_down</code>, <code>location_up</code>, <code>server_alert</code>, <code>server_resolved</code>, <code>server_reboot</code>, <code>probe_offline</code>, <code>probe_online</code>, <code>acked</code> (only to channels that select this event; carries an <code>ack: { by, note }</code> object), <code>test</code>. Server alerts add a <code>server</code> object (<code>metric</code>, <code>value</code>, <code>threshold</code>, <code>minutes</code>); slow-response events add a <code>slow</code> object (<code>avg_ms</code>, <code>threshold_ms</code>, <code>checks</code>); multi-location monitors add a <code>locations</code> array. When <a href="/en/docs/first-steps/#notification-rules">notification rules</a> apply, <code>escalated: true</code> (sent to an escalation channel for an incident open for N minutes), <code>delayed: true</code> (sent after the delay rule or quiet hours) and <code>elapsed_seconds</code> (time elapsed so far) are added.</p>
+<h3 id="webhook-signature">HMAC signature<a class="h-anchor" href="#webhook-signature" aria-label="Link to this section: HMAC signature">#</a></h3>
+<p>So that your receiver can verify a request really came from Bekci, put a long random value (e.g. <code>openssl rand -hex 32</code>) into the channel&#39;s <strong>Signing secret (HMAC)</strong> field. From then on every request carries this header:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><span></span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-2" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-2" class="hljs language-plaintext">X-Bekci-Signature: t=1759000000,v1=5f3b1c…e2a9</code></pre></div>
+<ul>
+<li><code>t</code>: when the request was sent (Unix seconds).</li>
+<li><code>v1</code>: hex-encoded <code>HMAC-SHA256(secret, t + "." + raw body)</code>.</li>
+</ul>
+<p>To verify, split the header, compute the same HMAC over the <strong>raw body</strong> (do not re-serialize the JSON) and compare in constant time. Reject old requests (e.g. <code>t</code> older than 5 minutes) to prevent replay attacks.</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>Node.js (Express) verification</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-3" aria-label="Copy code: Node.js (Express) verification"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-3" class="hljs language-javascript"><span class="hljs-keyword">import</span> crypto <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;node:crypto&#x27;</span>;
+<span class="hljs-keyword">import</span> express <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;express&#x27;</span>;
+
+<span class="hljs-keyword">const</span> <span class="hljs-variable constant_">SECRET</span> = process.<span class="hljs-property">env</span>.<span class="hljs-property">BEKCI_SECRET</span>;
+<span class="hljs-keyword">const</span> app = <span class="hljs-title function_">express</span>();
+
+app.<span class="hljs-title function_">post</span>(<span class="hljs-string">&#x27;/bekci&#x27;</span>, express.<span class="hljs-title function_">raw</span>({ <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;application/json&#x27;</span> }), <span class="hljs-function">(<span class="hljs-params">req, res</span>) =&gt;</span> {
+  <span class="hljs-keyword">const</span> sig = <span class="hljs-title class_">Object</span>.<span class="hljs-title function_">fromEntries</span>((req.<span class="hljs-title function_">get</span>(<span class="hljs-string">&#x27;X-Bekci-Signature&#x27;</span>) ?? <span class="hljs-string">&#x27;&#x27;</span>).<span class="hljs-title function_">split</span>(<span class="hljs-string">&#x27;,&#x27;</span>).<span class="hljs-title function_">map</span>(<span class="hljs-function">(<span class="hljs-params">p</span>) =&gt;</span> p.<span class="hljs-title function_">split</span>(<span class="hljs-string">&#x27;=&#x27;</span>)));
+  <span class="hljs-keyword">const</span> t = <span class="hljs-title class_">Number</span>(sig.<span class="hljs-property">t</span>);
+  <span class="hljs-keyword">if</span> (!t || <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">abs</span>(<span class="hljs-title class_">Date</span>.<span class="hljs-title function_">now</span>() / <span class="hljs-number">1000</span> - t) &gt; <span class="hljs-number">300</span>) <span class="hljs-keyword">return</span> res.<span class="hljs-title function_">status</span>(<span class="hljs-number">400</span>).<span class="hljs-title function_">end</span>(<span class="hljs-string">&#x27;stale request&#x27;</span>);
+  <span class="hljs-keyword">const</span> want = crypto.<span class="hljs-title function_">createHmac</span>(<span class="hljs-string">&#x27;sha256&#x27;</span>, <span class="hljs-variable constant_">SECRET</span>).<span class="hljs-title function_">update</span>(<span class="hljs-string">`<span class="hljs-subst">${t}</span>.`</span>).<span class="hljs-title function_">update</span>(req.<span class="hljs-property">body</span>).<span class="hljs-title function_">digest</span>(<span class="hljs-string">&#x27;hex&#x27;</span>);
+  <span class="hljs-keyword">if</span> (!sig.<span class="hljs-property">v1</span> || !crypto.<span class="hljs-title function_">timingSafeEqual</span>(<span class="hljs-title class_">Buffer</span>.<span class="hljs-title function_">from</span>(want), <span class="hljs-title class_">Buffer</span>.<span class="hljs-title function_">from</span>(sig.<span class="hljs-property">v1</span>))) <span class="hljs-keyword">return</span> res.<span class="hljs-title function_">status</span>(<span class="hljs-number">401</span>).<span class="hljs-title function_">end</span>(<span class="hljs-string">&#x27;bad signature&#x27;</span>);
+  <span class="hljs-keyword">const</span> ev = <span class="hljs-title class_">JSON</span>.<span class="hljs-title function_">parse</span>(req.<span class="hljs-property">body</span>);
+  <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(ev.<span class="hljs-property">event</span>, ev.<span class="hljs-property">monitor</span>?.<span class="hljs-property">name</span>);
+  res.<span class="hljs-title function_">end</span>(<span class="hljs-string">&#x27;ok&#x27;</span>);
+});
+app.<span class="hljs-title function_">listen</span>(<span class="hljs-number">3000</span>);</code></pre></div>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>Python (Flask) verification</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-4" aria-label="Copy code: Python (Flask) verification"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-4" class="hljs language-python"><span class="hljs-keyword">import</span> hmac, hashlib, time, os
+<span class="hljs-keyword">from</span> flask <span class="hljs-keyword">import</span> Flask, request, abort
+
+SECRET = os.environ[<span class="hljs-string">&quot;BEKCI_SECRET&quot;</span>].encode()
+app = Flask(__name__)
+
+<span class="hljs-meta">@app.post(<span class="hljs-params"><span class="hljs-string">&quot;/bekci&quot;</span></span>)</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">bekci</span>():
+    parts = <span class="hljs-built_in">dict</span>(p.split(<span class="hljs-string">&quot;=&quot;</span>, <span class="hljs-number">1</span>) <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> request.headers.get(<span class="hljs-string">&quot;X-Bekci-Signature&quot;</span>, <span class="hljs-string">&quot;&quot;</span>).split(<span class="hljs-string">&quot;,&quot;</span>) <span class="hljs-keyword">if</span> <span class="hljs-string">&quot;=&quot;</span> <span class="hljs-keyword">in</span> p)
+    t = <span class="hljs-built_in">int</span>(parts.get(<span class="hljs-string">&quot;t&quot;</span>, <span class="hljs-number">0</span>))
+    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> t <span class="hljs-keyword">or</span> <span class="hljs-built_in">abs</span>(time.time() - t) &gt; <span class="hljs-number">300</span>:
+        abort(<span class="hljs-number">400</span>)
+    want = hmac.new(SECRET, <span class="hljs-string">f&quot;<span class="hljs-subst">{t}</span>.&quot;</span>.encode() + request.get_data(), hashlib.sha256).hexdigest()
+    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> hmac.compare_digest(want, parts.get(<span class="hljs-string">&quot;v1&quot;</span>, <span class="hljs-string">&quot;&quot;</span>)):
+        abort(<span class="hljs-number">401</span>)
+    ev = request.get_json()
+    <span class="hljs-built_in">print</span>(ev[<span class="hljs-string">&quot;event&quot;</span>], ev[<span class="hljs-string">&quot;monitor&quot;</span>][<span class="hljs-string">&quot;name&quot;</span>])
+    <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;ok&quot;</span></code></pre></div>
+<aside class="callout callout-tip"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg><span>Tip</span></p>
+<p>The signing secret is stored like the other secret fields: after saving it is shown masked and only re-entered to change it. The channel&#39;s <strong>Send sample notifications</strong> button sends signed requests too; use it to test your receiver.</p>
+</aside>
+<h2 id="csv">Exporting incidents as CSV<a class="h-anchor" href="#csv" aria-label="Link to this section: Exporting incidents as CSV">#</a></h2>
+<p>The <strong>Download CSV</strong> button on the <strong>Incidents</strong> page downloads the incidents of the selected filter (up to 10,000 rows, newest first). The same file is available from the API; a session cookie or an API key is enough, and a user only receives the incidents they are allowed to see:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-5" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-5" class="hljs language-bash">curl -H <span class="hljs-string">&quot;Authorization: Bearer upk_…&quot;</span> <span class="hljs-string">&quot;https://<mark class="ph">bekci.example.com</mark>/api/incidents?format=csv&amp;kind=monitor&quot;</span> -o incidents.csv</code></pre></div>
+<p>The <code>kind</code> filter: <code>monitor</code> (outages), <code>partial</code> (partial reachability outages), <code>server</code> (server and check-location incidents); empty means all. Columns:</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="Table: Column, Meaning"><table><thead><tr><th>Column</th><th>Meaning</th></tr></thead><tbody><tr><td><code>id</code></td><td>Incident id (<code>/#/incidents/&lt;id&gt;</code>)</td></tr><tr><td><code>kind</code></td><td><code>monitor</code>, <code>degraded</code> (slow response), <code>partial</code>, <code>server_offline</code>, <code>server_alert</code>, <code>probe_offline</code></td></tr><tr><td><code>source</code></td><td>Name of the monitor or of the server / check location</td></tr><tr><td><code>started_at</code>, <code>resolved_at</code></td><td>RFC 3339 in local time; empty <code>resolved_at</code> while ongoing</td></tr><tr><td><code>duration_seconds</code></td><td>Duration in seconds; for an ongoing incident, so far</td></tr><tr><td><code>cause</code></td><td>Cause (in the request language)</td></tr></tbody></table></div>
+<p>The file is UTF-8 and starts with a BOM so that Excel opens Turkish characters correctly.</p>
+<h3 id="json-lists">Recent checks and the audit log<a class="h-anchor" href="#json-lists" aria-label="Link to this section: Recent checks and the audit log">#</a></h3>
+<p>Two more lists are available with the same authentication:</p>
+<ul>
+<li><code>GET /api/monitors/&lt;id&gt;/beats?limit=50</code> returns the monitor&#39;s most recent checks, newest first (<code>limit</code> at most 200). Each row has <code>time</code> (unix), <code>status</code> (0 down, 1 up, 2 retrying, 3 maintenance), <code>ping_ms</code> (−1: no measurement), <code>message</code> (in the request language) and, for multi-location monitors, <code>location</code>.</li>
+<li><code>GET /api/audit</code> (admins only) returns the audit log; filters: <code>user</code> (username), <code>action</code> (a full code such as <code>monitor.delete</code> or an area prefix such as <code>monitor.</code>), <code>from</code>/<code>to</code> (unix), <code>q</code> (search in target, details, user and IP), <code>before</code> (paging: entries older than this id) and <code>limit</code> (at most 500). <code>GET /api/audit/facets</code> lists the usernames and action codes present in the log for filter boxes.</li>
+</ul>
+<h2 id="openapi">OpenAPI document<a class="h-anchor" href="#openapi" aria-label="Link to this section: OpenAPI document">#</a></h2>
+<p>The whole API (monitors, notification channels, incidents, status pages, server/check-location read endpoints, Web Push, backup, authentication) is documented in OpenAPI 3.1: <code>GET https://<mark class="ph">bekci.example.com</mark>/api/openapi.json</code> (no authentication needed). The source lives in the repository as <a href="https://github.com/kadirsungurlu/bekci/blob/main/internal/apidocs/openapi.yaml" rel="noopener"><code>internal/apidocs/openapi.yaml</code></a> and is compared against the registered routes in every build (an undocumented route fails the test).</p>
+<p>Load the document into a viewer such as <a href="https://editor.swagger.io/" rel="noopener">Swagger Editor</a> or <a href="https://redocly.github.io/redoc/" rel="noopener">Redocly</a> by URL, or generate a client:</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>Client generation (openapi-generator example)</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-6" aria-label="Copy code: Client generation (openapi-generator example)"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-6" class="hljs language-bash">curl -fsS https://<mark class="ph">bekci.example.com</mark>/api/openapi.json -o bekci-openapi.json
+npx @openapitools/openapi-generator-cli generate -i bekci-openapi.json -g python -o ./bekci-client</code></pre></div>
+<p>Authentication is by API key (<code>Authorization: Bearer upk_…</code>); write requests made with a browser session need the <code>X-Uptime: 1</code> header. The only group left out of the document is the check-location / server-agent protocol (<code>/api/probe/*</code>): an internal contract between agent and server that may change between versions.</p>
+<h2 id="prometheus">Prometheus metrics<a class="h-anchor" href="#prometheus" aria-label="Link to this section: Prometheus metrics">#</a></h2>
+<p><code>GET /metrics</code> serves data in the Prometheus text format (0.0.4). Create a key under <strong>Settings → API keys</strong> and call the endpoint with the <code>Authorization: Bearer upk_…</code> header or Basic auth (user <code>metrics</code>, password the key). Viewer permission is enough; a restricted user&#39;s key only sees the monitors and servers assigned to them.</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>prometheus.yml (excerpt)</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-7" aria-label="Copy code: prometheus.yml (excerpt)"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-7" class="hljs language-yaml"><span class="hljs-attr">scrape_configs:</span>
+  <span class="hljs-bullet">-</span> <span class="hljs-attr">job_name:</span> <span class="hljs-string">bekci</span>
+    <span class="hljs-attr">scheme:</span> <span class="hljs-string">https</span>
+    <span class="hljs-attr">static_configs:</span> [{ <span class="hljs-attr">targets:</span> [<span class="hljs-string">&#x27;<mark class="ph">bekci.example.com</mark>&#x27;</span>] }]
+    <span class="hljs-attr">basic_auth:</span> { <span class="hljs-attr">username:</span> <span class="hljs-string">metrics</span>, <span class="hljs-attr">password:</span> <span class="hljs-string">upk_…</span> }</code></pre></div>
+<div class="table-scroll" role="region" tabindex="0" aria-label="Table: Metric, Labels, Meaning"><table><thead><tr><th>Metric</th><th>Labels</th><th>Meaning</th></tr></thead><tbody><tr><td><code>uptime_monitor_status</code></td><td><code>monitor_id</code>, <code>monitor_name</code>, <code>monitor_type</code></td><td>0 down, 1 up, 2 pending</td></tr><tr><td><code>uptime_monitor_active</code></td><td>monitor</td><td>1 active, 0 paused</td></tr><tr><td><code>uptime_monitor_response_time_ms</code></td><td>monitor</td><td>Response time of the last check</td></tr><tr><td><code>uptime_monitor_slow</code></td><td>monitor</td><td>1 = response-time threshold exceeded (only for monitors with a threshold)</td></tr><tr><td><code>uptime_monitor_cert_days_remaining</code></td><td>monitor</td><td>Days until the SSL certificate expires</td></tr><tr><td><code>uptime_monitor_uptime_ratio</code></td><td>monitor, <code>window</code> (24h, 7d, 30d)</td><td>Uptime ratio (0-1)</td></tr><tr><td><code>uptime_server_online</code></td><td><code>server_id</code>, <code>server_name</code></td><td>1 the agent is sending data</td></tr><tr><td><code>uptime_server_last_sample_timestamp_seconds</code></td><td>server</td><td>Time of the last sample</td></tr><tr><td><code>uptime_server_cpu_percent</code>, <code>uptime_server_memory_percent</code>, <code>uptime_server_memory_used_bytes</code>, <code>uptime_server_memory_total_bytes</code>, <code>uptime_server_swap_percent</code></td><td>server</td><td>Last sample</td></tr><tr><td><code>uptime_server_load1</code>, <code>uptime_server_load5</code>, <code>uptime_server_load15</code>, <code>uptime_server_load1_per_core</code></td><td>server</td><td>Load averages</td></tr><tr><td><code>uptime_server_net_rx_bytes_per_second</code>, <code>uptime_server_net_tx_bytes_per_second</code></td><td>server</td><td>Network traffic</td></tr><tr><td><code>uptime_server_disk_read_bytes_per_second</code>, <code>uptime_server_disk_write_bytes_per_second</code></td><td>server</td><td>Disk I/O</td></tr><tr><td><code>uptime_server_disk_percent</code></td><td>server, <code>mount</code></td><td>Partition usage</td></tr><tr><td><code>uptime_server_temperature_celsius</code></td><td>server</td><td>Hottest sensor</td></tr><tr><td><code>uptime_server_uptime_seconds</code>, <code>uptime_server_containers</code></td><td>server</td><td>Uptime, container count</td></tr><tr><td><code>uptime_probe_online</code></td><td><code>probe_id</code>, <code>probe_name</code></td><td>1 check location online (unrestricted users only)</td></tr><tr><td><code>uptime_incidents_open</code></td><td><code>kind</code></td><td>Ongoing incidents (monitor, degraded, partial, server_offline, server_alert, probe_offline)</td></tr></tbody></table></div>
+<p>Server values are the agent&#39;s last sample (sent once a minute); container and temperature-sensor lists are not exposed as labels, so cardinality stays bounded by the number of servers.</p>
+<h2 id="rss">Status page RSS feed<a class="h-anchor" href="#rss" aria-label="Link to this section: Status page RSS feed">#</a></h2>
+<p>Every published status page has an RSS 2.0 feed; the <strong>RSS</strong> link in the page footer and the <code>alternate</code> link in the page&#39;s <code>&lt;head&gt;</code> point readers to it:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><span></span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-8" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-8" class="hljs language-plaintext">https://<mark class="ph">bekci.example.com</mark>/durum/<mark class="ph">slug</mark>/feed.xml
+https://<mark class="ph">bekci.example.com</mark>/api/public/pages/<mark class="ph">slug</mark>/feed.xml</code></pre></div>
+<p>The feed contains the incidents within the page&#39;s incident window (last 14 days by default; 7/14/30/90 in the editor) (if <strong>Show incidents</strong> is on for the page; start, resolution and duration — never the cause) and published announcements (expired ones included, future-dated ones excluded) in the page&#39;s language; when an ongoing incident is resolved, a separate entry is added. Manually opened incidents (with title and severity), every incident update (category &quot;Incident update&quot;) and, if the page&#39;s <strong>Planned maintenance</strong> section is visible, ongoing/upcoming maintenance windows (category &quot;Planned maintenance&quot;) are in the feed as well. Slack, Teams or any RSS reader can subscribe to the address.</p>
+<aside class="callout callout-note"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>Note</span></p>
+<p>The feed of a password-protected page is only served to a browser that has entered the password; there is no token for RSS readers. That is why the RSS link is not shown on protected pages.</p>
+</aside>
+</div>
+<div class="doc-feedback"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg><p>Something missing or wrong on this page? <a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">Report it on GitHub</a></p></div>
+<nav class="pn-nav" aria-label="Previous / Next"><a class="pn pn-prev" href="/en/docs/firewall/" rel="prev"><span class="pn-dir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Previous</span><span class="pn-title">Firewalls and Cloudflare</span></a><a class="pn pn-next" href="/en/docs/sign-in-and-sso/" rel="next"><span class="pn-dir">Next<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span><span class="pn-title">Sign-in &amp; SSO</span></a></nav>
+</article>
+</main>
+<nav class="docs-toc" aria-labelledby="bu-sayfada"><p class="toc-title" id="bu-sayfada">On this page</p><ul><li class="toc-2"><a href="#webhook">Webhook notifications</a></li><li class="toc-3"><a href="#webhook-signature">HMAC signature</a></li><li class="toc-2"><a href="#csv">Exporting incidents as CSV</a></li><li class="toc-3"><a href="#json-lists">Recent checks and the audit log</a></li><li class="toc-2"><a href="#openapi">OpenAPI document</a></li><li class="toc-2"><a href="#prometheus">Prometheus metrics</a></li><li class="toc-2"><a href="#rss">Status page RSS feed</a></li></ul></nav>
+</div>
+<footer class="site-footer">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/en/" aria-label="Bekci home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <ul class="foot-links">
+      <li><a href="/en/docs/">Docs</a></li>
+      <li><a href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">License: AGPL-3.0</a></li>
+      <li><a href="/docs/entegrasyonlar/" hreflang="tr" lang="tr">Türkçe</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">Contact: GitHub</a></li>
+    </ul>
+    <p>© 2026 Bekci · Made in Türkiye.</p>
+  </div>
+</footer>
+<div id="duyuru" class="sr-only" aria-live="polite"></div>
+</body>
+</html>

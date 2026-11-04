@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en" class="docs-page">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install on Coolify — Bekci docs</title>
+<meta name="description" content="Add Bekci to Coolify v4 as a Docker image and let Coolify handle the domain, the HTTPS certificate and updates.">
+<link rel="canonical" href="https://bekci.app/en/docs/install/coolify/">
+<link rel="alternate" hreflang="tr" href="https://bekci.app/docs/kurulum/coolify/">
+<link rel="alternate" hreflang="en" href="https://bekci.app/en/docs/install/coolify/">
+<link rel="alternate" hreflang="x-default" href="https://bekci.app/docs/kurulum/coolify/">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b111b">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg?v=dev" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=dev">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Bekci">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://bekci.app/en/docs/install/coolify/">
+<meta property="og:title" content="Install on Coolify — Bekci docs">
+<meta property="og:description" content="Add Bekci to Coolify v4 as a Docker image and let Coolify handle the domain, the HTTPS certificate and updates.">
+<meta property="og:image" content="https://bekci.app/og-en.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="/assets/fonts/inter-4.1.1-bekci.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=dev">
+<link rel="stylesheet" href="/assets/docs.css?v=dev">
+<script src="/assets/site.js?v=dev"></script>
+<script src="/assets/docs.js?v=dev" defer></script>
+</head>
+<body>
+<a class="skip" href="#icerik">Skip to content</a>
+<header class="site-header">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/en/" aria-label="Bekci home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <nav class="nav" aria-label="Main">
+      <ul>
+        <li><a href="/en/#features">Features</a></li>
+        <li><a href="/en/#screenshots">Screenshots</a></li>
+        <li><a href="/en/#compare">Compare</a></li>
+        <li><a href="/en/#install">Install</a></li>
+        <li><a href="/en/#faq">FAQ</a></li>
+        <li><a href="/en/docs/" class="active" aria-current="true">Docs</a></li>
+      </ul>
+    </nav>
+    <div class="header-actions">
+      <a class="lang" href="/docs/kurulum/coolify/" hreflang="tr" lang="tr" aria-label="Türkçe sürüm">TR</a>
+      <button class="icon-btn theme-toggle" type="button" aria-label="Toggle theme">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+      <a class="icon-btn header-gh" href="https://github.com/kadirsungurlu/bekci" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg></a>
+      <a class="btn btn-primary btn-sm header-hub" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Docker Hub
+      </a>
+      <button class="icon-btn menu-toggle" type="button" aria-expanded="false" aria-controls="mobil-menu" aria-label="Menu">
+        <svg class="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <svg class="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobil-menu" aria-label="Mobile" hidden>
+    <ul>
+      <li><a href="/en/#features">Features</a></li>
+        <li><a href="/en/#screenshots">Screenshots</a></li>
+        <li><a href="/en/#compare">Compare</a></li>
+        <li><a href="/en/#install">Install</a></li>
+        <li><a href="/en/#faq">FAQ</a></li>
+      <li><a href="/en/docs/" class="active" aria-current="true">Docs</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+    </ul>
+    <a class="btn btn-primary" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a>
+  </nav>
+</header>
+<div class="docs-bar">
+  <button class="docs-bar-btn" type="button" aria-expanded="false" aria-controls="belge-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Menu</span></button>
+  <span class="docs-bar-where">Install<span aria-hidden="true"> › </span>Coolify</span>
+</div>
+<div class="docs-shade" hidden></div>
+<div class="docs wrap-docs">
+<aside class="docs-side" id="belge-menu" aria-label="Docs menu">
+  <div class="side-head">
+    <p class="side-head-title">Docs</p>
+    <button class="icon-btn side-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="doc-search" role="search" data-index="/assets/docs-search-en.json?v=dev">
+    <label class="sr-only" for="ara">Search the docs</label>
+    <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+    <input id="ara" type="text" inputmode="search" enterkeyhint="search" placeholder="Search the docs…" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="ara-sonuc" aria-autocomplete="list">
+    <kbd class="search-kbd" aria-hidden="true">/</kbd>
+    <div class="search-results" id="ara-sonuc" role="listbox" aria-label="Search the docs" hidden></div>
+  </div>
+  <nav class="side-nav" aria-label="Docs">
+    <ul>
+<li class="side-group"><p class="side-title">Getting started</p><ul><li><a href="/en/docs/">Getting started</a></li></ul></li>
+<li class="side-group"><p class="side-title">Install</p><ul><li><a href="/en/docs/install/docker/">Docker (one command)</a></li><li><a href="/en/docs/install/docker-compose/">Docker Compose</a></li><li><a href="/en/docs/install/caddy/">HTTPS install (Caddy)</a></li><li><a href="/en/docs/install/coolify/" aria-current="page">Coolify</a></li><li><a href="/en/docs/install/reverse-proxy/">Behind a reverse proxy</a></li></ul></li>
+<li class="side-group"><p class="side-title">Usage</p><ul><li><a href="/en/docs/first-steps/">First steps</a></li><li><a href="/en/docs/server-agent/">Server agent and check locations</a></li><li><a href="/en/docs/firewall/">Firewalls and Cloudflare</a></li><li><a href="/en/docs/integrations/">Integrations</a></li><li><a href="/en/docs/sign-in-and-sso/">Sign-in &amp; SSO</a></li></ul></li>
+<li class="side-group"><p class="side-title">Maintenance and reference</p><ul><li><a href="/en/docs/updates-backups/">Updates, backups, rollback</a></li><li><a href="/en/docs/environment-variables/">Environment variables</a></li><li><a href="/en/docs/troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="/en/docs/database/">Database and migration</a></li></ul></li>
+    </ul>
+  </nav>
+</aside>
+<main id="icerik" class="docs-main">
+<article class="doc">
+<nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="/en/docs/">Docs</a></li><li><span>Install</span></li></ol></nav>
+<h1>Install on Coolify</h1>
+<p class="doc-lead">Add Bekci to Coolify v4 as a Docker image and let Coolify handle the domain, the HTTPS certificate and updates.</p>
+<details class="toc-inline"><summary>On this page</summary><ul><li class="toc-2"><a href="#before">Before you start</a></li><li class="toc-2"><a href="#resource">1. Create a new resource</a></li><li class="toc-2"><a href="#port">2. Set the port</a></li><li class="toc-2"><a href="#domain">3. Add the domain</a></li><li class="toc-2"><a href="#storage">4. Add persistent storage</a></li><li class="toc-2"><a href="#env">5. Add environment variables</a></li><li class="toc-2"><a href="#healthcheck">6. Leave the health check alone</a></li><li class="toc-2"><a href="#deploy">7. Deploy</a></li><li class="toc-2"><a href="#postgresql">With PostgreSQL</a></li><li class="toc-2"><a href="#update">Updating</a></li><li class="toc-2"><a href="#problems">Common problems</a></li><li class="toc-3"><a href="#no-available-server">The page shows “no available server” or 404</a></li><li class="toc-3"><a href="#data-lost">The setup screen appears after every deployment</a></li><li class="toc-3"><a href="#unhealthy">The update is rolled back as “unhealthy”</a></li><li class="toc-3"><a href="#permission">The container stops with “permission denied”</a></li></ul></details>
+<div class="doc-body">
+<p>If your server runs <a href="https://coolify.io" rel="noopener">Coolify</a>, adding Bekci as a <strong>Docker Image</strong> resource is the easiest path. Coolify&#39;s own proxy (Traefik) takes care of the domain, the HTTPS certificate and routing. Total time: about 5 minutes.</p>
+<aside class="callout callout-note"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>Note</span></p>
+<p>This guide covers Coolify v4. Coolify&#39;s interface changes a little between versions; if a button or field is named differently for you, look for the option that does the same thing. Places with two different spellings are pointed out below.</p>
+</aside>
+<h2 id="before">Before you start<a class="h-anchor" href="#before" aria-label="Link to this section: Before you start">#</a></h2>
+<ul>
+<li>You need a project and a server (destination) in Coolify.</li>
+<li>The <strong>A</strong> record of the domain you&#39;ll use for Bekci (e.g. <code>bekci.example.com</code>) must point to the Coolify server&#39;s IP address (<a href="/en/docs/install/caddy/#dns">how to add a DNS record</a>).</li>
+</ul>
+<h2 id="resource">1. Create a new resource<a class="h-anchor" href="#resource" aria-label="Link to this section: 1. Create a new resource">#</a></h2>
+<ol>
+<li>In Coolify, open your project and environment (e.g. <strong>production</strong>).</li>
+<li>Click <strong>New resource</strong> (in some versions <strong>+ New</strong> or <strong>+ Add Resource</strong>).</li>
+<li>Choose <strong>Docker Image</strong> from the list.</li>
+<li>Enter the image: <code>kadirsungurlu/bekci</code> in <strong>Image name</strong> and <code>latest</code> in <strong>Tag</strong>. (If there&#39;s only one field: <code>kadirsungurlu/bekci:latest</code>.) To pin a specific version, use <code>1.0.0</code> instead of <code>latest</code> (<a href="/en/docs/updates-backups/#tags">version tags</a>).</li>
+<li>Pick the server if asked and save with <strong>Create application</strong> (or <strong>Save</strong>).</li>
+</ol>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p>The application&#39;s configuration page opens. On the left you&#39;ll see sections such as <strong>General</strong>, <strong>Environment Variables</strong>, <strong>Persistent Storage</strong> and <strong>Healthcheck</strong>.</p>
+</aside>
+<h2 id="port">2. Set the port<a class="h-anchor" href="#port" aria-label="Link to this section: 2. Set the port">#</a></h2>
+<p>In <strong>General</strong>, enter <code>8080</code> in <strong>Ports Exposes</strong> (remove any other value). Bekci listens on port 8080 inside the container, and Coolify&#39;s proxy forwards traffic to it. Leave <strong>Port mappings</strong> empty.</p>
+<h2 id="domain">3. Add the domain<a class="h-anchor" href="#domain" aria-label="Link to this section: 3. Add the domain">#</a></h2>
+<p>Enter your domain including <code>https://</code>: <code>https://<mark class="ph">bekci.example.com</mark></code></p>
+<ul>
+<li>In newer Coolify versions this happens on a separate <strong>Domains</strong> page (<strong>Add domain</strong> button).</li>
+<li>In older versions it goes into the <strong>Domains</strong> field under <strong>General</strong>.</li>
+</ul>
+<p>With <code>https://</code> in front, Coolify obtains the Let&#39;s Encrypt certificate itself.</p>
+<h2 id="storage">4. Add persistent storage<a class="h-anchor" href="#storage" aria-label="Link to this section: 4. Add persistent storage">#</a></h2>
+<aside class="callout callout-caution"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86z"/><path d="M12 8v4M12 16h.01"/></svg><span>Don&#39;t skip this step</span></p>
+<p>Without persistent storage all data (monitors, history, users) stays inside the container and is <strong>deleted on every redeploy</strong>.</p>
+</aside>
+<ol>
+<li>Open <strong>Persistent Storage</strong>.</li>
+<li>Add a new <strong>volume</strong> (<strong>Add volume mount</strong>; in older versions <strong>+ Add</strong> → <strong>Volume</strong>).</li>
+<li><strong>Name</strong>: <code>bekci-data</code> (any name you like), <strong>Destination Path</strong>: <code>/data</code>.</li>
+<li>Save.</li>
+</ol>
+<p>If you&#39;d rather mount a folder on the server (<strong>directory mount</strong>) instead of a volume, that folder must be owned by uid 1000: <code>chown 1000:1000 <mark class="ph">/path/to/folder</mark></code>. Bekci runs as a non-root user and can&#39;t write to a folder owned by someone else.</p>
+<h2 id="env">5. Add environment variables<a class="h-anchor" href="#env" aria-label="Link to this section: 5. Add environment variables">#</a></h2>
+<p>Under <strong>Environment Variables</strong> add:</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>Environment Variables</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-1" aria-label="Copy code: Environment Variables"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-1" class="hljs language-ini"><span class="hljs-attr">BASE_URL</span>=https://<mark class="ph">bekci.example.com</mark>
+<span class="hljs-attr">TZ</span>=Europe/Istanbul</code></pre></div>
+<p><code>BASE_URL</code> must match the domain from step 3: links in notifications and server agent install commands use it. Set <code>TZ</code> to your time zone (e.g. <code>Europe/Berlin</code>, <code>UTC</code>). Other options: <a href="/en/docs/environment-variables/">Environment variables</a>.</p>
+<h2 id="healthcheck">6. Leave the health check alone<a class="h-anchor" href="#healthcheck" aria-label="Link to this section: 6. Leave the health check alone">#</a></h2>
+<p>Leave Coolify&#39;s health check under <strong>Healthcheck</strong> <strong>disabled</strong> (the default). The Bekci image has its own health check, designed to work correctly during updates.</p>
+<aside class="callout callout-warning"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4M12 17h.01"/></svg><span>Why keep it disabled?</span></p>
+<p>During an update Coolify starts the new container before stopping the old one. The new Bekci container waits for the old one to stop, so that two copies never use the same data at once; during that wait the image&#39;s own health check reports “healthy”. If you enable Coolify&#39;s health check, it replaces the image&#39;s, the waiting container looks “unhealthy” and Coolify rolls the update back.</p>
+</aside>
+<h2 id="deploy">7. Deploy<a class="h-anchor" href="#deploy" aria-label="Link to this section: 7. Deploy">#</a></h2>
+<p>Click <strong>Deploy</strong> at the top right. Coolify pulls the image and starts the container.</p>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p>The deployment log finishes successfully and the application&#39;s status becomes <strong>Running</strong>. The application&#39;s <strong>Logs</strong> show this line (“Bekci started”):</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><span></span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-2" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-2" class="hljs language-plaintext">level=INFO msg=&quot;Bekci başladı&quot; sürüm=… adres=:8080 veri=/data saat_dilimi=Europe/Istanbul</code></pre></div>
+<p>Open <code>https://<mark class="ph">bekci.example.com</mark></code> and create your admin account on the <strong>Welcome</strong> screen. Getting the certificate can take about a minute the first time.</p>
+</aside>
+<h2 id="postgresql">With PostgreSQL<a class="h-anchor" href="#postgresql" aria-label="Link to this section: With PostgreSQL">#</a></h2>
+<p>The steps above install with SQLite; SQLite is deprecated and will be removed in the next major version. For a lasting install follow the second tab and set the database image to <code>timescale/timescaledb:2.31.0-pg18</code> (<a href="/en/docs/database/">database and migration</a>).</p>
+<div class="tabs" data-key="coolify-db"><div class="tab-list" role="tablist" aria-label="PostgreSQL option"><button type="button" role="tab" id="sekme-embedded-postgresql" aria-controls="embedded-postgresql" aria-selected="true" tabindex="0" data-tab="embedded-postgresql" class="active">Embedded PostgreSQL</button><button type="button" role="tab" id="sekme-postgresql-in-coolify" aria-controls="postgresql-in-coolify" aria-selected="false" tabindex="-1" data-tab="postgresql-in-coolify">PostgreSQL in Coolify</button></div>
+<div class="tab-panel active" role="tabpanel" id="embedded-postgresql" aria-labelledby="sekme-embedded-postgresql" data-tab="embedded-postgresql"><p class="tab-label">Embedded PostgreSQL</p>
+<p>Deprecated; don&#39;t choose it for a new install. In step 1 use the tag <code>postgres</code> instead of <code>latest</code> (for a fixed version <code>1.0.0-postgres</code>). PostgreSQL 18 runs inside the same container; the database stays on the <code>/data</code> volume.</p>
+</div>
+<div class="tab-panel" role="tabpanel" id="postgresql-in-coolify" aria-labelledby="sekme-postgresql-in-coolify" data-tab="postgresql-in-coolify"><p class="tab-label">PostgreSQL in Coolify</p>
+<ol>
+<li><p>In the same project create a database with <strong>New resource</strong> → <strong>PostgreSQL</strong> and start it.</p>
+</li>
+<li><p>On the database&#39;s page, copy the internal connection URL (shown with a name such as <strong>Postgres URL (internal)</strong>). It looks like <code>postgres://user:password@…:5432/…</code>.</p>
+</li>
+<li><p>Add it to the Bekci application&#39;s <strong>Environment Variables</strong>:</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>Environment Variables</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-5" aria-label="Copy code: Environment Variables"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-5" class="hljs language-ini"><span class="hljs-attr">DATABASE_URL</span>=<mark class="ph">the-internal-url-you-copied</mark></code></pre></div>
+<p>The value looks like <code>postgres://postgres:…@…:5432/postgres</code>.</p>
+</li>
+<li><p>Keep the tag <code>latest</code>; with <code>DATABASE_URL</code> set, the image connects to PostgreSQL. Redeploy with <strong>Deploy</strong>.</p>
+</li>
+</ol>
+<p>Bekci and the database must be on the same Coolify server (the internal URL only works there). In this setup Bekci does <strong>not</strong> take nightly backups; schedule them under <strong>Backups</strong> on the database&#39;s page.</p>
+</div>
+</div>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p>The log should contain a line <code>msg=veritabanı tür="PostgreSQL …"</code> (“database type”; the password is masked as <code>xxxxx</code>).</p>
+</aside>
+<h2 id="update">Updating<a class="h-anchor" href="#update" aria-label="Link to this section: Updating">#</a></h2>
+<ul>
+<li><strong>With the <code>latest</code> tag:</strong> click <strong>Redeploy</strong> (or <strong>Deploy</strong>) on the application&#39;s page; Coolify pulls the newest image and replaces the container.</li>
+<li><strong>With a fixed version (e.g. <code>1.0.0</code>):</strong> change the tag to the new version and deploy.</li>
+</ul>
+<p>During an update it&#39;s <strong>normal</strong> to see this line in the new container&#39;s log for a while (“the data folder is open in another instance; waiting until it closes”). As soon as the old container stops, the new one takes over within a second or two, so two copies never run checks or send notifications twice:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><span></span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-3" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-3" class="hljs language-plaintext">level=WARN msg=&quot;veri klasörü başka bir örnekte açık; o kapanana kadar bekleniyor&quot; kilit=/data/uptime.db.lock en_fazla=10m0s</code></pre></div>
+<p>Don&#39;t forget to back up before updating: <a href="/en/docs/updates-backups/">Updates, backups and rollback</a>.</p>
+<h2 id="problems">Common problems<a class="h-anchor" href="#problems" aria-label="Link to this section: Common problems">#</a></h2>
+<h3 id="no-available-server">The page shows “no available server” or 404<a class="h-anchor" href="#no-available-server" aria-label="Link to this section: The page shows “no available server” or 404">#</a></h3>
+<p>Coolify&#39;s proxy can&#39;t reach Bekci. Check that <strong>Ports Exposes</strong> is <code>8080</code> and that the domain was entered with <code>https://</code>, then redeploy.</p>
+<h3 id="data-lost">The setup screen appears after every deployment<a class="h-anchor" href="#data-lost" aria-label="Link to this section: The setup screen appears after every deployment">#</a></h3>
+<p>Persistent storage is missing or its destination is wrong. Make sure the destination under <strong>Persistent Storage</strong> is exactly <code>/data</code> (<a href="#storage">step 4</a>).</p>
+<h3 id="unhealthy">The update is rolled back as “unhealthy”<a class="h-anchor" href="#unhealthy" aria-label="Link to this section: The update is rolled back as “unhealthy”">#</a></h3>
+<p>Coolify&#39;s health check is enabled; disable it as in <a href="#healthcheck">step 6</a> and redeploy.</p>
+<h3 id="permission">The container stops with “permission denied”<a class="h-anchor" href="#permission" aria-label="Link to this section: The container stops with “permission denied”">#</a></h3>
+<p>The log shows a line like this (“could not open the database: could not open the lock file”):</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><span></span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-4" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-4" class="hljs language-plaintext">hata: veritabanı açılamadı: kilit dosyası açılamadı: open /data/uptime.db.lock: permission denied</code></pre></div>
+<p>You mounted a folder from the server that isn&#39;t owned by uid 1000: fix it with <code>chown -R 1000:1000 <mark class="ph">/path/to/folder</mark></code> and redeploy.</p>
+</div>
+<div class="doc-feedback"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg><p>Something missing or wrong on this page? <a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">Report it on GitHub</a></p></div>
+<nav class="pn-nav" aria-label="Previous / Next"><a class="pn pn-prev" href="/en/docs/install/caddy/" rel="prev"><span class="pn-dir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Previous</span><span class="pn-title">HTTPS install (Caddy)</span></a><a class="pn pn-next" href="/en/docs/install/reverse-proxy/" rel="next"><span class="pn-dir">Next<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span><span class="pn-title">Behind a reverse proxy</span></a></nav>
+</article>
+</main>
+<nav class="docs-toc" aria-labelledby="bu-sayfada"><p class="toc-title" id="bu-sayfada">On this page</p><ul><li class="toc-2"><a href="#before">Before you start</a></li><li class="toc-2"><a href="#resource">1. Create a new resource</a></li><li class="toc-2"><a href="#port">2. Set the port</a></li><li class="toc-2"><a href="#domain">3. Add the domain</a></li><li class="toc-2"><a href="#storage">4. Add persistent storage</a></li><li class="toc-2"><a href="#env">5. Add environment variables</a></li><li class="toc-2"><a href="#healthcheck">6. Leave the health check alone</a></li><li class="toc-2"><a href="#deploy">7. Deploy</a></li><li class="toc-2"><a href="#postgresql">With PostgreSQL</a></li><li class="toc-2"><a href="#update">Updating</a></li><li class="toc-2"><a href="#problems">Common problems</a></li><li class="toc-3"><a href="#no-available-server">The page shows “no available server” or 404</a></li><li class="toc-3"><a href="#data-lost">The setup screen appears after every deployment</a></li><li class="toc-3"><a href="#unhealthy">The update is rolled back as “unhealthy”</a></li><li class="toc-3"><a href="#permission">The container stops with “permission denied”</a></li></ul></nav>
+</div>
+<footer class="site-footer">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/en/" aria-label="Bekci home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <ul class="foot-links">
+      <li><a href="/en/docs/">Docs</a></li>
+      <li><a href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">License: AGPL-3.0</a></li>
+      <li><a href="/docs/kurulum/coolify/" hreflang="tr" lang="tr">Türkçe</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">Contact: GitHub</a></li>
+    </ul>
+    <p>© 2026 Bekci · Made in Türkiye.</p>
+  </div>
+</footer>
+<div id="duyuru" class="sr-only" aria-live="polite"></div>
+</body>
+</html>

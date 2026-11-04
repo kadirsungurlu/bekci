@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en" class="docs-page">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install with Docker Compose — Bekci docs</title>
+<meta name="description" content="Install Bekci in /opt/bekci with a docker-compose.yml file. The default setup is PostgreSQL + TimescaleDB; updating is a single command.">
+<link rel="canonical" href="https://bekci.app/en/docs/install/docker-compose/">
+<link rel="alternate" hreflang="tr" href="https://bekci.app/docs/kurulum/docker-compose/">
+<link rel="alternate" hreflang="en" href="https://bekci.app/en/docs/install/docker-compose/">
+<link rel="alternate" hreflang="x-default" href="https://bekci.app/docs/kurulum/docker-compose/">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b111b">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg?v=dev" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=dev">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Bekci">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://bekci.app/en/docs/install/docker-compose/">
+<meta property="og:title" content="Install with Docker Compose — Bekci docs">
+<meta property="og:description" content="Install Bekci in /opt/bekci with a docker-compose.yml file. The default setup is PostgreSQL + TimescaleDB; updating is a single command.">
+<meta property="og:image" content="https://bekci.app/og-en.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="/assets/fonts/inter-4.1.1-bekci.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=dev">
+<link rel="stylesheet" href="/assets/docs.css?v=dev">
+<script src="/assets/site.js?v=dev"></script>
+<script src="/assets/docs.js?v=dev" defer></script>
+</head>
+<body>
+<a class="skip" href="#icerik">Skip to content</a>
+<header class="site-header">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/en/" aria-label="Bekci home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <nav class="nav" aria-label="Main">
+      <ul>
+        <li><a href="/en/#features">Features</a></li>
+        <li><a href="/en/#screenshots">Screenshots</a></li>
+        <li><a href="/en/#compare">Compare</a></li>
+        <li><a href="/en/#install">Install</a></li>
+        <li><a href="/en/#faq">FAQ</a></li>
+        <li><a href="/en/docs/" class="active" aria-current="true">Docs</a></li>
+      </ul>
+    </nav>
+    <div class="header-actions">
+      <a class="lang" href="/docs/kurulum/docker-compose/" hreflang="tr" lang="tr" aria-label="Türkçe sürüm">TR</a>
+      <button class="icon-btn theme-toggle" type="button" aria-label="Toggle theme">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+      <a class="icon-btn header-gh" href="https://github.com/kadirsungurlu/bekci" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg></a>
+      <a class="btn btn-primary btn-sm header-hub" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Docker Hub
+      </a>
+      <button class="icon-btn menu-toggle" type="button" aria-expanded="false" aria-controls="mobil-menu" aria-label="Menu">
+        <svg class="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <svg class="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobil-menu" aria-label="Mobile" hidden>
+    <ul>
+      <li><a href="/en/#features">Features</a></li>
+        <li><a href="/en/#screenshots">Screenshots</a></li>
+        <li><a href="/en/#compare">Compare</a></li>
+        <li><a href="/en/#install">Install</a></li>
+        <li><a href="/en/#faq">FAQ</a></li>
+      <li><a href="/en/docs/" class="active" aria-current="true">Docs</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+    </ul>
+    <a class="btn btn-primary" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a>
+  </nav>
+</header>
+<div class="docs-bar">
+  <button class="docs-bar-btn" type="button" aria-expanded="false" aria-controls="belge-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Menu</span></button>
+  <span class="docs-bar-where">Install<span aria-hidden="true"> › </span>Docker Compose</span>
+</div>
+<div class="docs-shade" hidden></div>
+<div class="docs wrap-docs">
+<aside class="docs-side" id="belge-menu" aria-label="Docs menu">
+  <div class="side-head">
+    <p class="side-head-title">Docs</p>
+    <button class="icon-btn side-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="doc-search" role="search" data-index="/assets/docs-search-en.json?v=dev">
+    <label class="sr-only" for="ara">Search the docs</label>
+    <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+    <input id="ara" type="text" inputmode="search" enterkeyhint="search" placeholder="Search the docs…" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="ara-sonuc" aria-autocomplete="list">
+    <kbd class="search-kbd" aria-hidden="true">/</kbd>
+    <div class="search-results" id="ara-sonuc" role="listbox" aria-label="Search the docs" hidden></div>
+  </div>
+  <nav class="side-nav" aria-label="Docs">
+    <ul>
+<li class="side-group"><p class="side-title">Getting started</p><ul><li><a href="/en/docs/">Getting started</a></li></ul></li>
+<li class="side-group"><p class="side-title">Install</p><ul><li><a href="/en/docs/install/docker/">Docker (one command)</a></li><li><a href="/en/docs/install/docker-compose/" aria-current="page">Docker Compose</a></li><li><a href="/en/docs/install/caddy/">HTTPS install (Caddy)</a></li><li><a href="/en/docs/install/coolify/">Coolify</a></li><li><a href="/en/docs/install/reverse-proxy/">Behind a reverse proxy</a></li></ul></li>
+<li class="side-group"><p class="side-title">Usage</p><ul><li><a href="/en/docs/first-steps/">First steps</a></li><li><a href="/en/docs/server-agent/">Server agent and check locations</a></li><li><a href="/en/docs/firewall/">Firewalls and Cloudflare</a></li><li><a href="/en/docs/integrations/">Integrations</a></li><li><a href="/en/docs/sign-in-and-sso/">Sign-in &amp; SSO</a></li></ul></li>
+<li class="side-group"><p class="side-title">Maintenance and reference</p><ul><li><a href="/en/docs/updates-backups/">Updates, backups, rollback</a></li><li><a href="/en/docs/environment-variables/">Environment variables</a></li><li><a href="/en/docs/troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="/en/docs/database/">Database and migration</a></li></ul></li>
+    </ul>
+  </nav>
+</aside>
+<main id="icerik" class="docs-main">
+<article class="doc">
+<nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="/en/docs/">Docs</a></li><li><span>Install</span></li></ol></nav>
+<h1>Install with Docker Compose</h1>
+<p class="doc-lead">Install Bekci in /opt/bekci with a docker-compose.yml file. The default setup is PostgreSQL + TimescaleDB; updating is a single command.</p>
+<details class="toc-inline"><summary>On this page</summary><ul><li class="toc-2"><a href="#check">1. Check Docker and Compose</a></li><li class="toc-2"><a href="#folder">2. Create a folder</a></li><li class="toc-2"><a href="#file">3. Create docker-compose.yml</a></li><li class="toc-2"><a href="#start">4. Start it</a></li><li class="toc-2"><a href="#open">5. Open the panel</a></li><li class="toc-2"><a href="#logs">Logs</a></li><li class="toc-2"><a href="#update">Updating</a></li><li class="toc-2"><a href="#change-setting">Changing a setting</a></li><li class="toc-2"><a href="#stop">Stopping and removing</a></li></ul></details>
+<div class="doc-body">
+<p>With Docker Compose every setting lives in one file (<code>docker-compose.yml</code>). Starting, stopping and updating are single commands; to change a setting you edit the file and restart. Total time: about 5 minutes.</p>
+<p>This guide opens the panel at <code>http://SERVER-IP:8080</code>. If you want HTTPS on your own domain, go straight to the <a href="/en/docs/install/caddy/">HTTPS install (Caddy)</a>; that guide uses Compose as well.</p>
+<h2 id="check">1. Check Docker and Compose<a class="h-anchor" href="#check" aria-label="Link to this section: 1. Check Docker and Compose">#</a></h2>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-1" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-1" class="hljs language-bash">docker compose version</code></pre></div>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p>You should see a line such as <code>Docker Compose version v2.…</code> (or newer). If you see <code>docker: 'compose' is not a docker command</code> or <code>command not found</code>, <a href="/en/docs/install/docker/#install-docker">install Docker with the official script</a>; it installs the Compose plugin too.</p>
+</aside>
+<h2 id="folder">2. Create a folder<a class="h-anchor" href="#folder" aria-label="Link to this section: 2. Create a folder">#</a></h2>
+<p>We&#39;ll use <code>/opt/bekci</code> for Bekci&#39;s files. You can choose another place; what matters is that you run all later <code>docker compose</code> commands <strong>from inside this folder</strong>.</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-2" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-2" class="hljs language-bash"><span class="hljs-built_in">mkdir</span> -p /opt/bekci
+<span class="hljs-built_in">cd</span> /opt/bekci</code></pre></div>
+<h2 id="file">3. Create docker-compose.yml<a class="h-anchor" href="#file" aria-label="Link to this section: 3. Create docker-compose.yml">#</a></h2>
+<p>The default setup uses <strong>PostgreSQL + TimescaleDB</strong>. SQLite is deprecated and stays for existing installs only (<a href="/en/docs/database/">database and migration</a>).</p>
+<p>Create the file with the <code>nano</code> text editor:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-3" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-3" class="hljs language-bash">nano docker-compose.yml</code></pre></div>
+<p>Copy the content below and paste it into the nano window (in most terminals: right-click or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>):</p>
+<div class="tabs" data-key="db"><div class="tab-list" role="tablist" aria-label="Database"><button type="button" role="tab" id="sekme-postgresql-timescaledb-recommended" aria-controls="postgresql-timescaledb-recommended" aria-selected="true" tabindex="0" data-tab="postgresql-timescaledb-recommended" class="active">PostgreSQL + TimescaleDB (recommended)</button><button type="button" role="tab" id="sekme-sqlite-deprecated" aria-controls="sqlite-deprecated" aria-selected="false" tabindex="-1" data-tab="sqlite-deprecated">SQLite (deprecated)</button></div>
+<div class="tab-panel active" role="tabpanel" id="postgresql-timescaledb-recommended" aria-labelledby="sekme-postgresql-timescaledb-recommended" data-tab="postgresql-timescaledb-recommended"><p class="tab-label">PostgreSQL + TimescaleDB (recommended)</p>
+<p>This file also starts a PostgreSQL 18 + TimescaleDB container next to Bekci. Use letters and digits only in the password (<code>openssl rand -hex 24</code>). If you&#39;ll use your own PostgreSQL server instead, delete the <code>db</code> service and point <code>DATABASE_URL</code> at that server.</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>/opt/bekci/docker-compose.yml</span></span><span class="code-actions"><a class="code-dl" href="/indir/en/docker-compose.yml" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><span>Download</span></a><button class="copy" type="button" data-copy="kod-10" aria-label="Copy code: /opt/bekci/docker-compose.yml"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-10" class="hljs language-yaml"><span class="hljs-comment"># Bekci — install with Docker Compose (PostgreSQL + TimescaleDB)</span>
+<span class="hljs-comment"># Guide: https://bekci.app/en/docs/install/docker-compose/</span>
+<span class="hljs-comment"># Change the password in BOTH places the same way (DATABASE_URL and POSTGRES_PASSWORD).</span>
+<span class="hljs-attr">name:</span> <span class="hljs-string">bekci</span>
+<span class="hljs-attr">services:</span>
+  <span class="hljs-attr">bekci:</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">kadirsungurlu/bekci:latest</span>
+    <span class="hljs-attr">restart:</span> <span class="hljs-string">unless-stopped</span>
+    <span class="hljs-attr">stop_grace_period:</span> <span class="hljs-string">30s</span>
+    <span class="hljs-attr">ports:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;8080:8080&quot;</span>
+    <span class="hljs-attr">environment:</span>
+      <span class="hljs-attr">BASE_URL:</span> <span class="hljs-string">http://<mark class="ph">203.0.113.10</mark>:8080</span>   <span class="hljs-comment"># the address you open the panel at</span>
+      <span class="hljs-attr">TZ:</span> <span class="hljs-string">Europe/Istanbul</span>
+      <span class="hljs-attr">DATABASE_URL:</span> <span class="hljs-string">postgres://bekci:<mark class="ph">A-STRONG-PASSWORD</mark>@db:5432/bekci?sslmode=disable</span>
+    <span class="hljs-attr">volumes:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">bekci-data:/data</span>   <span class="hljs-comment"># backups and temporary files</span>
+    <span class="hljs-attr">depends_on:</span>
+      <span class="hljs-attr">db:</span>
+        <span class="hljs-attr">condition:</span> <span class="hljs-string">service_healthy</span>
+  <span class="hljs-attr">db:</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">timescale/timescaledb:2.31.0-pg18</span>
+    <span class="hljs-attr">restart:</span> <span class="hljs-string">unless-stopped</span>
+    <span class="hljs-attr">environment:</span>
+      <span class="hljs-attr">POSTGRES_USER:</span> <span class="hljs-string">bekci</span>
+      <span class="hljs-attr">POSTGRES_PASSWORD:</span> <span class="hljs-string"><mark class="ph">A-STRONG-PASSWORD</mark></span>
+      <span class="hljs-attr">POSTGRES_DB:</span> <span class="hljs-string">bekci</span>
+      <span class="hljs-attr">TIMESCALEDB_TELEMETRY:</span> <span class="hljs-string">&quot;off&quot;</span>
+    <span class="hljs-attr">volumes:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">db-data:/var/lib/postgresql</span>
+    <span class="hljs-attr">healthcheck:</span>
+      <span class="hljs-attr">test:</span> [<span class="hljs-string">&quot;CMD-SHELL&quot;</span>, <span class="hljs-string">&quot;pg_isready -h 127.0.0.1 -U bekci -d bekci&quot;</span>]
+      <span class="hljs-attr">interval:</span> <span class="hljs-string">5s</span>
+      <span class="hljs-attr">retries:</span> <span class="hljs-number">10</span>
+<span class="hljs-attr">volumes:</span>
+  <span class="hljs-attr">bekci-data:</span>
+  <span class="hljs-attr">db-data:</span></code></pre></div>
+<p>Change the highlighted parts: your server&#39;s IP address and a strong password, <strong>the same in both places</strong>. Use only letters and digits in the password (e.g. a random 24-character string); characters such as <code>@</code>, <code>:</code>, <code>/</code>, <code>?</code> and <code>#</code> break the connection URL.</p>
+</div>
+<div class="tab-panel" role="tabpanel" id="sqlite-deprecated" aria-labelledby="sekme-sqlite-deprecated" data-tab="sqlite-deprecated"><p class="tab-label">SQLite (deprecated)</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>/opt/bekci/docker-compose.yml</span></span><span class="code-actions"><a class="code-dl" href="/indir/en/docker-compose.sqlite.yml" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><span>Download</span></a><button class="copy" type="button" data-copy="kod-11" aria-label="Copy code: /opt/bekci/docker-compose.yml"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-11" class="hljs language-yaml"><span class="hljs-comment"># Bekci — install with Docker Compose (SQLite)</span>
+<span class="hljs-comment"># Guide: https://bekci.app/en/docs/install/docker-compose/</span>
+<span class="hljs-attr">name:</span> <span class="hljs-string">bekci</span>
+<span class="hljs-attr">services:</span>
+  <span class="hljs-attr">bekci:</span>
+    <span class="hljs-comment"># To pin a version, replace &quot;latest&quot; with e.g. 1.0.0.</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">kadirsungurlu/bekci:latest</span>
+    <span class="hljs-attr">restart:</span> <span class="hljs-string">unless-stopped</span>
+    <span class="hljs-attr">stop_grace_period:</span> <span class="hljs-string">30s</span>
+    <span class="hljs-attr">ports:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;8080:8080&quot;</span>
+    <span class="hljs-attr">environment:</span>
+      <span class="hljs-attr">BASE_URL:</span> <span class="hljs-string">http://<mark class="ph">203.0.113.10</mark>:8080</span>   <span class="hljs-comment"># the address you open the panel at</span>
+      <span class="hljs-attr">TZ:</span> <span class="hljs-string">Europe/Istanbul</span>
+    <span class="hljs-attr">volumes:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">bekci-data:/data</span>
+<span class="hljs-attr">volumes:</span>
+  <span class="hljs-attr">bekci-data:</span></code></pre></div>
+<p>The only thing to change is the highlighted part: replace <code>203.0.113.10</code> with your server&#39;s IP address.</p>
+</div>
+</div>
+<p>Save and exit: <kbd>Ctrl</kbd>+<kbd>O</kbd>, then <kbd>Enter</kbd> (save), then <kbd>Ctrl</kbd>+<kbd>X</kbd> (exit).</p>
+<aside class="callout callout-tip"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg><span>Creating the file by downloading it</span></p>
+<p>If you&#39;d rather not paste, download the file directly and then edit only the highlighted parts:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-4" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-4" class="hljs language-bash">curl -fsSL -o docker-compose.yml https://bekci.app/indir/en/docker-compose.yml
+nano docker-compose.yml</code></pre></div>
+<p>For the SQLite file the address is <code>https://bekci.app/indir/en/docker-compose.sqlite.yml</code> (the downloaded file must still be named <code>docker-compose.yml</code>).</p>
+</aside>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p><code>docker compose config --quiet</code> should finish without printing anything. If it prints an error, the indentation was most likely damaged: YAML files are indented with spaces and the number of leading spaces matters. Delete the file (<code>rm docker-compose.yml</code>) and create it again.</p>
+</aside>
+<h2 id="start">4. Start it<a class="h-anchor" href="#start" aria-label="Link to this section: 4. Start it">#</a></h2>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-5" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-5" class="hljs language-bash">docker compose up -d</code></pre></div>
+<p>The first time, the image is downloaded from Docker Hub (a few seconds to a minute).</p>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p>The command should end with a <code>Container bekci-bekci-1  Started</code> line. A few seconds later the <strong>STATUS</strong> column of <code>docker compose ps</code> should read <code>Up … (healthy)</code>. You&#39;ll see two lines: <code>bekci</code> and <code>db</code>.</p>
+</aside>
+<h2 id="open">5. Open the panel<a class="h-anchor" href="#open" aria-label="Link to this section: 5. Open the panel">#</a></h2>
+<p>Open <code>http://<mark class="ph">SERVER-IP</mark>:8080</code> in your browser and create your admin account on the <strong>Welcome</strong> screen (<a href="/en/docs/install/docker/#admin">details</a>). If it doesn&#39;t open, allow port 8080/TCP in your provider&#39;s firewall (<a href="/en/docs/install/docker/#firewall">firewall note</a>).</p>
+<aside class="callout callout-warning"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4M12 17h.01"/></svg><span>Warning</span></p>
+<p>This setup opens the panel over unencrypted <code>http://</code>. For permanent use add HTTPS: the <a href="/en/docs/install/caddy/">Caddy install</a> if the server has no web server yet, otherwise a <a href="/en/docs/install/reverse-proxy/">reverse proxy</a>.</p>
+</aside>
+<h2 id="logs">Logs<a class="h-anchor" href="#logs" aria-label="Link to this section: Logs">#</a></h2>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-6" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-6" class="hljs language-bash"><span class="hljs-built_in">cd</span> /opt/bekci
+docker compose logs -f bekci      <span class="hljs-comment"># follow, Ctrl+C to quit</span>
+docker compose logs --<span class="hljs-built_in">tail</span> 50 bekci</code></pre></div>
+<h2 id="update">Updating<a class="h-anchor" href="#update" aria-label="Link to this section: Updating">#</a></h2>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-7" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-7" class="hljs language-bash"><span class="hljs-built_in">cd</span> /opt/bekci
+docker compose pull
+docker compose up -d</code></pre></div>
+<p><code>pull</code> downloads the new image and <code>up -d</code> recreates the container with it; your data stays in the volume. Back up before updating and learn how to pin versions: <a href="/en/docs/updates-backups/">Updates, backups and rollback</a>.</p>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p>The last line of <code>docker compose logs bekci | grep "Bekci başladı"</code> should show a different <code>sürüm=</code> (version) value than before the update (the running version, e.g. <code>1.3.0</code>; the short commit code on GHCR commit images).</p>
+</aside>
+<h2 id="change-setting">Changing a setting<a class="h-anchor" href="#change-setting" aria-label="Link to this section: Changing a setting">#</a></h2>
+<p>After changing something in <code>docker-compose.yml</code> (e.g. <code>BASE_URL</code>), run:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-8" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-8" class="hljs language-bash">docker compose up -d</code></pre></div>
+<p>Compose notices the change and recreates the container with the new settings.</p>
+<h2 id="stop">Stopping and removing<a class="h-anchor" href="#stop" aria-label="Link to this section: Stopping and removing">#</a></h2>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-9" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-9" class="hljs language-bash">docker compose stop     <span class="hljs-comment"># stop (the container is kept)</span>
+docker compose start    <span class="hljs-comment"># start again</span>
+docker compose down     <span class="hljs-comment"># remove the container; the data stays in the volume</span></code></pre></div>
+<aside class="callout callout-caution"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86z"/><path d="M12 8v4M12 16h.01"/></svg><span>Caution</span></p>
+<p><code>docker compose down -v</code> also deletes the volumes, which means <strong>all your data is permanently gone</strong>. Don&#39;t use <code>-v</code> unless you want to remove Bekci completely.</p>
+</aside>
+<p>Your data lives in a volume named <code>bekci_bekci-data</code> (Compose prefixes volume names with the project name). <code>docker volume ls</code> lists volumes.</p>
+</div>
+<div class="doc-feedback"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg><p>Something missing or wrong on this page? <a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">Report it on GitHub</a></p></div>
+<nav class="pn-nav" aria-label="Previous / Next"><a class="pn pn-prev" href="/en/docs/install/docker/" rel="prev"><span class="pn-dir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Previous</span><span class="pn-title">Docker (one command)</span></a><a class="pn pn-next" href="/en/docs/install/caddy/" rel="next"><span class="pn-dir">Next<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span><span class="pn-title">HTTPS install (Caddy)</span></a></nav>
+</article>
+</main>
+<nav class="docs-toc" aria-labelledby="bu-sayfada"><p class="toc-title" id="bu-sayfada">On this page</p><ul><li class="toc-2"><a href="#check">1. Check Docker and Compose</a></li><li class="toc-2"><a href="#folder">2. Create a folder</a></li><li class="toc-2"><a href="#file">3. Create docker-compose.yml</a></li><li class="toc-2"><a href="#start">4. Start it</a></li><li class="toc-2"><a href="#open">5. Open the panel</a></li><li class="toc-2"><a href="#logs">Logs</a></li><li class="toc-2"><a href="#update">Updating</a></li><li class="toc-2"><a href="#change-setting">Changing a setting</a></li><li class="toc-2"><a href="#stop">Stopping and removing</a></li></ul></nav>
+</div>
+<footer class="site-footer">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/en/" aria-label="Bekci home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <ul class="foot-links">
+      <li><a href="/en/docs/">Docs</a></li>
+      <li><a href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">License: AGPL-3.0</a></li>
+      <li><a href="/docs/kurulum/docker-compose/" hreflang="tr" lang="tr">Türkçe</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">Contact: GitHub</a></li>
+    </ul>
+    <p>© 2026 Bekci · Made in Türkiye.</p>
+  </div>
+</footer>
+<div id="duyuru" class="sr-only" aria-live="polite"></div>
+</body>
+</html>

@@ -254,3 +254,19 @@ func TestTsCached(t *testing.T) {
 		t.Fatalf("Timescale dışında önbellek olmamalı: %d", a)
 	}
 }
+
+// TestTimescaleWindowFirstPartNamesColumns pencere gün başına denk gelince
+// UNION'ın ilk parçası gün özeti olur; dış sorgu mid'e bu parçadaki adla bakar.
+func TestTimescaleWindowFirstPartNamesColumns(t *testing.T) {
+	day := time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC).Unix()
+	s := &Store{loc: time.UTC, tsDailyCutoff: day + 5*86400, tsHourlyCutoff: day + 5*86400}
+	parts, _ := s.tsWindowParts(day, "0", "", nil)
+	if len(parts) == 0 || !strings.Contains(parts[0], "stats_daily_legacy") {
+		t.Fatalf("ilk parça gün özeti olmalı: %q", parts)
+	}
+	for _, p := range parts {
+		if !strings.Contains(p, " AS mid,") {
+			t.Fatalf("mid adı yok: %s", p)
+		}
+	}
+}

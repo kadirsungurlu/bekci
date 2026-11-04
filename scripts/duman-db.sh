@@ -65,7 +65,7 @@ sonuc_var() { # kimlik: en az bir kontrol sonucu
 }
 
 echo "== 1) varsayılan compose"
-dc up -d --pull never db bekci >/dev/null 2>&1
+dc up -d --pull missing db bekci >/dev/null 2>&1
 bekle
 kip_ol timescale
 kurulum
@@ -89,8 +89,8 @@ eski=$id
 sleep 2
 docker stop -t 30 bekci-duman-sqlite >/dev/null
 docker rm bekci-duman-sqlite >/dev/null
-dc up -d --wait --pull never db >/dev/null 2>&1
-dc up --pull never --no-start bekci >/dev/null 2>&1
+dc up -d --wait --pull missing db >/dev/null 2>&1
+dc up --pull missing --no-start bekci >/dev/null 2>&1
 docker start bekci-duman-bekci-1 >/dev/null
 red=
 for _ in $(seq 1 30); do
@@ -102,7 +102,7 @@ echo "  boş hedefte panel reddetti"
 dc stop bekci >/dev/null
 dc run --rm -T --no-deps bekci migrate --dry-run | tail -1
 dc run --rm -T --no-deps bekci migrate | tail -3
-dc up -d --pull never bekci >/dev/null 2>&1
+dc up -d --pull missing bekci >/dev/null 2>&1
 bekle
 kip_ol timescale
 giris

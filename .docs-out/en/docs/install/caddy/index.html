@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en" class="docs-page">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTTPS install (Caddy) — Bekci docs</title>
+<meta name="description" content="Install Bekci on an empty server with your own domain and an automatic Let's Encrypt certificate. Exactly which file goes where, step by step.">
+<link rel="canonical" href="https://bekci.app/en/docs/install/caddy/">
+<link rel="alternate" hreflang="tr" href="https://bekci.app/docs/kurulum/caddy/">
+<link rel="alternate" hreflang="en" href="https://bekci.app/en/docs/install/caddy/">
+<link rel="alternate" hreflang="x-default" href="https://bekci.app/docs/kurulum/caddy/">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b111b">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg?v=dev" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=dev">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Bekci">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://bekci.app/en/docs/install/caddy/">
+<meta property="og:title" content="HTTPS install (Caddy) — Bekci docs">
+<meta property="og:description" content="Install Bekci on an empty server with your own domain and an automatic Let's Encrypt certificate. Exactly which file goes where, step by step.">
+<meta property="og:image" content="https://bekci.app/og-en.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="/assets/fonts/inter-4.1.1-bekci.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=dev">
+<link rel="stylesheet" href="/assets/docs.css?v=dev">
+<script src="/assets/site.js?v=dev"></script>
+<script src="/assets/docs.js?v=dev" defer></script>
+</head>
+<body>
+<a class="skip" href="#icerik">Skip to content</a>
+<header class="site-header">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/en/" aria-label="Bekci home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <nav class="nav" aria-label="Main">
+      <ul>
+        <li><a href="/en/#features">Features</a></li>
+        <li><a href="/en/#screenshots">Screenshots</a></li>
+        <li><a href="/en/#compare">Compare</a></li>
+        <li><a href="/en/#install">Install</a></li>
+        <li><a href="/en/#faq">FAQ</a></li>
+        <li><a href="/en/docs/" class="active" aria-current="true">Docs</a></li>
+      </ul>
+    </nav>
+    <div class="header-actions">
+      <a class="lang" href="/docs/kurulum/caddy/" hreflang="tr" lang="tr" aria-label="Türkçe sürüm">TR</a>
+      <button class="icon-btn theme-toggle" type="button" aria-label="Toggle theme">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+      <a class="icon-btn header-gh" href="https://github.com/kadirsungurlu/bekci" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg></a>
+      <a class="btn btn-primary btn-sm header-hub" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Docker Hub
+      </a>
+      <button class="icon-btn menu-toggle" type="button" aria-expanded="false" aria-controls="mobil-menu" aria-label="Menu">
+        <svg class="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <svg class="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobil-menu" aria-label="Mobile" hidden>
+    <ul>
+      <li><a href="/en/#features">Features</a></li>
+        <li><a href="/en/#screenshots">Screenshots</a></li>
+        <li><a href="/en/#compare">Compare</a></li>
+        <li><a href="/en/#install">Install</a></li>
+        <li><a href="/en/#faq">FAQ</a></li>
+      <li><a href="/en/docs/" class="active" aria-current="true">Docs</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+    </ul>
+    <a class="btn btn-primary" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a>
+  </nav>
+</header>
+<div class="docs-bar">
+  <button class="docs-bar-btn" type="button" aria-expanded="false" aria-controls="belge-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Menu</span></button>
+  <span class="docs-bar-where">Install<span aria-hidden="true"> › </span>HTTPS install (Caddy)</span>
+</div>
+<div class="docs-shade" hidden></div>
+<div class="docs wrap-docs">
+<aside class="docs-side" id="belge-menu" aria-label="Docs menu">
+  <div class="side-head">
+    <p class="side-head-title">Docs</p>
+    <button class="icon-btn side-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="doc-search" role="search" data-index="/assets/docs-search-en.json?v=dev">
+    <label class="sr-only" for="ara">Search the docs</label>
+    <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+    <input id="ara" type="text" inputmode="search" enterkeyhint="search" placeholder="Search the docs…" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="ara-sonuc" aria-autocomplete="list">
+    <kbd class="search-kbd" aria-hidden="true">/</kbd>
+    <div class="search-results" id="ara-sonuc" role="listbox" aria-label="Search the docs" hidden></div>
+  </div>
+  <nav class="side-nav" aria-label="Docs">
+    <ul>
+<li class="side-group"><p class="side-title">Getting started</p><ul><li><a href="/en/docs/">Getting started</a></li></ul></li>
+<li class="side-group"><p class="side-title">Install</p><ul><li><a href="/en/docs/install/docker/">Docker (one command)</a></li><li><a href="/en/docs/install/docker-compose/">Docker Compose</a></li><li><a href="/en/docs/install/caddy/" aria-current="page">HTTPS install (Caddy)</a></li><li><a href="/en/docs/install/coolify/">Coolify</a></li><li><a href="/en/docs/install/reverse-proxy/">Behind a reverse proxy</a></li></ul></li>
+<li class="side-group"><p class="side-title">Usage</p><ul><li><a href="/en/docs/first-steps/">First steps</a></li><li><a href="/en/docs/server-agent/">Server agent and check locations</a></li><li><a href="/en/docs/firewall/">Firewalls and Cloudflare</a></li><li><a href="/en/docs/integrations/">Integrations</a></li><li><a href="/en/docs/sign-in-and-sso/">Sign-in &amp; SSO</a></li></ul></li>
+<li class="side-group"><p class="side-title">Maintenance and reference</p><ul><li><a href="/en/docs/updates-backups/">Updates, backups, rollback</a></li><li><a href="/en/docs/environment-variables/">Environment variables</a></li><li><a href="/en/docs/troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="/en/docs/database/">Database and migration</a></li></ul></li>
+    </ul>
+  </nav>
+</aside>
+<main id="icerik" class="docs-main">
+<article class="doc">
+<nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="/en/docs/">Docs</a></li><li><span>Install</span></li></ol></nav>
+<h1>HTTPS install (Caddy)</h1>
+<p class="doc-lead">Install Bekci on an empty server with your own domain and an automatic Let's Encrypt certificate. Exactly which file goes where, step by step.</p>
+<details class="toc-inline"><summary>On this page</summary><ul><li class="toc-2"><a href="#needs">What you need</a></li><li class="toc-2"><a href="#file-layout">The files you'll end up with</a></li><li class="toc-2"><a href="#dns">1. Add the DNS record</a></li><li class="toc-2"><a href="#docker">2. Install Docker</a></li><li class="toc-2"><a href="#ports">3. Check ports 80 and 443</a></li><li class="toc-2"><a href="#folder">4. Create the folder</a></li><li class="toc-2"><a href="#files">5. Create the three files</a></li><li class="toc-2"><a href="#env">6. Put your domain in .env</a></li><li class="toc-2"><a href="#start">7. Start it</a></li><li class="toc-2"><a href="#certificate">8. Verify the certificate</a></li><li class="toc-2"><a href="#admin">9. Create the admin account</a></li><li class="toc-2"><a href="#problems">Common problems</a></li><li class="toc-3"><a href="#port-taken">Port 80 or 443 is in use</a></li><li class="toc-3"><a href="#dns-problem">DNS hasn't propagated yet or is wrong</a></li><li class="toc-3"><a href="#cloudflare">I use Cloudflare</a></li><li class="toc-3"><a href="#not-secure">The browser says “not secure”</a></li><li class="toc-3"><a href="#env-change">A change in .env had no effect</a></li><li class="toc-2"><a href="#status-domain">A separate domain for the status page (optional)</a></li><li class="toc-3"><a href="#status-domain-migrate">Migrating an older install</a></li><li class="toc-3"><a href="#status-domain-other-proxy">If you don't use Caddy</a></li><li class="toc-2"><a href="#next">Next steps</a></li></ul></details>
+<div class="doc-body">
+<p>By the end of this guide Bekci will run on your own domain, such as <code>https://bekci.example.com</code>, with a valid HTTPS certificate. The <a href="https://caddyserver.com" rel="noopener">Caddy</a> web server obtains the certificate from Let&#39;s Encrypt and renews it before it expires; you don&#39;t have to do anything. Total time: about 10 minutes (plus waiting for DNS to propagate).</p>
+<aside class="callout callout-caution"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86z"/><path d="M12 8v4M12 16h.01"/></svg><span>This guide is for an empty server</span></p>
+<p>Caddy uses the server&#39;s ports <strong>80 and 443</strong>. If Coolify, Nginx, Apache or another web server already runs on your server, <strong>don&#39;t follow</strong> this guide: go to <a href="/en/docs/install/coolify/">Coolify</a> or <a href="/en/docs/install/reverse-proxy/">behind a reverse proxy</a> instead. If you&#39;re not sure, do the <a href="#ports">check in step 3</a>.</p>
+</aside>
+<h2 id="needs">What you need<a class="h-anchor" href="#needs" aria-label="Link to this section: What you need">#</a></h2>
+<ul>
+<li>A Linux server with a public IPv4 address (<a href="/en/docs/#requirements">requirements</a>).</li>
+<li>A domain or subdomain, e.g. <code>bekci.example.com</code>, and access to its DNS settings (at your domain registrar or Cloudflare).</li>
+<li>An email address for certificate notices.</li>
+</ul>
+<h2 id="file-layout">The files you&#39;ll end up with<a class="h-anchor" href="#file-layout" aria-label="Link to this section: The files you'll end up with">#</a></h2>
+<p>Your server will have one folder with three files in it. You&#39;ll only edit one of them (<code>.env</code>):</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>Folder layout</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-1" aria-label="Copy code: Folder layout"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-1" class="hljs language-plaintext">/opt/bekci/
+├── docker-compose.yml   ← Bekci + Caddy definition    (use as is)
+├── Caddyfile            ← Caddy&#x27;s configuration       (use as is)
+└── .env                 ← your domain and email       (the only file you edit)</code></pre></div>
+<p>The name <code>.env</code> starts with a dot, so <code>ls</code> doesn&#39;t show it; <code>ls -la</code> does.</p>
+<h2 id="dns">1. Add the DNS record<a class="h-anchor" href="#dns" aria-label="Link to this section: 1. Add the DNS record">#</a></h2>
+<p>In your domain&#39;s DNS settings, create a new <strong>A</strong> record:</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="Table: Field, Value"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td>Type</td><td><code>A</code></td></tr><tr><td>Name / Host</td><td><code>bekci</code> — for <code>bekci.example.com</code>. For the domain itself (<code>example.com</code>) use <code>@</code></td></tr><tr><td>Value / IPv4 address</td><td>Your server&#39;s public IPv4 address, e.g. <code>203.0.113.10</code></td></tr><tr><td>TTL</td><td>Auto or 300</td></tr></tbody></table></div>
+<aside class="callout callout-important"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 7v4M12 14h.01"/></svg><span>If you use Cloudflare</span></p>
+<p>Add the record as <strong>DNS only</strong> (grey cloud), with the orange cloud (<strong>Proxied</strong>) turned off. Once the certificate has been issued you can turn the proxy on if you like; see <a href="#cloudflare">below</a>.</p>
+</aside>
+<p>Your hosting provider&#39;s dashboard shows the server&#39;s public IP address; the first address printed by <code>hostname -I</code> on the server is usually the same. If you use IPv6 you can also add an <strong>AAAA</strong> record with the same name; if you do, make sure the server is really reachable over IPv6.</p>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p>DNS changes can take a few minutes to propagate. On the server, this command should print your server&#39;s IP address:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-2" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-2" class="hljs language-bash">getent ahostsv4 <mark class="ph">bekci.example.com</mark> | <span class="hljs-built_in">head</span> -n 1</code></pre></div>
+<p>If it prints nothing or another address, wait a few minutes and try again. With the Cloudflare proxy on you&#39;ll see Cloudflare&#39;s addresses here.</p>
+</aside>
+<h2 id="docker">2. Install Docker<a class="h-anchor" href="#docker" aria-label="Link to this section: 2. Install Docker">#</a></h2>
+<p>If Docker isn&#39;t installed, follow <a href="/en/docs/install/docker/#install-docker">the first step of the Docker guide</a> (the official script installs the Compose plugin too).</p>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p><code>docker compose version</code> should print a version number.</p>
+</aside>
+<h2 id="ports">3. Check ports 80 and 443<a class="h-anchor" href="#ports" aria-label="Link to this section: 3. Check ports 80 and 443">#</a></h2>
+<p>First make sure the ports are free:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-3" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-3" class="hljs language-bash">ss -ltnp <span class="hljs-string">&#x27;sport = :80&#x27;</span>
+ss -ltnp <span class="hljs-string">&#x27;sport = :443&#x27;</span></code></pre></div>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p>Both commands should print only the header line (<code>State  Recv-Q  Send-Q …</code>). If there&#39;s a line below it, another program is using that port: a part such as <code>users:(("nginx",…))</code> tells you which one. In that case see <a href="#port-taken">the problems section</a>.</p>
+</aside>
+<p>Then make sure the ports are reachable from outside:</p>
+<ul>
+<li><strong>Your hosting provider&#39;s firewall</strong> (Hetzner, DigitalOcean, AWS “security group”, etc.): allow incoming <strong>80/TCP</strong>, <strong>443/TCP</strong> and optionally <strong>443/UDP</strong> (HTTP/3).</li>
+<li>If you use <strong>ufw</strong> (<code>ufw status</code> says “Status: active”), add the rules; don&#39;t forget SSH:</li>
+</ul>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-4" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-4" class="hljs language-bash">ufw allow OpenSSH
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw allow 443/udp</code></pre></div>
+<aside class="callout callout-note"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>Note</span></p>
+<p>Docker adds firewall rules for the ports it publishes itself, so if ufw is off you don&#39;t need to turn it on for this install. What really matters is that your provider&#39;s firewall allows these ports.</p>
+</aside>
+<h2 id="folder">4. Create the folder<a class="h-anchor" href="#folder" aria-label="Link to this section: 4. Create the folder">#</a></h2>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-5" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-5" class="hljs language-bash"><span class="hljs-built_in">mkdir</span> -p /opt/bekci
+<span class="hljs-built_in">cd</span> /opt/bekci</code></pre></div>
+<p>Run all later commands from inside this folder. If you close the terminal and reconnect, type <code>cd /opt/bekci</code> first.</p>
+<h2 id="files">5. Create the three files<a class="h-anchor" href="#files" aria-label="Link to this section: 5. Create the three files">#</a></h2>
+<p>You can create the files in one of two ways. Downloading is quicker and rules out copy-paste mistakes.</p>
+<div class="tabs" data-key="create"><div class="tab-list" role="tablist" aria-label="How to create the files"><button type="button" role="tab" id="sekme-download-recommended" aria-controls="download-recommended" aria-selected="true" tabindex="0" data-tab="download-recommended" class="active">Download (recommended)</button><button type="button" role="tab" id="sekme-create-by-hand" aria-controls="create-by-hand" aria-selected="false" tabindex="-1" data-tab="create-by-hand">Create by hand</button></div>
+<div class="tab-panel active" role="tabpanel" id="download-recommended" aria-labelledby="sekme-download-recommended" data-tab="download-recommended"><p class="tab-label">Download (recommended)</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-18" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-18" class="hljs language-bash"><span class="hljs-built_in">cd</span> /opt/bekci
+curl -fsSL -o docker-compose.yml https://bekci.app/indir/en/caddy/docker-compose.yml
+curl -fsSL -o Caddyfile https://bekci.app/indir/en/caddy/Caddyfile
+curl -fsSL -o .<span class="hljs-built_in">env</span> https://bekci.app/indir/en/caddy/env.example
+<span class="hljs-built_in">ls</span> -la</code></pre></div>
+<p>The third command saves the example settings file under the name <code>.env</code>; the leading dot matters.</p>
+</div>
+<div class="tab-panel" role="tabpanel" id="create-by-hand" aria-labelledby="sekme-create-by-hand" data-tab="create-by-hand"><p class="tab-label">Create by hand</p>
+<p>For each file, open an empty file with <code>nano</code>, paste the content below, save with <kbd>Ctrl</kbd>+<kbd>O</kbd> and <kbd>Enter</kbd>, and exit with <kbd>Ctrl</kbd>+<kbd>X</kbd>.</p>
+<p><strong>docker-compose.yml</strong> — <code>nano /opt/bekci/docker-compose.yml</code></p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>/opt/bekci/docker-compose.yml</span></span><span class="code-actions"><a class="code-dl" href="/indir/en/caddy/docker-compose.yml" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><span>Download</span></a><button class="copy" type="button" data-copy="kod-19" aria-label="Copy code: /opt/bekci/docker-compose.yml"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-19" class="hljs language-yaml"><span class="hljs-comment"># Bekci + Caddy: install with automatic HTTPS (Let&#x27;s Encrypt).</span>
+<span class="hljs-comment"># Step-by-step guide: https://bekci.app/en/docs/install/caddy/</span>
+<span class="hljs-comment">#</span>
+<span class="hljs-comment"># You don&#x27;t need to change this file: the domain, email and version are read</span>
+<span class="hljs-comment"># from the .env file. All three files live in the same folder (e.g. /opt/bekci):</span>
+<span class="hljs-comment">#   docker-compose.yml   this file</span>
+<span class="hljs-comment">#   Caddyfile            Caddy configuration</span>
+<span class="hljs-comment">#   .env                 your domain and email</span>
+<span class="hljs-comment">#</span>
+<span class="hljs-comment"># Start:     docker compose up -d</span>
+<span class="hljs-comment"># Logs:      docker compose logs -f bekci      (for Caddy: caddy)</span>
+<span class="hljs-comment"># Update:    docker compose pull &amp;&amp; docker compose up -d</span>
+<span class="hljs-comment"># Backups, version pinning, rollback: https://bekci.app/en/docs/updates-backups/</span>
+
+<span class="hljs-attr">name:</span> <span class="hljs-string">bekci</span>
+
+<span class="hljs-attr">services:</span>
+  <span class="hljs-attr">bekci:</span>
+    <span class="hljs-comment"># UPTIME_TAG: latest or a fixed version (e.g. 1.0.0).</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">kadirsungurlu/bekci:${UPTIME_TAG:-latest}</span>
+    <span class="hljs-attr">restart:</span> <span class="hljs-string">unless-stopped</span>
+    <span class="hljs-comment"># Give the app time to shut down cleanly.</span>
+    <span class="hljs-attr">stop_grace_period:</span> <span class="hljs-string">30s</span>
+    <span class="hljs-attr">depends_on:</span>
+      <span class="hljs-attr">db:</span>
+        <span class="hljs-attr">condition:</span> <span class="hljs-string">service_healthy</span>
+    <span class="hljs-attr">environment:</span>
+      <span class="hljs-attr">DATABASE_URL:</span> <span class="hljs-string">postgres://bekci:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD}@db:5432/bekci?sslmode=disable</span>
+      <span class="hljs-attr">BASE_URL:</span> <span class="hljs-string">https://${UPTIME_DOMAIN:?UPTIME_DOMAIN</span> <span class="hljs-string">must</span> <span class="hljs-string">be</span> <span class="hljs-string">set</span> <span class="hljs-string">in</span> <span class="hljs-string">the</span> <span class="hljs-string">.env</span> <span class="hljs-string">file}</span>
+      <span class="hljs-attr">TZ:</span> <span class="hljs-string">${TZ:-Europe/Istanbul}</span>
+      <span class="hljs-attr">LOG_LEVEL:</span> <span class="hljs-string">${LOG_LEVEL:-info}</span>
+      <span class="hljs-attr">MAX_CONCURRENT_CHECKS:</span> <span class="hljs-string">${MAX_CONCURRENT_CHECKS:-50}</span>
+    <span class="hljs-attr">volumes:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">bekci-data:/data</span>
+    <span class="hljs-comment"># Not published directly; only reachable through Caddy.</span>
+    <span class="hljs-attr">expose:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;8080&quot;</span>
+    <span class="hljs-attr">logging:</span>
+      <span class="hljs-attr">driver:</span> <span class="hljs-string">json-file</span>
+      <span class="hljs-attr">options:</span>
+        <span class="hljs-attr">max-size:</span> <span class="hljs-string">10m</span>
+        <span class="hljs-attr">max-file:</span> <span class="hljs-string">&quot;3&quot;</span>
+
+  <span class="hljs-attr">db:</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">timescale/timescaledb:2.31.0-pg18</span>
+    <span class="hljs-attr">restart:</span> <span class="hljs-string">unless-stopped</span>
+    <span class="hljs-attr">stop_grace_period:</span> <span class="hljs-string">60s</span>
+    <span class="hljs-attr">environment:</span>
+      <span class="hljs-attr">POSTGRES_USER:</span> <span class="hljs-string">bekci</span>
+      <span class="hljs-attr">POSTGRES_DB:</span> <span class="hljs-string">bekci</span>
+      <span class="hljs-attr">POSTGRES_PASSWORD:</span> <span class="hljs-string">${POSTGRES_PASSWORD:?POSTGRES_PASSWORD}</span>
+      <span class="hljs-attr">TIMESCALEDB_TELEMETRY:</span> <span class="hljs-string">&quot;off&quot;</span>
+    <span class="hljs-attr">volumes:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">bekci-db:/var/lib/postgresql</span>
+    <span class="hljs-attr">expose:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;5432&quot;</span>
+    <span class="hljs-attr">healthcheck:</span>
+      <span class="hljs-attr">test:</span> [<span class="hljs-string">&quot;CMD-SHELL&quot;</span>, <span class="hljs-string">&quot;pg_isready -h 127.0.0.1 -U bekci -d bekci&quot;</span>]
+      <span class="hljs-attr">interval:</span> <span class="hljs-string">5s</span>
+      <span class="hljs-attr">timeout:</span> <span class="hljs-string">5s</span>
+      <span class="hljs-attr">retries:</span> <span class="hljs-number">30</span>
+      <span class="hljs-attr">start_period:</span> <span class="hljs-string">30s</span>
+
+  <span class="hljs-attr">caddy:</span>
+    <span class="hljs-comment"># caddy:2-alpine (pinned by digest)</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">caddy:2-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b</span>
+    <span class="hljs-attr">restart:</span> <span class="hljs-string">unless-stopped</span>
+    <span class="hljs-attr">depends_on:</span>
+      <span class="hljs-attr">bekci:</span>
+        <span class="hljs-attr">condition:</span> <span class="hljs-string">service_healthy</span>
+    <span class="hljs-attr">ports:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;80:80&quot;</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;443:443&quot;</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;443:443/udp&quot;</span> <span class="hljs-comment"># HTTP/3</span>
+    <span class="hljs-attr">environment:</span>
+      <span class="hljs-attr">UPTIME_DOMAIN:</span> <span class="hljs-string">${UPTIME_DOMAIN}</span>
+      <span class="hljs-attr">ACME_EMAIL:</span> <span class="hljs-string">${ACME_EMAIL:?ACME_EMAIL</span> <span class="hljs-string">must</span> <span class="hljs-string">be</span> <span class="hljs-string">set</span> <span class="hljs-string">in</span> <span class="hljs-string">the</span> <span class="hljs-string">.env</span> <span class="hljs-string">file}</span>
+      <span class="hljs-attr">STATUS_DOMAIN:</span> <span class="hljs-string">${STATUS_DOMAIN:-}</span>
+    <span class="hljs-attr">volumes:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">./Caddyfile:/etc/caddy/Caddyfile:ro</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">caddy-data:/data</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">caddy-config:/config</span>
+    <span class="hljs-attr">logging:</span>
+      <span class="hljs-attr">driver:</span> <span class="hljs-string">json-file</span>
+      <span class="hljs-attr">options:</span>
+        <span class="hljs-attr">max-size:</span> <span class="hljs-string">10m</span>
+        <span class="hljs-attr">max-file:</span> <span class="hljs-string">&quot;3&quot;</span>
+
+<span class="hljs-attr">volumes:</span>
+  <span class="hljs-attr">bekci-data:</span>
+  <span class="hljs-attr">bekci-db:</span>
+  <span class="hljs-attr">caddy-data:</span>
+  <span class="hljs-attr">caddy-config:</span></code></pre></div>
+<p><strong>Caddyfile</strong> — <code>nano /opt/bekci/Caddyfile</code> (the file name is exactly <code>Caddyfile</code>: no extension, capital C)</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>/opt/bekci/Caddyfile</span></span><span class="code-actions"><a class="code-dl" href="/indir/en/caddy/Caddyfile" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><span>Download</span></a><button class="copy" type="button" data-copy="kod-20" aria-label="Copy code: /opt/bekci/Caddyfile"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-20" class="hljs language-caddyfile"><span class="hljs-comment"># Caddy: obtains the HTTPS certificate automatically and forwards to Bekci.</span>
+<span class="hljs-comment"># The domains come from the .env file; you don&#x27;t need to change this file.</span>
+<span class="hljs-comment"># Guide: https://bekci.app/en/docs/install/caddy/</span>
+
+{
+<span class="hljs-keyword">	email</span> <span class="hljs-variable">{$ACME_EMAIL}</span>
+	<span class="hljs-comment"># Status page custom domains: before obtaining a certificate for a name it</span>
+	<span class="hljs-comment"># doesn&#x27;t know, Caddy asks Bekci; only names set on a published page are approved.</span>
+<span class="hljs-keyword">	on_demand_tls</span> {
+<span class="hljs-keyword">		ask</span> http://bekci:8080/api/tls/ask
+	}
+}
+
+<span class="hljs-variable">{$UPTIME_DOMAIN}</span> {
+<span class="hljs-keyword">	encode</span> zstd gzip
+	<span class="hljs-comment"># Browsers should only use HTTPS for this domain for one year.</span>
+	<span class="hljs-comment"># &quot;&gt;&quot; means: if the app sends the same header, keep only this one.</span>
+<span class="hljs-keyword">	header</span> &gt;Strict-Transport-Security <span class="hljs-string">&quot;max-age=31536000&quot;</span>
+<span class="hljs-keyword">	reverse_proxy</span> bekci:8080 {
+		<span class="hljs-comment"># Pass the live stream (Server-Sent Events) through without buffering.</span>
+<span class="hljs-keyword">		flush_interval</span> <span class="hljs-number">-1</span>
+	}
+}
+
+<span class="hljs-comment"># Status page custom domains (automatic): enter the domain on the page in the</span>
+<span class="hljs-comment"># panel and point its DNS to this server; you don&#x27;t need to touch this file.</span>
+<span class="hljs-comment"># The certificate is obtained on the first HTTPS request to the domain. Site</span>
+<span class="hljs-comment"># blocks with an explicit name, like the one above, take precedence over this</span>
+<span class="hljs-comment"># block (older hand-written blocks keep working).</span>
+https:// {
+<span class="hljs-keyword">	tls</span> {
+<span class="hljs-keyword">		on_demand</span>
+	}
+<span class="hljs-keyword">	encode</span> zstd gzip
+<span class="hljs-keyword">	header</span> &gt;Strict-Transport-Security <span class="hljs-string">&quot;max-age=31536000&quot;</span>
+<span class="hljs-keyword">	reverse_proxy</span> bekci:8080 {
+<span class="hljs-keyword">		flush_interval</span> <span class="hljs-number">-1</span>
+	}
+}</code></pre></div>
+<p><strong>.env</strong> — <code>nano /opt/bekci/.env</code> (you&#39;ll edit its content in the next step)</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>/opt/bekci/.env</span></span><span class="code-actions"><a class="code-dl" href="/indir/en/caddy/env.example" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><span>Download</span></a><button class="copy" type="button" data-copy="kod-21" aria-label="Copy code: /opt/bekci/.env"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-21" class="hljs language-ini"><span class="hljs-comment"># Bekci + Caddy settings. On the server this file must be named &quot;.env&quot; and sit</span>
+<span class="hljs-comment"># in the same folder as docker-compose.yml (e.g. /opt/bekci/.env).</span>
+<span class="hljs-comment"># Guide: https://bekci.app/en/docs/install/caddy/</span>
+
+<span class="hljs-comment"># The panel&#x27;s domain (without http:// and /). Its DNS A record must point here.</span>
+<span class="hljs-attr">UPTIME_DOMAIN</span>=<mark class="ph">bekci.example.com</mark>
+
+<span class="hljs-comment"># Your email address for Let&#x27;s Encrypt certificate notices.</span>
+<span class="hljs-attr">ACME_EMAIL</span>=<mark class="ph">admin@example.com</mark>
+
+<span class="hljs-comment"># Database password. Letters and digits only; to generate one:</span>
+<span class="hljs-comment"># openssl rand -hex 24</span>
+POSTGRES_PASSWORD=
+
+<span class="hljs-comment"># latest or a fixed version (e.g. 1.0.0).</span>
+<span class="hljs-attr">UPTIME_TAG</span>=latest
+
+<span class="hljs-comment"># Time zone for daily summaries and the nightly backup.</span>
+<span class="hljs-attr">TZ</span>=Europe/Istanbul
+<span class="hljs-attr">LOG_LEVEL</span>=info
+
+<span class="hljs-comment"># Maximum number of checks at the same time (raise it for hundreds of monitors).</span>
+<span class="hljs-attr">MAX_CONCURRENT_CHECKS</span>=<span class="hljs-number">50</span>
+
+<span class="hljs-comment"># Status page custom domains are now automatic (the on-demand TLS block in the</span>
+<span class="hljs-comment"># Caddyfile): entering the domain on the page in the panel is enough. STATUS_DOMAIN</span>
+<span class="hljs-comment"># is only kept for older installs that use a hand-written site block.</span>
+<span class="hljs-comment"># STATUS_DOMAIN=status.example.com</span></code></pre></div>
+</div>
+</div>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p><code>ls -la /opt/bekci</code> should list all three files: <code>.env</code>, <code>Caddyfile</code> and <code>docker-compose.yml</code>.</p>
+</aside>
+<h2 id="env">6. Put your domain in .env<a class="h-anchor" href="#env" aria-label="Link to this section: 6. Put your domain in .env">#</a></h2>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-6" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-6" class="hljs language-bash">nano /opt/bekci/.env</code></pre></div>
+<p>Change just two lines; the rest can stay as they are:</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>/opt/bekci/.env (the lines you change)</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-7" aria-label="Copy code: /opt/bekci/.env (the lines you change)"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-7" class="hljs language-ini"><span class="hljs-attr">UPTIME_DOMAIN</span>=<mark class="ph">bekci.example.com</mark>
+<span class="hljs-attr">ACME_EMAIL</span>=<mark class="ph">you@example.com</mark></code></pre></div>
+<ul>
+<li><code>UPTIME_DOMAIN</code>: the domain you created the DNS record for in step 1. Don&#39;t add <code>https://</code> in front or <code>/</code> at the end.</li>
+<li><code>ACME_EMAIL</code>: your email address, where Let&#39;s Encrypt sends certificate notices.</li>
+</ul>
+<p>The other lines: <code>UPTIME_TAG</code> is the Bekci version to run (<a href="/en/docs/updates-backups/#pinning">version pinning</a>), <code>TZ</code> is the time zone and <code>MAX_CONCURRENT_CHECKS</code> the maximum number of checks at the same time (<a href="/en/docs/environment-variables/">all variables</a>). Set <code>TZ</code> to your own zone, e.g. <code>Europe/Berlin</code> or <code>UTC</code>.</p>
+<p>Save and exit (<kbd>Ctrl</kbd>+<kbd>O</kbd>, <kbd>Enter</kbd>, <kbd>Ctrl</kbd>+<kbd>X</kbd>).</p>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-8" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-8" class="hljs language-bash"><span class="hljs-built_in">cd</span> /opt/bekci
+docker compose config --quiet</code></pre></div>
+<p>The command should finish without printing anything. If you see <code>required variable UPTIME_DOMAIN is missing a value</code>, the <code>.env</code> file was saved under a wrong name (e.g. <code>env.example</code> or <code>.env.txt</code>) or sits in another folder.</p>
+</aside>
+<h2 id="start">7. Start it<a class="h-anchor" href="#start" aria-label="Link to this section: 7. Start it">#</a></h2>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-9" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-9" class="hljs language-bash"><span class="hljs-built_in">cd</span> /opt/bekci
+docker compose up -d</code></pre></div>
+<p>The first time, the images are downloaded. Caddy waits until Bekci is healthy, then starts and requests the certificate.</p>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p>A few seconds later <code>docker compose ps</code> should list two rows: <code>bekci</code> with <strong>STATUS</strong> <code>Up … (healthy)</code> and <code>caddy</code> with <code>Up …</code>. The <strong>PORTS</strong> column of the <code>caddy</code> row shows <code>0.0.0.0:80-&gt;80/tcp</code> and <code>0.0.0.0:443-&gt;443/tcp</code>.</p>
+</aside>
+<h2 id="certificate">8. Verify the certificate<a class="h-anchor" href="#certificate" aria-label="Link to this section: 8. Verify the certificate">#</a></h2>
+<p>Caddy&#39;s log tells you whether it obtained the certificate:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-10" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-10" class="hljs language-bash">docker compose logs caddy | grep -i <span class="hljs-string">&quot;certificate obtained&quot;</span></code></pre></div>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p>You should see a line containing <code>"msg":"certificate obtained successfully","identifier":"bekci.example.com"</code>. In your browser, <code>https://<mark class="ph">bekci.example.com</mark></code> should open with the padlock icon in the address bar. You can also try from the server:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-11" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-11" class="hljs language-bash">curl -sI https://<mark class="ph">bekci.example.com</mark>/healthz | <span class="hljs-built_in">head</span> -n 1</code></pre></div>
+<p>The output should be <code>HTTP/2 200</code>.</p>
+</aside>
+<p>If the line isn&#39;t there, wait a minute and check again. If it still isn&#39;t there, the <code>"level":"error"</code> lines in <code>docker compose logs caddy</code> tell you why; see <a href="#problems">common problems</a>.</p>
+<h2 id="admin">9. Create the admin account<a class="h-anchor" href="#admin" aria-label="Link to this section: 9. Create the admin account">#</a></h2>
+<p>Open <code>https://<mark class="ph">bekci.example.com</mark></code>. On the <strong>Welcome</strong> screen enter a username and a password of at least 8 characters, then click <strong>Create account</strong>.</p>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p>The monitor list opens. The install is done; add your first monitor with <a href="/en/docs/first-steps/">First steps</a>.</p>
+</aside>
+<p>In this setup <code>BASE_URL</code> is built from the domain in <code>.env</code> automatically (<code>https://</code> + <code>UPTIME_DOMAIN</code>); you don&#39;t need to set it separately.</p>
+<h2 id="problems">Common problems<a class="h-anchor" href="#problems" aria-label="Link to this section: Common problems">#</a></h2>
+<h3 id="port-taken">Port 80 or 443 is in use<a class="h-anchor" href="#port-taken" aria-label="Link to this section: Port 80 or 443 is in use">#</a></h3>
+<p><code>docker compose up -d</code> stops with one of these errors:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><span></span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-12" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-12" class="hljs language-plaintext">Bind for 0.0.0.0:80 failed: port is already allocated</code></pre></div>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><span></span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-13" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-13" class="hljs language-plaintext">failed to bind host port 0.0.0.0:80/tcp: address already in use</code></pre></div>
+<p>The first means <strong>another container</strong> uses the port; <code>docker ps --filter publish=80</code> shows which one (on servers running Coolify it&#39;s <code>coolify-proxy</code>). The second means a program running directly on the server (usually Nginx or Apache) uses it; <code>ss -ltnp 'sport = :80'</code> shows which one.</p>
+<ul>
+<li>If you use that web server, put Bekci behind it instead of installing Caddy: <a href="/en/docs/install/reverse-proxy/">behind a reverse proxy</a>. With Coolify: <a href="/en/docs/install/coolify/">Coolify</a>.</li>
+<li>If you don&#39;t use it, stop and disable it, e.g. <code>systemctl disable --now nginx</code> (for Apache: <code>apache2</code>), then run <code>docker compose up -d</code> again.</li>
+</ul>
+<h3 id="dns-problem">DNS hasn&#39;t propagated yet or is wrong<a class="h-anchor" href="#dns-problem" aria-label="Link to this section: DNS hasn't propagated yet or is wrong">#</a></h3>
+<p>Caddy&#39;s log shows errors about obtaining the certificate and the browser shows a security warning. If the <code>getent</code> command from <a href="#dns">step 1</a> doesn&#39;t print your server&#39;s IP, DNS isn&#39;t ready yet. Caddy retries on its own; once DNS points to the right address you can speed things up with:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-14" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-14" class="hljs language-bash">docker compose restart caddy</code></pre></div>
+<h3 id="cloudflare">I use Cloudflare<a class="h-anchor" href="#cloudflare" aria-label="Link to this section: I use Cloudflare">#</a></h3>
+<ul>
+<li>For the first install the record must be <strong>DNS only</strong> (grey cloud); otherwise Let&#39;s Encrypt&#39;s validation can get stuck at Cloudflare.</li>
+<li>If you turn the proxy (orange cloud) on after the certificate has been issued, set Cloudflare&#39;s <strong>SSL/TLS</strong> mode to <strong>Full (strict)</strong>. <strong>Flexible</strong> mode causes an endless redirect loop (<code>ERR_TOO_MANY_REDIRECTS</code>).</li>
+<li>Live updates work behind Cloudflare too: Bekci sends a keep-alive signal every 25 seconds to keep the connection open.</li>
+<li>If certificate renewal causes trouble later, temporarily switch the record back to <strong>DNS only</strong>.</li>
+</ul>
+<h3 id="not-secure">The browser says “not secure”<a class="h-anchor" href="#not-secure" aria-label="Link to this section: The browser says “not secure”">#</a></h3>
+<p>The certificate hasn&#39;t been issued yet. Do the check from <a href="#certificate">step 8</a>. After many failed attempts Let&#39;s Encrypt refuses new requests for a while, so once you&#39;ve fixed DNS and the ports, watch the log instead of running <code>docker compose up -d</code> over and over: <code>docker compose logs -f caddy</code>.</p>
+<h3 id="env-change">A change in .env had no effect<a class="h-anchor" href="#env-change" aria-label="Link to this section: A change in .env had no effect">#</a></h3>
+<p>After editing <code>.env</code>, run <code>docker compose up -d</code>; Compose recreates the changed containers. If you edited the <code>Caddyfile</code>, you also need <code>docker compose restart caddy</code>.</p>
+<h2 id="status-domain">A separate domain for the status page (optional)<a class="h-anchor" href="#status-domain" aria-label="Link to this section: A separate domain for the status page (optional)">#</a></h2>
+<p>You can publish your public status page at a separate address such as <code>status.example.com</code>. That address only serves the status page, never the admin panel. The HTTPS certificate is obtained automatically: you don&#39;t need to touch Caddy or the <code>.env</code> file.</p>
+<ol>
+<li>In the domain&#39;s DNS settings, add an <strong>A</strong> record pointing to your server (like <a href="#dns">step 1</a>; add <strong>AAAA</strong> too if you use IPv6). Alternatively you can add a <strong>CNAME</strong> record pointing to the panel&#39;s address (<code><mark class="ph">bekci.example.com</mark></code>).</li>
+<li>In the panel, open your page under <strong>Status pages</strong>, enter <code>status.example.com</code> in the <strong>Custom domain</strong> field and save. Below the field you&#39;ll see the CNAME target (the panel&#39;s address) and the target IP addresses for the A/AAAA record.</li>
+<li>Once the status badge below the field shows <strong>Active</strong>, the domain is ready. Click <strong>Check again</strong> to refresh the badge right away.</li>
+</ol>
+<p>The certificate is obtained on the first HTTPS request to the domain. Before obtaining it, Caddy asks Bekci (<code>/api/tls/ask</code>): certificates are only issued for names set on a <strong>published</strong> status page; if the page isn&#39;t published or no page uses the name, no certificate is requested. This way no certificates are requested for random names that happen to point to your server.</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="Table: Badge, Meaning"><table><thead><tr><th>Badge</th><th>Meaning</th></tr></thead><tbody><tr><td>Waiting for DNS</td><td>The domain doesn&#39;t point to this server yet; check the A/AAAA or CNAME record (propagation can take a few minutes).</td></tr><tr><td>Waiting for certificate</td><td>DNS is correct but the HTTPS check hasn&#39;t passed yet. The certificate is obtained on the first request; click <strong>Check again</strong> a little later.</td></tr><tr><td>Active</td><td>The domain serves the status page over HTTPS.</td></tr><tr><td>Page not published</td><td>No certificate is obtained because the page isn&#39;t published; publish the page first.</td></tr></tbody></table></div>
+<aside class="callout callout-note"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>If you use Cloudflare</span></p>
+<p>It also works with the proxy (orange cloud) on; if the HTTPS check passes, the badge shows <strong>Active</strong>. <strong>Full (strict)</strong> is the recommended Cloudflare <strong>SSL/TLS</strong> mode. In this mode, set the record to <strong>DNS only</strong> (grey cloud) temporarily so the server can obtain its first certificate, then turn the proxy on once the badge shows <strong>Active</strong>. Even without switching to the grey cloud, visitors reach the page with Cloudflare&#39;s own certificate.</p>
+</aside>
+<h3 id="status-domain-migrate">Migrating an older install<a class="h-anchor" href="#status-domain-migrate" aria-label="Link to this section: Migrating an older install">#</a></h3>
+<p>Hand-written <code>{$STATUS_DOMAIN} { ... }</code> or <code>status.example.com { ... }</code> blocks keep working: a site block with an explicit name takes precedence over the automatic (<code>https://</code>) block. To switch to automatic HTTPS:</p>
+<aside class="callout callout-important"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 7v4M12 14h.01"/></svg><span>Important</span></p>
+<p>The certificate approval endpoint (<code>/api/tls/ask</code>) ships with Bekci 1.5.0. Update Bekci first: <code>docker compose pull &amp;&amp; docker compose up -d</code>.</p>
+</aside>
+<ol>
+<li><p>Add the approval endpoint to the global block at the top of the <code>Caddyfile</code>:</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>/opt/bekci/Caddyfile (top of the file)</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-15" aria-label="Copy code: /opt/bekci/Caddyfile (top of the file)"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-15" class="hljs language-caddyfile">{
+<span class="hljs-keyword">    email</span> <span class="hljs-variable">{$ACME_EMAIL}</span>
+<span class="hljs-keyword">    on_demand_tls</span> {
+<span class="hljs-keyword">        ask</span> http://bekci:8080/api/tls/ask
+    }
+}</code></pre></div>
+</li>
+<li><p>Add the automatic block at the end of the file:</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>/opt/bekci/Caddyfile (end of the file)</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-16" aria-label="Copy code: /opt/bekci/Caddyfile (end of the file)"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-16" class="hljs language-caddyfile">https:// {
+<span class="hljs-keyword">    tls</span> {
+<span class="hljs-keyword">        on_demand</span>
+    }
+<span class="hljs-keyword">    encode</span> zstd gzip
+<span class="hljs-keyword">    header</span> &gt;Strict-Transport-Security <span class="hljs-string">&quot;max-age=31536000&quot;</span>
+<span class="hljs-keyword">    reverse_proxy</span> bekci:8080 {
+<span class="hljs-keyword">        flush_interval</span> <span class="hljs-number">-1</span>
+    }
+}</code></pre></div>
+</li>
+<li><p>Validate the file and apply it:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-17" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-17" class="hljs language-bash"><span class="hljs-built_in">cd</span> /opt/bekci
+docker compose <span class="hljs-built_in">exec</span> caddy caddy validate --config /etc/caddy/Caddyfile
+docker compose restart caddy</code></pre></div>
+<p>Instead of restarting you can also use <code>docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile</code>.</p>
+</li>
+<li><p>In the panel, check that the badge under the page&#39;s <strong>Custom domain</strong> field shows <strong>Active</strong>.</p>
+</li>
+<li><p>If you like, remove the old <code>{$STATUS_DOMAIN}</code> block from the <code>Caddyfile</code> and the <code>STATUS_DOMAIN</code> line from <code>.env</code>, then repeat step 3.</p>
+</li>
+</ol>
+<h3 id="status-domain-other-proxy">If you don&#39;t use Caddy<a class="h-anchor" href="#status-domain-other-proxy" aria-label="Link to this section: If you don't use Caddy">#</a></h3>
+<p>Automatic certificates rely on Caddy&#39;s on-demand TLS; with other proxies you have to register each domain with the proxy yourself:</p>
+<ul>
+<li><strong>Traefik (including Coolify)</strong> doesn&#39;t support on-demand TLS: each domain needs a router/host rule and a certresolver. In Coolify, add the domain to the application&#39;s <strong>Domains</strong> field, separated by a comma.</li>
+<li><strong>Nginx</strong>: obtain a certificate for each name with certbot, or put Caddy in front.</li>
+<li>You can use the <code>GET /api/tls/ask?domain=&lt;name&gt;</code> endpoint in your own automation (e.g. a certificate script) as an &quot;is this name configured?&quot; query: it returns <code>200</code> if the name is set on a published page, <code>404</code> otherwise.</li>
+</ul>
+<p>Bekci itself doesn&#39;t listen on port 443 or obtain certificates (ACME): most installs already sit behind a reverse proxy, and port conflicts and certificate storage add complexity; Caddy solves it with a single block.</p>
+<h2 id="next">Next steps<a class="h-anchor" href="#next" aria-label="Link to this section: Next steps">#</a></h2>
+<ul>
+<li><a href="/en/docs/first-steps/">First steps</a>: your first monitor, notification channel and status page.</li>
+<li><a href="/en/docs/updates-backups/">Updates, backups and rollback</a>: updating is as simple as <code>cd /opt/bekci &amp;&amp; docker compose pull &amp;&amp; docker compose up -d</code>, but learn how to back up first.</li>
+</ul>
+</div>
+<div class="doc-feedback"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg><p>Something missing or wrong on this page? <a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">Report it on GitHub</a></p></div>
+<nav class="pn-nav" aria-label="Previous / Next"><a class="pn pn-prev" href="/en/docs/install/docker-compose/" rel="prev"><span class="pn-dir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Previous</span><span class="pn-title">Docker Compose</span></a><a class="pn pn-next" href="/en/docs/install/coolify/" rel="next"><span class="pn-dir">Next<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span><span class="pn-title">Coolify</span></a></nav>
+</article>
+</main>
+<nav class="docs-toc" aria-labelledby="bu-sayfada"><p class="toc-title" id="bu-sayfada">On this page</p><ul><li class="toc-2"><a href="#needs">What you need</a></li><li class="toc-2"><a href="#file-layout">The files you'll end up with</a></li><li class="toc-2"><a href="#dns">1. Add the DNS record</a></li><li class="toc-2"><a href="#docker">2. Install Docker</a></li><li class="toc-2"><a href="#ports">3. Check ports 80 and 443</a></li><li class="toc-2"><a href="#folder">4. Create the folder</a></li><li class="toc-2"><a href="#files">5. Create the three files</a></li><li class="toc-2"><a href="#env">6. Put your domain in .env</a></li><li class="toc-2"><a href="#start">7. Start it</a></li><li class="toc-2"><a href="#certificate">8. Verify the certificate</a></li><li class="toc-2"><a href="#admin">9. Create the admin account</a></li><li class="toc-2"><a href="#problems">Common problems</a></li><li class="toc-3"><a href="#port-taken">Port 80 or 443 is in use</a></li><li class="toc-3"><a href="#dns-problem">DNS hasn't propagated yet or is wrong</a></li><li class="toc-3"><a href="#cloudflare">I use Cloudflare</a></li><li class="toc-3"><a href="#not-secure">The browser says “not secure”</a></li><li class="toc-3"><a href="#env-change">A change in .env had no effect</a></li><li class="toc-2"><a href="#status-domain">A separate domain for the status page (optional)</a></li><li class="toc-3"><a href="#status-domain-migrate">Migrating an older install</a></li><li class="toc-3"><a href="#status-domain-other-proxy">If you don't use Caddy</a></li><li class="toc-2"><a href="#next">Next steps</a></li></ul></nav>
+</div>
+<footer class="site-footer">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/en/" aria-label="Bekci home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <ul class="foot-links">
+      <li><a href="/en/docs/">Docs</a></li>
+      <li><a href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">License: AGPL-3.0</a></li>
+      <li><a href="/docs/kurulum/caddy/" hreflang="tr" lang="tr">Türkçe</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">Contact: GitHub</a></li>
+    </ul>
+    <p>© 2026 Bekci · Made in Türkiye.</p>
+  </div>
+</footer>
+<div id="duyuru" class="sr-only" aria-live="polite"></div>
+</body>
+</html>

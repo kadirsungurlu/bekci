@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en" class="docs-page">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Behind a reverse proxy — Bekci docs</title>
+<meta name="description" content="If your server already runs Nginx, Traefik, Apache or Caddy, put Bekci behind it. For each one - where the file goes, its full content and the settings live updates need.">
+<link rel="canonical" href="https://bekci.app/en/docs/install/reverse-proxy/">
+<link rel="alternate" hreflang="tr" href="https://bekci.app/docs/kurulum/ters-vekil/">
+<link rel="alternate" hreflang="en" href="https://bekci.app/en/docs/install/reverse-proxy/">
+<link rel="alternate" hreflang="x-default" href="https://bekci.app/docs/kurulum/ters-vekil/">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b111b">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg?v=dev" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=dev">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Bekci">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://bekci.app/en/docs/install/reverse-proxy/">
+<meta property="og:title" content="Behind a reverse proxy — Bekci docs">
+<meta property="og:description" content="If your server already runs Nginx, Traefik, Apache or Caddy, put Bekci behind it. For each one - where the file goes, its full content and the settings live updates need.">
+<meta property="og:image" content="https://bekci.app/og-en.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="/assets/fonts/inter-4.1.1-bekci.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=dev">
+<link rel="stylesheet" href="/assets/docs.css?v=dev">
+<script src="/assets/site.js?v=dev"></script>
+<script src="/assets/docs.js?v=dev" defer></script>
+</head>
+<body>
+<a class="skip" href="#icerik">Skip to content</a>
+<header class="site-header">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/en/" aria-label="Bekci home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <nav class="nav" aria-label="Main">
+      <ul>
+        <li><a href="/en/#features">Features</a></li>
+        <li><a href="/en/#screenshots">Screenshots</a></li>
+        <li><a href="/en/#compare">Compare</a></li>
+        <li><a href="/en/#install">Install</a></li>
+        <li><a href="/en/#faq">FAQ</a></li>
+        <li><a href="/en/docs/" class="active" aria-current="true">Docs</a></li>
+      </ul>
+    </nav>
+    <div class="header-actions">
+      <a class="lang" href="/docs/kurulum/ters-vekil/" hreflang="tr" lang="tr" aria-label="Türkçe sürüm">TR</a>
+      <button class="icon-btn theme-toggle" type="button" aria-label="Toggle theme">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+      <a class="icon-btn header-gh" href="https://github.com/kadirsungurlu/bekci" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg></a>
+      <a class="btn btn-primary btn-sm header-hub" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Docker Hub
+      </a>
+      <button class="icon-btn menu-toggle" type="button" aria-expanded="false" aria-controls="mobil-menu" aria-label="Menu">
+        <svg class="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <svg class="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobil-menu" aria-label="Mobile" hidden>
+    <ul>
+      <li><a href="/en/#features">Features</a></li>
+        <li><a href="/en/#screenshots">Screenshots</a></li>
+        <li><a href="/en/#compare">Compare</a></li>
+        <li><a href="/en/#install">Install</a></li>
+        <li><a href="/en/#faq">FAQ</a></li>
+      <li><a href="/en/docs/" class="active" aria-current="true">Docs</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+    </ul>
+    <a class="btn btn-primary" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a>
+  </nav>
+</header>
+<div class="docs-bar">
+  <button class="docs-bar-btn" type="button" aria-expanded="false" aria-controls="belge-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Menu</span></button>
+  <span class="docs-bar-where">Install<span aria-hidden="true"> › </span>Behind a reverse proxy</span>
+</div>
+<div class="docs-shade" hidden></div>
+<div class="docs wrap-docs">
+<aside class="docs-side" id="belge-menu" aria-label="Docs menu">
+  <div class="side-head">
+    <p class="side-head-title">Docs</p>
+    <button class="icon-btn side-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="doc-search" role="search" data-index="/assets/docs-search-en.json?v=dev">
+    <label class="sr-only" for="ara">Search the docs</label>
+    <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+    <input id="ara" type="text" inputmode="search" enterkeyhint="search" placeholder="Search the docs…" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="ara-sonuc" aria-autocomplete="list">
+    <kbd class="search-kbd" aria-hidden="true">/</kbd>
+    <div class="search-results" id="ara-sonuc" role="listbox" aria-label="Search the docs" hidden></div>
+  </div>
+  <nav class="side-nav" aria-label="Docs">
+    <ul>
+<li class="side-group"><p class="side-title">Getting started</p><ul><li><a href="/en/docs/">Getting started</a></li></ul></li>
+<li class="side-group"><p class="side-title">Install</p><ul><li><a href="/en/docs/install/docker/">Docker (one command)</a></li><li><a href="/en/docs/install/docker-compose/">Docker Compose</a></li><li><a href="/en/docs/install/caddy/">HTTPS install (Caddy)</a></li><li><a href="/en/docs/install/coolify/">Coolify</a></li><li><a href="/en/docs/install/reverse-proxy/" aria-current="page">Behind a reverse proxy</a></li></ul></li>
+<li class="side-group"><p class="side-title">Usage</p><ul><li><a href="/en/docs/first-steps/">First steps</a></li><li><a href="/en/docs/server-agent/">Server agent and check locations</a></li><li><a href="/en/docs/firewall/">Firewalls and Cloudflare</a></li><li><a href="/en/docs/integrations/">Integrations</a></li><li><a href="/en/docs/sign-in-and-sso/">Sign-in &amp; SSO</a></li></ul></li>
+<li class="side-group"><p class="side-title">Maintenance and reference</p><ul><li><a href="/en/docs/updates-backups/">Updates, backups, rollback</a></li><li><a href="/en/docs/environment-variables/">Environment variables</a></li><li><a href="/en/docs/troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="/en/docs/database/">Database and migration</a></li></ul></li>
+    </ul>
+  </nav>
+</aside>
+<main id="icerik" class="docs-main">
+<article class="doc">
+<nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="/en/docs/">Docs</a></li><li><span>Install</span></li></ol></nav>
+<h1>Behind a reverse proxy</h1>
+<p class="doc-lead">If your server already runs Nginx, Traefik, Apache or Caddy, put Bekci behind it. For each one - where the file goes, its full content and the settings live updates need.</p>
+<details class="toc-inline"><summary>On this page</summary><ul><li class="toc-2"><a href="#bekci">1. Run Bekci so it only listens locally</a></li><li class="toc-2"><a href="#proxy">2. Configure the proxy</a></li><li class="toc-2"><a href="#verify">3. Verify</a></li><li class="toc-2"><a href="#trusted-proxy">Trusted proxy (TRUSTED_PROXY)</a></li><li class="toc-2"><a href="#problems">Common problems</a></li><li class="toc-3"><a href="#no-live-updates">Live updates don't arrive, “Offline” notice</a></li><li class="toc-3"><a href="#502">502 Bad Gateway</a></li><li class="toc-3"><a href="#413">“413 Request Entity Too Large” when importing</a></li><li class="toc-3"><a href="#redirects">I sign in but get signed out right away, or an endless redirect</a></li><li class="toc-3"><a href="#wrong-address">The address in notifications and agent commands is wrong</a></li></ul></details>
+<div class="doc-body">
+<p>If a web server (a reverse proxy) already uses ports 80 and 443 on your server, you put Bekci behind it: the proxy provides HTTPS and forwards requests to Bekci. If you use Coolify, follow the <a href="/en/docs/install/coolify/">Coolify guide</a> instead of this page.</p>
+<p>Whichever proxy you use, it must do the following for Bekci to work properly:</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="Table: Requirement, Why"><table><thead><tr><th>Requirement</th><th>Why</th></tr></thead><tbody><tr><td>Pass the <code>Host</code>, <code>X-Forwarded-For</code> and <code>X-Forwarded-Proto</code> headers</td><td>Bekci learns from <code>X-Forwarded-Proto</code> that the request arrived over HTTPS (for the secure session cookie and HSTS). It takes the client&#39;s real IP address from <code>X-Forwarded-For</code> (for the login attempt limit and the audit log).</td></tr><tr><td>Pass the <code>/api/events</code> response through <strong>without buffering</strong></td><td>The interface&#39;s live updates arrive over this long-lived connection (Server-Sent Events). If the proxy buffers the response, the panel doesn&#39;t update.</td></tr><tr><td>Not cut the long connection early</td><td>Bekci sends a keep-alive signal on this connection every 25 seconds; the read timeout must be longer.</td></tr><tr><td>Allow large request bodies</td><td>Backup restores and imports can upload files of up to 200 MB.</td></tr></tbody></table></div>
+<h2 id="bekci">1. Run Bekci so it only listens locally<a class="h-anchor" href="#bekci" aria-label="Link to this section: 1. Run Bekci so it only listens locally">#</a></h2>
+<p>If the proxy is on the same server, publish Bekci&#39;s port on <code>127.0.0.1</code> only; that way nobody can reach Bekci from outside by going around the proxy. With <a href="/en/docs/install/docker-compose/">Docker Compose</a>:</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>/opt/bekci/docker-compose.yml</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-1" aria-label="Copy code: /opt/bekci/docker-compose.yml"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-1" class="hljs language-yaml"><span class="hljs-attr">name:</span> <span class="hljs-string">bekci</span>
+<span class="hljs-attr">services:</span>
+  <span class="hljs-attr">bekci:</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">kadirsungurlu/bekci:latest</span>
+    <span class="hljs-attr">restart:</span> <span class="hljs-string">unless-stopped</span>
+    <span class="hljs-attr">stop_grace_period:</span> <span class="hljs-string">30s</span>
+    <span class="hljs-attr">ports:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;127.0.0.1:8080:8080&quot;</span>   <span class="hljs-comment"># reachable from this server only</span>
+    <span class="hljs-attr">environment:</span>
+      <span class="hljs-attr">BASE_URL:</span> <span class="hljs-string">https://<mark class="ph">bekci.example.com</mark></span>
+      <span class="hljs-attr">TZ:</span> <span class="hljs-string">Europe/Istanbul</span>
+    <span class="hljs-attr">volumes:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">bekci-data:/data</span>
+<span class="hljs-attr">volumes:</span>
+  <span class="hljs-attr">bekci-data:</span></code></pre></div>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-2" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-2" class="hljs language-bash"><span class="hljs-built_in">cd</span> /opt/bekci
+docker compose up -d</code></pre></div>
+<p><code>BASE_URL</code> must be the HTTPS address the panel will be opened at. (If you use Traefik with Docker labels, use the file from the <strong>Traefik</strong> tab below instead.)</p>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p>On the server, <code>curl http://127.0.0.1:8080/healthz</code> should print <code>ok</code>.</p>
+</aside>
+<h2 id="proxy">2. Configure the proxy<a class="h-anchor" href="#proxy" aria-label="Link to this section: 2. Configure the proxy">#</a></h2>
+<p>Pick the tab for your proxy. Each tab shows where the file goes, its full content and how to apply it.</p>
+<div class="tabs"><div class="tab-list" role="tablist" aria-label="Reverse proxy"><button type="button" role="tab" id="sekme-nginx" aria-controls="nginx" aria-selected="true" tabindex="0" data-tab="nginx" class="active">Nginx</button><button type="button" role="tab" id="sekme-traefik" aria-controls="traefik" aria-selected="false" tabindex="-1" data-tab="traefik">Traefik</button><button type="button" role="tab" id="sekme-apache" aria-controls="apache" aria-selected="false" tabindex="-1" data-tab="apache">Apache</button><button type="button" role="tab" id="sekme-caddy" aria-controls="caddy" aria-selected="false" tabindex="-1" data-tab="caddy">Caddy</button></div>
+<div class="tab-panel active" role="tabpanel" id="nginx" aria-labelledby="sekme-nginx" data-tab="nginx"><p class="tab-label">Nginx</p>
+<p><strong>Where the file goes:</strong> on Debian and Ubuntu, <code>/etc/nginx/sites-available/bekci</code>. RHEL, AlmaLinux, Rocky and the nginx.org packages have no <code>sites-available</code> folder; create the file as <code>/etc/nginx/conf.d/bekci.conf</code> instead.</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-3" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-3" class="hljs language-bash">nano /etc/nginx/sites-available/bekci</code></pre></div>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>/etc/nginx/sites-available/bekci</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-4" aria-label="Copy code: /etc/nginx/sites-available/bekci"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-4" class="hljs language-nginx"><span class="hljs-section">server</span> {
+    <span class="hljs-attribute">listen</span> <span class="hljs-number">80</span>;
+    <span class="hljs-attribute">listen</span> [::]:<span class="hljs-number">80</span>;
+    <span class="hljs-attribute">server_name</span> <mark class="ph">bekci.example.com</mark>;
+
+    <span class="hljs-comment"># Large files for backup restores and imports</span>
+    <span class="hljs-attribute">client_max_body_size</span> <span class="hljs-number">200m</span>;
+
+    <span class="hljs-section">location</span> / {
+        <span class="hljs-attribute">proxy_pass</span> http://127.0.0.1:8080;
+        <span class="hljs-attribute">proxy_http_version</span> <span class="hljs-number">1</span>.<span class="hljs-number">1</span>;
+        <span class="hljs-attribute">proxy_set_header</span> Host <span class="hljs-variable">$host</span>;
+        <span class="hljs-attribute">proxy_set_header</span> X-Forwarded-For <span class="hljs-variable">$proxy_add_x_forwarded_for</span>;
+        <span class="hljs-attribute">proxy_set_header</span> X-Forwarded-Proto <span class="hljs-variable">$scheme</span>;
+        <span class="hljs-attribute">proxy_set_header</span> Connection <span class="hljs-string">&quot;&quot;</span>;
+
+        <span class="hljs-comment"># Live updates (SSE): pass through unbuffered, don&#x27;t cut the long connection</span>
+        <span class="hljs-attribute">proxy_buffering</span> <span class="hljs-literal">off</span>;
+        <span class="hljs-attribute">proxy_cache</span> <span class="hljs-literal">off</span>;
+        <span class="hljs-attribute">proxy_read_timeout</span> <span class="hljs-number">1h</span>;
+    }
+}</code></pre></div>
+<p>Enable the site (Debian/Ubuntu only), test the configuration and reload Nginx:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-5" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-5" class="hljs language-bash"><span class="hljs-built_in">ln</span> -s /etc/nginx/sites-available/bekci /etc/nginx/sites-enabled/bekci
+nginx -t
+systemctl reload nginx</code></pre></div>
+<p><code>nginx -t</code> should print two lines: <code>syntax is ok</code> and <code>test is successful</code>.</p>
+<p><strong>HTTPS:</strong> if you don&#39;t have a certificate yet, Certbot is the easiest way. On Ubuntu/Debian: <code>apt install certbot python3-certbot-nginx</code>, then <code>certbot --nginx -d <mark class="ph">bekci.example.com</mark></code>. Certbot adds port 443 and the certificate lines to this file itself; the <code>location</code> settings above stay as they are.</p>
+</div>
+<div class="tab-panel" role="tabpanel" id="traefik" aria-labelledby="sekme-traefik" data-tab="traefik"><p class="tab-label">Traefik</p>
+<p>If you use Traefik with Docker labels, add Bekci to the Docker network Traefik is attached to and describe it with labels. You don&#39;t need to publish a port then. Use this file instead of the one from <a href="#bekci">step 1</a>:</p>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>/opt/bekci/docker-compose.yml</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-6" aria-label="Copy code: /opt/bekci/docker-compose.yml"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-6" class="hljs language-yaml"><span class="hljs-attr">name:</span> <span class="hljs-string">bekci</span>
+<span class="hljs-attr">services:</span>
+  <span class="hljs-attr">bekci:</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">kadirsungurlu/bekci:latest</span>
+    <span class="hljs-attr">restart:</span> <span class="hljs-string">unless-stopped</span>
+    <span class="hljs-attr">stop_grace_period:</span> <span class="hljs-string">30s</span>
+    <span class="hljs-attr">environment:</span>
+      <span class="hljs-attr">BASE_URL:</span> <span class="hljs-string">https://<mark class="ph">bekci.example.com</mark></span>
+      <span class="hljs-attr">TZ:</span> <span class="hljs-string">Europe/Istanbul</span>
+    <span class="hljs-attr">volumes:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">bekci-data:/data</span>
+    <span class="hljs-attr">networks:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string"><mark class="ph">proxy</mark></span>
+    <span class="hljs-attr">labels:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">traefik.enable=true</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">traefik.http.routers.bekci.rule=Host(`<mark class="ph">bekci.example.com</mark>`)</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">traefik.http.routers.bekci.entrypoints=<mark class="ph">websecure</mark></span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">traefik.http.routers.bekci.tls.certresolver=<mark class="ph">letsencrypt</mark></span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">traefik.http.services.bekci.loadbalancer.server.port=8080</span>
+<span class="hljs-attr">networks:</span>
+  <span class="hljs-string"><mark class="ph">proxy</mark>:</span>
+    <span class="hljs-attr">external:</span> <span class="hljs-literal">true</span>
+<span class="hljs-attr">volumes:</span>
+  <span class="hljs-attr">bekci-data:</span></code></pre></div>
+<p>Replace the highlighted names with the ones from your own Traefik setup:</p>
+<ul>
+<li><code>proxy</code>: the Docker network the Traefik container is attached to (<code>docker network ls</code> lists networks).</li>
+<li><code>websecure</code>: the name of the entrypoint you defined for port 443.</li>
+<li><code>letsencrypt</code>: the name of the certificate resolver (certresolver) in your Traefik configuration.</li>
+</ul>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-7" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-7" class="hljs language-bash"><span class="hljs-built_in">cd</span> /opt/bekci
+docker compose up -d</code></pre></div>
+<p>Traefik doesn&#39;t buffer responses and adds the <code>X-Forwarded-*</code> headers itself; live updates need no extra settings.</p>
+</div>
+<div class="tab-panel" role="tabpanel" id="apache" aria-labelledby="sekme-apache" data-tab="apache"><p class="tab-label">Apache</p>
+<p>Enable the required modules (Debian/Ubuntu):</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-8" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-8" class="hljs language-bash">a2enmod proxy proxy_http headers</code></pre></div>
+<p><strong>Where the file goes:</strong> on Debian and Ubuntu, <code>/etc/apache2/sites-available/bekci.conf</code>. On the RHEL family, <code>/etc/httpd/conf.d/bekci.conf</code>.</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-9" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-9" class="hljs language-bash">nano /etc/apache2/sites-available/bekci.conf</code></pre></div>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>/etc/apache2/sites-available/bekci.conf</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-10" aria-label="Copy code: /etc/apache2/sites-available/bekci.conf"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-10" class="hljs language-apache"><span class="hljs-section">&lt;VirtualHost *<span class="hljs-number">:80</span>&gt;</span>
+    <span class="hljs-attribute">ServerName</span> <mark class="ph">bekci.example.com</mark>
+
+    <span class="hljs-attribute">ProxyPreserveHost</span> <span class="hljs-literal">On</span>
+    <span class="hljs-attribute">ProxyRequests</span> <span class="hljs-literal">Off</span>
+    <span class="hljs-attribute">RequestHeader</span> set X-Forwarded-Proto expr=<span class="hljs-variable">%{REQUEST_SCHEME}</span>
+
+    <span class="hljs-comment"># Live updates (SSE): pass through immediately, don&#x27;t cut the long connection</span>
+    <span class="hljs-attribute">ProxyPass</span>        / http://<span class="hljs-number">127.0.0.1:8080</span>/ flushpackets=<span class="hljs-literal">on</span> timeout=<span class="hljs-number">3600</span>
+    <span class="hljs-attribute">ProxyPassReverse</span> / http://<span class="hljs-number">127.0.0.1:8080</span>/
+<span class="hljs-section">&lt;/VirtualHost&gt;</span></code></pre></div>
+<p>Enable the site, test the configuration and reload:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-11" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-11" class="hljs language-bash">a2ensite bekci
+apachectl configtest
+systemctl reload apache2</code></pre></div>
+<p>The last line of <code>apachectl configtest</code> should be <code>Syntax OK</code>.</p>
+<p><strong>HTTPS:</strong> on Ubuntu/Debian <code>apt install certbot python3-certbot-apache</code>, then <code>certbot --apache -d <mark class="ph">bekci.example.com</mark></code>. Certbot creates a copy of this site for port 443; there <code>X-Forwarded-Proto</code> automatically becomes <code>https</code>.</p>
+</div>
+<div class="tab-panel" role="tabpanel" id="caddy" aria-labelledby="sekme-caddy" data-tab="caddy"><p class="tab-label">Caddy</p>
+<p>If Caddy is installed on your server as a package, its configuration file is <code>/etc/caddy/Caddyfile</code>. Add this block at the end of the file:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-12" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-12" class="hljs language-bash">nano /etc/caddy/Caddyfile</code></pre></div>
+<div class="cmd block doc-code has-title"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg><span>/etc/caddy/Caddyfile (add at the end)</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-13" aria-label="Copy code: /etc/caddy/Caddyfile (add at the end)"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-13" class="hljs language-caddyfile"><mark class="ph">bekci.example.com</mark> {
+<span class="hljs-keyword">	encode</span> zstd gzip
+<span class="hljs-keyword">	reverse_proxy</span> <span class="hljs-number">127</span>.0.0.1:8080 {
+		<span class="hljs-comment"># Live updates (SSE): pass through without buffering</span>
+<span class="hljs-keyword">		flush_interval</span> <span class="hljs-number">-1</span>
+	}
+}</code></pre></div>
+<p>Validate the configuration and reload Caddy:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-14" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-14" class="hljs language-bash">caddy validate --config /etc/caddy/Caddyfile
+systemctl reload caddy</code></pre></div>
+<p>The output of <code>caddy validate</code> should end with <code>Valid configuration</code>. Caddy obtains the certificate itself; there is nothing else to do.</p>
+<p>If your Caddy runs in Docker, add Bekci to the same Docker network as Caddy and write <code>bekci:8080</code> instead of <code>127.0.0.1:8080</code> (the files in the <a href="/en/docs/install/caddy/">Caddy install</a> are a complete example of this).</p>
+</div>
+</div>
+<h2 id="verify">3. Verify<a class="h-anchor" href="#verify" aria-label="Link to this section: 3. Verify">#</a></h2>
+<ol>
+<li>Open <code>https://<mark class="ph">bekci.example.com</mark></code> in your browser and sign in (if it&#39;s the first time, create your admin account on the <strong>Welcome</strong> screen).</li>
+<li>Test live updates: add a monitor with a short check interval (e.g. 20 seconds) and stay on the monitor list. After every check, the monitor&#39;s status bars and response time should update without reloading the page.</li>
+</ol>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p>You can sign in and there&#39;s no <strong>Offline</strong> notice at the top of the page. If that notice keeps showing, the live stream is getting stuck in the proxy; see <a href="#no-live-updates">below</a>.</p>
+</aside>
+<h2 id="trusted-proxy">Trusted proxy (TRUSTED_PROXY)<a class="h-anchor" href="#trusted-proxy" aria-label="Link to this section: Trusted proxy (TRUSTED_PROXY)">#</a></h2>
+<p>Bekci only believes the client address in the <code>X-Forwarded-For</code> header if the connection delivering the request comes from a trusted address. By default all private (<code>10.x</code>, <code>172.16–31.x</code>, <code>192.168.x</code>) and local (<code>127.x</code>) addresses are trusted; if the proxy runs on the same server or in the same Docker network, no setting is needed.</p>
+<p>To be stricter, list the trusted networks in the <code>TRUSTED_PROXY</code> environment variable, separated by commas, e.g. <code>TRUSTED_PROXY=172.17.0.1/32</code>. When it&#39;s set, only headers from these networks are trusted.</p>
+<p>When the variable is empty, Bekci logs a warning once at startup (<code>TRUSTED_PROXY ayarlı değil …</code>, “TRUSTED_PROXY not set”). The default is kept permissive so that existing Coolify/Traefik/Caddy installs keep working. In an install <strong>without a reverse proxy</strong>, published directly with <code>-p 8080:8080</code>, every request arrives from a private address (the Docker gateway) because of Docker NAT; a client could then forge an address with the <code>X-Forwarded-For</code> header to bypass login limits and the IP lock, or write a fake address into the audit log. For such installs set <code>TRUSTED_PROXY=127.0.0.1/32</code>: headers are not trusted and the connecting address is used.</p>
+<h2 id="problems">Common problems<a class="h-anchor" href="#problems" aria-label="Link to this section: Common problems">#</a></h2>
+<h3 id="no-live-updates">Live updates don&#39;t arrive, “Offline” notice<a class="h-anchor" href="#no-live-updates" aria-label="Link to this section: Live updates don't arrive, “Offline” notice">#</a></h3>
+<p>The proxy buffers the <code>/api/events</code> response or cuts the connection early. Check these lines in the configurations above: <code>proxy_buffering off</code> and <code>proxy_read_timeout</code> for Nginx, <code>flushpackets=on</code> for Apache, <code>flush_interval -1</code> for Caddy. If there&#39;s another layer in between, such as Cloudflare, it mustn&#39;t buffer the connection either.</p>
+<h3 id="502">502 Bad Gateway<a class="h-anchor" href="#502" aria-label="Link to this section: 502 Bad Gateway">#</a></h3>
+<p>The proxy can&#39;t reach Bekci. Is Bekci running (<code>docker compose ps</code>), is the port right (<code>curl http://127.0.0.1:8080/healthz</code>)? With Traefik, Bekci and Traefik must be on the same Docker network.</p>
+<h3 id="413">“413 Request Entity Too Large” when importing<a class="h-anchor" href="#413" aria-label="Link to this section: “413 Request Entity Too Large” when importing">#</a></h3>
+<p>The proxy&#39;s request body limit is too low. In Nginx add <code>client_max_body_size 200m;</code>.</p>
+<h3 id="redirects">I sign in but get signed out right away, or an endless redirect<a class="h-anchor" href="#redirects" aria-label="Link to this section: I sign in but get signed out right away, or an endless redirect">#</a></h3>
+<p>The <code>X-Forwarded-Proto</code> header isn&#39;t passed or is wrong. If the proxy terminates HTTPS, the header must be <code>https</code>. If you use Cloudflare, set the SSL/TLS mode to <strong>Full (strict)</strong>; <strong>Flexible</strong> mode causes a redirect loop.</p>
+<h3 id="wrong-address">The address in notifications and agent commands is wrong<a class="h-anchor" href="#wrong-address" aria-label="Link to this section: The address in notifications and agent commands is wrong">#</a></h3>
+<p><code>BASE_URL</code> isn&#39;t set or is wrong. Set it to the <code>https://</code> address the panel is opened at and recreate the container (<code>docker compose up -d</code>).</p>
+</div>
+<div class="doc-feedback"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg><p>Something missing or wrong on this page? <a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">Report it on GitHub</a></p></div>
+<nav class="pn-nav" aria-label="Previous / Next"><a class="pn pn-prev" href="/en/docs/install/coolify/" rel="prev"><span class="pn-dir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Previous</span><span class="pn-title">Coolify</span></a><a class="pn pn-next" href="/en/docs/first-steps/" rel="next"><span class="pn-dir">Next<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span><span class="pn-title">First steps</span></a></nav>
+</article>
+</main>
+<nav class="docs-toc" aria-labelledby="bu-sayfada"><p class="toc-title" id="bu-sayfada">On this page</p><ul><li class="toc-2"><a href="#bekci">1. Run Bekci so it only listens locally</a></li><li class="toc-2"><a href="#proxy">2. Configure the proxy</a></li><li class="toc-2"><a href="#verify">3. Verify</a></li><li class="toc-2"><a href="#trusted-proxy">Trusted proxy (TRUSTED_PROXY)</a></li><li class="toc-2"><a href="#problems">Common problems</a></li><li class="toc-3"><a href="#no-live-updates">Live updates don't arrive, “Offline” notice</a></li><li class="toc-3"><a href="#502">502 Bad Gateway</a></li><li class="toc-3"><a href="#413">“413 Request Entity Too Large” when importing</a></li><li class="toc-3"><a href="#redirects">I sign in but get signed out right away, or an endless redirect</a></li><li class="toc-3"><a href="#wrong-address">The address in notifications and agent commands is wrong</a></li></ul></nav>
+</div>
+<footer class="site-footer">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/en/" aria-label="Bekci home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <ul class="foot-links">
+      <li><a href="/en/docs/">Docs</a></li>
+      <li><a href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">License: AGPL-3.0</a></li>
+      <li><a href="/docs/kurulum/ters-vekil/" hreflang="tr" lang="tr">Türkçe</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">Contact: GitHub</a></li>
+    </ul>
+    <p>© 2026 Bekci · Made in Türkiye.</p>
+  </div>
+</footer>
+<div id="duyuru" class="sr-only" aria-live="polite"></div>
+</body>
+</html>

@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en" class="docs-page">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Troubleshooting and FAQ — Bekci docs</title>
+<meta name="description" content="Password reset, health check, logs, ports in use, live updates not arriving, time zones and other frequently asked questions.">
+<link rel="canonical" href="https://bekci.app/en/docs/troubleshooting/">
+<link rel="alternate" hreflang="tr" href="https://bekci.app/docs/sorun-giderme/">
+<link rel="alternate" hreflang="en" href="https://bekci.app/en/docs/troubleshooting/">
+<link rel="alternate" hreflang="x-default" href="https://bekci.app/docs/sorun-giderme/">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b111b">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg?v=dev" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=dev">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Bekci">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://bekci.app/en/docs/troubleshooting/">
+<meta property="og:title" content="Troubleshooting and FAQ — Bekci docs">
+<meta property="og:description" content="Password reset, health check, logs, ports in use, live updates not arriving, time zones and other frequently asked questions.">
+<meta property="og:image" content="https://bekci.app/og-en.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="/assets/fonts/inter-4.1.1-bekci.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=dev">
+<link rel="stylesheet" href="/assets/docs.css?v=dev">
+<script src="/assets/site.js?v=dev"></script>
+<script src="/assets/docs.js?v=dev" defer></script>
+</head>
+<body>
+<a class="skip" href="#icerik">Skip to content</a>
+<header class="site-header">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/en/" aria-label="Bekci home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <nav class="nav" aria-label="Main">
+      <ul>
+        <li><a href="/en/#features">Features</a></li>
+        <li><a href="/en/#screenshots">Screenshots</a></li>
+        <li><a href="/en/#compare">Compare</a></li>
+        <li><a href="/en/#install">Install</a></li>
+        <li><a href="/en/#faq">FAQ</a></li>
+        <li><a href="/en/docs/" class="active" aria-current="true">Docs</a></li>
+      </ul>
+    </nav>
+    <div class="header-actions">
+      <a class="lang" href="/docs/sorun-giderme/" hreflang="tr" lang="tr" aria-label="Türkçe sürüm">TR</a>
+      <button class="icon-btn theme-toggle" type="button" aria-label="Toggle theme">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+      <a class="icon-btn header-gh" href="https://github.com/kadirsungurlu/bekci" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg></a>
+      <a class="btn btn-primary btn-sm header-hub" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Docker Hub
+      </a>
+      <button class="icon-btn menu-toggle" type="button" aria-expanded="false" aria-controls="mobil-menu" aria-label="Menu">
+        <svg class="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <svg class="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobil-menu" aria-label="Mobile" hidden>
+    <ul>
+      <li><a href="/en/#features">Features</a></li>
+        <li><a href="/en/#screenshots">Screenshots</a></li>
+        <li><a href="/en/#compare">Compare</a></li>
+        <li><a href="/en/#install">Install</a></li>
+        <li><a href="/en/#faq">FAQ</a></li>
+      <li><a href="/en/docs/" class="active" aria-current="true">Docs</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+    </ul>
+    <a class="btn btn-primary" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a>
+  </nav>
+</header>
+<div class="docs-bar">
+  <button class="docs-bar-btn" type="button" aria-expanded="false" aria-controls="belge-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Menu</span></button>
+  <span class="docs-bar-where">Maintenance and reference<span aria-hidden="true"> › </span>Troubleshooting and FAQ</span>
+</div>
+<div class="docs-shade" hidden></div>
+<div class="docs wrap-docs">
+<aside class="docs-side" id="belge-menu" aria-label="Docs menu">
+  <div class="side-head">
+    <p class="side-head-title">Docs</p>
+    <button class="icon-btn side-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="doc-search" role="search" data-index="/assets/docs-search-en.json?v=dev">
+    <label class="sr-only" for="ara">Search the docs</label>
+    <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+    <input id="ara" type="text" inputmode="search" enterkeyhint="search" placeholder="Search the docs…" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="ara-sonuc" aria-autocomplete="list">
+    <kbd class="search-kbd" aria-hidden="true">/</kbd>
+    <div class="search-results" id="ara-sonuc" role="listbox" aria-label="Search the docs" hidden></div>
+  </div>
+  <nav class="side-nav" aria-label="Docs">
+    <ul>
+<li class="side-group"><p class="side-title">Getting started</p><ul><li><a href="/en/docs/">Getting started</a></li></ul></li>
+<li class="side-group"><p class="side-title">Install</p><ul><li><a href="/en/docs/install/docker/">Docker (one command)</a></li><li><a href="/en/docs/install/docker-compose/">Docker Compose</a></li><li><a href="/en/docs/install/caddy/">HTTPS install (Caddy)</a></li><li><a href="/en/docs/install/coolify/">Coolify</a></li><li><a href="/en/docs/install/reverse-proxy/">Behind a reverse proxy</a></li></ul></li>
+<li class="side-group"><p class="side-title">Usage</p><ul><li><a href="/en/docs/first-steps/">First steps</a></li><li><a href="/en/docs/server-agent/">Server agent and check locations</a></li><li><a href="/en/docs/firewall/">Firewalls and Cloudflare</a></li><li><a href="/en/docs/integrations/">Integrations</a></li><li><a href="/en/docs/sign-in-and-sso/">Sign-in &amp; SSO</a></li></ul></li>
+<li class="side-group"><p class="side-title">Maintenance and reference</p><ul><li><a href="/en/docs/updates-backups/">Updates, backups, rollback</a></li><li><a href="/en/docs/environment-variables/">Environment variables</a></li><li><a href="/en/docs/troubleshooting/" aria-current="page">Troubleshooting and FAQ</a></li><li><a href="/en/docs/database/">Database and migration</a></li></ul></li>
+    </ul>
+  </nav>
+</aside>
+<main id="icerik" class="docs-main">
+<article class="doc">
+<nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="/en/docs/">Docs</a></li><li><span>Maintenance and reference</span></li></ol></nav>
+<h1>Troubleshooting and FAQ</h1>
+<p class="doc-lead">Password reset, health check, logs, ports in use, live updates not arriving, time zones and other frequently asked questions.</p>
+<details class="toc-inline"><summary>On this page</summary><ul><li class="toc-2"><a href="#container-name">Find the container name</a></li><li class="toc-2"><a href="#password-reset">I forgot my password</a></li><li class="toc-2"><a href="#health">Is Bekci running?</a></li><li class="toc-2"><a href="#logs">Logs</a></li><li class="toc-2"><a href="#lock">The container waits, saying the data is “open in another instance”</a></li><li class="toc-2"><a href="#port">Port already in use</a></li><li class="toc-2"><a href="#live">The panel opens but live updates don't arrive</a></li><li class="toc-2"><a href="#too-many-attempts">“Too many failed attempts”</a></li><li class="toc-2"><a href="#time">Times look wrong</a></li><li class="toc-2"><a href="#base-url">Links in notifications or the address in agent commands are wrong</a></li><li class="toc-2"><a href="#disk">The disk is full</a></li><li class="toc-2"><a href="#postgresql-version">PostgreSQL version mismatch</a></li><li class="toc-2"><a href="#oob-interface">“OOB interface not found”</a></li><li class="toc-2"><a href="#oob-no-switch">The primary line is down but the agent doesn't switch to OOB</a></li><li class="toc-2"><a href="#faq">Frequently asked questions</a></li><li class="toc-3"><a href="#free">Is Bekci free?</a></li><li class="toc-3"><a href="#internet">Does it need an internet connection?</a></li><li class="toc-3"><a href="#two-copies">Can I run two copies of Bekci at the same time?</a></li><li class="toc-3"><a href="#sqlite-postgresql">Can I move from SQLite to PostgreSQL?</a></li><li class="toc-3"><a href="#disk-usage">How much disk does it use?</a></li><li class="toc-3"><a href="#report">I found a bug or want a feature</a></li></ul></details>
+<div class="doc-body">
+<h2 id="container-name">Find the container name<a class="h-anchor" href="#container-name" aria-label="Link to this section: Find the container name">#</a></h2>
+<p>The commands on this page use the name of the Bekci container. It depends on how you installed:</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="Table: Install, Container name"><table><thead><tr><th>Install</th><th>Container name</th></tr></thead><tbody><tr><td><a href="/en/docs/install/docker/">Docker (one command)</a></td><td><code>bekci</code></td></tr><tr><td><a href="/en/docs/install/docker-compose/">Docker Compose</a> and the <a href="/en/docs/install/caddy/">Caddy install</a></td><td><code>bekci-bekci-1</code> (or <code>docker compose exec bekci …</code> from inside <code>/opt/bekci</code>)</td></tr><tr><td>Coolify</td><td>The application&#39;s random name; the row in <code>docker ps</code> that uses the <code>kadirsungurlu/bekci</code> image</td></tr></tbody></table></div>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-1" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-1" class="hljs language-bash">docker ps --filter ancestor=kadirsungurlu/bekci:latest</code></pre></div>
+<p>(If you use a fixed version, write that tag instead of <code>latest</code>, e.g. <code>kadirsungurlu/bekci:1.0.0</code>.)</p>
+<h2 id="password-reset">I forgot my password<a class="h-anchor" href="#password-reset" aria-label="Link to this section: I forgot my password">#</a></h2>
+<p>If you can&#39;t sign in, you can reset the password from the server. Run this while Bekci is running, with your own username instead of <code>admin</code>:</p>
+<div class="tabs" data-key="install"><div class="tab-list" role="tablist" aria-label="Install path"><button type="button" role="tab" id="sekme-docker-compose" aria-controls="docker-compose" aria-selected="true" tabindex="0" data-tab="docker-compose" class="active">Docker Compose</button><button type="button" role="tab" id="sekme-docker-run" aria-controls="docker-run" aria-selected="false" tabindex="-1" data-tab="docker-run">docker run</button><button type="button" role="tab" id="sekme-coolify" aria-controls="coolify" aria-selected="false" tabindex="-1" data-tab="coolify">Coolify</button></div>
+<div class="tab-panel active" role="tabpanel" id="docker-compose" aria-labelledby="sekme-docker-compose" data-tab="docker-compose"><p class="tab-label">Docker Compose</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-7" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-7" class="hljs language-bash"><span class="hljs-built_in">cd</span> /opt/bekci
+docker compose <span class="hljs-built_in">exec</span> bekci <span class="hljs-built_in">uptime</span> sifre-sifirla <mark class="ph">admin</mark></code></pre></div>
+</div>
+<div class="tab-panel" role="tabpanel" id="docker-run" aria-labelledby="sekme-docker-run" data-tab="docker-run"><p class="tab-label">docker run</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-8" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-8" class="hljs language-bash">docker <span class="hljs-built_in">exec</span> -it bekci <span class="hljs-built_in">uptime</span> sifre-sifirla <mark class="ph">admin</mark></code></pre></div>
+</div>
+<div class="tab-panel" role="tabpanel" id="coolify" aria-labelledby="sekme-coolify" data-tab="coolify"><p class="tab-label">Coolify</p>
+<p>Open the application&#39;s <strong>Terminal</strong> section in Coolify and run:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-9" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-9" class="hljs language-bash"><span class="hljs-built_in">uptime</span> sifre-sifirla <mark class="ph">admin</mark></code></pre></div>
+<p>Or, on the server, <code>docker exec -it <mark class="ph">container-name</mark> uptime sifre-sifirla <mark class="ph">admin</mark></code>.</p>
+</div>
+</div>
+<p>(<code>sifre-sifirla</code> is Turkish for “reset password”.) The command asks <code>Yeni şifre:</code> (“New password:”); type the new password (at least 8 characters) and press <kbd>Enter</kbd>. The password is visible while you type it, so mind who&#39;s watching.</p>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>What you should see</span></p>
+<p>You&#39;ll see <code>Şifre değiştirildi, tüm oturumlar kapatıldı.</code> (“Password changed, all sessions signed out.”) and can sign in with the new password. <code>hata: kullanıcı bulunamadı</code> (“error: user not found”) means the username is misspelled.</p>
+</aside>
+<p><strong>To turn off two-factor authentication as well</strong> (if you lost both your phone and your recovery codes), add <code>--2fa-kapat</code> at the end:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-2" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-2" class="hljs language-bash">docker compose <span class="hljs-built_in">exec</span> bekci <span class="hljs-built_in">uptime</span> sifre-sifirla <mark class="ph">admin</mark> --2fa-kapat</code></pre></div>
+<p>The command works the same way with all images.</p>
+<h2 id="health">Is Bekci running?<a class="h-anchor" href="#health" aria-label="Link to this section: Is Bekci running?">#</a></h2>
+<p>The health check address is <code>/healthz</code>; it returns <code>ok</code> when the database is reachable:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-3" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-3" class="hljs language-bash">curl http://localhost:8080/healthz          <span class="hljs-comment"># from inside the server (if the port is published)</span>
+curl https://<mark class="ph">bekci.example.com</mark>/healthz          <span class="hljs-comment"># from outside</span></code></pre></div>
+<p>The <strong>STATUS</strong> column of <code>docker ps</code> also shows the image&#39;s own health check: <code>(healthy)</code> means all is well, <code>(unhealthy)</code> means there&#39;s a problem. If the database can&#39;t be reached, <code>/healthz</code> returns <code>503</code> with <code>veritabanı erişilemiyor</code> (“database unreachable”).</p>
+<h2 id="logs">Logs<a class="h-anchor" href="#logs" aria-label="Link to this section: Logs">#</a></h2>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-4" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-4" class="hljs language-bash">docker logs --<span class="hljs-built_in">tail</span> 100 bekci                 <span class="hljs-comment"># docker run</span>
+<span class="hljs-built_in">cd</span> /opt/bekci &amp;&amp; docker compose logs --<span class="hljs-built_in">tail</span> 100 bekci   <span class="hljs-comment"># Compose</span></code></pre></div>
+<p>On Coolify, look at the application&#39;s <strong>Logs</strong>. For more detail set <code>LOG_LEVEL=debug</code> and recreate the container (<a href="/en/docs/environment-variables/">environment variables</a>). The logs are written in Turkish; after a failed start the last line begins with <code>hata:</code> (“error:”) and gives the reason.</p>
+<h2 id="lock">The container waits, saying the data is “open in another instance”<a class="h-anchor" href="#lock" aria-label="Link to this section: The container waits, saying the data is “open in another instance”">#</a></h2>
+<p>If you see this in the log:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><span></span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-5" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-5" class="hljs language-plaintext">level=WARN msg=&quot;veri klasörü başka bir örnekte açık; o kapanana kadar bekleniyor&quot; kilit=/data/uptime.db.lock en_fazla=10m0s
+level=WARN msg=&quot;hâlâ bekleniyor: diğer örnek veri klasörünü bırakmadı&quot; gecen=30s</code></pre></div>
+<p>(“the data folder is open in another instance; waiting until it closes” / “still waiting: the other instance hasn&#39;t released the data folder”), a second Bekci container was started with the same data volume. So that two copies never run checks and send notifications twice, the new copy waits until the old one stops.</p>
+<ul>
+<li><strong>During an update on Coolify</strong> this is normal: once the old container stops, the new one takes over within a second or two.</li>
+<li><strong>In any other situation</strong>, find the old container using the same volume and stop it: <code>docker ps -a</code>. If the lock isn&#39;t released within 10 minutes (<code>UPTIME_LOCK_WAIT</code>), the new container exits with the error <code>aynı veri klasörüyle iki uygulama çalıştırılamaz</code> (“two instances can&#39;t run with the same data folder”).</li>
+</ul>
+<h2 id="port">Port already in use<a class="h-anchor" href="#port" aria-label="Link to this section: Port already in use">#</a></h2>
+<p>A <code>port is already allocated</code> or <code>address already in use</code> error means another program uses the port you chose:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-6" aria-label="Copy code"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Copy</span></button></span></div><pre><code id="kod-6" class="hljs language-bash">docker ps --filter publish=<mark class="ph">8080</mark>        <span class="hljs-comment"># the container using the port</span>
+ss -ltnp <span class="hljs-string">&#x27;sport = :<mark class="ph">8080</mark>&#x27;</span>              <span class="hljs-comment"># the program using the port</span></code></pre></div>
+<ul>
+<li><strong>8080:</strong> on servers with Coolify, Coolify&#39;s proxy uses 8080. Pick another port (<code>-p 8081:8080</code>) or follow the <a href="/en/docs/install/coolify/">Coolify guide</a>.</li>
+<li><strong>80 / 443:</strong> a web server already runs on the server. Instead of the Caddy install, follow the <a href="/en/docs/install/reverse-proxy/">reverse proxy</a> or <a href="/en/docs/install/coolify/">Coolify</a> guide.</li>
+</ul>
+<h2 id="live">The panel opens but live updates don&#39;t arrive<a class="h-anchor" href="#live" aria-label="Link to this section: The panel opens but live updates don't arrive">#</a></h2>
+<p>If the <strong>Offline</strong> notice keeps showing at the top of the page, or monitor states only change when you reload, the reverse proxy in front of Bekci is buffering the live stream (<code>/api/events</code>). The setting your proxy needs is on the <a href="/en/docs/install/reverse-proxy/#no-live-updates">reverse proxy page</a>.</p>
+<h2 id="too-many-attempts">“Too many failed attempts”<a class="h-anchor" href="#too-many-attempts" aria-label="Link to this section: “Too many failed attempts”">#</a></h2>
+<p>After 5 failed sign-in attempts from the same IP address within 15 minutes, that address has to wait 15 minutes. Try again when the time is up, or <a href="#password-reset">reset the password</a>. If Bekci sits behind a reverse proxy and all users get blocked at once, the proxy isn&#39;t passing the <code>X-Forwarded-For</code> header (<a href="/en/docs/install/reverse-proxy/">reverse proxy settings</a>).</p>
+<h2 id="time">Times look wrong<a class="h-anchor" href="#time" aria-label="Link to this section: Times look wrong">#</a></h2>
+<p>The interface currently always shows times in Türkiye time (<code>Europe/Istanbul</code>). Daily summaries, the nightly backup time and the log lines follow the server&#39;s <code>TZ</code> environment variable (default <code>Europe/Istanbul</code>). For another time zone set e.g. <code>TZ=Europe/Berlin</code> and recreate the container. The <code>Bekci başladı</code> (“Bekci started”) log line shows the time zone in use (<code>saat_dilimi=</code>).</p>
+<h2 id="base-url">Links in notifications or the address in agent commands are wrong<a class="h-anchor" href="#base-url" aria-label="Link to this section: Links in notifications or the address in agent commands are wrong">#</a></h2>
+<p><code>BASE_URL</code> isn&#39;t set or is wrong. Set it to the address the panel is opened at from outside (<code>https://…</code>) and recreate the container (<a href="/en/docs/environment-variables/">environment variables</a>).</p>
+<h2 id="disk">The disk is full<a class="h-anchor" href="#disk" aria-label="Link to this section: The disk is full">#</a></h2>
+<p>When the disk is full, Bekci can&#39;t write new measurements; with SQLite the automatic backup before a database-upgrading update can&#39;t be taken either, and Bekci won&#39;t start. Free up space: old pre-update backups (<code>/data/backups/pre-migrate-…db</code>) are never deleted automatically, and unused Docker images take up space too. You can shorten how long raw check history is kept under <strong>Settings → General</strong>.</p>
+<h2 id="postgresql-version">PostgreSQL version mismatch<a class="h-anchor" href="#postgresql-version" aria-label="Link to this section: PostgreSQL version mismatch">#</a></h2>
+<p>If the <code>postgres</code> image refuses to start with <code>HATA: PostgreSQL ana sürümü uyuşmuyor.</code> (“ERROR: PostgreSQL major version mismatch.”), follow the <a href="/en/docs/updates-backups/#postgresql-upgrade">PostgreSQL major version upgrade</a> steps.</p>
+<h2 id="oob-interface">“OOB interface not found”<a class="h-anchor" href="#oob-interface" aria-label="Link to this section: “OOB interface not found”">#</a></h2>
+<p>The OOB IP entered in the panel is on none of the check location&#39;s network interfaces. Possible causes:</p>
+<ul>
+<li>The OOB IP is not on the server but on a NAT device in front of it (a public IP). Add the interface name to the agent&#39;s settings file (<code>PROBE_OOB_IFACE=eth1</code>) and restart the agent (in Docker, <code>docker restart</code> doesn&#39;t re-read the settings file; recreate the container).</li>
+<li>The agent runs in Docker on the bridge network and can&#39;t see the server&#39;s OOB interface. Run the container with <code>--network host</code> (<code>network_mode: host</code> in Compose).</li>
+<li>The IP was mistyped. Compare it with <code>ip -br addr</code> (<code>ipconfig</code> on Windows) on the server.</li>
+</ul>
+<p>Details: <a href="/en/docs/server-agent/#oob">Second line (OOB)</a>.</p>
+<h2 id="oob-no-switch">The primary line is down but the agent doesn&#39;t switch to OOB<a class="h-anchor" href="#oob-no-switch" aria-label="Link to this section: The primary line is down but the agent doesn't switch to OOB">#</a></h2>
+<p>Check in order:</p>
+<ol>
+<li>If the panel shows <strong>OOB interface not found</strong>, <a href="#oob-interface">fix that first</a>.</li>
+<li><code>curl --interface &lt;oob_interface&gt; -sI https://bekci.example.com/healthz</code> must work on the server. If it doesn&#39;t, the OOB interface has no gateway or packets leave over the primary line: check the <a href="/en/docs/server-agent/#oob">policy routing</a> setup with <code>ip rule</code> and <code>ip route show table oob</code>. The rule is required when the agent runs without the <code>CAP_NET_RAW</code> capability.</li>
+<li>Error type: the switch happens only on connection errors (could not connect, timeout). If the panel answers with <code>4xx</code>/<code>5xx</code>, the primary line counts as healthy and there is no switch.</li>
+<li>If mesh is on and the check location still reaches at least one peer over the primary line, there is no switch: the problem is taken to be on the panel&#39;s side.</li>
+<li>Timing: the switch happens after loss threshold errors in a row (default 3 x 5 s = 15 s). Look for <code>OOB hattına geçildi</code> in the log.</li>
+</ol>
+<h2 id="faq">Frequently asked questions<a class="h-anchor" href="#faq" aria-label="Link to this section: Frequently asked questions">#</a></h2>
+<h3 id="free">Is Bekci free?<a class="h-anchor" href="#free" aria-label="Link to this section: Is Bekci free?">#</a></h3>
+<p>Yes. Bekci is open source and released under the <a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">AGPL-3.0</a> license; no license fees, no subscription, no paid tiers. The source code is <a href="https://github.com/kadirsungurlu/bekci" rel="noopener">on GitHub</a>.</p>
+<h3 id="internet">Does it need an internet connection?<a class="h-anchor" href="#internet" aria-label="Link to this section: Does it need an internet connection?">#</a></h3>
+<p>The image is downloaded from Docker Hub during install and updates. After that Bekci only connects out for the checks and notifications you define; it can also watch targets on your internal network.</p>
+<h3 id="two-copies">Can I run two copies of Bekci at the same time?<a class="h-anchor" href="#two-copies" aria-label="Link to this section: Can I run two copies of Bekci at the same time?">#</a></h3>
+<p>Not with the same data — neither with SQLite nor with an external PostgreSQL (a single-instance lock is held on the database); the second copy <a href="#lock">waits</a> until the first one stops. Multiple replicas are not supported. To check from different locations, use a <a href="/en/docs/server-agent/#check-location">check location</a>.</p>
+<h3 id="sqlite-postgresql">Can I move from SQLite to PostgreSQL?<a class="h-anchor" href="#sqlite-postgresql" aria-label="Link to this section: Can I move from SQLite to PostgreSQL?">#</a></h3>
+<p>Yes. The <code>uptime migrate</code> command moves all data (including users and check history), resumes after an interruption and doesn&#39;t change the SQLite file: <a href="/en/docs/database/#sqlite">guide</a>.</p>
+<h3 id="disk-usage">How much disk does it use?<a class="h-anchor" href="#disk-usage" aria-label="Link to this section: How much disk does it use?">#</a></h3>
+<p>It depends on the number of monitors and the check interval. Each individual check is kept for 14 days by default, then condensed into hourly and daily summaries; you can change these periods under <strong>Settings → General</strong>. The same place sets the retention of resolved incidents (365 days by default), the request/response capture of the check that opened an incident (90 days) and the audit log (365 days); enter 0 to keep those records forever. Nightly backups take a few times the database size as well.</p>
+<h3 id="report">I found a bug or want a feature<a class="h-anchor" href="#report" aria-label="Link to this section: I found a bug or want a feature">#</a></h3>
+<p><a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">Open an issue on GitHub</a>.</p>
+</div>
+<div class="doc-feedback"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg><p>Something missing or wrong on this page? <a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">Report it on GitHub</a></p></div>
+<nav class="pn-nav" aria-label="Previous / Next"><a class="pn pn-prev" href="/en/docs/environment-variables/" rel="prev"><span class="pn-dir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Previous</span><span class="pn-title">Environment variables</span></a><a class="pn pn-next" href="/en/docs/firewall/" rel="next"><span class="pn-dir">Next<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span><span class="pn-title">Firewalls and Cloudflare</span></a></nav>
+</article>
+</main>
+<nav class="docs-toc" aria-labelledby="bu-sayfada"><p class="toc-title" id="bu-sayfada">On this page</p><ul><li class="toc-2"><a href="#container-name">Find the container name</a></li><li class="toc-2"><a href="#password-reset">I forgot my password</a></li><li class="toc-2"><a href="#health">Is Bekci running?</a></li><li class="toc-2"><a href="#logs">Logs</a></li><li class="toc-2"><a href="#lock">The container waits, saying the data is “open in another instance”</a></li><li class="toc-2"><a href="#port">Port already in use</a></li><li class="toc-2"><a href="#live">The panel opens but live updates don't arrive</a></li><li class="toc-2"><a href="#too-many-attempts">“Too many failed attempts”</a></li><li class="toc-2"><a href="#time">Times look wrong</a></li><li class="toc-2"><a href="#base-url">Links in notifications or the address in agent commands are wrong</a></li><li class="toc-2"><a href="#disk">The disk is full</a></li><li class="toc-2"><a href="#postgresql-version">PostgreSQL version mismatch</a></li><li class="toc-2"><a href="#oob-interface">“OOB interface not found”</a></li><li class="toc-2"><a href="#oob-no-switch">The primary line is down but the agent doesn't switch to OOB</a></li><li class="toc-2"><a href="#faq">Frequently asked questions</a></li><li class="toc-3"><a href="#free">Is Bekci free?</a></li><li class="toc-3"><a href="#internet">Does it need an internet connection?</a></li><li class="toc-3"><a href="#two-copies">Can I run two copies of Bekci at the same time?</a></li><li class="toc-3"><a href="#sqlite-postgresql">Can I move from SQLite to PostgreSQL?</a></li><li class="toc-3"><a href="#disk-usage">How much disk does it use?</a></li><li class="toc-3"><a href="#report">I found a bug or want a feature</a></li></ul></nav>
+</div>
+<footer class="site-footer">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/en/" aria-label="Bekci home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <ul class="foot-links">
+      <li><a href="/en/docs/">Docs</a></li>
+      <li><a href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">License: AGPL-3.0</a></li>
+      <li><a href="/docs/sorun-giderme/" hreflang="tr" lang="tr">Türkçe</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">Contact: GitHub</a></li>
+    </ul>
+    <p>© 2026 Bekci · Made in Türkiye.</p>
+  </div>
+</footer>
+<div id="duyuru" class="sr-only" aria-live="polite"></div>
+</body>
+</html>

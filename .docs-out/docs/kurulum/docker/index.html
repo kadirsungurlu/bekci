@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="tr" class="docs-page">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Docker ile tek komutla kurulum — Bekci belgeleri</title>
+<meta name="description" content="Bekci'yi tek bir docker run komutuyla başlatın, tarayıcıdan açın ve yönetici hesabınızı oluşturun. Denemek için en kısa yol.">
+<link rel="canonical" href="https://bekci.app/docs/kurulum/docker/">
+<link rel="alternate" hreflang="tr" href="https://bekci.app/docs/kurulum/docker/">
+<link rel="alternate" hreflang="en" href="https://bekci.app/en/docs/install/docker/">
+<link rel="alternate" hreflang="x-default" href="https://bekci.app/docs/kurulum/docker/">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b111b">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg?v=dev" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=dev">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Bekci">
+<meta property="og:locale" content="tr_TR">
+<meta property="og:url" content="https://bekci.app/docs/kurulum/docker/">
+<meta property="og:title" content="Docker ile tek komutla kurulum — Bekci belgeleri">
+<meta property="og:description" content="Bekci'yi tek bir docker run komutuyla başlatın, tarayıcıdan açın ve yönetici hesabınızı oluşturun. Denemek için en kısa yol.">
+<meta property="og:image" content="https://bekci.app/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="/assets/fonts/inter-4.1.1-bekci.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=dev">
+<link rel="stylesheet" href="/assets/docs.css?v=dev">
+<script src="/assets/site.js?v=dev"></script>
+<script src="/assets/docs.js?v=dev" defer></script>
+</head>
+<body>
+<a class="skip" href="#icerik">İçeriğe geç</a>
+<header class="site-header">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/" aria-label="Bekci ana sayfa">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <nav class="nav" aria-label="Ana menü">
+      <ul>
+        <li><a href="/#ozellikler">Özellikler</a></li>
+        <li><a href="/#ekranlar">Ekranlar</a></li>
+        <li><a href="/#neden">Karşılaştırma</a></li>
+        <li><a href="/#kurulum">Kurulum</a></li>
+        <li><a href="/#sss">SSS</a></li>
+        <li><a href="/docs/" class="active" aria-current="true">Belgeler</a></li>
+      </ul>
+    </nav>
+    <div class="header-actions">
+      <a class="lang" href="/en/docs/install/docker/" hreflang="en" lang="en" aria-label="English version">EN</a>
+      <button class="icon-btn theme-toggle" type="button" aria-label="Temayı değiştir">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+      <a class="icon-btn header-gh" href="https://github.com/kadirsungurlu/bekci" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg></a>
+      <a class="btn btn-primary btn-sm header-hub" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Docker Hub
+      </a>
+      <button class="icon-btn menu-toggle" type="button" aria-expanded="false" aria-controls="mobil-menu" aria-label="Menü">
+        <svg class="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <svg class="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobil-menu" aria-label="Mobil menü" hidden>
+    <ul>
+      <li><a href="/#ozellikler">Özellikler</a></li>
+        <li><a href="/#ekranlar">Ekranlar</a></li>
+        <li><a href="/#neden">Karşılaştırma</a></li>
+        <li><a href="/#kurulum">Kurulum</a></li>
+        <li><a href="/#sss">SSS</a></li>
+      <li><a href="/docs/" class="active" aria-current="true">Belgeler</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+    </ul>
+    <a class="btn btn-primary" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a>
+  </nav>
+</header>
+<div class="docs-bar">
+  <button class="docs-bar-btn" type="button" aria-expanded="false" aria-controls="belge-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Menü</span></button>
+  <span class="docs-bar-where">Kurulum<span aria-hidden="true"> › </span>Docker (tek komut)</span>
+</div>
+<div class="docs-shade" hidden></div>
+<div class="docs wrap-docs">
+<aside class="docs-side" id="belge-menu" aria-label="Belgeler menüsü">
+  <div class="side-head">
+    <p class="side-head-title">Belgeler</p>
+    <button class="icon-btn side-close" type="button" aria-label="Kapat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="doc-search" role="search" data-index="/assets/docs-search-tr.json?v=dev">
+    <label class="sr-only" for="ara">Belgelerde ara</label>
+    <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+    <input id="ara" type="text" inputmode="search" enterkeyhint="search" placeholder="Belgelerde ara…" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="ara-sonuc" aria-autocomplete="list">
+    <kbd class="search-kbd" aria-hidden="true">/</kbd>
+    <div class="search-results" id="ara-sonuc" role="listbox" aria-label="Belgelerde ara" hidden></div>
+  </div>
+  <nav class="side-nav" aria-label="Belgeler">
+    <ul>
+<li class="side-group"><p class="side-title">Başlarken</p><ul><li><a href="/docs/">Başlarken</a></li></ul></li>
+<li class="side-group"><p class="side-title">Kurulum</p><ul><li><a href="/docs/kurulum/docker/" aria-current="page">Docker (tek komut)</a></li><li><a href="/docs/kurulum/docker-compose/">Docker Compose</a></li><li><a href="/docs/kurulum/caddy/">HTTPS'li kurulum (Caddy)</a></li><li><a href="/docs/kurulum/coolify/">Coolify</a></li><li><a href="/docs/kurulum/ters-vekil/">Ters vekil arkasında</a></li></ul></li>
+<li class="side-group"><p class="side-title">Kullanım</p><ul><li><a href="/docs/ilk-adimlar/">İlk adımlar</a></li><li><a href="/docs/sunucu-ajani/">Sunucu ajanı ve kontrol noktası</a></li><li><a href="/docs/guvenlik-duvari/">Güvenlik duvarı ve Cloudflare</a></li><li><a href="/docs/entegrasyonlar/">Entegrasyonlar</a></li><li><a href="/docs/giris-ve-sso/">Giriş ve SSO</a></li></ul></li>
+<li class="side-group"><p class="side-title">Bakım ve başvuru</p><ul><li><a href="/docs/guncelleme-yedek/">Güncelleme, yedek, geri dönüş</a></li><li><a href="/docs/ortam-degiskenleri/">Ortam değişkenleri</a></li><li><a href="/docs/sorun-giderme/">Sorun giderme ve SSS</a></li><li><a href="/docs/veritabani/">Veritabanı ve taşıma</a></li></ul></li>
+    </ul>
+  </nav>
+</aside>
+<main id="icerik" class="docs-main">
+<article class="doc">
+<nav class="crumbs" aria-label="Konum"><ol><li><a href="/docs/">Belgeler</a></li><li><span>Kurulum</span></li></ol></nav>
+<h1>Docker ile tek komutla kurulum</h1>
+<p class="doc-lead">Bekci'yi tek bir docker run komutuyla başlatın, tarayıcıdan açın ve yönetici hesabınızı oluşturun. Denemek için en kısa yol.</p>
+<details class="toc-inline"><summary>Bu sayfada</summary><ul><li class="toc-2"><a href="#docker-kurun">1. Docker'ı kurun</a></li><li class="toc-2"><a href="#baslatin">2. Bekci'yi başlatın</a></li><li class="toc-2"><a href="#yonetici">3. Paneli açın ve yönetici hesabını oluşturun</a></li><li class="toc-2"><a href="#guvenlik-duvari">4. Güvenlik duvarını kontrol edin</a></li><li class="toc-2"><a href="#base-url">5. BASE_URL'i ayarlayın</a></li><li class="toc-2"><a href="#veriler">Verileriniz nerede?</a></li><li class="toc-2"><a href="#gunluk-isler">Günlük işler</a></li><li class="toc-3"><a href="#guncelleme">Güncelleme</a></li><li class="toc-2"><a href="#sorunlar">Sık karşılaşılan sorunlar</a></li><li class="toc-3"><a href="#port-dolu">“port is already allocated” ya da “address already in use”</a></li><li class="toc-3"><a href="#zaman-asimi">Tarayıcı “bağlantı zaman aşımına uğradı” diyor</a></li><li class="toc-3"><a href="#yeniden-basliyor">Konteyner sürekli yeniden başlıyor</a></li><li class="toc-2"><a href="#kaldirma">Kaldırma</a></li></ul></details>
+<div class="doc-body">
+<p>Bu rehberin sonunda Bekci sunucunuzda çalışıyor olacak ve paneli <code>http://SUNUCU-IP:8080</code> adresinden açabileceksiniz. Toplam süre: yaklaşık 3 dakika.</p>
+<aside class="callout callout-tip"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg><span>İpucu</span></p>
+<p>Bu yol denemek için idealdir. Kalıcı bir kurulum için <a href="/docs/kurulum/docker-compose/">Docker Compose</a> (ayarlar bir dosyada durur, güncellemesi kolaydır) ya da alan adınızla <a href="/docs/kurulum/caddy/">HTTPS&#39;li kurulum</a> önerilir.</p>
+</aside>
+<h2 id="docker-kurun">1. Docker&#39;ı kurun<a class="h-anchor" href="#docker-kurun" aria-label="Bu bölümün bağlantısı: 1. Docker'ı kurun">#</a></h2>
+<p>Önce sunucunuzda Docker olup olmadığına bakın:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-1" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-1" class="hljs language-bash">docker --version</code></pre></div>
+<p>Bir sürüm numarası görüyorsanız (ör. <code>Docker version 29.x</code>) bu adımı atlayın. <code>command not found</code> görüyorsanız Docker&#39;ı resmi kurulum betiğiyle kurun:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-2" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-2" class="hljs language-bash">curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh</code></pre></div>
+<p>Bu betik Docker&#39;ın kendi hazırladığı betiktir (<a href="https://get.docker.com" rel="noopener">get.docker.com</a>); Ubuntu, Debian, Fedora, CentOS/RHEL gibi yaygın dağıtımlarda Docker Engine&#39;i ve Compose eklentisini kurar. Dağıtımınızın paket deposuyla kurmayı tercih ederseniz <a href="https://docs.docker.com/engine/install/" rel="noopener">Docker&#39;ın kurulum belgelerini</a> izleyin.</p>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>Ne görmelisiniz?</span></p>
+<p>Şu komut kısa bir “Hello from Docker!” mesajı yazdırmalı:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-3" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-3" class="hljs language-bash">docker run --<span class="hljs-built_in">rm</span> hello-world</code></pre></div>
+</aside>
+<h2 id="baslatin">2. Bekci&#39;yi başlatın<a class="h-anchor" href="#baslatin" aria-label="Bu bölümün bağlantısı: 2. Bekci'yi başlatın">#</a></h2>
+<p>Aşağıdaki komutun tamamını kopyalayıp sunucunuzda çalıştırın:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-4" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-4" class="hljs language-bash">docker run -d --name bekci --restart unless-stopped \
+  -p 8080:8080 \
+  -v bekci-data:/data \
+  kadirsungurlu/bekci:latest</code></pre></div>
+<p>Komutun parçaları ne işe yarar:</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="Tablo: Parça, Anlamı"><table><thead><tr><th>Parça</th><th>Anlamı</th></tr></thead><tbody><tr><td><code>-d</code></td><td>Konteyner arka planda çalışsın; terminali kapatsanız da durmaz.</td></tr><tr><td><code>--name bekci</code></td><td>Konteynerin adı. Sonraki komutlarda bu adı kullanacaksınız.</td></tr><tr><td><code>--restart unless-stopped</code></td><td>Sunucu yeniden başlarsa ya da Bekci çökerse otomatik yeniden başlasın.</td></tr><tr><td><code>-p 8080:8080</code></td><td>Sunucunun 8080 portunu Bekci&#39;ye yönlendirir.</td></tr><tr><td><code>-v bekci-data:/data</code></td><td>Veriler <code>bekci-data</code> adlı Docker biriminde saklanır; konteyneri silseniz de kaybolmaz.</td></tr><tr><td><code>kadirsungurlu/bekci:latest</code></td><td>Docker Hub&#39;daki Bekci imajı (amd64 ve arm64).</td></tr></tbody></table></div>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>Ne görmelisiniz?</span></p>
+<p>Yaklaşık 10 saniye sonra <code>docker ps</code> komutunu çalıştırın. <code>bekci</code> satırının <strong>STATUS</strong> sütununda <code>Up 12 seconds (healthy)</code> gibi, sonunda <strong>(healthy)</strong> olan bir değer görmelisiniz. <code>(health: starting)</code> görüyorsanız birkaç saniye daha bekleyin.</p>
+<p>Sunucunun içinden sağlık kontrolü de <code>ok</code> döndürmeli:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-5" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-5" class="hljs language-bash">curl http://localhost:8080/healthz</code></pre></div>
+</aside>
+<h2 id="yonetici">3. Paneli açın ve yönetici hesabını oluşturun<a class="h-anchor" href="#yonetici" aria-label="Bu bölümün bağlantısı: 3. Paneli açın ve yönetici hesabını oluşturun">#</a></h2>
+<ol>
+<li>Tarayıcınızda <code>http://<mark class="ph">SUNUCU-IP</mark>:8080</code> adresini açın. Sunucunuzun IP adresini barındırma sağlayıcınızın panelinde görebilirsiniz; sunucuda <code>hostname -I</code> komutunun yazdığı ilk adres de genellikle budur.</li>
+<li><strong>Hoş geldiniz</strong> ekranında bir <strong>kullanıcı adı</strong> (3–32 karakter: harf, rakam, nokta, tire, alt çizgi) ve en az 8 karakterlik bir <strong>şifre</strong> girin, şifreyi <strong>Şifre (tekrar)</strong> alanına bir kez daha yazın.</li>
+<li><strong>Hesabı oluştur</strong> düğmesine basın.</li>
+</ol>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>Ne görmelisiniz?</span></p>
+<p>Monitör listesi açılır ve “İlk monitörünüzü ekleyin” yazısını görürsünüz. Devamı için <a href="/docs/ilk-adimlar/">İlk adımlar</a> sayfasına geçin.</p>
+</aside>
+<aside class="callout callout-warning"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4M12 17h.01"/></svg><span>Bu adres şifrelenmemiştir</span></p>
+<p><code>http://</code> ile açılan panelde şifreniz ağ üzerinden şifrelenmeden gider. Denemek için sorun değildir; kalıcı kullanım için paneli bir alan adıyla HTTPS arkasına alın: <a href="/docs/kurulum/caddy/">HTTPS&#39;li kurulum (Caddy)</a> ya da <a href="/docs/kurulum/ters-vekil/">ters vekil arkasında</a>.</p>
+</aside>
+<h2 id="guvenlik-duvari">4. Güvenlik duvarını kontrol edin<a class="h-anchor" href="#guvenlik-duvari" aria-label="Bu bölümün bağlantısı: 4. Güvenlik duvarını kontrol edin">#</a></h2>
+<p>Panel açılmıyorsa büyük olasılıkla 8080 portu kapalıdır.</p>
+<ul>
+<li><strong>Barındırma sağlayıcınızın güvenlik duvarı</strong> (Hetzner, DigitalOcean, AWS “security group” vb.): 8080/TCP için gelen bağlantılara izin verin.</li>
+<li><strong>ufw:</strong> Docker, yayınladığı portlar için kuralları kendisi ekler; bu yüzden <code>-p 8080:8080</code> ile yayınlanan port ufw kurallarından bağımsız olarak dışarıya açıktır. Tersini isterseniz, yani paneli yalnızca sunucunun kendisinden erişilebilir yapmak için, komuttaki <code>-p 8080:8080</code> kısmını <code>-p 127.0.0.1:8080:8080</code> olarak değiştirin.</li>
+</ul>
+<aside class="callout callout-tip"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg><span>Portu açmadan denemek</span></p>
+<p>Paneli internete açmadan denemek için komutu <code>-p 127.0.0.1:8080:8080</code> ile çalıştırın ve kendi bilgisayarınızdan bir SSH tüneli kurun:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-6" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-6" class="hljs language-bash">ssh -L 8080:localhost:8080 <mark class="ph">root@SUNUCU-IP</mark></code></pre></div>
+<p>Tünel açıkken kendi bilgisayarınızda <code>http://localhost:8080</code> adresini açın.</p>
+</aside>
+<h2 id="base-url">5. BASE_URL&#39;i ayarlayın<a class="h-anchor" href="#base-url" aria-label="Bu bölümün bağlantısı: 5. BASE_URL'i ayarlayın">#</a></h2>
+<p>Bekci, bildirimlerdeki bağlantılar ve sunucu ajanı kurulum komutları için panelin dışarıdan açıldığı adresi bilmek ister. Bunu <code>BASE_URL</code> ortam değişkeniyle verirsiniz. Ortam değişkenleri konteyner oluşturulurken verildiği için konteyneri yeniden oluşturmanız gerekir; verileriniz birimde durduğu için kaybolmaz:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-7" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-7" class="hljs language-bash">docker stop bekci &amp;&amp; docker <span class="hljs-built_in">rm</span> bekci
+docker run -d --name bekci --restart unless-stopped \
+  -p 8080:8080 \
+  -v bekci-data:/data \
+  -e BASE_URL=http://<mark class="ph">SUNUCU-IP</mark>:8080 \
+  -e TZ=Europe/Istanbul \
+  kadirsungurlu/bekci:latest</code></pre></div>
+<p><code>TZ</code> saat dilimidir (günlük özetler ve gece yedeğinin saati için). Tüm seçenekler: <a href="/docs/ortam-degiskenleri/">Ortam değişkenleri</a>.</p>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>Ne görmelisiniz?</span></p>
+<p><code>docker exec bekci printenv BASE_URL</code> komutu yazdığınız adresi göstermeli ve panele aynı hesapla giriş yapabilmelisiniz.</p>
+</aside>
+<h2 id="veriler">Verileriniz nerede?<a class="h-anchor" href="#veriler" aria-label="Bu bölümün bağlantısı: Verileriniz nerede?">#</a></h2>
+<p>Tüm veriler (veritabanı ve otomatik yedekler) <code>bekci-data</code> adlı Docker biriminde, konteynerin içindeki <code>/data</code> klasöründedir:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-8" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-8" class="hljs language-bash">docker <span class="hljs-built_in">exec</span> bekci <span class="hljs-built_in">ls</span> -la /data</code></pre></div>
+<p>Konteyneri silmek (<code>docker rm bekci</code>) verileri silmez. Birimi silmek ise <strong>tüm verileri kalıcı olarak siler</strong>; bunu yalnızca Bekci&#39;yi tamamen kaldırırken yapın. Yedekleme için: <a href="/docs/guncelleme-yedek/">Güncelleme, yedek ve geri dönüş</a>.</p>
+<h2 id="gunluk-isler">Günlük işler<a class="h-anchor" href="#gunluk-isler" aria-label="Bu bölümün bağlantısı: Günlük işler">#</a></h2>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-9" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-9" class="hljs language-bash">docker stop bekci          <span class="hljs-comment"># durdur</span>
+docker start bekci         <span class="hljs-comment"># başlat</span>
+docker restart bekci       <span class="hljs-comment"># yeniden başlat</span>
+docker logs -f bekci       <span class="hljs-comment"># günlükleri canlı izle (çıkmak için Ctrl+C)</span>
+docker logs --<span class="hljs-built_in">tail</span> 50 bekci</code></pre></div>
+<p>Sağlıklı bir açılışın son satırı şöyle görünür:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><span></span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-10" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-10" class="hljs language-plaintext">level=INFO msg=&quot;Bekci başladı&quot; sürüm=… adres=:8080 veri=/data saat_dilimi=Europe/Istanbul</code></pre></div>
+<h3 id="guncelleme">Güncelleme<a class="h-anchor" href="#guncelleme" aria-label="Bu bölümün bağlantısı: Güncelleme">#</a></h3>
+<p>Yeni imajı indirip konteyneri aynı komutla yeniden oluşturun:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-11" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-11" class="hljs language-bash">docker pull kadirsungurlu/bekci:latest
+docker stop bekci &amp;&amp; docker <span class="hljs-built_in">rm</span> bekci</code></pre></div>
+<p>Ardından <a href="#base-url">5. adımdaki</a> <code>docker run</code> komutunu yeniden çalıştırın. Güncellemeyi tek komuta indirmek için <a href="/docs/kurulum/docker-compose/">Docker Compose</a> kullanmanızı öneririz. Güncellemeden önce yedek almayı unutmayın: <a href="/docs/guncelleme-yedek/">Güncelleme, yedek ve geri dönüş</a>.</p>
+<h2 id="sorunlar">Sık karşılaşılan sorunlar<a class="h-anchor" href="#sorunlar" aria-label="Bu bölümün bağlantısı: Sık karşılaşılan sorunlar">#</a></h2>
+<h3 id="port-dolu">“port is already allocated” ya da “address already in use”<a class="h-anchor" href="#port-dolu" aria-label="Bu bölümün bağlantısı: “port is already allocated” ya da “address already in use”">#</a></h3>
+<p>8080 portunu başka bir program kullanıyor. Başka bir konteynerse hangisi olduğunu <code>docker ps --filter publish=8080</code> gösterir. <strong>Coolify kurulu sunucularda Coolify&#39;ın vekili de 8080 portunu kullanır.</strong> Başka bir port seçin, ör. <code>-p 8081:8080</code>, ve paneli <code>http://SUNUCU-IP:8081</code> adresinden açın. Coolify kullanıyorsanız <a href="/docs/kurulum/coolify/">Coolify rehberi</a> daha uygundur.</p>
+<h3 id="zaman-asimi">Tarayıcı “bağlantı zaman aşımına uğradı” diyor<a class="h-anchor" href="#zaman-asimi" aria-label="Bu bölümün bağlantısı: Tarayıcı “bağlantı zaman aşımına uğradı” diyor">#</a></h3>
+<p>8080 portu sağlayıcınızın güvenlik duvarında kapalı olabilir; <a href="#guvenlik-duvari">4. adıma</a> bakın.</p>
+<h3 id="yeniden-basliyor">Konteyner sürekli yeniden başlıyor<a class="h-anchor" href="#yeniden-basliyor" aria-label="Bu bölümün bağlantısı: Konteyner sürekli yeniden başlıyor">#</a></h3>
+<p><code>docker logs bekci</code> çıktısının son satırlarındaki <code>hata:</code> ile başlayan mesaj nedeni söyler. Çözümler için <a href="/docs/sorun-giderme/">Sorun giderme</a>.</p>
+<h2 id="kaldirma">Kaldırma<a class="h-anchor" href="#kaldirma" aria-label="Bu bölümün bağlantısı: Kaldırma">#</a></h2>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-12" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-12" class="hljs language-bash">docker stop bekci &amp;&amp; docker <span class="hljs-built_in">rm</span> bekci
+docker volume <span class="hljs-built_in">rm</span> bekci-data    <span class="hljs-comment"># DİKKAT: tüm verileri kalıcı olarak siler</span></code></pre></div>
+</div>
+<div class="doc-feedback"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg><p>Bu sayfada eksik ya da hatalı bir şey mi var? <a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">GitHub’da bildirin</a></p></div>
+<nav class="pn-nav" aria-label="Önceki / Sonraki"><a class="pn pn-prev" href="/docs/" rel="prev"><span class="pn-dir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Önceki</span><span class="pn-title">Başlarken</span></a><a class="pn pn-next" href="/docs/kurulum/docker-compose/" rel="next"><span class="pn-dir">Sonraki<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span><span class="pn-title">Docker Compose</span></a></nav>
+</article>
+</main>
+<nav class="docs-toc" aria-labelledby="bu-sayfada"><p class="toc-title" id="bu-sayfada">Bu sayfada</p><ul><li class="toc-2"><a href="#docker-kurun">1. Docker'ı kurun</a></li><li class="toc-2"><a href="#baslatin">2. Bekci'yi başlatın</a></li><li class="toc-2"><a href="#yonetici">3. Paneli açın ve yönetici hesabını oluşturun</a></li><li class="toc-2"><a href="#guvenlik-duvari">4. Güvenlik duvarını kontrol edin</a></li><li class="toc-2"><a href="#base-url">5. BASE_URL'i ayarlayın</a></li><li class="toc-2"><a href="#veriler">Verileriniz nerede?</a></li><li class="toc-2"><a href="#gunluk-isler">Günlük işler</a></li><li class="toc-3"><a href="#guncelleme">Güncelleme</a></li><li class="toc-2"><a href="#sorunlar">Sık karşılaşılan sorunlar</a></li><li class="toc-3"><a href="#port-dolu">“port is already allocated” ya da “address already in use”</a></li><li class="toc-3"><a href="#zaman-asimi">Tarayıcı “bağlantı zaman aşımına uğradı” diyor</a></li><li class="toc-3"><a href="#yeniden-basliyor">Konteyner sürekli yeniden başlıyor</a></li><li class="toc-2"><a href="#kaldirma">Kaldırma</a></li></ul></nav>
+</div>
+<footer class="site-footer">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/" aria-label="Bekci ana sayfa">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <ul class="foot-links">
+      <li><a href="/docs/">Belgeler</a></li>
+      <li><a href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">Lisans: AGPL-3.0</a></li>
+      <li><a href="/en/docs/install/docker/" hreflang="en" lang="en">English</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">İletişim: GitHub</a></li>
+    </ul>
+    <p>© 2026 Bekci · Türkiye’de geliştirildi.</p>
+  </div>
+</footer>
+<div id="duyuru" class="sr-only" aria-live="polite"></div>
+</body>
+</html>

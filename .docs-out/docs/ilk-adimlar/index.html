@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="tr" class="docs-page">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>İlk adımlar — Bekci belgeleri</title>
+<meta name="description" content="Kurulumdan sonra ilk on dakika - yönetici hesabı, ilk monitör, bildirim kanalı, durum sayfası, dil ayarları ve telefona ekleme.">
+<link rel="canonical" href="https://bekci.app/docs/ilk-adimlar/">
+<link rel="alternate" hreflang="tr" href="https://bekci.app/docs/ilk-adimlar/">
+<link rel="alternate" hreflang="en" href="https://bekci.app/en/docs/first-steps/">
+<link rel="alternate" hreflang="x-default" href="https://bekci.app/docs/ilk-adimlar/">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b111b">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg?v=dev" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=dev">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Bekci">
+<meta property="og:locale" content="tr_TR">
+<meta property="og:url" content="https://bekci.app/docs/ilk-adimlar/">
+<meta property="og:title" content="İlk adımlar — Bekci belgeleri">
+<meta property="og:description" content="Kurulumdan sonra ilk on dakika - yönetici hesabı, ilk monitör, bildirim kanalı, durum sayfası, dil ayarları ve telefona ekleme.">
+<meta property="og:image" content="https://bekci.app/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="/assets/fonts/inter-4.1.1-bekci.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=dev">
+<link rel="stylesheet" href="/assets/docs.css?v=dev">
+<script src="/assets/site.js?v=dev"></script>
+<script src="/assets/docs.js?v=dev" defer></script>
+</head>
+<body>
+<a class="skip" href="#icerik">İçeriğe geç</a>
+<header class="site-header">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/" aria-label="Bekci ana sayfa">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <nav class="nav" aria-label="Ana menü">
+      <ul>
+        <li><a href="/#ozellikler">Özellikler</a></li>
+        <li><a href="/#ekranlar">Ekranlar</a></li>
+        <li><a href="/#neden">Karşılaştırma</a></li>
+        <li><a href="/#kurulum">Kurulum</a></li>
+        <li><a href="/#sss">SSS</a></li>
+        <li><a href="/docs/" class="active" aria-current="true">Belgeler</a></li>
+      </ul>
+    </nav>
+    <div class="header-actions">
+      <a class="lang" href="/en/docs/first-steps/" hreflang="en" lang="en" aria-label="English version">EN</a>
+      <button class="icon-btn theme-toggle" type="button" aria-label="Temayı değiştir">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+      <a class="icon-btn header-gh" href="https://github.com/kadirsungurlu/bekci" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg></a>
+      <a class="btn btn-primary btn-sm header-hub" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Docker Hub
+      </a>
+      <button class="icon-btn menu-toggle" type="button" aria-expanded="false" aria-controls="mobil-menu" aria-label="Menü">
+        <svg class="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <svg class="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobil-menu" aria-label="Mobil menü" hidden>
+    <ul>
+      <li><a href="/#ozellikler">Özellikler</a></li>
+        <li><a href="/#ekranlar">Ekranlar</a></li>
+        <li><a href="/#neden">Karşılaştırma</a></li>
+        <li><a href="/#kurulum">Kurulum</a></li>
+        <li><a href="/#sss">SSS</a></li>
+      <li><a href="/docs/" class="active" aria-current="true">Belgeler</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+    </ul>
+    <a class="btn btn-primary" href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a>
+  </nav>
+</header>
+<div class="docs-bar">
+  <button class="docs-bar-btn" type="button" aria-expanded="false" aria-controls="belge-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Menü</span></button>
+  <span class="docs-bar-where">Kullanım<span aria-hidden="true"> › </span>İlk adımlar</span>
+</div>
+<div class="docs-shade" hidden></div>
+<div class="docs wrap-docs">
+<aside class="docs-side" id="belge-menu" aria-label="Belgeler menüsü">
+  <div class="side-head">
+    <p class="side-head-title">Belgeler</p>
+    <button class="icon-btn side-close" type="button" aria-label="Kapat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="doc-search" role="search" data-index="/assets/docs-search-tr.json?v=dev">
+    <label class="sr-only" for="ara">Belgelerde ara</label>
+    <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+    <input id="ara" type="text" inputmode="search" enterkeyhint="search" placeholder="Belgelerde ara…" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="ara-sonuc" aria-autocomplete="list">
+    <kbd class="search-kbd" aria-hidden="true">/</kbd>
+    <div class="search-results" id="ara-sonuc" role="listbox" aria-label="Belgelerde ara" hidden></div>
+  </div>
+  <nav class="side-nav" aria-label="Belgeler">
+    <ul>
+<li class="side-group"><p class="side-title">Başlarken</p><ul><li><a href="/docs/">Başlarken</a></li></ul></li>
+<li class="side-group"><p class="side-title">Kurulum</p><ul><li><a href="/docs/kurulum/docker/">Docker (tek komut)</a></li><li><a href="/docs/kurulum/docker-compose/">Docker Compose</a></li><li><a href="/docs/kurulum/caddy/">HTTPS'li kurulum (Caddy)</a></li><li><a href="/docs/kurulum/coolify/">Coolify</a></li><li><a href="/docs/kurulum/ters-vekil/">Ters vekil arkasında</a></li></ul></li>
+<li class="side-group"><p class="side-title">Kullanım</p><ul><li><a href="/docs/ilk-adimlar/" aria-current="page">İlk adımlar</a></li><li><a href="/docs/sunucu-ajani/">Sunucu ajanı ve kontrol noktası</a></li><li><a href="/docs/guvenlik-duvari/">Güvenlik duvarı ve Cloudflare</a></li><li><a href="/docs/entegrasyonlar/">Entegrasyonlar</a></li><li><a href="/docs/giris-ve-sso/">Giriş ve SSO</a></li></ul></li>
+<li class="side-group"><p class="side-title">Bakım ve başvuru</p><ul><li><a href="/docs/guncelleme-yedek/">Güncelleme, yedek, geri dönüş</a></li><li><a href="/docs/ortam-degiskenleri/">Ortam değişkenleri</a></li><li><a href="/docs/sorun-giderme/">Sorun giderme ve SSS</a></li><li><a href="/docs/veritabani/">Veritabanı ve taşıma</a></li></ul></li>
+    </ul>
+  </nav>
+</aside>
+<main id="icerik" class="docs-main">
+<article class="doc">
+<nav class="crumbs" aria-label="Konum"><ol><li><a href="/docs/">Belgeler</a></li><li><span>Kullanım</span></li></ol></nav>
+<h1>İlk adımlar</h1>
+<p class="doc-lead">Kurulumdan sonra ilk on dakika - yönetici hesabı, ilk monitör, bildirim kanalı, durum sayfası, dil ayarları ve telefona ekleme.</p>
+<details class="toc-inline"><summary>Bu sayfada</summary><ul><li class="toc-2"><a href="#yonetici">1. Yönetici hesabı</a></li><li class="toc-2"><a href="#ilk-monitor">2. İlk monitörünüzü ekleyin</a></li><li class="toc-3"><a href="#monitor-tipleri">Monitör tipleri</a></li><li class="toc-2"><a href="#bildirim">3. Bildirim kanalı ekleyin</a></li><li class="toc-3"><a href="#bildirim-kurallari">Bildirim kuralları</a></li><li class="toc-3"><a href="#olay-onay">Olayı onaylama ve susturma</a></li><li class="toc-2"><a href="#durum-sayfasi">4. Durum sayfası oluşturun (isteğe bağlı)</a></li><li class="toc-3"><a href="#etiket-kurallari">Etiket tabanlı kurallar</a></li><li class="toc-2"><a href="#dil">5. Dil ayarları</a></li><li class="toc-2"><a href="#telefon">6. Telefonunuza ekleyin</a></li><li class="toc-3"><a href="#web-push">Tarayıcı bildirimleri (Web Push)</a></li><li class="toc-2"><a href="#sonra">Sonra ne yapabilirsiniz?</a></li></ul></details>
+<div class="doc-body">
+<p>Bekci çalışıyor ve paneli tarayıcıda açabiliyorsunuz. Bu sayfa, ilk on dakikada yapmanız gerekenleri sırayla anlatır. Masaüstünde menü solda, telefonda ekranın altındadır; telefonda <strong>Ayarlar</strong> gibi bazı bölümler <strong>Daha fazla</strong> menüsünün içindedir.</p>
+<h2 id="yonetici">1. Yönetici hesabı<a class="h-anchor" href="#yonetici" aria-label="Bu bölümün bağlantısı: 1. Yönetici hesabı">#</a></h2>
+<p>Paneli ilk açtığınızda <strong>Hoş geldiniz</strong> ekranı yönetici hesabını oluşturmanızı ister:</p>
+<ul>
+<li><strong>Kullanıcı adı:</strong> 3–32 karakter; harf, rakam, nokta, tire ve alt çizgi.</li>
+<li><strong>Şifre:</strong> en az 8 karakter. <strong>Şifre (tekrar)</strong> alanına aynısını yazın.</li>
+</ul>
+<p><strong>Hesabı oluştur</strong> düğmesine basınca doğrudan panele girersiniz. Bu ekran yalnızca bir kez, hiç kullanıcı yokken görünür.</p>
+<aside class="callout callout-tip"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg><span>İki adımlı doğrulamayı açın</span></p>
+<p><strong>Ayarlar → Hesabım → İki adımlı doğrulama → Etkinleştir</strong> ile girişte telefonunuzdaki doğrulama uygulamasının (Google Authenticator, Authy, 1Password…) ürettiği kodu da isteyebilirsiniz. Kurtarma kodlarını güvenli bir yere kaydedin. Şifrenizi unutursanız: <a href="/docs/sorun-giderme/#sifre-sifirlama">şifre sıfırlama</a>.</p>
+</aside>
+<h2 id="ilk-monitor">2. İlk monitörünüzü ekleyin<a class="h-anchor" href="#ilk-monitor" aria-label="Bu bölümün bağlantısı: 2. İlk monitörünüzü ekleyin">#</a></h2>
+<ol>
+<li><strong>Monitörler</strong> sayfasında <strong>Monitör ekle</strong> (ya da sağ üstteki <strong>Yeni</strong>) düğmesine basın.</li>
+<li><strong>Monitör tipi</strong> olarak <strong>HTTP(S)</strong> seçin (bir web sitesini ya da API&#39;yi izlemek için).</li>
+<li><strong>Ad</strong> alanına anlaşılır bir ad yazın (ör. “Şirket web sitesi”), <strong>Adres (URL)</strong> alanına sitenin adresini yazın (ör. <code>https://ornek.com</code>).</li>
+<li><strong>Kontrol aralığı</strong> ne sıklıkla kontrol edileceğidir: en az 5 saniye, en fazla 24 saat. Başlangıç için 60 saniye iyi bir seçimdir; 5-15 saniye gibi kısa aralıklar her kontrolde kayıt yazdığından yalnız gerçekten hızlı fark edilmesi gereken hedeflerde kullanılmalıdır. Zaman aşımı kontrol aralığından uzun olamaz.</li>
+<li><strong>Monitörü ekle</strong> düğmesine basın.</li>
+</ol>
+<p><img src="/img/yeni-monitor-1600.webp?v=dev" srcset="/img/yeni-monitor-800.webp?v=dev 800w, /img/yeni-monitor-1600.webp?v=dev 1600w" sizes="(min-width: 900px) 780px, calc(100vw - 40px)" width="1600" height="1000" loading="lazy" decoding="async" alt="Yeni monitör formu: web, ağ, veritabanı ve sistem kategorilerinde monitör tipi seçici"></p>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>Ne görmelisiniz?</span></p>
+<p>Monitör listede görünür ve birkaç saniye içinde ilk kontrol yapılır. Site çalışıyorsa durumu yeşile döner; yanıt süresi ve durum çubukları her kontrolde sayfayı yenilemeden güncellenir.</p>
+</aside>
+<aside class="callout callout-tip"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg><span>Son kontroller</span></p>
+<p>Monitörün ayrıntı sayfasındaki <strong>Son kontroller</strong> bölümü en son 50 kontrolü tek tek listeler: zaman, sonuç, yanıt süresi, mesaj (ör. <code>200 OK</code>, <code>zaman aşımı</code>) ve çok konumlu monitörde sonucu üreten konumlar. “Neden kesinti sayıldı?” sorusuna grafikten daha hızlı yanıt verir; yeni sonuçlar geldikçe kendiliğinden güncellenir.</p>
+</aside>
+<aside class="callout callout-tip"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg><span>Alan adı bitiş uyarısı</span></p>
+<p>HTTP(S), DNS ve TLS sertifikası monitörlerinde Bekci alan adı kaydının bitişini de izler: hedefin kayıt adını (ör. <code>www.ornek.com.tr</code> → <code>ornek.com.tr</code>) günde bir kez RDAP ile sorgular ve sonucu ayrıntı sayfasındaki <strong>Alan adı</strong> kartında gösterir (kalan gün, bitiş, kayıt operatörü). <strong>Ayarlar → Genel → Alan adı uyarı günleri</strong> eşiklerine (varsayılan 30, 14, 7, 1) girince bağlı kanallara bildirim gider: 7 gün ve altı kritik, üstü uyarı; her eşik için bir kez. Sorgu yalnızca ana sunucudan yapılır, aynı alan adını paylaşan monitörler tek sorguyla güncellenir. RDAP sunmayan uzantılarda (bazı ülke kodları) kart “RDAP sorgusu yapılamıyor” der ve bildirim gitmez; ağ hatasında eski bilgi korunur, yanlış uyarı üretilmez. Uyarıyı monitör formundaki <strong>Alan adı bitiş uyarısı</strong> kutusuyla monitör başına kapatabilirsiniz.</p>
+</aside>
+<aside class="callout callout-tip"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg><span>Yavaş yanıt uyarısı</span></p>
+<p>Site açık ama yavaşsa haberiniz olsun diye <strong>Gelişmiş ayarlar → Yanıt süresi eşiği (ms)</strong> alanını doldurun (ör. 2000). Son N başarılı kontrolün (<strong>Ortalama penceresi</strong>, varsayılan 3) ortalama yanıt süresi eşiği aşınca monitöre <strong>Yavaş</strong> rozeti gelir, bağlı kanallara “yavaş yanıt veriyor” bildirimi gider ve <strong>Olaylar</strong> sayfasında “Yavaş yanıt” türünde bir olay açılır; ortalama eşiğin %90 altına inince ile kapanır. Durum “Çalışıyor” kalır, uptime etkilenmez; monitör çalışmaz olursa yavaş yanıt olayı sessizce kapanıp normal kesinti olayı açılır.</p>
+</aside>
+<h3 id="monitor-tipleri">Monitör tipleri<a class="h-anchor" href="#monitor-tipleri" aria-label="Bu bölümün bağlantısı: Monitör tipleri">#</a></h3>
+<p><strong>Monitör tipi</strong> seçicisinde 18 tip dört grupta toplanır:</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="Tablo: Grup, Tipler, Ne için"><table><thead><tr><th>Grup</th><th>Tipler</th><th>Ne için</th></tr></thead><tbody><tr><td>Web</td><td>HTTP(S)</td><td>Web siteleri ve API&#39;ler; başlık, gövde, kimlik doğrulama, kelime ve JSON sorgusu kontrolü, SSL ve alan adı bitiş uyarısı</td></tr><tr><td>Ağ ve protokoller</td><td>TCP Port, Ping, DNS, TLS sertifikası, SMTP, WebSocket, gRPC, MQTT, SNMP</td><td>Sunucular, portlar, alan adları, posta sunucuları ve ağ cihazları</td></tr><tr><td>Veritabanı</td><td>MySQL / MariaDB, PostgreSQL, Microsoft SQL Server, Redis, MongoDB</td><td>Veritabanına bağlanıp basit bir sorgu çalıştırır</td></tr><tr><td>Sistem ve sinyaller</td><td>Docker konteyner, Push, Grup</td><td>Konteyner sağlığı; cron işlerinin düzenli sinyal göndermesi; birden çok monitörün tek durumda toplanması (grup &quot;biri bile&quot;, &quot;hepsi&quot; ya da &quot;%N&#39;den fazlası çalışmıyorsa&quot; kurallarıyla)</td></tr></tbody></table></div>
+<p><strong>Push</strong> monitörü ters yönde çalışır: Bekci bir yeri kontrol etmez, sizin cron işinizin ya da betiğinizin belirli aralıklarla kendisine haber vermesini bekler. Monitörü kaydettikten sonra size özel bir adres verilir; işiniz her çalıştığında bu adresi çağırır, çağrı gelmezse monitör <strong>çalışmıyor</strong> olur:</p>
+<div class="cmd block doc-code"><div class="cmd-head"><span class="code-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg><span>terminal</span></span><span class="code-actions"><button class="copy" type="button" data-copy="kod-1" aria-label="Kodu kopyala"><svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="copy-label">Kopyala</span></button></span></div><pre><code id="kod-1" class="hljs language-bash">curl -fsS <span class="hljs-string">&quot;https://<mark class="ph">bekci.ornek.com</mark>/api/push/<mark class="ph">TOKEN</mark>?status=up&amp;msg=tamam&amp;ping=120&quot;</span></code></pre></div>
+<p>Hata bildirmek için <code>status=down</code> gönderin. İşiniz bazen gecikiyorsa (ör. 30 dakikalık yedek bazen 40 dakika sürüyorsa) formdaki <strong>Tolerans (sn)</strong> alanıyla beklenen aralığın üstüne ek süre tanıyın; monitör ancak aralık + tolerans dolunca çalışmıyor sayılır. Adres sızdıysa monitör formundaki <strong>Adresi yenile</strong> düğmesi yeni bir adres üretir; eski adres hemen geçersiz olur.</p>
+<h2 id="bildirim">3. Bildirim kanalı ekleyin<a class="h-anchor" href="#bildirim" aria-label="Bu bölümün bağlantısı: 3. Bildirim kanalı ekleyin">#</a></h2>
+<p>Bir monitör çalışmadığında haberiniz olsun diye en az bir kanal ekleyin. WhatsApp, Telegram, e-posta, Slack, Discord, Microsoft Teams, ntfy, PagerDuty, webhook ve diğerleri dahil 24 kanal vardır.</p>
+<ol>
+<li><strong>Bildirimler</strong> sayfasında <strong>Yeni kanal</strong> düğmesine basın.</li>
+<li><strong>Tip</strong> listesinden kanalı seçin ve istenen bilgileri girin (ör. Telegram için <strong>Bot token’ı</strong> ve <strong>Sohbet kimliği (chat ID)</strong>).</li>
+<li><strong>Test gönder</strong> ile deneyin; test mesajı birkaç saniye içinde gelmelidir.</li>
+<li>Yeni monitörlerde bu kanal otomatik seçili gelsin diye <strong>Yeni monitörlere varsayılan olarak ekle</strong> kutusunu işaretleyin. Mevcut monitörlerinize de eklemek için <strong>Mevcut tüm monitörlere ekle</strong> kutusunu işaretleyin.</li>
+<li><strong>Kaydet</strong> düğmesine basın.</li>
+</ol>
+<p>Bildirimler kısa bir başlıkla gelir: kesinti, düzelme (hâlâ çalışmayan konumlar varsa listelenir), kısmi erişim kesintisi, SSL uyarısı, alan adı bitişi (uyarı ya da kritik); e-posta hem HTML hem düz metin içerir. Kayıtlı bir kanala <strong>Örnek bildirimleri gönder</strong> ile her türden birer örnek gönderebilirsiniz. Geçici bir hata (ağ, HTTP 5xx/429) olursa gönderim 5 ve 20 saniye sonra yeniden denenir; sonuç olayın işlem geçmişine yazılır.</p>
+<p><strong>Webhook</strong> kanalı JSON gönderir: <code>event</code> (<code>down</code>, <code>up</code>, <code>reminder</code>, <code>location_down</code>, <code>location_up</code>, <code>cert</code>, <code>domain</code>, <code>server_alert</code>, <code>server_resolved</code>, <code>test</code>), <code>title</code>, <code>text</code>, <code>message</code>, <code>time</code>, <code>downtime_seconds</code> (düzelmede), <code>cert_days</code> (SSL uyarısında), <code>domain</code> ve <code>domain_days</code> (alan adı uyarısında), <code>monitor</code> (<code>id</code>, <code>name</code>, <code>type</code>, <code>target</code>, <code>url</code>), <code>incident</code> (<code>id</code>, <code>url</code>; olaya bağlı bildirimlerde), <code>locations</code> (çok konumlu monitörde çalışmayan konumlar: <code>name</code>, <code>message</code>) ve <code>server</code> (yalnızca sunucu uyarılarında: <code>id</code>, <code>name</code>, <code>metric</code>, <code>value</code>, <code>threshold</code>, <code>minutes</code>). Örnek gövde kanal penceresinde görünür.</p>
+<h3 id="bildirim-kurallari">Bildirim kuralları<a class="h-anchor" href="#bildirim-kurallari" aria-label="Bu bölümün bağlantısı: Bildirim kuralları">#</a></h3>
+<p>Kanal penceresinin <strong>Kurallar</strong> bölümü kanalın ne zaman ve neyi alacağını belirler. Varsayılan: tüm olaylar, her saat, gecikmesiz (mevcut kanallar değişmez).</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="Tablo: Kural, Ne yapar"><table><thead><tr><th>Kural</th><th>Ne yapar</th></tr></thead><tbody><tr><td><strong>Alınacak olaylar</strong></td><td>İşareti kaldırılan türler (ör. düzelme, hatırlatma, SSL) bu kanala gitmez. ile ayrı seçilir: &quot;yalnızca kesintiyi istiyorum&quot; diyen bir kanal kurabilirsiniz.</td></tr><tr><td><strong>Sessiz saatler</strong></td><td>Başlangıç-bitiş (kanalın saat diliminde; <code>22:00</code>–<code>07:00</code> gibi gece yarısını aşan pencere olabilir). <strong>Yalnızca kritik olanlar geçsin</strong> kipinde kesinti, sunucu uyarısı ve kontrol noktası bildirimleri ile bunların düzelmesi hemen gider; yavaş yanıt, kısmi erişim kesintisi ve SSL uyarısı pencerenin bitimine ertelenir. <strong>Hiçbir bildirim gitmesin</strong> kipinde her şey ertelenir. Ertelenen sorun bildirimi pencere bitince yalnızca sorun hâlâ sürüyorsa gönderilir (&quot;Sessiz saatler bitti&quot; notuyla); hatırlatmalar atılır.</td></tr><tr><td><strong>Gecikme</strong></td><td>&quot;Yalnızca N dakika sürerse bildir&quot;: kısa kesintilerde (ör. iki dakikalık yeniden başlatma) bildirim gelmez. süre dolunca sorun hâlâ sürüyorsa &quot;Gecikmeli bildirim&quot; notuyla gider; gitmediyse o olayın düzelmesi ve hatırlatmaları da gitmez.</td></tr><tr><td><strong>Eskalasyon</strong></td><td>&quot;N dakikadır süren her olayı buraya da bildir&quot;: kanal monitöre ya da sunucuya bağlı olmasa da bu kadar dakikadır açık kalan her kesinti, sunucu uyarısı ve kontrol noktası kesintisi &quot;Eskalasyon&quot; notuyla gelir; olay kapanınca de gelir. Nöbetçi yöneticinin kanalı için uygundur.</td></tr><tr><td><strong>Bildirim dili</strong></td><td>Kanal başına dil (ayarlardaki genel dili geçersiz kılar); test ve örnek bildirimleri de bu dilde gider.</td></tr></tbody></table></div>
+<p>Atlanan ve ertelenen bildirimler nedeniyle birlikte olayın <strong>işlem geçmişine</strong> yazılır (&quot;kanal bu olay türünü almıyor&quot;, &quot;sessiz saatler&quot;, &quot;gecikme kuralı&quot;…). Ertelenmiş bildirimler veritabanında bekler; uygulama yeniden başlasa da kaybolmaz. <strong>Test gönder</strong> ve <strong>Örnek bildirimleri gönder</strong> kurallardan etkilenmez.</p>
+<h3 id="olay-onay">Olayı onaylama ve susturma<a class="h-anchor" href="#olay-onay" aria-label="Bu bölümün bağlantısı: Olayı onaylama ve susturma">#</a></h3>
+<p>Kesinti sürerken hatırlatmaları kesmek için monitörü durdurmanız gerekmez. Olay sayfasındaki <strong>Onayla</strong> düğmesi (&quot;haberim var, üzerinde çalışıyorum&quot;; isteğe bağlı not) olayı onaylar: o olay için <strong>hatırlatma bildirimi ve eskalasyon gitmez</strong>, olay kapanınca düzelme bildirimi yine gider. <strong>Sustur</strong> aynı şeyi seçtiğiniz süre için yapar (30 dakika – 7 gün); süre dolunca hatırlatma ve eskalasyon kendiliğinden devam eder. Onayı ve susturmayı aynı düğmelerle geri alabilirsiniz. Onaylayan, saat ve not olay listesinde, olay sayfasında ve işlem geçmişinde görünür; işlem kaydına da yazılır. Gecikme kuralı ya da sessiz saat yüzünden kuyrukta bekleyen <strong>ilk</strong> sorun bildirimi onaydan etkilenmez (onay &quot;beni tekrar rahatsız etme&quot; demektir, ilk uyarıyı susturmak değil).</p>
+<p>Bir kanalın onayları da almasını istiyorsanız (ör. nöbet aracına &quot;biri baktı&quot; bilgisi gitsin) kanal kurallarında <strong>Olay onayı</strong> türünü seçin; bu tür yalnızca açıkça seçilen kanallara gider, süzgeçsiz kanallar almaz. Webhook&#39;ta <code>event: "acked"</code> ve <code>ack: { by, note }</code> alanlarıyla gelir.</p>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>Ne görmelisiniz?</span></p>
+<p>Test bildirimi kanalınıza ulaştı ve kanal <strong>Bildirimler</strong> listesinde görünüyor. Bir monitörün kanallarını monitörün düzenleme sayfasından da değiştirebilirsiniz.</p>
+</aside>
+<h2 id="durum-sayfasi">4. Durum sayfası oluşturun (isteğe bağlı)<a class="h-anchor" href="#durum-sayfasi" aria-label="Bu bölümün bağlantısı: 4. Durum sayfası oluşturun (isteğe bağlı)">#</a></h2>
+<p>Durum sayfası, müşterilerinize servislerinizin durumunu, planlı bakımları ve geçmiş olayları gösteren herkese açık bir sayfadır.</p>
+<ol>
+<li><strong>Durum sayfaları</strong> bölümünde <strong>Yeni sayfa</strong> düğmesine basın.</li>
+<li><strong>Başlık</strong> yazın (ör. “Acme Servis Durumu”) ve <strong>Adres (kısa ad)</strong> alanına küçük harf, rakam ve tireden oluşan bir ad verin (ör. <code>acme</code>).</li>
+<li><strong>Gruplar ve monitörler</strong> bölümünde bir grup adı yazın (ör. “Web siteleri”) ve <strong>Monitör ekle</strong> ile monitörlerinizi seçin.</li>
+<li><strong>Yayında</strong> anahtarını açın. İsterseniz <strong>Sayfa şifresi</strong> ile sayfayı şifreleyebilirsiniz.</li>
+<li><strong>Sayfayı oluştur</strong> düğmesine basın.</li>
+</ol>
+<aside class="callout callout-check"><p class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>Ne görmelisiniz?</span></p>
+<p>Sayfanız <code>https://<mark class="ph">bekci.ornek.com</mark>/durum/<mark class="ph">acme</mark></code> adresinde açılır. Giriş yapmamış bir tarayıcıda (ör. gizli pencerede) açıp deneyin.</p>
+</aside>
+<p>Sayfayı <code>durum.ornek.com</code> gibi ayrı bir alan adından yayınlamak için sayfanın <strong>Özel alan adı</strong> alanını kullanın; alan adının DNS kaydı sunucunuzu göstermelidir. Caddy&#39;li kurulumda HTTPS sertifikası otomatik alınır, Caddy&#39;ye dokunmanız gerekmez; alanın altındaki rozet <strong>Etkin</strong> olunca hazırdır (<a href="/docs/kurulum/caddy/#durum-alan-adi">ayrıntı</a>). Coolify ya da başka bir vekil kullanıyorsanız alan adını vekile de eklemeniz gerekir (<a href="/docs/kurulum/caddy/#durum-alan-adi-vekil">Caddy kullanmıyorsanız</a>).</p>
+<p><strong>Pencereler:</strong> <strong>Uptime pencereleri</strong> ile her monitör satırında hangi yüzdelerin yazılacağını seçin (24 saat, 7, 30, 90 gün; birden fazlası seçilirse yan yana gösterilir, hiçbiri seçili değilse çubuk görünümüne göre tek pencere). <strong>Olay penceresi</strong> (7/14/30/90 gün) &quot;Son olaylar&quot; bölümünün ve RSS akışının kaç günlük geçmişi göstereceğini belirler.</p>
+<p><strong>Elle açılan olaylar ve güncellemeler:</strong> Otomatik tespit edilmeyen bir sorunu (ör. ödeme sağlayıcısında yavaşlama) <strong>Olaylar → Olay aç</strong> ile duyurabilirsiniz: durum sayfası, başlık, önem (küçük/büyük/kritik), etkilenen monitörler ve ilk açıklama. Olay sayfada başlığı, önemi ve aşamasıyla görünür; <strong>Güncelleme yaz</strong> ile aşama (İnceleniyor → Neden bulundu → İzleniyor → Çözüldü) ve metin eklersiniz, her güncelleme sayfada ve RSS akışında ayrı kayıt olur; <strong>Çözüldü</strong> aşaması olayı kapatır. Otomatik açılan olaylara da güncelleme yazabilirsiniz (&quot;nedeni bulduk, düzeltiyoruz&quot;); onların kapanışını monitör belirler. İzleyici ve müşteri hesapları olayları yalnızca okur.</p>
+<p><strong>Planlı bakım bloğu:</strong> Sayfadaki monitörleri etkileyen (ya da tüm monitörleri kapsayan) etkin bakım pencereleri — süren ve 7 gün içinde başlayacak olanlar — sayfanın <strong>Planlı bakım</strong> bölümünde ve RSS akışında görünür. Bölümün yeri ve görünürlüğü <strong>Dizilim → Bölümler</strong> listesinden ayarlanır; pencere yoksa bölüm çizilmez.</p>
+<p><strong>Duyurular:</strong> Sayfa düzenleyicisinin altındaki <strong>Duyurular</strong> kartından planlı bakım ya da bilgi notu ekleyin. Duyuru eklerken <strong>Diğer sayfalara da ekle</strong> ile aynı duyurunun kopyasını seçtiğiniz sayfalara ya da tüm sayfalara tek seferde bırakabilirsiniz; kopyalar sonradan her sayfada ayrı düzenlenir.</p>
+<h3 id="etiket-kurallari">Etiket tabanlı kurallar<a class="h-anchor" href="#etiket-kurallari" aria-label="Bu bölümün bağlantısı: Etiket tabanlı kurallar">#</a></h3>
+<p>Yüzlerce monitörde &quot;müşteri = X&quot; olanlar aynı kanala gitsin, aynı durum sayfasında görünsün ve o müşterinin hesabına düşsün istiyorsanız monitörleri <strong>etiketleyin</strong> (Ayarlar → Etiketler; monitör formunda etiket ve isteğe bağlı değer) ve etiketi kural olarak kullanın. Üç yerde çalışır:</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="Tablo: Nerede, Nasıl, Ne olur"><table><thead><tr><th>Nerede</th><th>Nasıl</th><th>Ne olur</th></tr></thead><tbody><tr><td><strong>Bildirim kanalı</strong></td><td>Kanal penceresinde <strong>Etikete göre bağla</strong>: etiket ve isteğe bağlı değer (boş = etiketin her değeri)</td><td>O etiketi taşıyan her monitör (sonradan etiketlenenler dahil) kanalı kendiliğinden kullanır. Monitör formunda bu kanal &quot;etiketle bağlı&quot; olarak işaretli ve kilitli görünür.</td></tr><tr><td><strong>Durum sayfası grubu</strong></td><td>Grup başlığının altındaki <strong>Etikete bağla</strong></td><td>Grup, etiketi taşıyan monitörlerle ada göre dolar (açıkça eklediğiniz monitörler önce, kendi adlarıyla). Sayfanın başka bir grubunda açıkça listelenen monitör etiketle ikinci kez eklenmez.</td></tr><tr><td><strong>Müşteri (kısıtlı izleyici)</strong></td><td>Kullanıcı formunda <strong>Etikete göre görebileceği monitörler</strong></td><td>Kullanıcı, seçtiğiniz monitörlere ek olarak o etiketi taşıyan monitörleri görür; etiketi alan yeni monitör anında hesabına düşer.</td></tr></tbody></table></div>
+<p><strong>Öncelik kuralı:</strong> etiket kuralları her zaman <strong>birleşim</strong> olarak uygulanır. Açık seçimler (monitör formundaki kanallar, kullanıcıya seçilen monitörler, gruba eklenen monitörler) hiçbir zaman etiketle silinmez ya da daraltılmaz; etiket yalnızca ekler. Etiket silinirse ona bağlı kurallar da silinir, açık seçimler kalır. Kurallar yedek dosyasında etiket adıyla saklanır ve geri yüklemede yeniden bağlanır.</p>
+<h2 id="dil">5. Dil ayarları<a class="h-anchor" href="#dil" aria-label="Bu bölümün bağlantısı: 5. Dil ayarları">#</a></h2>
+<p>Bekci&#39;nin arayüzü Türkçe ve İngilizcedir. Üç ayrı dil ayarı vardır:</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="Tablo: Ne, Nereden, Kimi etkiler"><table><thead><tr><th>Ne</th><th>Nereden</th><th>Kimi etkiler</th></tr></thead><tbody><tr><td>Arayüz dili</td><td><strong>Ayarlar → Hesabım → Dil → Arayüz dili</strong> (giriş ekranında da dil seçici var)</td><td>Yalnızca sizin hesabınızı; giriş yaptığınız her cihazda geçerlidir</td></tr><tr><td>Durum sayfası dili</td><td>Durum sayfası düzenleyicisinde <strong>Sayfa dili</strong></td><td>O sayfanın ziyaretçilerini (durum metinleri, tarihler, süreler)</td></tr><tr><td>Bildirim dili</td><td><strong>Ayarlar → Genel → Bildirim dili</strong></td><td>Tüm kanallara giden bildirim mesajlarını</td></tr></tbody></table></div>
+<p><strong>Tema:</strong> panel varsayılan olarak cihazınızın açık/koyu ayarını izler. <strong>Ayarlar → Hesabım → Tema</strong> ile açık ya da koyu temayı sabitleyebilir, kenar çubuğundaki (telefonda <strong>Daha fazla</strong> menüsündeki) güneş/ay düğmesiyle anında değiştirebilirsiniz; tercih hesabınızda saklanır. Herkese açık durum sayfaları ziyaretçinin cihaz ayarını izler, panel temasından etkilenmez.</p>
+<h2 id="telefon">6. Telefonunuza ekleyin<a class="h-anchor" href="#telefon" aria-label="Bu bölümün bağlantısı: 6. Telefonunuza ekleyin">#</a></h2>
+<p>Bekci&#39;yi telefonunuza bir uygulama gibi ekleyebilirsiniz; mağazadan bir şey indirmeniz gerekmez:</p>
+<ul>
+<li><strong>iPhone ve iPad:</strong> Paneli <strong>Safari</strong> ile açın → <strong>Paylaş</strong> düğmesi → <strong>Ana Ekrana Ekle</strong>.</li>
+<li><strong>Android:</strong> Paneli <strong>Chrome</strong> ile açın → sağ üstteki menü → <strong>Uygulamayı yükle</strong> (bazı sürümlerde <strong>Ana ekrana ekle</strong>).</li>
+</ul>
+<p>Ana ekrandaki simgeden açıldığında tam ekran çalışır ve canlı güncellenir. Android&#39;de <strong>Uygulamayı yükle</strong> seçeneği yalnızca panel HTTPS ile açıldığında görünür; <code>http://SUNUCU-IP:8080</code> gibi bir adreste görünmez.</p>
+<h3 id="web-push">Tarayıcı bildirimleri (Web Push)<a class="h-anchor" href="#web-push" aria-label="Bu bölümün bağlantısı: Tarayıcı bildirimleri (Web Push)">#</a></h3>
+<p>Üçüncü bir uygulama kurmadan telefonunuza ya da bilgisayarınıza kesinti bildirimi alabilirsiniz:</p>
+<ol>
+<li><strong>Bildirimler → Yeni kanal → Tarayıcı bildirimi (Web Push)</strong> ile bir kanal açın ve monitörlerine bağlayın. <strong>Kullanıcılar</strong> alanı boşsa cihaz kaydetmiş herkese gider; virgülle ayrılmış kullanıcı adları yazarsanız yalnızca onlara. Diğer kanallar gibi <a href="#bildirim-kurallari">bildirim kuralları</a> (olay süzgeci, sessiz saatler, gecikme, eskalasyon) burada da geçerlidir.</li>
+<li>Her kullanıcı <strong>Ayarlar → Hesabım → Tarayıcı bildirimleri → Bu cihazda aç</strong> der ve tarayıcının izin sorusunu onaylar; <strong>Test gönder</strong> ile dener. Birden çok cihaz kaydedilebilir (en fazla 10); listeden kaldırılır.</li>
+</ol>
+<p>Bildirim, uygulama kapalıyken de gelir; tıklanınca ilgili olay sayfası açılır. Müşteri (kısıtlı) hesaplar yalnızca görebildikleri monitörlerin bildirimini alır. Sunucu, VAPID anahtar çiftini ilk ihtiyaçta üretip veritabanında saklar; push servisinin &quot;abonelik yok&quot; (404/410) dediği cihazlar listeden kendiliğinden düşer. İçerik push servisine şifreli gider (RFC 8291); Google/Apple/Mozilla sunucuları metni okuyamaz.</p>
+<p>Sınırlamalar: panel <strong>HTTPS</strong> ile açılmalı. <strong>iPhone ve iPad</strong>&#39;de (iOS 16.4+) bildirimler yalnızca ana ekrana eklenen uygulamada çalışır; Safari sekmesinde çalışmaz — önce <strong>Ana Ekrana Ekle</strong>, sonra uygulamayı açıp bildirimleri açın. Android Chrome, masaüstü Chrome/Edge/Firefox ve macOS Safari 16+ doğrudan destekler. Tarayıcı &quot;rahatsız etme&quot; kipindeyse ya da pil tasarrufu arka plan bağlantısını kesiyorsa bildirim gecikebilir.</p>
+<h2 id="sonra">Sonra ne yapabilirsiniz?<a class="h-anchor" href="#sonra" aria-label="Bu bölümün bağlantısı: Sonra ne yapabilirsiniz?">#</a></h2>
+<ul>
+<li><strong>Sunucularınızı izleyin:</strong> CPU, RAM, disk ve ağ ölçümleri için <a href="/docs/sunucu-ajani/">sunucu ajanını kurun</a>.</li>
+<li><strong>Başka konumlardan kontrol edin:</strong> Monitörlerinizi başka bir şehirden ya da ağdan da kontrol etmek için bir <a href="/docs/sunucu-ajani/#kontrol-noktasi">kontrol noktası</a> ekleyin.</li>
+<li><strong>Ekibinizi ekleyin:</strong> <strong>Ayarlar → Kullanıcılar</strong> bölümünden <strong>Yönetici</strong>, <strong>Editör</strong> ya da <strong>İzleyici</strong> rolünde hesaplar açın; müşterileriniz için yalnızca kendilerine atanan monitörleri gören hesaplar oluşturabilirsiniz.</li>
+<li><strong>Planlı bakımlarda bildirimleri susturun:</strong> <strong>Bakım</strong> bölümü.</li>
+<li><strong>Başka bir servisten taşıyın:</strong> <strong>Ayarlar → Yedekle / Geri yükle</strong> bölümünden başka bir izleme aracından yedeğinizi ya da hesabınızı içe aktarın.</li>
+<li><strong>Yedeklemeyi ayarlayın:</strong> <a href="/docs/guncelleme-yedek/">Güncelleme, yedek ve geri dönüş</a>.</li>
+<li><strong>Prometheus/Grafana&#39;ya bağlayın:</strong> <code>GET /metrics</code> ucu monitör durumu, yanıt süresi ve uptime ile sunucu ajanlarının CPU, RAM, disk ve ağ ölçümlerini verir (<a href="/docs/entegrasyonlar/#prometheus">metrik listesi</a>). <strong>Ayarlar → API anahtarları</strong> bölümünden bir anahtar alın ve <code>Authorization: Bearer upk_…</code> başlığıyla ya da Basic kimlikle (kullanıcı <code>metrics</code>, şifre anahtar) çağırın; anahtarın izleyici yetkisi yeter.</li>
+</ul>
+</div>
+<div class="doc-feedback"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg><p>Bu sayfada eksik ya da hatalı bir şey mi var? <a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">GitHub’da bildirin</a></p></div>
+<nav class="pn-nav" aria-label="Önceki / Sonraki"><a class="pn pn-prev" href="/docs/kurulum/ters-vekil/" rel="prev"><span class="pn-dir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Önceki</span><span class="pn-title">Ters vekil arkasında</span></a><a class="pn pn-next" href="/docs/sunucu-ajani/" rel="next"><span class="pn-dir">Sonraki<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span><span class="pn-title">Sunucu ajanı ve kontrol noktası</span></a></nav>
+</article>
+</main>
+<nav class="docs-toc" aria-labelledby="bu-sayfada"><p class="toc-title" id="bu-sayfada">Bu sayfada</p><ul><li class="toc-2"><a href="#yonetici">1. Yönetici hesabı</a></li><li class="toc-2"><a href="#ilk-monitor">2. İlk monitörünüzü ekleyin</a></li><li class="toc-3"><a href="#monitor-tipleri">Monitör tipleri</a></li><li class="toc-2"><a href="#bildirim">3. Bildirim kanalı ekleyin</a></li><li class="toc-3"><a href="#bildirim-kurallari">Bildirim kuralları</a></li><li class="toc-3"><a href="#olay-onay">Olayı onaylama ve susturma</a></li><li class="toc-2"><a href="#durum-sayfasi">4. Durum sayfası oluşturun (isteğe bağlı)</a></li><li class="toc-3"><a href="#etiket-kurallari">Etiket tabanlı kurallar</a></li><li class="toc-2"><a href="#dil">5. Dil ayarları</a></li><li class="toc-2"><a href="#telefon">6. Telefonunuza ekleyin</a></li><li class="toc-3"><a href="#web-push">Tarayıcı bildirimleri (Web Push)</a></li><li class="toc-2"><a href="#sonra">Sonra ne yapabilirsiniz?</a></li></ul></nav>
+</div>
+<footer class="site-footer">
+  <div class="wrap wrap-docs">
+    <a class="brand" href="/" aria-label="Bekci ana sayfa">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#10b981" opacity=".22"/><circle cx="32" cy="32" r="20" fill="#10b981" opacity=".35"/><circle cx="32" cy="32" r="12" fill="#10b981"/></svg>
+      Bekci
+    </a>
+    <ul class="foot-links">
+      <li><a href="/docs/">Belgeler</a></li>
+      <li><a href="https://hub.docker.com/r/kadirsungurlu/bekci" rel="noopener">Docker Hub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci" rel="noopener">GitHub</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/blob/main/LICENSE" rel="noopener">Lisans: AGPL-3.0</a></li>
+      <li><a href="/en/docs/first-steps/" hreflang="en" lang="en">English</a></li>
+      <li><a href="https://github.com/kadirsungurlu/bekci/issues" rel="noopener">İletişim: GitHub</a></li>
+    </ul>
+    <p>© 2026 Bekci · Türkiye’de geliştirildi.</p>
+  </div>
+</footer>
+<div id="duyuru" class="sr-only" aria-live="polite"></div>
+</body>
+</html>
