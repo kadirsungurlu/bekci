@@ -55,7 +55,9 @@ type subEnv struct {
 	mon    store.Monitor
 }
 
-const subWindow = 60 * time.Millisecond
+// PostgreSQL'de ListPages gecikmesi pencereden uzun olmasın: art arda iki olay aynı
+// pencereye düşmezse dalgalanma birleşmez ve test rastgele kırılır.
+const subWindow = 250 * time.Millisecond
 
 // setupSubs yönetici oturumlu ortam, sahte posta, kısa birleştirme penceresi;
 // ipLimit > 0 ise abone olma IP sınırı (testte değiştirilebilsin diye).
