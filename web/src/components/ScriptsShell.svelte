@@ -47,7 +47,7 @@
       <a class="btn sm" href="#/settings">{t('scripts.tfa.link')}</a>
     </div>
   {/if}
-  {@render children()}
+  <div class="sbody">{@render children()}</div>
 {/if}
 
 <style>

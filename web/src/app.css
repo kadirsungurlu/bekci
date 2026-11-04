@@ -1195,3 +1195,11 @@ input[type='search'].input::-webkit-search-decoration {
     border-color: transparent;
   }
 }
+
+/* Betik sayfaları: dokunmatikte düğmeler en az 44 px (kod kopyalama, satır işlemleri). */
+@media (max-width: 900px), (pointer: coarse) {
+  .sbody .btn,
+  .page-head.shead .btn {
+    min-height: 44px;
+  }
+}
