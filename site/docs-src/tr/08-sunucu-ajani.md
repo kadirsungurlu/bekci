@@ -227,19 +227,19 @@ Ajan beş dakikada bir sunucunun envanterini toplar; içerik değişince, deği�
 - **Servisler:** systemd birimleri, çalışma durumu, açılışta başlama ayarı.
 - **Konteynerler:** ad, imaj, durum, sağlık, yeniden başlama sayısı. Satırı açınca son 24 saatin CPU ve bellek grafiği gelir.
 - **Portlar:** dinleyen TCP/UDP portları ve süreci. Geçici UDP portları listelenmez.
-- **Sertifikalar:** yerel dosyalar (`/etc/letsencrypt/live`, `/etc/ssl`, Docker birimleri) ve dinleyen portlardan TLS el sıkışmasıyla okunan sertifikalar.
+- **Sertifikalar:** yerel dosyalar (`/etc/letsencrypt/live`, `/etc/ssl/private`, web sunucusu klasörleri, Caddy Docker birimi) ve dinleyen portlardan TLS el sıkışmasıyla okunan sertifikalar.
 - **Disk bölümleri:** bağlama noktası, aygıt, dosya sistemi, boyut. Satırı açınca doluluk grafiği gelir.
 
 Ortam değişkenleri ve özel anahtarlar **toplanmaz**. Komut satırlarındaki parola, belirteç ve bağlantı adresi parolaları ajanda, gönderilmeden önce maskelenir; panel kaydederken bir kez daha maskeler.
 
-Sertifikanın bitmesine 14, 7 ve 1 gün kala olay açılır ve sunucunun bildirim kanallarına bildirim gider. Eşikleri **Ayarlar > Genel > Sunucu sertifikası uyarı günleri** alanından değiştirebilirsiniz; boş bırakırsanız uyarı kapanır. Sertifika yenilenince olay kendiliğinden kapanır. Uyarı istemediğiniz sertifikayı Envanter sekmesinden **Yoksay** ile dışarıda bırakabilirsiniz.
+Sertifikanın bitmesine 14, 7 ve 1 gün kala olay açılır ve sunucunun bildirim kanallarına bildirim gider. Eşikleri **Ayarlar > Genel > SSL uyarı günleri** alanından değiştirebilirsiniz; boş bırakırsanız uyarı kapanır. Sertifika yenilenince olay kendiliğinden kapanır. Uyarı istemediğiniz sertifikayı Envanter sekmesinden **Yoksay** ile dışarıda bırakabilirsiniz.
 
 | Değişken | Varsayılan | Görevi |
 |---|---|---|
 | `INVENTORY` | `1` | `0` envanteri bu ajanda kapatır. |
 | `PROBE_CERT_DIRS` | boş | Ek sertifika klasörleri (`:` ile ayrılır). |
 | `PROBE_TLS_SCAN` | `on` | `off` dinleyen portlara bağlanmayı kapatır. |
-| `PROBE_TLS_SNI` | boş | Port taramasında kullanılacak alan adı. |
+| `PROBE_TLS_SNI` | boş | Port taramasında denenecek alan adları (virgülle ayrılır). |
 
 Windows'ta şimdilik yalnız disk bölümleri toplanır; servis ve port listesi desteklenmez. Docker içinde çalışan ajan, sunucunun dosya sistemi bağlıysa (`HOST_ROOT`, `HOST_PROC`, `HOST_SYS`) servisleri ve portları görür. Eski sürüm ajanlar envanter göndermez; sekme bu durumda ajanı güncellemenizi söyler.
 

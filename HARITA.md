@@ -13,9 +13,10 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 - `internal/servers/` sunucu ajanı metrikleri · `internal/backup/` dışa/içe aktarma (Kuma, UptimeRobot) · `internal/webpush/`
 - `internal/apidocs/openapi.yaml` — API belgesi (yeni genel uç eklenirse güncelle)
 - `docs/PERFORMANS-620.md` — ölçüm raporu (ham / Go özet / Timescale, disk, RAM, kaynak önerisi); `scripts/perf/` (tohum.sh, olcum.sh, istek.py) + `internal/store/perf_test.go` (BEKCI_PERF_*)
+- `docs/DENETIM-640.md` — Timescale gerçek kullanım denetimi sonuçları + canlı geçiş planı
 - `docs/TIMESCALE-TASARIM.md` — Postgres+TimescaleDB ve sunucu bilgi kaynağı tasarımı (600; 610-695 buna uyar): hypertable/cagg/saklama, uyumluluk modları, yükseltme yolları, lisans
 - `web/` — Svelte 5 + Vite SPA (TS). `src/pages/` sayfalar, `src/components/`, `src/lib/` (api.ts türler+istekler, router, i18n)
-- `web/e2e/` — Playwright betikleri (`push.mjs`, `durum.mjs`, `abonelik.mjs` + `smtp-sink.mjs` sahte SMTP; `ozelalan.mjs` abonelik ve `alanadi.mjs` on-demand TLS: gerçek alan adıyla elle, CI'da yok; `guncelleme.mjs` yeni sürüm şeridi, sahte sürüm sunucusu, CI'da; `olaylar.mjs` olay listesi sayfalama, CI'da; `mesh.mjs` bağlantı matrisi, CI'da; `topoloji.mjs` canlı topoloji, CI'da), `statusgrid.test.mjs`, `meshlayout.test.mjs`, `topolayout.test.mjs` (node --test)
+- `web/e2e/` — Playwright betikleri (`push.mjs`, `durum.mjs`, `abonelik.mjs` + `smtp-sink.mjs` sahte SMTP; `ozelalan.mjs` abonelik ve `alanadi.mjs` on-demand TLS: gerçek alan adıyla elle, CI'da yok; `guncelleme.mjs` yeni sürüm şeridi, sahte sürüm sunucusu, CI'da; `olaylar.mjs` olay listesi sayfalama, CI'da; `mesh.mjs` bağlantı matrisi, CI'da; `topoloji.mjs` canlı topoloji, CI'da; `envanter.mjs` sunucu envanteri, CI'da), `statusgrid.test.mjs`, `meshlayout.test.mjs`, `topolayout.test.mjs` (node --test)
 - `site/` — tanıtım sitesi + belgeler (`docs-src/{tr,en}`) · `deploy/compose/` — varsayılan compose (TimescaleDB 2.31.0-pg18, Caddy); `site/indir/` indirilebilir compose/env (belgedeki kod bloklarıyla aynı olmalı, `site/docs-build/build.mjs` denetler) · `Dockerfile` (pg_dump dahil), `Dockerfile.postgres` (kullanımdan kalkıyor)
 - `.github/workflows/imajlar.yml` — CI: go vet/test (sqlite+pg), web check/build, e2e, duman testi, `duman-veritabani` (`scripts/duman-db.sh`: compose, SQLite->TS, düz PG, eklenti), imaj
 
@@ -62,6 +63,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 | Durum sayfası e-posta aboneliği | api/subscribers.go (uçlar, belirteçler), subscribers_notify.go (birleştirme, hız sınırı, e-posta); store/subscribers.go; notify Dispatcher.SetObserver, SendMailHeaders |
 | Bakım / duyurular | api/maintenance.go; store/maintenance.go; internal/maintenance; web pages/Maintenance*, Announcements |
 | Sunucu ajanları | api/servers.go, metrics*.go; internal/servers; store/servers*.go |
+| Sunucu envanteri | metrics/inventory.go (tipler, Sanitize, Hash, MaskSecrets), inventory_collect.go (Docker, yerel + port sertifikaları), inventory_linux.go (systemd/cgroup, /proc/net); probe/inventory.go (panel inventory_interval verirse toplar, 300 sn, değişince ya da 12 turda bir POST /api/probe/inventory; alan yoksa hiç çalışmaz); store/inventory.go (migration 45, SaveInventory, inv_cert_alerts); servers/inventory.go (IngestInventory, sertifika eşikleri, saatlik CheckCerts; olay kind=server_alert metric=cert, alert_id = -inv_cert_alerts.id); api/inventory.go; ayar server_cert_days; web components/ServerInventory, ServerDetail sayfa sekmesi; e2e envanter.mjs (CI); belge 08-sunucu-ajani#envanter |
 | Yedek / içe aktarma | api/backup.go, importer.go; internal/backup |
 | Ayarlar | api/misc.go (settings); store/settings.go; web pages/Settings + settings/* |
 | Ajan (probe) istemcisi | internal/probe/probe.go (yoklama, sonuç gönderimi), dnscache.go (Main adı için son bilinen IP, PROBE_STATE_DIR/uptime.dns.json); cmd/uptime/probe.go env |
