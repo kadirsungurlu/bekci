@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -88,21 +87,11 @@ func TestScriptLogPruneCheckpoint(t *testing.T) {
 	s := openScriptStore(t)
 	ctx := context.Background()
 	scriptEvents(t, s, 6)
-	if _, err := s.db.ExecContext(ctx, "ALTER TABLE script_runs DISABLE TRIGGER USER"); err != nil {
+	// Negatif saklama: kesim gelecekte, tüm olaylar saklama dışı (Timescale parça
+	// sınırı eski tarihli satır yazdırmadığı için tarih değiştirilmez).
+	if _, err := s.PruneScriptLog(ctx, -time.Hour); err != nil {
 		t.Fatal(err)
 	}
-	old := time.Now().Add(-400 * 24 * time.Hour).Unix()
-	if _, err := s.db.ExecContext(ctx, "UPDATE script_runs SET time=$1 WHERE seq<=4", old); err != nil {
-		t.Skipf("hypertable bölüm değişimi: %v", err)
-	}
-	if _, err := s.db.ExecContext(ctx, "ALTER TABLE script_runs ENABLE TRIGGER USER"); err != nil {
-		t.Fatal(err)
-	}
-	n, err := s.PruneScriptLog(ctx, 365*24*time.Hour)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("silindi: %v", n)
 	x, err := s.ExportScriptLog(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -110,13 +99,16 @@ func TestScriptLogPruneCheckpoint(t *testing.T) {
 	if len(x.Checkpoints) == 0 {
 		t.Fatalf("checkpoint yazılmalı: %d olay", len(x.Events))
 	}
-	if len(x.Events) != 2 {
-		t.Fatalf("kalan olay: %d", len(x.Events))
-	}
-	// Hash zaman içerir: UPDATE ile tarihlenen satırlar checkpoint öncesi silindiği için
-	// kalan zincir doğrulanmalı.
-	if err := betikkayit.Verify(x); err != nil && !strings.Contains(err.Error(), "0") {
+	if err := betikkayit.Verify(x); err != nil {
 		t.Fatalf("budama sonrası zincir: %v", err)
+	}
+	// Elle silme hâlâ yasak, zincir checkpoint üzerinden sürer.
+	scriptEvents(t, s, 2)
+	if x, err = s.ExportScriptLog(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := betikkayit.Verify(x); err != nil {
+		t.Fatalf("devam eden zincir: %v", err)
 	}
 }
 

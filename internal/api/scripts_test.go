@@ -193,12 +193,9 @@ func (x *sEnv) receipt(v runView, ov func(*betik.Receipt)) json.RawMessage {
 	x.mustDo("GET", "/api/scripts/runs/"+v.RunID, nil, &d, 200)
 	var req runRequest
 	_ = json.Unmarshal([]byte(d.Events[0].Data), &req)
-	if x.receiptPrev == "" {
-		x.receiptPrev = betik.Digest(nil)
-	}
 	now := x.clk.now().Unix()
 	r := betik.Receipt{Schema: 1, Seq: x.receiptSeq + 1, Prev: x.receiptPrev, RunID: v.RunID, ScriptID: req.ScriptID, Version: req.Version,
-		ManifestSHA256: req.ManifestSHA256, ParamsSHA256: req.ParamsSHA256, TicketSHA256: betik.Digest(nil), StartedAt: now - 1, EndedAt: now,
+		ManifestSHA256: req.ManifestSHA256, ParamsSHA256: req.ParamsSHA256, StartedAt: now - 1, EndedAt: now,
 		Status: "ok", OutputSHA256: betik.Digest([]byte("çıktı"))}
 	if ov != nil {
 		ov(&r)
