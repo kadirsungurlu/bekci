@@ -193,3 +193,28 @@ func TestSaveInventorySections(t *testing.T) {
 		t.Fatal("metriği kapalı sunucudan yazıldı")
 	}
 }
+
+func TestShortLivedCertNoAlarm(t *testing.T) {
+	now := int64(1_800_000_000)
+	day := int64(86400)
+	cases := []struct {
+		life  int64
+		stage int
+		want  bool
+	}{
+		{day / 2, 1, true},  // Caddy iç CA: 12 saat
+		{6 * day, 7, true},  // ACME kısa ömürlü
+		{6 * day, 1, false}, // son gün yine bildirilir
+		{90 * day, 14, false},
+		{90 * day, 0, false},
+	}
+	for _, c := range cases {
+		got := shortLived(store.InvCert{NotBefore: now, NotAfter: now + c.life}, c.stage)
+		if got != c.want {
+			t.Errorf("ömür %d, aşama %d: %v", c.life, c.stage, got)
+		}
+	}
+	if shortLived(store.InvCert{NotAfter: now}, 1) {
+		t.Error("başlangıcı bilinmeyen sertifika susturulmamalı")
+	}
+}

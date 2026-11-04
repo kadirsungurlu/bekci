@@ -224,19 +224,31 @@ func certFileName(name string) bool {
 
 // parseLeaf PEM verisindeki ilk CA olmayan sertifika (yoksa nil).
 func parseLeaf(data []byte) *x509.Certificate {
+	var only *x509.Certificate // dosyadaki tek sertifika CA ise
+	count := 0
 	for len(data) > 0 {
 		var b *pem.Block
 		b, data = pem.Decode(data)
 		if b == nil {
-			return nil
+			break
 		}
 		if b.Type != "CERTIFICATE" {
 			continue // özel anahtar vb.: içeriğe bakılmaz
 		}
+		count++
 		cert, err := x509.ParseCertificate(b.Bytes)
 		if err == nil && !cert.IsCA {
 			return cert
 		}
+		if err == nil {
+			only = cert
+		}
+	}
+	// "openssl req -x509" varsayılanı CA:TRUE yazar: dosyada tek başına duran
+	// kendinden imzalı sertifika sunucu sertifikasıdır, zincir dosyası değil.
+	// Ara CA (Let's Encrypt chain.pem) kendinden imzalı olmadığı için atlanır.
+	if count == 1 && only != nil && only.CheckSignatureFrom(only) == nil {
+		return only
 	}
 	return nil
 }

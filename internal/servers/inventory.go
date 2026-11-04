@@ -128,6 +128,14 @@ func certLevel(stage int, thresholds []int) string {
 // tighter yeni aşama bildirilenden daha acil mi?
 func tighter(stage, was int) bool { return stage != 0 && stage < was }
 
+// shortLived sertifikanın ömrü eşiğin iki katından kısa mı: Caddy iç CA'sının
+// 12 saatlik ya da ACME'nin 6 günlük sertifikaları kendiliğinden yenilenir,
+// geniş eşikler bunlar için sürekli yanlış alarm olurdu. Süresi dolan her
+// zaman bildirilir.
+func shortLived(c store.InvCert, stage int) bool {
+	return stage > 0 && c.NotBefore > 0 && c.NotAfter-c.NotBefore < int64(2*stage)*86400
+}
+
 func certDaysLeft(notAfter int64, now time.Time) int {
 	return int(math.Floor(float64(notAfter-now.Unix()) / 86400))
 }
@@ -178,6 +186,9 @@ func (s *Service) evalCerts(ctx context.Context, p store.Probe, thresholds []int
 	for fp, c := range byFP {
 		days := certDaysLeft(c.NotAfter, now)
 		stage := certStage(days, thresholds)
+		if shortLived(c, stage) {
+			stage = 0
+		}
 		a, isOpen := open[fp]
 		if stage == 0 || ignored[fp] {
 			continue // kapatma aşağıda: open'da kalır
