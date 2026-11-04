@@ -50,6 +50,10 @@ func runMigrate(log *slog.Logger, args []string) error {
 		fmt.Printf("Plan: %d tablo, %d satır. Hedefe dokunulmadı.\n", res.Tables, res.Rows)
 		return nil
 	}
+	if res.Already {
+		fmt.Printf("Hedef hazır, kip %s.\n", res.Mode)
+		return nil
+	}
 	fmt.Printf("Taşıma tamam: %d tablo, %d satır, kip %s, süre %s.\n", res.Tables, res.Rows, res.Mode, time.Since(start).Round(time.Second))
 	if res.Sanitized > 0 {
 		fmt.Printf("Not: %d metin değerinde PostgreSQL'in kabul etmediği karakterler temizlendi.\n", res.Sanitized)

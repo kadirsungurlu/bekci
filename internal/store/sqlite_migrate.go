@@ -60,6 +60,7 @@ type SQLiteMigrateResult struct {
 	Sanitized int64 // PostgreSQL metnine sığmayan karakter temizlenen değer sayısı
 	Skipped   []string
 	Resumed   bool
+	Already   bool // hedefe daha önce taşınmış, kopyalama yapılmadı
 	Mode      DBMode
 }
 
@@ -122,6 +123,12 @@ func MigrateSQLite(ctx context.Context, o SQLiteMigrateOptions) (*SQLiteMigrateR
 	if dir == "" {
 		dir = filepath.Dir(o.From)
 	}
+	// Önceki kesintiden kalan kopyalar (kilit bizde, başka taşıma çalışmıyor).
+	if old, err := filepath.Glob(filepath.Join(dir, ".bekci-tasima-*")); err == nil {
+		for _, d := range old {
+			os.RemoveAll(d)
+		}
+	}
 	tmp, err := os.MkdirTemp(dir, ".bekci-tasima-")
 	if err != nil {
 		return nil, fmt.Errorf("geçici klasör açılamadı (--work-dir ile başka yer verilebilir): %w", err)
@@ -171,6 +178,7 @@ func MigrateSQLite(ctx context.Context, o SQLiteMigrateOptions) (*SQLiteMigrateR
 	}
 	closeDst()
 	if finished {
+		res.Already = true
 		fmt.Fprintln(o.Out, "Taşıma bu hedefe daha önce tamamlanmış; veri kopyalanmadı.")
 	}
 
