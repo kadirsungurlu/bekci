@@ -188,6 +188,54 @@ jobs:
         if: failure()
         run: tail -n 80 "$RUNNER_TEMP/panel.log" || true
 
+  # Gerçek Chromium + gerçek handler + TimescaleDB ile betik akışı (web/e2e/betik.mjs).
+  # Panel, testin ileri sarılabilir saatiyle internal/api/scripts_tarayici_test.go içinde
+  # açılır; üretim koduna test kapısı girmez.
+  betik-e2e:
+    runs-on: ubuntu-latest
+    services:
+      timescale:
+        image: timescale/timescaledb:2.31.0-pg18
+        env:
+          POSTGRES_PASSWORD: test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.27"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            web/e2e/package-lock.json
+      - name: Arayüz derlemesi
+        working-directory: web
+        run: npm ci --no-audit --no-fund && npm run build
+      - name: Tarayıcı kurulumu
+        working-directory: web/e2e
+        run: npm ci --no-audit --no-fund && npx playwright install --with-deps chromium
+      - name: Panel düzeneğini başlatma
+        env:
+          UPTIME_TEST_PG: postgres://postgres:test@localhost:5432/postgres?sslmode=disable
+          BEKCI_E2E_ADDR: 127.0.0.1:8081
+        run: |
+          go test -v -count=1 -timeout 30m -run '^TestE2EBetikPanel$' ./internal/api > "$RUNNER_TEMP/betik-panel.log" 2>&1 &
+          for _ in $(seq 1 180); do grep -q 'e2e panel hazır' "$RUNNER_TEMP/betik-panel.log" && exit 0; sleep 1; done
+          tail -n 40 "$RUNNER_TEMP/betik-panel.log"; exit 1
+      - name: Betik akışı uçtan uca
+        working-directory: web/e2e
+        env:
+          E2E_STOP: "1"
+        run: node betik.mjs
+      - name: Panel günlüğü
+        if: failure()
+        run: tail -n 80 "$RUNNER_TEMP/betik-panel.log" || true
+
   # İmajı derler, çalıştırır ve temel işlevleri dener (yüklemez).
   # Veritabanı yolları, gerçek imajla: varsayılan compose (TimescaleDB), SQLite'tan
   # uptime migrate, eklentisiz düz PostgreSQL (çalışır + uyarı) ve eklentinin
@@ -322,7 +370,7 @@ jobs:
   # Test paneli (Coolify, hazır imaj): gelistirme dalı geçince tek mimari, tek
   # etiket. Sürüm değildir: :latest'e dokunmaz, ajan imzası yoktur.
   yayinla-gelistirme:
-    needs: [test, test-timescale, arayuz, arayuz-e2e, duman]
+    needs: [test, test-timescale, arayuz, arayuz-e2e, betik-e2e, duman]
     if: github.event_name == 'push' && github.ref == 'refs/heads/gelistirme'
     runs-on: ubuntu-latest
     steps:
@@ -343,7 +391,7 @@ jobs:
           cache-from: type=gha,scope=latest
 
   yayinla:
-    needs: [test, test-timescale, arayuz, arayuz-e2e, duman]
+    needs: [test, test-timescale, arayuz, arayuz-e2e, betik-e2e, duman]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     permissions:

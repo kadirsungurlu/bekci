@@ -13,7 +13,7 @@ Betikler burada imzasız durur (D1). Her `<id>/` altında `manifest.json` (bildi
 | `servis-yeniden-web` | `web` | signed | 10 dakikada 1 |
 | `sertifika-yenile` | `web` | signed | Günde 1 |
 
-`sshd`, ajan, `docker` ve veritabanı servisleri `servis-yeniden*` listelerine eklenmez. Yeni `none` betiği tek başına ya da diğerleriyle birlikte servis kesmemeli, tanık kayıt silmemeli.
+`sshd`, ajan, `docker` ve veritabanı servisleri `servis-yeniden*` listelerine eklenmez; `fail2ban` (güvenlik denetimi, yeniden başlarken yasaklar boşa düşer) ve `rsyslog` (uzak günlük akışı yani tanık kesilir) da bilerek listede yok. Liste, kesintisi tek servisle sınırlı ve onarım için gerçekten gereken servislerden oluşur: `cron`/`crond` (dağıtım adı farkı), `chronyd`. Yeni `none` betiği tek başına ya da diğerleriyle birlikte servis kesmemeli, tanık kayıt silmemeli.
 
 ## Araç
 

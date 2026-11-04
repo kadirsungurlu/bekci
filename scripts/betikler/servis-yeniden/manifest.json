@@ -7,7 +7,7 @@
   "platforms": ["linux"],
   "approval": "signed",
   "groups": ["sistem"],
-  "params": [{"name": "servis", "type": "enum", "values": ["cron", "crond", "rsyslog", "chronyd", "fail2ban"]}],
+  "params": [{"name": "servis", "type": "enum", "values": ["cron", "crond", "chronyd"]}],
   "timeout_sec": 120,
   "output_max": 65536,
   "min_interval_sec": 600,

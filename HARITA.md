@@ -17,7 +17,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 - `docs/TIMESCALE-TASARIM.md` — Postgres+TimescaleDB ve sunucu bilgi kaynağı tasarımı (600; 610-695 buna uyar): hypertable/cagg/saklama, uyumluluk modları, yükseltme yolları, lisans
 - `docs/BETIK-GUVENLIK-680.md` — betik çalıştırma güvenlik tasarımı (tehdit modeli, K_yayın/K_onay/K_ajan, yerel iğne, imza kapsamı, yürütme kafesi, kurcalama belli kayıt, kararlar D1-D15; 690 buna uyar, kod yok)
 - `web/` — Svelte 5 + Vite SPA (TS). `src/pages/` sayfalar, `src/components/`, `src/lib/` (api.ts türler+istekler, router, i18n)
-- `web/e2e/` — Playwright betikleri (`push.mjs`, `durum.mjs`, `abonelik.mjs` + `smtp-sink.mjs` sahte SMTP; `ozelalan.mjs` abonelik ve `alanadi.mjs` on-demand TLS: gerçek alan adıyla elle, CI'da yok; `guncelleme.mjs` yeni sürüm şeridi, sahte sürüm sunucusu, CI'da; `olaylar.mjs` olay listesi sayfalama, CI'da; `mesh.mjs` bağlantı matrisi, CI'da; `topoloji.mjs` canlı topoloji, CI'da; `envanter.mjs` sunucu envanteri, CI'da; `sunucu-olaylar.mjs` zaman çizelgesi, CI'da; `apikeys.mjs` salt okunur anahtar, CI'da), `statusgrid.test.mjs`, `meshlayout.test.mjs`, `topolayout.test.mjs` (node --test)
+- `web/e2e/` — Playwright betikleri (`betik.mjs` betik akışı, panel: `internal/api/scripts_tarayici_test.go` düzeneği + Timescale; `push.mjs`, `durum.mjs`, `abonelik.mjs` + `smtp-sink.mjs` sahte SMTP; `ozelalan.mjs` abonelik ve `alanadi.mjs` on-demand TLS: gerçek alan adıyla elle, CI'da yok; `guncelleme.mjs` yeni sürüm şeridi, sahte sürüm sunucusu, CI'da; `olaylar.mjs` olay listesi sayfalama, CI'da; `mesh.mjs` bağlantı matrisi, CI'da; `topoloji.mjs` canlı topoloji, CI'da; `envanter.mjs` sunucu envanteri, CI'da; `sunucu-olaylar.mjs` zaman çizelgesi, CI'da; `apikeys.mjs` salt okunur anahtar, CI'da), `statusgrid.test.mjs`, `meshlayout.test.mjs`, `topolayout.test.mjs` (node --test)
 - `site/` — tanıtım sitesi + belgeler (`docs-src/{tr,en}`) · `deploy/compose/` — varsayılan compose (TimescaleDB 2.31.0-pg18, Caddy); `site/indir/` indirilebilir compose/env (belgedeki kod bloklarıyla aynı olmalı, `site/docs-build/build.mjs` denetler) · `Dockerfile` (pg_dump dahil), `Dockerfile.postgres` (kullanımdan kalkıyor)
 - `.github/workflows/imajlar.yml` — CI: go vet/test (sqlite+pg), web check/build, e2e, duman testi, `duman-veritabani` (`scripts/duman-db.sh`: compose, SQLite->TS, düz PG, eklenti), imaj
 
@@ -137,11 +137,8 @@ components: AgentAutoUpdate AgentVersion AlertRulesEditor BadgeBuilder BulkEditM
 ContainerTable CopyButton DateTimeField DomainStatus FilePick Icon ImportResult IncidentAck IncidentEditModal IncidentTable IncidentUpdates 
 LangSwitch LineChart MeshDiagram MeshMatrix Modal MonitorMenu MonitorPicker MonitorRow NotificationForm OobFields PagePreviewPanel 
 PageSubscribers PageThumb Pager PingChart PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu 
-ScriptRunModal ScriptVersionModal ScriptsShell ServerInventory ServerPicker ServerSettingsModal ServerSetupModal ServerTimeline Sessions 
-Sparkline StateMark StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker ThemeToggle Toasts Tooltip TopoCanvas TopoCounts 
-TopoDecision TopoList TopoMatrix TypeBadge UpdateBanner UplinkBadge UptimeBars UsageBar
+ScriptFilters ScriptRunModal ScriptVersionModal ScriptsShell ServerInventory ServerPicker ServerSettingsModal ServerSetupModal 
+ServerTimeline Sessions Sparkline StateMark StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker ThemeToggle Toasts Tooltip 
+TopoCanvas TopoCounts TopoDecision TopoList TopoMatrix TypeBadge UpdateBanner UplinkBadge UptimeBars UsageBar
 i18n: account ale.ts apiKeys audit auth backup common incide.ts maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles scri.ts servers settings status tags topology users
 ```
-
-## Betik çalıştırma (panel)
-- `internal/api/scripts.go` kullanıcı uçları (oturum+2FA+step-up), `internal/api/scripts_probe.go` ajan uçları; `internal/store/scripts.go` şema (migration 48) ve zincirli kayıt; `internal/betikkayit` çevrimdışı doğrulama; `cmd/bekci-imza` imzalama aracı; `scripts/betikler/` başlangıç betikleri; arayüz `web/src` ScriptsShell, `lib/scripts.ts`, `i18n/*/scripts.ts`.
