@@ -87,9 +87,9 @@ func TestScriptLogPruneCheckpoint(t *testing.T) {
 	s := openScriptStore(t)
 	ctx := context.Background()
 	scriptEvents(t, s, 6)
-	// Negatif saklama: kesim gelecekte, tüm olaylar saklama dışı (Timescale parça
+	// Negatif saklama: kesim 30 günlük parçanın ötesinde, tüm olaylar saklama dışı (Timescale parça
 	// sınırı eski tarihli satır yazdırmadığı için tarih değiştirilmez).
-	if _, err := s.PruneScriptLog(ctx, -time.Hour); err != nil {
+	if _, err := s.PruneScriptLog(ctx, -60*24*time.Hour); err != nil {
 		t.Fatal(err)
 	}
 	x, err := s.ExportScriptLog(ctx)

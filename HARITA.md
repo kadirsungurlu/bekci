@@ -131,14 +131,17 @@ server_events.go 47: apikeys.go 48: scripts.go
 
 ### Arayüz sayfaları / bileşenler / i18n ad alanları
 ```
-pages: Announcements Auth ForcePassword IncidentDetail Incidents MaintenanceForm MaintenanceList MonitorDetail MonitorForm MonitorList More Notifications PublicStatus ServerDetail ServerList Settings StatusPageEditor StatusPages Topology
+pages: Announcements Auth ForcePassword IncidentDetail Incidents MaintenanceForm MaintenanceList MonitorDetail MonitorForm MonitorList More Notifications PublicStatus ScriptRunDetail ScriptRuns ScriptSettings Scripts ServerDetail ServerList Settings StatusPageEditor StatusPages Topology
 pages/settings: Account ApiKeys Audit Backup General Login Probes Tags TwoFactor UserForm Users
-components: AgentAutoUpdate AgentVersion AlertRulesEditor BadgeBuilder BulkEditModal ConfigFields ConfirmDialog ConnectionDetails 
+components: AgentAutoUpdate AgentVersion AlertRulesEditor BadgeBuilder BulkEditModal CodeModal ConfigFields ConfirmDialog ConnectionDetails 
 ContainerTable CopyButton DateTimeField DomainStatus FilePick Icon ImportResult IncidentAck IncidentEditModal IncidentTable IncidentUpdates 
 LangSwitch LineChart MeshDiagram MeshMatrix Modal MonitorMenu MonitorPicker MonitorRow NotificationForm OobFields PagePreviewPanel 
 PageSubscribers PageThumb Pager PingChart PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu 
-ServerInventory ServerPicker ServerSettingsModal ServerSetupModal ServerTimeline Sessions Sparkline StateMark StatusIcon StatusView 
-SubscribePanel TagChip TagDialog TagRulePicker ThemeToggle Toasts Tooltip TopoCanvas TopoCounts TopoDecision TopoList TopoMatrix TypeBadge 
-UpdateBanner UplinkBadge UptimeBars UsageBar
-i18n: account ale.ts apiKeys audit auth backup common incide.ts maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles servers settings status tags topology users
+ScriptRunModal ScriptVersionModal ScriptsShell ServerInventory ServerPicker ServerSettingsModal ServerSetupModal ServerTimeline Sessions 
+Sparkline StateMark StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker ThemeToggle Toasts Tooltip TopoCanvas TopoCounts 
+TopoDecision TopoList TopoMatrix TypeBadge UpdateBanner UplinkBadge UptimeBars UsageBar
+i18n: account ale.ts apiKeys audit auth backup common incide.ts maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles scri.ts servers settings status tags topology users
 ```
+
+## Betik çalıştırma (panel)
+- `internal/api/scripts.go` kullanıcı uçları (oturum+2FA+step-up), `internal/api/scripts_probe.go` ajan uçları; `internal/store/scripts.go` şema (migration 48) ve zincirli kayıt; `internal/betikkayit` çevrimdışı doğrulama; `cmd/bekci-imza` imzalama aracı; `scripts/betikler/` başlangıç betikleri; arayüz `web/src` ScriptsShell, `lib/scripts.ts`, `i18n/*/scripts.ts`.
