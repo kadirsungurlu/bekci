@@ -27,7 +27,7 @@ func needSystemd(t *testing.T) Platform {
 	}
 	p := DetectPlatform()
 	if !p.OK {
-		t.Skip(p.Detail)
+		t.Fatal(p.Detail)
 	}
 	return p
 }
