@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "id": "servis-yeniden",
+  "version": 1,
+  "interpreter": "sh",
+  "run_as": "root",
+  "platforms": ["linux"],
+  "approval": "signed",
+  "groups": ["sistem"],
+  "params": [{"name": "servis", "type": "enum", "values": ["cron", "crond", "rsyslog", "chronyd", "fail2ban"]}],
+  "timeout_sec": 120,
+  "output_max": 65536,
+  "min_interval_sec": 600,
+  "max_per_day": 6,
+  "jitter_sec": 0
+}

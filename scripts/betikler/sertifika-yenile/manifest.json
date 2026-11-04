@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "id": "sertifika-yenile",
+  "version": 1,
+  "interpreter": "sh",
+  "run_as": "root",
+  "platforms": ["linux"],
+  "approval": "signed",
+  "groups": ["web"],
+  "params": [{"name": "arac", "type": "enum", "values": ["certbot", "caddy"]}],
+  "timeout_sec": 600,
+  "output_max": 65536,
+  "min_interval_sec": 86400,
+  "max_per_day": 1,
+  "jitter_sec": 0
+}
