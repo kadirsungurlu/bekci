@@ -14,12 +14,14 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 - `internal/apidocs/openapi.yaml` — API belgesi (yeni genel uç eklenirse güncelle)
 - `docs/PERFORMANS-620.md` — ölçüm raporu (ham / Go özet / Timescale, disk, RAM, kaynak önerisi); `scripts/perf/` (tohum.sh, olcum.sh, istek.py) + `internal/store/perf_test.go` (BEKCI_PERF_*)
 - `docs/DENETIM-640.md` — Timescale gerçek kullanım denetimi sonuçları + canlı geçiş planı
+- `docs/DENETIM-695.md` — genel gerçek kullanım denetimi: senaryo sonuçları, denenmeyenler, tasarım bulguları, canlı geçiş planı
+- `docs/PROVA-CANLI-VERI.md` — canlı veri provası sonuçları + KESİN canlı geçiş adımları (640/695 planlarının yerine)
 - `docs/TIMESCALE-TASARIM.md` — Postgres+TimescaleDB ve sunucu bilgi kaynağı tasarımı (600; 610-695 buna uyar): hypertable/cagg/saklama, uyumluluk modları, yükseltme yolları, lisans
 - `docs/BETIK-GUVENLIK-680.md` — betik çalıştırma güvenlik tasarımı (tehdit modeli, K_yayın/K_onay/K_ajan, yerel iğne, imza kapsamı, yürütme kafesi, kurcalama belli kayıt, kararlar D1-D15; 690 buna uyar, kod yok)
 - `web/` — Svelte 5 + Vite SPA (TS). `src/pages/` sayfalar, `src/components/`, `src/lib/` (api.ts türler+istekler, router, i18n)
 - `web/e2e/` — Playwright betikleri (`betik.mjs` betik akışı, panel: `internal/api/scripts_tarayici_test.go` düzeneği + Timescale; `push.mjs`, `durum.mjs`, `abonelik.mjs` + `smtp-sink.mjs` sahte SMTP; `ozelalan.mjs` abonelik ve `alanadi.mjs` on-demand TLS: gerçek alan adıyla elle, CI'da yok; `guncelleme.mjs` yeni sürüm şeridi, sahte sürüm sunucusu, CI'da; `olaylar.mjs` olay listesi sayfalama, CI'da; `mesh.mjs` bağlantı matrisi, CI'da; `topoloji.mjs` canlı topoloji, CI'da; `envanter.mjs` sunucu envanteri, CI'da; `sunucu-olaylar.mjs` zaman çizelgesi, CI'da; `apikeys.mjs` salt okunur anahtar, CI'da), `statusgrid.test.mjs`, `meshlayout.test.mjs`, `topolayout.test.mjs` (node --test)
 - `site/` — tanıtım sitesi + belgeler (`docs-src/{tr,en}`) · `deploy/compose/` — varsayılan compose (TimescaleDB 2.31.0-pg18, Caddy); `site/indir/` indirilebilir compose/env (belgedeki kod bloklarıyla aynı olmalı, `site/docs-build/build.mjs` denetler) · `Dockerfile` (pg_dump dahil), `Dockerfile.postgres` (kullanımdan kalkıyor)
-- `.github/workflows/imajlar.yml` — CI: go vet/test (sqlite+pg), web check/build, e2e, duman testi, `duman-veritabani` (`scripts/duman-db.sh`: compose, SQLite->TS, düz PG, eklenti), imaj
+- `.github/workflows/imajlar.yml` — CI: go vet/test (sqlite+pg), web check/build, e2e, duman testi, `betik-systemd` (koşucuda gerçek systemd + Timescale: betikajan Systemd testleri, TestScriptEndToEnd, eski ajan uyumu), `duman-veritabani` (`scripts/duman-db.sh`: compose, SQLite->TS, düz PG, eklenti), imaj
 
 ## Katmanlar ve kalıplar
 - Yön: api -> engine/notify -> store. İşleyiciler `func (s *Server) x(w, r)`; JSON için `writeJSON`/`writeError`, DB hatası `s.dbError`.
@@ -44,7 +46,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 - Haritayı yenile: `sh scripts/harita.sh`
 
 ## Ortamlar
-- Test: Coolify Bekci Test (dal `gelistirme`; adres proje CLAUDE.md'de) · Yayın: https://bekci.app (dal `main`), Docker Hub. Yayın kuralı: proje CLAUDE.md.
+- Test: Coolify Bekci Test (hazır imaj `kadirsungurlu/bekci:gelistirme`, CI işi `yayinla-gelistirme`; ayrıntı proje CLAUDE.md'de) · Yayın: https://bekci.app (dal `main`), Docker Hub. Yayın kuralı: proje CLAUDE.md.
 
 ## Nerede ne var
 | Özellik | Dosyalar |
@@ -127,7 +129,7 @@ webpush.go: GET /api/webpush/vapid | GET /api/webpush/subscriptions | POST /api/
 pages_period.go 25: incident_manual.go 26: servers_ext.go 27: beats_recent.go 28: domain.go 29: incident_ack.go 30: tag_rules.go 31: 
 auth_ext.go 32: webpush.go 33: auth_ext.go 34: sessions.go 35: probes_update.go 36: subscribers.go 37: subscribers.go 38: updates.go 39: 
 incident_kinds.go 40: mesh.go 41: probes_oob.go 42: channel_sends.go 43: timescale.go 44: server_metrics.go 45: inventory.go 46: 
-server_events.go 47: apikeys.go 48: scripts.go
+server_events.go 47: apikeys.go 48: scripts.go 49: scripts.go
 ```
 
 ### Arayüz sayfaları / bileşenler / i18n ad alanları
