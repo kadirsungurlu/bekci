@@ -196,14 +196,25 @@ func (s *Store) PingPercentile(ctx context.Context, monitorID, since int64, q fl
 		cols[k] = fmt.Sprintf("COALESCE(CAST(SUM(h%02d) AS BIGINT), 0)", k)
 	}
 	counts := make([]int64, n)
-	dest := make([]any, n)
+	dest := make([]any, n, n+1)
 	for k := range counts {
 		dest[k] = &counts[k]
 	}
-	err := s.db.QueryRowContext(ctx, "SELECT "+strings.Join(cols, ", ")+
+	var pings int64
+	dest = append(dest, &pings)
+	err := s.db.QueryRowContext(ctx, "SELECT "+strings.Join(cols, ", ")+", COALESCE(CAST(SUM(ping_count) AS BIGINT), 0)"+
 		" FROM stats_hourly WHERE monitor_id = ? AND bucket >= ?", monitorID, hourCeil(since)).Scan(dest...)
 	if err != nil {
 		return -1, err
+	}
+	// Histogramdan önceki dönem (1.7 öncesi özetler) pencereye giriyorsa yüzdelik
+	// yalnız son saatleri yansıtır, yanıltıcıdır: bilinmiyor say.
+	var hist int64
+	for _, c := range counts {
+		hist += c
+	}
+	if hist*10 < pings*9 {
+		return -1, nil
 	}
 	return histPercentile(counts, q), nil
 }

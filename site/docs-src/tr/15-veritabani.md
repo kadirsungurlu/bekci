@@ -92,7 +92,7 @@ Bekci'ye `DATABASE_URL` ile bağlı bir PostgreSQL'iniz varsa veriyi taşımanı
 ```yaml
   db:
     image: timescale/timescaledb:2.31.0-pg18
-    command: postgres -c shared_preload_libraries=timescaledb
+    command: postgres -c shared_preload_libraries=timescaledb -c max_worker_processes=24
 ```
 
 ```bash
@@ -112,6 +112,8 @@ docker compose up -d
 ```
 
 **Yönetilen PostgreSQL (RDS, Cloud SQL vb.):** servis TimescaleDB sunmuyorsa Bekci düz kipte çalışmaya devam eder. Çalışır ama önerilmez; büyük ölçekte yavaşlar.
+
+Mevcut tablolar panelin ilk açılışında hypertable'a dönüşür. Bu sırada panel kapalıdır; süre veri miktarına bağlıdır (ölçüm: 1,2 milyon satır, paylaşımlı sunucu, 26 saniye ile 2,5 dakika arası).
 
 ## Gömülü PostgreSQL'den yükseltme {#gomulu-postgresql}
 
@@ -150,8 +152,10 @@ Varsayım: 5 konum, 30 saniye kontrol aralığı. 100 ve 1.000 monitör satırla
 
 ```yaml
   db:
-    command: postgres -c shared_preload_libraries=timescaledb -c shared_buffers=⟦2GB⟧
+    command: postgres -c shared_preload_libraries=timescaledb -c max_worker_processes=24 -c shared_buffers=⟦2GB⟧
 ```
+
+Bellek sınırı olan sunucuda `db` servisine `TS_TUNE_MEMORY: 400MB` ortam değişkenini verin; imaj ilk açılışta ayarları makinenin tüm belleğine göre seçer. Salt kurulu `timescale` imajı yaklaşık 1,6 GB yer kaplar.
 
 ## Yedek ve geri yükleme {#yedek}
 
@@ -184,6 +188,8 @@ docker compose start bekci
 4. `docker compose up -d`
 
 Taşımadan sonra PostgreSQL'e yazılan ölçümler ve olaylar SQLite dosyasında yoktur; dönünce kaybolur. Sorunun geçtiğine emin olmadan SQLite dosyasını silmeyin.
+
+SQLite ile bir süre çalıştıktan sonra yeniden taşımak için hedef veritabanını boşaltın (`docker compose down` ve veritabanı birimini silmek ya da `DROP DATABASE`). Aksi halde `uptime migrate` "daha önce tamamlanmış" der ve yeni veriyi aktarmaz.
 
 **Düz PostgreSQL'e dönmek:** TimescaleDB'ye dönüşen tablolar düz PostgreSQL imajında açılmaz. Yükseltmeden önce aldığınız dökümü eski sunucuya geri yükleyin.
 

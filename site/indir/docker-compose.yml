@@ -20,6 +20,8 @@ services:
         condition: service_healthy
   db:
     image: timescale/timescaledb:2.31.0-pg18
+    # Az çekirdekli sunucuda varsayılan 8 işçi bakım işlerine yetmez.
+    command: postgres -c max_worker_processes=24
     restart: unless-stopped
     environment:
       POSTGRES_USER: bekci

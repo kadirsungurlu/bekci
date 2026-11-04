@@ -180,6 +180,7 @@ func MigrateSQLite(ctx context.Context, o SQLiteMigrateOptions) (*SQLiteMigrateR
 	if finished {
 		res.Already = true
 		fmt.Fprintln(o.Out, "Taşıma bu hedefe daha önce tamamlanmış; veri kopyalanmadı.")
+		fmt.Fprintln(o.Out, "Uyarı: geri dönüp SQLite ile çalıştıysanız o dönemin verisi aktarılmadı; taşımayı yenilemek için hedef veritabanını boşaltıp komutu tekrar çalıştırın.")
 	}
 
 	// Normal açılış: eklenti varsa dönüşüm burada yapılır (panel açılışıyla aynı kod).

@@ -56,10 +56,15 @@ func (s *Store) deleteBatched(ctx context.Context, batch int, q string, args ...
 }
 
 // DeleteBeatsBefore t'den eski ham kontrol kayıtlarını siler.
-// TimescaleDB'de önce t'den tamamen eski parçalar atılır (drop_chunks), sınır
-// parçadaki kalan satırlar silinir.
+// TimescaleDB'de t'den tamamen eski parçalar atılır (drop_chunks). Sıkıştırma
+// varsa sınır parçaya dokunulmaz: satır satır silmek parçayı açar, büyük
+// parçada açma sınırına takılıp her turda hata verirdi. Saklama süresi bu
+// yüzden en çok bir parça (1 gün) uzayabilir.
 func (s *Store) DeleteBeatsBefore(ctx context.Context, t int64) (int64, error) {
 	if s.tsHyper() {
+		if s.tsFull() {
+			t -= t % tsChunkDay
+		}
 		var n int64
 		if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM heartbeats WHERE time < ?", t).Scan(&n); err != nil || n == 0 {
 			return 0, err
@@ -81,6 +86,9 @@ func (s *Store) DeleteBeatsBefore(ctx context.Context, t int64) (int64, error) {
 		}
 		if _, err := s.tsDropChunks(ctx, "heartbeats", t); err != nil {
 			return 0, fmt.Errorf("drop_chunks: %w", err)
+		}
+		if s.tsFull() {
+			return n, nil
 		}
 		_, err := s.deleteBatched(ctx, deleteBatchSize, `DELETE FROM heartbeats WHERE id IN
 			(SELECT id FROM heartbeats WHERE time < ? LIMIT ?)`, t)

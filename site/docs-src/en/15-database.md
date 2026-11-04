@@ -92,7 +92,7 @@ If Bekci is connected to a PostgreSQL server through `DATABASE_URL`, you don't n
 ```yaml
   db:
     image: timescale/timescaledb:2.31.0-pg18
-    command: postgres -c shared_preload_libraries=timescaledb
+    command: postgres -c shared_preload_libraries=timescaledb -c max_worker_processes=24
 ```
 
 ```bash
@@ -112,6 +112,8 @@ docker compose up -d
 ```
 
 **Managed PostgreSQL (RDS, Cloud SQL, etc.):** if the service doesn't offer TimescaleDB, Bekci keeps running in plain mode. It works but isn't recommended; it slows down at large scale.
+
+Existing tables convert to hypertables on the panel's first start. The panel is down meanwhile; the time depends on data size (measured: 1.2 million rows on a shared server, 26 seconds to 2.5 minutes).
 
 ## Upgrading from embedded PostgreSQL {#embedded-postgresql}
 
@@ -150,8 +152,10 @@ Set `shared_buffers` on the `db` service:
 
 ```yaml
   db:
-    command: postgres -c shared_preload_libraries=timescaledb -c shared_buffers=⟦2GB⟧
+    command: postgres -c shared_preload_libraries=timescaledb -c max_worker_processes=24 -c shared_buffers=⟦2GB⟧
 ```
+
+On a memory-limited server set `TS_TUNE_MEMORY: 400MB` on the `db` service; on first start the image picks its settings from the machine's total memory. The `timescale` image itself takes about 1.6 GB of disk.
 
 ## Backup and restore {#backup}
 
@@ -184,6 +188,8 @@ In our measurement dumping a database of 3 million rows took 7 seconds and used 
 4. `docker compose up -d`
 
 Measurements and incidents written to PostgreSQL after the migration aren't in the SQLite file and are lost on rollback. Don't delete the SQLite file until you are sure everything works.
+
+To migrate again after running on SQLite for a while, empty the target database first (`docker compose down` and delete its volume, or `DROP DATABASE`). Otherwise `uptime migrate` reports "already completed" and doesn't copy the new data.
 
 **Back to plain PostgreSQL:** tables converted to TimescaleDB don't open on a plain PostgreSQL image. Restore the dump you took before upgrading onto the old server.
 

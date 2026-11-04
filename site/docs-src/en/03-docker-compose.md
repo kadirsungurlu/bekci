@@ -69,6 +69,8 @@ services:
         condition: service_healthy
   db:
     image: timescale/timescaledb:2.31.0-pg18
+    # With few CPU cores the default 8 workers are too few for maintenance jobs.
+    command: postgres -c max_worker_processes=24
     restart: unless-stopped
     environment:
       POSTGRES_USER: bekci
