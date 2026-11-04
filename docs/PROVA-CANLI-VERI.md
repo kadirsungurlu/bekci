@@ -108,6 +108,15 @@ Geçişten sonra PostgreSQL'e yazılan veri 1.6.0'a dönmez. Güncellenmiş ajan
 
 Ajanlar: 5 ajan otomatik güncellemeyle geçer. Önce tek ajanda görmek için panelde otomatik güncelleme kapalı başlatılıp tek ajan elle güncellenir.
 
+## Canlı geçiş sonucu (2026-11-04, v1.7.0)
+Plan aynen uygulandı (`uptime:/root/docker/uptime`, günlük `gecis-1.7.0.log`). Yedek: `bekci-data-2026-11-04-1405-v1.6.0.tgz`, `.env`, `docker-compose.yml`, `Caddyfile` için `.2026-11-04-1405-v1.6.0.bak`.
+- Kesinti 35 sn (migrate 30 sn), 62 tablo, satır sayıları doğrulandı, `db_mode: timescale`, zamanlı işlerde hata 0/25. Caddyfile değişmedi, `{$STATUS_DOMAIN}` bloğu duruyor.
+- 5 Linux ajan otomatik güncellemeyle ilk dakikada 1.7.0'a geçti; gerçek `AGENT_SIGNING_KEY` imzası bu yolla sınandı.
+- Gerçek bildirim: geçişten 1 dk sonra `disk_forecast` olayı ntfy kanalına gitti (teslim kaydı var).
+- Gece `.dump` yedeği açılıştan 1,5 dk sonra alındı (4,9 MB), `pg_restore --list` 123 tablo verisi.
+- Disk: geçiş sonrası 1,4 GB boş (timescale imajı 1,6 GB + swap 1 GB). Plandaki "en az 3 GB boş" denetimi imaj çekilmeden önceydi; sonraki yedeklerde izlenmeli.
+- Windows ajan: `a7eb703` gibi eski yapılar ayarı `%ProgramData%\Uptime\agent.env` dosyasından okur, güncel sürüm yalnız `%ProgramFiles%\Uptime\agent.env` dosyasını okur. Yalnız program dosyasını değiştirince hizmet `PROBE_SERVER` hatasıyla durur. Elle geçişte `agent.env` önce yeni yere kopyalanmalı (yalnız SYSTEM ve Administrators erişimi).
+
 ## Denenmedi
 - Canlı sunucunun kendisinde geçiş; tek çekirdekli yavaş disk gerçek süresi.
 - Gerçek `AGENT_SIGNING_KEY` ile imza ve canlı ajanların güncellenmesi (yalnız test anahtarı).
