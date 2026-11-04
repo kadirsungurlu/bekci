@@ -4,7 +4,10 @@
 //
 //	ADDR                   dinlenecek adres (varsayılan :8080)
 //	DATA_DIR               SQLite veritabanı ve yedeklerin klasörü (varsayılan ./data)
-//	DATABASE_URL           verilirse PostgreSQL kullanılır (postgres://kullanıcı:şifre@sunucu:5432/vt)
+//	DATABASE_URL           verilirse PostgreSQL kullanılır (postgres://kullanıcı:şifre@sunucu:5432/vt);
+//	                       boşsa SQLite (kullanımdan kalkıyor)
+//	DB_TIMESCALE           auto | off (off: eklenti olsa da düz PostgreSQL yolu)
+//	SQLITE_IGNORE          1: veri klasöründe SQLite varken boş PostgreSQL ile açılmaya izin verir
 //	BASE_URL               bildirimlerdeki bağlantılar için dış adres, ör. https://bekci.alanadi.com
 //	                       (durum sayfası özel alan adı bu adresle aynı olamaz)
 //	LOG_LEVEL              debug | info | warn | error (varsayılan info)
@@ -24,6 +27,11 @@
 //	                        PROBE_SERVER ve PROBE_TOKEN ortamdan okunur (bkz. service_windows.go)
 //	uptime service uninstall
 //	uptime version          sürümü yazar
+//
+// Veritabanı taşıma (panel durdurulmuşken; bkz. migrate.go):
+//
+//	uptime migrate [--from dosya] [--to adres] [--dry-run] [--restart]
+//	  SQLite verisini DATABASE_URL'deki boş PostgreSQL/TimescaleDB'ye kopyalar
 //
 // Şifre sıfırlama (giriş yapılamadığında, container içinde):
 //
@@ -108,6 +116,8 @@ func run() error {
 		case "version", "surum":
 			fmt.Println(version)
 			return nil
+		case "migrate":
+			return runMigrate(log, os.Args[2:])
 		}
 	}
 
@@ -121,6 +131,13 @@ func run() error {
 			return errors.New("DATABASE_URL postgres:// veya postgresql:// ile başlamalı")
 		}
 		target, dbDesc = u, "PostgreSQL "+redactDSN(u)
+	}
+	// Dolu SQLite varken boş PostgreSQL ile açılmak eski veriyi kaybolmuş
+	// gösterirdi (yeni compose eski birimle başlatılınca).
+	if len(os.Args) <= 1 && store.IsPostgresDSN(target) && env("SQLITE_IGNORE", "") == "" {
+		if err := store.CheckSQLiteLeftover(context.Background(), target, filepath.Join(dataDir, "uptime.db")); err != nil {
+			return err
+		}
 	}
 	// Sunucu modunda tek örnek kilidi alınır: SQLite dosyasına flock,
 	// PostgreSQL'de süreç boyunca tutulan danışma kilidi (Coolify yeni
@@ -148,6 +165,9 @@ func run() error {
 	}
 	defer st.Close()
 	log.Info("veritabanı", "tür", dbDesc, "kip", st.DBMode())
+	if st.DBMode() == store.DBModeSQLite && serverMode {
+		log.Warn("SQLite kullanımdan kalkıyor ve sonraki büyük sürümde kaldırılacak; PostgreSQL + TimescaleDB'ye geçin: uptime migrate (bkz. belgeler: Veritabanı)")
+	}
 
 	if len(os.Args) > 1 {
 		return runCommand(st, os.Args[1:])
