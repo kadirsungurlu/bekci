@@ -186,8 +186,8 @@ func TestIngestAndRollup(t *testing.T) {
 	if p := series.Points[len(series.Points)-1]; p.CPU != 99 || p.CPUMax != 99 || p.DiskPct != 10 || p.Temp != nil || p.MemTotal != 100 {
 		t.Fatalf("son nokta: %+v", p)
 	}
-	if s7, _, _ := e.svc.Series(ctx, e.probe.ID, "7d"); s7.Res != 10 || s7.Interval != 600 || len(s7.Points) != 6 {
-		t.Fatalf("7 gün: %+v", s7)
+	if s7, _, _ := e.svc.Series(ctx, e.probe.ID, "7d"); s7.Res != 10 || s7.Interval != 600 || len(s7.Points) < 6 || len(s7.Points) > 7 { // Timescale açık kovayı da gösterir
+		t.Fatalf("7 gün: res=%d %d nokta, ilk=%d son=%d", s7.Res, len(s7.Points), s7.Points[0].T, s7.Points[len(s7.Points)-1].T)
 	}
 	if _, ok, _ := e.svc.Series(ctx, e.probe.ID, "2d"); ok {
 		t.Fatal("geçersiz aralık")
