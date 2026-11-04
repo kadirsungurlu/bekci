@@ -130,6 +130,8 @@ export interface TwoFactorSetup {
 
 export type ApiKeyStatus = "active" | "expired" | "revoked";
 
+export type ApiKeyScope = "full" | "read";
+
 export interface ApiKey {
   id: number;
   user_id: number;
@@ -137,6 +139,7 @@ export interface ApiKey {
   name: string;
   prefix: string;
   role: Role;
+  scope: ApiKeyScope;
   created_at: number;
   last_used_at: number;
   expires_at: number;
@@ -2071,10 +2074,16 @@ export const api = {
   // API anahtarları
   apiKeys: (all = false) =>
     get<ApiKey[]>(`/api/api-keys${all ? "?all=1" : ""}`),
-  createApiKey: (name: string, role: Role, expires_at: number) =>
+  createApiKey: (
+    name: string,
+    role: Role,
+    scope: ApiKeyScope,
+    expires_at: number,
+  ) =>
     post<{ key: ApiKey; secret: string }>("/api/api-keys", {
       name,
       role,
+      scope,
       expires_at,
     }),
   revokeApiKey: (id: number) => del<{ ok: boolean }>(`/api/api-keys/${id}`),

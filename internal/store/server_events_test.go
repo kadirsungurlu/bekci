@@ -23,22 +23,22 @@ func TestTimelineEvents(t *testing.T) {
 	if err := s.AddTimelineEvents(ctx, ev); err != nil {
 		t.Fatal(err)
 	}
-	all, err := s.TimelineEvents(ctx, p.ID, 0, nil, 10)
+	all, err := s.TimelineEvents(ctx, TimelineFilter{ProbeIDs: []int64{p.ID}, Limit: 10})
 	if err != nil || len(all) != 3 || all[0].Time != 300 || string(all[2].Data) != `{"count":2}` {
 		t.Fatalf("%+v %v", all, err)
 	}
-	page, _ := s.TimelineEvents(ctx, p.ID, 300, nil, 1)
+	page, _ := s.TimelineEvents(ctx, TimelineFilter{ProbeIDs: []int64{p.ID}, Before: 300, Limit: 1})
 	if len(page) != 1 || page[0].Kind != "reboot" {
 		t.Fatalf("%+v", page)
 	}
-	only, _ := s.TimelineEvents(ctx, p.ID, 0, []string{"oom", "reboot"}, 10)
+	only, _ := s.TimelineEvents(ctx, TimelineFilter{ProbeIDs: []int64{p.ID}, Kinds: []string{"oom", "reboot"}, Limit: 10})
 	if len(only) != 2 {
 		t.Fatalf("%+v", only)
 	}
 	if err := s.PruneTimelineEvents(ctx, 150+serverEventsKeepSec); err != nil {
 		t.Fatal(err)
 	}
-	if left, _ := s.TimelineEvents(ctx, p.ID, 0, nil, 10); !s.tsFull() && len(left) != 2 {
+	if left, _ := s.TimelineEvents(ctx, TimelineFilter{ProbeIDs: []int64{p.ID}, Limit: 10}); !s.tsFull() && len(left) != 2 {
 		t.Fatalf("%+v", left)
 	}
 }

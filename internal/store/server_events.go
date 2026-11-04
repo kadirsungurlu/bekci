@@ -73,34 +73,61 @@ func (s *Store) AddTimelineEvents(ctx context.Context, list []TimelineEvent) err
 	})
 }
 
-// TimelineEvents en yeni olaylar (yeniden eskiye). before > 0 ise o andan
-// önceki sayfa; kinds boş değilse yalnız o türler.
-func (s *Store) TimelineEvents(ctx context.Context, probeID, before int64, kinds []string, limit int) ([]TimelineEvent, error) {
-	q := "SELECT time, kind, subject, level, data FROM server_events WHERE probe_id = ?"
-	args := []any{probeID}
-	if before > 0 {
-		q += " AND time < ?"
-		args = append(args, before)
+// TimelineFilter olay sorgusu. ProbeIDs boşsa sonuç da boştur (çağıran görünür
+// sunucuları verir). Before > 0: o andan önceki sayfa; Since > 0: o andan
+// sonrakiler; Kinds ve Levels boş değilse yalnız onlar.
+type TimelineFilter struct {
+	ProbeIDs      []int64
+	Before, Since int64
+	Kinds, Levels []string
+	Limit         int
+}
+
+func inList(n int) string { return strings.TrimSuffix(strings.Repeat("?,", n), ",") }
+
+// TimelineEvents en yeni olaylar (yeniden eskiye).
+func (s *Store) TimelineEvents(ctx context.Context, f TimelineFilter) ([]TimelineEvent, error) {
+	out := []TimelineEvent{}
+	if len(f.ProbeIDs) == 0 {
+		return out, nil
 	}
-	if len(kinds) > 0 {
-		q += " AND kind IN (" + strings.TrimSuffix(strings.Repeat("?,", len(kinds)), ",") + ")"
-		for _, k := range kinds {
+	q := "SELECT probe_id, time, kind, subject, level, data FROM server_events WHERE probe_id IN (" + inList(len(f.ProbeIDs)) + ")"
+	args := make([]any, 0, len(f.ProbeIDs)+len(f.Kinds)+len(f.Levels)+3)
+	for _, id := range f.ProbeIDs {
+		args = append(args, id)
+	}
+	if f.Before > 0 {
+		q += " AND time < ?"
+		args = append(args, f.Before)
+	}
+	if f.Since > 0 {
+		q += " AND time >= ?"
+		args = append(args, f.Since)
+	}
+	if len(f.Kinds) > 0 {
+		q += " AND kind IN (" + inList(len(f.Kinds)) + ")"
+		for _, k := range f.Kinds {
 			args = append(args, k)
 		}
 	}
-	rows, err := s.db.QueryContext(ctx, q+" ORDER BY time DESC, kind, subject LIMIT ?", append(args, limit)...)
+	if len(f.Levels) > 0 {
+		q += " AND level IN (" + inList(len(f.Levels)) + ")"
+		for _, l := range f.Levels {
+			args = append(args, l)
+		}
+	}
+	rows, err := s.db.QueryContext(ctx, q+" ORDER BY time DESC, kind, subject LIMIT ?", append(args, f.Limit)...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	out := []TimelineEvent{}
 	for rows.Next() {
 		var e TimelineEvent
 		var data string
-		if err := rows.Scan(&e.Time, &e.Kind, &e.Subject, &e.Level, &data); err != nil {
+		if err := rows.Scan(&e.ProbeID, &e.Time, &e.Kind, &e.Subject, &e.Level, &data); err != nil {
 			return nil, err
 		}
-		e.ProbeID, e.Data = probeID, json.RawMessage(data)
+		e.Data = json.RawMessage(data)
 		out = append(out, e)
 	}
 	return out, rows.Err()

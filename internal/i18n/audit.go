@@ -94,6 +94,7 @@ var auditEN = map[string]string{
 	"kaynak=%s mod=%s eklenen: %d monitör": "source=%s mode=%s added: %d monitors",
 	// Kullanıcılar, API anahtarları, giriş.
 	"rol: %s":           "role: %s",
+	"salt okunur":       "read-only",
 	"issuer: %s":        "issuer: %s",
 	"eşleşen hesap yok": "no matching account",
 	"açık; issuer: %s":  "enabled; issuer: %s",

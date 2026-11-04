@@ -119,6 +119,8 @@ var errorsEN = map[string]string{
 	// API anahtarları
 	// ---------------------------------------------------------------------
 	"Anahtar adı 1-100 karakter olmalı":                                            "Key name must be 1-100 characters",
+	"Kapsam full veya read olmalı": "Scope must be full or read",
+	"Salt okunur API anahtarı bu uca erişemez": "A read-only API key cannot access this endpoint",
 	"Anahtara kendi rolünüzden yüksek bir yetki veremezsiniz":                      "You can't give a key more permissions than your own role",
 	"Son kullanma tarihi gelecekte olmalı":                                         "Expiry date must be in the future",
 	"Son kullanma tarihi en fazla 10 yıl sonrası olabilir":                         "Expiry date can be at most 10 years from now",

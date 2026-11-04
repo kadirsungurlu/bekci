@@ -38,7 +38,7 @@ func TestDiskFastAlert(t *testing.T) {
 	if len(ev) != 1 || ev[0].Kind != notify.KindServerAlert || ev[0].Metric != MetricDiskFast || ev[0].Mount != "/data" || ev[0].Level != store.LevelWarning || ev[0].Threshold != 5 {
 		t.Fatalf("%+v", ev)
 	}
-	inc, err := e.st.TimelineEvents(context.Background(), e.probe.ID, 0, []string{EventAlert}, 5)
+	inc, err := e.st.TimelineEvents(context.Background(), store.TimelineFilter{ProbeIDs: []int64{e.probe.ID}, Kinds: []string{EventAlert}, Limit: 5})
 	if err != nil || len(inc) != 1 || inc[0].Subject != "disk_fast:/data" || inc[0].Level != store.EventWarning {
 		t.Fatalf("%+v %v", inc, err)
 	}
@@ -89,7 +89,7 @@ func TestOOMEventStored(t *testing.T) {
 	if err := e.svc.Ingest(context.Background(), e.getProbe(), smp); err != nil { // ajanın yeniden gönderimi
 		t.Fatal(err)
 	}
-	l, err := e.st.TimelineEvents(context.Background(), e.probe.ID, 0, nil, 5)
+	l, err := e.st.TimelineEvents(context.Background(), store.TimelineFilter{ProbeIDs: []int64{e.probe.ID}, Limit: 5})
 	if err != nil || len(l) != 1 || l[0].Kind != EventOOM || l[0].Subject != "java" {
 		t.Fatalf("%+v %v", l, err)
 	}

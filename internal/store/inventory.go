@@ -125,6 +125,7 @@ type (
 	}
 	InvCert struct {
 		metrics.InvCert
+		ServerID  int64 `json:"server_id"`
 		Ignored   bool  `json:"ignored"`
 		FirstSeen int64 `json:"first_seen"`
 		LastSeen  int64 `json:"last_seen"`
@@ -326,9 +327,18 @@ func (s *Store) LoadInventory(ctx context.Context, serverID int64) (ServerInvent
 
 // ServerCerts sunucunun sertifikaları, bitişi en yakın olan önce.
 func (s *Store) ServerCerts(ctx context.Context, serverID int64) ([]InvCert, error) {
+	return s.certs(ctx, "WHERE server_id = ?", serverID)
+}
+
+// AllCerts tüm sunucuların sertifikaları, bitişi en yakın olan önce.
+func (s *Store) AllCerts(ctx context.Context) ([]InvCert, error) {
+	return s.certs(ctx, "")
+}
+
+func (s *Store) certs(ctx context.Context, where string, args ...any) ([]InvCert, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT source, location, subject, sans, issuer, not_before, not_after, fingerprint, ignored, first_seen, last_seen
-		FROM inv_certs WHERE server_id = ? ORDER BY not_after, location`, serverID)
+		SELECT server_id, source, location, subject, sans, issuer, not_before, not_after, fingerprint, ignored, first_seen, last_seen
+		FROM inv_certs `+where+` ORDER BY not_after, location`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +348,7 @@ func (s *Store) ServerCerts(ctx context.Context, serverID int64) ([]InvCert, err
 		var v InvCert
 		var sans string
 		var ignored int
-		if err := rows.Scan(&v.Source, &v.Location, &v.Subject, &sans, &v.Issuer, &v.NotBefore, &v.NotAfter, &v.Fingerprint, &ignored, &v.FirstSeen, &v.LastSeen); err != nil {
+		if err := rows.Scan(&v.ServerID, &v.Source, &v.Location, &v.Subject, &sans, &v.Issuer, &v.NotBefore, &v.NotAfter, &v.Fingerprint, &ignored, &v.FirstSeen, &v.LastSeen); err != nil {
 			return nil, err
 		}
 		v.Ignored = ignored != 0

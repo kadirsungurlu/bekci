@@ -19,6 +19,10 @@ export default {
     expired: 'Süresi doldu',
     revoked: 'İptal edildi',
   },
+  scope: {
+    read: 'Salt okunur',
+    full: 'Tam erişim (role göre)',
+  },
   never: 'Hiç',
   noExpiry: 'Süresiz',
   revoke: 'İptal et',
@@ -32,6 +36,8 @@ export default {
     errExpires: 'Son kullanım tarihi gelecekte olmalı.',
     namePlaceholder: 'Ör. Grafana, yedek betiği',
     optional: '(isteğe bağlı)',
+    access: 'Erişim',
+    readHelp: 'Yalnız okur: sunucular, disk tahmini, envanter, sunucu olayları, sertifikalar, monitör durumları ve olaylar. Yazma, ayar, kullanıcı ve bildirim uçlarına giremez. Son kullanım tarihi boş bırakılırsa süresiz.',
     /** {viewer}: İzleyici rolünün adı. */
     help: 'Anahtar, sizin rolünüzü aşamaz; rolünüz düşerse anahtarın yetkisi de düşer. Son kullanım tarihi boş bırakılırsa süresiz. Yalnızca izleme ve Prometheus için “{viewer}” yeterlidir.',
     shownOnce: 'Bu anahtar bir daha gösterilmeyecek; şimdi kopyalayıp güvenli bir yerde saklayın.',

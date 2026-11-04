@@ -15,7 +15,7 @@ import (
 // gelmez, GET boş döner (collected_at 0) ve arayüz "ajan güncellenmeli" der.
 func init() {
 	RegisterRoutes(func(s *Server, mux *http.ServeMux) {
-		mux.Handle("GET /api/servers/{id}/inventory", s.serversOnly(s.getInventory))
+		mux.Handle("GET /api/servers/{id}/inventory", s.auth(s.serversOnly(s.getInventory)))
 		mux.Handle("PUT /api/servers/{id}/inventory/certs/{fingerprint}", s.editor(s.putInventoryCert))
 		mux.Handle("POST /api/probe/inventory", s.probeOnly(s.probeInventory))
 	})

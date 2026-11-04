@@ -127,6 +127,23 @@ npx @openapitools/openapi-generator-cli generate -i bekci-openapi.json -g python
 
 Authentication is by API key (`Authorization: Bearer upk_…`); write requests made with a browser session need the `X-Uptime: 1` header. The only group left out of the document is the check-location / server-agent protocol (`/api/probe/*`): an internal contract between agent and server that may change between versions.
 
+## Read-only API key {#read-only}
+
+In **Settings → API keys → New key**, a key with **Access: Read-only** can only read; this is the recommended kind for external scripts and management tools. Its role is always viewer, and if its owner is a restricted user it sees only the records assigned to that user. The key's name, last use and revocation are in the same list; creating and revoking are written to the audit log.
+
+Open endpoints (`GET` only):
+
+| Endpoint | Data |
+|---|---|
+| `/api/servers`, `/api/servers/{id}` | Servers, latest metrics, disk forecast, firing alerts |
+| `/api/servers/{id}/stats`, `/timeline`, `/events`, `/inventory`, `/incidents` | Chart data, event timeline, alerts, inventory, incidents |
+| `/api/server-events` | Events of all servers (`since`, `before`, `kind`, `level`, `limit`) |
+| `/api/certs` | All certificates, soonest expiry first (`days`, `ignored=1`) |
+| `/api/monitors`, `/api/monitors/{id}` | Monitor states |
+| `/api/incidents`, `/api/incidents/{id}`, `/api/summary` | Incidents (`open=1` for open ones), summary |
+
+Every other endpoint, including ones added later, returns `403` with the code `read_only_key`. `/metrics` and badges are closed too: use a full-access key with the viewer role for Prometheus. Because this is the viewer view, monitor settings, notification bindings, IP addresses and mesh incidents are not in the responses.
+
 ## Prometheus metrics {#prometheus}
 
 `GET /metrics` serves data in the Prometheus text format (0.0.4). Create a key under **Settings → API keys** and call the endpoint with the `Authorization: Bearer upk_…` header or Basic auth (user `metrics`, password the key). Viewer permission is enough; a restricted user's key only sees the monitors and servers assigned to them.

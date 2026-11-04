@@ -1227,6 +1227,25 @@ paths:
         - { name: limit, in: query, description: "Sayfa boyutu (1-200, varsayılan 50)", schema: { type: integer } }
         - { name: kind, in: query, description: "Virgülle ayrılmış olay türleri", schema: { type: string } }
       responses: { "200": { description: "{events[], more}" } }
+  /api/server-events:
+    get:
+      tags: [servers]
+      summary: Görünür tüm sunucuların olayları (yeniden eskiye)
+      parameters:
+        - { name: since, in: query, description: "Bu unix saniyesinden sonrası", schema: { type: integer, format: int64 } }
+        - { name: before, in: query, description: "Bu unix saniyesinden önceki sayfa", schema: { type: integer, format: int64 } }
+        - { name: limit, in: query, description: "Sayfa boyutu (1-200, varsayılan 50)", schema: { type: integer } }
+        - { name: kind, in: query, description: "Virgülle ayrılmış olay türleri", schema: { type: string } }
+        - { name: level, in: query, description: "Virgülle ayrılmış seviyeler (info, warning, error)", schema: { type: string } }
+      responses: { "200": { description: "{events[] (server_id, server dahil), more}" } }
+  /api/certs:
+    get:
+      tags: [servers]
+      summary: Görünür tüm sunucuların sertifikaları (bitişi en yakın önce)
+      parameters:
+        - { name: days, in: query, description: "Yalnız bu kadar gün içinde bitenler", schema: { type: integer } }
+        - { name: ignored, in: query, description: "1: yoksayılanlar da gelsin", schema: { type: string } }
+      responses: { "200": { description: "{certs[] (server_id, server, days_left dahil)}" } }
   /api/servers/{id}/incidents:
     get: { tags: [servers], summary: Sunucunun olayları, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Incident" } } } } } } }
   /api/servers/{id}/alerts:
@@ -1361,7 +1380,7 @@ paths:
     post:
       tags: [auth]
       summary: API anahtarı oluştur (anahtar bir kez döner)
-      requestBody: { content: { application/json: { schema: { type: object, properties: { name: { type: string }, role: { $ref: "#/components/schemas/Role" }, expires_in_days: { type: integer } } } } } }
+      requestBody: { content: { application/json: { schema: { type: object, properties: { name: { type: string }, role: { $ref: "#/components/schemas/Role" }, scope: { type: string, enum: [full, read], description: "read: salt okunur, rol izleyici olur, yalnız okuma uçları" }, expires_at: { type: integer, format: int64, description: "Unix saniye; 0 süresiz" } } } } } }
       responses: { "201": { description: Anahtar, content: { application/json: { schema: { $ref: "#/components/schemas/APIKey" } } } } }
   /api/api-keys/{id}:
     delete: { tags: [auth], summary: Anahtarı iptal et, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { $ref: "#/components/responses/OK" } } }

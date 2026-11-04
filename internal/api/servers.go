@@ -202,22 +202,29 @@ func (s *Server) serverTimeline(w http.ResponseWriter, r *http.Request) {
 		kinds = kinds[:20]
 	}
 	// Bir fazla okunur: aynı saniyedeki satırlar sayfa sınırında bölünmesin.
-	list, err := s.store.TimelineEvents(r.Context(), id, before, kinds, limit+1)
+	list, err := s.store.TimelineEvents(r.Context(), store.TimelineFilter{ProbeIDs: []int64{id}, Before: before, Kinds: kinds, Limit: limit + 1})
 	if err != nil {
 		s.dbError(w, err)
 		return
 	}
-	more := len(list) > limit
-	if more {
-		list = list[:limit]
-		// Son saniyenin tamamı sonraki sayfaya kalır (tek saniyede sayfadan fazla olay yoksa).
-		if last := list[len(list)-1].Time; list[0].Time != last {
-			for len(list) > 0 && list[len(list)-1].Time == last {
-				list = list[:len(list)-1]
-			}
+	list, more := timelinePage(list, limit)
+	writeJSON(w, http.StatusOK, map[string]any{"events": list, "more": more})
+}
+
+// timelinePage limit+1 satırlık sonucu sayfaya indirir. Son saniyenin tamamı
+// sonraki sayfaya kalır (tek saniyede sayfadan fazla olay yoksa): before sınırı
+// saniyedir, aynı saniyedeki satırlar bölünmemeli.
+func timelinePage(list []store.TimelineEvent, limit int) ([]store.TimelineEvent, bool) {
+	if len(list) <= limit {
+		return list, false
+	}
+	list = list[:limit]
+	if last := list[len(list)-1].Time; list[0].Time != last {
+		for len(list) > 0 && list[len(list)-1].Time == last {
+			list = list[:len(list)-1]
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"events": list, "more": more})
+	return list, true
 }
 
 func (s *Server) serverEvents(w http.ResponseWriter, r *http.Request) {

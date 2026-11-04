@@ -127,6 +127,23 @@ npx @openapitools/openapi-generator-cli generate -i bekci-openapi.json -g python
 
 Kimlik doğrulama API anahtarıyladır (`Authorization: Bearer upk_…`); tarayıcı oturumuyla yapılan yazma istekleri `X-Uptime: 1` başlığı ister. Belgede yer almayan tek grup kontrol noktası / sunucu ajanı protokolüdür (`/api/probe/*`): ajan ile sunucu arasındaki iç sözleşme olup sürümden sürüme değişebilir.
 
+## Salt okunur API anahtarı {#salt-okunur}
+
+**Ayarlar → API anahtarları → Yeni anahtar** penceresinde **Erişim: Salt okunur** seçilen anahtar yalnız okur; dış betikler ve yönetim araçları için önerilen türdür. Rolü her zaman izleyicidir, sahibi kısıtlı bir kullanıcıysa yalnız ona atanmış kayıtları görür. Anahtarın adı, son kullanım zamanı ve iptali aynı listededir; oluşturma ve iptal işlem kaydına düşer.
+
+Açık olan uçlar (yalnız `GET`):
+
+| Uç | Veri |
+|---|---|
+| `/api/servers`, `/api/servers/{id}` | Sunucular, son metrikler, disk tahmini, açık uyarılar |
+| `/api/servers/{id}/stats`, `/timeline`, `/events`, `/inventory`, `/incidents` | Grafik verisi, olay çizelgesi, uyarılar, envanter, olaylar |
+| `/api/server-events` | Tüm sunucuların olayları (`since`, `before`, `kind`, `level`, `limit`) |
+| `/api/certs` | Tüm sertifikalar, bitişi en yakın önce (`days`, `ignored=1`) |
+| `/api/monitors`, `/api/monitors/{id}` | Monitör durumları |
+| `/api/incidents`, `/api/incidents/{id}`, `/api/summary` | Olaylar (`open=1` açık olanlar), özet |
+
+Liste dışındaki her uç, yeni eklenenler dahil, `403` ve `read_only_key` kodu döner. `/metrics` ve rozetler de kapalıdır: Prometheus için tam erişimli, izleyici rollü bir anahtar kullanın. İzleyici görünümü olduğundan monitör ayarları, bildirim bağlantıları, IP adresleri ve bağlantı (mesh) olayları yanıtta yer almaz.
+
 ## Prometheus metrikleri {#prometheus}
 
 `GET /metrics` ucu Prometheus metin biçiminde (0.0.4) veri verir. **Ayarlar → API anahtarları** bölümünden bir anahtar alın; `Authorization: Bearer upk_…` başlığıyla ya da Basic kimlikle (kullanıcı `metrics`, şifre anahtar) çağırın. İzleyici yetkisi yeter; kısıtlı bir kullanıcının anahtarı yalnızca ona atanmış monitör ve sunucuları görür.
