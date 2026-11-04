@@ -361,6 +361,27 @@ func (a *Agent) cancelRun(id string) {
 	go a.exec.Stop(id)
 }
 
+// stillValid jitter sonunda işi güncel yerel dosyalarla yeniden denetler:
+// bekleme sırasındaki "betik kapat", izin silme, iptal ve bilet süresi geçerli
+// olsun. Jitter en çok 1 saattir; ilk karar o süre boyunca bağlayıcı olamaz.
+func (a *Agent) stillValid(p *prepared) bool {
+	cfg, _, reason := a.open()
+	if cfg == nil {
+		a.log.Warn("betik bekleme sonunda durduruldu", "run_id", p.runID, "neden", reason)
+		return false
+	}
+	st, err := a.store.Read()
+	if err != nil {
+		a.log.Warn("betik bekleme sonunda durduruldu", "run_id", p.runID, "hata", err)
+		return false
+	}
+	if _, r := validate(p.job, cfg, p.hostKey, st, a.now().Unix()); r != nil {
+		a.log.Warn("betik bekleme sonunda durduruldu", "run_id", p.runID, "kod", r.code)
+		return false
+	}
+	return true
+}
+
 func (a *Agent) execute(p *prepared, ctl *runCtl) {
 	defer a.wg.Done()
 	defer a.release(p.runID)
@@ -370,6 +391,10 @@ func (a *Agent) execute(p *prepared, ctl *runCtl) {
 		case <-t.C:
 		case <-ctl.ctx.Done():
 			t.Stop()
+		}
+		if ctl.ctx.Err() == nil && !a.stillValid(p) {
+			ctl.cancelled.Store(true)
+			ctl.cancel()
 		}
 	}
 	started := a.now().Unix()

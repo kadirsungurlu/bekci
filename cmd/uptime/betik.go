@@ -151,8 +151,11 @@ func betikKeys(p betikajan.Paths, args []string) error {
 }
 
 func betikDisable(p betikajan.Paths, plat betikajan.Platform) error {
-	if err := betikajan.Disable(p); err != nil {
-		fmt.Fprintln(os.Stderr, "uyarı: yapılandırma yazılamadı:", err)
+	// Yazılamazsa birimler yine durdurulur ama komut başarı bildirmez: ajan
+	// açık kalmıştır, bekleyen iş çalışabilir.
+	disableErr := betikajan.Disable(p)
+	if disableErr != nil {
+		fmt.Fprintln(os.Stderr, "uyarı: yapılandırma yazılamadı:", disableErr)
 	}
 	stopped := 0
 	if plat.OK {
@@ -166,6 +169,9 @@ func betikDisable(p betikajan.Paths, plat betikajan.Platform) error {
 				stopped++
 			}
 		}
+	}
+	if disableErr != nil {
+		return fmt.Errorf("betik kapatılamadı, durdurulan birim: %d: %w", stopped, disableErr)
 	}
 	fmt.Println("betik kapatıldı; durdurulan birim:", stopped)
 	return nil

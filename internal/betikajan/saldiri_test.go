@@ -835,3 +835,45 @@ func TestTickForwardJump(t *testing.T) {
 		t.Fatalf("%+v", ev)
 	}
 }
+
+// Jitter sırasında yerel geri çekme: ilk karar bekleme boyunca bağlayıcı değil.
+func TestLocalWithdrawDuringJitter(t *testing.T) {
+	for name, withdraw := range map[string]func(h *harness) error{
+		"değişiklik yok": nil,
+		"kapat":          func(h *harness) error { return Disable(h.paths) },
+		"izin sil":       func(h *harness) error { return AllowDelete(h.paths, []string{"temizle"}) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newHarness(t)
+			gate := make(chan struct{})
+			entered := make(chan struct{})
+			h.agent.jitter = func(time.Duration) time.Duration { close(entered); <-gate; return 0 }
+			h.agent.Handle(&betik.JobList{Runs: []betik.RunJob{h.job(func(m *betik.Manifest) { m.JitterSec = 60 })}})
+			<-entered
+			if withdraw != nil {
+				if err := withdraw(h); err != nil {
+					t.Fatal(err)
+				}
+			}
+			close(gate)
+			h.agent.wg.Wait()
+			names := h.agent.queue.names()
+			if len(names) != 1 {
+				t.Fatalf("makbuz yok: %v", names)
+			}
+			ev, _ := h.agent.queue.get(names[0])
+			env, _ := betik.ParseEnvelope(ev.Receipt)
+			r, err := betik.ParseReceipt(env.Payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want, runs := betik.StatusCancelled, 0
+			if withdraw == nil {
+				want, runs = betik.StatusOK, 1
+			}
+			if r.Status != want || h.exec.count() != runs {
+				t.Fatalf("durum %s, çalışma %d", r.Status, h.exec.count())
+			}
+		})
+	}
+}

@@ -860,4 +860,3 @@ func (s *Store) tsScriptRuns(ctx context.Context, ext string, full bool) error {
 	}
 	return s.tsExec(ctx, stmts)
 }
-

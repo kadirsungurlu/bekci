@@ -512,4 +512,3 @@ func TestScriptOldAgentAgainstNewPanel(t *testing.T) {
 		t.Fatalf("%d %s", code, raw)
 	}
 }
-

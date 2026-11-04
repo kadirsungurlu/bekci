@@ -41,6 +41,8 @@ type prepared struct {
 	params   string // params_sha256
 	ticket   string // ticket_sha256
 	expiry   int64  // run_id budanma zamanı
+	job      *betik.RunJob
+	hostKey  string
 }
 
 // EffectiveApproval en yüksek(imzalı, yerel taban, iğne yoksa signed). Yerel
@@ -63,6 +65,26 @@ func checkClock(st *State, now int64) *reject {
 // prepare §6 adım 2-6: ilk hatada reddeder, durumu değiştirmez. Sıra önemlidir:
 // imza doğrulanmadan hiçbir alan ayrıştırılmaz.
 func prepare(job *betik.RunJob, cfg *Config, hostKey string, st *State, now int64) (*prepared, *reject) {
+	p, r := validate(job, cfg, hostKey, st, now)
+	if r != nil {
+		return nil, r
+	}
+	if _, seen := st.Runs[job.RunID]; seen {
+		r := refuse(betik.CodeRunIDReplay, "run_id görüldü")
+		r.script = p.m.ID
+		return nil, r
+	}
+	// Adım 6: hız. Yalnız commit sayar, geçersiz istek kota tüketmez.
+	if r := checkRates(st, cfg, p, now); r != nil {
+		r.script = p.m.ID
+		return nil, r
+	}
+	return p, nil
+}
+
+// validate §6 adım 1-5: anahtar, süre, iptal, sürüm, gövde, izin, iğne, bilet,
+// parametre. Sayaçlara bakmaz; jitter sonunda yerel durumla yeniden çağrılır.
+func validate(job *betik.RunJob, cfg *Config, hostKey string, st *State, now int64) (*prepared, *reject) {
 	if r := checkClock(st, now); r != nil {
 		return nil, r
 	}
@@ -140,13 +162,7 @@ func prepare(job *betik.RunJob, cfg *Config, hostKey string, st *State, now int6
 	}
 	p.env = vars
 	p.env["BEKCI_RUN_ID"] = job.RunID
-	if _, seen := st.Runs[job.RunID]; seen {
-		return script(refuse(betik.CodeRunIDReplay, "run_id görüldü"))
-	}
-	// Adım 6: hız. Yalnız commit sayar, geçersiz istek kota tüketmez.
-	if r := checkRates(st, cfg, p, now); r != nil {
-		return script(r)
-	}
+	p.job, p.hostKey = job, hostKey
 	return p, nil
 }
 
