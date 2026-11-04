@@ -68,6 +68,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 | Yedek / içe aktarma | api/backup.go, importer.go; internal/backup |
 | Ayarlar | api/misc.go (settings); store/settings.go; web pages/Settings + settings/* |
 | Ajan (probe) istemcisi | internal/probe/probe.go (yoklama, sonuç gönderimi), dnscache.go (Main adı için son bilinen IP, PROBE_STATE_DIR/uptime.dns.json); cmd/uptime/probe.go env |
+| Betik çalıştırma, ajan tarafı | docs/BETIK-SOZLESME.md (ajan-panel sözleşmesi); internal/betik (zarf, nesneler, red kodları, katı ayrıştırma; panel ve ajan ortak); internal/betikajan: config.go (betik.json, sahip/izin denetimi), durum.go (flock + özetli durum, K_ajan), karar.go (§6 adım 1-9), yurut.go (Systemd: PID 1 birimi, kafes), kayit.go (makbuz kaydı, disk kuyruğu), ajan.go (yuva, yürütme, reconcile, flush), yerel.go (yerel komutlar); probe.go Config.Scripts, başlıklar, script_jobs; cmd/uptime/betik.go (`uptime betik ac/izin/iptal/anahtar/kapat/onar/durum`). Testler: saldiri_test.go, systemd_test.go (BEKCI_TEST_SYSTEMD=1, root), probe/betik_test.go. Varsayılan kapalı |
 | Çok konum, kısmi erişim kesintisi | engine/locations.go (aggregateDecision, linkHealthy, noVote, meshLost), partial.go, localname_test.go; ana sunucu konum adı AppSettings.LocalLocationName (engine.LocalLocationName); olay ayrıntısı mesh_lost (api/incidents.go, web IncidentDetail); varsayılan all+notify_partial yalnız yeni monitörde (MonitorForm) |
 | İşlem kaydı | store/audit.go; i18n/audit.go; web settings/Audit.svelte |
 | Mesh (probe arası TCP ping, kalp atışı) | store/mesh.go (ayar/ezme, probe_links, probe_pair_keys, migration 40); api/probes_mesh.go (POST /api/probe/mesh, GET /api/probe/mesh/peers), mesh_settings.go; engine/probes.go (ProbeOnline: eşik x panel aralığı, eski ajan 90 sn); probe/meshtcp.go (çerçeve+HMAC), heartbeat.go, meshtypes.go (tel sözleşmesi); cmd/uptime/probe_mesh.go (MESH_ADDR :7480); web settings/Probes |
@@ -104,6 +105,8 @@ probes.go: GET /api/probes | POST /api/probes | PUT /api/probes/{id} | DELETE /a
 probes_mesh.go: POST /api/probe/mesh | GET /api/probe/mesh/peers
 public_feed.go: GET /api/public/pages/{slug}/feed.xml | GET /durum/{slug}/feed.xml
 quick.go: POST /api/monitors/{id}/clone | POST /api/monitors/{id}/reset-stats | POST /api/monitors/{id}/push-token | PUT /api/monitors/{id}/notifications | POST /api/monitors/bulk | POST /api/status-pages/{id}/monitors
+scripts.go: GET /api/scripts | GET /api/scripts/hosts | GET /api/scripts/keys | GET /api/scripts/runs | GET /api/scripts/runs/{run} | GET /api/scripts/chain | GET /api/scripts/export | GET /api/scripts/lib/{id}/{version} | POST /api/scripts/control/stop | POST /api/scripts/runs/{run}/cancel | POST /api/scripts/runs/{run}/reject | POST /api/scripts | POST /api/scripts/revokes | POST /api/scripts/keys | DELETE /api/scripts/keys/{id} | POST /api/scripts/hosts/{id}/approve | POST /api/scripts/runs | POST /api/scripts/runs/{run}/approve | POST /api/scripts/runs/{run}/ticket | POST /api/scripts/control/resume | PUT /api/scripts/control/channels
+scripts_probe.go: POST /api/probe/script-result
 server.go: GET /healthz | GET /api/push/{token} | POST /api/push/{token} | GET /api/auth/state | POST /api/auth/setup | POST /api/auth/login | POST /api/auth/logout | POST /api/auth/password | PUT /api/auth/preferences | GET /api/summary | GET /api/monitors | POST /api/monitors | GET /api/monitors/{id} | PUT /api/monitors/{id} | DELETE /api/monitors/{id} | POST /api/monitors/{id}/pause | POST /api/monitors/{id}/resume | GET /api/monitors/{id}/series | GET /api/monitors/{id}/beats | GET /api/monitors/{id}/incidents | GET /api/incidents | GET /api/notifications | POST /api/notifications | PUT /api/notifications/{id} | DELETE /api/notifications/{id} | POST /api/notifications/test | POST /api/notifications/{id}/samples | GET /api/settings | PUT /api/settings | GET /api/events | GET /api/users | POST /api/users | PUT /api/users/{id} | DELETE /api/users/{id} | POST /api/users/{id}/password | GET /api/audit | GET /api/audit/facets | /api/ | /
 servers.go: GET /api/servers | POST /api/servers | GET /api/servers/{id} | GET /api/servers/{id}/stats | GET /api/servers/{id}/timeline | GET /api/servers/{id}/events | PUT /api/servers/{id}/alerts | PUT /api/servers/{id}/notifications | POST /api/probe/metrics
 sessions.go: GET /api/auth/sessions | DELETE /api/auth/sessions/{id} | DELETE /api/auth/sessions
@@ -123,7 +126,7 @@ webpush.go: GET /api/webpush/vapid | GET /api/webpush/subscriptions | POST /api/
 pages_period.go 25: incident_manual.go 26: servers_ext.go 27: beats_recent.go 28: domain.go 29: incident_ack.go 30: tag_rules.go 31: 
 auth_ext.go 32: webpush.go 33: auth_ext.go 34: sessions.go 35: probes_update.go 36: subscribers.go 37: subscribers.go 38: updates.go 39: 
 incident_kinds.go 40: mesh.go 41: probes_oob.go 42: channel_sends.go 43: timescale.go 44: server_metrics.go 45: inventory.go 46: 
-server_events.go 47: apikeys.go
+server_events.go 47: apikeys.go 48: scripts.go
 ```
 
 ### Arayüz sayfaları / bileşenler / i18n ad alanları
