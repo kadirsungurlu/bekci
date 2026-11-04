@@ -81,6 +81,7 @@ try {
     window.__exp = null; // sonraki abonelikte expirationTime (null ya da sayı)
     window.__keys = null;
     let sub = null;
+    window.__sub = () => sub;
     const ready = (async () => {
       const kp = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
       const pub = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
@@ -153,6 +154,19 @@ try {
   await turnOn.waitFor({ timeout: 15000 });
   await page.evaluate(() => { window.__exp = Date.now() + 30 * 24 * 3600 * 1000; });
   await subscribeOnce('expirationTime=sayı');
+
+  // 3b) Sunucu anahtarı değişmiş: eski abonelik uyarı gösterir, deneme düğmesi
+  // kaybolur, "aç" eskisini kaldırıp yenisini alır, kayıt tek kalır.
+  await page.evaluate(() => { window.__sub().options.applicationServerKey = new Uint8Array(65).buffer; });
+  const account = page.url();
+  await page.goto(BASE + '/#/');
+  await page.goto(account);
+  const staleMsg = page.getByText('notification key has changed');
+  await staleMsg.waitFor({ timeout: 15000 });
+  if (await turnOff.isVisible()) fail('eski anahtarda "kapat" görünmemeli');
+  await subscribeOnce('anahtar değişimi');
+  if (await staleMsg.isVisible()) fail('yeniden abonelikten sonra uyarı kalkmadı');
+  ok('anahtar değişimi: uyarı gösterildi, yeniden abone olundu');
 
   // 4) Bir olay uyarısı push olarak gider: webpush kanalı + kapalı porta tcp monitör.
   const ch = await (await ctx.request.post(BASE + '/api/notifications', { data: { name: 'Push', type: 'webpush', config: { users: '' }, apply_existing: true }, headers: H })).json();

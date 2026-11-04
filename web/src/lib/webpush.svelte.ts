@@ -13,12 +13,25 @@ function b64ToBytes(s: string): Uint8Array {
   return out;
 }
 
+/** Abonelik başka bir uygulama anahtarıyla mı alınmış? Tarayıcı anahtarı
+ *  vermezse (eski tarayıcı) karşılaştırma yapılmaz. */
+function keyDiffers(sub: PushSubscription, publicKey: string): boolean {
+  const cur = sub.options?.applicationServerKey;
+  if (!cur) return false;
+  const a = new Uint8Array(cur);
+  const b = b64ToBytes(publicKey);
+  return a.length !== b.length || a.some((v, i) => v !== b[i]);
+}
+
 class WebPush {
   /** Bu cihazda abone (endpoint sunucuda kayıtlı). */
   subscribed = $state(false);
   /** Bu cihazın endpoint'i (sunucudaki listede işaretlemek için). */
   endpoint = $state('');
   busy = $state(false);
+  /** Bu cihazın aboneliği eski VAPID anahtarına bağlı: sunucuda anahtar
+   *  değişmiş, bildirim gelmez; yeniden abone olmak gerekir. */
+  stale = $state(false);
 
   support(): PushSupport {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
@@ -37,20 +50,23 @@ class WebPush {
     return reg ?? null;
   }
 
-  /** Açılışta: tarayıcıda abonelik var mı (sunucuya sormaz). */
+  /** Açılışta: tarayıcıda abonelik var mı, sunucunun anahtarıyla uyuşuyor mu. */
   async refresh() {
     try {
       const reg = await this.registration();
       const sub = await reg?.pushManager.getSubscription();
       this.endpoint = sub?.endpoint ?? '';
       this.subscribed = !!sub;
+      this.stale = !!sub && keyDiffers(sub, (await api.webpushVapid()).public_key);
     } catch {
-      this.subscribed = false;
+      this.stale = false;
     }
   }
 
-  /** İzin ister, abone olur ve sunucuya kaydeder. Hata fırlatır. */
-  async subscribe() {
+  /** İzin ister, abone olur ve sunucuya kaydeder. Hata fırlatır. Eski anahtara
+   *  bağlı abonelik önce kaldırılır: tarayıcı aynı aboneliği yeni anahtarla
+   *  kabul etmez. old: yeni kayıttan sonra silinecek eski sunucu kaydı. */
+  async subscribe(old?: { id: number; endpoint: string } | null) {
     this.busy = true;
     try {
       const reg = await this.registration();
@@ -59,12 +75,18 @@ class WebPush {
       if (perm !== 'granted') throw new Error('denied');
       const { public_key } = await api.webpushVapid();
       let sub = await reg.pushManager.getSubscription();
+      if (sub && keyDiffers(sub, public_key)) {
+        await sub.unsubscribe();
+        sub = null;
+      }
       if (!sub) {
         sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(public_key) as BufferSource });
       }
       await api.webpushSubscribe(sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } });
+      if (old && old.endpoint !== sub.endpoint) await api.webpushUnsubscribe(old.id);
       this.endpoint = sub.endpoint;
       this.subscribed = true;
+      this.stale = false;
     } finally {
       this.busy = false;
     }
@@ -80,6 +102,7 @@ class WebPush {
       if (serverId) await api.webpushUnsubscribe(serverId);
       this.endpoint = '';
       this.subscribed = false;
+      this.stale = false;
     } finally {
       this.busy = false;
     }
