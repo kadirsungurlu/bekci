@@ -875,6 +875,11 @@ func (s *Server) startScriptRun(w http.ResponseWriter, r *http.Request) {
 		last, e = s.enqueue(ctx, l, runID, req, "", now.Add(scriptQueueTTL).Unix())
 		return e
 	})
+	var se *scriptStateErr
+	if errors.As(err, &se) {
+		scriptErr(w, http.StatusConflict, se.code, se.msg)
+		return
+	}
 	if err != nil {
 		s.dbError(w, err)
 		return
@@ -886,6 +891,15 @@ func (s *Server) startScriptRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) enqueue(ctx context.Context, l *store.ScriptLog, runID string, req runRequest, ticket string, expires int64) (betikkayit.Event, error) {
+	// Zincir kilidi altında: istek başındaki denetimle arada gelen acil durdurma
+	// kaçmasın, iş durdurma kalkınca kendiliğinden çalışmasın.
+	stopped, err := l.Stopped(ctx)
+	if err != nil {
+		return betikkayit.Event{}, err
+	}
+	if stopped {
+		return betikkayit.Event{}, &scriptStateErr{"stopped", "Betikler acil durdurmada"}
+	}
 	if err := l.Enqueue(ctx, store.ScriptJob{RunID: runID, ProbeID: req.ProbeID, ScriptID: req.ScriptID, Version: req.Version,
 		Params: req.Params, Ticket: ticket, QueuedAt: s.now().Unix(), ExpiresAt: expires}); err != nil {
 		return betikkayit.Event{}, err

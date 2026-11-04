@@ -47,7 +47,7 @@ func TestScriptLogAppendOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, q := range []string{"UPDATE script_runs SET data='{}'", "DELETE FROM script_runs", "TRUNCATE script_runs",
-		"UPDATE scripts SET body=''", "DELETE FROM scripts", "TRUNCATE scripts"} {
+		"UPDATE scripts SET body=''", "DELETE FROM scripts", "TRUNCATE scripts", "TRUNCATE script_log_checkpoint"} {
 		if _, err := s.db.ExecContext(ctx, q); err == nil {
 			t.Errorf("%q geçmemeli", q)
 		}

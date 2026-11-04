@@ -116,8 +116,9 @@ func isProbeRequest(r *http.Request) bool {
 
 // probeLimiter kontrol noktası başına dakikalık istek sınırı (sabit pencere).
 type probeLimiter struct {
-	mu sync.Mutex
-	m  map[int64]*probeWindow
+	limit int
+	mu    sync.Mutex
+	m     map[int64]*probeWindow
 }
 
 type probeWindow struct {
@@ -125,7 +126,9 @@ type probeWindow struct {
 	count int
 }
 
-func newProbeLimiter() *probeLimiter { return &probeLimiter{m: map[int64]*probeWindow{}} }
+func newProbeLimiter() *probeLimiter {
+	return &probeLimiter{limit: probeRatePerMin, m: map[int64]*probeWindow{}}
+}
 
 func (l *probeLimiter) allow(id int64, now time.Time) (bool, int) {
 	l.mu.Lock()
@@ -137,7 +140,7 @@ func (l *probeLimiter) allow(id int64, now time.Time) (bool, int) {
 		l.m[id] = w
 	}
 	w.count++
-	if w.count > probeRatePerMin {
+	if w.count > l.limit {
 		return false, int(60 - now.Unix()%60)
 	}
 	return true, 0

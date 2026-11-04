@@ -8,7 +8,9 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/kadirsungurlu/bekci/internal/betik"
@@ -82,7 +84,9 @@ func (s *Server) scriptObserve(ctx context.Context, r *http.Request, p store.Pro
 		return c, true
 	}
 	s.scriptSeen.Store(p.ID, scriptSeenEntry{sig, now})
-	if changed {
+	if changed && !s.scriptBudget.allow(p.ID, "host_key_seen", now) {
+		s.log.Warn("betik: ajan anahtarı çok sık değişiyor, kayıt atlandı", "sunucu", p.ID)
+	} else if changed {
 		err := s.store.ScriptTx(ctx, func(l *store.ScriptLog) error {
 			_, e := l.Append(ctx, "", "host_key_seen", 0, map[string]any{"probe_id": p.ID, "host_key": keyID, "public_key": pub})
 			return e
@@ -93,6 +97,35 @@ func (s *Server) scriptObserve(ctx context.Context, r *http.Request, p store.Pro
 		s.scriptNotify(ctx, p, "key-"+keyID[:16], "script.host_key", keyID[:16])
 	}
 	return c, true
+}
+
+// scriptBudgetHourly ajanın kendi isteğiyle script_runs'a (silinemez) yazabileceği
+// olay sayısı: ajan başına, tür başına, saatte.
+const scriptBudgetHourly = 30
+
+// scriptBudget ele geçmiş ajan kaydı şişiremesin. Bellekte tutulur: panel yeniden
+// başlayınca sıfırlanması sorun değildir, amaç tabanı büyütmemektir.
+type scriptBudget struct {
+	mu sync.Mutex
+	m  map[string]*scriptBudgetEntry
+}
+
+type scriptBudgetEntry struct{ hour, n int64 }
+
+func (b *scriptBudget) allow(probeID int64, kind string, now int64) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.m == nil {
+		b.m = map[string]*scriptBudgetEntry{}
+	}
+	k := strconv.FormatInt(probeID, 10) + "|" + kind
+	e := b.m[k]
+	if e == nil || e.hour != now/3600 {
+		e = &scriptBudgetEntry{hour: now / 3600}
+		b.m[k] = e
+	}
+	e.n++
+	return e.n <= scriptBudgetHourly
 }
 
 type scriptSeenEntry struct {
@@ -119,12 +152,14 @@ func (s *Server) scriptJobsFor(ctx context.Context, r *http.Request, p store.Pro
 		return nil
 	}
 	seen := map[string]bool{}
+	var latest []json.RawMessage
 	for _, rv := range revokes { // liste azalan sürümde: betik başına en yükseği yeter
-		if !seen[rv.ScriptID] && len(out.Revokes) < 64 {
+		if !seen[rv.ScriptID] {
 			seen[rv.ScriptID] = true
-			out.Revokes = append(out.Revokes, json.RawMessage(rv.Envelope))
+			latest = append(latest, json.RawMessage(rv.Envelope))
 		}
 	}
+	out.Revokes = revokeWindow(latest, s.now().Unix()/60)
 	jobs, err := s.store.ScriptJobsFor(ctx, p.ID, s.now().Unix())
 	if err != nil {
 		s.log.Error("betik işleri", "hata", err)
@@ -153,6 +188,21 @@ func (s *Server) scriptJobsFor(ctx context.Context, r *http.Request, p store.Pro
 		return nil
 	}
 	return &out
+}
+
+// revokeWindow yanıt sınırını aşan iptal listesini dakikada bir döndürür: sınırın
+// dışında kalan eski iptaller de birkaç dakika içinde her ajana ulaşır.
+func revokeWindow(all []json.RawMessage, tick int64) []json.RawMessage {
+	n := len(all)
+	if n <= betik.MaxRevokesPerResp {
+		return all
+	}
+	out := make([]json.RawMessage, 0, betik.MaxRevokesPerResp)
+	start := int(tick%int64(n/betik.MaxRevokesPerResp+1)) * betik.MaxRevokesPerResp
+	for i := range betik.MaxRevokesPerResp {
+		out = append(out, all[(start+i)%n])
+	}
+	return out
 }
 
 var (
@@ -194,6 +244,10 @@ func (s *Server) probeScriptResult(w http.ResponseWriter, r *http.Request) {
 	if ev.Kind == "notice" {
 		if !rejectCodeRe.MatchString(ev.Code) {
 			writeError(w, http.StatusUnprocessableEntity, "Geçersiz kod")
+			return
+		}
+		if !s.scriptBudget.allow(p.ID, "notice", s.now().Unix()) {
+			writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 			return
 		}
 		err := s.store.ScriptTx(ctx, func(l *store.ScriptLog) error {
@@ -241,6 +295,22 @@ func (s *Server) probeScriptResult(w http.ResponseWriter, r *http.Request) {
 		state, _, _ := runStateOf(req, last)
 		switch ev.Kind {
 		case "accepted":
+			if last.Kind == "canceled" {
+				// İş ajana ulaşmış, iptal accepted'den önce davranmış: kuyruk
+				// satırı silindiği için durdurma yeniden kurulmalı.
+				if e := l.RestoreForCancel(ctx, store.ScriptJob{RunID: ev.RunID, ProbeID: req.ProbeID, ScriptID: req.ScriptID,
+					Version: req.Version, Params: req.Params, QueuedAt: s.now().Unix(), ExpiresAt: s.now().Unix()}); e != nil {
+					return e
+				}
+				if _, e := l.Append(ctx, ev.RunID, "accepted", 0, map[string]any{"agent_time": ev.Time}); e != nil {
+					return e
+				}
+				if _, e := l.Append(ctx, ev.RunID, "cancel_requested", 0, map[string]any{"reason": "late_accept"}); e != nil {
+					return e
+				}
+				note = s.engine.JobsChanged
+				return nil
+			}
 			if state != runQueued {
 				return nil
 			}
@@ -256,6 +326,16 @@ func (s *Server) probeScriptResult(w http.ResponseWriter, r *http.Request) {
 			}
 			if state != runQueued { // accepted görülmüş işte run_id_replay yok sayılır
 				return nil
+			}
+			if ev.Code == betik.CodeRunIDReplay {
+				// Ajan bu işi daha önce görmüş; accepted'i yeniden başlatmada
+				// kaybolmuş olabilir. İş reddedilmedi: yeniden gönderme durur,
+				// makbuz yoldadır, gelmezse iş no_receipt ile kapanır.
+				if _, e := l.MarkDelivered(ctx, ev.RunID, s.now().Unix()); e != nil {
+					return e
+				}
+				_, e := l.Append(ctx, ev.RunID, "accepted", 0, map[string]any{"agent_time": ev.Time, "seen_before": true})
+				return e
 			}
 			if e := l.Dequeue(ctx, ev.RunID); e != nil {
 				return e
@@ -303,7 +383,9 @@ func (s *Server) takeReceipt(ctx context.Context, l *store.ScriptLog, p store.Pr
 	}
 	pub, err := betik.ParsePublicKey(h.PublicKey)
 	if err != nil {
+		s.log.Warn("betik makbuzu doğrulanamadı: onaylı ajan anahtarı yok", "sunucu", p.ID, "run_id", ev.RunID)
 		*status = http.StatusConflict
+		*note = func() { s.notifyRun(ctx, req, ev.RunID, "script.receipt_bad", req.ScriptID) }
 		return nil
 	}
 	env, err := betik.ParseEnvelope(ev.Receipt)

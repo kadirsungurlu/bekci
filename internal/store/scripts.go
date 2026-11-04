@@ -146,6 +146,13 @@ CREATE TRIGGER script_log_checkpoint_guard BEFORE UPDATE OR DELETE ON script_log
 `)
 }
 
+func init() {
+	RegisterMigrationDialect(49, `SELECT 1`, `
+CREATE TRIGGER script_log_checkpoint_guard_trunc BEFORE TRUNCATE ON script_log_checkpoint
+	FOR EACH STATEMENT EXECUTE FUNCTION script_append_only();
+`)
+}
+
 // ScriptRow kütüphanedeki bir betik sürümü (satır değişmez).
 type ScriptRow struct {
 	ScriptID       string
@@ -509,6 +516,26 @@ func (l *ScriptLog) Dequeue(ctx context.Context, runID string) error {
 func (l *ScriptLog) RequestCancel(ctx context.Context, runID string) error {
 	_, err := l.tx.ExecContext(ctx, `UPDATE script_queue SET cancel = 1 WHERE run_id = ?`, runID)
 	return err
+}
+
+// RestoreForCancel iptalde kuyruktan çıkmış ama ajanın kabul ettiği işi yalnız
+// durdurma isteği olarak geri koyar: delivered_at dolu olduğundan yeniden
+// teslim edilmez, makbuz gelmezse no_receipt ile kapanır.
+func (l *ScriptLog) RestoreForCancel(ctx context.Context, j ScriptJob) error {
+	_, err := l.tx.ExecContext(ctx, `INSERT INTO script_queue (run_id, probe_id, script_id, version, params, ticket, queued_at, expires_at, delivered_at, cancel)
+		VALUES (?,?,?,?,?,'',?,?,?,1) ON CONFLICT (run_id) DO UPDATE SET cancel = 1`,
+		j.RunID, j.ProbeID, j.ScriptID, j.Version, j.Params, j.QueuedAt, j.ExpiresAt, j.QueuedAt)
+	return err
+}
+
+// Stopped acil durdurma bayrağı, zincir kilidi altında.
+func (l *ScriptLog) Stopped(ctx context.Context) (bool, error) {
+	var v int64
+	err := l.tx.QueryRowContext(ctx, `SELECT stopped FROM script_control WHERE id = 1`).Scan(&v)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return v != 0, err
 }
 
 // MarkDelivered ajanın "accepted" bildirdiği zamanı yazar (sözleşme §4: bu ana

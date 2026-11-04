@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/kadirsungurlu/bekci/internal/betik"
 	"github.com/kadirsungurlu/bekci/internal/betikajan"
+	"github.com/kadirsungurlu/bekci/internal/betikkayit"
 	"github.com/kadirsungurlu/bekci/internal/probe"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
@@ -46,6 +48,44 @@ type e2e struct {
 	mangle  func(*betik.JobList)
 	sawJobs []betik.RunJob
 	polls   map[string]int
+	// accepted olayını panelden saklar: holdAccepted kapanana dek bekletir
+	// (gecikmiş olay), dropAccepted 503 döner (ajan bellekte tutar).
+	holdAccepted chan struct{}
+	heldAccepted chan struct{}
+	dropAccepted bool
+	stopProbe    func()
+}
+
+// gateEvent ajan olayını geciktirir ya da geri çevirir; false dönerse yanıt yazılmıştır.
+func (x *e2e) gateEvent(w http.ResponseWriter, r *http.Request) bool {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadGateway)
+		return false
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	var ev struct {
+		Kind string `json:"kind"`
+	}
+	_ = json.Unmarshal(body, &ev)
+	if ev.Kind != "accepted" {
+		return true
+	}
+	x.mu.Lock()
+	hold, held, drop := x.holdAccepted, x.heldAccepted, x.dropAccepted
+	x.mu.Unlock()
+	if drop {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return false
+	}
+	if hold != nil {
+		select {
+		case held <- struct{}{}:
+		default:
+		}
+		<-hold
+	}
+	return true
 }
 
 func (x *e2e) setMangle(f func(*betik.JobList)) {
@@ -57,7 +97,9 @@ func (x *e2e) setMangle(f func(*betik.JobList)) {
 // ServeHTTP paneli sarar: yalnız ajanın iş listesini değiştirebilir.
 func (x *e2e) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/probe/jobs" {
-		x.s.Handler().ServeHTTP(w, r)
+		if r.URL.Path != "/api/probe/script-result" || x.gateEvent(w, r) {
+			x.s.Handler().ServeHTTP(w, r)
+		}
 		return
 	}
 	x.mu.Lock()
@@ -106,8 +148,8 @@ func setupE2E(t *testing.T) *e2e {
 		t.Skip("BEKCI_TEST_SYSTEMD=1 yok")
 	}
 	plat := betikajan.DetectPlatform()
-	if !plat.OK {
-		t.Skip(plat.Detail)
+	if !plat.OK { // değişken açıkça verildiyse sessiz atlama CI'da testi körleştirir
+		t.Fatal(plat.Detail)
 	}
 	sx := setupScripts(t)
 	sx.addKeys()
@@ -116,6 +158,7 @@ func setupE2E(t *testing.T) *e2e {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(d) })
+	sx.s.probeRL.limit = 1 << 30 // yoklama 20 ms'de bir: 429 ajanı üstel beklemeye sokar
 	x := &e2e{sEnv: sx, polls: map[string]int{}, paths: betikajan.Paths{Config: filepath.Join(d, "etc", "betik.json"), StateDir: filepath.Join(d, "state"), LogDir: filepath.Join(d, "log")}}
 	_, err := betikajan.Enable(x.paths, betikajan.EnableOptions{
 		Yayin: []string{betik.EncodePublicKey(pubOf(x.yayin))}, Onay: []string{betik.EncodePublicKey(pubOf(x.onay))},
@@ -145,7 +188,7 @@ func setupE2E(t *testing.T) *e2e {
 	}
 	x.mustDo("POST", "/api/probes", map[string]any{"name": "e2e"}, &cp, 201)
 	x.probe = createdProbeT{cp.Probe.ID, cp.Token}
-	x.runProbe(t, x.agent, cp.Token)
+	x.stopProbe = x.runProbe(t, x.agent, cp.Token)
 	var pending string
 	x.until("anahtar bekleyen görünmedi", func() bool {
 		var hosts []scriptHostView
@@ -161,7 +204,8 @@ func setupE2E(t *testing.T) *e2e {
 	return x
 }
 
-func (x *e2e) runProbe(t *testing.T, a *betikajan.Agent, token string) {
+// runProbe ajanı başlatır; dönen işlev süreci kapatır (yeniden başlatma denemesi).
+func (x *e2e) runProbe(t *testing.T, a *betikajan.Agent, token string) (stop func()) {
 	t.Helper()
 	cfg := probe.Config{Server: x.ts.URL, Token: token, Version: "1.7.0", Unit: 20 * time.Millisecond,
 		NoMetrics: true, NoInventory: true, HTTPClient: x.ts.Client()}
@@ -175,7 +219,9 @@ func (x *e2e) runProbe(t *testing.T, a *betikajan.Agent, token string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { c.Run(ctx); close(done) }()
-	t.Cleanup(func() { cancel(); <-done })
+	stop = sync.OnceFunc(func() { cancel(); <-done })
+	t.Cleanup(stop)
+	return stop
 }
 
 func (x *e2e) until(what string, f func() bool) {
@@ -435,6 +481,55 @@ func TestScriptEndToEnd(t *testing.T) {
 	x.mustDo("POST", "/api/scripts/runs/"+v.RunID+"/cancel", map[string]any{}, nil, 200)
 	if st, _, out := x.final(v.RunID); st != runCancelled || strings.Contains(out, "bitti") {
 		t.Fatalf("iptal: %s %q", st, out)
+	}
+
+	// Teslim edilmiş, accepted'i yolda kalmış iş iptal edilirse ajanda da durur.
+	x.mu.Lock()
+	x.holdAccepted, x.heldAccepted = make(chan struct{}), make(chan struct{}, 1)
+	gate, gateHit := x.holdAccepted, x.heldAccepted
+	x.mu.Unlock()
+	v = x.begin("bekle", 1, nil)
+	select {
+	case <-gateHit:
+	case <-time.After(15 * time.Second):
+		t.Fatal("accepted gelmedi")
+	}
+	x.mustDo("POST", "/api/scripts/runs/"+v.RunID+"/cancel", map[string]any{}, nil, 200)
+	x.mu.Lock()
+	x.holdAccepted = nil
+	x.mu.Unlock()
+	close(gate)
+	x.until("geç accepted sonrası iş durmadı", func() bool { return !x.agent.Busy() }) // sleep 60'tan kısa
+	x.until("iptal makbuzu gelmedi", func() bool {
+		var d struct {
+			Events []betikkayit.Event `json:"events"`
+		}
+		x.mustDo("GET", "/api/scripts/runs/"+v.RunID, nil, &d, 200)
+		return d.Events[len(d.Events)-1].Kind == "receipt"
+	})
+	if st, _, out := x.final(v.RunID); st != runCancelled || strings.Contains(out, "bitti") {
+		t.Fatalf("geç iptal: %s %q", st, out)
+	}
+
+	// Ajan yeniden başlar: accepted bellekte kalmış, makbuz diskte. Panel işi
+	// yeniden yollar, ajan run_id_replay der; iş yine çalışmış görünür, çıktı gelir.
+	x.mu.Lock()
+	x.dropAccepted = true
+	x.mu.Unlock()
+	v = x.begin("kurcala", 1, nil)
+	x.until("makbuz diske yazılmadı", func() bool {
+		f, _ := filepath.Glob(filepath.Join(x.paths.StateDir, "*", "*.json"))
+		return len(f) > 0
+	})
+	x.stopProbe()
+	x.mu.Lock()
+	x.dropAccepted = false
+	x.mu.Unlock()
+	plat := betikajan.DetectPlatform()
+	x.agent = betikajan.New(betikajan.Options{Paths: x.paths, Platform: &plat, Now: x.clk.now})
+	x.stopProbe = x.runProbe(t, x.agent, x.probe.Token)
+	if st, c, out := x.final(v.RunID); st != runOK || out != e2eTemiz[5:] {
+		t.Fatalf("yeniden başlatma: %s %s %q", st, c, out)
 	}
 
 	// Acil durdurma: yeni çalıştırma panelde kesilir, sürdürünce açılır.

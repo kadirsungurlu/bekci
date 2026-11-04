@@ -76,7 +76,7 @@ Panel `host_key`'i `X-Probe-Script-Key`'den hesaplar (`betik.KeyID`); bilinen an
 
 - `ticket` yalnız bilet varsa; varsa `approval` ne olursa olsun ajan doğrular (D3: `panel` sınıfı tek yöneticide bilet akışına düşer). `params` alanı hep gönderilir, bilet `params_sha256` tam bu baytları bağlar.
 - Parametre JSON'u düz nesne: `{"gun":30}`, `{"servis":"caddy"}`, `{"zorla":true}`. Her yanıtta en çok 16 `runs`, 64 `revokes`; fazlası ajanda yok sayılır.
-- Panel bir `run_id`'yi `accepted`/`rejected`/`receipt` gelene dek her yoklamada yeniden gönderir (uzun yoklamayı uyandırmak panelin işidir). Ajan çalışan işi sessizce yok sayar, biten işe `rejected/run_id_replay` döner; `accepted` görülmüş işte panel bu reddi **yok sayar**.
+- Panel bir `run_id`'yi `accepted`/`rejected`/`receipt` gelene dek her yoklamada yeniden gönderir (uzun yoklamayı uyandırmak panelin işidir). Ajan çalışan işi sessizce yok sayar, biten işe `rejected/run_id_replay` döner. `accepted` görülmüş işte panel bu reddi **yok sayar**; görülmemişse (ajan yeniden başladı, `accepted` kayboldu) işi kabul edilmiş sayar, reddetmez: yeniden göndermeyi keser, makbuzu bekler. Panel iptal ettiği işe geç `accepted` gelirse durdurmayı `cancel` listesiyle yeniden yollar.
 - `cancel`: çalışan birim durdurulur, makbuz `cancelled`. Bilinmeyen `run_id` yok sayılır.
 
 ## 5. Olay iletimi (ajan -> panel)

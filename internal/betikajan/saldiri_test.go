@@ -468,6 +468,14 @@ func TestVersionRollbackAndRevoke(t *testing.T) {
 	if st.Revokes["temizle"] != 7 || st.Revokes["x"] != 0 {
 		t.Fatalf("%+v", st.Revokes)
 	}
+	// Aynı iptal her yoklamada gelir; durum dosyası yeniden yazılmaz.
+	yaz := h.agent.store.write
+	h.agent.store.write = func(p string, d []byte, m os.FileMode) error {
+		t.Errorf("gereksiz yazma: %s", p)
+		return yaz(p, d, m)
+	}
+	h.agent.Handle(&betik.JobList{Revokes: []json.RawMessage{rev}})
+	h.agent.store.write = yaz
 }
 
 // Taban başarısız çalışmada yükselmez.

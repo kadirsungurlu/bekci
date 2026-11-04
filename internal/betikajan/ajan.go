@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"maps"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -237,14 +238,18 @@ func (a *Agent) applyRevokes(cfg *Config, zarflar []json.RawMessage) {
 		if r := checkClock(st, a.now().Unix()); r != nil {
 			return r
 		}
+		before := maps.Clone(st.Revokes)
 		for _, z := range zarflar {
 			if err := ApplyRevoke(cfg, st, z); err != nil {
 				a.log.Warn("betik iptal zarfı reddedildi", "hata", err)
 			}
 		}
+		if maps.Equal(before, st.Revokes) { // her yoklamada durum dosyası yazılmasın
+			return errNoChange
+		}
 		return nil
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, errNoChange) {
 		a.log.Warn("betik iptalleri işlenemedi", "hata", err)
 	}
 }

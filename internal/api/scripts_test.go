@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -13,6 +14,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -532,5 +534,161 @@ func (x *sEnv) chain(t *testing.T) {
 	}
 	if err := betikkayit.Verify(ex); err != nil {
 		t.Fatalf("zincir: %v", err)
+	}
+}
+
+// B2: iş ajana teslim edilmiş, accepted yoldayken iptal/acil durdurma gelirse
+// kuyruk satırı silinmiş olur; geç gelen accepted durdurma isteğini geri getirmeli.
+func TestScriptLateAcceptStillCancels(t *testing.T) {
+	x := setupScripts(t)
+	x.addKeys()
+	x.connect()
+	x.upload("disk", 1, betik.ApprovalNone)
+	check := func(run string) {
+		t.Helper()
+		if c := x.probeEvent(x.probe.Token, map[string]any{"kind": "accepted", "run_id": run, "time": 1}); c != 200 {
+			t.Fatalf("geç accepted: %d", c)
+		}
+		if s := x.state(run); s != runCancelling {
+			t.Fatalf("durum: %s", s)
+		}
+		if !slices.Contains(x.poll().Cancel, run) {
+			t.Fatal("ajana durdurma gitmedi: iş çalışmaya devam eder")
+		}
+	}
+	// Kullanıcı iptali.
+	_, v, _ := x.start(x.env, "disk", 1, x.secret, nil)
+	if l := x.poll(); len(l.Runs) != 1 {
+		t.Fatalf("teslim: %+v", l)
+	}
+	x.mustDo("POST", "/api/scripts/runs/"+v.RunID+"/cancel", map[string]any{}, nil, 200)
+	if s := x.state(v.RunID); s != runCancelled {
+		t.Fatalf("iptal: %s", s)
+	}
+	check(v.RunID)
+	// Durdurma ulaştı, gerçek sonuç makbuzla yazılır; sıra artık tekrar açmaz.
+	rc := x.receipt(v, func(r *betik.Receipt) { r.Status = betik.StatusCancelled })
+	if c := x.probeEvent(x.probe.Token, map[string]any{"kind": "receipt", "run_id": v.RunID, "receipt": rc}); c != 200 {
+		t.Fatalf("makbuz: %d", c)
+	}
+	x.probeEvent(x.probe.Token, map[string]any{"kind": "accepted", "run_id": v.RunID, "time": 2})
+	if s := x.state(v.RunID); s != runCancelled {
+		t.Fatalf("makbuzdan sonra: %s", s)
+	}
+	if l := x.poll(); slices.Contains(l.Cancel, v.RunID) {
+		t.Fatal("biten iş yeniden durdurulmamalı")
+	}
+	// Acil durdurma.
+	_, v2, _ := x.start(x.env, "disk", 1, x.secret, nil)
+	x.poll()
+	x.mustDo("POST", "/api/scripts/control/stop", map[string]any{}, nil, 200)
+	check(v2.RunID)
+	// Makbuz gelmezse sonsuza dek gönderilmez.
+	x.clk.advance(scriptNoReceipt + time.Minute)
+	x.s.scriptTick(context.Background(), t.TempDir())
+	if s := x.state(v2.RunID); s != runLost {
+		t.Errorf("makbuzsuz: %s", s)
+	}
+	x.chain(t)
+}
+
+// B3: ajan yeniden başladı; accepted bellekte kaldı, panel işi yeniden yolladı,
+// ajan run_id_replay dedi. Çalışmış iş reddedilmiş görünmemeli, makbuz düşmemeli.
+func TestScriptReplayKeepsReceipt(t *testing.T) {
+	x := setupScripts(t)
+	x.addKeys()
+	x.connect()
+	x.upload("disk", 1, betik.ApprovalNone)
+	_, v, _ := x.start(x.env, "disk", 1, x.secret, nil)
+	x.poll()
+	reject := map[string]any{"kind": "rejected", "run_id": v.RunID, "code": betik.CodeRunIDReplay, "time": 1}
+	if c := x.probeEvent(x.probe.Token, reject); c != 200 {
+		t.Fatalf("red: %d", c)
+	}
+	if s := x.state(v.RunID); s != runAccepted {
+		t.Fatalf("durum: %s", s)
+	}
+	if l := x.poll(); len(l.Runs) != 0 {
+		t.Fatal("görülmüş iş yeniden gönderilmemeli")
+	}
+	if c := x.probeEvent(x.probe.Token, map[string]any{"kind": "receipt", "run_id": v.RunID, "receipt": x.receipt(v, nil), "output": []byte("cikti\n")}); c != 200 {
+		t.Fatalf("makbuz düştü: %d", c)
+	}
+	var d struct {
+		Run    runView `json:"run"`
+		Output struct {
+			Text string `json:"text"`
+		} `json:"output"`
+	}
+	x.mustDo("GET", "/api/scripts/runs/"+v.RunID, nil, &d, 200)
+	if d.Run.State != runOK || d.Output.Text != "cikti\n" {
+		t.Fatalf("sonuç: %+v %q", d.Run, d.Output.Text)
+	}
+	// Makbuz da kayıpsa iş "lost" kapanır, ajan reddi olarak görünmez.
+	_, v2, _ := x.start(x.env, "disk", 1, x.secret, nil)
+	x.poll()
+	reject["run_id"] = v2.RunID
+	x.probeEvent(x.probe.Token, reject)
+	x.clk.advance(scriptNoReceipt + time.Minute)
+	x.s.scriptTick(context.Background(), t.TempDir())
+	if s := x.state(v2.RunID); s != runLost {
+		t.Errorf("makbuzsuz: %s", s)
+	}
+	x.chain(t)
+}
+
+// B5: ajan silinemez kaydı şişiremez.
+func TestScriptProbeNoiseBudget(t *testing.T) {
+	var b scriptBudget
+	for i := range scriptBudgetHourly {
+		if !b.allow(1, "notice", 7200) {
+			t.Fatalf("erken kesildi: %d", i)
+		}
+	}
+	if b.allow(1, "notice", 7200) {
+		t.Fatal("sınır aşıldı")
+	}
+	if !b.allow(2, "notice", 7200) || !b.allow(1, "host_key_seen", 7200) || !b.allow(1, "notice", 10800) {
+		t.Fatal("sınır ajana, türe ve saate özel olmalı")
+	}
+}
+
+// B7: sınırı aşan iptal listesinde her öğe bir turda görünür.
+func TestRevokeWindowCoversAll(t *testing.T) {
+	all := make([]json.RawMessage, 200)
+	for i := range all {
+		all[i] = json.RawMessage(fmt.Sprint(i))
+	}
+	seen := map[string]bool{}
+	for tick := range int64(4) {
+		got := revokeWindow(all, tick)
+		if len(got) != betik.MaxRevokesPerResp {
+			t.Fatalf("boy: %d", len(got))
+		}
+		for _, r := range got {
+			seen[string(r)] = true
+		}
+	}
+	if len(seen) != len(all) {
+		t.Fatalf("görülen %d", len(seen))
+	}
+	if short := all[:10]; len(revokeWindow(short, 5)) != 10 {
+		t.Fatal("kısa liste aynen gitmeli")
+	}
+}
+
+// B6: acil durdurma istek denetiminden sonra gelse de iş kuyruğa girmez.
+func TestScriptEnqueueRechecksStop(t *testing.T) {
+	x := setupScripts(t)
+	x.addKeys()
+	x.connect()
+	x.mustDo("POST", "/api/scripts/control/stop", map[string]any{}, nil, 200)
+	err := x.s.store.ScriptTx(context.Background(), func(l *store.ScriptLog) error {
+		_, e := x.s.enqueue(context.Background(), l, strings.Repeat("c", 32), runRequest{ProbeID: x.probe.ID, ScriptID: "disk", Version: 1, Params: "{}"}, "", 9e9)
+		return e
+	})
+	var se *scriptStateErr
+	if !errors.As(err, &se) || se.code != "stopped" {
+		t.Fatalf("hata: %v", err)
 	}
 }
