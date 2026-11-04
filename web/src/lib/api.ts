@@ -2464,3 +2464,205 @@ export interface Topology {
   channels?: TopoChannel[];
   incidents: TopoIncident[];
 }
+
+// ---- Betikler (internal/api/scripts.go) --------------------------------------
+
+export type ScriptApproval = "none" | "panel" | "signed";
+
+export interface ScriptParam {
+  name: string;
+  type: "enum" | "int" | "bool" | "name";
+  values?: string[];
+  min?: number;
+  max?: number;
+}
+
+/** İmzalı bildirim; panel yalnız gösterir, düzenlemez. */
+export interface ScriptManifest {
+  schema: number;
+  id: string;
+  version: number;
+  sha256: string;
+  interpreter: string;
+  run_as: string;
+  platforms: string[] | null;
+  approval: ScriptApproval;
+  groups: string[] | null;
+  params: ScriptParam[] | null;
+  timeout_sec: number;
+  output_max: number;
+  min_interval_sec: number;
+  max_per_day: number;
+  jitter_sec: number;
+  not_before: number;
+  not_after: number;
+}
+
+export interface ScriptVersion {
+  script_id: string;
+  version: number;
+  sha256: string;
+  approval: ScriptApproval;
+  key_id: string;
+  not_before: number;
+  not_after: number;
+  uploaded_by_name: string;
+  uploaded_at: number;
+  manifest: ScriptManifest;
+  revoked: boolean;
+  expired: boolean;
+  body?: string;
+}
+
+/** Geçmişten türeyen son sonuç; ajanın şimdiki izni hakkında hüküm değildir. */
+export interface ScriptHostResult {
+  probe_id: number;
+  probe_name: string;
+  state: string;
+  code?: string;
+  at: number;
+}
+
+export interface ScriptItem {
+  id: string;
+  latest: ScriptVersion;
+  versions: ScriptVersion[];
+  hosts: ScriptHostResult[];
+}
+
+export interface ScriptControl {
+  stopped: boolean;
+  stopped_at: number;
+  stopped_by_name: string;
+  channel_ids: number[] | null;
+}
+
+export interface ScriptRevoke {
+  script_id: string;
+  below_version: number;
+  envelope: string;
+  uploaded_by_name: string;
+  uploaded_at: number;
+}
+
+export interface ScriptList {
+  scripts: ScriptItem[];
+  revokes: ScriptRevoke[] | null;
+  control: ScriptControl;
+}
+
+export interface ScriptKey {
+  key_id: string;
+  slot: "yayin" | "onay";
+  public_key: string;
+  name: string;
+  added_by_name: string;
+  added_at: number;
+}
+
+export interface ScriptHost {
+  probe_id: number;
+  host_key: string;
+  pending_key: string;
+  receipt_seq: number;
+  approved_at: number;
+  approved_by_name: string;
+  schemas: string;
+  state: string;
+  reason: string;
+  seen_at: number;
+  name: string;
+  kind: string;
+  online: boolean;
+  support: "unsupported" | "off" | "on" | string;
+}
+
+export interface ScriptRun {
+  run_id: string;
+  script_id: string;
+  version: number;
+  probe_id: number;
+  probe_name: string;
+  params: string;
+  approval: ScriptApproval;
+  needs: ScriptApproval;
+  state: string;
+  code?: string;
+  exit_code?: number;
+  requested_by: string;
+  requested_at: number;
+  updated_at: number;
+}
+
+export interface ScriptEvent {
+  seq: number;
+  time: number;
+  run_id: string;
+  kind: string;
+  actor_id: number;
+  data: string;
+}
+
+export interface ScriptRunDetail {
+  run: ScriptRun;
+  events: ScriptEvent[];
+  can_approve: boolean;
+  ticket_request?: Record<string, unknown>;
+  output?: { text: string; sha256: string; truncated: boolean };
+}
+
+export interface ScriptChain {
+  events: number;
+  checkpoints: number;
+  ok: boolean;
+  seq: number;
+  hash: string;
+  error?: string;
+  last_anchor_at?: number;
+}
+
+export const SCRIPT_EXPORT_URL = "/api/scripts/export";
+
+type Ok = { ok: boolean };
+
+export const scriptsApi = {
+  list: () => get<ScriptList>("/api/scripts"),
+  version: (id: string, v: number) =>
+    get<ScriptVersion>(`/api/scripts/lib/${encodeURIComponent(id)}/${v}`),
+  upload: (manifest: unknown, body: string, code: string) =>
+    post<ScriptVersion>("/api/scripts", { manifest, body, code }),
+  uploadRevoke: (revoke: unknown, code: string) =>
+    post<Ok>("/api/scripts/revokes", { revoke, code }),
+  hosts: () => get<ScriptHost[]>("/api/scripts/hosts"),
+  approveHost: (id: number, host_key: string, code: string) =>
+    post<Ok>(`/api/scripts/hosts/${id}/approve`, { host_key, code }),
+  keys: () => get<ScriptKey[]>("/api/scripts/keys"),
+  addKey: (slot: string, name: string, public_key: string, code: string) =>
+    post<ScriptKey>("/api/scripts/keys", { slot, name, public_key, code }),
+  deleteKey: (id: string, code: string) =>
+    request<void>("DELETE", `/api/scripts/keys/${encodeURIComponent(id)}`, { code }),
+  runs: (before = 0, limit = 50) =>
+    get<{ runs: ScriptRun[]; next: number }>(
+      `/api/scripts/runs?limit=${limit}${before ? `&before=${before}` : ""}`,
+    ),
+  run: (id: string) => get<ScriptRunDetail>(`/api/scripts/runs/${id}`),
+  start: (input: {
+    script_id: string;
+    version: number;
+    probe_id: number;
+    params: Record<string, unknown>;
+    code: string;
+    use_ticket: boolean;
+  }) => post<ScriptRun>("/api/scripts/runs", input),
+  approve: (id: string, code: string) =>
+    post<Ok>(`/api/scripts/runs/${id}/approve`, { code }),
+  reject: (id: string) => post<Ok>(`/api/scripts/runs/${id}/reject`),
+  cancel: (id: string) => post<Ok>(`/api/scripts/runs/${id}/cancel`),
+  ticket: (id: string, ticket: unknown, code: string) =>
+    post<Ok>(`/api/scripts/runs/${id}/ticket`, { ticket, code }),
+  stop: () => post<Ok>("/api/scripts/control/stop"),
+  resume: (code: string) => post<Ok>("/api/scripts/control/resume", { code }),
+  channels: (channel_ids: number[], code: string) =>
+    put<Ok>("/api/scripts/control/channels", { channel_ids, code }),
+  chain: () => get<ScriptChain>("/api/scripts/chain"),
+};
