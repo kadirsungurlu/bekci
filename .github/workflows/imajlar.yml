@@ -4,12 +4,14 @@
 #
 # Testler, arayüz denetimi ve imaj duman testleri her gönderimde (main,
 # gelistirme, v* etiketleri) ve her pull request'te çalışır. İmajlar YALNIZCA
-# main dalında ve v* etiketlerinde, bunların hepsi geçtikten sonra yüklenir;
+# main dalında ve v* etiketlerinde (ayrıca gelistirme için tek test etiketi),
+# bunların hepsi geçtikten sonra yüklenir;
 # linux/amd64 + linux/arm64, iki kayıt deposuna:
 #   docker.io/kadirsungurlu/bekci            (herkese açık, Docker Hub)
 #   ghcr.io/<sahip>/bekci
 # Etiketler (SQLite | PostgreSQL gömülü):
 #   main:        yalnızca ghcr.io'da :<kısa-sha> | :postgres-<kısa-sha>
+#   gelistirme:  yalnızca Docker Hub :gelistirme (amd64, test paneli; sürüm değil)
 #   v1.2.3 etiketi: :1.2.3, :1.2, :1, :latest | :1.2.3-postgres, :1.2-postgres,
 #                :1-postgres, :postgres (ön sürümde yalnızca tam etiket)
 # :latest yalnızca sürüm etiketinden yazılır: içindeki program sürüm numarasını
@@ -316,6 +318,29 @@ jobs:
       - name: Container günlükleri
         if: failure()
         run: docker logs duman || true
+
+  # Test paneli (Coolify, hazır imaj): gelistirme dalı geçince tek mimari, tek
+  # etiket. Sürüm değildir: :latest'e dokunmaz, ajan imzası yoktur.
+  yayinla-gelistirme:
+    needs: [test, test-timescale, arayuz, arayuz-e2e, duman]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/gelistirme'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: kadirsungurlu
+          password: ${{ secrets.DOCKERHUB_TOKEN || secrets.KADIRSUNGURLU }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: SOURCE_COMMIT=${{ github.sha }}
+          tags: docker.io/kadirsungurlu/bekci:gelistirme
+          cache-from: type=gha,scope=latest
 
   yayinla:
     needs: [test, test-timescale, arayuz, arayuz-e2e, duman]
