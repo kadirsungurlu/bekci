@@ -270,7 +270,7 @@ amd64/arm64, Windows amd64) da içinde hazır gelir.
 | `DATA_DIR` | `/data` | SQLite veritabanı ve yedeklerin klasörü |
 | `DATABASE_URL` | — | Verilirse **PostgreSQL** kullanılır: `postgres://kullanıcı:şifre@sunucu:5432/veritabanı?sslmode=disable`. Yedek bu durumda veritabanı tarafında alınmalıdır (Coolify yedekleri / `pg_dump`) |
 | `ADDR` | `:8080` | Dinlenecek adres |
-| `TRUSTED_PROXY` | — | Güvenilir ters vekil ağları (virgülle CIDR, ör. `172.17.0.1/32`). Ayarlıysa `X-Forwarded-For` yalnızca bu ağlardan gelen bağlantılarda kabul edilir; boşsa tüm özel/yerel adreslere güvenilir ve açılışta bir uyarı yazılır. Vekilsiz, doğrudan yayınlanan kurulumda `127.0.0.1/32` verin |
+| `TRUSTED_PROXY` | — | Güvenilir ters vekil ağları (virgülle CIDR, ör. `172.18.0.0/16`). Ayarlıysa `X-Forwarded-For` yalnızca bu ağlardan gelen bağlantılarda kabul edilir; boşsa tüm özel/yerel adreslere güvenilir ve açılışta bir uyarı yazılır. Vekilsiz, doğrudan yayınlanan kurulumda `127.0.0.1/32` verin |
 | `AGENT_DIR` | `/usr/local/share/uptime/agents` | Diğer platformların ajan programları (`uptime-windows-amd64.exe`, `uptime-linux-arm64`); imajda hazır gelir |
 | `PROBE_IMAGE` | — | Verilirse kontrol noktası kurulum komutu programı indirmek yerine bu Docker imajını kullanır |
 | `UPTIME_LOCK_WAIT` | `600` | İkinci bir kopya tek-örnek kilidini (SQLite: veri klasörü, PostgreSQL: veritabanı danışma kilidi) en fazla kaç saniye bekler (sonra hata ile çıkar). Aynı veritabanıyla tek kopya (replika) çalışır |

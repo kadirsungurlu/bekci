@@ -153,6 +153,8 @@ services:
       TZ: ${TZ:-Europe/Istanbul}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       MAX_CONCURRENT_CHECKS: ${MAX_CONCURRENT_CHECKS:-50}
+      # Gerçek ziyaretçi IP'si için güvenilen vekil ağı (.env, bkz. Ortam değişkenleri).
+      TRUSTED_PROXY: ${TRUSTED_PROXY:-}
     volumes:
       - bekci-data:/data
     # Dışarıya doğrudan açılmaz; yalnızca Caddy üzerinden erişilir.
@@ -290,6 +292,10 @@ MAX_CONCURRENT_CHECKS=50
 # bloğu): panelde sayfaya alan adı yazmak yeterli. STATUS_DOMAIN yalnız eski,
 # elle eklenmiş site bloğu kullanan kurulumlar için tutulur.
 # STATUS_DOMAIN=durum.ornek.com
+
+# Gerçek ziyaretçi IP'si için güvenilen vekil (Caddy'nin compose ağı). Ağı
+# öğrenmek için: docker network inspect bekci_default -f '{{(index .IPAM.Config 0).Subnet}}'
+# TRUSTED_PROXY=172.18.0.0/16
 ```
 :::
 

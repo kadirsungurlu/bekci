@@ -30,6 +30,8 @@ services:
       TZ: ${TZ:-Europe/Istanbul}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       MAX_CONCURRENT_CHECKS: ${MAX_CONCURRENT_CHECKS:-50}
+      # Gerçek ziyaretçi IP'si için güvenilen vekil ağı (.env, bkz. Ortam değişkenleri).
+      TRUSTED_PROXY: ${TRUSTED_PROXY:-}
     volumes:
       - bekci-data:/data
     # Dışarıya doğrudan açılmaz; yalnızca Caddy üzerinden erişilir.

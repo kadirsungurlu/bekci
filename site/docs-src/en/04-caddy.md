@@ -153,6 +153,8 @@ services:
       TZ: ${TZ:-Europe/Istanbul}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       MAX_CONCURRENT_CHECKS: ${MAX_CONCURRENT_CHECKS:-50}
+      # Trusted proxy network for the real visitor IP (.env, see Environment variables).
+      TRUSTED_PROXY: ${TRUSTED_PROXY:-}
     volumes:
       - bekci-data:/data
     # Not published directly; only reachable through Caddy.
@@ -293,6 +295,10 @@ MAX_CONCURRENT_CHECKS=50
 # Caddyfile): entering the domain on the page in the panel is enough. STATUS_DOMAIN
 # is only kept for older installs that use a hand-written site block.
 # STATUS_DOMAIN=status.example.com
+
+# Trusted proxy for the real visitor IP (the compose network Caddy runs on). To
+# find it: docker network inspect bekci_default -f '{{(index .IPAM.Config 0).Subnet}}'
+# TRUSTED_PROXY=172.18.0.0/16
 ```
 :::
 

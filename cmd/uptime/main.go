@@ -208,7 +208,7 @@ func run() error {
 		// yayınlanan (-p 8080:8080) kurulumda Docker NAT yüzünden herkes özel
 		// adresten görünür ve X-Forwarded-For ile istemci adresi uydurulabilir.
 		log.Warn("TRUSTED_PROXY ayarlı değil: tüm özel ağ adreslerinden gelen X-Forwarded-For başlığına güveniliyor; " +
-			"ters vekilin adresini ya da Docker ağını TRUSTED_PROXY ile verin (ör. 172.18.0.0/16; docker network inspect), vekilsiz kurulumda loopback verin (127.0.0.1/32)")
+			"ters vekilin bulunduğu Docker ağını TRUSTED_PROXY ile verin (ör. 172.18.0.0/16; ağı öğrenmek için: docker network inspect bekci_default -f '{{(index .IPAM.Config 0).Subnet}}'), vekilsiz kurulumda 127.0.0.1/32 verin")
 	}
 	apiServer.ProbeImage = env("PROBE_IMAGE", "")
 	if d := env("AGENT_DIR", ""); d != "" {

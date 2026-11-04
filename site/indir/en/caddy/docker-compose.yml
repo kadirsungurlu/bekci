@@ -30,6 +30,8 @@ services:
       TZ: ${TZ:-Europe/Istanbul}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       MAX_CONCURRENT_CHECKS: ${MAX_CONCURRENT_CHECKS:-50}
+      # Trusted proxy network for the real visitor IP (.env, see Environment variables).
+      TRUSTED_PROXY: ${TRUSTED_PROXY:-}
     volumes:
       - bekci-data:/data
     # Not published directly; only reachable through Caddy.

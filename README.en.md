@@ -280,7 +280,7 @@ amd64/arm64, Windows amd64) are included.
 | `DATA_DIR` | `/data` | Folder for the SQLite database and backups |
 | `DATABASE_URL` | — | If set, **PostgreSQL** is used: `postgres://kullanıcı:şifre@sunucu:5432/veritabanı?sslmode=disable` (user:password@host:5432/database). Backups must then be taken on the database side (Coolify backups / `pg_dump`) |
 | `ADDR` | `:8080` | Listen address |
-| `TRUSTED_PROXY` | — | Trusted reverse proxy networks (comma-separated CIDRs, e.g. `172.17.0.1/32`). When set, `X-Forwarded-For` is accepted only on connections from these networks; when empty, all private/local addresses are trusted and a warning is logged at startup. For a directly published install without a proxy, set `127.0.0.1/32` |
+| `TRUSTED_PROXY` | — | Trusted reverse proxy networks (comma-separated CIDRs, e.g. `172.18.0.0/16`). When set, `X-Forwarded-For` is accepted only on connections from these networks; when empty, all private/local addresses are trusted and a warning is logged at startup. For a directly published install without a proxy, set `127.0.0.1/32` |
 | `AGENT_DIR` | `/usr/local/share/uptime/agents` | Agent binaries for other platforms (`uptime-windows-amd64.exe`, `uptime-linux-arm64`); included in the image |
 | `PROBE_IMAGE` | — | If set, the check location install command uses this Docker image instead of downloading the binary |
 | `UPTIME_LOCK_WAIT` | `600` | Maximum number of seconds a second copy waits for the single-instance lock (SQLite: data folder, PostgreSQL: database advisory lock) before exiting with an error. Only one copy (replica) runs per database |
