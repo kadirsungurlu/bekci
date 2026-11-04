@@ -357,7 +357,11 @@ func TestTicketAttacks(t *testing.T) {
 		code string
 		mut  func(h *harness, j *betik.RunJob)
 	}{
-		"bilet yok": {betik.CodeTicketMissing, func(h *harness, j *betik.RunJob) { j.Ticket = nil }},
+		"bilet yok":         {betik.CodeTicketMissing, func(h *harness, j *betik.RunJob) { j.Ticket = nil }},
+		"bilet zarfı bozuk": {betik.CodeTicketInvalid, func(h *harness, j *betik.RunJob) { j.Ticket = json.RawMessage(`{"key":1}`) }},
+		"bilet şeması bilinmeyen": {betik.CodeSchemaUnknown, func(h *harness, j *betik.RunJob) {
+			j.Ticket = h.ticket(j, func(t *betik.Ticket) { t.Schema = 2 })
+		}},
 		"başka ajana": {betik.CodeTicketHost, func(h *harness, j *betik.RunJob) {
 			j.Ticket = h.ticket(j, func(t *betik.Ticket) { t.HostKey = betik.Digest([]byte("baska")) })
 		}},

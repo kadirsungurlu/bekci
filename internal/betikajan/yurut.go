@@ -20,6 +20,9 @@ const UnitPrefix = "bekci-run-"
 // wrapper gövdeyi stdin'den okur, stdin'i kapatır: alt komutlar kalan gövdeyi
 // yiyemez. trap: systemd SIGTERM ile durdurulan süreci "temiz" sayar ve
 // systemd-run 0 döner; durdurulan bir betik başarılı görünmesin diye 143.
+// Sınır: durdurma kabuk trap'i kurmadan gelirse rc yine 0 olabilir ya da TERM
+// boşa gidip SIGKILL'e kalabilir. Bu yüzden iptal ve kapanış rc'den çıkarılmaz,
+// ajanın kendi bayrağından gelir (bkz. Agent.finish).
 const wrapper = `trap 'exit 143' TERM; b=$(cat); exec </dev/null; eval "$b"`
 
 const (
