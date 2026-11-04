@@ -530,6 +530,7 @@ components:
         retention_raw_days: { type: integer }
         retention_hourly_days: { type: integer }
         cert_days: { type: array, items: { type: integer } }
+        server_cert_days: { type: array, items: { type: integer }, description: "Sunucu sertifikası uyarı eşikleri (gün); boş liste kapatır, varsayılan 14, 7, 1" }
         domain_days: { type: array, items: { type: integer } }
         backup_keep: { type: integer }
         notify_lang: { $ref: "#/components/schemas/Lang" }
@@ -1200,6 +1201,20 @@ paths:
       summary: Metrik serisi
       parameters: [{ $ref: "#/components/parameters/id" }, { name: range, in: query, schema: { type: string, enum: [1h, 24h, 7d, 30d] } }]
       responses: { "200": { description: "{range, res, from, to, interval, points[]}" } }
+  /api/servers/{id}/inventory:
+    get:
+      tags: [servers]
+      summary: Sunucu envanteri (servis, konteyner, port, sertifika, disk bölümü)
+      description: "collected_at 0 ise ajan henüz envanter göndermemiştir (eski ajan). notes: bölüm -> toplanamama nedeni (unsupported, no_systemd, no_docker, no_host, failed)."
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "200": { description: "{collected_at, notes, services[], containers[], ports[], certs[], disks[]}" } }
+  /api/servers/{id}/inventory/certs/{fingerprint}:
+    put:
+      tags: [servers]
+      summary: Sertifika için bitiş uyarısını kapat/aç (düzenleyici)
+      parameters: [{ $ref: "#/components/parameters/id" }, { name: fingerprint, in: path, required: true, schema: { type: string } }]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { ignored: { type: boolean } } } } } }
+      responses: { "204": { description: Kaydedildi }, "404": { description: Sertifika bulunamadı } }
   /api/servers/{id}/events:
     get: { tags: [servers], summary: Uyarı olayları, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: "{events[]}" } } }
   /api/servers/{id}/incidents:

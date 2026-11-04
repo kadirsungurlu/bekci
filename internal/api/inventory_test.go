@@ -64,12 +64,16 @@ func TestInventoryAPI(t *testing.T) {
 	}
 
 	// Sertifikayı yoksay, sonra geri al; bilinmeyen parmak izi 404.
-	admin.mustDo("PUT", path+"/certs/ab12", map[string]any{"ignored": true}, nil, 204)
+	if st := admin.do("PUT", path+"/certs/ab12", map[string]any{"ignored": true}, nil); st != 204 {
+		t.Fatalf("yoksay: %d", st)
+	}
 	admin.mustDo("GET", path, nil, &inv, 200)
 	if !inv.Certs[0].Ignored {
 		t.Fatal("yoksayılmadı")
 	}
-	admin.mustDo("PUT", path+"/certs/yok", map[string]any{"ignored": true}, nil, 404)
+	if st := admin.do("PUT", path+"/certs/yok", map[string]any{"ignored": true}, nil); st != 404 {
+		t.Fatalf("bilinmeyen: %d", st)
+	}
 
 	// Sunucu ajanı için panel aralık bildirir, ajan alanı alır.
 	var jobs map[string]any
