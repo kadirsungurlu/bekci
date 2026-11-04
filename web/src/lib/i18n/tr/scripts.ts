@@ -233,6 +233,8 @@ export default {
     notice: "Ajan bildirimi",
   },
   codes: {
+    clock_forward: "Ajan saati ileri atladı",
+    queue_dropped: "Ajanın bekleyen kayıt kuyruğu doldu, eski kayıtlar düşürüldü",
     session_required: "Bu işlem yalnız tarayıcı oturumuyla yapılır",
     postgres_required: "Betik özelliği PostgreSQL ister",
     two_factor_required: "Bu işlem için iki adımlı doğrulama açık olmalı",

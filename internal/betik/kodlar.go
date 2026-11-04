@@ -40,7 +40,9 @@ const (
 	CodeExecFailed      = "exec_failed"
 )
 
-// AllCodes tüm red kodları; arayüz çevirisinin eksiksizliğini denetlemek için.
+// AllCodes tüm red kodları; arayüz çevirisinin eksiksizliği kodlar_test.go ile denetlenir.
+// CodeExecFailed bu ajanda üretilmiyor ama protokolün parçası: panel eski/yeni ajandan
+// gelirse okunur metin göstersin diye listede.
 var AllCodes = []string{
 	CodeDisabled, CodeConfigInvalid, CodeStateInvalid, CodeInsecurePanel, CodePlatform, CodeClockBack,
 	CodeEnvelopeInvalid, CodeSigInvalid, CodeSchemaUnknown, CodePayloadInvalid, CodeExpired, CodeNotYet,
@@ -48,6 +50,7 @@ var AllCodes = []string{
 	CodeNotAllowed, CodePinMismatch, CodeTicketMissing, CodeTicketSig, CodeTicketInvalid, CodeTicketHost,
 	CodeTicketMismatch, CodeTicketExpired, CodeParamsInvalid, CodeRunIDFormat, CodeRunIDReplay,
 	CodeRateInterval, CodeRateDay, CodeRateHour, CodeBusy, CodeStateWrite,
+	CodeExecFailed,
 }
 
 // Olay türleri (POST /api/probe/script-result).

@@ -235,6 +235,8 @@ export default {
     notice: "Agent notice",
   },
   codes: {
+    clock_forward: "The agent clock jumped forward",
+    queue_dropped: "The agent event queue filled up; older entries were dropped",
     session_required: "This action requires a browser session",
     postgres_required: "Scripts require PostgreSQL",
     two_factor_required: "Two-factor authentication must be on for this action",
