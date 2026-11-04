@@ -67,6 +67,7 @@ type View struct {
 	ContainerCount int            `json:"container_count"`
 	TempMax        *float64       `json:"temp_max"`
 	Firing         []string       `json:"firing"`
+	DiskForecast   []DiskForecast `json:"disk_forecast"`
 	// IP kilidi yalnızca yöneticiye gösterilir: API katmanı yönetici olmayan
 	// kullanıcıya giden liste/detay yanıtında ve canlı akıştaki "server"
 	// olayında bu alanları atar (HideIPLock, api.viewerEvent).
@@ -115,7 +116,7 @@ func (s *Service) View(ctx context.Context, p store.Probe, rules []store.ServerA
 	v := View{
 		ID: p.ID, Name: p.Name, Active: p.Active, Metrics: p.Metrics, State: s.StateOf(p, s.now()),
 		Note: p.MetricsNote, Interval: Interval, LastSeenAt: p.LastSeenAt, MetricsAt: p.MetricsAt,
-		Version: p.Version, Host: hostOf(p), Firing: []string{},
+		Version: p.Version, Host: hostOf(p), Firing: []string{}, DiskForecast: s.DiskForecasts(p.ID),
 		IPLock: p.IPLock, LockedIP: p.LockedIP, IP: p.LastIP,
 	}
 	if p.OOBIP != "" {
@@ -177,6 +178,7 @@ var Ranges = map[string]struct {
 	"24h": {24 * time.Hour, store.ServerRes1},
 	"7d":  {7 * 24 * time.Hour, store.ServerRes10},
 	"30d": {30 * 24 * time.Hour, store.ServerRes60},
+	"1y":  {365 * 24 * time.Hour, store.ServerRes1440},
 }
 
 // Point grafik noktası (§12.9). Temp en sıcak sensör (yoksa null).
@@ -231,7 +233,16 @@ func (s *Service) Series(ctx context.Context, id int64, rng string) (Series, boo
 	}
 	now := s.now().Unix()
 	out := Series{Range: rng, Res: r.Res, From: now - int64(r.Span/time.Second), To: now, Interval: r.Res * 60, Points: []Point{}}
-	rows, err := s.store.ServerStats(ctx, id, r.Res, out.From, now+1)
+	// Sütunlu özetler varsa onlardan; dönüşümden eski dönem server_stats'tan.
+	cols, err := s.store.ServerSeries(ctx, id, r.Res, out.From, now+1)
+	if err != nil {
+		return out, true, err
+	}
+	until := now + 1
+	if len(cols) > 0 {
+		until = cols[0].T
+	}
+	rows, err := s.store.ServerStats(ctx, id, r.Res, out.From, until)
 	if err != nil {
 		return out, true, err
 	}
@@ -242,7 +253,39 @@ func (s *Service) Series(ctx context.Context, id int64, rng string) (Series, boo
 		}
 		out.Points = append(out.Points, pointFrom(row.Time, &st))
 	}
+	for i := range cols {
+		out.Points = append(out.Points, pointFromRow(&cols[i]))
+	}
 	return out, true, nil
+}
+
+// pointFromRow sütunlu kovayı grafik noktasına çevirir.
+func pointFromRow(r *store.ServerSeriesRow) Point {
+	p := Point{
+		T: r.T, CPU: r2(r.CPU), CPUMax: r2(max(r.CPUMax, r.CPU)),
+		Load1: r2(r.Load1), Load5: r2(r.Load5), Load15: r2(r.Load15),
+		MemUsed: uint64(r.MemUsed), MemCache: uint64(r.MemCache), MemTotal: uint64(r.MemTotal),
+		SwapUsed: uint64(r.SwapUsed), SwapTotal: uint64(r.SwapTotal),
+		DiskReadBps: math.Round(r.DiskRead), DiskWriteBps: math.Round(r.DiskWrite),
+		NetRxBps: math.Round(r.NetRx), NetTxBps: math.Round(r.NetTx),
+		Disks: make([]PointDisk, 0, len(r.Disks)), Containers: make([]PointContainer, 0, len(r.Containers)),
+	}
+	for _, d := range r.Disks {
+		pct := 0.0
+		if d.Total > 0 {
+			pct = 100 * d.Used / d.Total
+		}
+		p.Disks = append(p.Disks, PointDisk{Mount: d.Mount, Pct: r2(pct)})
+		p.DiskPct = max(p.DiskPct, r2(pct))
+	}
+	if r.Temp.Valid {
+		t := r2(r.Temp.Float64)
+		p.Temp = &t
+	}
+	for _, c := range r.Containers {
+		p.Containers = append(p.Containers, PointContainer{Name: c.Name, CPU: r2(c.CPU), Mem: uint64(c.Mem)})
+	}
+	return p
 }
 
 func pointFrom(t int64, st *metrics.Stats) Point {

@@ -75,9 +75,10 @@ CREATE TABLE probe_notifications (
 
 // Özet çözünürlükleri (dakika).
 const (
-	ServerRes1  = 1
-	ServerRes10 = 10
-	ServerRes60 = 60
+	ServerRes1    = 1
+	ServerRes10   = 10
+	ServerRes60   = 60
+	ServerRes1440 = 1440
 )
 
 // SetProbeMetrics ajanın metrik toplamasını açar/kapatır.

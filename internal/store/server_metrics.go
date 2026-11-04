@@ -3,9 +3,9 @@ package store
 // Sunucu metrikleri sütunlu şema (iş 610b, tasarım §3.2-3.3). Ajan örneği
 // (metrics.Stats JSON) bugün server_stats.data'da JSON olarak duruyor; TimescaleDB
 // kipinde aynı örnek sütunlara da yazılır (server_metrics, server_disk_metrics,
-// server_container_metrics). Okuma yolları 660'ta bu tablolara geçer; o zamana
-// dek server_stats (Go özetleri) kaynak kalır. Düz PG/SQLite'ta bu tablolar boş
-// kalır (okuyan yok, saklama politikası yok).
+// server_container_metrics). Grafikler bu tablolardan ve özetlerinden okunur
+// (server_series.go); dönüşümden eski dönem server_stats'tan tamamlanır.
+// Düz PG/SQLite'ta bu tablolar boş kalır, kaynak server_stats (Go özetleri).
 
 import (
 	"context"
@@ -69,12 +69,13 @@ CREATE INDEX server_container_metrics_time ON server_container_metrics(time);
 // tsServerTables hypertable ayarları: sıkıştırma segmentby, sıkıştırma ve
 // saklama eşiği (sn).
 var tsServerTables = []struct {
-	name, segment    string
-	compress, retain int64
+	name, segment           string
+	chunk, compress, retain int64
 }{
-	{"server_metrics", "probe_id", 3 * 86400, 30 * 86400},
-	{"server_disk_metrics", "probe_id, mount", 3 * 86400, 30 * 86400},
-	{"server_container_metrics", "probe_id, name", 3 * 86400, 14 * 86400},
+	{"server_metrics", "probe_id", tsChunkDay, 3 * 86400, 30 * 86400},
+	{"server_disk_metrics", "probe_id, mount", tsChunkDay, 3 * 86400, 30 * 86400},
+	{"server_container_metrics", "probe_id, name", tsChunkDay, 3 * 86400, 14 * 86400},
+	{"server_events", "probe_id, kind", 7 * 86400, 30 * 86400, serverEventsKeepSec},
 }
 
 // tsServerMetrics sunucu metrik tablolarını hypertable'a çevirir, TSL'de
@@ -90,7 +91,7 @@ func (s *Store) tsServerMetrics(ctx context.Context, ext string, full bool) erro
 			continue
 		}
 		stmts := []string{
-			fmt.Sprintf(`SELECT %s.create_hypertable('%s', %s.by_range('time', CAST(%d AS BIGINT)), migrate_data => true)`, ext, t.name, ext, tsChunkDay),
+			fmt.Sprintf(`SELECT %s.create_hypertable('%s', %s.by_range('time', CAST(%d AS BIGINT)), migrate_data => true)`, ext, t.name, ext, t.chunk),
 			fmt.Sprintf(`SELECT %s.set_integer_now_func('%s', 'bekci_now')`, ext, t.name),
 		}
 		if full {
@@ -106,7 +107,10 @@ func (s *Store) tsServerMetrics(ctx context.Context, ext string, full bool) erro
 	if !full {
 		return nil
 	}
-	done, err := s.tsHas(ctx, "continuous_aggregates", "server_metrics_10m")
+	// server_metrics_1d en son eklenen özet: varsa hepsi güncel tanımdadır.
+	// Yoksa (yayınlanmamış geliştirme sürümünden gelen kurulum) eski özetler
+	// yeniden kurulur; kaynak ham tablolardan özet yeniden hesaplanır.
+	done, err := s.tsHas(ctx, "continuous_aggregates", "server_metrics_1d")
 	if err != nil || done {
 		return err
 	}
@@ -120,12 +124,26 @@ func (s *Store) tsServerMetrics(ctx context.Context, ext string, full bool) erro
 	ret := func(name string, days int64) string {
 		return fmt.Sprintf(`SELECT %s.add_retention_policy('%s', drop_after => CAST(%d AS BIGINT))`, ext, name, days*86400)
 	}
+	agg1d := `sum(cpu_avg * n) / sum(n) AS cpu_avg, max(cpu_max) AS cpu_max, sum(load1_avg * n) / sum(n) AS load1_avg,
+				sum(load5_avg * n) / sum(n) AS load5_avg, sum(load15_avg * n) / sum(n) AS load15_avg,
+				sum(mem_used_avg * n) / sum(n) AS mem_used_avg, max(mem_used_max) AS mem_used_max, max(mem_total) AS mem_total,
+				sum(mem_cache_avg * n) / sum(n) AS mem_cache_avg, sum(swap_used_avg * n) / sum(n) AS swap_used_avg, max(swap_total) AS swap_total,
+				sum(disk_read_avg * n) / sum(n) AS disk_read_avg, max(disk_read_max) AS disk_read_max,
+				sum(disk_write_avg * n) / sum(n) AS disk_write_avg, max(disk_write_max) AS disk_write_max,
+				sum(net_rx_avg * n) / sum(n) AS net_rx_avg, max(net_rx_max) AS net_rx_max,
+				sum(net_tx_avg * n) / sum(n) AS net_tx_avg, max(net_tx_max) AS net_tx_max, max(temp_max) AS temp_max`
 	cagg := "WITH (timescaledb.continuous, timescaledb.materialized_only = false)"
 	return s.tsExec(ctx, []string{
+		`DROP MATERIALIZED VIEW IF EXISTS server_metrics_1h CASCADE`,
+		`DROP MATERIALIZED VIEW IF EXISTS server_metrics_10m CASCADE`,
+		`DROP MATERIALIZED VIEW IF EXISTS server_disk_1h CASCADE`,
+		`DROP MATERIALIZED VIEW IF EXISTS server_container_1h CASCADE`,
 		`CREATE MATERIALIZED VIEW server_metrics_10m ` + cagg + ` AS
 			SELECT probe_id, ` + tb(600, "time") + ` AS bucket, count(*) AS n,
 				avg(cpu) AS cpu_avg, max(cpu) AS cpu_max, avg(load1) AS load1_avg,
+				avg(load5) AS load5_avg, avg(load15) AS load15_avg,
 				avg(mem_used) AS mem_used_avg, max(mem_used) AS mem_used_max, max(mem_total) AS mem_total,
+				avg(mem_cache) AS mem_cache_avg, avg(swap_used) AS swap_used_avg, max(swap_total) AS swap_total,
 				avg(disk_read_bps) AS disk_read_avg, max(disk_read_bps) AS disk_read_max,
 				avg(disk_write_bps) AS disk_write_avg, max(disk_write_bps) AS disk_write_max,
 				avg(net_rx_bps) AS net_rx_avg, max(net_rx_bps) AS net_rx_max,
@@ -137,7 +155,9 @@ func (s *Store) tsServerMetrics(ctx context.Context, ext string, full bool) erro
 		`CREATE MATERIALIZED VIEW server_metrics_1h ` + cagg + ` AS
 			SELECT probe_id, ` + tb(3600, "bucket") + ` AS bucket, CAST(sum(n) AS BIGINT) AS n,
 				sum(cpu_avg * n) / sum(n) AS cpu_avg, max(cpu_max) AS cpu_max, sum(load1_avg * n) / sum(n) AS load1_avg,
+				sum(load5_avg * n) / sum(n) AS load5_avg, sum(load15_avg * n) / sum(n) AS load15_avg,
 				sum(mem_used_avg * n) / sum(n) AS mem_used_avg, max(mem_used_max) AS mem_used_max, max(mem_total) AS mem_total,
+				sum(mem_cache_avg * n) / sum(n) AS mem_cache_avg, sum(swap_used_avg * n) / sum(n) AS swap_used_avg, max(swap_total) AS swap_total,
 				sum(disk_read_avg * n) / sum(n) AS disk_read_avg, max(disk_read_max) AS disk_read_max,
 				sum(disk_write_avg * n) / sum(n) AS disk_write_avg, max(disk_write_max) AS disk_write_max,
 				sum(net_rx_avg * n) / sum(n) AS net_rx_avg, max(net_rx_max) AS net_rx_max,
@@ -145,7 +165,13 @@ func (s *Store) tsServerMetrics(ctx context.Context, ext string, full bool) erro
 			FROM server_metrics_10m GROUP BY 1, 2 WITH NO DATA`,
 		pol("server_metrics_1h", 3*86400, 3600, "30 minutes"),
 		ret("server_metrics_1h", 730),
-		// Disk dolma tahmini (660): regr_slope(used_max, bucket).
+		`CREATE MATERIALIZED VIEW server_metrics_1d ` + cagg + ` AS
+			SELECT probe_id, ` + tb(86400, "bucket") + ` AS bucket, CAST(sum(n) AS BIGINT) AS n,
+				` + agg1d + `
+			FROM server_metrics_1h GROUP BY 1, 2 WITH NO DATA`,
+		pol("server_metrics_1d", 7*86400, 86400, "6 hours"),
+		ret("server_metrics_1d", 1825),
+		// Disk dolma tahmini (660): servers.Forecast saatlik noktalardan hesaplar.
 		`CREATE MATERIALIZED VIEW server_disk_1h ` + cagg + ` AS
 			SELECT probe_id, mount, ` + tb(3600, "time") + ` AS bucket,
 				min(used) AS used_min, max(used) AS used_max, max(total) AS total

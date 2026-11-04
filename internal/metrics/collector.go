@@ -75,6 +75,11 @@ type memStat struct {
 	SwapTotal, SwapFree                                   uint64
 }
 
+// eventSource anlık olay üreten kaynak (Linux: OOM). Windows'ta yoktur.
+type eventSource interface {
+	hostEvents(now time.Time) []HostEvent
+}
+
 // ioCounter iki kümülatif sayaç: disklerde okunan/yazılan, ağda alınan/gönderilen bayt.
 type ioCounter struct{ A, B uint64 }
 
@@ -184,6 +189,9 @@ func (c *Collector) Collect(ctx context.Context) (Sample, bool) {
 		st.Temps = filterTemps(ts)
 	}
 	st.Containers, host.Docker = c.containers(ctx, host.Threads, host.MemTotal)
+	if e, ok := c.src.(eventSource); ok {
+		s.Events = e.hostEvents(now) // ilk çağrı başlangıç noktasını kurar
+	}
 
 	prev := c.prev
 	c.prev = cur

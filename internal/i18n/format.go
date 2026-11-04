@@ -74,7 +74,7 @@ func MetricValue(lang, metric string, v float64) string {
 		return Decimal(lang, v, 2)
 	case "temp":
 		return fmt.Sprintf("%.0f °C", v)
-	case "cert":
+	case "cert", "disk_forecast":
 		if lang == EN {
 			return fmt.Sprintf("%.0f days", v)
 		}

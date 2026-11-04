@@ -1217,6 +1217,16 @@ paths:
       responses: { "204": { description: Kaydedildi }, "404": { description: Sertifika bulunamadı } }
   /api/servers/{id}/events:
     get: { tags: [servers], summary: Uyarı olayları, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: "{events[]}" } } }
+  /api/servers/{id}/timeline:
+    get:
+      tags: [servers]
+      summary: Sunucu olay zaman çizelgesi (OOM, yeniden başlatma, servis, konteyner, port, uyarı)
+      parameters:
+        - { $ref: "#/components/parameters/id" }
+        - { name: before, in: query, description: "Bu unix saniyesinden önceki sayfa", schema: { type: integer, format: int64 } }
+        - { name: limit, in: query, description: "Sayfa boyutu (1-200, varsayılan 50)", schema: { type: integer } }
+        - { name: kind, in: query, description: "Virgülle ayrılmış olay türleri", schema: { type: string } }
+      responses: { "200": { description: "{events[], more}" } }
   /api/servers/{id}/incidents:
     get: { tags: [servers], summary: Sunucunun olayları, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Incident" } } } } } } }
   /api/servers/{id}/alerts:

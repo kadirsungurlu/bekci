@@ -360,7 +360,7 @@ var errorsEN = map[string]string{
 	"En fazla %d monitör seçilebilir":                                                     "You can select at most %d monitors",
 	"En az bir monitör ya da sunucu seçin veya tüm monitörleri seçin":                     "Select at least one monitor or server, or select all monitors",
 	"En fazla %d sunucu seçilebilir":                                                      "You can select at most %d servers",
-	"Metrik cpu, mem, swap, disk, load, temp, net, offline, container veya reboot olmalı": "Metric must be cpu, mem, swap, disk, load, temp, net, offline, container or reboot",
+	"Metrik cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast veya disk_fast olmalı": "Metric must be cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast or disk_fast",
 	"Konteyner adı harf, rakam, alt çizgi, nokta ve tireden oluşmalı":                     "Container name may contain letters, digits, underscores, dots and hyphens",
 	"%s konteyneri için birden fazla kural olamaz":                                        "There can't be more than one rule for container %s",
 	"%s uyarı eşiği %s ile kritik eşik arasında olmalı":                                   "%s warning threshold must be between %s and the critical threshold",

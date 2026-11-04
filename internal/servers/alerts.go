@@ -22,10 +22,14 @@ const (
 	MetricOffline   = "offline"   // veri gelmiyor
 	MetricContainer = "container" // Docker konteyneri çalışmıyor / yeniden başlıyor (mount = ad; "" = herhangi biri)
 	MetricReboot    = "reboot"    // sunucu yeniden başlatıldı (yalnızca bildirim; eşik ve süre yok)
+	// Disk eğilimi (en kötü bölüm). Tahmin: eşik gün, küçük değer kötü.
+	// Hızlı dolum: eşik puan (%), Minutes pencere.
+	MetricDiskForecast = "disk_forecast"
+	MetricDiskFast     = "disk_fast"
 )
 
 // Metrics geçerli uyarı metrikleri (arayüzdeki sırayla).
-var Metrics = []string{MetricOffline, MetricCPU, MetricMem, MetricDisk, MetricSwap, MetricLoad, MetricTemp, MetricNet, MetricContainer, MetricReboot}
+var Metrics = []string{MetricOffline, MetricCPU, MetricMem, MetricDisk, MetricSwap, MetricLoad, MetricTemp, MetricNet, MetricContainer, MetricReboot, MetricDiskForecast, MetricDiskFast}
 
 // ValidMetric metriğin geçerli olup olmadığını söyler.
 func ValidMetric(m string) bool {
@@ -53,6 +57,8 @@ func ThresholdRange(metric string) (lo, hi float64) {
 		return 0.1, 1000000 // Mbit/s (0,1 – 1.000.000 = 1 Tbit/s)
 	case MetricOffline, MetricContainer, MetricReboot:
 		return 0, 0
+	case MetricDiskForecast:
+		return 1, 365
 	}
 	return 1, 100
 }
@@ -66,6 +72,8 @@ func DefaultRules() []store.ServerAlert {
 		{Metric: MetricMem, Threshold: 90, Minutes: 10, Active: true},
 		{Metric: MetricDisk, Threshold: 85, Minutes: 1, Active: true},
 		{Metric: MetricReboot, Minutes: 1, Active: true},
+		{Metric: MetricDiskForecast, Threshold: 7, Minutes: 1, Active: true},
+		{Metric: MetricDiskFast, Threshold: 5, Minutes: 60, Active: true},
 	}
 }
 
@@ -300,7 +308,8 @@ func knownContainers(h []point) []string {
 // değişebilir (seviye değişimi bildirilir). Tetiklenme durumu
 // veritabanındadır; yeniden başlatma aynı uyarıyı tekrar bildirmez.
 // Bakım penceresindeki sunucuda yeni uyarı açılmaz ve bildirim gitmez.
-func (s *Service) evaluate(ctx context.Context, p store.Probe, host *metrics.Host, t int64, now time.Time) ([]store.ServerAlert, error) {
+func (s *Service) evaluate(ctx context.Context, p store.Probe, host *metrics.Host, st *metrics.Stats, t int64, now time.Time) ([]store.ServerAlert, error) {
+	forecasts := s.updateForecasts(ctx, p.ID, st, now)
 	rules, err := s.store.ServerAlerts(ctx, p.ID)
 	if err != nil {
 		return nil, err
@@ -326,6 +335,10 @@ func (s *Service) evaluate(ctx context.Context, p store.Probe, host *metrics.Hos
 		}
 		if a.Metric == MetricContainer {
 			s.evaluateContainer(ctx, p, host, a, h, t, now)
+			continue
+		}
+		if a.Metric == MetricDiskForecast || a.Metric == MetricDiskFast {
+			s.evaluateDiskTrend(ctx, p, host, a, h, forecasts, t, now)
 			continue
 		}
 		v, ok := windowAvg(h, a.Metric, a.Mount, a.Minutes, t)
@@ -534,6 +547,7 @@ func (s *Service) fire(ctx context.Context, p store.Probe, host *metrics.Host, a
 		return
 	}
 	s.log.Warn("sunucu uyarısı", "sunucu", p.Name, "metrik", a.Metric, "deger", fmt.Sprintf("%.1f", v), "esik", a.Threshold, "seviye", a.Level)
+	s.timeline(ctx, timelineEvent(p.ID, now.Unix(), EventAlert, alertSubject(a.Metric, mount), alertLevel(a.Level), alertData(a, v, mount)))
 	if s.notifier != nil {
 		ev := s.event(notify.KindServerAlert, p, host, a, v, now, mount)
 		// Gönderim sonucu (veya "bağlı kanal yok") olayın işlem geçmişine yazılsın.
@@ -572,9 +586,14 @@ func (s *Service) changeLevel(ctx context.Context, p store.Probe, host *metrics.
 	s.notifier.Notify(ev)
 }
 
+// diskRule olayda bölüm taşıyan disk kuralları.
+func diskRule(m string) bool {
+	return m == MetricDisk || m == MetricDiskForecast || m == MetricDiskFast
+}
+
 // alertMountFiring tetiklenmiş kuralın olaydaki bölümü (disk) ya da kuralın bölümü.
 func alertMountFiring(ctx context.Context, s *Service, a *store.ServerAlert) string {
-	if a.Metric == MetricDisk && a.Mount == "" {
+	if diskRule(a.Metric) && a.Mount == "" {
 		if m, err := s.store.OpenServerAlertMount(ctx, a.ID); err == nil {
 			return m
 		}
@@ -588,7 +607,7 @@ func alertMountFiring(ctx context.Context, s *Service, a *store.ServerAlert) str
 // sunucuda olay kapanır ama bildirim gitmez.
 func (s *Service) resolve(ctx context.Context, p store.Probe, host *metrics.Host, a *store.ServerAlert, v float64, now time.Time, detail func(*notify.Event)) {
 	mount := a.Mount
-	if (a.Metric == MetricDisk || a.Metric == MetricContainer) && mount == "" {
+	if (diskRule(a.Metric) || a.Metric == MetricContainer) && mount == "" {
 		var err error
 		if mount, err = s.store.OpenServerAlertMount(ctx, a.ID); err != nil {
 			s.log.Error("sunucu uyarısının bölümü okunamadı", "sunucu", p.Name, "hata", err)
@@ -619,6 +638,7 @@ func (s *Service) resolve(ctx context.Context, p store.Probe, host *metrics.Host
 		return
 	}
 	s.log.Info("sunucu uyarısı bitti", "sunucu", p.Name, "metrik", a.Metric, "bolum", mount)
+	s.timeline(ctx, timelineEvent(p.ID, now.Unix(), EventAlertResolved, alertSubject(a.Metric, mount), store.EventInfo, alertData(a, v, mount)))
 	if s.notifier != nil && !s.InMaintenance(p.ID, now) {
 		a.Level = prevLevel
 		ev := s.event(notify.KindServerResolved, p, host, a, v, now, mount)

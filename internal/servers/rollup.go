@@ -149,7 +149,8 @@ func aggregateContainers(in []metrics.Stats) []metrics.Container {
 // rollup yeni 1 dk satırı (t) önceki satırdan (prev) sonra bir 10 dk
 // sınırını geçtiyse prev'in 10 dk'lık kovasını veritabanındaki 1 dk
 // satırlarından hesaplayıp yazar; saat sınırı geçildiyse saatlik kovayı da 10 dk
-// satırlarından. Bellekte durum tutmaz: yeniden başlatmadan sonra da doğru
+// satırlarından, gün (UTC) sınırı geçildiyse günlük kovayı saatlik satırlardan.
+// Bellekte durum tutmaz: yeniden başlatmadan sonra da doğru
 // çalışır, aynı kovayı tekrar yazmak zararsızdır (upsert).
 func (s *Service) rollup(ctx context.Context, id, prev, t int64) error {
 	if b := prev - prev%600; b != t-t%600 {
@@ -158,7 +159,12 @@ func (s *Service) rollup(ctx context.Context, id, prev, t int64) error {
 		}
 	}
 	if b := prev - prev%3600; b != t-t%3600 {
-		return s.rollupBucket(ctx, id, store.ServerRes10, store.ServerRes60, b, 3600)
+		if err := s.rollupBucket(ctx, id, store.ServerRes10, store.ServerRes60, b, 3600); err != nil {
+			return err
+		}
+	}
+	if b := prev - prev%86400; b != t-t%86400 {
+		return s.rollupBucket(ctx, id, store.ServerRes60, store.ServerRes1440, b, 86400)
 	}
 	return nil
 }

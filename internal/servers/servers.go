@@ -72,6 +72,8 @@ type Service struct {
 	history map[int64][]point  // son historyKeep dakikanın özet değerleri
 	lastRow map[int64]int64    // son 1 dk satırının zamanı (özet sınırı tespiti)
 	loaded  map[int64]struct{} // history veritabanından yüklendi mi
+	// forecasts disk tahminleri (bkz. updateForecasts).
+	forecasts map[int64]*forecastEntry
 
 	// maint sunucuları kapsayan etkin bakım pencereleri (ReloadMaintenance).
 	maint atomic.Pointer[maintenance.Index]
@@ -123,12 +125,13 @@ type sample struct {
 func New(st *store.Store, hub Publisher, n Notifier, log *slog.Logger) *Service {
 	return &Service{
 		store: st, hub: hub, notifier: n, log: log, now: time.Now,
-		states:  map[int64]string{},
-		armed:   map[int64]time.Time{},
-		latest:  map[int64]*sample{},
-		history: map[int64][]point{},
-		lastRow: map[int64]int64{},
-		loaded:  map[int64]struct{}{},
+		states:    map[int64]string{},
+		armed:     map[int64]time.Time{},
+		latest:    map[int64]*sample{},
+		history:   map[int64][]point{},
+		lastRow:   map[int64]int64{},
+		loaded:    map[int64]struct{}{},
+		forecasts: map[int64]*forecastEntry{},
 	}
 }
 
@@ -192,6 +195,7 @@ func (s *Service) Forget(id int64) {
 	delete(s.history, id)
 	delete(s.lastRow, id)
 	delete(s.loaded, id)
+	delete(s.forecasts, id)
 	s.mu.Unlock()
 	delete(s.states, id)
 	delete(s.armed, id)
@@ -233,6 +237,9 @@ func (s *Service) Ingest(ctx context.Context, p store.Probe, smp metrics.Sample)
 	// Yeniden başlatma: açılış zamanı öncekinden ileriye kaydı (tolerans payıyla).
 	if smp.Host != nil && prevHost != nil && prevHost.BootTime > 0 && smp.Host.BootTime > prevHost.BootTime+rebootGrace {
 		s.rebooted(ctx, p, smp.Host, now)
+	}
+	if ev := hostEvents(p.ID, smp.Events, now); len(ev) > 0 {
+		s.timeline(ctx, ev...)
 	}
 
 	if smp.Stats == nil {
@@ -278,7 +285,7 @@ func (s *Service) Ingest(ctx context.Context, p store.Probe, smp metrics.Sample)
 			s.log.Error("sunucu özetleri yazılamadı", "sunucu", p.Name, "hata", err)
 		}
 	}
-	rules, err := s.evaluate(ctx, p, host, t, now)
+	rules, err := s.evaluate(ctx, p, host, smp.Stats, t, now)
 	if err != nil {
 		s.log.Error("sunucu uyarıları değerlendirilemedi", "sunucu", p.Name, "hata", err)
 	}
@@ -294,6 +301,7 @@ func (s *Service) rebooted(ctx context.Context, p store.Probe, host *metrics.Hos
 	if err := s.store.RecordServerEvent(ctx, p.ID, MetricReboot, float64(host.BootTime), now.Unix()); err != nil {
 		s.log.Error("yeniden başlatma kaydı yazılamadı", "sunucu", p.Name, "hata", err)
 	}
+	s.timeline(ctx, timelineEvent(p.ID, now.Unix(), EventReboot, "", store.EventWarning, map[string]any{"boot_time": host.BootTime}))
 	rule, err := s.store.ServerAlertByMetric(ctx, p.ID, MetricReboot)
 	if err != nil || !rule.Active || s.notifier == nil || s.InMaintenance(p.ID, now) {
 		return

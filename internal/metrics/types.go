@@ -14,6 +14,7 @@ const (
 	MaxContainers = 200
 	MaxText       = 128
 	MaxBodyBytes  = 256 << 10
+	MaxEvents     = 50
 )
 
 // Sample ajanın tek gönderimi. Stats ile Unavailable'dan yalnızca biri doludur.
@@ -22,6 +23,22 @@ type Sample struct {
 	Host        *Host  `json:"host,omitempty"`        // sabit bilgiler; her örnekte gönderilir
 	Stats       *Stats `json:"stats,omitempty"`       // ölçümler
 	Unavailable string `json:"unavailable,omitempty"` // metrik toplanamıyorsa nedeni (ör. host bağlanmamış)
+	// Events son gönderimden beri görülen anlık olaylar. Eski panel alanı yok
+	// sayar; eski ajan göndermez. Ajan gönderim başarılı olana dek saklar;
+	// tekrar gelen olay panelde (zaman, tür, konu) ile elenir.
+	Events []HostEvent `json:"events,omitempty"`
+}
+
+// HostEventOOM çekirdeğin bellek yetmeyince süreç öldürmesi.
+const HostEventOOM = "oom"
+
+// HostEvent ajanın sunucuda gördüğü anlık olay.
+type HostEvent struct {
+	Time    int64  `json:"time"`              // unix saniye (ajan saati)
+	Kind    string `json:"kind"`              // HostEventOOM
+	Subject string `json:"subject,omitempty"` // süreç adı ("" : ad okunamadı, yalnız sayaç arttı)
+	PID     int    `json:"pid,omitempty"`
+	Count   int    `json:"count,omitempty"` // aynı turda aynı konuda kaç kez
 }
 
 // Host sunucunun sabit (nadiren değişen) bilgileri.
@@ -140,6 +157,14 @@ func pct(used, total uint64) float64 {
 // (negatif/NaN sayılar 0, yüzdeler 0-100, metinler MaxText).
 func (s *Sample) Sanitize() {
 	s.Unavailable = clip(s.Unavailable)
+	if len(s.Events) > MaxEvents {
+		s.Events = s.Events[:MaxEvents]
+	}
+	for i := range s.Events {
+		e := &s.Events[i]
+		e.Kind, e.Subject = clip(e.Kind), clip(e.Subject)
+		e.PID, e.Count = max(e.PID, 0), max(e.Count, 1)
+	}
 	if h := s.Host; h != nil {
 		for _, p := range []*string{&h.Hostname, &h.OS, &h.Platform, &h.Kernel, &h.Arch, &h.CPUModel} {
 			*p = clip(*p)

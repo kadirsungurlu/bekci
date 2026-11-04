@@ -841,6 +841,7 @@ func (c *Client) metricsLoop(ctx context.Context) {
 	timer.Stop()
 	defer timer.Stop()
 	lastReason := ""
+	var pending []metrics.HostEvent
 	for {
 		select {
 		case <-ctx.Done():
@@ -887,7 +888,16 @@ func (c *Client) metricsLoop(ctx context.Context) {
 				}
 				lastReason = s.Unavailable
 			}
-			c.sendMetrics(ctx, s)
+			// Olaylar ölçüm gibi tek kullanımlık değil: kopuklukta sonraki
+			// örnekle gider (panel yinelenenleri eler).
+			pending = append(pending, s.Events...)
+			if over := len(pending) - metrics.MaxEvents; over > 0 {
+				pending = pending[over:]
+			}
+			s.Events = pending
+			if c.sendMetrics(ctx, s) {
+				pending = nil
+			}
 		}
 	}
 }
@@ -895,18 +905,22 @@ func (c *Client) metricsLoop(ctx context.Context) {
 // sendMetrics tek örneği gönderir. Gönderilemeyen örnek saklanmaz, bir sonraki
 // aralıkta yerine yenisi gider (eski ölçümleri biriktirmenin anlamı yok).
 // 401/403'te iş listesi yoklaması da aynı yanıtı alır ve metrikleri durdurur.
-func (c *Client) sendMetrics(ctx context.Context, s metrics.Sample) {
+// Dönüş: örnek yerine ulaştı ya da tekrar denemek işe yaramaz.
+func (c *Client) sendMetrics(ctx context.Context, s metrics.Sample) bool {
 	status, err := c.call(ctx, http.MethodPost, "/api/probe/metrics", s, nil)
 	switch {
 	case err != nil:
 		if ctx.Err() == nil {
 			c.unreachable("metrics", err)
 		}
+		return false
 	case status >= 200 && status < 300:
 		c.reachable("metrics")
 		c.metricsBad = 0
+		return true
 	case status == http.StatusTooManyRequests || status >= 500:
 		c.unreachable("metrics", fmt.Errorf("sunucu yanıtı: %d", status))
+		return false
 	default:
 		// 400/413 veya yetki hatası: aynı örneği tekrar göndermek düzeltmez.
 		c.reachable("metrics")
@@ -914,6 +928,7 @@ func (c *Client) sendMetrics(ctx context.Context, s metrics.Sample) {
 			c.metricsBad = status
 			c.log.Warn("metrik örneği kabul edilmedi", "durum", status)
 		}
+		return true
 	}
 }
 

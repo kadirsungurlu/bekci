@@ -40,9 +40,16 @@ func (s *Service) IngestInventory(ctx context.Context, p store.Probe, inv metric
 	}
 	inv.Sanitize()
 	now := s.now()
+	// Olaylar zaman çizelgesine yalnız kayıt başarılıysa yazılır (aksi halde
+	// sonraki tur aynı farkı yeniden görür).
+	prev, err := s.store.LoadInventory(ctx, p.ID)
+	if err != nil {
+		return err
+	}
 	if err := s.store.SaveInventory(ctx, p.ID, now.Unix(), inv); err != nil {
 		return err
 	}
+	s.timeline(ctx, inventoryChanges(p.ID, prev, inv, now.Unix())...)
 	st, err := s.store.LoadSettings(ctx)
 	if err != nil {
 		return err
