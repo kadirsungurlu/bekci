@@ -243,6 +243,21 @@ Sertifikanın bitmesine 14, 7 ve 1 gün kala olay açılır ve sunucunun bildiri
 
 Windows'ta şimdilik yalnız disk bölümleri toplanır; servis ve port listesi desteklenmez. Docker içinde çalışan ajan, sunucunun dosya sistemi bağlıysa (`HOST_ROOT`, `HOST_PROC`, `HOST_SYS`) servisleri ve portları görür. Eski sürüm ajanlar envanter göndermez; sekme bu durumda ajanı güncellemenizi söyler.
 
+## Sunucu olayları ve disk tahmini {#olaylar}
+
+Sunucu sayfasındaki **Olaylar** sekmesi şunları tarih sırasıyla gösterir: yeniden başlatma, bellek yetmediği için kapatılan süreç (OOM), çöken ya da düzelen servis, duran, yeniden başlayan, güncellenen konteyner, açılan ya da kapanan port, başlayan ve biten uyarılar. Kayıtlar bir yıl saklanır.
+
+OOM için ajan `/proc/vmstat` sayacını izler; süreç adını `/dev/kmsg` satırından alır. Çekirdek günlüğü okunamıyorsa olay yine kaydedilir, süreç adı boş kalır. Servis, konteyner ve port olayları envanter turuyla (5 dakikada bir) yakalanır.
+
+**Disk tahmini:** panel her bölümün son 7 günlük saatlik doluluğundan büyüme hızını hesaplar. Sunucu sayfasının Diskler tablosunda kalan gün ve günlük büyüme, Sunucular listesinde 30 günden kısa kalan bölüm için uyarı görünür. Tahmin için en az 12 saatlik veri gerekir; o zamana kadar "Veri toplanıyor" yazar. Doluluk artmıyorsa "Sabit" yazar.
+
+İki uyarı kuralı her sunucuda varsayılan olarak açıktır, eşikleri sunucunun Ayarlar penceresinden değiştirilir:
+
+- **Disk dolma tahmini:** bir bölüm 7 gün içinde dolacaksa uyarı olayı açılır ve bildirim gider. Kalan süre eşiğin 1,5 katını aşınca kapanır. Düzensiz büyümede (R² 0,5 altı) yeni uyarı açılmaz.
+- **Hızlı disk dolumu:** bir bölüm son 60 dakikada 5 puan ya da daha çok dolarsa uyarır. Artış eşiğin %60'ının altına inince kapanır.
+
+Eski panel `events` alanını yok sayar; eski ajan olay göndermez, envanterden gelen olaylar ve tahmin yine çalışır.
+
 ## Güncelleme {#guncelleme}
 
 Bekci 1.4.0 ve sonrasında kurulan ajanlar **kendini günceller**: Bekci'yi yeni bir sürüme yükselttiğinizde sunucu ajanları ve kontrol noktaları birkaç saniye içinde aynı sürüme geçer. Ajan, panelden gelen programı yalnızca **projenin imzası** doğrulanırsa kurar. İmzanın açık anahtarı ajanın içine gömülüdür; özel anahtar yalnızca resmi sürüm derlemesinde kullanılır. Bu yüzden panelinizin bulunduğu sunucu ele geçirilse bile sunucularınıza imzasız ya da değiştirilmiş bir program inmez ve ajan eski bir sürüme döndürülemez.

@@ -243,6 +243,21 @@ An incident opens and the server's notification channels are alerted 14, 7 and 1
 
 On Windows only disk partitions are collected for now; services and ports are not supported. An agent running in Docker sees services and ports when the host file system is mounted (`HOST_ROOT`, `HOST_PROC`, `HOST_SYS`). Older agents do not send an inventory; the tab then asks you to update the agent.
 
+## Server events and disk forecast {#events}
+
+The **Events** tab on the server page lists, in time order: reboots, processes killed for lack of memory (OOM), failed or recovered services, stopped, restarted or updated containers, opened or closed ports, and alerts starting and ending. Records are kept for one year.
+
+For OOM the agent watches the `/proc/vmstat` counter and reads the process name from `/dev/kmsg`. If the kernel log cannot be read the event is still stored, without a process name. Service, container and port events come from the inventory round (every 5 minutes).
+
+**Disk forecast:** the panel derives each partition's growth rate from the last 7 days of hourly usage. The Disks table on the server page shows days left and daily growth; the Servers list flags partitions with under 30 days left. A forecast needs at least 12 hours of data, until then it reads "Collecting data". If usage is not growing it reads "Stable".
+
+Two alert rules are on by default for every server; change the thresholds in the server's Settings dialog:
+
+- **Disk full forecast:** opens an alert and notifies when a partition will be full within 7 days. It closes once the time left exceeds 1.5 times the threshold. Irregular growth (R² under 0.5) does not open a new alert.
+- **Rapid disk growth:** alerts when a partition grows by 5 points or more within 60 minutes. It closes when the rise falls under 60% of the threshold.
+
+Older panels ignore the `events` field; older agents send no events, but inventory-based events and the forecast still work.
+
 ## Updating {#update}
 
 Agents installed with Bekci 1.4.0 or later **update themselves**: when you upgrade Bekci, server agents and check locations switch to the same version within seconds. An agent installs the program from the panel only if the **project signature** verifies. The signature's public key is built into the agent, and the private key is only used by the official release build. So even if the server running your panel is compromised, no unsigned or modified program lands on your servers, and agents can't be downgraded.

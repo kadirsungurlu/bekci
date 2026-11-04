@@ -338,6 +338,7 @@
 
   const TONE_ICON = { up: 'server', warn: 'alert', down: 'server', muted: 'server' } as const;
   let pageTab = $state<'overview' | 'inventory' | 'timeline'>('overview');
+  const fullText = (d: number) => (d < 1 ? t('servers.detail.disks.fullSoon') : t('servers.detail.disks.fullIn', { d: fmtDays(d) }));
   const forecastOf = (mount: string) => view?.disk_forecast?.find((f) => f.mount === mount) ?? null;
   const PILL = { up: 'up', warn: 'pending', down: 'down', muted: 'paused' } as const;
 </script>
@@ -416,7 +417,7 @@
               ? tParts('servers.detail.firingOffline')
               : tParts('servers.detail.firingOver', {
                   threshold: fmtMetric(r.metric, r.threshold),
-                  avg: r.minutes ? t('servers.detail.firingAvg', { n: r.minutes }) : '',
+                  avg: r.metric === 'disk_forecast' ? '' : r.metric === 'disk_fast' ? t('servers.detail.firingWindow', { n: r.minutes }) : r.minutes ? t('servers.detail.firingAvg', { n: r.minutes }) : '',
                 })}
           {#each parts as p, j (j)}{#if p.slot === 'metric'}<b>{metricLabel(r.metric)}{r.mount ? ` (${r.mount})` : ''}</b>{:else}{p.text}{/if}{/each}
           {#if r.fired_at}<span class="muted"> · {fmtRelative(r.fired_at, now)}</span>{/if}
@@ -650,7 +651,7 @@
               <td data-label={t('servers.detail.disks.forecast')} class="fc">
                 {#if forecastOf(d.mount)?.status === 'growing' && forecastOf(d.mount)?.days != null}
                   {@const fc = forecastOf(d.mount)!}
-                  <span class="nowrap" class:c-down={fc.days! <= 7} class:c-pending={fc.days! > 7 && fc.days! <= 30}>{t('servers.detail.disks.fullIn', { d: fmtDays(fc.days!) })}</span>
+                  <span class="nowrap" class:c-down={fc.days! <= 7} class:c-pending={fc.days! > 7 && fc.days! <= 30}>{fullText(fc.days!)}</span>
                   <span class="muted small nowrap">{t('servers.detail.disks.perDay', { v: fmtBytes(fc.per_day) })}</span>
                 {:else}
                   <span class="muted small">{forecastOf(d.mount)?.status === 'flat' ? t('servers.detail.disks.stable') : t('servers.detail.disks.learning')}</span>

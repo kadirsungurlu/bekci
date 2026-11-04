@@ -178,6 +178,7 @@ export default {
   },
   list: {
     fullIn: '{d} sonra dolar',
+    fullSoon: '1 günden kısa sürede dolar',
     fullInTitle: '{mount} bölümü yaklaşık {d} sonra dolacak',
     title: 'Sunucular',
     online: '{count} çevrimiçi',
@@ -226,6 +227,7 @@ export default {
     firingOffline: '{metric} uyarısı sürüyor',
     firingOver: '{metric} eşiği aşıldı (eşik {threshold}{avg})',
     firingAvg: ', {n} dk ortalama',
+    firingWindow: ', {n} dk içinde',
     threads: '{count} iş parçacığı',
     swapPart: ' · swap {pct}',
     diskFree: '{mount} · {free} boş',
@@ -278,6 +280,7 @@ export default {
     disks: {
       forecast: 'Tahmin',
       fullIn: '{d} sonra dolar',
+      fullSoon: '1 günden kısa sürede dolar',
       perDay: 'günde {v}',
       stable: 'Sabit',
       learning: 'Veri toplanıyor',

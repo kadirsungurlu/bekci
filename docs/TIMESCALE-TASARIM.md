@@ -243,6 +243,8 @@ olarak iki commit grubu, tek iş numarası altında yeterli. Ayrı iş numarası
 - `mesh_samples` ve `server_*_metrics` yalnız TSL kipinde yazılıyor (düz PG/SQLite'ta okuyan ve saklama yok); okuma 660.
 - Parça aralığı sabit 1 gün (monitör sayısına göre ayar 620). Apache kipi kodda var, CI'da denenmedi.
 
+Not (660): disk eğimi tasarımdaki `regr_slope` yerine Go'da hesaplanır; aynı yol düz PG ve SQLite'ta da çalışır, eski dönem `server_stats` ile birleşir. Sürekli özet kümesine `server_metrics_1d` (saklama 5 yıl) eklendi; olaylar `server_events` tablosunda (365 gün).
+
 ## 10. Açık sorular (kullanıcı)
 1. Ham kontrol kaydı varsayılan saklaması 14 -> 30 gün olsun mu? (Öneri: 30; 7 gün sonrası sıkıştırıldığı için ek disk küçük, 620 ölçecek.)
 2. Yerel gün çubuklarında yarım saatlik saat dilimi yuvarlaması kabul mü? (Öneri: kabul, belgeye yaz.)

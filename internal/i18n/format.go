@@ -75,6 +75,10 @@ func MetricValue(lang, metric string, v float64) string {
 	case "temp":
 		return fmt.Sprintf("%.0f °C", v)
 	case "cert", "disk_forecast":
+		// "yaklaşık 0 gün sonra" yerine en az 1 gün yazılır.
+		if metric == "disk_forecast" {
+			v = max(v, 1)
+		}
 		if lang == EN {
 			return fmt.Sprintf("%.0f days", v)
 		}

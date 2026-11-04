@@ -176,6 +176,9 @@ jobs:
       - name: Sunucu envanteri uçtan uca
         working-directory: web/e2e
         run: node envanter.mjs
+      - name: Sunucu olayları uçtan uca
+        working-directory: web/e2e
+        run: node sunucu-olaylar.mjs
       - name: Panel günlüğü
         if: failure()
         run: tail -n 80 "$RUNNER_TEMP/panel.log" || true

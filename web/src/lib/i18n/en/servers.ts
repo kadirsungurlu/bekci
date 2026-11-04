@@ -179,6 +179,7 @@ export default {
   },
   list: {
     fullIn: 'full in {d}',
+    fullSoon: 'full in under a day',
     fullInTitle: 'Partition {mount} will be full in about {d}',
     title: 'Servers',
     online: '{count} online',
@@ -227,6 +228,7 @@ export default {
     firingOffline: '{metric} alert ongoing',
     firingOver: '{metric} over threshold (threshold {threshold}{avg})',
     firingAvg: ', {n}-min average',
+    firingWindow: ', within {n} min',
     threads: '{count} thread|{count} threads',
     swapPart: ' · swap {pct}',
     diskFree: '{mount} · {free} free',
@@ -279,6 +281,7 @@ export default {
     disks: {
       forecast: 'Forecast',
       fullIn: 'full in {d}',
+      fullSoon: 'full in under a day',
       perDay: '{v} per day',
       stable: 'Stable',
       learning: 'Collecting data',

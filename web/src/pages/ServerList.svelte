@@ -253,7 +253,7 @@
               </div>
               {#if nearFull(s)}
                 {@const fc = nearFull(s)!}
-                <span class="dfc" class:crit={fc.days! <= 7} title={t('servers.list.fullInTitle', { mount: fc.mount, d: fmtDays(fc.days!) })}>{t('servers.list.fullIn', { d: fmtDays(fc.days!) })}</span>
+                <span class="dfc" class:crit={fc.days! <= 7} title={t('servers.list.fullInTitle', { mount: fc.mount, d: fmtDays(fc.days!) })}>{fc.days! < 1 ? t('servers.list.fullSoon') : t('servers.list.fullIn', { d: fmtDays(fc.days!) })}</span>
               {/if}
               {#if disks.length > 1}
                 <div class="dlist">
