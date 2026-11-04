@@ -40,3 +40,23 @@ func TestCgroupServices(t *testing.T) {
 		}
 	}
 }
+
+func TestParseProcNet(t *testing.T) {
+	tcp := `  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
+   0: 0100007F:1F90 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 111 1 0 100 0 0 10 0
+   1: 00000000:0050 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 222 1 0 100 0 0 10 0
+   2: 0100007F:C350 0100007F:0050 01 00000000:00000000 00:00000000 00000000     0        0 333 1 0 100 0 0 10 0
+`
+	got := parseProcNet(tcp, "tcp")
+	if len(got) != 2 || got[0].addr != "127.0.0.1" || got[0].port != 8080 || got[1].addr != "0.0.0.0" || got[1].port != 80 || got[1].inode != "222" {
+		t.Fatalf("tcp: %+v", got)
+	}
+	tcp6 := "   0: 00000000000000000000000000000000:01BB 00000000000000000000000000000000:0000 0A 0:0 0:0 0 0 0 444 1 0\n"
+	if g := parseProcNet(tcp6, "tcp"); len(g) != 1 || g[0].addr != "::" || g[0].port != 443 {
+		t.Fatalf("tcp6: %+v", g)
+	}
+	udp := "   0: 00000000:0035 00000000:0000 07 0:0 0:0 0 0 0 555 2 0\n   1: 00000000:D431 00000000:0000 07 0:0 0:0 0 0 0 556 2 0\n"
+	if g := parseProcNet(udp, "udp"); len(g) != 1 || g[0].port != 53 {
+		t.Fatalf("udp (geçici port atlanmalı): %+v", g)
+	}
+}
