@@ -270,7 +270,7 @@ func parseObject(payload []byte, v validator) error {
 	if head.Schema.String() != strconv.Itoa(SchemaVersion) {
 		return ErrSchema
 	}
-	if err := decodeStrict(payload, v); err != nil {
+	if err := DecodeStrict(payload, v); err != nil {
 		return err
 	}
 	return v.Validate()

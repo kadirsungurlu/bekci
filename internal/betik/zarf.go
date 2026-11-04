@@ -99,7 +99,7 @@ func ParseEnvelope(raw []byte) (*Envelope, error) {
 		return nil, errors.New("zarf boş ya da sınırın üstünde")
 	}
 	var w envelopeWire
-	if err := decodeStrict(raw, &w); err != nil {
+	if err := DecodeStrict(raw, &w); err != nil {
 		return nil, err
 	}
 	if !IsDigest(w.Key) {
@@ -139,10 +139,10 @@ func (e *Envelope) PayloadDigest() string { return Digest(e.Payload) }
 
 var jsonKeyRe = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
-// decodeStrict JSON'u katı çözer: yinelenen anahtar, küçük harf ve alt çizgi
+// DecodeStrict JSON'u katı çözer: yinelenen anahtar, küçük harf ve alt çizgi
 // dışında anahtar (encoding/json büyük-küçük harf ayırmaz, "Approval" da
 // eşleşirdi), bilinmeyen alan ve sondaki fazla veri reddedilir.
-func decodeStrict(data []byte, v any) error {
+func DecodeStrict(data []byte, v any) error {
 	if err := checkKeys(data); err != nil {
 		return err
 	}

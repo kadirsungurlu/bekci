@@ -113,6 +113,8 @@ func run() error {
 			return runProbe(log)
 		case "service":
 			return runServiceCommand(os.Args[2:])
+		case "betik":
+			return runBetik(os.Args[2:])
 		case "version", "surum":
 			fmt.Println(version)
 			return nil

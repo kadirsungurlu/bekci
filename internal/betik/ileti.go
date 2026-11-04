@@ -1,6 +1,9 @@
 package betik
 
-import "encoding/json"
+import (
+	"context"
+	"encoding/json"
+)
 
 // JobList GET /api/probe/jobs yanıtındaki "script_jobs" alanı.
 type JobList struct {
@@ -28,6 +31,9 @@ type Event struct {
 	Receipt json.RawMessage `json:"receipt,omitempty"`
 	Output  []byte          `json:"output,omitempty"` // base64
 }
+
+// SendFunc olayı panele iletir; HTTP durumu ve ağ hatası döner.
+type SendFunc func(ctx context.Context, ev *Event) (int, error)
 
 // Capability X-Probe-Scripts başlık değeri.
 func Capability(on bool, reason string) string {

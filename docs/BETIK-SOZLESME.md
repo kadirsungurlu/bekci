@@ -100,7 +100,7 @@ Panel `host_key`'i `X-Probe-Script-Key`'den hesaplar (`betik.KeyID`); bilinen an
 
 `betik.Code*` sabitleri, tek kaynak `internal/betik/kodlar.go`. Arayüz TR+EN metni bu kodlardan üretir:
 
-`disabled, config_invalid, state_invalid, insecure_panel, platform, clock_back, envelope_invalid, sig_invalid, schema_unknown, payload_invalid, expired, not_yet, revoked, version_rollback, version_jump, body_too_large, body_mismatch, group_denied, not_allowed, pin_mismatch, ticket_missing, ticket_sig_invalid, ticket_invalid, ticket_host, ticket_mismatch, ticket_expired, params_invalid, run_id_format, run_id_replay, rate_interval, rate_day, rate_hour, busy, state_write, exec_failed`
+`disabled, config_invalid, state_invalid, insecure_panel, platform, clock_back, envelope_invalid, sig_invalid, schema_unknown, payload_invalid, expired, not_yet, revoked, version_rollback, version_jump, body_too_large, body_mismatch, group_denied, not_allowed, pin_mismatch, ticket_missing, ticket_sig_invalid, ticket_invalid, ticket_host, ticket_mismatch, ticket_expired, params_invalid, run_id_format, run_id_replay, rate_interval, rate_day, rate_hour, busy, state_write`
 
 ## 7. Panelin bilmesi gereken ajan davranışları
 

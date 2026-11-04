@@ -12,6 +12,7 @@
 //	POST /api/probe/metrics  ← metrics.Sample: {"time": ms, "host": {...}, "stats": {...}} veya {"time": ms, "unavailable": "neden"}
 //	POST /api/probe/update   ← agentupdate.Report: {"status": "started|failed|rolled_back", "version": "1.3.1", "error": "..."}
 //	GET  /api/probe/binary?os=&arch= → ajan programı (güncelleme; imzalı bildirimle doğrulanır)
+//	POST /api/probe/script-result ← betik olayı (docs/BETIK-SOZLESME.md; iş listesinde "script_jobs")
 //
 // Her istek X-Probe-Version (çalışan sürüm) ve X-Probe-Platform ("linux/amd64";
 // güncelleme ajan tarafında kapalıysa ";off" ya da ";readonly" sonekiyle)
@@ -56,6 +57,7 @@ import (
 	"time"
 
 	"github.com/kadirsungurlu/bekci/internal/agentupdate"
+	"github.com/kadirsungurlu/bekci/internal/betik"
 	"github.com/kadirsungurlu/bekci/internal/check"
 	"github.com/kadirsungurlu/bekci/internal/metrics"
 	"github.com/kadirsungurlu/bekci/internal/schedule"
@@ -88,6 +90,9 @@ type Config struct {
 	// UpdateReport açılışta Updater.Startup'ın verdiği, panele iletilecek
 	// durum (önceki güncelleme geri alındı vb.); ilk başarılı yoklamadan sonra gönderilir.
 	UpdateReport *agentupdate.Report
+	// Scripts betik çalıştırmanın ajan tarafı; nil = hiç yok (başlık da gitmez).
+	// Varsayılan kapalıdır, açma yalnız sunucuda yerel komutla olur.
+	Scripts ScriptAgent
 
 	// Mesh kancaları (heartbeat.go); hepsi isteğe bağlı.
 	// MeshSource kalp atışına eklenen eş ölçümleri ve dinleme portu (nil: yok).
@@ -172,6 +177,17 @@ type jobsResponse struct {
 	OOB               *OOBConfig `json:"oob"` // yok (eski sunucu) = OOB ayarı değişmez
 	// Update imzalı güncelleme teklifi; yok (eski sunucu, güncel ajan, kapalı) = güncelleme yok.
 	Update *agentupdate.Offer `json:"update"`
+	// Scripts betik işleri; yok (eski sunucu, betik kapalı) = hiçbir şey olmaz.
+	Scripts *betik.JobList `json:"script_jobs"`
+}
+
+// ScriptAgent betik tarafının (betikajan.Agent) ajan istemcisine görünen yüzü.
+type ScriptAgent interface {
+	Capability() (value, key string)
+	Busy() bool
+	Handle(*betik.JobList)
+	SetPanelSecure(bool)
+	Run(context.Context, betik.SendFunc)
 }
 
 // jobsTimeout iş listesi isteğinin en kısa HTTP zaman aşımı: sunucu isteği
@@ -322,6 +338,9 @@ func New(cfg Config) (*Client, error) {
 		jc.Timeout = jobsTimeout
 		jobsHTTP = &jc
 	}
+	if cfg.Scripts != nil {
+		cfg.Scripts.SetPanelSecure(u.Scheme == "https" && !cfg.AllowInsecure)
+	}
 	return &Client{
 		cfg: cfg, base: u, log: cfg.Log, sem: make(chan struct{}, cfg.MaxConcurrent),
 		tasks: map[int64]*task{}, unknown: map[string]bool{}, reach: map[string]bool{},
@@ -355,6 +374,10 @@ func (c *Client) Run(ctx context.Context) error {
 	go func() { defer wg.Done(); c.jobsLoop(ctx) }()
 	go func() { defer wg.Done(); c.flushLoop(ctx) }()
 	go func() { defer wg.Done(); c.heartbeatLoop(ctx) }()
+	if c.cfg.Scripts != nil {
+		wg.Add(1)
+		go func() { defer wg.Done(); c.cfg.Scripts.Run(ctx, c.sendScriptEvent) }()
+	}
 	if c.cfg.NoMetrics {
 		c.log.Info("sunucu metrikleri bu ajanda kapalı (METRICS=0)")
 	} else {
@@ -473,6 +496,9 @@ func (c *Client) pollJobs(ctx context.Context) (time.Duration, error) {
 		c.skewMs.Store(resp.ServerTime - time.Now().UnixMilli())
 	}
 	c.apply(ctx, resp.Jobs)
+	if c.cfg.Scripts != nil {
+		c.cfg.Scripts.Handle(resp.Scripts)
+	}
 	c.setMetricsInterval(resp.MetricsInterval)
 	c.setInventoryInterval(resp.InventoryInterval)
 	if resp.Version != nil {
@@ -992,9 +1018,22 @@ func (c *Client) setHeaders(req *http.Request, hasBody bool) {
 	}
 	req.Header.Set("User-Agent", "uptime-probe/"+c.cfg.Version)
 	c.up.headers(req.Header)
+	if c.cfg.Scripts != nil {
+		v, key := c.cfg.Scripts.Capability()
+		req.Header.Set(betik.HeaderCapability, v)
+		if key != "" {
+			req.Header.Set(betik.HeaderAgentKey, key)
+		}
+	}
 	if hasBody {
 		req.Header.Set("Content-Type", "application/json")
 	}
+}
+
+// sendScriptEvent betik olayını panele iletir (eski panel 404 döner, olay
+// ajanın kuyruğunda bekler).
+func (c *Client) sendScriptEvent(ctx context.Context, ev *betik.Event) (int, error) {
+	return c.call(ctx, http.MethodPost, "/api/probe/script-result", ev, nil)
 }
 
 // retryAfter Retry-After başlığındaki saniye; bozuk/negatifse 0, en fazla

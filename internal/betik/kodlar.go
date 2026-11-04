@@ -47,7 +47,7 @@ var AllCodes = []string{
 	CodeRevoked, CodeVersionRollback, CodeVersionJump, CodeBodyTooLarge, CodeBodyMismatch, CodeGroupDenied,
 	CodeNotAllowed, CodePinMismatch, CodeTicketMissing, CodeTicketSig, CodeTicketInvalid, CodeTicketHost,
 	CodeTicketMismatch, CodeTicketExpired, CodeParamsInvalid, CodeRunIDFormat, CodeRunIDReplay,
-	CodeRateInterval, CodeRateDay, CodeRateHour, CodeBusy, CodeStateWrite, CodeExecFailed,
+	CodeRateInterval, CodeRateDay, CodeRateHour, CodeBusy, CodeStateWrite,
 }
 
 // Olay türleri (POST /api/probe/script-result).
