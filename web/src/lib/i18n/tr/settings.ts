@@ -17,6 +17,9 @@ export default {
     'Kullanıcıları, genel ayarları, kontrol noktalarını, yedekleri ve işlem kaydını yalnızca yönetici rolündeki hesaplar görebilir; etiketleri editörler de yönetebilir.',
   backToAccount: 'Hesabıma dön',
   general: {
+    dbSqlite: 'Veritabanı: SQLite. Kullanımdan kalkıyor, sonraki büyük sürümde kaldırılacak. PostgreSQL + TimescaleDB\'ye geçmek için uptime migrate komutunu kullanın.',
+    dbPlain: 'Veritabanı: TimescaleDB olmadan PostgreSQL. Çalışır ama önerilmez, büyük ölçekte yavaşlar.',
+    dbDocs: 'Veritabanı belgesi',
     retentionTitle: 'Veri saklama ve uyarılar',
     rawDays: 'Ham kayıt süresi (gün)',
     rawDaysHelp: 'Her kontrolün ayrı kaydı. 1-90 gün.',

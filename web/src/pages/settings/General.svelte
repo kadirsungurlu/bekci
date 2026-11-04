@@ -5,7 +5,7 @@
   import { toast } from '../../lib/ui.svelte';
   import { guardUnsaved, snapshot } from '../../lib/forms';
   import CopyButton from '../../components/CopyButton.svelte';
-  import { LOCALES, t, tParts, type Locale } from '../../lib/i18n';
+  import { LOCALES, i18n, t, tParts, type Locale } from '../../lib/i18n';
 
   let loaded = $state(false);
   let loadError = $state('');
@@ -26,6 +26,21 @@
   let auditDays = $state<number | null>(365);
   let stError = $state('');
   let stBusy = $state(false);
+
+  // Önerilen veritabanı değilse uyarı (tasarım §5.1). timescale: şerit yok.
+  let dbMode = $state('');
+  const dbWarn = $derived.by(() => {
+    switch (dbMode) {
+      case 'sqlite':
+        return t('settings.general.dbSqlite');
+      case 'postgres':
+      case 'timescale-apache':
+        return t('settings.general.dbPlain');
+      default:
+        return '';
+    }
+  });
+  const dbDocs = $derived(i18n.locale === 'en' ? 'https://bekci.app/en/docs/database/' : 'https://bekci.app/docs/veritabani/');
 
   function apply(s: AppSettings) {
     rawDays = s.retention_raw_days;
@@ -63,6 +78,15 @@
       captureDays,
       auditDays,
     });
+  onMount(() => {
+    fetch('/healthz?detail')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) dbMode = d.db_mode ?? '';
+      })
+      .catch(() => {});
+  });
+
   onMount(() => guardUnsaved(() => loaded && !stBusy && !!baseline && current() !== baseline));
 
   async function load() {
@@ -148,6 +172,13 @@
       password: upk_…`;
 
 </script>
+
+{#if dbWarn}
+  <div class="db-warn" role="status">
+    <span>{dbWarn}</span>
+    <a href={dbDocs} target="_blank" rel="noopener noreferrer">{t('settings.general.dbDocs')}</a>
+  </div>
+{/if}
 
 <div class="cols">
   <form class="card stack" onsubmit={saveSettings} novalidate>
@@ -285,6 +316,17 @@
 </div>
 
 <style>
+  .db-warn {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    align-items: baseline;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border: 1px solid var(--warn, #b7791f);
+    border-radius: 8px;
+    font-size: 14px;
+  }
   .cols {
     display: grid;
     grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);

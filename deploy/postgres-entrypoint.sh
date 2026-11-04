@@ -157,9 +157,11 @@ fi
 # DATABASE_URL imajda da tanımlı (docker exec ile çalışan komutlar için);
 # bu imaj her zaman gömülü veritabanını kullanır.
 if [ "${DATABASE_URL:-$DB_URL}" != "$DB_URL" ]; then
-	log "UYARI: DATABASE_URL yok sayıldı; bu imaj gömülü PostgreSQL'i kullanır. Dış PostgreSQL için varsayılan (SQLite) imajı DATABASE_URL ile çalıştırın."
+	log "UYARI: DATABASE_URL yok sayıldı; bu imaj gömülü PostgreSQL'i kullanır. Dış PostgreSQL için varsayılan imajı DATABASE_URL ile çalıştırın."
 fi
 export DATABASE_URL="$DB_URL"
+
+log "UYARI: gömülü PostgreSQL imajı kullanımdan kalkıyor, sonraki büyük sürümde kaldırılacak. Yeni kurulum ve taşıma: belgeler, Veritabanı."
 
 # 4) Uygulama.
 su-exec postgres uptime "$@" &

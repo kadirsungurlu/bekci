@@ -19,6 +19,9 @@ export default {
     'Only accounts with the admin role can see users, general settings, check locations, backups and the audit log; editors can also manage tags.',
   backToAccount: 'Back to my account',
   general: {
+    dbSqlite: 'Database: SQLite. It is deprecated and will be removed in the next major version. Use the uptime migrate command to move to PostgreSQL + TimescaleDB.',
+    dbPlain: 'Database: PostgreSQL without TimescaleDB. It works but is not recommended; it slows down at large scale.',
+    dbDocs: 'Database guide',
     retentionTitle: 'Data retention and alerts',
     rawDays: 'Raw check history (days)',
     rawDaysHelp: 'A separate record for every check. 1-90 days.',

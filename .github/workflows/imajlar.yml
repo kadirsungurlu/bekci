@@ -1,3 +1,7 @@
+# KULLANIMDAN KALKIYOR: Dockerfile.postgres ve :postgres / -postgres etiketleri
+# sonraki büyük sürümde bu dosyadan çıkar. Varsayılan kurulum: Bekci imajı +
+# timescale/timescaledb (deploy/compose).
+#
 # Testler, arayüz denetimi ve imaj duman testleri her gönderimde (main,
 # gelistirme, v* etiketleri) ve her pull request'te çalışır. İmajlar YALNIZCA
 # main dalında ve v* etiketlerinde, bunların hepsi geçtikten sonra yüklenir;
@@ -174,6 +178,28 @@ jobs:
         run: tail -n 80 "$RUNNER_TEMP/panel.log" || true
 
   # İmajı derler, çalıştırır ve temel işlevleri dener (yüklemez).
+  # Veritabanı yolları, gerçek imajla: varsayılan compose (TimescaleDB), SQLite'tan
+  # uptime migrate, eklentisiz düz PostgreSQL (çalışır + uyarı) ve eklentinin
+  # sonradan etkinleştirilmesi. Yerelde de aynı betik: scripts/duman-db.sh
+  duman-veritabani:
+    runs-on: ubuntu-latest
+    env:
+      IMAJ: kadirsungurlu/bekci:duman
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          push: false
+          build-args: SOURCE_COMMIT=${{ github.sha }}
+          tags: ${{ env.IMAJ }}
+          cache-from: type=gha,scope=latest
+      - name: Veritabanı duman testi
+        run: sh scripts/duman-db.sh
+
   duman:
     runs-on: ubuntu-latest
     strategy:

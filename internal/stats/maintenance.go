@@ -138,8 +138,8 @@ func (m *Maintenance) backup(ctx context.Context, local time.Time, keep int) err
 	}
 	ext, dump := ".db", m.store.Backup
 	if m.store.Postgres() {
-		// PostgreSQL: gömülü imajda pg_dump var; dış veritabanında yedek
-		// veritabanı tarafında (Coolify yedekleri vb.) alınmalı.
+		// PostgreSQL: imajlarda pg_dump var (uygulama imajında istemci paketi);
+		// yoksa yedek veritabanı tarafında alınmalı.
 		if m.pgDumpDSN == "" {
 			return nil
 		}
