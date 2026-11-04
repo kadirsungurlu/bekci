@@ -19,6 +19,9 @@ type AppSettings struct {
 	RetentionRawDays    int   `json:"retention_raw_days"`    // ham kontrol kayıtları
 	RetentionHourlyDays int   `json:"retention_hourly_days"` // saatlik özetler (günlükler süresiz)
 	CertDays            []int `json:"cert_days"`             // SSL uyarı eşikleri (gün)
+	// ServerCertDays sunucu envanterindeki sertifikaların uyarı eşikleri (gün);
+	// son eşik kritik. [] = kapalı.
+	ServerCertDays []int `json:"server_cert_days"`
 	// DomainDays alan adı bitiş uyarı eşikleri (gün; boş liste = uyarı yok;
 	// eski kayıtta alan yoksa varsayılan). 7 gün ve altı kritik, üstü uyarı.
 	DomainDays []int `json:"domain_days"`
@@ -79,7 +82,7 @@ var DefaultDomainDays = []int{30, 14, 7, 1}
 const DomainCriticalDays = 7
 
 func DefaultSettings() AppSettings {
-	return AppSettings{RetentionRawDays: 14, RetentionHourlyDays: 365, CertDays: []int{21, 14, 7, 3, 1}, DomainDays: append([]int(nil), DefaultDomainDays...), BackupKeep: 7, NotifyLang: i18n.Default,
+	return AppSettings{RetentionRawDays: 14, RetentionHourlyDays: 365, CertDays: []int{21, 14, 7, 3, 1}, ServerCertDays: append([]int(nil), DefaultServerCertDays...), DomainDays: append([]int(nil), DefaultDomainDays...), BackupKeep: 7, NotifyLang: i18n.Default,
 		RetentionIncidentDays: intPtr(DefaultIncidentKeepDays), RetentionCaptureDays: intPtr(DefaultCaptureKeepDays), RetentionAuditDays: intPtr(DefaultAuditKeepDays),
 		AgentAutoUpdate: boolPtr(true)}
 }
@@ -98,6 +101,9 @@ func (a AppSettings) AuditKeep() int { return orDefault(a.RetentionAuditDays, De
 func (a AppSettings) AgentAutoUpdateOn() bool { return a.AgentAutoUpdate == nil || *a.AgentAutoUpdate }
 
 func (a AppSettings) UpdateCheckOn() bool { return a.UpdateCheck == nil || *a.UpdateCheck }
+
+// DefaultServerCertDays sunucu sertifikası uyarı eşikleri (gün).
+var DefaultServerCertDays = []int{14, 7, 1}
 
 func boolPtr(b bool) *bool { return &b }
 
@@ -160,6 +166,26 @@ func (a *AppSettings) Validate() error {
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(days)))
 	a.CertDays = days
+	// Sunucu sertifikası eşikleri: gönderilmezse varsayılan; [] = kapalı.
+	if a.ServerCertDays == nil {
+		a.ServerCertDays = append([]int(nil), DefaultServerCertDays...)
+	}
+	if len(a.ServerCertDays) > 5 {
+		return fmt.Errorf("En fazla 5 sunucu sertifikası uyarı eşiği girilebilir")
+	}
+	srvSeen := map[int]bool{}
+	srvDays := []int{}
+	for _, d := range a.ServerCertDays {
+		if d < 1 || d > 365 {
+			return fmt.Errorf("Sunucu sertifikası uyarı eşikleri 1-365 gün olmalı")
+		}
+		if !srvSeen[d] {
+			srvSeen[d] = true
+			srvDays = append(srvDays, d)
+		}
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(srvDays)))
+	a.ServerCertDays = srvDays
 	// Alan adı eşikleri: gönderilmezse (eski arayüz) varsayılan; [] = kapalı.
 	if a.DomainDays == nil {
 		a.DomainDays = append([]int(nil), DefaultDomainDays...)

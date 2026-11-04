@@ -43,6 +43,9 @@ type Collector struct {
 	prevCont  map[string]contCounters
 	dockerErr string // son Docker hatası (log tekrarını önler)
 	dockerOK  bool
+
+	tlsMu    sync.Mutex
+	tlsCache map[string]tlsCached // envanter: port başına son TLS sonucu
 }
 
 // source işletim sisteminden ham değerleri okur (Linux'ta gopsutil ve

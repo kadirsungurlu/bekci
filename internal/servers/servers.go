@@ -156,12 +156,16 @@ func (s *Service) Start(ctx context.Context) {
 		defer s.bg.Done()
 		t := time.NewTicker(checkEvery)
 		defer t.Stop()
+		certs := time.NewTicker(certCheckEvery)
+		defer certs.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-t.C:
 				s.CheckOffline(ctx)
+			case <-certs.C:
+				s.CheckCerts(ctx)
 			}
 		}
 	}()

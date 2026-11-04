@@ -216,6 +216,7 @@ var checkEN = map[string]string{
 	"Sunucuya ulaşılamıyor":   "Server unreachable",
 	"Sunucudan veri gelmiyor": "No data from the server",
 	"Uyarı kuralı kaldırıldı veya kapatıldı; olay kapatıldı":                    "Alert rule removed or disabled; incident closed",
+	"Sertifika yenilendi veya artık görünmüyor; olay kapatıldı":                 "Certificate renewed or no longer visible; incident closed",
 	"Sunucu devre dışı bırakıldı veya metrik toplama kapatıldı; olay kapatıldı": "Server disabled or metric collection turned off; incident closed",
 	// store.AddIncidentEvents
 	"Kayıt sınırına ulaşıldı; bu olayın sonraki ayrıntıları kaydedilmiyor": "Record limit reached; further details of this incident are not recorded",
