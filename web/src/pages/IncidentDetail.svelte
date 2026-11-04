@@ -570,7 +570,7 @@
               {#if inc.page_title}<span class="text-2">{t('incidents.manual.onPage', { page: inc.page_title })}</span>{/if}
               {#if inc.created_by && session.canEdit}<span class="muted small">· {t('incidents.manual.openedBy', { user: inc.created_by })}</span>{/if}
             {:else if data.server}
-              <span class="badge accent">{t(probe ? 'incidents.kind.probeOffline' : offline ? 'incidents.kind.serverOffline' : 'incidents.kind.serverAlert')}</span>
+              <span class="badge accent">{t(mesh ? 'incidents.kind.meshName' : probe ? 'incidents.kind.probeOffline' : offline ? 'incidents.kind.serverOffline' : 'incidents.kind.serverAlert')}</span>
               {#if data.server.hostname}<span class="text-2"
                   >{#each tParts('incidents.detail.hostname') as p, i (i)}{#if p.slot === 'name'}<span class="mono">{data.server.hostname}</span
                       >{:else}{p.text}{/if}{/each}</span

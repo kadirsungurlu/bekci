@@ -3,9 +3,9 @@ import type tr from '../tr/topology';
 
 export default {
   title: 'Live topology',
-  subtitle: 'Monitors, probes, servers and notification channels in this panel; live data.',
+  subtitle: 'Monitors, check locations, servers and notification channels in this panel; live data.',
   stats: {
-    probes: 'Connected probes',
+    probes: 'Connected check locations',
     rate: 'Results / s',
     incidents: 'Open incidents',
   },
@@ -18,7 +18,7 @@ export default {
   },
   col: {
     monitors: 'Monitors',
-    probes: 'Probes',
+    probes: 'Check locations',
     panel: 'Bekci panel',
     servers: 'Servers',
     channels: 'Notification channels',
@@ -70,12 +70,12 @@ export default {
   },
   panel: {
     noIncident: 'No open incidents',
-    online: '{n}/{total} probes connected',
+    online: '{n}/{total} check locations connected',
     rate: '{n} results/s',
     monitors: '{count} monitor|{count} monitors',
   },
   decision: {
-    mesh: 'Probe connections',
+    mesh: 'Check location links',
     outgoing: 'Outgoing notifications',
     noSend: 'No notification records for this incident.',
     loading: 'Loading notification records',
@@ -91,7 +91,7 @@ export default {
   },
   empty: {
     title: 'Nothing to show yet',
-    text: 'Once monitors, probes or servers are added, the topology is drawn here live.',
+    text: 'Once monitors, check locations or servers are added, the topology is drawn here live.',
     restricted: 'No monitors are assigned to your account.',
     add: 'Add monitor',
   },
@@ -128,7 +128,7 @@ export default {
     sendOk: 'Last send succeeded',
     sendFail: 'Last send failed',
     loss: 'Consecutive losses',
-    lastOk: 'Last successful probe',
+    lastOk: 'Last successful check',
   },
   mesh: {
     up: 'up',
@@ -137,20 +137,20 @@ export default {
   },
   matrix: {
     title: 'Connection matrix',
-    caption: 'Row: measuring probe, column: target. Value is round-trip time.',
+    caption: 'Row: measuring check location, column: target. Value is round-trip time.',
     corner: 'Measuring / target',
     self: 'Itself',
   },
   groupEmpty: {
     monitors: 'No monitors yet.',
     channels: 'No notification channels; incidents reach no one.',
-    probes: 'No probes; checks run only from this server.',
+    probes: 'No check locations; checks run only from this server.',
     servers: 'No server agents; CPU, RAM and disk are not monitored.',
   },
   groupEmptyLink: {
     monitors: 'Add monitor',
     channels: 'Add channel',
-    probes: 'Set up a probe',
+    probes: 'Set up a check location',
     servers: 'Add server',
   },
   countsAria: '{ok} up, {warn} warning, {bad} with problems',
