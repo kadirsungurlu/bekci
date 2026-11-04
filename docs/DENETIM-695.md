@@ -49,6 +49,8 @@ Hepsi 2026-11-04'te `gelistirme`de düzeltildi (madde 7'deki mobil şema düğü
 7. Dil kartı kenar çubuğu seçimini yansıtmıyor; 1440'ta kanal kenarı monitör grubunun köşesinden geçiyor; mobilde şema düğümü ~32 px.
 
 ## Canlı geçiş planı (uptime sunucusu, SQLite -> TimescaleDB)
+Geçersiz: kesin plan `docs/PROVA-CANLI-VERI.md` (aşağıdaki 4. adım panel açıkken çalışmaz).
+
 Bugünkü canlı (salt okunur): 1.6.0, SQLite 84 MB + WAL, gece yedeği 78 MB; 1 CPU, 967 MB RAM (434 MB kullanılabilir), swap yok, 4,3 GB boş disk. TS imajı 1,57 GB; DB birimi ~260 MB. Bellek için `TS_TUNE_MEMORY=400MB` zorunlu, 1 GB swap önerilir. Ayrıntılı bellek hesabı: DENETIM-640.
 
 Hazırlık (kesintisiz):

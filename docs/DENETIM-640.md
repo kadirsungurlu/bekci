@@ -37,6 +37,8 @@ Canlı kopyada SQLite'a dönüşte birkaç noktanın "yalnız eskide" görünmes
 - `TS_TUNE_MEMORY=400MB`: ayar alındı (shared_buffers 128 MB, 25 bağlantı) ama bu ayarla tam taşıma koşulmadı; tam prova cgroup sınırıyla yapıldı.
 
 ## Canlı geçiş planı (uptime sunucusu, SQLite -> TimescaleDB)
+Geçersiz: kesin plan `docs/PROVA-CANLI-VERI.md`.
+
 
 Kısıtlar: 1 CPU, 967 MB RAM, swap yok, 4,3 GB boş disk. TS imajı 1,57 GB, DB birimi ~260 MB.
 Bellek hesabı: mevcut konteynerler ~165 MB + db ~150-200 MB, sığar ama payı az. Sınırsız bırakılırsa imaj 967 MB'a göre ayar seçer; bu yüzden `TS_TUNE_MEMORY=400MB` zorunlu. Öneri: önce 1 GB swap ya da 2 GB RAM.
