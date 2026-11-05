@@ -93,6 +93,8 @@ type View struct {
 	UplinkName      string `json:"uplink_name,omitempty"`
 	OOBIP           string `json:"oob_ip,omitempty"`
 	OOBIfaceMissing bool   `json:"oob_iface_missing,omitempty"`
+	// Görünen üst bilgi (rol, konum, sağlayıcı, kısa kod; migration 50).
+	store.ProbeLabels
 }
 
 // SetUpdateStatus ajan güncelleme durumunu hesaplayan işlevi bağlar (panel
@@ -117,7 +119,7 @@ func (s *Service) View(ctx context.Context, p store.Probe, rules []store.ServerA
 		ID: p.ID, Name: p.Name, Active: p.Active, Metrics: p.Metrics, State: s.StateOf(p, s.now()),
 		Note: p.MetricsNote, Interval: Interval, LastSeenAt: p.LastSeenAt, MetricsAt: p.MetricsAt,
 		Version: p.Version, Host: hostOf(p), Firing: []string{}, DiskForecast: s.DiskForecasts(p.ID),
-		IPLock: p.IPLock, LockedIP: p.LockedIP, IP: p.LastIP,
+		IPLock: p.IPLock, LockedIP: p.LockedIP, IP: p.LastIP, ProbeLabels: p.ProbeLabels,
 	}
 	if p.OOBIP != "" {
 		v.Uplink, v.UplinkSince, v.UplinkName = p.Uplink, p.UplinkSince, p.OOBLabel()

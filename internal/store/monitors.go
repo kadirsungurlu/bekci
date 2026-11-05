@@ -32,6 +32,8 @@ type Monitor struct {
 	UpsideDown    bool            `json:"upside_down"`
 	Config        json.RawMessage `json:"config"`
 	PushToken     string          `json:"push_token,omitempty"`
+	// ServerID monitörün çalıştığı sunucu (migration 50; 0 = bağ yok).
+	ServerID int64 `json:"server_id,omitempty"`
 
 	// Yavaş yanıt uyarısı (migration 22): son SlowChecks kontrolün ortalama
 	// yanıt süresi SlowMs'yi aşarsa "yavaş" (degraded olayı + uyarı bildirimi);
@@ -65,7 +67,7 @@ const monitorCols = `id, name, type, description, active, interval_sec, retry_in
 	max_retries, timeout_sec, resend_every, upside_down, config, push_token, status,
 	last_check_at, last_change_at, last_ping_ms, last_message, cert_expires_at, cert_issuer,
 	created_at, updated_at, slow_ms, slow_checks, slow,
-	domain_expiry, domain_name, domain_expires_at, domain_registrar, domain_status, domain_checked_at`
+	domain_expiry, domain_name, domain_expires_at, domain_registrar, domain_status, domain_checked_at, server_id`
 
 func init() {
 	// 22: yavaş yanıt uyarısı (monitör başına eşik ve pencere; varsayılan kapalı).
@@ -93,16 +95,17 @@ func scanMonitor(sc scanner) (Monitor, error) {
 		cfg                                          string
 		pushToken                                    sql.NullString
 		lastCheck, lastChange, lastPing, certExpires sql.NullInt64
-		domainExpires                                sql.NullInt64
+		domainExpires, serverID                      sql.NullInt64
 	)
 	err := sc.Scan(&m.ID, &m.Name, &m.Type, &m.Description, &m.Active, &m.Interval,
 		&m.RetryInterval, &m.MaxRetries, &m.Timeout, &m.ResendEvery, &m.UpsideDown, &cfg,
 		&pushToken, &m.Status, &lastCheck, &lastChange, &lastPing, &m.LastMessage,
 		&certExpires, &m.CertIssuer, &m.CreatedAt, &m.UpdatedAt, &m.SlowMs, &m.SlowChecks, &m.Slow,
-		&m.DomainExpiry, &m.DomainName, &domainExpires, &m.DomainRegistrar, &m.DomainStatus, &m.DomainCheckedAt)
+		&m.DomainExpiry, &m.DomainName, &domainExpires, &m.DomainRegistrar, &m.DomainStatus, &m.DomainCheckedAt, &serverID)
 	if err != nil {
 		return m, err
 	}
+	m.ServerID = serverID.Int64
 	m.DomainExpiresAt = domainExpires.Int64
 	m.Config = json.RawMessage(cfg)
 	m.PushToken = pushToken.String
@@ -168,11 +171,11 @@ func (s *Store) CreateMonitor(ctx context.Context, m *Monitor, notificationIDs [
 		m.ID, err = insertID(ctx, tx, `
 			INSERT INTO monitors (name, type, description, active, interval_sec, retry_interval_sec,
 				max_retries, timeout_sec, resend_every, upside_down, config, push_token, status,
-				created_at, updated_at, slow_ms, slow_checks, domain_expiry)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				created_at, updated_at, slow_ms, slow_checks, domain_expiry, server_id)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			m.Name, m.Type, m.Description, boolInt(m.Active), m.Interval, m.RetryInterval,
 			m.MaxRetries, m.Timeout, m.ResendEvery, boolInt(m.UpsideDown), string(m.Config),
-			nullStr(m.PushToken), m.Status, m.CreatedAt, m.UpdatedAt, m.SlowMs, slowChecksOr(m.SlowChecks), boolInt(m.DomainExpiry))
+			nullStr(m.PushToken), m.Status, m.CreatedAt, m.UpdatedAt, m.SlowMs, slowChecksOr(m.SlowChecks), boolInt(m.DomainExpiry), nullInt(m.ServerID))
 		if err != nil {
 			return err
 		}
@@ -190,11 +193,11 @@ func (s *Store) UpdateMonitor(ctx context.Context, m *Monitor, notificationIDs [
 			UPDATE monitors SET name = ?, type = ?, description = ?, interval_sec = ?,
 				retry_interval_sec = ?, max_retries = ?, timeout_sec = ?, resend_every = ?,
 				upside_down = ?, config = ?, push_token = ?, updated_at = ?, slow_ms = ?, slow_checks = ?,
-				domain_expiry = ?
+				domain_expiry = ?, server_id = ?
 			WHERE id = ?`,
 			m.Name, m.Type, m.Description, m.Interval, m.RetryInterval, m.MaxRetries,
 			m.Timeout, m.ResendEvery, boolInt(m.UpsideDown), string(m.Config),
-			nullStr(m.PushToken), m.UpdatedAt, m.SlowMs, slowChecksOr(m.SlowChecks), boolInt(m.DomainExpiry), m.ID)
+			nullStr(m.PushToken), m.UpdatedAt, m.SlowMs, slowChecksOr(m.SlowChecks), boolInt(m.DomainExpiry), nullInt(m.ServerID), m.ID)
 		if err != nil {
 			return err
 		}

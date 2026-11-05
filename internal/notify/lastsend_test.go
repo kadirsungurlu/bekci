@@ -35,7 +35,7 @@ func TestLastSendsPersist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got[ids[0]] != (SendStatus{At: 300, OK: true}) || got[ids[1]] != (SendStatus{At: 200, OK: false}) || len(got) != 2 {
+	if got[ids[0]] != (SendStatus{At: 300, OK: true}) || got[ids[1]] != (SendStatus{At: 200, OK: false, Error: "x"}) || len(got) != 2 {
 		t.Fatalf("son gönderimler: %+v", got)
 	}
 }

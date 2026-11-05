@@ -267,6 +267,7 @@ type probeSummary struct {
 
 // probeAdminView yöneticinin gördüğü bilgi (token'ın kendisi hiçbir zaman yok).
 type probeAdminView struct {
+	store.ProbeLabels
 	probeSummary
 	Kind         string `json:"kind"` // location | server
 	TokenPrefix  string `json:"token_prefix"`
@@ -304,7 +305,7 @@ func (s *Server) probeAdminOf(p store.Probe, monitors int, notificationIDs []int
 		probeSummary: s.probeSummaryOf(p), Kind: p.Kind, TokenPrefix: p.TokenPrefix, CreatedAt: p.CreatedAt,
 		LastIP: p.LastIP, Version: p.Version, MonitorCount: monitors, Metrics: p.Metrics,
 		IPLock: p.IPLock, LockedIP: p.LockedIP, NotifyOffline: p.NotifyOffline, NotificationIDs: notificationIDs,
-		Platform: p.Platform, Update: s.agentUpdateStatus(p), probeMeshView: s.probeMeshOf(p), ProbeOOB: p.ProbeOOB,
+		Platform: p.Platform, Update: s.agentUpdateStatus(p), probeMeshView: s.probeMeshOf(p), ProbeOOB: p.ProbeOOB, ProbeLabels: p.ProbeLabels,
 	}
 }
 
@@ -589,6 +590,11 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 		// OOB ikinci hat; alan yoksa değişmez, boş IP OOB'yi kaldırır.
 		OOBIP   *string `json:"oob_ip"`
 		OOBName *string `json:"oob_name"`
+		// Görünen üst bilgi (rol, konum/bölge, sağlayıcı, kısa kod); alan yoksa değişmez.
+		Role     *string `json:"role"`
+		Region   *string `json:"region"`
+		Provider *string `json:"provider"`
+		Code     *string `json:"code"`
 	}
 	if !readJSON(w, r, &in) {
 		return
@@ -659,6 +665,16 @@ func (s *Server) updateProbe(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var changes []string
+	if labels, err := mergeProbeLabels(old.ProbeLabels, in.Role, in.Region, in.Provider, in.Code); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	} else if labels != old.ProbeLabels {
+		if err := s.store.SetProbeLabels(r.Context(), id, labels); err != nil {
+			s.dbError(w, err)
+			return
+		}
+		changes = append(changes, "üst bilgi değişti")
+	}
 	if in.IPLock != nil && *in.IPLock != old.IPLock {
 		if err := s.store.SetProbeIPLock(r.Context(), id, *in.IPLock); err != nil {
 			s.dbError(w, err)

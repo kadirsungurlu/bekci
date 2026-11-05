@@ -36,6 +36,8 @@ type ImportMonitor struct {
 	// çevrilmiş); nil ise yalnızca ana sunucu (değiştir modunda eski ayar
 	// ada göre korunur, bkz. import_replace.go).
 	Locations *LocationSetup
+	// ServerName çalıştığı sunucunun adı; bu kurulumda o adda sunucu yoksa bağ kurulmaz.
+	ServerName string
 }
 
 // ImportNotification kanal ve etiket kuralları (etiketler ImportRef ile).
@@ -210,11 +212,13 @@ func (s *Store) Import(ctx context.Context, d *ImportData) (ImportResult, error)
 			id, err := insertID(ctx, tx, `
 				INSERT INTO monitors (name, type, description, active, interval_sec, retry_interval_sec,
 					max_retries, timeout_sec, resend_every, upside_down, config, push_token, status,
-					created_at, updated_at, slow_ms, slow_checks, domain_expiry)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					created_at, updated_at, slow_ms, slow_checks, domain_expiry, server_id)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+					(SELECT id FROM probes WHERE kind = ? AND name = ?))`,
 				m.Name, m.Type, m.Description, boolInt(m.Active), m.Interval, m.RetryInterval,
 				m.MaxRetries, m.Timeout, m.ResendEvery, boolInt(m.UpsideDown), string(m.Config),
-				nullStr(m.PushToken), StatusPending, now, now, m.SlowMs, slowChecksOr(m.SlowChecks), boolInt(m.DomainExpiry))
+				nullStr(m.PushToken), StatusPending, now, now, m.SlowMs, slowChecksOr(m.SlowChecks), boolInt(m.DomainExpiry),
+				ProbeKindServer, im.ServerName)
 			if err != nil {
 				return err
 			}

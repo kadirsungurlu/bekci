@@ -309,6 +309,7 @@ func (r *runner) process(res check.Result) {
 	})
 	if err == nil {
 		r.e.rate.add(now, 1)
+		r.e.pings.add(r.m.ID, status, res.PingMs)
 	}
 	if err != nil {
 		// Kaydedilemeyen sonuç için bildirim gönderilmez; durum bellekte de
