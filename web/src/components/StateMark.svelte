@@ -2,7 +2,7 @@
   // Durum işareti: renge ek olarak şekil (işaret) ve metin (ekran okuyucu, ipucu) verir.
   // Topoloji kartları, sayaç rozetleri ve sunucu zaman çizelgesi aynı işareti kullanır.
   import { t } from '../lib/i18n';
-  import type { Cls } from '../lib/topoview';
+  import type { Cls } from '../lib/topomodel';
 
   let { cls, size = 14, label }: { cls: Cls; size?: number; label?: string } = $props();
 

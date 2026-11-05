@@ -2201,7 +2201,7 @@ export const api = {
   // Kontrol noktaları
   probes: () => get<Probe[]>("/api/probes"),
   mesh: () => get<MeshMatrix>("/api/mesh"),
-  topology: () => get<Topology>("/api/topology"),
+  topology: () => get<Topology>("/api/topology?view=summary"),
   createProbe: (name: string) => post<ProbeSetup>("/api/probes", { name }),
   /** Takip edilecek sunucu ekler (kontrol noktalarından ayrı kayıt). */
   createServer: (name: string) => post<ProbeSetup>("/api/servers", { name }),
@@ -2430,7 +2430,7 @@ export interface TopoMonitor {
   last_check_at: number;
   ping_ms: number;
   /** ?view=summary yanıtında yok. */
-  locations: TopoLocation[];
+  locations?: TopoLocation[];
   /** Denetleyen noktalar: 0 ana sunucu (Topology.local_name). */
   loc_ids?: number[];
   /** loc_ids alt kümeleri; ikisinde olmayan nokta son sonucu ok. */
