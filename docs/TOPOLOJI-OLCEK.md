@@ -22,3 +22,18 @@ Tohum: 1000 http monitör (3 nokta + yerel, 2 kanal, 1 etiket, 30 sonuç, %3 aç
 - Panel kendisi sıkıştırır (`writeTopology`, BestSpeed): her kurulum Caddy arkasında değil.
 - SSE ile yalnız değişenleri göndermek gerekmedi: özet görünüm 5 sn yoklamada 37 KB. Arayüz `view=summary` kullanır,
   konum dökümü (`locations`) ve mesh gerektiğinde tam görünüm alınır.
+
+## İlişki sayfası arayüz ölçümü (703, 2026-11-05)
+
+Tohum: 1000 monitör, 100 sunucu, 30 nokta, 6 kanal (`web/e2e/topotohum.mjs`, 472 KB JSON, tarayıcıda verilir).
+Ortam: bu makinedeki Chrome, başsız, yazılımsal çizim; makinede başka işler de çalışıyor, sonuçlar turdan tura değişiyor.
+
+| Ölçüm | Hedef | Sonuç |
+|---|---|---|
+| İlk çizim (ilk satır görünene dek) | < 300 ms | 246-294 ms, soğuk ilk açılış 504 ms |
+| Seçim değişimi (tıklama + iki kare) | < 50 ms | 90-338 ms: HEDEF KARŞILANMADI |
+| Seçim, yalnız JS | - | 16-193 ms |
+| Kaydırma, seçili durumda kare süresi | takılma yok | ortanca 20 ms, p95 33 ms, en çok 63 ms, 7 uzun kare |
+
+Yapılanlar: satırlar kademeli eklenir (200'er), bir kez görünen satır silinmez, `.gz` ile gizlenir; grup başına `content-visibility:auto`; işaretler tek SVG sembolü; olay delegasyonu; çizgi ölçümü önbellekli.
+Kalan süre stil ve yerleşimdedir (1000 satırın `display` değişimi). Hedef için sütunlarda satır sanallaştırma gerekir; çizgi uçları görünmeyen satırları ölçtüğü için ayrı iş.
