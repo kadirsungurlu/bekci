@@ -2,7 +2,6 @@
    çizgi/önizleme sınıfları DOM'a elle eklenir (lib/topolines.ts); bu yüzden kapsamlı <style> yerine
    tek dosya, hepsi .topo altında. Eşik: 1240 altı sekmeler, 900 altı uygulamanın mobil kabuğu. */
 @keyframes akis { to { stroke-dashoffset:-22; } }
-@keyframes belir { from { opacity:0; } }
 .topo {
   --warn-soft:color-mix(in srgb,var(--warn) 13%,transparent);
   --warn-border:color-mix(in srgb,var(--warn) 45%,transparent);
@@ -42,7 +41,7 @@
   .canli::before { content:''; width:8px; height:8px; border-radius:50%; background:var(--up); }
 
   /* Sorun çizelgesi */
-  .sorun { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; flex:none; }
+  .sorun { contain:content; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; flex:none; }
   .sorun-b { display:flex; align-items:baseline; gap:12px; padding:8px 14px 6px; flex-wrap:wrap; }
   .sorun-b b { font-size:1.05rem; color:var(--down-text-2); font-weight:700; }
   .sorun-b .ozet { color:var(--text-2); font-size:.84rem; }
@@ -71,6 +70,7 @@
   .sutunlar { position:relative; flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) 336px minmax(0,1.14fr); column-gap:72px; }
   .sutun { position:relative; z-index:1; min-height:0; display:flex; flex-direction:column; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
   .sutun.orta { z-index:4; }
+  @media (min-width:1240px) { .sutun { contain:content; } }
   .hat { position:absolute; inset:0; width:100%; height:100%; z-index:5; pointer-events:none; overflow:visible; }
   .hat path { fill:none; stroke-width:1.5; stroke-linecap:round; opacity:.82; }
   .hat .ok { stroke:var(--up); stroke-width:1.25; opacity:.6; } .hat .warn { stroke:var(--warn); stroke-width:1.75; opacity:.95; }
@@ -79,7 +79,6 @@
   .hat circle.ok { fill:var(--up); stroke:none; } .hat circle.bad { fill:var(--down); stroke:none; animation:none; } .hat circle.warn { fill:var(--warn); stroke:none; } .hat circle.off { fill:var(--paused); stroke:none; }
   .hat path.gecis { opacity:.28; stroke-width:1; stroke-dasharray:none; animation:none; }
   .hat g.oniz path { stroke-width:1; opacity:.5; stroke-dasharray:none; animation:none; }
-  .hat g.yeni { animation:belir .16s ease-out; }
   .s-b { flex:none; display:flex; align-items:center; gap:8px; padding:8px 10px 6px 12px; }
   .s-b h2 { font-size:.92rem; white-space:nowrap; } .s-b .say { color:var(--muted); font-size:.78rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
   .seg { margin-left:auto; flex:none; display:inline-flex; padding:2px; gap:1px; border:1px solid var(--border); border-radius:7px; }

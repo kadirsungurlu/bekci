@@ -31,7 +31,6 @@ export class TopoLines {
   private h: LinesHost;
   private sel: Layer | null = null;
   private hov: Layer | null = null;
-  private lastSel: string | null = null;
   private box = { L: 0, ML: 0, MR: 0, R: 0, top: 0 };
   private kay = {} as Record<Col, { el: HTMLElement; top: number; bottom: number }>;
   private chips = new Map<string, HTMLButtonElement>();
@@ -98,10 +97,9 @@ export class TopoLines {
   draw() {
     const live = new Set<string>();
     let html = '';
-    if (this.sel) html += this.paint(this.sel, this.sel.id === this.lastSel ? 'sec' : 'sec yeni', live);
+    if (this.sel) html += this.paint(this.sel, 'sec', live);
     if (this.hov) html += this.paint(this.hov, 'oniz', null);
     this.h.svg.innerHTML = html;
-    this.lastSel = this.sel?.id ?? null;
     for (const [k, b] of this.chips)
       if (!live.has(k)) {
         b.remove();

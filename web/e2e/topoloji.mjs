@@ -172,6 +172,59 @@ try {
     await c.close();
   }
 
+  // 1000 monitör: sanal liste. Çizilen satır az, klavye pencereyi geçer, çizgi uçları satır ortasında.
+  {
+    const big = JSON.stringify(fakeTopology({ mon: 1000, srv: 100, pro: 30 }));
+    const c = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+    await c.addCookies(await ctx.cookies());
+    const q = await c.newPage();
+    await q.route('**/api/topology*', (r) => r.fulfill({ contentType: 'application/json', body: big }));
+    await q.goto(BASE + '/#/topology');
+    await q.locator('.o.mon').first().waitFor({ timeout: 10_000 }).catch(() => fail('büyük tohum satır yok'));
+    const rows = await q.locator('.o').count();
+    if (rows > 150) fail('sanal liste çok satır çizdi: ' + rows);
+    // Yükseklikler hesapla aynı: son eleman listenin sonuna oturur.
+    const fit = await q.evaluate(() => [...document.querySelectorAll('.vl')].every((v) => {
+      const k = v.lastElementChild.getBoundingClientRect().bottom - v.getBoundingClientRect().top;
+      const last = v.parentElement.scrollHeight;
+      return k <= last + 1;
+    }));
+    if (!fit) fail('sanal liste yüksekliği taşıyor');
+    const drift = async () => q.evaluate(() => {
+      const hat = document.querySelector('svg.hat').getBoundingClientRect();
+      const rows = [...document.querySelectorAll('.o.ilg,.gh')].map((e) => e.getBoundingClientRect());
+      return [...document.querySelectorAll('svg.hat circle')].filter((c) => {
+        const y = +c.getAttribute('cy') + hat.top;
+        return !rows.some((r) => y >= r.top - 2 && y <= r.bottom + 2) && y > 300 && y < innerHeight - 20;
+      }).length;
+    });
+    await q.locator('.o.pro').first().click();
+    await q.waitForFunction(() => document.querySelectorAll('svg.hat path').length > 0, null, { timeout: 3000 }).catch(() => fail('büyük tohum çizgi yok'));
+    if (await drift()) fail('çizgi ucu satırda değil');
+    await q.keyboard.press('Escape');
+    // Klavye: pencere dışına iner, odak kaybolmaz.
+    await q.locator('#k-mon .gh').first().focus();
+    for (let i = 0; i < 60; i++) await q.keyboard.press('ArrowDown');
+    const f = await q.evaluate(() => {
+      const e = document.activeElement;
+      return { inList: !!e?.closest('#k-mon'), top: document.querySelector('#k-mon').scrollTop };
+    });
+    if (!f.inList || f.top < 200) fail('ok tuşu pencereyi geçemedi: ' + JSON.stringify(f));
+    await q.keyboard.press('End');
+    await q.waitForFunction(() => document.querySelector('#k-mon').scrollTop > 1000, null, { timeout: 3000 }).catch(() => fail('End sona gitmedi'));
+    await q.keyboard.press('Home');
+    await q.waitForFunction(() => document.querySelector('#k-mon').scrollTop === 0 && document.activeElement?.closest('#k-mon'), null, { timeout: 3000 }).catch(() => fail('Home başa dönmedi'));
+    // Kapalı grup hücresine tıklamak açar.
+    const cell = q.locator('#k-mon span.hucre').first();
+    if (await cell.count()) {
+      const id = await cell.getAttribute('data-g');
+      await cell.click();
+      await q.waitForFunction((g) => document.getElementById(g)?.getAttribute('aria-expanded') === 'true', id, { timeout: 3000 }).catch(() => fail('hücre grubu açmadı'));
+    }
+    await c.close();
+    console.log(`tamam: sanal liste (${rows} satır), çizgi ucu, klavye, kapalı grup`);
+  }
+
   // Dar ekran: sekmeler ve ilişki rozeti.
   {
     const { c, q } = await open2(1100, 800);

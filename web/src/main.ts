@@ -1,7 +1,7 @@
 import './app.css';
-import { mount } from 'svelte';
-import App from './App.svelte';
 
-const app = mount(App, { target: document.getElementById('app')! });
-
-export default app;
+// 1,3 MB'lık paket ana iş parçacığını yarım saniye tutar: önce iskelet boyansın (public/boot.js),
+// paket ayrı parça olarak sonra çalışsın. Gizli sekmede kare gelmez, doğrudan başlar.
+const start = () => import('./start');
+if (document.hidden) void start();
+else requestAnimationFrame(() => setTimeout(start, 0));
