@@ -287,19 +287,15 @@ export interface GroupView {
   open: boolean;
   /** Seçimle ilgisi yok: soluk. */
   dim: boolean;
-  /** Gruptaki tüm düğümler; bir kez görünen satır DOM'da gizli kalır, seçim yalnız sınıf değiştirir. */
-  all: TopoNode[];
+  /** Gruptaki düğüm sayısı (kapalı grubun hücreleri bu kadar). */
+  size: number;
   rows: TopoNode[];
-  /** Kapalı grubun küçük hücreleri (rows boşken) ya da "diğer" satırı. */
-  cells: string;
+  /** Kapalı grubun küçük hücreleri (rows boşken) ya da "diğer" satırı: durumlar, sırayla. */
+  cells: St[];
   rest: number;
 }
 
-const cellsOf = (items: TopoNode[]) => {
-  let s = '';
-  for (const n of items) s += `<i class="${n.st}"></i>`;
-  return s;
-};
+const cellsOf = (items: TopoNode[]) => items.map((n) => n.st);
 
 export function viewGroups(g: Graph, col: Col, ui: UI, rel: Map<string, St>): GroupView[] {
   const by = ui.by[col];
@@ -317,7 +313,7 @@ export function viewGroups(g: Graph, col: Col, ui: UI, rel: Map<string, St>): Gr
     if (!vis.length) continue;
     const say: Record<St, number> = { ok: 0, warn: 0, bad: 0, off: 0 };
     for (const n of gr.items) say[n.st]++;
-    const base = { id: gr.id, key: gr.key, st: gr.st, say, all: gr.items };
+    const base = { id: gr.id, key: gr.key, st: gr.st, say, size: gr.items.length };
     if (other && !ui.tam[gr.id]) {
       const rows = vis.filter((n) => rel.has(n.id));
       if (!rows.length) {
@@ -331,9 +327,16 @@ export function viewGroups(g: Graph, col: Col, ui: UI, rel: Map<string, St>): Gr
     }
     const here = gr.items.some((n) => n.id === ui.sel);
     const open = filtered || here || !!ui.tam[gr.id] || (ui.ac[gr.id] ?? isProblem({ st: gr.st, kind: gr.items[0].kind } as TopoNode));
-    out.push({ ...base, open, dim: false, rows: open ? vis : [], cells: open ? '' : cellsOf(gr.items), rest: 0 });
+    out.push({ ...base, open, dim: false, rows: open ? vis : [], cells: open ? [] : cellsOf(gr.items), rest: 0 });
   }
   return out;
+}
+
+/** Satırın ikinci sırası olacak mı (metni topotext üretir, yüksekliği topovirt hesaplar). */
+export function hasAlt(n: TopoNode): boolean {
+  if (n.kind === 'pro') return n.st === 'off' && !n.local;
+  if (n.kind === 'cha') return n.st === 'warn';
+  return n.st === 'bad' || n.st === 'warn';
 }
 
 export interface ChannelView {

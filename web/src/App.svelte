@@ -43,6 +43,9 @@
   type Phase = 'loading' | 'public' | 'setup' | 'login' | 'password' | 'app' | 'error';
 
   let phase = $state<Phase>('loading');
+  $effect(() => {
+    if (phase !== 'loading') document.documentElement.classList.remove('boot-topo');
+  });
   // Giriş ekranı için: şifremi unuttum kullanılabilir mi, SSO düğmesi.
   let authInfo = $state<Pick<AuthState, 'password_reset' | 'oidc'>>({});
   let loadError = $state('');
@@ -714,6 +717,7 @@
     padding: 8px 8px 8px 14px;
     border-radius: 12px;
     background: var(--tip-bg);
+    color: var(--tip-text);
     border: 1px solid var(--accent-border);
     box-shadow: var(--shadow);
     font-size: 0.9rem;

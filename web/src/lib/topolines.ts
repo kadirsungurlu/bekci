@@ -1,6 +1,6 @@
-// Seçim ve önizleme çizgileri: sütunlar arasında tek SVG. Satır konumları seçim, veri ya da
-// boyut değişince bir kez ölçülür (measure); kaydırmada yalnız önbellekten yeniden çizilir
-// (draw), böylece kaydırma düzen hesabı istemez. Görünmeyen ilişkiler sütun başına tek çizgi
+// Seçim ve önizleme çizgileri: sütunlar arasında tek SVG. Satır konumları sanal listeden gelir
+// (host.pos, DOM'a bakmaz); yalnız kanal satırları gerçek DOM'dadır. Kaydırmada önbellekten
+// yeniden çizilir (draw), böylece kaydırma düzen hesabı istemez. Görünmeyen ilişkiler sütun başına tek çizgi
 // ve "Aşağıda N ilişkili" çipine, aynı grup başlığına gidenler tek çizgiye iner.
 import { colOf, RANK, type Col, type Graph, type St } from './topomodel';
 
@@ -19,8 +19,8 @@ export interface LinesHost {
   root: HTMLElement;
   svg: SVGSVGElement;
   graph(): Graph | null;
-  /** Kapalı gruptaki düğümün başlık kimliği. */
-  groupOf(id: string): string | undefined;
+  /** Satırın (yoksa grup başlığının) içerik içi orta noktası; sanal listede değilse null. */
+  pos(id: string, col: Col): number | null;
   chip(dir: 1 | -1, n: number): string;
 }
 
@@ -40,14 +40,11 @@ export class TopoLines {
     this.h = h;
   }
 
-  private target(id: string): HTMLElement | null {
+  private yOf(id: string, col: Col): number | null {
+    const v = this.h.pos(id, col);
+    if (v !== null) return v;
     const e = document.getElementById(`o-${id}`);
-    if (e && !e.classList.contains('gz')) return e;
-    const g = this.h.groupOf(id);
-    return g ? document.getElementById(g) : null;
-  }
-
-  private spotY(e: HTMLElement, col: Col): number {
+    if (!e) return null;
     const r = e.getBoundingClientRect();
     const k = this.kay[col];
     return r.top + Math.min(r.height, ROW_H) / 2 - k.top + k.el.scrollTop;
@@ -57,16 +54,16 @@ export class TopoLines {
     const g = this.h.graph();
     const node = id ? g?.nodes.get(id) : undefined;
     if (!g || !id || !node) return null;
-    const src = this.target(id);
     const col = colOf(node.kind);
+    const y0 = this.yOf(id, col);
     const spots: Spot[] = [];
     const seen = new Map<string, Spot>(); // aynı noktaya (grup başlığı) giden tek çizgi
     for (const r of g.rel.get(id) ?? []) {
       const n = g.nodes.get(r.id);
-      const e = n && this.target(r.id);
-      if (!n || !e) continue;
+      if (!n) continue;
       const c = colOf(n.kind);
-      const y = this.spotY(e, c);
+      const y = this.yOf(r.id, c);
+      if (y === null) continue;
       const key = `${c}:${Math.round(y)}`;
       const old = seen.get(key);
       if (old) {
@@ -77,7 +74,7 @@ export class TopoLines {
       seen.set(key, s);
       spots.push(s);
     }
-    return { id, from: src ? { col, y: this.spotY(src, col) } : null, spots };
+    return { id, from: y0 !== null ? { col, y: y0 } : null, spots };
   }
 
   /** Düzen ölçümü + çizim: seçim, veri, boyut değişiminde. */

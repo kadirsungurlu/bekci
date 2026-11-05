@@ -14,6 +14,7 @@
   import { live } from '../lib/live.svelte';
   import { session } from '../lib/session.svelte';
   import { TopoLines } from '../lib/topolines';
+  import { METRICS } from '../lib/topovirt';
   import { POLL_MS, TopologyStore } from '../lib/topology.svelte';
   import { buildGraph, colOf, DEFAULT_BY, effectiveBy, fold, groupIndex, groupOptions, isProblem, MARK_DEFS, relMap, viewChannels, viewGroups, type Col, type GroupBy, type St, type UI } from '../lib/topomodel';
 
@@ -50,9 +51,15 @@
   let announce = $state('');
 
   const narrow = matchMedia('(min-width:1240px)');
+  const small = matchMedia('(max-width:900px)');
   const canHover = matchMedia('(hover:hover)');
   let wide = $state(narrow.matches);
-  const onWide = () => (wide = narrow.matches);
+  let phone = $state(small.matches);
+  const onWide = () => {
+    wide = narrow.matches;
+    phone = small.matches;
+  };
+  const metrics = $derived(METRICS[wide ? 'wide' : phone ? 'phone' : 'tab']);
 
   function readUrl() {
     const [path, qs] = location.hash.slice(1).split('?');
@@ -91,14 +98,6 @@
   const vCha = $derived(graph ? viewChannels(graph, ui, rel) : { rows: [], rest: 0 });
   const node = $derived(sel && graph ? (graph.nodes.get(sel) ?? null) : null);
   const isEmpty = $derived(!!graph && !graph.mon.length && !graph.pro.length && !graph.srv.length);
-  // Büyük panelde ilk çizim bekletilmez: satırlar sütun başına kademeli eklenir.
-  const STEP = 200;
-  let limit = $state(STEP);
-  $effect(() => {
-    if (!graph || limit >= graph.nodes.size) return;
-    const id = requestAnimationFrame(() => setTimeout(() => (limit += STEP), 0));
-    return () => cancelAnimationFrame(id);
-  });
   const rowNow = $derived(Math.floor(now / 15) * 15);
   const ago = $derived(store.updatedAt ? Math.max(0, now - Math.floor(store.updatedAt / 1000)) : 0);
   const stale = $derived(!!store.error && !!d);
@@ -134,6 +133,16 @@
   let hov: string | null = null;
   let hovEls: Element[] = [];
   let frame = 0;
+  let roveFrame = 0;
+  const cols = $state.raw<Partial<Record<Col, TopoColumn>>>({});
+  /** Pencere kayınca sekme durağı silinmiş olabilir. */
+  const onRender = () => {
+    if (!roveFrame)
+      roveFrame = requestAnimationFrame(() => {
+        roveFrame = 0;
+        rove();
+      });
+  };
 
   function paint() {
     frame = 0;
@@ -158,7 +167,7 @@
       root: sutunlar,
       svg,
       graph: () => graph,
-      groupOf: (id) => gidx.get(id),
+      pos: (id, col) => cols[col]?.yOf(`o-${id}`) ?? cols[col]?.yOf(gidx.get(id)) ?? null,
       chip: (dir, n) => t(dir === 1 ? 'topology.chipDown' : 'topology.chipUp', { n }),
     });
     queue();
@@ -179,7 +188,7 @@
   /** Sütun başına tek sekme durağı; seçili satır varsa o. */
   function rove() {
     rootEl?.querySelectorAll<HTMLElement>('.kay').forEach((k) => {
-      const chosen = k.querySelector<HTMLElement>('.o.sec') ?? k.querySelector<HTMLElement>('[tabindex="0"]') ?? k.querySelector<HTMLElement>('.gh,.o:not(.gz),.kalan');
+      const chosen = k.querySelector<HTMLElement>('.o.sec') ?? k.querySelector<HTMLElement>('[tabindex="0"]') ?? k.querySelector<HTMLElement>('.gh,.o,.kalan');
       k.querySelectorAll<HTMLElement>('[tabindex="0"]').forEach((e) => {
         if (e !== chosen) e.tabIndex = -1;
       });
@@ -207,15 +216,21 @@
     }
   };
 
+  /** Seçili ya da ilk ilişkili satırı görünür yapar; yer sanal listeden, kanal satırı DOM'dan. */
+  const hitOf = (c: Col) => {
+    const y = cols[c]?.firstHit() ?? null;
+    if (y !== null) return y;
+    const k = rootEl?.querySelector<HTMLElement>(`#k-${c}`);
+    const e = k?.querySelector<HTMLElement>('.kuyruk .o.sec') ?? k?.querySelector<HTMLElement>('.kuyruk .o.ilg');
+    return k && e ? e.getBoundingClientRect().top - k.getBoundingClientRect().top + k.scrollTop : null;
+  };
   function scrollIntoColumns() {
     if (!rootEl) return;
     for (const c of COLS) {
       const k = rootEl.querySelector<HTMLElement>(`#k-${c}`);
-      const first = k?.querySelector<HTMLElement>('.o.sec') ?? k?.querySelector<HTMLElement>('.o.ilg');
-      if (!k || !first) continue;
-      const kr = k.getBoundingClientRect();
-      const r = first.getBoundingClientRect();
-      if (r.top < kr.top + 4 || r.bottom > kr.bottom - 4) k.scrollTop += r.top - kr.top - kr.height / 3;
+      const y = hitOf(c);
+      if (!k || y === null) continue;
+      if (y < k.scrollTop + 4 || y + 27 > k.scrollTop + k.clientHeight - 4) k.scrollTop = y - k.clientHeight / 3;
     }
     queue();
   }
@@ -223,10 +238,11 @@
     const bar = rootEl?.querySelector<HTMLElement>('.sekme');
     const col = rootEl?.querySelector<HTMLElement>(`#c-${tab}`);
     if (!bar || !col) return;
-    const top = (matchMedia('(max-width:900px)').matches ? 54 : 0) + 8;
+    const top = (small.matches ? 54 : 0) + 8;
     const start = (bar.parentElement as HTMLElement).getBoundingClientRect().top + scrollY - top;
-    const row = col.querySelector<HTMLElement>('.o.sec') ?? col.querySelector<HTMLElement>('.o.ilg');
-    const y = row ? row.getBoundingClientRect().top + scrollY - top - bar.offsetHeight - 12 : start;
+    const k = col.querySelector<HTMLElement>('.kay');
+    const hit = hitOf(tab);
+    const y = k && hit !== null ? k.getBoundingClientRect().top + scrollY + hit - top - bar.offsetHeight - 12 : start;
     scrollTo({ top: Math.max(start, y) });
   }
 
@@ -239,7 +255,8 @@
     announce = n ? t('topology.dock.selected', { name: n.name, n: graph?.rel.get(n.id)?.length ?? 0 }) : t('topology.dock.cleared');
     if (!n) return;
     await tick();
-    requestAnimationFrame(() => (wide ? scrollIntoColumns() : scrollMobile()));
+    if (wide) scrollIntoColumns();
+    else scrollMobile();
   }
 
   function onClick(e: MouseEvent) {
@@ -272,11 +289,10 @@
       tam = { ...tam, [full.dataset.tam]: true };
       return;
     }
-    const cell = el.closest('.hucre');
-    const head = el.closest<HTMLElement>('[data-g]') ?? cell?.parentElement?.querySelector<HTMLElement>('.gh');
+    const head = el.closest<HTMLElement>('[data-g]');
     if (head?.dataset.g) {
       const id = head.dataset.g;
-      const open = head.getAttribute('aria-expanded') !== 'true';
+      const open = !head.classList.contains('gh') ? true : head.getAttribute('aria-expanded') !== 'true';
       ac = { ...ac, [id]: open };
       save(KEY_AC, ac);
       if (sel) tam = { ...tam, [id]: open };
@@ -288,11 +304,15 @@
     void select(sel);
   }
 
+  let lastKey: [Col, string] | null = null;
   function onMove(e: MouseEvent) {
     if (canHover.matches) setHover((e.target as Element).closest<HTMLElement>('.o')?.dataset.id ?? null);
   }
   function onFocus(e: FocusEvent) {
-    const id = (e.target as Element).closest?.<HTMLElement>('.o')?.dataset.id;
+    const el = e.target as HTMLElement;
+    const kol = el.closest?.<HTMLElement>('.kay')?.dataset.kol as Col | undefined;
+    if (kol && el.id) lastKey = [kol, el.id];
+    const id = el.closest?.<HTMLElement>('.o')?.dataset.id;
     if (id) setHover(id);
   }
 
@@ -309,52 +329,76 @@
       search?.focus();
       return;
     }
-    const target = e.target as HTMLElement;
+    let target = e.target as HTMLElement;
+    // Fareyle kaydırınca odaklı satır çizimden çıkmış olabilir: oklar son satırdan sürer.
+    if (target === document.body && lastKey && ['ArrowDown', 'ArrowUp'].includes(e.key)) {
+      e.preventDefault();
+      const [col, key] = lastKey;
+      void cols[col]?.reveal(key).then((el) => el?.focus());
+      return;
+    }
     const k = target.closest?.<HTMLElement>('.kay');
     if (!k) return;
-    const list = [...k.querySelectorAll<HTMLElement>('.gh,.o:not(.gz),.kalan')];
-    const i = list.indexOf(target);
+    const col = k.dataset.kol as Col;
+    const c = cols[col];
+    const list = c?.focusables() ?? [];
+    const i = list.indexOf(target.id);
     if (i < 0) return;
-    const go = (el: HTMLElement | undefined) => {
-      if (!el) return;
-      target.tabIndex = -1;
-      el.tabIndex = 0;
-      el.focus();
+    const go = (key: string | undefined, to: Col = col) => {
+      if (!key) return;
       e.preventDefault();
+      target.tabIndex = -1;
+      void cols[to]?.reveal(key).then((el) => {
+        if (!el) return;
+        el.tabIndex = 0;
+        el.focus();
+      });
     };
     if (e.key === 'ArrowDown') go(list[i + 1]);
     else if (e.key === 'ArrowUp') go(list[i - 1]);
     else if (e.key === 'Home') go(list[0]);
     else if (e.key === 'End') go(list[list.length - 1]);
     else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && wide) {
-      const next = COLS[COLS.indexOf(k.dataset.kol as Col) + (e.key === 'ArrowLeft' ? -1 : 1)];
+      const next = COLS[COLS.indexOf(col) + (e.key === 'ArrowLeft' ? -1 : 1)];
       if (!next) return;
       const y = target.getBoundingClientRect().top;
       let best: HTMLElement | undefined;
       let gap = Infinity;
-      rootEl?.querySelectorAll<HTMLElement>(`#k-${next} .gh,#k-${next} .o:not(.gz),#k-${next} .kalan`).forEach((x) => {
-        const f = Math.abs(x.getBoundingClientRect().top - y);
+      rootEl?.querySelectorAll<HTMLElement>(`#k-${next} .gh,#k-${next} .o,#k-${next} .kalan`).forEach((x) => {
+        const r = x.getBoundingClientRect();
+        const kr = (x.closest('.kay') as HTMLElement).getBoundingClientRect();
+        if (r.bottom < kr.top || r.top > kr.bottom) return;
+        const f = Math.abs(r.top - y);
         if (f < gap) {
           gap = f;
           best = x;
         }
       });
-      go(best);
+      go(best?.id, next);
     }
   }
 
   onMount(() => {
     store.start();
     narrow.addEventListener('change', onWide);
+    small.addEventListener('change', onWide);
     window.addEventListener('hashchange', readUrl);
     window.addEventListener('resize', queue);
+    window.addEventListener('scroll', onPageScroll, { passive: true });
   });
+  const onPageScroll = () => {
+    if (wide) return;
+    for (const c of COLS) if (c === tab) cols[c]?.sync();
+  };
   onDestroy(() => {
+    window.removeEventListener('scroll', onPageScroll);
     store.stop();
     clearInterval(clock);
     cancelAnimationFrame(frame);
     cancelAnimationFrame(scrollFrame);
+    cancelAnimationFrame(roveFrame);
     narrow.removeEventListener('change', onWide);
+    small.removeEventListener('change', onWide);
     window.removeEventListener('hashchange', readUrl);
     window.removeEventListener('resize', queue);
   });
@@ -367,7 +411,7 @@
 <svg width="0" height="0" class="tohum" aria-hidden="true"><defs>{@html MARK_DEFS}</defs></svg>
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="topo" bind:this={rootEl} onclick={onClick} onmouseover={onMove} onmouseleave={() => setHover(null)} onfocusin={onFocus}>
+<div class="topo" bind:this={rootEl} style:--sat="{metrics.row}px" style:--sat2="{metrics.alt}px" style:--bas="{metrics.head}px" onclick={onClick} onmouseover={onMove} onmouseleave={() => setHover(null)} onfocusin={onFocus}>
   <div class="bas">
     <div>
       <h1>{t('topology.title')}<span class="dot">.</span></h1>
@@ -423,12 +467,12 @@
         {/each}
       </div>
       <div class="sutunlar" bind:this={sutunlar} data-tab={tab} onscrollcapture={onScroll}>
-        <TopoColumn col="srv" cls="sut-l" title={t('topology.col.servers')} label={t('topology.col.servers')} count={t('topology.count.servers', { n: graph.srv.length, k: problemCount(graph.srv) })} options={opts.srv} by={eff.srv} views={vSrv} g={graph} {rel} {sel} {limit} now={rowNow} filtered={!!qf} {sorun}>
+        <TopoColumn bind:this={cols.srv} active={tab === 'srv'} col="srv" cls="sut-l" title={t('topology.col.servers')} label={t('topology.col.servers')} count={t('topology.count.servers', { n: graph.srv.length, k: problemCount(graph.srv) })} options={opts.srv} by={eff.srv} views={vSrv} g={graph} {rel} {sel} {metrics} {wide} now={rowNow} filtered={!!qf} {sorun} onrender={onRender}>
           {#snippet head()}
             <div class="kb kb-srv"><span>{t('topology.head.name')}</span><span>{t('topology.head.cpu')}</span><span>{t('topology.head.mem')}</span><span>{t('topology.head.disk')}</span></div>
           {/snippet}
         </TopoColumn>
-        <TopoColumn col="pro" cls="orta" title={t('topology.col.probes')} label={t('topology.col.midLabel')} count={String(graph.pro.length)} options={opts.pro} by={eff.pro} views={vPro} g={graph} {rel} {sel} {limit} now={rowNow} filtered={!!qf} {sorun}>
+        <TopoColumn bind:this={cols.pro} active={tab === 'pro'} col="pro" cls="orta" title={t('topology.col.probes')} label={t('topology.col.midLabel')} count={String(graph.pro.length)} options={opts.pro} by={eff.pro} views={vPro} g={graph} {rel} {sel} {metrics} {wide} now={rowNow} filtered={!!qf} {sorun} onrender={onRender}>
           {#snippet tail()}
             {#if graph && (d?.channels || graph.cha.length)}
               <div class="alt-b">{t('topology.col.channels')} <span>{t('topology.count.channels', { count: graph.cha.length })}</span></div>
@@ -443,7 +487,7 @@
             {/if}
           {/snippet}
         </TopoColumn>
-        <TopoColumn col="mon" title={t('topology.col.monitors')} label={t('topology.col.monitors')} count={t('topology.count.monitors', { n: graph.mon.length, k: problemCount(graph.mon) })} options={opts.mon} by={eff.mon} views={vMon} g={graph} {rel} {sel} {limit} now={rowNow} filtered={!!qf} {sorun}>
+        <TopoColumn bind:this={cols.mon} active={tab === 'mon'} col="mon" title={t('topology.col.monitors')} label={t('topology.col.monitors')} count={t('topology.count.monitors', { n: graph.mon.length, k: problemCount(graph.mon) })} options={opts.mon} by={eff.mon} views={vMon} g={graph} {rel} {sel} {metrics} {wide} now={rowNow} filtered={!!qf} {sorun} onrender={onRender}>
           {#snippet head()}
             <div class="kb kb-mon"><span>{t('topology.head.name')}</span><span class="tur">{t('topology.head.type')}</span><span>{t('topology.head.clean')}</span><span>{t('topology.head.ms')}</span></div>
           {/snippet}

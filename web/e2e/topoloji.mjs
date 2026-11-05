@@ -114,7 +114,7 @@ try {
     // Monitör: ilgili nokta sayısı, çizgiler, ayrıntı, adres.
     await q.locator('#o-m' + m.id).click();
     if ((await q.locator('.o.sec').count()) !== 1) fail('seçili satır bir değil');
-    const seen = await q.locator('.o.pro.ilg:not(.gz)').count();
+    const seen = await q.locator('.o.pro.ilg').count();
     if (seen !== locs) fail(`ilişkili nokta ${seen}, beklenen ${locs}`);
     await q.waitForFunction(() => document.querySelectorAll('svg.hat path').length > 0, null, { timeout: 3000 }).catch(() => fail('çizgi yok'));
     await q.getByTestId('topology-open').waitFor({ timeout: 3000 }).catch(() => fail('ayrıntı şeridi yok'));
@@ -131,7 +131,7 @@ try {
     if (await q.locator('svg.hat path').count()) fail('Esc sonrası çizgi kaldı');
     // Sunucu, nokta ve kanal seçimi.
     for (const [id, needed] of [['.o.srv.warn', '.o.ilg'], ['.o.pro.ok', '.o.ilg'], ['.o.cha', '.o.ilg']]) {
-      await q.locator(id + ':not(.gz)').first().click();
+      await q.locator(id).first().click();
       await q.locator('.o.sec').waitFor({ timeout: 3000 }).catch(() => fail(id + ' seçilmedi'));
       if (!(await q.locator(needed).count())) fail(id + ' ilişkisiz');
       await q.keyboard.press('Escape');
@@ -139,18 +139,18 @@ try {
     console.log('tamam: seçim, ilişki sayıları, çizgi, Esc, adres');
 
     // Arama: '/' odaklar, süzer, adrese yazar.
-    const total = await q.locator('.o.mon:not(.gz)').count();
+    const total = await q.locator('.o.mon').count();
     await q.keyboard.press('/');
     if (!(await q.getByTestId('topology-search').evaluate((e) => e === document.activeElement))) fail('/ aramaya odaklamadı');
     await q.keyboard.type(m.name);
     await q.waitForFunction(() => /[?&]q=/.test(location.hash), null, { timeout: 3000 }).catch(() => fail('arama adreste yok'));
-    const hit = await q.locator('.o.mon:not(.gz)').count();
+    const hit = await q.locator('.o.mon').count();
     if (!hit) fail('arama sonuç vermedi');
     await q.getByTestId('topology-search').fill('');
     // Yalnız sorunlular.
     await q.getByTestId('topology-problems-only').click();
     await q.waitForFunction(() => /[?&]sorun=1/.test(location.hash), null, { timeout: 3000 }).catch(() => fail('süzgeç adreste yok'));
-    const notBad = await q.locator('.o.mon:not(.gz):not(.bad):not(.warn)').count();
+    const notBad = await q.locator('.o.mon:not(.bad):not(.warn)').count();
     if (notBad) fail('yalnız sorunlularda ' + notBad + ' sağlıklı satır');
     await q.getByTestId('topology-problems-only').click();
     console.log(`tamam: arama (${hit}/${total}) ve yalnız sorunlular`);

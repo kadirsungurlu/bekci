@@ -42,7 +42,7 @@ test('başka sütundan seçimde yalnız ilişkililer görünür', () => {
   const shown = view.reduce((a, v) => a + v.rows.length, 0);
   const expected = g.pro.filter((p) => rel.has(p.id)).length;
   assert.equal(shown, expected);
-  assert.equal(view.reduce((a, v) => a + v.rest + v.rows.length + (v.dim ? v.all.length : 0), 0), g.pro.length);
+  assert.equal(view.reduce((a, v) => a + v.rest + v.rows.length + (v.dim ? v.size : 0), 0), g.pro.length);
 });
 
 test('tam listede grubun hepsi görünür', () => {
@@ -52,7 +52,7 @@ test('tam listede grubun hepsi görünür', () => {
   if (!first) return;
   const v = viewGroups(g, 'pro', ui({ sel: n.id, tam: { [first.id]: true } }), rel).find((x) => x.id === first.id);
   assert.equal(v.rest, 0);
-  assert.equal(v.rows.length, v.all.length);
+  assert.equal(v.rows.length, v.size);
 });
 
 test('arama Türkçe harflerde büyük küçük ayrımı yapmaz, ilişkili satır süzülmez', () => {

@@ -6,12 +6,12 @@
   import { typeLabel } from '../lib/monitorTypes';
   import { NOTIFY_LABELS, NOTIFY_STYLE } from '../lib/notifyTypes';
   import type { NotificationType } from '../lib/api';
-  import type { Graph, St, TopoNode } from '../lib/topomodel';
+  import { hasAlt, type Graph, type St, type TopoNode } from '../lib/topomodel';
   import { monitorAlt, offCount, serverAlt, stateText } from '../lib/topotext';
 
-  let { n, g, rel, sel, hide = false, now }: { n: TopoNode; g: Graph; rel: St | undefined; sel: boolean; hide?: boolean; now: number } = $props();
+  let { n, g, rel, sel, now }: { n: TopoNode; g: Graph; rel: St | undefined; sel: boolean; now: number } = $props();
 
-  const cls = $derived(`o ${n.kind} ${n.st}${rel ? ` ilg i-${rel}` : ''}${sel ? ` sec i-${n.st}` : ''}${hide ? ' gz' : ''}`);
+  const cls = $derived(`o ${n.kind} ${n.st}${rel ? ` ilg i-${rel}` : ''}${sel ? ` sec i-${n.st}` : ''}${hasAlt(n) ? ' iki' : ''}`);
   const num = (v: number | undefined) => (v === undefined ? '' : String(Math.round(v)));
   const alt = $derived.by(() => {
     if (n.kind === 'mon') return monitorAlt(g, n, now);

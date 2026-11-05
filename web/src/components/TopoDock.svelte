@@ -112,7 +112,7 @@
       <div class="d-c ek">
         <span class="d-e">{t('topology.dock.latency')}</span>
         <div class="d-v">
-          {#if n.st === 'bad'}<div class="d-ms">{t('topology.dock.noResponse')}</div>
+          {#if n.st === 'bad'}<div class="d-ms kucuk">{t('topology.dock.noResponse')}</div>
           {:else if n.m.ping_ms > 0}<div class="d-ms">{Math.round(n.m.ping_ms)}<small>ms</small></div>{/if}
           {#if points}
             <svg width="100%" height="22" viewBox="0 0 132 22" preserveAspectRatio="none" aria-hidden="true"><polyline {points} fill="none" stroke="var(--spark)" stroke-width="1.4" vector-effect="non-scaling-stroke" /></svg>
@@ -158,7 +158,7 @@
       <div class="d-c ek">
         <span class="d-e">{t('topology.dock.panelRtt')}</span>
         <div class="d-v">
-          {#if n.st === 'off'}<div class="d-ms">{t('topology.dock.noVote')}</div><small>{t('topology.dock.seenAgo', { ago: fmtRelative(n.p.last_seen_at, now) })}</small>
+          {#if n.st === 'off'}<div class="d-ms kucuk">{t('topology.dock.noVote')}</div><small>{t('topology.dock.seenAgo', { ago: fmtRelative(n.p.last_seen_at, now) })}</small>
           {:else if n.p.panel_rtt_ms !== undefined}<div class="d-ms">{Math.round(n.p.panel_rtt_ms)}<small>ms</small></div>{/if}
         </div>
       </div>

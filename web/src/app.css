@@ -1203,3 +1203,17 @@ input[type='search'].input::-webkit-search-decoration {
     min-height: 44px;
   }
 }
+
+/* Paket yüklenirken topoloji iskeleti (public/boot.js); JS gerektirmeyen ilk boyama. */
+#boot { display: none; }
+.boot-topo #boot { display: flex; position: fixed; inset: 0; z-index: 2000; background: var(--bg); }
+#boot aside { flex: none; width: var(--sidebar-w); background: var(--sidebar); border-right: 1px solid var(--border); }
+#boot .b-g { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 336px minmax(0, 1.14fr); gap: 72px; padding: 150px 28px 28px; }
+#boot .b-g span { border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); }
+@media (max-width: 1239px) {
+  #boot .b-g { grid-template-columns: minmax(0, 1fr); padding: 200px 12px 12px; }
+  #boot .b-g span:not(:first-child) { display: none; }
+}
+@media (max-width: 900px) {
+  #boot aside { display: none; }
+}
