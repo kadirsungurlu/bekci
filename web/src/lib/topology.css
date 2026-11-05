@@ -159,7 +159,8 @@
     .sutunlar { grid-template-columns:minmax(0,1fr) 288px minmax(0,1.14fr); column-gap:52px; }
     .mon,.kb-mon { grid-template-columns:14px minmax(0,1fr) 34px 44px; } .kb-mon { grid-template-columns:minmax(0,1fr) 34px 44px; }
     .mon .tur,.kb-mon .tur { display:none; }
-    .dock { grid-template-columns:minmax(200px,1.2fr) 140px minmax(0,1.2fr) minmax(0,1.3fr) minmax(0,1.1fr); }
+    .dock { grid-template-columns:minmax(270px,1.3fr) 130px minmax(0,1.1fr) minmax(0,1.2fr) minmax(0,1fr); }
+    .s-sat { grid-template-columns:18px minmax(130px,1fr) 104px 46px minmax(220px,340px) minmax(150px,1fr); }
   }
 
   /* Dar: sekmeler, çizgi yok */

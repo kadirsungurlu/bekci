@@ -72,7 +72,7 @@
 <section class="sutun {cls}" id="c-{col}" aria-label={label}>
   <div class="s-b">
     <h2>{title}</h2>
-    <span class="say">{count}</span>
+    <span class="say" title={count}>{count}</span>
     {#if options.length > 1}
       <span class="seg" role="group" aria-label={t('topology.by.label')}>
         {#each options as o (o)}
