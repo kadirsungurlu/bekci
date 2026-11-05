@@ -370,7 +370,7 @@
   let suggestTimer: ReturnType<typeof setTimeout> | undefined;
   let suggestSeq = 0;
   $effect(() => {
-    const ready = servers.length > 0 && !pickerOpen && !loading;
+    const ready = servers.length > 0 && !loading;
     const cfg = ready ? JSON.stringify(buildConfig()) : '';
     clearTimeout(suggestTimer);
     if (!ready) return;
