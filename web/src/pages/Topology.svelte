@@ -215,7 +215,7 @@
       if (!k || !first) continue;
       const kr = k.getBoundingClientRect();
       const r = first.getBoundingClientRect();
-      if (r.top < kr.top + 4 || r.bottom > kr.bottom - 4) k.scrollTop += r.top - kr.top - 34;
+      if (r.top < kr.top + 4 || r.bottom > kr.bottom - 4) k.scrollTop += r.top - kr.top - kr.height / 3;
     }
     queue();
   }

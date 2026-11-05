@@ -6,7 +6,7 @@
 .topo {
   --warn-soft:color-mix(in srgb,var(--warn) 13%,transparent);
   --warn-border:color-mix(in srgb,var(--warn) 45%,transparent);
-  --up-cell:color-mix(in srgb,var(--up) 16%,transparent);
+  --up-cell:color-mix(in srgb,var(--up) 26%,transparent);
   --hatch:color-mix(in srgb,var(--muted) 50%,transparent);
   --ust-kabuk:0px;
   display:flex; flex-direction:column; gap:12px; min-width:0;
@@ -51,7 +51,7 @@
   .sorun-b em { margin-left:auto; font-style:normal; color:var(--muted); font-size:.78rem; }
   .h-bad { background:var(--down); color:#fff; } .h-ok { background:var(--up-cell); } .h-yok { background:var(--border); }
   .h-off { background:repeating-linear-gradient(135deg,var(--hatch) 0 2px,transparent 2px 5px); }
-  .s-sat { display:grid; grid-template-columns:18px minmax(150px,1.1fr) 130px 92px 52px minmax(280px,440px) minmax(200px,1.3fr); align-items:center; gap:10px; min-height:26px; padding:0 14px; border-top:1px solid var(--border); font-size:.84rem; width:100%; }
+  .s-sat { display:grid; grid-template-columns:18px minmax(150px,1.1fr) 150px 92px 52px minmax(280px,440px) minmax(200px,1.3fr); align-items:center; gap:10px; min-height:26px; padding:0 14px; border-top:1px solid var(--border); font-size:.84rem; width:100%; }
   .s-sat.bs { min-height:21px; color:var(--muted); font-size:.72rem; border-top:0; }
   button.s-sat[aria-pressed="true"] { background:var(--card-2); box-shadow:inset 2px 0 0 var(--down); }
   button.s-sat.warn[aria-pressed="true"] { box-shadow:inset 2px 0 0 var(--warn); }
@@ -205,7 +205,7 @@
     .s-sat .mat span { height:10px; }
     .s-sat > .s-ad { grid-column:2; grid-row:1; }
     .sekme { top:var(--ust-kabuk); }
-    .dock.acik { left:8px; right:8px; bottom:calc(60px + env(safe-area-inset-bottom)); max-height:40vh; }
+    .dock.acik { left:8px; right:8px; bottom:calc(60px + env(safe-area-inset-bottom)); max-height:40vh; padding-bottom:12px; }
     .s-b { flex-wrap:wrap; }
     .seg { margin-left:0; } .s-b .say { flex:1; }
     .o,.gh,.kalan,.sekme button,.seg button,.d-ac { min-height:44px; }

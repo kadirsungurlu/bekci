@@ -75,18 +75,18 @@
           {@html MARK[p.tone]}
           {#if n.kind === 'mon'}
             <span class="s-ad">{n.name}</span><span class="s-gr s-gk">{group(p)}</span>
-            <span class="s-ha" title={n.m.message}>{n.m.message || t(`topology.state.${n.m.state}`)}</span><span class="s-su">{sinceText(n.m.since, now)}</span>
+            <span class="s-ha" title={n.m.message}>{n.m.message || t(`topology.state.${n.m.state}`)}</span><span class="s-su">{sinceText(n.m.since, now) || '—'}</span>
             <span class="mat">{@html matrix(n)}</span>
             <span class="s-so"><b>{t('topology.problems.whoN', { n: voters(n), on: online.length })}</b>, {whereText(g, n)}</span>
           {:else if n.kind === 'pro'}
             <span class="s-ad">{t('topology.problems.probeName', { name: n.name })}</span><span class="s-gr s-gk">{group(p)}</span>
             <span class="s-ha">{n.st === 'off' ? t('topology.problems.offline') : n.p.uplink === 'oob' ? t('topology.problems.oob') : t('topology.problems.late')}</span>
-            <span class="s-su">{n.st === 'off' ? sinceText(n.p.last_seen_at, now) : ''}</span>
+            <span class="s-su">{(n.st === 'off' && sinceText(n.p.last_seen_at, now)) || '—'}</span>
             <span class="mat-y">{n.st === 'off' ? t('topology.problems.noHeartbeat') : t('topology.problems.agentReports')}</span>
             <span class="s-so">{t('topology.problems.affects', { n: (g.rel.get(n.id) ?? []).length })}</span>
           {:else if n.kind === 'srv'}
             <span class="s-ad">{n.name}</span><span class="s-gr s-gk">{group(p)}</span>
-            <span class="s-ha" title={serverSymptom(n)}>{serverSymptom(n)}</span><span class="s-su">{sinceText(n.s.alert_since, now)}</span>
+            <span class="s-ha" title={serverSymptom(n)}>{serverSymptom(n)}</span><span class="s-su">{sinceText(n.s.alert_since, now) || '—'}</span>
             <span class="mat-y">{t('topology.problems.agentReports')}</span>
             <span class="s-so">{t('topology.dock.monN', { count: (g.rel.get(n.id) ?? []).filter((r) => r.id[0] === 'm').length })}</span>
           {/if}

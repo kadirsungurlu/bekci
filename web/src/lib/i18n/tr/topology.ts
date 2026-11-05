@@ -2,7 +2,7 @@
 export default {
   title: 'Canlı topoloji',
   subtitle: 'Bir sunucuya, noktaya, kanala ya da monitöre tıklayın; yalnız ilişkili olduğu yerler kalır.',
-  search: { label: 'Ara', placeholder: 'Monitör, sunucu, nokta, kanal ara', clear: 'Aramayı temizle' },
+  search: { label: 'Ara', placeholder: 'Monitör, sunucu, nokta, kanal', clear: 'Aramayı temizle' },
   onlyProblems: 'Yalnız sorunlular',
   live: {
     on: 'Canlı, {s} sn önce',

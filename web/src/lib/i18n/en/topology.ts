@@ -5,7 +5,7 @@ import type tr from '../tr/topology';
 export default {
   title: 'Live topology',
   subtitle: 'Click a server, location, channel or monitor; only what it relates to stays in view.',
-  search: { label: 'Search', placeholder: 'Search monitors, servers, locations, channels', clear: 'Clear search' },
+  search: { label: 'Search', placeholder: 'Monitor, server, location, channel', clear: 'Clear search' },
   onlyProblems: 'Problems only',
   live: {
     on: 'Live, {s}s ago',
@@ -32,7 +32,7 @@ export default {
     ms: 'ms',
   },
   count: {
-    servers: '{n}, {k} with alerts',
+    servers: '{n}, {k} warnings',
     monitors: '{n}, {k} failing',
     channels: '{count} channel|{count} channels',
   },
