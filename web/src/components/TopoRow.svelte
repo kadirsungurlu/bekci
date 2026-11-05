@@ -6,12 +6,12 @@
   import { typeLabel } from '../lib/monitorTypes';
   import { NOTIFY_LABELS, NOTIFY_STYLE } from '../lib/notifyTypes';
   import type { NotificationType } from '../lib/api';
-  import { MARK, type Graph, type St, type TopoNode } from '../lib/topomodel';
+  import type { Graph, St, TopoNode } from '../lib/topomodel';
   import { monitorAlt, offCount, serverAlt, stateText } from '../lib/topotext';
 
-  let { n, g, rel, sel, now }: { n: TopoNode; g: Graph; rel: St | undefined; sel: boolean; now: number } = $props();
+  let { n, g, rel, sel, hide = false, now }: { n: TopoNode; g: Graph; rel: St | undefined; sel: boolean; hide?: boolean; now: number } = $props();
 
-  const cls = $derived(`o ${n.kind} ${n.st}${rel ? ` ilg i-${rel}` : ''}${sel ? ` sec i-${n.st}` : ''}`);
+  const cls = $derived(`o ${n.kind} ${n.st}${rel ? ` ilg i-${rel}` : ''}${sel ? ` sec i-${n.st}` : ''}${hide ? ' gz' : ''}`);
   const num = (v: number | undefined) => (v === undefined ? '' : String(Math.round(v)));
   const alt = $derived.by(() => {
     if (n.kind === 'mon') return monitorAlt(g, n, now);
@@ -24,17 +24,17 @@
 
 <button type="button" class={cls} id="o-{n.id}" data-id={n.id} tabindex="-1" aria-pressed={sel} aria-label={label}>
   {#if n.kind === 'mon'}
-    {@html MARK[n.cls]}<span class="ad">{n.name}</span><span class="silik tur">{typeLabel(n.m.type)}</span>
+    <svg width="14" height="14" aria-hidden="true"><use href="#tm-{n.cls}" /></svg><span class="ad">{n.name}</span><span class="silik tur">{typeLabel(n.m.type)}</span>
     <span class="say-n">{n.st === 'off' ? '' : `${n.pro.length - n.bad.length - offCount(g, n)}/${n.pro.length}`}</span>
     <span class="say-n">{n.m.ping_ms > 0 ? Math.round(n.m.ping_ms) : ''}</span>
   {:else if n.kind === 'srv'}
-    {@html MARK[n.cls]}<span class="ad">{n.name}</span>
+    <svg width="14" height="14" aria-hidden="true"><use href="#tm-{n.cls}" /></svg><span class="ad">{n.name}</span>
     <span class="say-n" class:yuk={(n.s.cpu ?? 0) >= 90}>{num(n.s.cpu)}</span><span class="say-n" class:yuk={(n.s.mem ?? 0) >= 90}>{num(n.s.mem)}</span><span
       class="say-n"
       class:yuk={(n.s.disk ?? 0) >= 90}>{num(n.s.disk)}</span
     >
   {:else if n.kind === 'pro'}
-    {@html MARK[n.cls]}<span class="ad">{n.name}</span><span class="silik">{n.code}</span>
+    <svg width="14" height="14" aria-hidden="true"><use href="#tm-{n.cls}" /></svg><span class="ad">{n.name}</span><span class="silik">{n.code}</span>
     <span class="say-n">{n.st !== 'off' && n.p.panel_rtt_ms !== undefined ? `${Math.round(n.p.panel_rtt_ms)} ms` : ''}</span>
   {:else}
     {@const s = NOTIFY_STYLE[n.c.type as NotificationType]}

@@ -1,14 +1,13 @@
-// Canlı topoloji uçtan uca: boş panelde boş durum (veri varsa atlanır), gerçek
-// veriyle tuval (kartlar, çakışmasızlık, bağlantı ipucu klavye/Escape), 390 px liste, açık olay
-// varken "Panelin kararı" kartı, sayfa yenilenmeden canlı ekleme (SSE) ve
-// gizli sekmede istek yapılmaması. Çalışan bir panele karşı:
+// Canlı topoloji uçtan uca. Gerçek panelle: boş durum, satır, sayfa yenilenmeden canlı ekleme (SSE),
+// gizli sekmede istek yapılmaması. Sabit tohumla (topotohum.mjs): seçim ve ilişki sayıları, çizgi,
+// ayrıntı şeridi, Esc, adreste kalan seçim, arama, yalnız sorunlular, gruplama hatırlama, klavye,
+// dar ekran sekmeleri ve 390 px. Çalışan bir panele karşı:
 //   BASE=http://127.0.0.1:8080 node topoloji.mjs
-// SHOTS=<klasör> verilirse koyu/açık 1920 ve 390 görüntüleri kaydedilir.
+// CHROME=/usr/bin/google-chrome verilirse o tarayıcı kullanılır.
 import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { fakeTopology } from './topotohum.mjs';
 
 const BASE = process.env.BASE || 'http://127.0.0.1:8080';
-const SHOTS = process.env.SHOTS || '';
 const USER = 'e2e';
 const PASS = 'e2e-parola-12345';
 const H = { 'Content-Type': 'application/json', 'X-Uptime': '1' };
@@ -18,7 +17,7 @@ function fail(msg) {
   process.exit(1);
 }
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME, args: ['--no-sandbox'] } : {});
 try {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const rq = ctx.request;
@@ -37,7 +36,6 @@ try {
   if (!first.monitors.length && !first.probes.length && !first.servers.length) {
     await p.goto(BASE + '/#/topology');
     await p.getByTestId('topology-empty').waitFor({ timeout: 10_000 }).catch(() => fail('boş durum yok'));
-    if (await p.getByTestId('topology-decision').count()) fail('boş panelde karar kartı');
     console.log('tamam: boş durum');
   }
 
@@ -54,58 +52,24 @@ try {
   await p.goto(BASE + '/#/topology');
   const board = p.getByTestId('topology-board');
   await board.waitFor({ timeout: 10_000 }).catch(() => fail('topoloji panosu yok'));
-  await p.getByTestId('topology-canvas').waitFor({ timeout: 5000 }).catch(() => fail('tuval yok'));
-  // Durum yalnız renkle verilmez: kartta işaret + metin, sayaçta etiketli rozet.
-  await p.locator('[data-testid^="node-"] [role="img"][aria-label]').first().waitFor({ timeout: 5000 }).catch(() => fail('kartta durum işareti yok'));
-  if (!(await p.locator('[data-count][title]').count())) fail('sayaç rozetinde etiket yok');
-  // Gizli kart varsa grubu aç (çok monitörde "N tane daha").
-  const node = async (group, id) => {
-    const loc = p.getByTestId(`node-${group}-${id}`);
-    for (let i = 0; i < 2 && !(await loc.count()); i++) {
-      const more = p.getByTestId(`more-${group}`);
-      if ((await more.count()) && (await more.getAttribute('aria-expanded')) === 'false') await more.click();
-      else await p.waitForTimeout(1000);
-    }
-    return loc;
-  };
-  const monNode = await node('monitors', down.id);
-  await monNode.waitFor({ timeout: 5000 }).catch(() => fail('monitör kartı yok'));
-  if (!(await monNode.getAttribute('href'))?.endsWith('/monitors/' + down.id)) fail('monitör kartı ayrıntıya gitmiyor');
-  const pc = await node('probes', probe.probe.id);
-  await pc.waitFor({ timeout: 5000 }).catch(() => fail('kontrol noktası kartı yok'));
-  if (!(await pc.innerText()).includes('17 ms')) fail('panel RTT yok: ' + (await pc.innerText()));
-  await (await node('channels', chan.id)).waitFor({ timeout: 5000 }).catch(() => fail('kanal yok'));
-  // Kartlar üst üste binmez.
-  const boxes = await p.locator('[data-testid^="node-"], [data-testid="topology-hub"]').evaluateAll((els) =>
-    els.map((e) => { const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; }));
-  for (let i = 0; i < boxes.length; i++)
-    for (let j = i + 1; j < boxes.length; j++) {
-      const [a, b] = [boxes[i], boxes[j]];
-      if (a[0] < b[0] + b[2] - 0.5 && b[0] < a[0] + a[2] - 0.5 && a[1] < b[1] + b[3] - 0.5 && b[1] < a[1] + a[3] - 0.5) fail('kartlar çakışıyor');
-    }
-  // Bağlantı ipucu: klavyeyle odak, Enter sabitler, Escape kapatır, kapatma düğmesi.
-  const edge = p.locator('path[data-edge^="lnk:"]').first();
-  await edge.focus();
-  const tip = p.getByTestId('topology-tip');
-  await tip.waitFor({ timeout: 3000 }).catch(() => fail('odakta ipucu yok'));
-  if (!/Panel|Bekci/.test(await tip.innerText())) fail('ipucu içeriği: ' + (await tip.innerText()));
-  await p.keyboard.press('Enter');
+  // Grup kapalı olabilir: arama eşleşen grubu açar.
+  const search = p.getByTestId('topology-search');
+  const row = (id) => p.locator('#o-' + id);
+  await search.fill('E2E Topo');
+  await row('m' + down.id).waitFor({ timeout: 5000 }).catch(() => fail('monitör satırı yok'));
+  await row('p' + probe.probe.id).waitFor({ timeout: 5000 }).catch(() => fail('kontrol noktası satırı yok'));
+  if (!(await row('p' + probe.probe.id).innerText()).includes('17 ms')) fail('panel RTT yok');
+  await row('c' + chan.id).waitFor({ timeout: 5000 }).catch(() => fail('kanal satırı yok'));
+  await row('m' + down.id).click();
+  const open = p.getByTestId('topology-open');
+  await open.waitFor({ timeout: 3000 }).catch(() => fail('ayrıntı şeridi yok'));
+  if (!(await open.getAttribute('href'))?.endsWith('/monitors/' + down.id)) fail('Aç bağlantısı monitöre gitmiyor');
   await p.keyboard.press('Escape');
-  if (await tip.count()) fail('Escape ipucunu kapatmadı');
-  await edge.dispatchEvent('click');
-  await tip.waitFor({ timeout: 3000 }).catch(() => fail('tıklamada ipucu yok'));
-  await tip.getByRole('button').click();
-  if (await tip.count()) fail('kapatma düğmesi çalışmadı');
-  console.log('tamam: tuval gerçek veriyle (kartlar, çakışmasızlık, ipucu)');
-
-  // Kapalı porta TCP: olay açılır, karar kartı canlı gelir (yenilemeden).
-  const dec = p.getByTestId('topology-decision');
-  await dec.getByText(down.name).waitFor({ timeout: 30_000 }).catch(() => fail('açık olayda karar kartı yok'));
-  console.log('tamam: panelin kararı (açık olay)');
+  console.log('tamam: gerçek veriyle satırlar ve ayrıntı şeridi');
 
   // Canlı ekleme: sayfa yenilenmeden yeni monitör görünür.
   const live = await post('/api/monitors', { name: 'E2E Topo Canlı ' + tag, type: 'push', interval: 60 });
-  await (await node('monitors', live.id)).waitFor({ timeout: 20_000 }).catch(() => fail('canlı güncelleme gelmedi'));
+  await row('m' + live.id).waitFor({ timeout: 20_000 }).catch(() => fail('canlı güncelleme gelmedi'));
   console.log('tamam: canlı güncelleme');
 
   // Gizli sekme: topoloji isteği yapılmaz.
@@ -124,39 +88,117 @@ try {
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
     document.dispatchEvent(new Event('visibilitychange'));
   });
-  await (await node('monitors', hid.id)).waitFor({ timeout: 5000 }).catch(() => fail('görünür olunca tazelenmedi'));
+  await row('m' + hid.id).waitFor({ timeout: 5000 }).catch(() => fail('görünür olunca tazelenmedi'));
   console.log('tamam: gizli sekmede duruyor, dönünce tazeleniyor');
 
-  // 390 px: liste görünümü, yatay kaydırma yok, satırlar >= 44 px.
-  {
-    const c = await browser.newContext({ viewport: { width: 390, height: 800 } });
+  // Sabit tohum: yanıt tarayıcıda verilir, panele yazılmaz.
+  const seed = fakeTopology({ mon: 60, srv: 12, pro: 8 });
+  const body = JSON.stringify(seed);
+  const open2 = async (w, h, hash = '#/topology') => {
+    const c = await browser.newContext({ viewport: { width: w, height: h } });
     await c.addCookies(await ctx.cookies());
     const q = await c.newPage();
-    await q.goto(BASE + '/#/topology');
-    await q.getByTestId('topology-list').waitFor({ timeout: 10_000 }).catch(() => fail('390 px liste görünümü yok'));
-    if (await q.getByTestId('topology-canvas').count()) fail('390 px tuval çizildi');
-    const sw = await q.evaluate(() => document.documentElement.scrollWidth);
-    if (sw > 390) fail('390 px yatay kaydırma: ' + sw);
-    const small = await q.locator('[data-testid="topology-list"] a.row').evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().height < 44).length);
-    if (small) fail(small + ' satır 44 px altında');
+    await q.route('**/api/topology*', (r) => r.fulfill({ contentType: 'application/json', body }));
+    await q.goto(BASE + '/' + hash);
+    await q.getByTestId('topology-board').waitFor({ timeout: 10_000 }).catch(() => fail(w + ' px pano yok'));
+    await q.locator('.o').first().waitFor({ timeout: 5000 }).catch(() => fail(w + ' px satır yok'));
+    return { c, q };
+  };
+  const m = seed.monitors.find((x) => x.state === 'down' && x.loc_ids.length >= 3);
+  const locs = new Set(m.loc_ids).size;
+  const hasSel = (q) => q.evaluate(() => /[?&]sec=/.test(location.hash));
+
+  {
+    const { c, q } = await open2(1600, 1000);
+    if (!(await q.locator('[data-testid="topology-problems"] .sorun-b, [data-testid="topology-problems"]').count())) fail('sorun çizelgesi yok');
+    // Monitör: ilgili nokta sayısı, çizgiler, ayrıntı, adres.
+    await q.locator('#o-m' + m.id).click();
+    if ((await q.locator('.o.sec').count()) !== 1) fail('seçili satır bir değil');
+    const seen = await q.locator('.o.pro.ilg:not(.gz)').count();
+    if (seen !== locs) fail(`ilişkili nokta ${seen}, beklenen ${locs}`);
+    await q.waitForFunction(() => document.querySelectorAll('svg.hat path').length > 0, null, { timeout: 3000 }).catch(() => fail('çizgi yok'));
+    await q.getByTestId('topology-open').waitFor({ timeout: 3000 }).catch(() => fail('ayrıntı şeridi yok'));
+    if (!(await q.getByTestId('topology-open').getAttribute('href'))?.endsWith('/monitors/' + m.id)) fail('Aç monitöre gitmiyor');
+    if (!(await hasSel(q))) fail('seçim adreste yok');
+    // Adresten geri gelir.
+    await q.reload();
+    await q.locator('.o.sec').waitFor({ timeout: 8000 }).catch(() => fail('seçim adresten dönmedi'));
+    // Esc seçimi bırakır.
+    await q.keyboard.press('Escape');
+    await q.getByTestId('topology-open').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => fail('Esc şeridi kapatmadı'));
+    if (await q.locator('.o.ilg').count()) fail('Esc sonrası ilişki kaldı');
+    if (await hasSel(q)) fail('Esc sonrası adreste seçim kaldı');
+    if (await q.locator('svg.hat path').count()) fail('Esc sonrası çizgi kaldı');
+    // Sunucu, nokta ve kanal seçimi.
+    for (const [id, needed] of [['s3', '.o.ilg'], ['p1', '.o.mon.ilg'], ['c4', '.o.ilg']]) {
+      await q.locator('#o-' + id).click();
+      await q.locator('.o.sec').waitFor({ timeout: 3000 }).catch(() => fail(id + ' seçilmedi'));
+      if (!(await q.locator(needed).count())) fail(id + ' ilişkisiz');
+      await q.keyboard.press('Escape');
+    }
+    console.log('tamam: seçim, ilişki sayıları, çizgi, Esc, adres');
+
+    // Arama: '/' odaklar, süzer, adrese yazar.
+    const total = await q.locator('.o.mon:not(.gz)').count();
+    await q.keyboard.press('/');
+    if (!(await q.getByTestId('topology-search').evaluate((e) => e === document.activeElement))) fail('/ aramaya odaklamadı');
+    await q.keyboard.type(m.name);
+    await q.waitForFunction(() => /[?&]q=/.test(location.hash), null, { timeout: 3000 }).catch(() => fail('arama adreste yok'));
+    const hit = await q.locator('.o.mon:not(.gz)').count();
+    if (!hit) fail('arama sonuç vermedi');
+    await q.getByTestId('topology-search').fill('');
+    // Yalnız sorunlular.
+    await q.getByTestId('topology-problems-only').click();
+    await q.waitForFunction(() => /[?&]sorun=1/.test(location.hash), null, { timeout: 3000 }).catch(() => fail('süzgeç adreste yok'));
+    const notBad = await q.locator('.o.mon:not(.gz):not(.bad):not(.warn)').count();
+    if (notBad) fail('yalnız sorunlularda ' + notBad + ' sağlıklı satır');
+    await q.getByTestId('topology-problems-only').click();
+    console.log(`tamam: arama (${hit}/${total}) ve yalnız sorunlular`);
+
+    // Gruplama seçimi yerelde hatırlanır.
+    const by = q.locator('#c-mon button[data-by][aria-pressed="false"]').first();
+    const val = await by.getAttribute('data-by');
+    await by.click();
+    await q.reload();
+    await q.locator(`#c-mon button[data-by="${val}"][aria-pressed="true"]`).waitFor({ timeout: 8000 }).catch(() => fail('gruplama hatırlanmadı'));
+    // Klavye: ok tuşu ilerletir, Enter seçer.
+    const first = q.locator('#k-mon .gh, #k-mon .o').first();
+    await first.focus();
+    await q.keyboard.press('ArrowDown');
+    const moved = await q.evaluate(() => document.activeElement?.id);
+    await q.keyboard.press('Enter');
+    if (moved?.startsWith('o-') && !(await q.locator('.o.sec').count())) fail('Enter seçmedi');
+    console.log('tamam: gruplama hatırlama ve klavye');
     await c.close();
-    console.log('tamam: 390 px liste');
   }
 
-  if (SHOTS) {
-    mkdirSync(SHOTS, { recursive: true });
-    for (const scheme of ['dark', 'light']) {
-      for (const w of [1920, 390]) {
-        const c = await browser.newContext({ viewport: { width: w, height: w < 500 ? 800 : 1000 }, colorScheme: scheme });
-        await c.addCookies(await ctx.cookies());
-        const q = await c.newPage();
-        await q.goto(BASE + '/#/topology');
-        await q.getByTestId('topology-board').waitFor();
-        await q.waitForTimeout(500);
-        await q.screenshot({ path: `${SHOTS}/topo-${scheme}-${w}.jpg`, type: 'jpeg', quality: 60 });
-        await c.close();
-      }
-    }
+  // Dar ekran: sekmeler ve ilişki rozeti.
+  {
+    const { c, q } = await open2(1100, 800);
+    await q.locator('.sekme').waitFor({ timeout: 3000 }).catch(() => fail('sekme yok'));
+    await q.locator('#o-m' + m.id).click();
+    await q.locator('.sekme button[data-tab="pro"]').click();
+    if (!(await q.locator('#c-pro').isVisible())) fail('nokta sekmesi açılmadı');
+    if (await q.locator('#c-mon').isVisible()) fail('monitör sütunu görünür kaldı');
+    if ((await q.locator('.sekme button[data-tab="pro"] b').innerText()).trim() !== String(locs)) fail('sekme rozeti ilişki sayısı değil');
+    await q.waitForFunction(() => /[?&]sekme=pro/.test(location.hash), null, { timeout: 3000 }).catch(() => fail('sekme adreste yok'));
+    await c.close();
+    console.log('tamam: dar ekran sekmeleri');
+  }
+
+  // 390 px: yatay kaydırma yok, dokunma alanı >= 44 px, alt sayfa.
+  {
+    const { c, q } = await open2(390, 800);
+    const sw = await q.evaluate(() => document.documentElement.scrollWidth);
+    if (sw > 390) fail('390 px yatay kaydırma: ' + sw);
+    const small = await q.locator('.o, .gh, .sekme button').evaluateAll((els) => els.filter((e) => { const h = e.getBoundingClientRect().height; return h > 0 && h < 44; }).length);
+    if (small) fail(small + ' dokunma alanı 44 px altında');
+    await q.locator('#o-m' + m.id).click();
+    await q.getByTestId('topology-open').waitFor({ timeout: 3000 }).catch(() => fail('390 px alt sayfa yok'));
+    await q.keyboard.press('Escape');
+    await q.getByTestId('topology-open').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => fail('390 px Esc kapatmadı'));
+    await c.close();
+    console.log('tamam: 390 px');
   }
 } finally {
   await browser.close();

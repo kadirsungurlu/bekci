@@ -46,7 +46,7 @@
         <i class="h-bad"></i>{t('topology.problems.legendBad')}<i class="h-ok"></i>{t('topology.problems.legendOk')}<i class="h-off"></i>{t('topology.problems.legendOff')}<i class="h-yok"></i>{t('topology.problems.legendNone')}
       </span>
     {:else}
-      <b>{t('topology.problems.none')}</b>
+      <b class="temiz">{t('topology.problems.none')}</b>
     {/if}
     <em>
       {t('topology.problems.working', {
@@ -75,7 +75,7 @@
           {@html MARK[p.tone]}
           {#if n.kind === 'mon'}
             <span class="s-ad">{n.name}</span><span class="s-gr s-gk">{group(p)}</span>
-            <span class="s-ha">{n.m.message || t(`topology.state.${n.m.state}`)}</span><span class="s-su">{sinceText(n.m.since, now)}</span>
+            <span class="s-ha" title={n.m.message}>{n.m.message || t(`topology.state.${n.m.state}`)}</span><span class="s-su">{sinceText(n.m.since, now)}</span>
             <span class="mat">{@html matrix(n)}</span>
             <span class="s-so"><b>{t('topology.problems.whoN', { n: voters(n), on: online.length })}</b>, {whereText(g, n)}</span>
           {:else if n.kind === 'pro'}
@@ -86,7 +86,7 @@
             <span class="s-so">{t('topology.problems.affects', { n: (g.rel.get(n.id) ?? []).length })}</span>
           {:else if n.kind === 'srv'}
             <span class="s-ad">{n.name}</span><span class="s-gr s-gk">{group(p)}</span>
-            <span class="s-ha">{serverSymptom(n)}</span><span class="s-su">{sinceText(n.s.alert_since, now)}</span>
+            <span class="s-ha" title={serverSymptom(n)}>{serverSymptom(n)}</span><span class="s-su">{sinceText(n.s.alert_since, now)}</span>
             <span class="mat-y">{t('topology.problems.agentReports')}</span>
             <span class="s-so">{t('topology.dock.monN', { count: (g.rel.get(n.id) ?? []).filter((r) => r.id[0] === 'm').length })}</span>
           {/if}

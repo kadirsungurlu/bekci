@@ -60,10 +60,10 @@ export function groupName(col: Col, by: string, key: string): string {
 }
 export function groupSummary(col: Col, g: GroupView): string {
   const a: string[] = [];
-  if (g.say.bad) a.push(t('topology.group.bad', { n: g.say.bad }));
-  if (g.say.warn) a.push(t('topology.group.warn', { n: g.say.warn }));
-  if (g.say.off) a.push(t(col === 'pro' ? 'topology.group.offline' : 'topology.group.paused', { n: g.say.off }));
-  if (g.say.ok) a.push(t('topology.group.ok', { n: g.say.ok }));
+  if (g.say.bad) a.push(t('topology.group.bad', { count: g.say.bad }));
+  if (g.say.warn) a.push(t('topology.group.warn', { count: g.say.warn }));
+  if (g.say.off) a.push(t(col === 'pro' ? 'topology.group.offline' : 'topology.group.paused', { count: g.say.off }));
+  if (g.say.ok) a.push(t('topology.group.ok', { count: g.say.ok }));
   return a.join(', ');
 }
 

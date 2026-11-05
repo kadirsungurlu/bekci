@@ -42,7 +42,7 @@ export class TopoLines {
 
   private target(id: string): HTMLElement | null {
     const e = document.getElementById(`o-${id}`);
-    if (e) return e;
+    if (e && !e.classList.contains('gz')) return e;
     const g = this.h.groupOf(id);
     return g ? document.getElementById(g) : null;
   }

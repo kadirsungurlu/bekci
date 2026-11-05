@@ -159,7 +159,7 @@ jobs:
         run: node push.mjs
       - name: Durum sayfası (ızgara + canlı akış) uçtan uca
         working-directory: web/e2e
-        run: node --test --experimental-strip-types statusgrid.test.mjs meshlayout.test.mjs topolayout.test.mjs && node durum.mjs
+        run: node --test --experimental-strip-types statusgrid.test.mjs meshlayout.test.mjs topomodel.test.mjs && node durum.mjs
       - name: Durum sayfası e-posta aboneliği (sahte SMTP) uçtan uca
         working-directory: web/e2e
         run: node abonelik.mjs

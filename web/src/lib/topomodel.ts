@@ -287,6 +287,8 @@ export interface GroupView {
   open: boolean;
   /** Seçimle ilgisi yok: soluk. */
   dim: boolean;
+  /** Gruptaki tüm düğümler; bir kez görünen satır DOM'da gizli kalır, seçim yalnız sınıf değiştirir. */
+  all: TopoNode[];
   rows: TopoNode[];
   /** Kapalı grubun küçük hücreleri (rows boşken) ya da "diğer" satırı. */
   cells: string;
@@ -315,7 +317,7 @@ export function viewGroups(g: Graph, col: Col, ui: UI, rel: Map<string, St>): Gr
     if (!vis.length) continue;
     const say: Record<St, number> = { ok: 0, warn: 0, bad: 0, off: 0 };
     for (const n of gr.items) say[n.st]++;
-    const base = { id: gr.id, key: gr.key, st: gr.st, say };
+    const base = { id: gr.id, key: gr.key, st: gr.st, say, all: gr.items };
     if (other && !ui.tam[gr.id]) {
       const rows = vis.filter((n) => rel.has(n.id));
       if (!rows.length) {
@@ -423,4 +425,8 @@ export const MARK: Record<Cls, string> = {
   maint: '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="4.6" fill="none" stroke="var(--maint)" stroke-width="1.8"/></svg>',
   ok: '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="3.4" fill="var(--up)"/></svg>',
 };
+/** Satırlar <use> ile bağlanır: binlerce satırda SVG ağacı kopyalanmaz. */
+export const MARK_DEFS = (Object.keys(MARK) as Cls[])
+  .map((c) => MARK[c].replace(/^<svg[^>]*>/, `<symbol id="tm-${c}" viewBox="0 0 14 14">`).replace('</svg>', '</symbol>'))
+  .join('');
 export const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);

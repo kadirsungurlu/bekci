@@ -19,6 +19,7 @@
     g,
     rel,
     sel,
+    limit,
     now,
     filtered,
     sorun,
@@ -36,6 +37,7 @@
     g: Graph;
     rel: Map<string, St>;
     sel: string | null;
+    limit: number;
     now: number;
     filtered: boolean;
     sorun: boolean;
@@ -43,8 +45,28 @@
     tail?: Snippet;
   } = $props();
 
-  const noun = $derived(t(`topology.noun.${col}`));
+  const noun = $derived(t(`topology.noun.${col}`, { count: 2 }));
   const empty = $derived(sorun ? t('topology.emptyProblems', { what: noun }) : filtered ? t('topology.emptySearch', { what: noun }) : t('topology.emptyCol', { what: noun }));
+
+  // Bir kez görünen satır DOM'da kalır (gizli): seçim ve süzgeç yeniden kurmaz, sınıf değiştirir.
+  // limit ilk çizimde sütun başına satır bütçesidir.
+  const seen = new Set<string>();
+  const lists = $derived.by(() => {
+    let left = limit;
+    return views.map((v) => {
+      const show = new Set<string>();
+      for (const n of v.rows) show.add(n.id);
+      const rows = [];
+      for (const n of v.all) {
+        if (left <= 0) break;
+        if (!show.has(n.id) && !seen.has(n.id)) continue;
+        seen.add(n.id);
+        rows.push(n);
+        left--;
+      }
+      return { rows, show };
+    });
+  });
 </script>
 
 <section class="sutun {cls}" id="c-{col}" aria-label={label}>
@@ -61,7 +83,7 @@
   </div>
   {@render head?.()}
   <div class="kay" data-kol={col} id="k-{col}">
-    {#each views as v (v.id)}
+    {#each views as v, i (v.id)}
       <div class="grup" class:yok={v.dim}>
         <button type="button" class="gh" id={v.id} data-g={v.id} tabindex="-1" aria-expanded={v.open}>
           <span class="ch"><Icon name="chevron-right" size={12} /></span>
@@ -69,12 +91,12 @@
           <span class="g-ad">{groupName(col, by, v.key)}</span>
           <span class="g-sy">{groupSummary(col, v)}</span>
         </button>
-        {#each v.rows as n (n.id)}
-          <TopoRow {n} {g} rel={rel.get(n.id)} sel={n.id === sel} {now} />
+        {#each lists[i].rows as n (n.id)}
+          <TopoRow {n} {g} rel={rel.get(n.id)} sel={n.id === sel} hide={!lists[i].show.has(n.id)} {now} />
         {/each}
         {#if v.rest}
           <button type="button" class="kalan" data-tam={v.id} tabindex="-1">
-            {t('topology.rest', { n: v.rest, what: noun })}
+            {t('topology.rest', { n: v.rest, what: t(`topology.noun.${col}`, { count: v.rest }) })}
             <span class="hucre" aria-hidden="true">{@html v.cells}</span>
           </button>
         {:else if !v.open}

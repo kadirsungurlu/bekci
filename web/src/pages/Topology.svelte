@@ -15,7 +15,7 @@
   import { session } from '../lib/session.svelte';
   import { TopoLines } from '../lib/topolines';
   import { POLL_MS, TopologyStore } from '../lib/topology.svelte';
-  import { buildGraph, colOf, DEFAULT_BY, effectiveBy, fold, groupIndex, groupOptions, isProblem, relMap, viewChannels, viewGroups, type Col, type GroupBy, type St, type UI } from '../lib/topomodel';
+  import { buildGraph, colOf, DEFAULT_BY, effectiveBy, fold, groupIndex, groupOptions, isProblem, MARK_DEFS, relMap, viewChannels, viewGroups, type Col, type GroupBy, type St, type UI } from '../lib/topomodel';
 
   const KEY_BY = 'bekci-topo-by';
   const KEY_AC = 'bekci-topo-ac';
@@ -91,6 +91,14 @@
   const vCha = $derived(graph ? viewChannels(graph, ui, rel) : { rows: [], rest: 0 });
   const node = $derived(sel && graph ? (graph.nodes.get(sel) ?? null) : null);
   const isEmpty = $derived(!!graph && !graph.mon.length && !graph.pro.length && !graph.srv.length);
+  // Büyük panelde ilk çizim bekletilmez: satırlar sütun başına kademeli eklenir.
+  const STEP = 200;
+  let limit = $state(STEP);
+  $effect(() => {
+    if (!graph || limit >= graph.nodes.size) return;
+    const id = requestAnimationFrame(() => setTimeout(() => (limit += STEP), 0));
+    return () => cancelAnimationFrame(id);
+  });
   const rowNow = $derived(Math.floor(now / 15) * 15);
   const ago = $derived(store.updatedAt ? Math.max(0, now - Math.floor(store.updatedAt / 1000)) : 0);
   const stale = $derived(!!store.error && !!d);
@@ -106,9 +114,15 @@
     return out;
   });
 
-  // Seçili düğüm silindiyse seçim düşer.
+  // Seçili düğüm silindiyse seçim düşer; adresten gelen seçim ilk veride görünür yapılır.
+  let revealed = false;
   $effect(() => {
-    if (graph && sel && !graph.nodes.has(sel)) sel = null;
+    if (!graph) return;
+    if (sel && !graph.nodes.has(sel)) sel = null;
+    if (!revealed) {
+      revealed = true;
+      if (sel) tick().then(() => requestAnimationFrame(() => (wide ? scrollIntoColumns() : scrollMobile())));
+    }
   });
 
   let sutunlar = $state<HTMLElement>();
@@ -165,7 +179,7 @@
   /** Sütun başına tek sekme durağı; seçili satır varsa o. */
   function rove() {
     rootEl?.querySelectorAll<HTMLElement>('.kay').forEach((k) => {
-      const chosen = k.querySelector<HTMLElement>('.o.sec') ?? k.querySelector<HTMLElement>('[tabindex="0"]') ?? k.querySelector<HTMLElement>('.gh,.o,.kalan');
+      const chosen = k.querySelector<HTMLElement>('.o.sec') ?? k.querySelector<HTMLElement>('[tabindex="0"]') ?? k.querySelector<HTMLElement>('.gh,.o:not(.gz),.kalan');
       k.querySelectorAll<HTMLElement>('[tabindex="0"]').forEach((e) => {
         if (e !== chosen) e.tabIndex = -1;
       });
@@ -247,7 +261,7 @@
       tam = {};
       return;
     }
-    const tabBtn = el.closest<HTMLElement>('[data-tab]');
+    const tabBtn = el.closest<HTMLElement>('button[data-tab]');
     if (tabBtn) {
       tab = tabBtn.dataset.tab as Col;
       if (sel) tick().then(scrollMobile);
@@ -298,7 +312,7 @@
     const target = e.target as HTMLElement;
     const k = target.closest?.<HTMLElement>('.kay');
     if (!k) return;
-    const list = [...k.querySelectorAll<HTMLElement>('.gh,.o,.kalan')];
+    const list = [...k.querySelectorAll<HTMLElement>('.gh,.o:not(.gz),.kalan')];
     const i = list.indexOf(target);
     if (i < 0) return;
     const go = (el: HTMLElement | undefined) => {
@@ -318,7 +332,7 @@
       const y = target.getBoundingClientRect().top;
       let best: HTMLElement | undefined;
       let gap = Infinity;
-      rootEl?.querySelectorAll<HTMLElement>(`#k-${next} .gh,#k-${next} .o,#k-${next} .kalan`).forEach((x) => {
+      rootEl?.querySelectorAll<HTMLElement>(`#k-${next} .gh,#k-${next} .o:not(.gz),#k-${next} .kalan`).forEach((x) => {
         const f = Math.abs(x.getBoundingClientRect().top - y);
         if (f < gap) {
           gap = f;
@@ -349,6 +363,8 @@
 </script>
 
 <svelte:window onkeydown={onKey} />
+
+<svg width="0" height="0" class="tohum" aria-hidden="true"><defs>{@html MARK_DEFS}</defs></svg>
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="topo" bind:this={rootEl} onclick={onClick} onmouseover={onMove} onmouseleave={() => setHover(null)} onfocusin={onFocus}>
@@ -407,12 +423,12 @@
         {/each}
       </div>
       <div class="sutunlar" bind:this={sutunlar} data-tab={tab} onscrollcapture={onScroll}>
-        <TopoColumn col="srv" cls="sut-l" title={t('topology.col.servers')} label={t('topology.col.servers')} count={t('topology.count.servers', { n: graph.srv.length, k: problemCount(graph.srv) })} options={opts.srv} by={eff.srv} views={vSrv} g={graph} {rel} {sel} now={rowNow} filtered={!!qf} {sorun}>
+        <TopoColumn col="srv" cls="sut-l" title={t('topology.col.servers')} label={t('topology.col.servers')} count={t('topology.count.servers', { n: graph.srv.length, k: problemCount(graph.srv) })} options={opts.srv} by={eff.srv} views={vSrv} g={graph} {rel} {sel} {limit} now={rowNow} filtered={!!qf} {sorun}>
           {#snippet head()}
             <div class="kb kb-srv"><span>{t('topology.head.name')}</span><span>{t('topology.head.cpu')}</span><span>{t('topology.head.mem')}</span><span>{t('topology.head.disk')}</span></div>
           {/snippet}
         </TopoColumn>
-        <TopoColumn col="pro" cls="orta" title={t('topology.col.probes')} label={t('topology.col.midLabel')} count={String(graph.pro.length)} options={opts.pro} by={eff.pro} views={vPro} g={graph} {rel} {sel} now={rowNow} filtered={!!qf} {sorun}>
+        <TopoColumn col="pro" cls="orta" title={t('topology.col.probes')} label={t('topology.col.midLabel')} count={String(graph.pro.length)} options={opts.pro} by={eff.pro} views={vPro} g={graph} {rel} {sel} {limit} now={rowNow} filtered={!!qf} {sorun}>
           {#snippet tail()}
             {#if graph && (d?.channels || graph.cha.length)}
               <div class="alt-b">{t('topology.col.channels')} <span>{t('topology.count.channels', { count: graph.cha.length })}</span></div>
@@ -422,12 +438,12 @@
                 <p class="bos">{t('topology.emptyChannels')}</p>
               {/each}
               {#if vCha.rest}
-                <button type="button" class="kalan" data-tam="kanal" tabindex="-1">{t('topology.rest', { n: vCha.rest, what: t('topology.noun.cha') })}</button>
+                <button type="button" class="kalan" data-tam="kanal" tabindex="-1">{t('topology.rest', { n: vCha.rest, what: t('topology.noun.cha', { count: vCha.rest }) })}</button>
               {/if}
             {/if}
           {/snippet}
         </TopoColumn>
-        <TopoColumn col="mon" title={t('topology.col.monitors')} label={t('topology.col.monitors')} count={t('topology.count.monitors', { n: graph.mon.length, k: problemCount(graph.mon) })} options={opts.mon} by={eff.mon} views={vMon} g={graph} {rel} {sel} now={rowNow} filtered={!!qf} {sorun}>
+        <TopoColumn col="mon" title={t('topology.col.monitors')} label={t('topology.col.monitors')} count={t('topology.count.monitors', { n: graph.mon.length, k: problemCount(graph.mon) })} options={opts.mon} by={eff.mon} views={vMon} g={graph} {rel} {sel} {limit} now={rowNow} filtered={!!qf} {sorun}>
           {#snippet head()}
             <div class="kb kb-mon"><span>{t('topology.head.name')}</span><span class="tur">{t('topology.head.type')}</span><span>{t('topology.head.clean')}</span><span>{t('topology.head.ms')}</span></div>
           {/snippet}
