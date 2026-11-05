@@ -101,7 +101,7 @@ try {
     await q.route('**/api/topology*', (r) => r.fulfill({ contentType: 'application/json', body }));
     await q.goto(BASE + '/' + hash);
     await q.getByTestId('topology-board').waitFor({ timeout: 10_000 }).catch(() => fail(w + ' px pano yok'));
-    await q.locator('.o').first().waitFor({ timeout: 5000 }).catch(() => fail(w + ' px satır yok'));
+    await q.locator('.o:visible').first().waitFor({ timeout: 5000 }).catch(() => fail(w + ' px satır yok'));
     return { c, q };
   };
   const m = seed.monitors.find((x) => x.state === 'down' && x.loc_ids.length >= 3);
@@ -130,8 +130,8 @@ try {
     if (await hasSel(q)) fail('Esc sonrası adreste seçim kaldı');
     if (await q.locator('svg.hat path').count()) fail('Esc sonrası çizgi kaldı');
     // Sunucu, nokta ve kanal seçimi.
-    for (const [id, needed] of [['s3', '.o.ilg'], ['p1', '.o.mon.ilg'], ['c4', '.o.ilg']]) {
-      await q.locator('#o-' + id).click();
+    for (const [id, needed] of [['.o.srv.warn', '.o.ilg'], ['.o.pro.ok', '.o.ilg'], ['.o.cha', '.o.ilg']]) {
+      await q.locator(id + ':not(.gz)').first().click();
       await q.locator('.o.sec').waitFor({ timeout: 3000 }).catch(() => fail(id + ' seçilmedi'));
       if (!(await q.locator(needed).count())) fail(id + ' ilişkisiz');
       await q.keyboard.press('Escape');

@@ -207,6 +207,8 @@
     .dock.acik { left:8px; right:8px; bottom:calc(60px + env(safe-area-inset-bottom)); max-height:40vh; }
     .s-b { flex-wrap:wrap; }
     .seg { margin-left:0; } .s-b .say { flex:1; }
+    .o,.gh,.kalan,.sekme button,.seg button,.d-ac { min-height:44px; }
+    .s-sat { min-height:44px; }
   }
   .d-ac { margin-left:auto; flex:none; display:inline-flex; align-items:center; gap:4px; font-size:.78rem; font-weight:600; color:var(--accent-text); padding-right:26px; }
   .tohum { position:absolute; }
