@@ -15,8 +15,8 @@ import (
 func (e *env) monitorOn(name string, serverID int64) monitorView {
 	e.t.Helper()
 	var m monitorView
-	e.mustDo("POST", "/api/monitors", map[string]any{"name": name, "type": "http", "interval": 60,
-		"timeout": 5, "server_id": serverID, "config": map[string]any{"url": "http://127.0.0.1:1/"}}, &m, 201)
+	e.mustDo("POST", "/api/monitors", map[string]any{"name": name, "type": "push", "interval": 3600,
+		"timeout": 5, "server_id": serverID, "config": map[string]any{}}, &m, 201)
 	return m
 }
 
@@ -45,8 +45,8 @@ func TestMonitorServerLink(t *testing.T) {
 		t.Fatalf("server_id: %d", got.ServerID)
 	}
 	// server_id gönderilmeyen güncelleme bağı korur.
-	admin.mustDo("PUT", fmt.Sprintf("/api/monitors/%d", m.ID), map[string]any{"name": "Site 2", "type": "http",
-		"interval": 60, "timeout": 5, "config": map[string]any{"url": "http://127.0.0.1:1/"}}, nil, 200)
+	admin.mustDo("PUT", fmt.Sprintf("/api/monitors/%d", m.ID), map[string]any{"name": "Site 2", "type": "push",
+		"interval": 3600, "timeout": 5, "config": map[string]any{}}, nil, 200)
 	if got := findTopoMonitor(t, admin.topology(), m.ID); got.ServerID == 0 {
 		t.Fatal("alan yokken bağ silinmemeli")
 	}
@@ -76,7 +76,7 @@ func TestTopologyRelations(t *testing.T) {
 	admin.mustDo("POST", "/api/servers", map[string]any{"name": "db-1"}, &srv, 201)
 	admin.mustDo("PUT", fmt.Sprintf("/api/probes/%d", srv.Probe.ID), map[string]any{"role": "Veritabanı", "region": "Frankfurt"}, nil, 200)
 	m := admin.monitorOn("Site", srv.Probe.ID)
-	other := admin.httpMonitor("Bağsız", "http://127.0.0.1:1/")
+	other := admin.push("Bağsız")
 
 	var ch struct {
 		ID int64 `json:"id"`
@@ -96,13 +96,13 @@ func TestTopologyRelations(t *testing.T) {
 	}
 
 	now := time.Now().Unix()
+	if err := f.st.SetChannelSend(ctx, ch.ID, now-3*86400, ""); err != nil { // pencere dışı
+		t.Fatal(err)
+	}
 	if err := f.st.SetChannelSend(ctx, ch.ID, now-10, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.st.SetChannelSend(ctx, ch.ID, now-5, "503 Service Unavailable"); err != nil {
-		t.Fatal(err)
-	}
-	if err := f.st.SetChannelSend(ctx, ch.ID, now-3*86400, ""); err != nil { // pencere dışı
 		t.Fatal(err)
 	}
 	const raw = "yanıt yok: https://u:gizli@ic.example.test/yol?anahtar=1"
