@@ -11,6 +11,7 @@ import (
 	"github.com/kadirsungurlu/bekci/internal/i18n"
 	"github.com/kadirsungurlu/bekci/internal/notify"
 	"github.com/kadirsungurlu/bekci/internal/store"
+	"golang.org/x/sync/errgroup"
 )
 
 // GET /api/topology: canlı topoloji sayfasının tek istekte ihtiyaç duyduğu
@@ -183,6 +184,9 @@ type topologyResp struct {
 // topoMaxIncidents açık olay özetinin üst sınırı (sayaç tüm açık olayları sayar).
 const topoMaxIncidents = 50
 
+// topoReadLimit aynı anda çalışan DB okuması.
+const topoReadLimit = 4
+
 func monitorState(m store.Monitor, inMaint, partial bool) string {
 	switch {
 	case !m.Active:
@@ -211,8 +215,58 @@ func (s *Server) topology(w http.ResponseWriter, r *http.Request) {
 	summary := r.URL.Query().Get("view") == "summary"
 	editor := store.RoleRank(u.Role) >= store.RoleRank(store.RoleEditor)
 
-	monitors, err := s.store.ListMonitors(ctx)
-	if err != nil {
+	// Okumalar paralel: 1000 monitörde sıralı okuma tek başına yanıt süresinin yarısı
+	// (docs/TOPOLOJI-OLCEK.md). Kısıt bağlantı havuzunu tek isteğe kaptırmamak için.
+	var (
+		monitors                        []store.Monitor
+		partials                        map[int64]int64
+		probes, srv                     []store.Probe
+		tags                            map[int64][]store.MonitorTag // izleyiciden gizli (GET /api/monitors gibi)
+		open                            []store.Incident
+		lastInc                         map[int64]store.Incident
+		monChannels, srvChannels, byTag map[int64][]int64
+		users                           []store.User
+		links                           []store.ProbeLink
+		rules                           map[int64][]store.ServerAlert
+		chs                             []store.Notification
+		sends                           map[int64]notify.SendStatus
+		counts                          map[int64]store.ChannelCount
+	)
+	// Olaylar: sayaç ve özet aşağıda; monitör ve sunucu satırları da kullanır.
+	f := store.IncidentFilter{Open: true, NoMesh: !admin}
+	if !vis.all {
+		f.MonitorIDs, f.ServerIDs = vis.list(), vis.serverList()
+	}
+	f.Limit = 500 // sayaç bu sınıra kadar kesin; özet ilk topoMaxIncidents
+	wantServers := !u.Restricted() || len(u.ServerIDs) > 0
+	var g errgroup.Group
+	g.SetLimit(topoReadLimit)
+	read := func(fn func() error) { g.Go(fn) }
+	read(func() (err error) { monitors, err = s.store.ListMonitors(ctx); return })
+	read(func() (err error) { partials, err = s.store.OpenPartialIncidentIDs(ctx); return })
+	read(func() (err error) { probes, err = s.store.ListProbesOfKind(ctx, store.ProbeKindLocation); return })
+	read(func() (err error) { open, err = s.store.ListIncidents(ctx, f); return })
+	read(func() (err error) { lastInc, err = s.store.LastMonitorIncidents(ctx); return })
+	if editor {
+		read(func() (err error) { tags, err = s.store.MonitorTags(ctx); return })
+		read(func() (err error) { monChannels, err = s.store.MonitorNotificationIDs(ctx); return })
+		read(func() (err error) { byTag, err = s.store.TagNotificationIDs(ctx); return })
+		read(func() (err error) { srvChannels, err = s.store.AllProbeNotificationIDs(ctx); return })
+		read(func() (err error) { chs, err = s.store.ListNotifications(ctx); return })
+		read(func() (err error) { sends, err = s.notifier.LastSends(ctx); return })
+		read(func() (err error) { counts, err = s.store.ChannelSendCounts(ctx, now.Unix()-86400); return })
+	}
+	if admin {
+		read(func() (err error) { users, err = s.store.ListUsers(ctx); return })
+		if summary {
+			read(func() (err error) { links, err = s.store.ListProbeLinks(ctx); return })
+		}
+	}
+	if wantServers {
+		read(func() (err error) { srv, err = s.store.ListProbesOfKind(ctx, store.ProbeKindServer); return })
+		read(func() (err error) { rules, err = s.store.AllServerAlerts(ctx); return })
+	}
+	if err := g.Wait(); err != nil {
 		s.dbError(w, err)
 		return
 	}
@@ -234,34 +288,6 @@ func (s *Server) topology(w http.ResponseWriter, r *http.Request) {
 		}
 		return displayMessage(u, lang, typ, store.StatusDown, incidentCause(lang, in))
 	}
-	partials, err := s.store.OpenPartialIncidentIDs(ctx)
-	if err != nil {
-		s.dbError(w, err)
-		return
-	}
-	probes, err := s.store.ListProbesOfKind(ctx, store.ProbeKindLocation)
-	if err != nil {
-		s.dbError(w, err)
-		return
-	}
-	var tags map[int64][]store.MonitorTag // izleyiciden gizli (GET /api/monitors gibi)
-	if editor {
-		if tags, err = s.store.MonitorTags(ctx); err != nil {
-			s.dbError(w, err)
-			return
-		}
-	}
-	// Olaylar: sayaç ve özet aşağıda; monitör ve sunucu satırları da kullanır.
-	f := store.IncidentFilter{Open: true, NoMesh: !admin}
-	if !vis.all {
-		f.MonitorIDs, f.ServerIDs = vis.list(), vis.serverList()
-	}
-	f.Limit = 500 // sayaç bu sınıra kadar kesin; özet ilk topoMaxIncidents
-	open, err := s.store.ListIncidents(ctx, f)
-	if err != nil {
-		s.dbError(w, err)
-		return
-	}
 	openMonitor, openServer := map[int64]store.Incident{}, map[int64]store.Incident{}
 	for _, in := range open {
 		if in.MonitorID != 0 && openMonitor[in.MonitorID].ID == 0 {
@@ -271,37 +297,11 @@ func (s *Server) topology(w http.ResponseWriter, r *http.Request) {
 			openServer[in.ServerID] = in
 		}
 	}
-	lastInc, err := s.store.LastMonitorIncidents(ctx)
-	if err != nil {
-		s.dbError(w, err)
-		return
-	}
-	var monChannels, srvChannels map[int64][]int64
-	if editor {
-		if monChannels, err = s.store.MonitorNotificationIDs(ctx); err != nil {
-			s.dbError(w, err)
-			return
-		}
-		byTag, err := s.store.TagNotificationIDs(ctx)
-		if err != nil {
-			s.dbError(w, err)
-			return
-		}
-		for id, list := range byTag {
-			monChannels[id] = slices.Compact(slices.Sorted(slices.Values(append(monChannels[id], list...))))
-		}
-		if srvChannels, err = s.store.AllProbeNotificationIDs(ctx); err != nil {
-			s.dbError(w, err)
-			return
-		}
-	}
 	customerOfMon, customerOfSrv := map[int64][]int64{}, map[int64][]int64{}
+	for id, list := range byTag {
+		monChannels[id] = slices.Compact(slices.Sorted(slices.Values(append(monChannels[id], list...))))
+	}
 	if admin {
-		users, err := s.store.ListUsers(ctx)
-		if err != nil {
-			s.dbError(w, err)
-			return
-		}
 		for _, cu := range users {
 			if !cu.Restricted() || cu.Disabled || len(cu.MonitorIDs)+len(cu.ServerIDs) == 0 {
 				continue
@@ -387,13 +387,7 @@ func (s *Server) topology(w http.ResponseWriter, r *http.Request) {
 		resp.Monitors = append(resp.Monitors, tm)
 	}
 
-	var links []store.ProbeLink
-	if admin && summary {
-		if links, err = s.store.ListProbeLinks(ctx); err != nil {
-			s.dbError(w, err)
-			return
-		}
-	} else if admin {
+	if admin && !summary {
 		mv, stored, err := s.meshView(ctx, lang)
 		if err != nil {
 			s.dbError(w, err)
@@ -449,18 +443,8 @@ func (s *Server) topology(w http.ResponseWriter, r *http.Request) {
 		resp.Stats.ResultsPerSec = &rps
 	}
 
-	if !u.Restricted() || len(u.ServerIDs) > 0 {
-		srv, err := s.store.ListProbesOfKind(ctx, store.ProbeKindServer)
-		if err != nil {
-			s.dbError(w, err)
-			return
-		}
+	if wantServers {
 		srv = slices.DeleteFunc(srv, func(p store.Probe) bool { return !vis.canServer(p.ID) })
-		rules, err := s.store.AllServerAlerts(ctx)
-		if err != nil {
-			s.dbError(w, err)
-			return
-		}
 		for _, p := range srv {
 			v := s.servers.View(ctx, p, rules[p.ID], false)
 			ts := topoServer{ID: v.ID, Name: v.Name, State: v.State, Firing: v.Firing, Version: v.Version, MetricsAt: v.MetricsAt, LastSeenAt: v.LastSeenAt,
@@ -480,21 +464,6 @@ func (s *Server) topology(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if editor {
-		chs, err := s.store.ListNotifications(ctx)
-		if err != nil {
-			s.dbError(w, err)
-			return
-		}
-		sends, err := s.notifier.LastSends(ctx)
-		if err != nil {
-			s.dbError(w, err)
-			return
-		}
-		counts, err := s.store.ChannelSendCounts(ctx, now.Unix()-86400)
-		if err != nil {
-			s.dbError(w, err)
-			return
-		}
 		resp.Channels = make([]topoChannel, 0, len(chs))
 		for _, c := range chs {
 			tc := topoChannel{ID: c.ID, Name: c.Name, Type: c.Type, Active: c.Active,
