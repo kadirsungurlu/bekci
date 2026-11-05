@@ -242,7 +242,7 @@
     const start = (bar.parentElement as HTMLElement).getBoundingClientRect().top + scrollY - top;
     const k = col.querySelector<HTMLElement>('.kay');
     const hit = hitOf(tab);
-    const y = k && hit !== null ? k.getBoundingClientRect().top + scrollY + hit - top - bar.offsetHeight - 12 : start;
+    const y = k && hit !== null ? k.getBoundingClientRect().top + scrollY + hit - top - bar.offsetHeight - 12 - metrics.head : start;
     scrollTo({ top: Math.max(start, y) });
   }
 

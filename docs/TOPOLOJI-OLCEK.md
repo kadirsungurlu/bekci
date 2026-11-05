@@ -28,12 +28,23 @@ Tohum: 1000 http monitör (3 nokta + yerel, 2 kanal, 1 etiket, 30 sonuç, %3 aç
 Tohum: 1000 monitör, 100 sunucu, 30 nokta, 6 kanal (`web/e2e/topotohum.mjs`, 472 KB JSON, tarayıcıda verilir).
 Ortam: bu makinedeki Chrome, başsız, yazılımsal çizim; makinede başka işler de çalışıyor, sonuçlar turdan tura değişiyor.
 
-| Ölçüm | Hedef | Sonuç |
-|---|---|---|
-| İlk çizim (ilk satır görünene dek) | < 300 ms | 246-294 ms, soğuk ilk açılış 504 ms |
-| Seçim değişimi (tıklama + iki kare) | < 50 ms | 90-338 ms: HEDEF KARŞILANMADI |
-| Seçim, yalnız JS | - | 16-193 ms |
-| Kaydırma, seçili durumda kare süresi | takılma yok | ortanca 20 ms, p95 33 ms, en çok 63 ms, 7 uzun kare |
+| Ölçüm | Hedef | Sonuç (sanallaştırma sonrası) | Önce |
+|---|---|---|---|
+| Çizilen satır (DOM) | - | ~58 | 1000+ |
+| İskelet boyası (first-paint, tam yenileme) | algılanan < 300 ms | 156-216 ms | yok |
+| İlk satır, uygulama içi geçiş | < 300 ms | 250-298 ms, soğuk ilk açılış 417 ms | 246-294 / 504 ms |
+| İlk satır, tam yenileme | - | 1050-1200 ms | ölçülmedi |
+| Seçim, tıklama işleyicisi + tepki (ana iş parçacığı) | < 50 ms | 32-38 ms | 16-193 ms (yalnız JS) |
+| Seçim, tıklamadan Commit'e (trace) | - | 48-118, ortanca ~68 ms | 90-338 ms |
+| Seçim, PerformanceEventTiming süresi (sunum dahil, 8 ms kuantum) | - | 96-160 ms | - |
+| Kaydırma, seçili durumda kare süresi | takılma yok | ortanca 18 ms, p95 28 ms, en çok 70 ms | 20 / 33 / 63 ms |
 
-Yapılanlar: satırlar kademeli eklenir (200'er), bir kez görünen satır silinmez, `.gz` ile gizlenir; grup başına `content-visibility:auto`; işaretler tek SVG sembolü; olay delegasyonu; çizgi ölçümü önbellekli.
-Kalan süre stil ve yerleşimdedir (1000 satırın `display` değişimi). Hedef için sütunlarda satır sanallaştırma gerekir; çizgi uçları görünmeyen satırları ölçtüğü için ayrı iş.
+Sonuç: ana iş parçacığındaki iş hedefin altında (<50 ms). Ekrana yansıma süresinin kalanı bu ortamın yazılımsal çizimidir (Paint ~10, Layerize ~7, Commit ~4 ms, ayrıca rasterleştirme); GPU'lu tarayıcıda ayrıca ÖLÇÜLMEDİ. Tam yenilemede satır süresi paketin indirilip çalışmasına bağlı, iskelet bu aralığı karşılar.
+
+Kararlar:
+- Sütunlar sanal liste (`lib/topovirt.ts`): satır yükseklikleri hesaplı (`METRICS` tek kaynak, CSS değişkeni olarak aktarılır), konum önek toplamından, kaydırma 120 px adımla nicelenir; çizgi uçları DOM'dan değil bu konumdan gelir, görünmeyen satır da ölçülebilir.
+- Kanallar sanal değil (en çok birkaç satır, sütun sonunda gerçek DOM).
+- Kapalı grup hücreleri satır başına `<i>` yerine durum başına tek SVG yol; seçimde binlerce öğenin stil hesabını kaldırdı.
+- Satır geçiş animasyonları kaldırıldı; geniş ekranda `.sutun`, `.sorun` için `contain:content`.
+- Açılış: `index.html` içinde `public/boot.js` + CSS iskeleti (CSP satır içi betiğe izin vermez). `main.ts` yalnız CSS yükler, uygulama ilk kareden sonra `start.ts` ile gelir; böylece iskelet paket çalışmadan boyanır.
+- Doğrulama: `web/e2e/topoloji.mjs` büyük tohum bölümü (satır sınırı, çizgi ucu, ok tuşu/End/Home pencere dışı, kapalı grup hücresi).
