@@ -5,6 +5,8 @@
     ApiError,
     errorMessage,
     MASK,
+    type ServerSuggestion,
+    type ServerView,
     type DownWhen,
     type LocationSetup,
     type MonitorInput,
@@ -101,6 +103,12 @@
   // Bildirimler
   let channels = $state.raw<NotificationChannel[]>([]);
   let notifIds = $state<number[]>([]);
+  // Çalıştığı sunucu: hedef bir sunucuyla eşleşirse öneri gelir; yeni monitörde seçim
+  // doldurulur, kaydetmek yine kullanıcının işidir. Elle seçim öneriyle ezilmez.
+  let serverId = $state(0);
+  let serverTouched = $state(false);
+  let servers = $state.raw<ServerView[]>([]);
+  let suggestion = $state.raw<ServerSuggestion['matches'][number] | null>(null);
   // Etiket kuralıyla bağlı kanallar (yalnızca gösterim; kanalın kurallarından yönetilir).
   let tagNotifIds = $state<number[]>([]);
   let channelsLoaded = $state(false);
@@ -227,6 +235,7 @@
   }
 
   function fill(m: MonitorView) {
+    serverId = m.server_id ?? 0;
     pushToken = m.push_token ?? '';
     type = m.type;
     name = m.name;
@@ -357,6 +366,28 @@
   }
 
   let unsubProbe: (() => void) | undefined;
+  // Hedef değişince sunucu önerisi (yazarken her tuşta değil).
+  let suggestTimer: ReturnType<typeof setTimeout> | undefined;
+  let suggestSeq = 0;
+  $effect(() => {
+    const ready = servers.length > 0 && !pickerOpen && !loading;
+    const cfg = ready ? JSON.stringify(buildConfig()) : '';
+    clearTimeout(suggestTimer);
+    if (!ready) return;
+    const kind = type;
+    suggestTimer = setTimeout(async () => {
+      const seq = ++suggestSeq;
+      try {
+        const r = await api.monitorServerSuggestion(kind, JSON.parse(cfg));
+        if (seq !== suggestSeq) return;
+        suggestion = r.matches.length === 1 ? r.matches[0] : null;
+        if (suggestion && !isEdit && !serverTouched) serverId = suggestion.server_id;
+      } catch {
+        suggestion = null; // öneri isteğe bağlı: hata formu etkilemez
+      }
+    }, 700);
+  });
+
   onDestroy(() => unsubProbe?.());
 
   onMount(async () => {
@@ -376,6 +407,10 @@
       const online = ev.online;
       probes = probes.map((p) => (p.id === ev.probe_id ? { ...p, online, last_seen_at: ev.last_seen_at || p.last_seen_at } : p));
     });
+    api
+      .listServers()
+      .then((list) => (servers = list.slice().sort((a, b) => a.name.localeCompare(b.name))))
+      .catch(() => {}); // seçici isteğe bağlı: alınamazsa gizli kalır
     const chP = api
       .notifications()
       .then((list) => {
@@ -638,6 +673,7 @@
       slow_checks: slowChecks ?? 3,
       domain_expiry: hasDomainExpiry(type) ? domainExpiry : true,
       config: buildConfig(),
+      server_id: serverId,
       // Kanal listesi alınamadıysa null: yeni monitörde varsayılanlar, düzenlemede mevcut bağlantılar korunur.
       notification_ids: channelsOk ? notifIds.filter((nid) => channels.some((c) => c.id === nid)) : null,
     };
@@ -1170,6 +1206,41 @@
         </div>
       {/if}
     </section>
+
+    {#if servers.length > 0}
+      <section class="card">
+        <h2 class="card-title"><Icon name="server" size={17} /> {t('monitors.form.server')}</h2>
+        <div class="field">
+          <label for="mon-server">{t('monitors.form.serverLabel')}</label>
+          <select id="mon-server" class="input" bind:value={serverId} onchange={() => (serverTouched = true)}>
+            <option value={0}>{t('monitors.form.serverNone')}</option>
+            {#each servers as sv (sv.id)}
+              <option value={sv.id}>{sv.name}</option>
+            {/each}
+          </select>
+          <span class="help">{t('monitors.form.serverHelp')}</span>
+          {#if suggestion}
+            <span class="help">
+              {t('monitors.form.serverMatch', {
+                name: suggestion.name,
+                value: suggestion.value,
+                how: t(`monitors.form.serverHow.${suggestion.match}`),
+              })}
+              {#if serverId !== suggestion.server_id}
+                <button
+                  type="button"
+                  class="btn sm"
+                  onclick={() => {
+                    serverId = suggestion!.server_id;
+                    serverTouched = true;
+                  }}>{t('monitors.form.serverUse')}</button
+                >
+              {/if}
+            </span>
+          {/if}
+        </div>
+      </section>
+    {/if}
 
     {#if remoteOk}
       <section class="card">

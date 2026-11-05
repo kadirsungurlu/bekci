@@ -188,6 +188,7 @@ export interface Bucket {
 }
 
 export interface MonitorView {
+  server_id?: number;
   id: number;
   name: string;
   type: MonitorType;
@@ -311,7 +312,15 @@ export interface MonitorTag {
 
 // Kontrol noktaları ------------------------------------------------------------------
 
-export interface Probe {
+/** Görünen üst bilgi; boş: belirtilmemiş. */
+export interface ProbeLabels {
+  role?: string;
+  region?: string;
+  provider?: string;
+  code?: string;
+}
+
+export interface Probe extends ProbeLabels {
   id: number;
   name: string;
   active: boolean;
@@ -528,6 +537,8 @@ export interface ImportSummary {
 }
 
 export interface MonitorInput {
+  /** Çalıştığı sunucu; 0 bağı kaldırır, alan yoksa değişmez. */
+  server_id?: number;
   name: string;
   type: MonitorType;
   description: string;
@@ -1470,7 +1481,7 @@ export interface TimelineEvent {
   data: Record<string, string | number> | null;
 }
 
-export interface ServerView {
+export interface ServerView extends ProbeLabels {
   disk_forecast?: DiskForecast[] | null;
   id: number;
   name: string;
@@ -1919,6 +1930,9 @@ export const api = {
   monitors: () => get<MonitorView[]>("/api/monitors"),
   monitor: (id: number) => get<MonitorDetail>(`/api/monitors/${id}`),
   createMonitor: (m: MonitorInput) => post<MonitorView>("/api/monitors", m),
+  /** Hedef adresinden sunucu önerisi; hiçbir şey kaydetmez. */
+  monitorServerSuggestion: (type: string, config: unknown) =>
+    post<ServerSuggestion>("/api/monitors/server-suggestion", { type, config }),
   updateMonitor: (id: number, m: MonitorInput) =>
     put<MonitorView>(`/api/monitors/${id}`, m),
   deleteMonitor: (id: number) => del<{ ok: boolean }>(`/api/monitors/${id}`),
@@ -2207,9 +2221,11 @@ export const api = {
       mesh?: ProbeMeshInput;
       /** OOB ikinci hat; boş IP OOB'yi kaldırır, alan yoksa değişmez. */
       oob?: { oob_ip: string; oob_name: string };
+      /** Alan yoksa değişmez, boş metin siler. */
+      labels?: ProbeLabels;
     },
   ) => {
-    const body: Record<string, unknown> = { name, active, ...opts?.mesh, ...opts?.oob };
+    const body: Record<string, unknown> = { name, active, ...opts?.mesh, ...opts?.oob, ...opts?.labels };
     if (metrics !== undefined) body.metrics = metrics;
     if (opts?.ipLock !== undefined) body.ip_lock = opts.ipLock;
     if (opts?.resetIp) body.reset_ip = true;
@@ -2391,6 +2407,21 @@ export interface TopoLocation {
   ping_ms: number;
 }
 
+export interface ServerSuggestion {
+  host: string;
+  matches: { server_id: number; name: string; match: "ip" | "hostname" | "name" | "dns"; value: string }[];
+}
+
+export interface TopoLastIncident {
+  id: number;
+  kind: string;
+  started_at: number;
+  /** 0: açık. */
+  resolved_at: number;
+  cause: string;
+  acked: boolean;
+}
+
 export interface TopoMonitor {
   id: number;
   name: string;
@@ -2398,13 +2429,36 @@ export interface TopoMonitor {
   state: TopoMonitorState;
   last_check_at: number;
   ping_ms: number;
+  /** ?view=summary yanıtında yok. */
   locations: TopoLocation[];
+  /** Denetleyen noktalar: 0 ana sunucu (Topology.local_name). */
+  loc_ids?: number[];
+  /** loc_ids alt kümeleri; ikisinde olmayan nokta son sonucu ok. */
+  loc_bad?: number[];
+  loc_off?: number[];
+  /** Kesintideyken hata metni. */
+  message?: string;
+  since?: number;
+  /** Son 30 değer, eskiden yeniye: ms; -1 ölçüm yok, -2 kesinti. */
+  series?: number[];
+  last_incident?: TopoLastIncident;
+  /** Yalnız düzenleyici ve üstü: Topology.tags kimlikleri. */
+  tags?: number[];
+  /** Yalnız yönetici: Topology.customers kimlikleri. */
+  customers?: number[];
+  /** Yalnız düzenleyici ve üstü: Topology.channels kimlikleri (doğrudan + etiket). */
+  channels?: number[];
+  server_id?: number;
 }
 
 export interface TopoProbe {
   id: number;
   name: string;
   online: boolean;
+  region?: string;
+  code?: string;
+  /** Yalnız yönetici. */
+  provider?: string;
   /** Yalnız yönetici: panel RTT (ms), hat (primary | oob), mesh eşleri, sürüm. */
   panel_rtt_ms?: number;
   late?: boolean;
@@ -2420,6 +2474,13 @@ export interface TopoServer {
   id: number;
   name: string;
   state: string;
+  role?: string;
+  region?: string;
+  customers?: number[];
+  channels?: number[];
+  /** Açık olayın metni ve başlangıcı. */
+  alert?: string;
+  alert_since?: number;
   cpu?: number;
   mem?: number;
   disk?: number;
@@ -2435,8 +2496,10 @@ export interface TopoChannel {
   name: string;
   type: string;
   active: boolean;
-  /** Panel açıldığından beri son gönderim; yok: henüz gönderilmedi. */
-  last_send?: { at: number; ok: boolean };
+  /** Son gönderim; yok: henüz gönderilmedi. */
+  last_send?: { at: number; ok: boolean; error?: string };
+  sent_24h?: number;
+  failed_24h?: number;
 }
 
 export interface TopoIncident {
@@ -2463,6 +2526,11 @@ export interface Topology {
   /** Yalnız düzenleyici ve üstü. */
   channels?: TopoChannel[];
   incidents: TopoIncident[];
+  tags: { id: number; name: string; color: string }[];
+  /** Yerel kontrolü yapan ana sunucunun görünen adı (konum 0). */
+  local_name?: string;
+  /** Yalnız yönetici. */
+  customers?: { id: number; name: string }[];
 }
 
 // ---- Betikler (internal/api/scripts.go) --------------------------------------

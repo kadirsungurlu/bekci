@@ -434,6 +434,11 @@ export default {
   settings: {
     title: 'Sunucu ayarları',
     errName: 'Ad gerekli.',
+    role: 'Rol',
+    rolePlaceholder: 'ör. Web, Veritabanı',
+    region: 'Konum',
+    regionPlaceholder: 'ör. Frankfurt',
+    labelsHelp: 'İsteğe bağlı; canlı topolojide gruplama için.',
     saved: 'Sunucu kaydedildi',
     ipReset: 'IP kilidi sıfırlandı',
     deleteTitle: 'Sunucuyu sil',

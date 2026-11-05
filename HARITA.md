@@ -100,6 +100,7 @@ inventory.go: GET /api/servers/{id}/inventory | PUT /api/servers/{id}/inventory/
 maintenance.go: GET /api/maintenance | POST /api/maintenance | GET /api/maintenance/{id} | PUT /api/maintenance/{id} | DELETE /api/maintenance/{id} | POST /api/maintenance/{id}/pause | POST /api/maintenance/{id}/resume | POST /api/maintenance/{id}/end
 mesh_view.go: GET /api/mesh
 metrics.go: GET /metrics
+monitor_server.go: POST /api/monitors/server-suggestion
 oidc.go: GET /api/settings/oidc | PUT /api/settings/oidc | POST /api/settings/oidc/test | GET /api/auth/oidc/start | GET /api/auth/oidc/callback
 openapi.go: GET /api/openapi.json
 pages.go: GET /api/status-pages | POST /api/status-pages | GET /api/status-pages/{id} | PUT /api/status-pages/{id} | DELETE /api/status-pages/{id} | GET /api/status-pages/{id}/preview | POST /api/status-pages/preview-data | GET /api/status-pages/{id}/logo | PUT /api/status-pages/{id}/logo | DELETE /api/status-pages/{id}/logo | GET /api/status-pages/{id}/announcements | POST /api/status-pages/{id}/announcements | PUT /api/announcements/{id} | DELETE /api/announcements/{id} | GET /api/public/resolve | GET /api/public/pages/{slug} | POST /api/public/pages/{slug}/unlock | GET /api/public/pages/{slug}/logo | GET /api/public/pages/{slug}/events
@@ -129,7 +130,7 @@ webpush.go: GET /api/webpush/vapid | GET /api/webpush/subscriptions | POST /api/
 pages_period.go 25: incident_manual.go 26: servers_ext.go 27: beats_recent.go 28: domain.go 29: incident_ack.go 30: tag_rules.go 31: 
 auth_ext.go 32: webpush.go 33: auth_ext.go 34: sessions.go 35: probes_update.go 36: subscribers.go 37: subscribers.go 38: updates.go 39: 
 incident_kinds.go 40: mesh.go 41: probes_oob.go 42: channel_sends.go 43: timescale.go 44: server_metrics.go 45: inventory.go 46: 
-server_events.go 47: apikeys.go 48: scripts.go 49: scripts.go
+server_events.go 47: apikeys.go 48: scripts.go 49: scripts.go 50: topology.go
 ```
 
 ### Arayüz sayfaları / bileşenler / i18n ad alanları

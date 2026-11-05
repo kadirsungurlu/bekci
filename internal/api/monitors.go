@@ -230,6 +230,7 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 			target = publicTarget(target)
 			m.LastMessage = viewerMessage(u, m.Type, m.Status, m.LastMessage)
 			m.Config, m.PushToken, ids, tagIDs = json.RawMessage("{}"), "", []int64{}, []int64{}
+			m.ServerID = 0
 		}
 		m.LastMessage = i18n.Message(lang, m.LastMessage)
 		if m.Type == check.TypeGroup {

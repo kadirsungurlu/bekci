@@ -212,6 +212,7 @@ components:
       type: object
       description: Monitör ayarları ve son durumu (liste görünümü ek alanlar taşır).
       properties:
+        server_id: { type: integer, description: "Çalıştığı sunucu (kind=server); 0 bağı kaldırır, alan yoksa değişmez. Sunucu silinince boşalır" }
         id: { type: integer, format: int64 }
         name: { type: string }
         type:
@@ -261,6 +262,7 @@ components:
     MonitorInput:
       type: object
       properties:
+        server_id: { type: integer, description: "Çalıştığı sunucu (kind=server); 0 bağı kaldırır, alan yoksa değişmez. Sunucu silinince boşalır" }
         name: { type: string }
         type: { type: string }
         description: { type: string }
@@ -1018,6 +1020,12 @@ paths:
       summary: Monitör ekle (editör+)
       requestBody: { content: { application/json: { schema: { $ref: "#/components/schemas/MonitorInput" } } } }
       responses: { "201": { description: Monitör, content: { application/json: { schema: { $ref: "#/components/schemas/Monitor" } } } }, "400": { $ref: "#/components/responses/Error" } }
+  /api/monitors/server-suggestion:
+    post:
+      tags: [monitors]
+      summary: Hedef adresinden sunucu önerisi (editör+); hiçbir şey kaydetmez, yalnız tam eşleşme (IP, ana makine adı, sunucu adı, DNS çözümü)
+      requestBody: { content: { application/json: { schema: { type: object, required: [type, config], properties: { type: { type: string }, config: { type: object } } } } } }
+      responses: { "200": { description: "{host, matches[{server_id, name, match: ip|hostname|name|dns, value}]}" } }
   /api/monitors/bulk:
     post:
       tags: [monitors]
@@ -1509,10 +1517,12 @@ paths:
   /api/topology:
     get:
       tags: [monitors]
+      parameters:
+        - { name: view, in: query, required: false, schema: { type: string, enum: [summary] }, description: "summary: locations ve mesh dökümü yok (loc_ids/loc_bad/loc_off yeter), yanıt yarıya iner; yönetici için probes[] eş sayıları kalır" }
       summary: "Canlı topoloji: sayfanın tüm verisi tek yanıtta (oturum). Kısıtlı izleyici yalnız izinli monitörleri, kullandıkları kontrol noktalarını (ad + çevrimiçi) ve atanmış sunucuları görür; mesh ve nokta ayrıntısı (panel RTT, hat, eşler, sürüm) yalnız yöneticiye, kanallar düzenleyici ve üstüne"
       responses:
         "200":
-          description: "monitors[].state: up | partial | down | pending | paused | maintenance; locations[].status: up | down | retrying | waiting | unknown (sonuç gelmiyor), oob: karara katılmıyor. stats.results_per_sec yalnız tüm monitörleri görene. channels[].last_send panel açıldığından beri son gönderim. incidents en çok 50 açık olay (stats.open_incidents toplam, en çok 500)"
+          description: "monitors[].state: up | partial | down | pending | paused | maintenance; locations[].status: up | down | retrying | waiting | unknown (sonuç gelmiyor), oob: karara katılmıyor. stats.results_per_sec yalnız tüm monitörleri görene. channels[]: last_send (at, ok, error), sent_24h, failed_24h. monitors[]: loc_ids (0 = local_name), loc_bad, loc_off, message, since, series (son 30: ms, -1 ölçüm yok, -2 kesinti), last_incident, server_id; tags ve channels düzenleyici ve üstüne, customers yöneticiye. servers[]: role, region, alert, alert_since, channels, customers. probes[]: region, code, provider (yönetici). Yanıt Accept-Encoding gzip ise sıkıştırılır. incidents en çok 50 açık olay (stats.open_incidents toplam, en çok 500)"
           content:
             application/json:
               schema:
