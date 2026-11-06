@@ -170,6 +170,22 @@ Notifications arrive even when the app is closed; a tap opens the related incide
 
 Limitations: the panel must be opened over **HTTPS**. On **iPhone and iPad** (iOS 16.4+) notifications work only in the app added to the home screen, not in a Safari tab — **Add to Home Screen** first, then open the app and turn notifications on. Android Chrome, desktop Chrome/Edge/Firefox and macOS Safari 16+ are supported directly. Notifications may be delayed when the browser is in do-not-disturb mode or battery saving cuts the background connection.
 
+## Live topology {#topology}
+
+The **Live topology** page shows monitors, check locations, servers and notification channels on one screen. It updates over a live stream and falls back to short polling if the stream drops.
+
+- **Problem board:** the items in trouble right now are listed at the top.
+- **Relations:** click a server, location, channel or monitor. Only what relates to it stays, the connections are drawn and a detail strip opens.
+- **Search and filter:** the search box covers all four columns; **Problems only** hides the rest.
+- **Grouping:** group by role, location, customer, region, provider, tag or type. Items without a value are collected under **Not specified**.
+- **Channel delivery:** channel rows show the last send, the last error and the hourly send count.
+
+You fill in role, region, provider and code in the check location and server settings. Accounts with the Viewer role do not see tags or notification channels. Customer accounts only see the records assigned to them.
+
+### The server a monitor runs on {#runs-on-server}
+
+The **Runs on server** field in the monitor form is optional. It links the monitor to a server in the topology and does not affect checks. When the target matches a registered server's IP address, hostname, name or DNS record, the form shows a suggestion. No link is created until you accept it and save.
+
 ## What next? {#next}
 
 - **Watch your servers:** [install the server agent](/en/docs/server-agent/) for CPU, RAM, disk and network metrics.

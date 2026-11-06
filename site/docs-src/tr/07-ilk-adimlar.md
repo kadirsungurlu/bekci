@@ -167,6 +167,22 @@ Bildirim, uygulama kapalıyken de gelir; tıklanınca ilgili olay sayfası açı
 
 Sınırlamalar: panel **HTTPS** ile açılmalı. **iPhone ve iPad**'de (iOS 16.4+) bildirimler yalnızca ana ekrana eklenen uygulamada çalışır; Safari sekmesinde çalışmaz — önce **Ana Ekrana Ekle**, sonra uygulamayı açıp bildirimleri açın. Android Chrome, masaüstü Chrome/Edge/Firefox ve macOS Safari 16+ doğrudan destekler. Tarayıcı "rahatsız etme" kipindeyse ya da pil tasarrufu arka plan bağlantısını kesiyorsa bildirim gecikebilir.
 
+## Canlı topoloji {#topoloji}
+
+**Canlı topoloji** sayfası monitörleri, kontrol noktalarını, sunucuları ve bildirim kanallarını tek ekranda gösterir. Sayfa canlı akışla güncellenir; akış koparsa kısa aralıklarla yoklamaya geçer.
+
+- **Sorun çizelgesi:** Üstte o an sorunlu olan öğeleri görürsünüz.
+- **İlişki:** Bir sunucuya, noktaya, kanala ya da monitöre tıklayın. Yalnız ilişkili olanlar kalır, bağlantılar çizgiyle gösterilir ve ayrıntı şeridi açılır.
+- **Arama ve süzme:** Arama kutusu dört sütunda birden arar; **Yalnız sorunlular** gerisini gizler.
+- **Gruplama:** Rol, konum, müşteri, bölge, sağlayıcı, etiket ya da türe göre gruplayabilirsiniz. Değer girilmemiş öğeler **Belirtilmemiş** grubunda toplanır.
+- **Kanal teslimi:** Kanal satırlarında son gönderim, son hata ve saatlik gönderim sayısı görünür.
+
+Rol, bölge, sağlayıcı ve kod alanlarını kontrol noktası ve sunucu ayarlarından doldurursunuz. İzleyici rolündeki hesaplar etiketleri ve bildirim kanallarını görmez. Müşteri hesapları yalnız kendilerine atanan kayıtları görür.
+
+### Monitörün çalıştığı sunucu {#calistigi-sunucu}
+
+Monitör formundaki **Çalıştığı sunucu** alanı isteğe bağlıdır. Monitörü topolojide bir sunucuya bağlar; denetimi etkilemez. Hedef, kayıtlı bir sunucunun IP adresi, ana makine adı, adı ya da DNS kaydıyla eşleşirse form öneri gösterir. **Bu sunucuyu seç** ile kabul edene ve kaydedene kadar bağ oluşmaz.
+
 ## Sonra ne yapabilirsiniz? {#sonra}
 
 - **Sunucularınızı izleyin:** CPU, RAM, disk ve ağ ölçümleri için [sunucu ajanını kurun](/docs/sunucu-ajani/).

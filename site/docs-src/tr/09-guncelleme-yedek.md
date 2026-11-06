@@ -25,6 +25,19 @@ Bekci imajları Docker Hub'da [`kadirsungurlu/bekci`](https://hub.docker.com/r/k
 > [!IMPORTANT]
 > SQLite ya da gömülü PostgreSQL'den varsayılan kuruluma geçmek için etiketi değiştirmek yetmez; [Veritabanı ve taşıma](/docs/veritabani/) rehberini izleyin.
 
+## Sürüm notları {#surum-notlari}
+
+### 1.8.0 {#surum-1-8-0}
+
+- **Canlı topoloji yenilendi:** sorun çizelgesi; sunucu, kontrol noktası, kanal ve monitör sütunları; ilişki görünümü, arama, gruplama, klavye kullanımı ve telefon görünümü. Bkz. [Canlı topoloji](/docs/ilk-adimlar/#topoloji).
+- **Monitör ile sunucu bağı:** monitör formunda [Çalıştığı sunucu](/docs/ilk-adimlar/#calistigi-sunucu) alanı.
+- **Üst bilgi alanları:** kontrol noktalarına ve sunuculara rol, bölge, sağlayıcı ve kod yazılabilir.
+- **Kanal teslim sayaçları:** son gönderim, son hata ve saatlik gönderim sayısı.
+- **[Betik çalıştırma](/docs/betik-calistirma/):** varsayılan kapalı; imzalı betikler, onay akışı, kurcalamayı belli eden kayıt, acil durdurma.
+- **Yükseltme:** veritabanı şeması 47'den 50'ye geçer, işlem saniyeler sürer. Önce yedek alın; PostgreSQL'de otomatik migration yedeği alınmaz. Eski ajan yeni panelle çalışır. Şema yükseldikten sonra 1.7.0 açılmaz; geri dönmek için yükseltme öncesi dökümü geri yükleyin, sonra eski etiketi kullanın.
+
+Önceki sürümler: [GitHub'daki sürümler](https://github.com/kadirsungurlu/bekci/releases).
+
 ## Güncellemeden önce {#once}
 
 1. **Yedek alın.** Aşağıdaki [tam yedek](#tam-yedek) en güvenlisidir. SQLite kullanıyorsanız Bekci veritabanı yapısını değiştiren güncellemelerden önce kendisi de yedek alır ([otomatik yedekler](#otomatik-yedekler)).
