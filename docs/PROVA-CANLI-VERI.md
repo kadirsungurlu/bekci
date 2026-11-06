@@ -119,6 +119,18 @@ Plan aynen uygulandı (`uptime:/root/docker/uptime`, günlük `gecis-1.7.0.log`)
 - Disk: geçiş sonrası 1,4 GB boş (timescale imajı 1,6 GB + swap 1 GB). Plandaki "en az 3 GB boş" denetimi imaj çekilmeden önceydi; sonraki yedeklerde izlenmeli.
 - Windows ajan: `a7eb703` gibi eski yapılar ayarı `%ProgramData%\Uptime\agent.env` dosyasından okur, güncel sürüm yalnız `%ProgramFiles%\Uptime\agent.env` dosyasını okur. Yalnız program dosyasını değiştirince hizmet `PROBE_SERVER` hatasıyla durur. Elle geçişte `agent.env` önce yeni yere kopyalanmalı (yalnız SYSTEM ve Administrators erişimi).
 
+## v1.8.0 yükseltmesi (2026-11-06)
+
+Prova, canlı dökümün kopyasında (1 CPU, DB 400 MB, panel 256 MB): döküm 8,9 MB; migration 48-50 ~0,2 sn; sağlık 0,9 sn; panel durdurma dahil 1,6 sn; 9 monitör ve 188,5 bin kalp atışı aynı; Timescale işleri 0/26 hata.
+
+Canlı (14:17:35 UTC): `.env` içinde `UPTIME_TAG=1.8.0`, `docker compose up -d --no-deps bekci`. Konteyner 3 sn'de ayağa kalktı, 5 sn'de healthy. Denetim turu atlanmadı: 60 sn aralıklı monitörlerde en büyük boşluk 82 sn (en çok 22 sn gecikme). 6 ajan panel güncellemesiyle kendiliğinden 1.8.0'a geçti (2 dakikadan kısa).
+
+Yedek: `/root/yedek/bekci-canli-v170-2026-11-06/` (bu makine) ve uptime sunucusunda `/root/yedek-v170/`; DB dökümü + compose + .env + Caddyfile + SHA256SUMS.
+
+Geri dönüş, iki yol (ikisi de provada denendi). 1.7.0 şema 50'de açılmaz (`veritabanı sürümü (50) bu uygulamadan (47) yeni`):
+- Yol B, veri kaybı yok: `update schema_version set version=47`, `UPTIME_TAG=1.7.0`, `docker compose up -d --no-deps bekci`. 1.8.0'a yeniden geçerken önce `version=50` yapılır, yoksa migration 48 `scripts already exists` ile durur.
+- Yol A, dökümden sonraki veri gider: DROP/CREATE DATABASE, `timescaledb_pre_restore()`, `pg_restore`, `timescaledb_post_restore()`, 1.7.0. Prova süresi 20,6 sn.
+
 ## Denenmedi
 - Canlı sunucunun kendisinde geçiş; tek çekirdekli yavaş disk gerçek süresi.
 - Gerçek `AGENT_SIGNING_KEY` ile imza ve canlı ajanların güncellenmesi (yalnız test anahtarı).
