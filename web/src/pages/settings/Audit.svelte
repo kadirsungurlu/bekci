@@ -352,6 +352,7 @@
     max-width: 320px;
   }
   .ip {
+    overflow-wrap: anywhere;
     font-size: 0.82rem;
     color: var(--muted);
     white-space: nowrap;
