@@ -181,6 +181,9 @@ jobs:
       - name: Sunucu olayları uçtan uca
         working-directory: web/e2e
         run: node sunucu-olaylar.mjs
+      - name: Bağlanmamış sunucuyu silme uçtan uca
+        working-directory: web/e2e
+        run: node sunucu-sil.mjs
       - name: Salt okunur API anahtarı uçtan uca
         working-directory: web/e2e
         run: node apikeys.mjs

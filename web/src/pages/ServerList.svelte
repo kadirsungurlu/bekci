@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { api, errorMessage, type DiskInfo, type ServerView } from '../lib/api';
   import { session } from '../lib/session.svelte';
-  import { clock, toast } from '../lib/ui.svelte';
+  import { clock, confirmDialog, toast } from '../lib/ui.svelte';
   import { fmtDec, fmtPctInt, fmtRate, fmtRelative, fmtTemp, fmtUptime } from '../lib/format';
   import { t } from '../lib/i18n';
   import {
@@ -108,6 +108,23 @@
     renewFor = null;
     addOpen = true;
   }
+  async function removeServer(s: ServerView) {
+    const ok = await confirmDialog({
+      title: t('servers.settings.deleteTitle'),
+      message: t('servers.settings.deleteMessage', { name: s.name }),
+      confirmText: t('common.delete'),
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.deleteProbe(s.id);
+      servers.remove(s.id);
+      toast.success(t('servers.settings.deleted'));
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  }
+
   function openRenew(s: ServerView) {
     renewFor = s;
     renewOpen = true;
@@ -330,11 +347,14 @@
             <div class="sub">{inactiveReason(s)}</div>
           </div>
           {#if session.isAdmin}
-            {#if s.state === 'disabled'}
-              <a class="btn sm" href="#/servers/{s.id}">{t('servers.list.openSettings')}</a>
-            {:else}
-              <button type="button" class="btn sm" onclick={() => openRenew(s)}><Icon name="terminal" size={14} /> {t('servers.list.showCommand')}</button>
-            {/if}
+            <div class="iacts">
+              {#if s.state === 'disabled'}
+                <a class="btn sm" href="#/servers/{s.id}">{t('servers.list.openSettings')}</a>
+              {:else}
+                <button type="button" class="btn sm" onclick={() => openRenew(s)}><Icon name="terminal" size={14} /> {t('servers.list.showCommand')}</button>
+              {/if}
+              <button type="button" class="btn sm danger" onclick={() => removeServer(s)}><Icon name="trash" size={14} /> {t('common.delete')}</button>
+            </div>
           {/if}
         </div>
       {/each}
@@ -872,6 +892,11 @@
   .irow .sub {
     white-space: normal;
   }
+  .iacts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 
   .first {
     padding: 56px 20px;
@@ -976,8 +1001,11 @@
     .irow .it {
       flex: 1 1 calc(100% - 30px);
     }
-    .irow .btn {
+    .iacts {
       margin-left: 22px;
+    }
+    .iacts .btn {
+      min-height: 44px;
     }
   }
 </style>
