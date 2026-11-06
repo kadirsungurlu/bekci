@@ -467,7 +467,7 @@
         {/each}
       </div>
       <div class="sutunlar" bind:this={sutunlar} data-tab={tab} onscrollcapture={onScroll}>
-        <TopoColumn bind:this={cols.srv} active={tab === 'srv'} col="srv" cls="sut-l" title={t('topology.col.servers')} label={t('topology.col.servers')} count={t('topology.count.servers', { n: graph.srv.length, k: problemCount(graph.srv) })} options={opts.srv} by={eff.srv} views={vSrv} g={graph} {rel} {sel} {metrics} {wide} now={rowNow} filtered={!!qf} {sorun} onrender={onRender}>
+        <TopoColumn bind:this={cols.srv} active={tab === 'srv'} col="srv" cls="sut-l" title={t('topology.col.servers')} label={t('topology.col.servers')} count={t('topology.count.servers', { n: graph.srv.length, count: problemCount(graph.srv), k: problemCount(graph.srv), count: problemCount(graph.srv) })} options={opts.srv} by={eff.srv} views={vSrv} g={graph} {rel} {sel} {metrics} {wide} now={rowNow} filtered={!!qf} {sorun} onrender={onRender}>
           {#snippet head()}
             <div class="kb kb-srv"><span>{t('topology.head.name')}</span><span>{t('topology.head.cpu')}</span><span>{t('topology.head.mem')}</span><span>{t('topology.head.disk')}</span></div>
           {/snippet}

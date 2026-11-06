@@ -126,8 +126,8 @@
           {#if n.m.state === 'paused'}{t('topology.dock.pausedNoVote')}
           {:else}
             {@const off = offCount(g, n)}
-            {#if n.bad.length}{t('topology.dock.ofSee', { n: n.pro.length })}<span class="bad-t">{t('topology.dock.ofBad', { k: ek(n.bad.length) })}</span>
-            {:else}{t('topology.dock.ofClean', { n: n.pro.length })}{/if}{off ? t('topology.dock.offSuffix', { k: ek(off) }) : ''}
+            {#if n.bad.length}{t('topology.dock.ofSee', { n: n.pro.length, count: n.pro.length })}<span class="bad-t">{t('topology.dock.ofBad', { k: ek(n.bad.length) })}</span>
+            {:else}{t('topology.dock.ofClean', { n: n.pro.length, count: n.pro.length })}{/if}{off ? t('topology.dock.offSuffix', { k: ek(off) }) : ''}
           {/if}
           <span class="mat ek">{#each g.proFixed as p (p.id)}<span class={cellClass(n, p)} title={p.name}></span>{/each}</span>
         </div>
@@ -197,7 +197,7 @@
           {:else}{t('topology.dock.never')}{/if}
         </div>
       </div>
-      <div class="d-c"><span class="d-e">{t('topology.dock.linked')}</span><div class="d-v">{t('topology.dock.linkedN', { m: ofKind('mon').length, s: ofKind('srv').length })}</div></div>
+      <div class="d-c"><span class="d-e">{t('topology.dock.linked')}</span><div class="d-v">{t('topology.dock.linkedN', { m: ofKind('mon').length, s: ofKind('srv').length, mN: t('topology.noun.mon', { count: ofKind('mon').length }), sN: t('topology.noun.srv', { count: ofKind('srv').length }) })}</div></div>
       <div class="d-c ek">
         <span class="d-e">{t('topology.dock.last24')}</span>
         <div class="d-v">

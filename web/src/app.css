@@ -967,6 +967,10 @@ input[type='search'].input::-webkit-search-decoration {
   .btn.sm {
     min-height: 36px;
   }
+  .search .input,
+  .input.m-name {
+    min-height: 44px;
+  }
 }
 
 .divider {

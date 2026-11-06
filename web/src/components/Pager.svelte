@@ -119,6 +119,10 @@
       flex-basis: 100%;
       text-align: center;
     }
+    .pages {
+      flex-wrap: wrap;
+      justify-content: center;
+    }
     .pages :global(.btn) {
       min-height: 44px;
       min-width: 44px;

@@ -444,6 +444,16 @@
     cursor: pointer;
     flex-shrink: 0;
   }
+  @media (max-width: 900px), (pointer: coarse) {
+    .u-copy {
+      position: relative;
+    }
+    .u-copy::after {
+      content: '';
+      position: absolute;
+      inset: -9px;
+    }
+  }
   .u-copy:focus-visible {
     outline: 2px solid var(--accent);
   }

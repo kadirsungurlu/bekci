@@ -41,7 +41,7 @@
   <div class="sorun-b">
     {#if all.length}
       <b>{t('topology.problems.count', { count: all.length })}</b>
-      <span class="ozet">{t('topology.problems.summary', { m: kinds.mon, p: kinds.pro, s: kinds.srv })}</span>
+      <span class="ozet">{t('topology.problems.summary', { m: kinds.mon, p: kinds.pro, s: kinds.srv, mN: t('topology.noun.mon', { count: kinds.mon }), pN: t('topology.noun.pro', { count: kinds.pro }), sN: t('topology.noun.srv', { count: kinds.srv }) })}</span>
       <span class="lej">
         <i class="h-bad"></i>{t('topology.problems.legendBad')}<i class="h-ok"></i>{t('topology.problems.legendOk')}<i class="h-off"></i>{t('topology.problems.legendOff')}<i class="h-yok"></i>{t('topology.problems.legendNone')}
       </span>
@@ -83,7 +83,7 @@
             <span class="s-ha">{n.st === 'off' ? t('topology.problems.offline') : n.p.uplink === 'oob' ? t('topology.problems.oob') : t('topology.problems.late')}</span>
             <span class="s-su">{(n.st === 'off' && sinceText(n.p.last_seen_at, now)) || '—'}</span>
             <span class="mat-y">{n.st === 'off' ? t('topology.problems.noHeartbeat') : t('topology.problems.agentReports')}</span>
-            <span class="s-so">{t('topology.problems.affects', { n: (g.rel.get(n.id) ?? []).length })}</span>
+            <span class="s-so">{t('topology.problems.affects', { n: (g.rel.get(n.id) ?? []).length, count: (g.rel.get(n.id) ?? []).length })}</span>
           {:else if n.kind === 'srv'}
             <span class="s-ad">{n.name}</span><span class="s-gr s-gk">{group(p)}</span>
             <span class="s-ha" title={serverSymptom(n)}>{serverSymptom(n)}</span><span class="s-su">{sinceText(n.s.alert_since, now) || '—'}</span>
