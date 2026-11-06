@@ -48,6 +48,11 @@ func (c *Client) tryUpdate(ctx context.Context, o agentupdate.Offer) {
 	if until, ok := c.updateRefused[o.Version]; ok && time.Now().Before(until) {
 		return
 	}
+	// Çalışan betik varken program değişmez: yeniden başlatma onu "lost" yapardı.
+	// Teklif her yoklamada yinelenir, betik bitince uygulanır.
+	if c.cfg.Scripts != nil && c.cfg.Scripts.Busy() {
+		return
+	}
 	u := c.cfg.Updater
 	if err := u.Check(o); err != nil {
 		// Teklif bu ajana uymuyor (eski/aynı sürüm, imza, platform): bir kez

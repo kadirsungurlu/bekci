@@ -97,6 +97,13 @@ export default {
   form: {
     errName: "Kontrol noktasına bir ad verin (ör. Frankfurt).",
     errNameRequired: "Ad gerekli.",
+    region: "Bölge",
+    regionPlaceholder: "ör. Avrupa",
+    provider: "Sağlayıcı",
+    providerPlaceholder: "ör. Hetzner",
+    code: "Kısa kod",
+    codePlaceholder: "ör. FRA1",
+    labelsHelp: "Hepsi isteğe bağlı; canlı topolojide gruplama ve kısa gösterim için.",
     namePlaceholder: "ör. Frankfurt",
     nameHelp:
       "Konumu anlatan kısa bir ad; monitör detayında ve bildirimlerde görünür.",

@@ -149,13 +149,19 @@ func (s *Server) buildExportWith(ctx context.Context, opt exportOptions) (*backu
 	if n, ok := notifName[settings.SystemMailChannelID]; ok {
 		doc.SystemMailChannel = n
 	}
+	serverName := map[int64]string{}
+	if servers, err := s.store.ListProbesOfKind(ctx, store.ProbeKindServer); err == nil {
+		for _, p := range servers {
+			serverName[p.ID] = p.Name
+		}
+	}
 	for _, m := range monitors {
 		bm := backup.Monitor{
 			ID: m.ID, Name: m.Name, Type: m.Type, Description: m.Description, Active: m.Active,
 			Interval: m.Interval, RetryInterval: m.RetryInterval, MaxRetries: m.MaxRetries, Timeout: m.Timeout,
 			ResendEvery: m.ResendEvery, UpsideDown: m.UpsideDown, Config: m.Config, PushToken: m.PushToken,
 			SlowMs: m.SlowMs, SlowChecks: m.SlowChecks,
-			Notifications: []string{}, Tags: []backup.MonitorTag{},
+			Notifications: []string{}, Tags: []backup.MonitorTag{}, Server: serverName[m.ServerID],
 		}
 		if !m.DomainExpiry {
 			off := false
@@ -666,7 +672,7 @@ func (s *Server) planImport(ctx context.Context, conv *backup.Result, replace bo
 			usedTokens[tok] = true
 			m.PushToken = tok
 		}
-		im := store.ImportMonitor{FileID: fileID, Monitor: m}
+		im := store.ImportMonitor{FileID: fileID, Monitor: m, ServerName: bm.Server}
 		seenRef := map[store.ImportRef]bool{}
 		for _, name := range bm.Notifications {
 			ref, ok := notifRefs[name]

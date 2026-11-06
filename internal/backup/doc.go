@@ -136,7 +136,9 @@ type Monitor struct {
 	// Locations çok konumlu kontrol ayarı; kontrol noktaları adlarıyla (geri
 	// yüklemede aynı adlı kontrol noktası aranır). Yoksa yalnızca ana sunucu.
 	Locations *MonitorLocations `json:"locations,omitempty"`
-	Notes     []string          `json:"-"`
+	// Server çalıştığı sunucunun adı (geri yüklemede aynı adlı sunucu aranır).
+	Server string   `json:"server,omitempty"`
+	Notes  []string `json:"-"`
 }
 
 type PageMonitor struct {

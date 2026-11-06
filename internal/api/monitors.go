@@ -230,6 +230,7 @@ func (s *Server) buildViews(r *http.Request, monitors []store.Monitor) ([]monito
 			target = publicTarget(target)
 			m.LastMessage = viewerMessage(u, m.Type, m.Status, m.LastMessage)
 			m.Config, m.PushToken, ids, tagIDs = json.RawMessage("{}"), "", []int64{}, []int64{}
+			m.ServerID = 0
 		}
 		m.LastMessage = i18n.Message(lang, m.LastMessage)
 		if m.Type == check.TypeGroup {
@@ -392,6 +393,8 @@ type monitorInput struct {
 	SlowChecks int `json:"slow_checks"`
 	// DomainExpiry alan adı bitiş uyarısı (RDAP); gönderilmezse açık.
 	DomainExpiry *bool `json:"domain_expiry"`
+	// ServerID çalıştığı sunucu; 0 bağı kaldırır, alan yoksa değişmez.
+	ServerID *int64 `json:"server_id"`
 }
 
 func between(v, lo, hi int) bool { return v >= lo && v <= hi }
@@ -496,6 +499,12 @@ func (s *Server) createMonitor(w http.ResponseWriter, r *http.Request) {
 	if !s.validateGroup(w, r, 0, m) {
 		return
 	}
+	if in.ServerID != nil {
+		m.ServerID = *in.ServerID
+		if !s.validateMonitorServer(w, r, m.ServerID) {
+			return
+		}
+	}
 	ids, err := s.notificationIDs(r, in.NotificationIDs)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -574,6 +583,13 @@ func (s *Server) updateMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m.ID = id
+	m.ServerID = old.ServerID
+	if in.ServerID != nil {
+		m.ServerID = *in.ServerID
+		if !s.validateMonitorServer(w, r, m.ServerID) {
+			return
+		}
+	}
 	m.PushToken = old.PushToken
 	if m.Type == check.TypePush && m.PushToken == "" {
 		m.PushToken = randomToken(24)

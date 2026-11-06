@@ -23,6 +23,8 @@
   } = $props();
 
   let name = $state('');
+  let role = $state('');
+  let region = $state('');
   let metrics = $state(true);
   let ipLock = $state(true);
   let lockedIp = $state('');
@@ -42,6 +44,8 @@
     if (open)
       untrack(() => {
         name = server.name;
+        role = server.role ?? '';
+        region = server.region ?? '';
         metrics = server.metrics;
         ipLock = server.ip_lock;
         lockedIp = server.locked_ip;
@@ -71,6 +75,7 @@
     try {
       await api.updateProbe(server.id, n, server.active, metrics, {
         ipLock,
+        labels: { role: role.trim(), region: region.trim() },
         ...(server.update ? { autoUpdate: autoValue(auto) } : {}),
         ...(oobChanged ? { oob: { oob_ip: oobIp.trim(), oob_name: oobName.trim() } } : {}),
       });
@@ -128,6 +133,15 @@
       <label for="srv-name">{t('common.name')}</label>
       <input id="srv-name" class="input" maxlength="100" bind:value={name} />
       <span class="help">{t('servers.setup.nameHelp')}</span>
+    </div>
+    <div class="field">
+      <label for="srv-role">{t('servers.settings.role')}</label>
+      <input id="srv-role" class="input" maxlength="64" placeholder={t('servers.settings.rolePlaceholder')} bind:value={role} />
+    </div>
+    <div class="field">
+      <label for="srv-region">{t('servers.settings.region')}</label>
+      <input id="srv-region" class="input" maxlength="64" placeholder={t('servers.settings.regionPlaceholder')} bind:value={region} />
+      <span class="help">{t('servers.settings.labelsHelp')}</span>
     </div>
     <label class="check">
       <input type="checkbox" bind:checked={metrics} />

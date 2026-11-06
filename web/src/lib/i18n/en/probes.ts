@@ -98,6 +98,13 @@ export default {
   form: {
     errName: "Give the check location a name (e.g. Frankfurt).",
     errNameRequired: "Name is required.",
+    region: "Region",
+    regionPlaceholder: "e.g. Europe",
+    provider: "Provider",
+    providerPlaceholder: "e.g. Hetzner",
+    code: "Short code",
+    codePlaceholder: "e.g. FRA1",
+    labelsHelp: "All optional; used for grouping and compact labels in the live topology.",
     namePlaceholder: "e.g. Frankfurt",
     nameHelp:
       "A short name describing the location; shown on monitor details and in notifications.",

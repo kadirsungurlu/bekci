@@ -20,6 +20,7 @@
     out.push({ href: '#/settings', label: t('nav.myAccount'), desc: t('nav.moreItems.accountDesc'), icon: 'user' });
     if (session.canEdit) out.push({ href: '#/settings/tags', label: t('nav.moreItems.tags'), desc: t('nav.moreItems.tagsDesc'), icon: 'tag' });
     if (session.isAdmin) {
+      out.push({ href: '#/scripts', label: t('nav.scripts'), desc: t('nav.moreItems.scriptsDesc'), icon: 'terminal' });
       out.push({ href: '#/settings/users', label: t('nav.moreItems.users'), desc: t('nav.moreItems.usersDesc'), icon: 'users' });
       out.push({ href: '#/settings/general', label: t('nav.moreItems.general'), desc: t('nav.moreItems.generalDesc'), icon: 'settings' });
       out.push({ href: '#/settings/login', label: t('nav.moreItems.login'), desc: t('nav.moreItems.loginDesc'), icon: 'log-in' });

@@ -52,6 +52,7 @@ type Engine struct {
 	// probe'lar ve kesilme anı (scanProbes). Bkz. probes.go.
 	heartbeats map[int64]time.Time
 	rate       resultRate // canlı topoloji: saniyedeki sonuç (rate.go)
+	pings      pingHist   // canlı topoloji: son kontrol süreleri (pinghist.go)
 	mainDown   map[int64]time.Time
 	oob        map[int64]bool        // OOB hattındaki ajanlar (uplink.go; sonuçları karara katılmaz)
 	meshEv     meshEval              // mesh kararı (watchProbes döngüsü)
@@ -112,6 +113,11 @@ func (e *Engine) Start(ctx context.Context) error {
 	e.mu.Unlock()
 	e.bg.Add(1)
 	go e.watchProbes(ctx) // kontrol noktalarının çevrimiçi/çevrimdışı değişimleri (probes.go)
+	e.bg.Add(1)
+	go func() {
+		defer e.bg.Done()
+		e.seedPings(ctx)
+	}()
 	if e.domain != nil {
 		e.bg.Add(1)
 		go e.domainLoop(ctx) // alan adı bitiş sorguları (domain.go)

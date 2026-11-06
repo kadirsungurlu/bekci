@@ -148,6 +148,11 @@
     color: var(--muted);
     cursor: pointer;
   }
+  @media (max-width: 900px), (pointer: coarse) {
+    .cnt {
+      min-height: 44px;
+    }
+  }
   .cnt:disabled {
     cursor: default;
   }

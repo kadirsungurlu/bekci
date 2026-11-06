@@ -188,6 +188,7 @@ export interface Bucket {
 }
 
 export interface MonitorView {
+  server_id?: number;
   id: number;
   name: string;
   type: MonitorType;
@@ -311,7 +312,15 @@ export interface MonitorTag {
 
 // Kontrol noktaları ------------------------------------------------------------------
 
-export interface Probe {
+/** Görünen üst bilgi; boş: belirtilmemiş. */
+export interface ProbeLabels {
+  role?: string;
+  region?: string;
+  provider?: string;
+  code?: string;
+}
+
+export interface Probe extends ProbeLabels {
   id: number;
   name: string;
   active: boolean;
@@ -528,6 +537,8 @@ export interface ImportSummary {
 }
 
 export interface MonitorInput {
+  /** Çalıştığı sunucu; 0 bağı kaldırır, alan yoksa değişmez. */
+  server_id?: number;
   name: string;
   type: MonitorType;
   description: string;
@@ -1470,7 +1481,7 @@ export interface TimelineEvent {
   data: Record<string, string | number> | null;
 }
 
-export interface ServerView {
+export interface ServerView extends ProbeLabels {
   disk_forecast?: DiskForecast[] | null;
   id: number;
   name: string;
@@ -1919,6 +1930,9 @@ export const api = {
   monitors: () => get<MonitorView[]>("/api/monitors"),
   monitor: (id: number) => get<MonitorDetail>(`/api/monitors/${id}`),
   createMonitor: (m: MonitorInput) => post<MonitorView>("/api/monitors", m),
+  /** Hedef adresinden sunucu önerisi; hiçbir şey kaydetmez. */
+  monitorServerSuggestion: (type: string, config: unknown) =>
+    post<ServerSuggestion>("/api/monitors/server-suggestion", { type, config }),
   updateMonitor: (id: number, m: MonitorInput) =>
     put<MonitorView>(`/api/monitors/${id}`, m),
   deleteMonitor: (id: number) => del<{ ok: boolean }>(`/api/monitors/${id}`),
@@ -2187,7 +2201,7 @@ export const api = {
   // Kontrol noktaları
   probes: () => get<Probe[]>("/api/probes"),
   mesh: () => get<MeshMatrix>("/api/mesh"),
-  topology: () => get<Topology>("/api/topology"),
+  topology: () => get<Topology>("/api/topology?view=summary"),
   createProbe: (name: string) => post<ProbeSetup>("/api/probes", { name }),
   /** Takip edilecek sunucu ekler (kontrol noktalarından ayrı kayıt). */
   createServer: (name: string) => post<ProbeSetup>("/api/servers", { name }),
@@ -2207,9 +2221,11 @@ export const api = {
       mesh?: ProbeMeshInput;
       /** OOB ikinci hat; boş IP OOB'yi kaldırır, alan yoksa değişmez. */
       oob?: { oob_ip: string; oob_name: string };
+      /** Alan yoksa değişmez, boş metin siler. */
+      labels?: ProbeLabels;
     },
   ) => {
-    const body: Record<string, unknown> = { name, active, ...opts?.mesh, ...opts?.oob };
+    const body: Record<string, unknown> = { name, active, ...opts?.mesh, ...opts?.oob, ...opts?.labels };
     if (metrics !== undefined) body.metrics = metrics;
     if (opts?.ipLock !== undefined) body.ip_lock = opts.ipLock;
     if (opts?.resetIp) body.reset_ip = true;
@@ -2391,6 +2407,21 @@ export interface TopoLocation {
   ping_ms: number;
 }
 
+export interface ServerSuggestion {
+  host: string;
+  matches: { server_id: number; name: string; match: "ip" | "hostname" | "name" | "dns"; value: string }[];
+}
+
+export interface TopoLastIncident {
+  id: number;
+  kind: string;
+  started_at: number;
+  /** 0: açık. */
+  resolved_at: number;
+  cause: string;
+  acked: boolean;
+}
+
 export interface TopoMonitor {
   id: number;
   name: string;
@@ -2398,13 +2429,36 @@ export interface TopoMonitor {
   state: TopoMonitorState;
   last_check_at: number;
   ping_ms: number;
-  locations: TopoLocation[];
+  /** ?view=summary yanıtında yok. */
+  locations?: TopoLocation[];
+  /** Denetleyen noktalar: 0 ana sunucu (Topology.local_name). */
+  loc_ids?: number[];
+  /** loc_ids alt kümeleri; ikisinde olmayan nokta son sonucu ok. */
+  loc_bad?: number[];
+  loc_off?: number[];
+  /** Kesintideyken hata metni. */
+  message?: string;
+  since?: number;
+  /** Son 30 değer, eskiden yeniye: ms; -1 ölçüm yok, -2 kesinti. */
+  series?: number[];
+  last_incident?: TopoLastIncident;
+  /** Yalnız düzenleyici ve üstü: Topology.tags kimlikleri. */
+  tags?: number[];
+  /** Yalnız yönetici: Topology.customers kimlikleri. */
+  customers?: number[];
+  /** Yalnız düzenleyici ve üstü: Topology.channels kimlikleri (doğrudan + etiket). */
+  channels?: number[];
+  server_id?: number;
 }
 
 export interface TopoProbe {
   id: number;
   name: string;
   online: boolean;
+  region?: string;
+  code?: string;
+  /** Yalnız yönetici. */
+  provider?: string;
   /** Yalnız yönetici: panel RTT (ms), hat (primary | oob), mesh eşleri, sürüm. */
   panel_rtt_ms?: number;
   late?: boolean;
@@ -2420,6 +2474,13 @@ export interface TopoServer {
   id: number;
   name: string;
   state: string;
+  role?: string;
+  region?: string;
+  customers?: number[];
+  channels?: number[];
+  /** Açık olayın metni ve başlangıcı. */
+  alert?: string;
+  alert_since?: number;
   cpu?: number;
   mem?: number;
   disk?: number;
@@ -2435,8 +2496,10 @@ export interface TopoChannel {
   name: string;
   type: string;
   active: boolean;
-  /** Panel açıldığından beri son gönderim; yok: henüz gönderilmedi. */
-  last_send?: { at: number; ok: boolean };
+  /** Son gönderim; yok: henüz gönderilmedi. */
+  last_send?: { at: number; ok: boolean; error?: string };
+  sent_24h?: number;
+  failed_24h?: number;
 }
 
 export interface TopoIncident {
@@ -2463,4 +2526,211 @@ export interface Topology {
   /** Yalnız düzenleyici ve üstü. */
   channels?: TopoChannel[];
   incidents: TopoIncident[];
+  tags: { id: number; name: string; color: string }[];
+  /** Yerel kontrolü yapan ana sunucunun görünen adı (konum 0). */
+  local_name?: string;
+  /** Yalnız yönetici. */
+  customers?: { id: number; name: string }[];
 }
+
+// ---- Betikler (internal/api/scripts.go) --------------------------------------
+
+export type ScriptApproval = "none" | "panel" | "signed";
+
+export interface ScriptParam {
+  name: string;
+  type: "enum" | "int" | "bool" | "name";
+  values?: string[];
+  min?: number;
+  max?: number;
+}
+
+/** İmzalı bildirim; panel yalnız gösterir, düzenlemez. */
+export interface ScriptManifest {
+  schema: number;
+  id: string;
+  version: number;
+  sha256: string;
+  interpreter: string;
+  run_as: string;
+  platforms: string[] | null;
+  approval: ScriptApproval;
+  groups: string[] | null;
+  params: ScriptParam[] | null;
+  timeout_sec: number;
+  output_max: number;
+  min_interval_sec: number;
+  max_per_day: number;
+  jitter_sec: number;
+  not_before: number;
+  not_after: number;
+}
+
+export interface ScriptVersion {
+  script_id: string;
+  version: number;
+  sha256: string;
+  approval: ScriptApproval;
+  key_id: string;
+  not_before: number;
+  not_after: number;
+  uploaded_by_name: string;
+  uploaded_at: number;
+  manifest: ScriptManifest;
+  revoked: boolean;
+  expired: boolean;
+  body?: string;
+}
+
+/** Geçmişten türeyen son sonuç; ajanın şimdiki izni hakkında hüküm değildir. */
+export interface ScriptHostResult {
+  probe_id: number;
+  probe_name: string;
+  state: string;
+  code?: string;
+  at: number;
+}
+
+export interface ScriptItem {
+  id: string;
+  latest: ScriptVersion;
+  versions: ScriptVersion[];
+  hosts: ScriptHostResult[];
+}
+
+export interface ScriptControl {
+  stopped: boolean;
+  stopped_at: number;
+  stopped_by_name: string;
+  channel_ids: number[] | null;
+}
+
+export interface ScriptRevoke {
+  script_id: string;
+  below_version: number;
+  envelope: string;
+  uploaded_by_name: string;
+  uploaded_at: number;
+}
+
+export interface ScriptList {
+  scripts: ScriptItem[];
+  revokes: ScriptRevoke[] | null;
+  control: ScriptControl;
+}
+
+export interface ScriptKey {
+  key_id: string;
+  slot: "yayin" | "onay";
+  public_key: string;
+  name: string;
+  added_by_name: string;
+  added_at: number;
+}
+
+export interface ScriptHost {
+  probe_id: number;
+  host_key: string;
+  pending_key: string;
+  receipt_seq: number;
+  approved_at: number;
+  approved_by_name: string;
+  schemas: string;
+  state: string;
+  reason: string;
+  seen_at: number;
+  name: string;
+  kind: string;
+  online: boolean;
+  support: "unsupported" | "off" | "on" | string;
+}
+
+export interface ScriptRun {
+  run_id: string;
+  script_id: string;
+  version: number;
+  probe_id: number;
+  probe_name: string;
+  params: string;
+  approval: ScriptApproval;
+  needs: ScriptApproval;
+  state: string;
+  code?: string;
+  exit_code?: number;
+  requested_by: string;
+  requested_at: number;
+  updated_at: number;
+}
+
+export interface ScriptEvent {
+  seq: number;
+  time: number;
+  run_id: string;
+  kind: string;
+  actor_id: number;
+  data: string;
+}
+
+export interface ScriptRunDetail {
+  run: ScriptRun;
+  events: ScriptEvent[];
+  can_approve: boolean;
+  ticket_request?: Record<string, unknown>;
+  output?: { text: string; sha256: string; truncated: boolean };
+}
+
+export interface ScriptChain {
+  events: number;
+  checkpoints: number;
+  ok: boolean;
+  seq: number;
+  hash: string;
+  error?: string;
+  last_anchor_at?: number;
+}
+
+export const SCRIPT_EXPORT_URL = "/api/scripts/export";
+
+type Ok = { ok: boolean };
+
+export const scriptsApi = {
+  list: () => get<ScriptList>("/api/scripts"),
+  version: (id: string, v: number) =>
+    get<ScriptVersion>(`/api/scripts/lib/${encodeURIComponent(id)}/${v}`),
+  upload: (manifest: unknown, body: string, code: string) =>
+    post<ScriptVersion>("/api/scripts", { manifest, body, code }),
+  uploadRevoke: (revoke: unknown, code: string) =>
+    post<Ok>("/api/scripts/revokes", { revoke, code }),
+  hosts: () => get<ScriptHost[]>("/api/scripts/hosts"),
+  approveHost: (id: number, host_key: string, code: string) =>
+    post<Ok>(`/api/scripts/hosts/${id}/approve`, { host_key, code }),
+  keys: () => get<ScriptKey[]>("/api/scripts/keys"),
+  addKey: (slot: string, name: string, public_key: string, code: string) =>
+    post<ScriptKey>("/api/scripts/keys", { slot, name, public_key, code }),
+  deleteKey: (id: string, code: string) =>
+    request<void>("DELETE", `/api/scripts/keys/${encodeURIComponent(id)}`, { code }),
+  runs: (before = 0, limit = 50) =>
+    get<{ runs: ScriptRun[]; next: number }>(
+      `/api/scripts/runs?limit=${limit}${before ? `&before=${before}` : ""}`,
+    ),
+  run: (id: string) => get<ScriptRunDetail>(`/api/scripts/runs/${id}`),
+  start: (input: {
+    script_id: string;
+    version: number;
+    probe_id: number;
+    params: Record<string, unknown>;
+    code: string;
+    use_ticket: boolean;
+  }) => post<ScriptRun>("/api/scripts/runs", input),
+  approve: (id: string, code: string) =>
+    post<Ok>(`/api/scripts/runs/${id}/approve`, { code }),
+  reject: (id: string) => post<Ok>(`/api/scripts/runs/${id}/reject`),
+  cancel: (id: string) => post<Ok>(`/api/scripts/runs/${id}/cancel`),
+  ticket: (id: string, ticket: unknown, code: string) =>
+    post<Ok>(`/api/scripts/runs/${id}/ticket`, { ticket, code }),
+  stop: () => post<Ok>("/api/scripts/control/stop"),
+  resume: (code: string) => post<Ok>("/api/scripts/control/resume", { code }),
+  channels: (channel_ids: number[], code: string) =>
+    put<Ok>("/api/scripts/control/channels", { channel_ids, code }),
+  chain: () => get<ScriptChain>("/api/scripts/chain"),
+};

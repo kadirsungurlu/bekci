@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/kadirsungurlu/bekci/internal/agentupdate"
 	"github.com/kadirsungurlu/bekci/internal/servers"
@@ -33,6 +34,8 @@ const (
 func agentUpdateEnv(t *testing.T, panelVersion string) (*fenv, []byte) {
 	t.Helper()
 	f := newServersEnv(t)
+	// Teklif yokken iş listesi uzun yoklamaya girer; testte gerçek 20 sn beklenmesin.
+	f.s.probeHold = 10 * time.Millisecond
 	f.s.version = panelVersion
 	f.s.AgentDir = t.TempDir()
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)

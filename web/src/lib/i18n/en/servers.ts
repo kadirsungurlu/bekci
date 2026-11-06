@@ -435,6 +435,11 @@ export default {
   settings: {
     title: 'Server settings',
     errName: 'Name is required.',
+    role: 'Role',
+    rolePlaceholder: 'e.g. Web, Database',
+    region: 'Location',
+    regionPlaceholder: 'e.g. Frankfurt',
+    labelsHelp: 'Optional; used for grouping in the live topology.',
     saved: 'Server saved',
     ipReset: 'IP lock reset',
     deleteTitle: 'Delete server',

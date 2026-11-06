@@ -17,9 +17,24 @@ func (d *Dispatcher) noteSend(channelID int64, at time.Time, err error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if werr := d.store.SetChannelSend(ctx, channelID, at.Unix(), err == nil); werr != nil && d.log != nil {
+	if werr := d.store.SetChannelSend(ctx, channelID, at.Unix(), sendErrorText(err)); werr != nil && d.log != nil {
 		d.log.Error("kanal son gönderim yazılamadı", "kanal", channelID, "hata", werr)
 	}
+}
+
+// sendErrorText saklanacak hata metni: adres (belirteç içerebilir) çıkarılır, kısaltılır.
+func sendErrorText(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := []rune(redactURLError(err).Error())
+	if len(msg) > 240 {
+		msg = msg[:240]
+	}
+	if len(msg) == 0 {
+		return "?"
+	}
+	return string(msg)
 }
 
 // LastSends kanal başına son gönderim sonucu.

@@ -360,6 +360,10 @@
     color: var(--text-2);
   }
   @media (max-width: 720px) {
+    .table.log td.ip {
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
     .det {
       max-width: none;
     }

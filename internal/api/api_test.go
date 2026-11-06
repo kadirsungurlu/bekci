@@ -474,15 +474,21 @@ func TestEventsSurviveServerTimeouts(t *testing.T) {
 	s := New(st, eng, hub, disp, log, fstest.MapFS{}, "test")
 	s.relaxTimeoutRule = true // aralıklar milisaniye biriminde (bkz. newEnv)
 
-	srv := httptest.NewUnstartedServer(s.Handler())
+	h := s.Handler()
+	srv := httptest.NewUnstartedServer(h)
 	srv.Config.ReadTimeout = 300 * time.Millisecond
 	srv.Config.WriteTimeout = 300 * time.Millisecond
 	srv.Start()
 	defer srv.Close()
 
+	// Kurulum bcrypt çalıştırır; race altında yoğun koşucuda 300 ms'yi aşıp
+	// bağlantıyı keser. Sınırsız sunucudan yapılır, çerez aynı makineye gider.
+	kurulum := httptest.NewServer(h)
+	defer kurulum.Close()
 	jar, _ := cookiejar.New(nil)
-	e := &env{t: t, srv: srv, client: &http.Client{Jar: jar}}
+	e := &env{t: t, srv: kurulum, client: &http.Client{Jar: jar}}
 	e.mustDo("POST", "/api/auth/setup", map[string]string{"username": "kadir", "password": "cok-gizli-sifre"}, nil, 200)
+	e.srv = srv
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

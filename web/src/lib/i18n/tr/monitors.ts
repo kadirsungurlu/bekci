@@ -246,6 +246,13 @@ export default {
     },
   },
   form: {
+    server: 'Sunucu',
+    serverLabel: 'Çalıştığı sunucu',
+    serverNone: 'Belirtilmemiş',
+    serverHelp: 'İsteğe bağlı. Canlı topolojide monitörü bu sunucuya bağlar; denetimi etkilemez.',
+    serverMatch: 'Hedef {how} {name} sunucusuyla eşleşiyor ({value}). Kaydetmeden bağ oluşmaz.',
+    serverUse: 'Bu sunucuyu seç',
+    serverHow: { ip: 'IP adresiyle', hostname: 'ana makine adıyla', name: 'sunucu adıyla', dns: 'DNS kaydıyla' },
     backToMonitor: 'Monitöre dön',
     titleEdit: 'Monitörü düzenle',
     loadFailed: 'Monitör yüklenemedi',

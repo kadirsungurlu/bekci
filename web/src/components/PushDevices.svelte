@@ -35,7 +35,7 @@
   async function enable() {
     error = '';
     try {
-      await webpush.subscribe();
+      await webpush.subscribe(webpush.stale ? thisDevice : null);
       await load();
       toast.success(t('account.push.enabled'));
     } catch (e) {
@@ -94,8 +94,11 @@
   {:else if support === 'denied'}
     <div class="alert warning small">{t('account.push.denied')}</div>
   {:else}
+    {#if webpush.stale}
+      <div class="alert warning small" role="status">{t('account.push.staleKey')}</div>
+    {/if}
     <div class="row">
-      {#if webpush.subscribed}
+      {#if webpush.subscribed && !webpush.stale}
         <span class="badge up"><Icon name="check" size={12} /> {t('account.push.onThisDevice')}</span>
         <button type="button" class="btn sm" onclick={disable} disabled={webpush.busy}>{t('account.push.turnOff')}</button>
         <button type="button" class="btn sm" onclick={test} disabled={testing || webpush.busy}>
@@ -119,12 +122,14 @@
         <li>
           <Icon name={/iPhone|Android/.test(d.user_agent) ? 'smartphone' : 'monitor'} size={15} />
           <span class="dn">{label(d)}</span>
+          {#if d.fail_count > 0}<span class="badge pending">{t('account.push.failing')}</span>{/if}
           <span class="muted small">{d.last_used_at ? t('account.push.lastUsed', { when: fmtRelative(d.last_used_at, clock.now) }) : t('account.push.neverUsed')}</span>
           <button type="button" class="btn ghost icon sm" aria-label={t('common.remove')} onclick={() => remove(d)}><Icon name="x" size={14} /></button>
         </li>
       {/each}
     </ul>
   {/if}
+  {#if loaded && others.some((d) => d.fail_count > 0)}<p class="help nomargin">{t('account.push.failingHint')}</p>{/if}
   <p class="help nomargin">{t('account.push.channelHint')}</p>
 </div>
 

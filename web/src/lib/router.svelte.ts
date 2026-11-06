@@ -1,6 +1,7 @@
 // Küçük hash yönlendirici: #/, #/monitors/new, #/monitors/:id, #/monitors/:id/edit,
 // #/incidents[/:id], #/notifications, #/status-pages[/new|/:id|/:id/preview],
-// #/maintenance[/new|/:id], #/servers[/:id], #/settings[/:tab], #/more
+// #/maintenance[/new|/:id], #/servers[/:id], #/settings[/:tab], #/more,
+// #/scripts[/runs[/:id]|/settings]
 //
 // Herkese açık durum sayfası hash değil gerçek yol kullanır (/durum/<kısa-ad>);
 // bkz. publicSlugFromPath.
@@ -27,6 +28,10 @@ export type Route =
   | { name: 'server'; id: number }
   | { name: 'more' }
   | { name: 'topology' }
+  | { name: 'scripts' }
+  | { name: 'script-runs' }
+  | { name: 'script-run'; id: string }
+  | { name: 'script-settings' }
   | { name: 'notfound' };
 
 const SETTINGS_TABS: Record<string, SettingsTab> = {
@@ -59,7 +64,12 @@ export function parse(path: string): Route {
   if (clean === '/more') return { name: 'more' };
   if (clean === '/topology') return { name: 'topology' };
   if (clean === '/servers') return { name: 'servers' };
-  let m = clean.match(/^\/settings(?:\/([a-z]+))?$/);
+  if (clean === '/scripts') return { name: 'scripts' };
+  if (clean === '/scripts/runs') return { name: 'script-runs' };
+  if (clean === '/scripts/settings') return { name: 'script-settings' };
+  let m = clean.match(/^\/scripts\/runs\/([0-9a-f]{32})$/);
+  if (m) return { name: 'script-run', id: m[1] };
+  m = clean.match(/^\/settings(?:\/([a-z]+))?$/);
   if (m) {
     const tab = SETTINGS_TABS[m[1] ?? ''];
     return tab ? { name: 'settings', tab } : { name: 'notfound' };

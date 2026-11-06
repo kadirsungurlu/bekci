@@ -27,6 +27,10 @@
   import IncidentDetail from './pages/IncidentDetail.svelte';
   import Notifications from './pages/Notifications.svelte';
   import Settings from './pages/Settings.svelte';
+  import Scripts from './pages/Scripts.svelte';
+  import ScriptRuns from './pages/ScriptRuns.svelte';
+  import ScriptRunDetail from './pages/ScriptRunDetail.svelte';
+  import ScriptSettings from './pages/ScriptSettings.svelte';
   import StatusPages from './pages/StatusPages.svelte';
   import StatusPageEditor from './pages/StatusPageEditor.svelte';
   import MaintenanceList from './pages/MaintenanceList.svelte';
@@ -39,6 +43,9 @@
   type Phase = 'loading' | 'public' | 'setup' | 'login' | 'password' | 'app' | 'error';
 
   let phase = $state<Phase>('loading');
+  $effect(() => {
+    if (phase !== 'loading') document.documentElement.classList.remove('boot-topo');
+  });
   // Giriş ekranı için: şifremi unuttum kullanılabilir mi, SSO düğmesi.
   let authInfo = $state<Pick<AuthState, 'password_reset' | 'oidc'>>({});
   let loadError = $state('');
@@ -212,19 +219,29 @@
     icon: 'settings',
     match: ['settings'],
   };
+  const NAV_SCRIPTS: NavItem = {
+    href: '#/scripts',
+    get label() {
+      return t('nav.scripts');
+    },
+    icon: 'terminal',
+    match: ['scripts', 'script-runs', 'script-run', 'script-settings'],
+  };
   const NAV_MORE: NavItem = {
     href: '#/more',
     get label() {
       return t('nav.more');
     },
     icon: 'menu',
-    match: ['more', 'topology', 'maintenance', 'maint-new', 'maint-edit', 'notifications', 'settings', 'pages', 'page-new', 'page-edit'],
+    match: ['more', 'topology', 'maintenance', 'maint-new', 'maint-edit', 'notifications', 'settings', 'pages', 'page-new', 'page-edit', 'scripts', 'script-runs', 'script-run', 'script-settings'],
   };
 
   // İzleyici bildirim kanallarını ve durum sayfalarını yönetemez; yalnızca seçili
   // monitörleri gören (müşteri) izleyici Sunucular'ı kendisine sunucu atanmışsa görür.
   const nav = $derived<NavItem[]>(
-    session.canEdit
+    session.isAdmin
+      ? [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_TOPOLOGY, NAV_SCRIPTS, NAV_PAGES, NAV_MAINT, NAV_NOTIF, NAV_SETTINGS]
+      : session.canEdit
       ? [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_TOPOLOGY, NAV_PAGES, NAV_MAINT, NAV_NOTIF, NAV_SETTINGS]
       : session.restricted
         ? session.canSeeServers
@@ -272,6 +289,11 @@
       case 'maint-new':
       case 'maint-edit':
         return t('nav.titles.maintenanceWindows');
+      case 'scripts':
+      case 'script-runs':
+      case 'script-run':
+      case 'script-settings':
+        return t('nav.scripts');
       case 'settings':
         return t('nav.settings');
       case 'servers':
@@ -412,7 +434,7 @@
     <main class="main">
       <div
         class="content"
-        class:wide={route.name === 'list' || route.name === 'topology' || route.name === 'servers' || route.name === 'page-edit' || route.name === 'page-new'}
+        class:wide={route.name === 'list' || route.name === 'topology' || route.name === 'servers' || route.name === 'page-edit' || route.name === 'page-new' || route.name === 'scripts' || route.name === 'script-runs' || route.name === 'script-run' || route.name === 'script-settings'}
         class:form-page={route.name === 'new' || route.name === 'edit' || route.name === 'maint-new' || route.name === 'maint-edit'}
       >
         {#if session.isAdmin}<UpdateBanner />{/if}
@@ -420,6 +442,16 @@
           {@render forbidden()}
         {:else if (route.name === 'servers' || route.name === 'server') && !session.canSeeServers}
           {@render noServers()}
+        {:else if route.name.startsWith('script') && !session.isAdmin}
+          {@render forbidden()}
+        {:else if route.name === 'scripts'}
+          <Scripts />
+        {:else if route.name === 'script-runs'}
+          <ScriptRuns />
+        {:else if route.name === 'script-run'}
+          {#key route.id}<ScriptRunDetail id={route.id} />{/key}
+        {:else if route.name === 'script-settings'}
+          <ScriptSettings />
         {:else if route.name === 'servers'}
           <ServerList />
         {:else if route.name === 'server'}
@@ -685,6 +717,7 @@
     padding: 8px 8px 8px 14px;
     border-radius: 12px;
     background: var(--tip-bg);
+    color: var(--tip-text);
     border: 1px solid var(--accent-border);
     box-shadow: var(--shadow);
     font-size: 0.9rem;

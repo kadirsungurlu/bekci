@@ -12,6 +12,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kadirsungurlu/bekci/internal/engine"
@@ -49,6 +50,10 @@ type Server struct {
 	notifyRL    *notifyLimiter // bildirim test/örnek hız sınırı (notifications.go)
 	pushRL      *ipLimiter     // push sinyali için IP başına hız sınırı (ratelimit.go)
 	servers     *servers.Service
+	// scriptSeen ajan başına son yetenek başlığı (seyrek yazma; scripts_probe.go)
+	scriptSeen sync.Map
+	// scriptBudget ajanın silinemez kayda yazdığı olayların sınırı
+	scriptBudget scriptBudget
 	// sseRecheck canlı akışta keepalive ve erişimin yeniden doğrulanma aralığı
 	// (varsayılan 25 sn; testler kısaltır).
 	sseRecheck time.Duration

@@ -21,6 +21,7 @@ import (
 // internalRoutes belgede yer almayan, bilerek "iç" sayılan /api/ rotaları:
 // ajan protokolü (kontrol noktası ve sunucu ajanı), arayüzün kendi yardımcıları.
 var internalRoutes = map[string]string{
+	"POST /api/probe/script-result":       "betik ajan protokolü",
 	"GET /api/probe/jobs":                 "kontrol noktası ajan protokolü",
 	"POST /api/probe/results":             "kontrol noktası ajan protokolü",
 	"POST /api/probe/metrics":             "sunucu ajanı protokolü",

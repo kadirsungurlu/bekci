@@ -96,7 +96,7 @@ Doğrulama:
 docker compose exec bekci wget -qO- 'http://127.0.0.1:8080/healthz?detail'   # db_mode: timescale
 docker compose exec db psql -U bekci -d bekci -c "select count(*) filter (where last_run_status='Failed'), count(*) from timescaledb_information.job_stats"
 ```
-Panelde: 5 nokta çevrimiçi, 9 monitör, açık olaylar aynı, deneme bildirimi gidiyor. Ertesi gün: gece `.dump` yedeği ve sıkıştırma. SQLite ve tgz 30 gün saklanır.
+Panelde: 5 nokta çevrimiçi, 9 monitör, açık olaylar aynı, deneme bildirimi gidiyor. Ertesi gün: gece `.dump` yedeği ve sıkıştırma.
 
 Geri dönüş (ölçülen 2,6 sn, işlemle ~1 dk):
 ```sh
@@ -104,9 +104,20 @@ docker compose stop bekci
 sed -i '/^DATABASE_URL=/d; s/^UPTIME_TAG=.*/UPTIME_TAG=1.6.0/' .env
 docker compose up -d --no-deps bekci
 ```
+2026-11-05 itibarıyla SQLite ve yedekler canlıda yok: önce aşağıdaki "Yedeğin yeni yeri" adımları, sonra bu komutlar.
+
 Geçişten sonra PostgreSQL'e yazılan veri 1.6.0'a dönmez. Güncellenmiş ajanlar 1.6.0 panelle çalışır (DENETIM-695). Yeniden deneme: yalnız DB birimi yenilenir (`docker compose stop db`, `docker compose rm -f db`, `docker volume rm bekci_bekci-db`, `docker compose up -d db`), `UPTIME_TAG` yeniden `<yeni>` yapılır, sonra geçiş adımları.
 
 Ajanlar: 5 ajan otomatik güncellemeyle geçer. Önce tek ajanda görmek için panelde otomatik güncelleme kapalı başlatılıp tek ajan elle güncellenir.
+
+## Canlı geçiş sonucu (2026-11-04, v1.7.0)
+Plan aynen uygulandı (`uptime:/root/docker/uptime`, günlük `gecis-1.7.0.log`). Yedek: `bekci-data-2026-11-04-1405-v1.6.0.tgz`, `.env`, `docker-compose.yml`, `Caddyfile` için `.2026-11-04-1405-v1.6.0.bak`.
+- Kesinti 35 sn (migrate 30 sn), 62 tablo, satır sayıları doğrulandı, `db_mode: timescale`, zamanlı işlerde hata 0/25. Caddyfile değişmedi, `{$STATUS_DOMAIN}` bloğu duruyor.
+- 5 Linux ajan otomatik güncellemeyle ilk dakikada 1.7.0'a geçti; gerçek `AGENT_SIGNING_KEY` imzası bu yolla sınandı.
+- Gerçek bildirim: geçişten 1 dk sonra `disk_forecast` olayı ntfy kanalına gitti (teslim kaydı var).
+- Gece `.dump` yedeği açılıştan 1,5 dk sonra alındı (4,9 MB), `pg_restore --list` 123 tablo verisi.
+- Disk: geçiş sonrası 1,4 GB boş (timescale imajı 1,6 GB + swap 1 GB). Plandaki "en az 3 GB boş" denetimi imaj çekilmeden önceydi; sonraki yedeklerde izlenmeli.
+- Windows ajan: `a7eb703` gibi eski yapılar ayarı `%ProgramData%\Uptime\agent.env` dosyasından okur, güncel sürüm yalnız `%ProgramFiles%\Uptime\agent.env` dosyasını okur. Yalnız program dosyasını değiştirince hizmet `PROBE_SERVER` hatasıyla durur. Elle geçişte `agent.env` önce yeni yere kopyalanmalı (yalnız SYSTEM ve Administrators erişimi).
 
 ## Denenmedi
 - Canlı sunucunun kendisinde geçiş; tek çekirdekli yavaş disk gerçek süresi.
@@ -119,3 +130,21 @@ Ajanlar: 5 ajan otomatik güncellemeyle geçer. Önce tek ajanda görmek için p
 ## Test paneli (Coolify)
 Hazır imaja geçti: yeni uygulama `gfq8lhuo8184cnnbxscdkr13` (`kadirsungurlu/bekci:gelistirme`), veritabanı `pxhenyufxw7kjlptvzen59b3` (`timescale/timescaledb:2.31.0-pg18`, 640 MB). Coolify API mevcut uygulamayı `dockerimage` türüne çeviremediği için yeni uygulama kuruldu; eski `zkepfwrizsywfzsfdwapnkud` durduruldu, otomatik dağıtımı kapatıldı. Test verisi taşındı: 381.841 satır, 13 sn. Uçtan uca: giriş, 22 monitör, monitör ayrıntısı, sunucular, envanter (geçici ajanla), topoloji 1920 ve 390 px, olaylar, ayarlar çalışıyor, API hatası yok.
 Coolify notu: PG18 imajında veri birimi `/var/lib/postgresql` olmalı; Coolify `/var/lib/postgresql/data` oluşturur, API ile düzeltilir.
+
+## Yedeğin yeni yeri (2026-11-05)
+Canlı disk için v1.6.0 SQLite ve yükseltme yedekleri `uptime`tan silindi. Tek kopya bu çalışma makinesinde, `/root/yedek/bekci-canli-v160-2026-11-04/`:
+- `bekci-canli-v160-2026-11-04.tar.gz` (92 MB; `.sha256` arşiv özeti, `uzak-sha256.txt` silmeden önce sunucuda alınan dosya özetleri). İçinde `.env` yedeği var: klasör 700, dosyalar 600.
+- İçerik, mutlak yollarla: birimdeki `uptime.db`, `backups/uptime-2026-11-04.db`, `/root/docker/uptime/` altında `bekci-data-2026-11-04-1405-v1.6.0.tgz` ve `.env`, `docker-compose.yml`, `Caddyfile` için `.2026-11-04-1405-v1.6.0.bak`.
+- Silinmeden önce doğrulandı: açılan altı dosyanın özeti sunucudakilerle aynı, `uptime.db` `integrity_check` ok, 9 monitör.
+
+Geri koyma (~250 MB boş yer gerekir; `kadirsungurlu/bekci:1.6.0` imajı da canlıdan silindi, `up` Docker Hub'dan çeker):
+```sh
+# bu makinede
+cd /root/yedek/bekci-canli-v160-2026-11-04 && sha256sum -c bekci-canli-v160-2026-11-04.tar.gz.sha256
+scp bekci-canli-v160-2026-11-04.tar.gz uptime:/root/
+# uptime sunucusunda
+cd /root/docker/uptime && docker compose stop bekci
+tar -xzPf /root/bekci-canli-v160-2026-11-04.tar.gz
+chown 1000:1000 /var/lib/docker/volumes/bekci_bekci-data/_data/uptime.db
+```
+Sonra yukarıdaki "Geri dönüş" komutları. 2026-11-05'te VAPID anahtarı yenilendi: `uptime.db` içindeki eski anahtar geri gelir, yeniden abone olunmuş cihazlar 1.6.0'da bildirim almaz. Eski SQLite yedekleri (`backups/*.db`, eski `bekci-data-*.tgz`) canlıda durur, bu temizliğe girmedi.

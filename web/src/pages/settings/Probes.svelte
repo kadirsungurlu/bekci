@@ -232,6 +232,9 @@
   // Düzenle ----------------------------------------------------------------------------
   let editOpen = $state(false);
   let editing = $state<Probe | null>(null);
+  let editRegion = $state('');
+  let editProvider = $state('');
+  let editCode = $state('');
   let editName = $state('');
   let editIpLock = $state(true);
   let editLockedIp = $state('');
@@ -267,6 +270,9 @@
   function openEdit(p: Probe) {
     editing = p;
     editName = p.name;
+    editRegion = p.region ?? '';
+    editProvider = p.provider ?? '';
+    editCode = p.code ?? '';
     editIpLock = p.ip_lock ?? false;
     editLockedIp = p.locked_ip ?? '';
     editNotify = p.notify_offline ?? false;
@@ -313,6 +319,7 @@
     try {
       await api.updateProbe(editing.id, n, editing.active, undefined, {
         ipLock: editIpLock,
+        labels: { region: editRegion.trim(), provider: editProvider.trim(), code: editCode.trim() },
         notifyOffline: editNotify,
         notificationIds: editChannels,
         ...(editing.update ? { autoUpdate: autoValue(editAuto) } : {}),
@@ -610,6 +617,19 @@
     <div class="field">
       <label for="pre-name">{t('common.name')}</label>
       <input id="pre-name" class="input" maxlength="100" bind:value={editName} />
+    </div>
+    <div class="field">
+      <label for="pre-region">{t('probes.form.region')}</label>
+      <input id="pre-region" class="input" maxlength="64" placeholder={t('probes.form.regionPlaceholder')} bind:value={editRegion} />
+    </div>
+    <div class="field">
+      <label for="pre-provider">{t('probes.form.provider')}</label>
+      <input id="pre-provider" class="input" maxlength="64" placeholder={t('probes.form.providerPlaceholder')} bind:value={editProvider} />
+    </div>
+    <div class="field">
+      <label for="pre-code">{t('probes.form.code')}</label>
+      <input id="pre-code" class="input" maxlength="12" placeholder={t('probes.form.codePlaceholder')} bind:value={editCode} />
+      <span class="help">{t('probes.form.labelsHelp')}</span>
     </div>
     <label class="check">
       <input type="checkbox" bind:checked={editIpLock} />

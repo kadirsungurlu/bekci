@@ -246,6 +246,13 @@ export default {
     },
   },
   form: {
+    server: 'Server',
+    serverLabel: 'Runs on server',
+    serverNone: 'Not set',
+    serverHelp: 'Optional. Links the monitor to this server in the live topology; checks are not affected.',
+    serverMatch: 'The target matches server {name} {how} ({value}). Nothing is linked until you save.',
+    serverUse: 'Select this server',
+    serverHow: { ip: 'by IP address', hostname: 'by hostname', name: 'by server name', dns: 'by DNS record' },
     backToMonitor: 'Back to monitor',
     titleEdit: 'Edit monitor',
     loadFailed: 'Couldn’t load monitor',
