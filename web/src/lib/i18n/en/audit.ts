@@ -78,6 +78,7 @@ export default {
       cert_ignore: 'Certificate alert changed',
       create: 'Server added',
       alerts: 'Server alert rules changed',
+      check: 'Server check changed',
       notifications: 'Server notification channels changed',
       update: 'Server updated',
       delete: 'Server deleted',

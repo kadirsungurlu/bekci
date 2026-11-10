@@ -247,3 +247,23 @@ func walk(d *json.Decoder, depth int) error {
 	_, err = d.Token()
 	return err
 }
+
+// InspectEnvelope zarfı İMZASINI DOĞRULAMADAN çözer ve manifesti denetler.
+// Yalnız panel kullanır (güven anahtarları ajandadır): kullanıcıya erken
+// hata göstermek ve aralık sınırlarını okumak için. Ajan her çalıştırmadan
+// önce VerifyEnvelope + yerel iğne ile ayrıca doğrular.
+func InspectEnvelope(raw []byte) (*Manifest, error) {
+	if len(raw) == 0 || len(raw) > MaxEnvelope {
+		return nil, errors.New("zarf boş ya da sınırın üstünde")
+	}
+	var w envelopeWire
+	if err := DecodeStrict(raw, &w); err != nil {
+		return nil, fmt.Errorf("zarf: %w", err)
+	}
+	p, err1 := base64.StdEncoding.Strict().DecodeString(w.Payload)
+	s, err2 := base64.StdEncoding.Strict().DecodeString(w.Sig)
+	if !IsDigest(w.Key) || err1 != nil || err2 != nil || len(s) != ed25519.SignatureSize {
+		return nil, errors.New("zarf biçimi geçersiz")
+	}
+	return ParseManifest(p)
+}

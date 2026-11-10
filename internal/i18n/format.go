@@ -72,6 +72,12 @@ func MetricValue(lang, metric string, v float64) string {
 	switch metric {
 	case "load":
 		return Decimal(lang, v, 2)
+	case "check":
+		// Denetim metriği birimsiz sayı (birim eklenti çıktısında; olay metninde yok).
+		if v == float64(int64(v)) {
+			return fmt.Sprintf("%d", int64(v))
+		}
+		return Decimal(lang, v, 2)
 	case "temp":
 		return fmt.Sprintf("%.0f °C", v)
 	case "auth_failed", "wu_failed":
@@ -94,4 +100,13 @@ func MetricValue(lang, metric string, v float64) string {
 		return fmt.Sprintf("%.0f Mbit/s", v)
 	}
 	return Percent(lang, v)
+}
+
+// CheckStatus denetim durum kodunun (0 ok … 3 unknown) adı.
+func CheckStatus(lang string, v float64) string {
+	k := int(v)
+	if k < 0 || k > 3 {
+		k = 3
+	}
+	return T(lang, fmt.Sprintf("check.status.%d", k))
 }

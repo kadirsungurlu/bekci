@@ -147,7 +147,8 @@ func (s *Server) getServer(w http.ResponseWriter, r *http.Request) {
 	if !isPageAdmin(userFrom(r)) {
 		v.HideIPLock() // sabitlenmiş IP yalnızca yöneticiye
 	}
-	writeJSON(w, http.StatusOK, serverDetail{View: v, Alerts: rules, NotificationIDs: ids, Bindings: bindings})
+	// Denetim kuralları (metric=check) kendi uçlarında yönetilir (checks.go).
+	writeJSON(w, http.StatusOK, serverDetail{View: v, Alerts: withoutCheckRules(rules), NotificationIDs: ids, Bindings: bindings})
 }
 
 func (s *Server) serverStats(w http.ResponseWriter, r *http.Request) {
@@ -394,11 +395,18 @@ func (s *Server) putServerAlerts(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	saved, err := s.store.ReplaceServerAlerts(r.Context(), id, rules, s.now().Unix())
+	// Denetim kuralları bu formda yok: korunur (yoksa kaydetme silerdi).
+	keep, err := s.store.CheckAlerts(r.Context(), id, "")
 	if err != nil {
 		s.dbError(w, err)
 		return
 	}
+	saved, err := s.store.ReplaceServerAlerts(r.Context(), id, append(rules, keep...), s.now().Unix())
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	saved = withoutCheckRules(saved)
 	s.audit(r, store.User{}, "server.alerts", "server", id, p.Name, alertSummary(saved))
 	s.servers.Publish(r.Context(), id)
 	writeJSON(w, http.StatusOK, map[string]any{"alerts": saved})
@@ -609,3 +617,14 @@ func windowsAgentCommand(server, token, sha string) string {
 // psQuote PowerShell tek tırnaklı metni (içindeki ' iki kez yazılır; $ ve `
 // tek tırnakta yorumlanmaz).
 func psQuote(v string) string { return "'" + strings.ReplaceAll(v, "'", "''") + "'" }
+
+// withoutCheckRules genel uyarı formundan denetim kurallarını ayırır.
+func withoutCheckRules(in []store.ServerAlert) []store.ServerAlert {
+	out := make([]store.ServerAlert, 0, len(in))
+	for _, a := range in {
+		if a.Metric != store.MetricCheck {
+			out = append(out, a)
+		}
+	}
+	return out
+}

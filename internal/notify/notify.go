@@ -264,6 +264,12 @@ func (e Event) serverTitle() string {
 		return i18n.T(l, "notify.server.disk_forecast", e.MonitorName, e.Mount, FormatMetric(l, e.Metric, e.Value))
 	case e.Metric == "disk_forecast":
 		return i18n.T(l, "notify.server.disk_forecast_ok", e.MonitorName, e.Mount, FormatMetric(l, e.Metric, e.Value))
+	case e.Metric == "check" && e.Kind == KindServerAlert && !strings.Contains(e.Mount, "/"):
+		return i18n.T(l, "notify.server.check", e.MonitorName, e.Mount, i18n.CheckStatus(l, e.Value))
+	case e.Metric == "check" && e.Kind == KindServerAlert:
+		return i18n.T(l, "notify.server.check_metric", e.MonitorName, e.Mount, FormatMetric(l, e.Metric, e.Value))
+	case e.Metric == "check":
+		return i18n.T(l, "notify.server.check_ok", e.MonitorName, e.Mount)
 	case e.Metric == "sec_updates_age" && e.Kind == KindServerAlert:
 		return i18n.T(l, "notify.server.sec_updates_age", e.MonitorName, FormatMetric(l, e.Metric, e.Value), e.Mount)
 	case e.Metric == "sec_updates_age":

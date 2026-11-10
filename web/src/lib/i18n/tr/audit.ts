@@ -76,6 +76,7 @@ export default {
       cert_ignore: 'Sertifika uyarısı değiştirildi',
       create: 'Sunucu eklendi',
       alerts: 'Sunucu uyarı kuralları değiştirildi',
+      check: 'Sunucu denetimi değiştirildi',
       notifications: 'Sunucu bildirim kanalları değiştirildi',
       update: 'Sunucu güncellendi',
       delete: 'Sunucu silindi',

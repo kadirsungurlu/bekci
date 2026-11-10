@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/kadirsungurlu/bekci/internal/i18n"
 )
@@ -470,6 +471,13 @@ func ServerIncidentCause(lang, kind string, d ServerIncidentData) string {
 	}
 	if d.Metric == "disk_forecast" {
 		return i18n.T(lang, "incident.server.disk_forecast", d.Mount, i18n.MetricValue(lang, d.Metric, d.Last), i18n.MetricValue(lang, d.Metric, d.Threshold))
+	}
+	if d.Metric == MetricCheck {
+		if strings.Contains(d.Mount, "/") { // <ad>/<metrik> eşik kuralı
+			return i18n.T(lang, "incident.server.check_metric", d.Mount, i18n.MetricValue(lang, d.Metric, d.Value),
+				i18n.MetricValue(lang, d.Metric, d.Threshold), d.Minutes)
+		}
+		return i18n.T(lang, "incident.server.check", d.Mount, i18n.CheckStatus(lang, d.Value), d.Minutes)
 	}
 	if d.Metric == "sec_updates_age" {
 		return i18n.T(lang, "incident.server.sec_updates_age", i18n.MetricValue(lang, d.Metric, d.Last), d.Mount, i18n.MetricValue(lang, d.Metric, d.Threshold))

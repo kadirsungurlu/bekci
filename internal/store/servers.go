@@ -214,14 +214,17 @@ type ServerAlert struct {
 	// tetiklenmiş kuralın seviyesi (warning | critical; eski kayıtlarda boş = kritik).
 	WarnThreshold float64 `json:"warn_threshold"`
 	Level         string  `json:"level"`
+	// Below küçük değer kötü: değer eşiğe eşit ya da altındaysa tetiklenir
+	// (yalnız denetim metrik kuralları; migration 54).
+	Below bool `json:"below,omitempty"`
 }
 
-const serverAlertCols = "id, probe_id, metric, threshold, minutes, active, firing, fired_at, mount, warn_threshold, level"
+const serverAlertCols = "id, probe_id, metric, threshold, minutes, active, firing, fired_at, mount, warn_threshold, level, below"
 
 func scanServerAlert(sc scanner) (ServerAlert, error) {
 	var a ServerAlert
 	var fired sql.NullInt64
-	err := sc.Scan(&a.ID, &a.ProbeID, &a.Metric, &a.Threshold, &a.Minutes, &a.Active, &a.Firing, &fired, &a.Mount, &a.WarnThreshold, &a.Level)
+	err := sc.Scan(&a.ID, &a.ProbeID, &a.Metric, &a.Threshold, &a.Minutes, &a.Active, &a.Firing, &fired, &a.Mount, &a.WarnThreshold, &a.Level, &a.Below)
 	a.FiredAt = fired.Int64
 	if a.Firing && a.Level == "" {
 		a.Level = LevelCritical
@@ -295,15 +298,15 @@ func (s *Store) ReplaceServerAlerts(ctx context.Context, probeID int64, rules []
 					}
 				}
 				if _, err := tx.ExecContext(ctx,
-					"UPDATE server_alerts SET threshold = ?, minutes = ?, active = ?, warn_threshold = ? WHERE id = ?",
-					r.Threshold, r.Minutes, boolInt(r.Active), r.WarnThreshold, a.ID); err != nil {
+					"UPDATE server_alerts SET threshold = ?, minutes = ?, active = ?, warn_threshold = ?, below = ? WHERE id = ?",
+					r.Threshold, r.Minutes, boolInt(r.Active), r.WarnThreshold, boolInt(r.Below), a.ID); err != nil {
 					return err
 				}
 				continue
 			}
 			if _, err := insertID(ctx, tx, `
-				INSERT INTO server_alerts (probe_id, metric, mount, threshold, minutes, active, firing, warn_threshold)
-				VALUES (?, ?, ?, ?, ?, ?, 0, ?)`, probeID, r.Metric, r.Mount, r.Threshold, r.Minutes, boolInt(r.Active), r.WarnThreshold); err != nil {
+				INSERT INTO server_alerts (probe_id, metric, mount, threshold, minutes, active, firing, warn_threshold, below)
+				VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`, probeID, r.Metric, r.Mount, r.Threshold, r.Minutes, boolInt(r.Active), r.WarnThreshold, boolInt(r.Below)); err != nil {
 				return err
 			}
 		}

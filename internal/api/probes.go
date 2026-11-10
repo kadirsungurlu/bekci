@@ -1346,6 +1346,16 @@ func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 	if offer := s.updateOffer(p); offer != nil {
 		out["update"] = offer
 	}
+	// Denetim listesi (checks.go, 730 B.4): yalnız sunucu ajanına. Boş liste
+	// ajanda hepsini kapatır; okuma hatasında istek başarısız olur.
+	if p.Kind == store.ProbeKindServer {
+		checks, err := s.checksFor(r.WithContext(ctx), p)
+		if err != nil {
+			s.dbError(w, err)
+			return
+		}
+		out["checks"] = checks
+	}
 	// Eklenti işleri (eklenti.go; Pro betik çalıştırma "script_jobs").
 	s.addProbeJobExtras(ctx, r, p, out)
 	writeJSON(w, http.StatusOK, out)

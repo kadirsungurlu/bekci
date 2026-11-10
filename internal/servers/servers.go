@@ -66,6 +66,8 @@ type Service struct {
 	states    map[int64]string    // çevrimdışı taramasının son gördüğü durum (değişimde yayın)
 	armed     map[int64]time.Time // metriği/ajanı yeniden açılan sunucular (çevrimdışı sayacı buradan başlar)
 	startedAt time.Time           // Start zamanı: ana sunucu kapalıyken geçen süre ajanın suçu değil
+	// checkSince denetim eşik kuralının ihlal başlangıcı (checks.go; evalMu altında).
+	checkSince map[checkKey]int64
 
 	mu      sync.RWMutex
 	latest  map[int64]*sample  // son örnek; anahtar var ama nil: veritabanında da yok
