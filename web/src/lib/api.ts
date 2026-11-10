@@ -2872,8 +2872,8 @@ export interface LicenseDetail extends LicenseState {
 export const licenseApi = {
   getLicense: () => get<LicenseState>("/api/license"),
   getLicenseDetail: () => get<LicenseDetail>("/api/license/detail"),
-  putLicense: (anahtar: string) =>
-    put<LicenseDetail>("/api/license", { anahtar }),
+  putLicense: (anahtar: string, kira?: string) =>
+    put<LicenseDetail>("/api/license", kira ? { anahtar, kira } : { anahtar }),
   postLicenseLease: (kira: string) =>
     post<LicenseDetail>("/api/license/lease", { kira }),
   refreshLicense: () => post<LicenseDetail>("/api/license/refresh", {}),

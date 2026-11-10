@@ -65,7 +65,7 @@ export default {
   },
   lease: {
     title: 'Çevrimdışı kira yükle',
-    hint: 'Lisans sunucusuna ulaşamayan kurulumlar için elle verilen kira. Saklı anahtar ve bu panelle eşleşmeli.',
+    hint: 'Lisans sunucusuna ulaşamayan kurulumlar için elle verilen kira. Saklı anahtar ve bu panelle eşleşmeli. İlk etkinleştirmede anahtarı yukarıdaki alana yapıştırın, kirayı burada yükleyin: ikisi birlikte kaydedilir.',
     label: 'Kira',
     placeholder: 'BEKCI-K1. ile başlayan kirayı yapıştırın',
     submit: 'Kirayı yükle',

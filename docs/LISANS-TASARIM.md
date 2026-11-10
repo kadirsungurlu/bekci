@@ -96,7 +96,7 @@ yöneticilere sistem e-postası (yapılandırılmışsa) + işlem kaydı + web p
 - `GET /api/license/detail` (yönetici): yukarıdakiler + `panel_id, cihaz_id, cihaz_hata, musteri, lisans_kimlik,
   kira_bitis, cevrimdisi, son_basari, son_deneme, son_hata, deneme_bitis, derleme, sunucu_adresi,
   gonderilen_veri:["lisans","panel","cihaz","surum","sunucu_sayisi"]`
-- `PUT /api/license` `{anahtar}` (yönetici): imza + tür + cihaz denetimi; `omur_cevrimdisi` hemen kaydedilir,
+- `PUT /api/license` `{anahtar, kira?}` (yönetici): imza + tür + cihaz denetimi; `kira` verilirse (yalıtılmış kurulum) sunucuya gidilmez; Pro'yu açmayacak anahtar 400 (code = neden kodu) ile reddedilir, kaydedilmez; `omur_cevrimdisi` hemen kaydedilir,
   diğerleri ilk kira alınınca. Hata: 400 `{code:"lisans_gecersiz|cihaz_yok|cihaz"}`, 409 sunucu reddi
   (`code` = sunucu `kod`), 502 `sunucu_ulasilamiyor`.
 - `POST /api/license/lease` `{kira}` (yönetici): elle çevrimdışı kira; saklı anahtar ve panelle eşleşmeli.

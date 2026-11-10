@@ -87,8 +87,13 @@
     busy = 'lease';
     leaseError = '';
     try {
-      await licenseApi.postLicenseLease(k);
+      // Anahtar alanı doluysa (ağdan yalıtılmış ilk etkinleştirme) anahtar ve
+      // kira birlikte gider; lisans sunucusuna hiç bağlanılmaz.
+      const key = keyText.trim();
+      if (key) await licenseApi.putLicense(key, k);
+      else await licenseApi.postLicenseLease(k);
       leaseText = '';
+      keyText = '';
       toast.success(t('license.lease.done'));
       await changed();
     } catch (err) {

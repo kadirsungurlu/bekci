@@ -154,11 +154,12 @@ func lisansOzet(a *lisans.Anahtar) string {
 func (s *Server) putLicense(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Anahtar string `json:"anahtar"`
+		Kira    string `json:"kira"` // isteğe bağlı: çevrimdışı kira (sunucuya gidilmez)
 	}
 	if !readJSON(w, r, &in) || !s.lisansHazir(w) {
 		return
 	}
-	if err := s.lisans.AnahtarKoy(r.Context(), in.Anahtar); err != nil {
+	if err := s.lisans.AnahtarKoy(r.Context(), in.Anahtar, in.Kira); err != nil {
 		s.lisansHatasi(w, err)
 		return
 	}

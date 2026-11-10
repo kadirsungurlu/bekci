@@ -279,16 +279,25 @@ func TestLicenseSuresiGecmis(t *testing.T) {
 		t.Fatalf("ret sonrası kaydedilmemeli: %+v", l)
 	}
 
-	// Sunucu kira verse bile lisans_bitis geçmişse etkin değil.
+	// Sunucu kira verse bile lisans_bitis geçmişse anahtar Pro'yu açmaz:
+	// 400 suresi_doldu, kaydedilmez (çalışan lisansın yerine geçmez).
 	f.ayarla(func(ist lisans.Istek) (int, any) {
 		k := f.olagan(ist)
 		k.LisansBitis = lisans.Z(time.Now().UTC().Add(-time.Hour).Truncate(time.Second))
 		return 200, map[string]string{"kira": f.kira(k)}
 	})
+	if got := e.hataKodu("PUT", "/api/license", map[string]string{"anahtar": abonelik(f, "L-ESKI", time.Now().AddDate(0, 0, -3))}, 400); got != lisans.NedenSuresiDoldu {
+		t.Fatalf("süresi dolmuş anahtar kodu: %s", got)
+	}
+	if l := e.lisans(); l.Kaynak != lisans.KaynakDeneme {
+		t.Fatalf("süresi dolmuş anahtar kaydedilmemeli: %+v", l)
+	}
+	// Geçerli anahtarla etkinleş, sonra süresi geçmiş çevrimdışı kira yükle.
+	f.ayarla(func(ist lisans.Istek) (int, any) { return 200, map[string]string{"kira": f.kira(f.olagan(ist))} })
 	var d lisansYanit
-	e.mustDo("PUT", "/api/license", map[string]string{"anahtar": abonelik(f, "L-ESKI", time.Now().AddDate(0, 0, -3))}, &d, 200)
-	if d.Etkin || d.Neden != lisans.NedenSuresiDoldu || d.Uyari != lisans.UyariSuresiDoldu {
-		t.Fatalf("süresi dolmuş: %+v", d)
+	e.mustDo("PUT", "/api/license", map[string]string{"anahtar": abonelik(f, "L-ESKI", time.Now().AddDate(1, 0, 0))}, &d, 200)
+	if !d.Etkin {
+		t.Fatalf("geçerli anahtar: %+v", d)
 	}
 
 	// Geçerliliği geçmiş (elle yüklenen) kira: kira_bitti.
@@ -440,5 +449,26 @@ func TestLicenseKiraBaskaPanel(t *testing.T) {
 	}
 	if d := e.lisansDetay(); !d.Etkin {
 		t.Fatalf("eski lisans sürmeli: %+v", d)
+	}
+}
+
+// Ağdan yalıtılmış abonelik: anahtar + elle üretilmiş çevrimdışı kira birlikte
+// girilir, lisans sunucusuna hiç gidilmez; başka panelin kirası reddedilir.
+func TestLicenseAnahtarVeKiraBirlikte(t *testing.T) {
+	f := lisansOrtami(t)
+	e, _ := lisansPanel(t, nil)
+	var d lisansYanit
+	e.mustDo("GET", "/api/license/detail", nil, &d, 200)
+	an := abonelik(f, "L-YALITIK", time.Now().AddDate(1, 0, 0))
+	k := f.olagan(lisans.Istek{Lisans: "L-YALITIK", Panel: "baska-panel"})
+	k.Cevrimdisi = true
+	if got := e.hataKodu("PUT", "/api/license", map[string]string{"anahtar": an, "kira": f.kira(k)}, 400); got != "kira_gecersiz" {
+		t.Fatalf("başka panel kirası: %s", got)
+	}
+	k = f.olagan(lisans.Istek{Lisans: "L-YALITIK", Panel: d.PanelID})
+	k.Cevrimdisi = true
+	e.mustDo("PUT", "/api/license", map[string]string{"anahtar": an, "kira": f.kira(k)}, &d, 200)
+	if !d.Etkin || len(f.istekler()) != 0 {
+		t.Fatalf("yalıtılmış etkinleştirme: %+v, istek %d", d, len(f.istekler()))
 	}
 }

@@ -150,6 +150,11 @@ func (y *Yonetici) Durum() lisans.Durum {
 	y.mu.RLock()
 	a, an, k := y.ayar, y.anahtar, y.kira
 	y.mu.RUnlock()
+	return y.degerlendir(a, an, k)
+}
+
+// degerlendir verilen (saklı ya da kaydedilmek istenen) anahtar ve kirayla durum.
+func (y *Yonetici) degerlendir(a store.LisansAyar, an *lisans.Anahtar, k *lisans.Kira) lisans.Durum {
 	g := lisans.Girdi{
 		Anahtar: an, Kira: k, PanelID: a.PanelID, Simdi: y.Simdi(), EnIleri: a.EnIleri,
 		Derleme: lisans.Derleme(), Kurulum: a.Kurulum, SonBasari: a.SonBasari, ProDerleme: proDerleme(),
@@ -250,8 +255,14 @@ func (y *Yonetici) kiraAl(ctx context.Context, an *lisans.Anahtar, panel string)
 
 // AnahtarKoy PUT /api/license: anahtarı doğrular, gerekirse ilk kirayı alır ve
 // ikisini birlikte saklar (başarısızlıkta hiçbir şey kaydedilmez).
-func (y *Yonetici) AnahtarKoy(ctx context.Context, metin string) error {
+//
+// kiraMetin doluysa (ağdan yalıtılmış kurulum: anahtar + elle üretilmiş
+// çevrimdışı kira birlikte) sunucuya gidilmez. Kaydetmeden önce yeni anahtarla
+// durum değerlendirilir; Pro'yu açmayacak anahtar (süresi dolmuş, güncelleme
+// bitişi geçmiş) kaydedilmez, çalışan lisansın yerine geçmez.
+func (y *Yonetici) AnahtarKoy(ctx context.Context, metin, kiraMetin string) error {
 	metin = strings.TrimSpace(metin)
+	kiraMetin = strings.TrimSpace(kiraMetin)
 	an, err := lisans.AnahtarCoz(metin)
 	if err != nil {
 		return hata(http.StatusBadRequest, "lisans_gecersiz", "Lisans anahtarı geçersiz")
@@ -273,10 +284,20 @@ func (y *Yonetici) AnahtarKoy(ctx context.Context, metin string) error {
 	simdi := y.Simdi()
 	kv := map[string]string{store.LisansAnahtar: metin}
 	sil := []string{store.LisansSonHata, store.LisansUyariSeviye}
+	var yeniKira *lisans.Kira
 	if an.Tur == lisans.TurOmurCevrimdisi {
 		sil = append(sil, store.LisansKira, store.LisansSonBasari, store.LisansSonDeneme)
+	} else if kiraMetin != "" {
+		k, err := lisans.KiraCoz(kiraMetin)
+		if err != nil || k.Lisans != an.Kimlik || k.Panel != panel || k.Cihaz != an.Cihaz {
+			return hata(http.StatusBadRequest, "kira_gecersiz", "Kira bu panelin lisansı için değil")
+		}
+		yeniKira = k
+		kv[store.LisansKira] = kiraMetin
+		sil = append(sil, store.LisansSonBasari, store.LisansSonDeneme)
 	} else {
-		kiraMetin, _, err := y.kiraAl(ctx, an, panel)
+		kiraMetin, k, err := y.kiraAl(ctx, an, panel)
+		yeniKira = k
 		if err != nil {
 			var ret *lisans.RetHatasi
 			switch {
@@ -295,6 +316,12 @@ func (y *Yonetici) AnahtarKoy(ctx context.Context, metin string) error {
 		kv[store.LisansKira] = kiraMetin
 		kv[store.LisansSonBasari] = store.LisansZaman(simdi)
 		kv[store.LisansSonDeneme] = store.LisansZaman(simdi)
+	}
+	y.mu.RLock()
+	a := y.ayar
+	y.mu.RUnlock()
+	if d := y.degerlendir(a, an, yeniKira); !d.Etkin {
+		return hata(http.StatusBadRequest, d.Neden, "Bu anahtar Pro'yu açmıyor: "+d.Neden)
 	}
 	if err := y.st.LisansYaz(ctx, kv); err != nil {
 		return err

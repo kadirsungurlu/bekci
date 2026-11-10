@@ -67,7 +67,7 @@ export default {
   },
   lease: {
     title: 'Upload offline lease',
-    hint: 'A manually issued lease for installations that cannot reach the license server. It must match the stored key and this panel.',
+    hint: 'A manually issued lease for installations that cannot reach the license server. It must match the stored key and this panel. For the first activation paste the key above and upload the lease here: both are saved together.',
     label: 'Lease',
     placeholder: 'Paste the lease starting with BEKCI-K1.',
     submit: 'Upload lease',
