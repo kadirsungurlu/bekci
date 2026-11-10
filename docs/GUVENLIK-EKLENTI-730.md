@@ -298,7 +298,7 @@ Sıra bağımlılığı: 731 -> 732..737 (A); 738 -> 739 -> 741 -> 742 (B); 743 
 | 737 | Güvenlik belgesi + e2e | site belgesi TR+EN, `guvenlik.mjs` CI'da |
 | 738 | Eklenti çıktı ayrıştırıcı (`internal/eklenti`) | Nagios perfdata/aralık + iki JSON biçimi tablolu testler |
 | 739 | Eklenti ajan tarafı (manifest `periodic`, yerel iğne, kafes, zamanlayıcı) | iğnesiz/imzasız/süresi dolmuş red testleri, systemd testi |
-| 741 | Denetim sonuçları panel tarafı (migration 52, ucu, depolama, uyarı) | Timescale + düz PG testleri, olay açılıp kapanıyor |
+| 741 | Denetim sonuçları panel tarafı (migration 53, ucu, depolama, uyarı) | Timescale + düz PG testleri, olay açılıp kapanıyor |
 | 742 | Denetimler sekmesi + belge + örnek eklentiler | gerçek eklenti uçtan uca panelde grafik |
 | 743 | Yerleşik denetim altyapısı (panel formu, jobs `checks`, kimlik.d, ajan çalıştırıcı) | boş bir `noop` denetimi uçtan uca |
 | 744 | Posta kuyruğu | postfix/exim/qmail ayrıştırma testli, gerçek postfix'te sayı |
