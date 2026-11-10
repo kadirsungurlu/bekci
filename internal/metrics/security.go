@@ -98,17 +98,19 @@ func (s *Security) Sanitize() {
 		if len(u.Packages) > MaxSecurityPkgs {
 			u.Packages, u.Truncated = u.Packages[:MaxSecurityPkgs], true
 		}
-		sec := 0
 		for i := range u.Packages {
 			p := &u.Packages[i]
 			p.Name, p.Current, p.New, p.Severity = invClip(p.Name), invClip(p.Current), invClip(p.New), invClip(p.Severity)
-			if p.Security {
-				sec++
-			}
 		}
 		u.Packages = slices.DeleteFunc(u.Packages, func(p SecPkg) bool { return p.Name == "" })
 		slices.SortFunc(u.Packages, func(a, b SecPkg) int { return strings.Compare(a.Name, b.Name) })
 		u.Packages = slices.CompactFunc(u.Packages, func(a, b SecPkg) bool { return a.Name == b.Name })
+		sec := 0
+		for _, p := range u.Packages {
+			if p.Security {
+				sec++
+			}
+		}
 		u.Total = max(u.Total, len(u.Packages))
 		switch {
 		case u.Security < 0:

@@ -17,7 +17,8 @@ import (
 //     (ajan saati değil). fw_active / av_ok / av_sig_age_h 732-734 içindir
 //     (-1 bilinmiyor).
 //   - sec_pkgs: bekleyen paketler; first_seen panelin ilk görme zamanı ("X
-//     gündür bekliyor" bundan hesaplanır), listeden çıkan satır silinir.
+//     gündür bekliyor" bundan hesaplanır; paket sonradan güvenlik
+//     güncellemesine dönüşürse o andan sayılır), listeden çıkan satır silinir.
 //
 // sec_updates_age kuralı (gün, 7, etkin) her sunucuya eklenir (disk_forecast kalıbı).
 func init() {
@@ -179,7 +180,8 @@ func (s *Store) SaveSecurity(ctx context.Context, serverID, now int64, rep metri
 				INSERT INTO sec_pkgs (server_id, name, current_ver, new_ver, security, severity, esm, first_seen)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 				ON CONFLICT (server_id, name) DO UPDATE SET current_ver = excluded.current_ver, new_ver = excluded.new_ver,
-					security = excluded.security, severity = excluded.severity, esm = excluded.esm`,
+					security = excluded.security, severity = excluded.severity, esm = excluded.esm,
+					first_seen = CASE WHEN sec_pkgs.security = 0 AND excluded.security = 1 THEN excluded.first_seen ELSE sec_pkgs.first_seen END`,
 				serverID, p.Name, p.Current, p.New, boolInt(p.Security), p.Severity, boolInt(p.ESM), now); err != nil {
 				return err
 			}
