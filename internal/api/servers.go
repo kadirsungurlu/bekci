@@ -295,7 +295,7 @@ func validateAlerts(in []alertInput) ([]store.ServerAlert, error) {
 	for _, a := range in {
 		a.Metric = strings.TrimSpace(a.Metric)
 		if !servers.ValidMetric(a.Metric) {
-			return nil, errors.New("Metrik cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast, disk_fast veya sec_updates_age olmalı")
+			return nil, errors.New("Metrik cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast, disk_fast, sec_updates_age, reboot_required, auth_failed, av_signature_age, av_off, firewall_off veya wu_failed olmalı")
 		}
 		a.Mount = strings.TrimSpace(a.Mount)
 		switch {
@@ -319,13 +319,18 @@ func validateAlerts(in []alertInput) ([]store.ServerAlert, error) {
 		} else {
 			seen[key] = true
 		}
-		if a.Metric == servers.MetricReboot || a.Metric == servers.MetricDiskForecast || a.Metric == servers.MetricSecUpdatesAge {
+		if servers.MinutesUnused(a.Metric) {
 			a.Minutes = 1 // kullanılmaz
 		}
-		if a.Metric == servers.MetricDiskForecast || a.Metric == servers.MetricDiskFast || a.Metric == servers.MetricSecUpdatesAge {
+		if a.Metric == servers.MetricDiskForecast || a.Metric == servers.MetricDiskFast || servers.SecurityMetric(a.Metric) {
 			a.WarnThreshold = 0 // hep "uyarı" seviyesinde; tek eşik
 		}
-		if a.Minutes < 1 || a.Minutes > 60 {
+		if a.Metric == servers.MetricAuthFailed {
+			// Giriş sayıları saatlik kovalarda: pencere 1-24 saat.
+			if a.Minutes < 60 || a.Minutes > 1440 {
+				return nil, errors.New("Başarısız giriş penceresi 60-1440 dakika olmalı")
+			}
+		} else if a.Minutes < 1 || a.Minutes > 60 {
 			return nil, errors.New("Süre 1-60 dakika olmalı")
 		}
 		if servers.Thresholdless(a.Metric) {

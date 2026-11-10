@@ -474,6 +474,9 @@ func ServerIncidentCause(lang, kind string, d ServerIncidentData) string {
 	if d.Metric == "sec_updates_age" {
 		return i18n.T(lang, "incident.server.sec_updates_age", i18n.MetricValue(lang, d.Metric, d.Last), d.Mount, i18n.MetricValue(lang, d.Metric, d.Threshold))
 	}
+	if c, ok := securityCause(lang, d); ok {
+		return c
+	}
 	if d.Metric == "disk_fast" {
 		return i18n.T(lang, "incident.server.disk_fast", d.Mount, d.Minutes, i18n.MetricValue(lang, d.Metric, d.Value), i18n.MetricValue(lang, d.Metric, d.Threshold))
 	}
@@ -490,6 +493,29 @@ func ServerIncidentCause(lang, kind string, d ServerIncidentData) string {
 	}
 	return i18n.T(lang, key, name, i18n.MetricValue(lang, d.Metric, d.Value), d.Minutes,
 		i18n.MetricValue(lang, d.Metric, d.Threshold))
+}
+
+// securityCause 735 güvenlik kurallarının neden metni.
+func securityCause(lang string, d ServerIncidentData) (string, bool) {
+	val := func(v float64) string { return i18n.MetricValue(lang, d.Metric, v) }
+	switch d.Metric {
+	case "reboot_required", "av_signature_age":
+		return i18n.T(lang, "incident.server."+d.Metric, val(d.Last), val(d.Threshold)), true
+	case "auth_failed":
+		// Değer açılıştaki sayı; konu en çok deneyen IP.
+		if d.Mount != "" {
+			return i18n.T(lang, "incident.server.auth_failed_ip", val(d.Value), d.Minutes, val(d.Threshold), d.Mount), true
+		}
+		return i18n.T(lang, "incident.server.auth_failed", val(d.Value), d.Minutes, val(d.Threshold)), true
+	case "av_off", "firewall_off":
+		return i18n.T(lang, "incident.server."+d.Metric), true
+	case "wu_failed":
+		if d.Mount != "" {
+			return i18n.T(lang, "incident.server.wu_failed", val(max(d.Last, 1)), d.Mount), true
+		}
+		return i18n.T(lang, "incident.server.wu_failed_n", val(max(d.Last, 1))), true
+	}
+	return "", false
 }
 
 // ParseServerIncidentData olay verisini çözer (bozuksa boş).

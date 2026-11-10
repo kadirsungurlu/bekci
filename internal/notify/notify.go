@@ -268,6 +268,17 @@ func (e Event) serverTitle() string {
 		return i18n.T(l, "notify.server.sec_updates_age", e.MonitorName, FormatMetric(l, e.Metric, e.Value), e.Mount)
 	case e.Metric == "sec_updates_age":
 		return i18n.T(l, "notify.server.sec_updates_age_ok", e.MonitorName)
+	case e.Metric == "auth_failed" && e.Kind == KindServerAlert:
+		return i18n.T(l, "notify.server.auth_failed", e.MonitorName, FormatMetric(l, e.Metric, e.Value), e.Minutes)
+	case e.Metric == "wu_failed" && e.Kind == KindServerAlert:
+		return i18n.T(l, "notify.server.wu_failed", e.MonitorName, e.Mount)
+	case (e.Metric == "reboot_required" || e.Metric == "av_signature_age") && e.Kind == KindServerAlert:
+		return i18n.T(l, "notify.server."+e.Metric, e.MonitorName, FormatMetric(l, e.Metric, e.Value))
+	case (e.Metric == "av_off" || e.Metric == "firewall_off") && e.Kind == KindServerAlert:
+		return i18n.T(l, "notify.server."+e.Metric, e.MonitorName)
+	case e.Metric == "reboot_required" || e.Metric == "auth_failed" || e.Metric == "av_signature_age" ||
+		e.Metric == "av_off" || e.Metric == "firewall_off" || e.Metric == "wu_failed":
+		return i18n.T(l, "notify.server."+e.Metric+"_ok", e.MonitorName)
 	case e.Metric == "disk_fast" && e.Kind == KindServerAlert:
 		return i18n.T(l, "notify.server.disk_fast", e.MonitorName, e.Mount, e.Minutes, FormatMetric(l, e.Metric, e.Value))
 	case e.Metric == "disk_fast":

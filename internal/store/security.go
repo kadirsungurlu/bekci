@@ -54,6 +54,27 @@ INSERT INTO server_alerts (probe_id, metric, threshold, minutes, active, firing)
 `)
 }
 
+// 53: kalan güvenlik kuralları (iş 735, §A.7) her sunucuya varsayılanlarıyla
+// eklenir: reboot_required 3 gün pasif, auth_failed 200/60 dk pasif,
+// av_signature_age 3 gün etkin, av_off etkin, firewall_off pasif, wu_failed etkin.
+// AV/WU kuralları yalnız ilgili bölümü raporlayan (Windows) sunucuda tetiklenir.
+func init() {
+	RegisterMigration(53, `
+INSERT INTO server_alerts (probe_id, metric, threshold, minutes, active, firing)
+	SELECT DISTINCT probe_id, 'reboot_required', 3, 1, 0, 0 FROM server_alerts;
+INSERT INTO server_alerts (probe_id, metric, threshold, minutes, active, firing)
+	SELECT DISTINCT probe_id, 'auth_failed', 200, 60, 0, 0 FROM server_alerts WHERE metric = 'reboot_required';
+INSERT INTO server_alerts (probe_id, metric, threshold, minutes, active, firing)
+	SELECT DISTINCT probe_id, 'av_signature_age', 3, 1, 1, 0 FROM server_alerts WHERE metric = 'reboot_required';
+INSERT INTO server_alerts (probe_id, metric, threshold, minutes, active, firing)
+	SELECT DISTINCT probe_id, 'av_off', 0, 1, 1, 0 FROM server_alerts WHERE metric = 'reboot_required';
+INSERT INTO server_alerts (probe_id, metric, threshold, minutes, active, firing)
+	SELECT DISTINCT probe_id, 'firewall_off', 0, 1, 0, 0 FROM server_alerts WHERE metric = 'reboot_required';
+INSERT INTO server_alerts (probe_id, metric, threshold, minutes, active, firing)
+	SELECT DISTINCT probe_id, 'wu_failed', 0, 1, 1, 0 FROM server_alerts WHERE metric = 'reboot_required';
+`)
+}
+
 // SecPkg panelde saklanan bekleyen paket.
 type SecPkg struct {
 	Name      string `json:"name"`
@@ -90,6 +111,35 @@ type SecurityChange struct {
 	RebootRequired  bool     // yeniden başlatma gerekli oldu
 	RebootCleared   bool     // gereksinim bitti
 	UpdatesReported bool     // bu raporda güncelleme bölümü vardı
+	// Firewall / AV: etkinlik durumu önceki bilinen durumdan farklı (yeni
+	// durum; ilk raporda ve bölüm kaybolunca nil).
+	Firewall *metrics.SecFirewall
+	AV       *metrics.SecAV
+}
+
+// SecRuleState güvenlik kurallarının okuduğu son durum.
+type SecRuleState struct {
+	Report         metrics.Security // paket listesi ve giriş farkı hariç
+	RebootRequired bool
+	RebootSince    int64
+}
+
+// LoadSecRuleState kuralların okuduğu durum (rapor yoksa boş).
+func (s *Store) LoadSecRuleState(ctx context.Context, serverID int64) (SecRuleState, error) {
+	var out SecRuleState
+	var report string
+	var reboot int
+	err := s.db.QueryRowContext(ctx, `SELECT report, reboot_required, reboot_since FROM sec_state WHERE server_id = ?`, serverID).
+		Scan(&report, &reboot, &out.RebootSince)
+	if errors.Is(err, sql.ErrNoRows) {
+		return out, nil
+	}
+	if err != nil {
+		return out, err
+	}
+	_ = json.Unmarshal([]byte(report), &out.Report)
+	out.RebootRequired = reboot == 1
+	return out, nil
 }
 
 // SaveSecurity raporu saklar. Bölüm raporda yoksa (toplanamadı) önceki değeri korunur.
@@ -107,8 +157,9 @@ func (s *Store) SaveSecurity(ctx context.Context, serverID, now int64, rep metri
 	err := s.tx(ctx, func(tx *Tx) error {
 		var prevReport string
 		var prevReboot, prevSince int64
-		err := tx.QueryRowContext(ctx, `SELECT report, reboot_required, reboot_since FROM sec_state WHERE server_id = ?`, serverID).
-			Scan(&prevReport, &prevReboot, &prevSince)
+		prevFw, prevAV := -1, -1
+		err := tx.QueryRowContext(ctx, `SELECT report, reboot_required, reboot_since, fw_active, av_ok FROM sec_state WHERE server_id = ?`, serverID).
+			Scan(&prevReport, &prevReboot, &prevSince, &prevFw, &prevAV)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
@@ -148,6 +199,14 @@ func (s *Store) SaveSecurity(ctx context.Context, serverID, now int64, rep metri
 		fw := -1
 		if f := stored.Firewall; f != nil {
 			fw = boolInt(f.Active)
+		}
+		// Durum değişimi yalnız bu raporda bölüm geldiyse ve önceki durum
+		// biliniyorsa (ilk rapor, AV kaldırılması olay değildir).
+		if rep.Firewall != nil && prevFw >= 0 && fw != prevFw {
+			ch.Firewall = stored.Firewall
+		}
+		if rep.AV != nil && prevAV >= 0 && avOK != prevAV {
+			ch.AV = stored.AV
 		}
 		reboot, since := int64(0), int64(0)
 		if stored.Reboot != nil && stored.Reboot.Required {
@@ -285,6 +344,26 @@ func (s *Store) OldestSecurityPkg(ctx context.Context, serverID int64) (name str
 	err = s.db.QueryRowContext(ctx, `SELECT name FROM sec_pkgs WHERE server_id = ? AND security = 1 AND first_seen = ? ORDER BY name LIMIT 1`, serverID, firstSeen).
 		Scan(&name)
 	return name, firstSeen, count, err
+}
+
+// SecAuthFailedSince from anından bu yana başarısız oturum açma sayısı
+// (from ile çakışan saatlik kovalar dahil) ve bugün en çok deneyen IP.
+func (s *Store) SecAuthFailedSince(ctx context.Context, serverID, from int64) (int, string, error) {
+	var n int
+	if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(failed), 0) FROM sec_auth_hourly WHERE server_id = ? AND hour > ?`,
+		serverID, from-3600).Scan(&n); err != nil {
+		return 0, "", err
+	}
+	if n == 0 {
+		return 0, "", nil
+	}
+	var ip string
+	err := s.db.QueryRowContext(ctx, `SELECT ip FROM sec_auth_ip_daily WHERE server_id = ? AND day >= ? ORDER BY day DESC, count DESC, ip LIMIT 1`,
+		serverID, from-from%86400).Scan(&ip)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = nil
+	}
+	return n, ip, err
 }
 
 // SecSummaries tüm sunucuların güvenlik özeti (sunucu kimliği -> özet).

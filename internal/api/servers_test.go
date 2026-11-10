@@ -204,7 +204,7 @@ func TestServersAPI(t *testing.T) {
 
 	var detail serverDetailView
 	admin.mustDo("GET", fmt.Sprintf("/api/servers/%d", id), nil, &detail, 200)
-	if len(detail.Latest.Containers) != 1 || len(detail.Latest.Temps) != 2 || len(detail.Alerts) != 7 ||
+	if len(detail.Latest.Containers) != 1 || len(detail.Latest.Temps) != 2 || len(detail.Alerts) != len(servers.DefaultRules()) ||
 		len(detail.NotificationIDs) != 1 || detail.NotificationIDs[0] != hook.ID {
 		t.Fatalf("detay: %+v", detail)
 	}

@@ -264,7 +264,7 @@ func TestAlerts(t *testing.T) {
 	// İlk örnek varsayılan kuralları ve kanalları ekler.
 	e.send(cpu(10))
 	r := e.rules()
-	if len(r) != 7 || r["disk_forecast"].Threshold != 7 || r["disk_fast"].Minutes != 60 || r["offline"].Minutes != 3 || r["cpu"].Threshold != 90 || r["cpu"].Minutes != 10 ||
+	if len(r) != len(DefaultRules()) || r["disk_forecast"].Threshold != 7 || r["disk_fast"].Minutes != 60 || r["offline"].Minutes != 3 || r["cpu"].Threshold != 90 || r["cpu"].Minutes != 10 ||
 		r["mem"].Threshold != 90 || r["disk"].Threshold != 85 || r["disk"].Minutes != 1 || !r["reboot"].Active {
 		t.Fatalf("varsayılan kurallar: %+v", r)
 	}

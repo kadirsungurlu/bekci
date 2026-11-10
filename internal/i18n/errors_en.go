@@ -12,6 +12,8 @@ package i18n
 // maintenance, olay → incident, durum sayfası → status page, kontrol
 // noktası → check location, sunucu ajanı → server agent.
 var errorsEN = map[string]string{
+	"windows update: önceki sorgu sürüyor": "windows update: previous query still running",
+	"wmi: önceki sorgu sürüyor":            "wmi: previous query still running",
 	// ---------------------------------------------------------------------
 	// Genel
 	// ---------------------------------------------------------------------
@@ -370,13 +372,14 @@ var errorsEN = map[string]string{
 	"En fazla %d monitör seçilebilir":                                 "You can select at most %d monitors",
 	"En az bir monitör ya da sunucu seçin veya tüm monitörleri seçin": "Select at least one monitor or server, or select all monitors",
 	"En fazla %d sunucu seçilebilir":                                  "You can select at most %d servers",
-	"Metrik cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast, disk_fast veya sec_updates_age olmalı": "Metric must be cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast, disk_fast or sec_updates_age",
-	"Konteyner adı harf, rakam, alt çizgi, nokta ve tireden oluşmalı":                                                                "Container name may contain letters, digits, underscores, dots and hyphens",
-	"%s konteyneri için birden fazla kural olamaz":                                                                                   "There can't be more than one rule for container %s",
-	"%s uyarı eşiği %s ile kritik eşik arasında olmalı":                                                                              "%s warning threshold must be between %s and the critical threshold",
-	"Kanal seviyesi boş, warning veya critical olmalı":                                                                               "Channel level must be empty, warning or critical",
-	"Geçersiz saat dilimi: %s":                                                                                                       "Invalid time zone: %s",
-	"Süre geçersiz":                                                                                                                  "Invalid duration",
+	"Metrik cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast, disk_fast, sec_updates_age, reboot_required, auth_failed, av_signature_age, av_off, firewall_off veya wu_failed olmalı": "Metric must be cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast, disk_fast, sec_updates_age, reboot_required, auth_failed, av_signature_age, av_off, firewall_off or wu_failed",
+	"Başarısız giriş penceresi 60-1440 dakika olmalı":                 "Failed login window must be 60-1440 minutes",
+	"Konteyner adı harf, rakam, alt çizgi, nokta ve tireden oluşmalı": "Container name may contain letters, digits, underscores, dots and hyphens",
+	"%s konteyneri için birden fazla kural olamaz":                    "There can't be more than one rule for container %s",
+	"%s uyarı eşiği %s ile kritik eşik arasında olmalı":               "%s warning threshold must be between %s and the critical threshold",
+	"Kanal seviyesi boş, warning veya critical olmalı":                "Channel level must be empty, warning or critical",
+	"Geçersiz saat dilimi: %s":                                        "Invalid time zone: %s",
+	"Süre geçersiz":                                                   "Invalid duration",
 
 	// ---------------------------------------------------------------------
 	// Ayarlar

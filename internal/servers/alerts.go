@@ -29,7 +29,8 @@ const (
 )
 
 // Metrics geçerli uyarı metrikleri (arayüzdeki sırayla).
-var Metrics = []string{MetricOffline, MetricCPU, MetricMem, MetricDisk, MetricSwap, MetricLoad, MetricTemp, MetricNet, MetricContainer, MetricReboot, MetricDiskForecast, MetricDiskFast, MetricSecUpdatesAge}
+var Metrics = []string{MetricOffline, MetricCPU, MetricMem, MetricDisk, MetricSwap, MetricLoad, MetricTemp, MetricNet, MetricContainer, MetricReboot, MetricDiskForecast, MetricDiskFast, MetricSecUpdatesAge,
+	MetricRebootRequired, MetricAuthFailed, MetricAVSigAge, MetricAVOff, MetricFirewallOff, MetricWUFailed}
 
 // ValidMetric metriğin geçerli olup olmadığını söyler.
 func ValidMetric(m string) bool {
@@ -41,9 +42,19 @@ func ValidMetric(m string) bool {
 	return false
 }
 
-// Thresholdless eşik kullanmayan metrikler (offline, container, reboot).
+// Thresholdless eşik kullanmayan metrikler (offline, container, reboot ve
+// eşiksiz güvenlik kuralları).
 func Thresholdless(m string) bool {
-	return m == MetricOffline || m == MetricContainer || m == MetricReboot
+	switch m {
+	case MetricOffline, MetricContainer, MetricReboot, MetricAVOff, MetricFirewallOff, MetricWUFailed:
+		return true
+	}
+	return false
+}
+
+// MinutesUnused süre alanı kullanılmayan kurallar (kayıtta 1).
+func MinutesUnused(m string) bool {
+	return m == MetricReboot || m == MetricDiskForecast || (SecurityMetric(m) && m != MetricAuthFailed)
 }
 
 // ThresholdRange metriğin eşik sınırları (eşiksiz metriklerde 0, 0).
@@ -55,10 +66,12 @@ func ThresholdRange(metric string) (lo, hi float64) {
 		return 1, 150
 	case MetricNet:
 		return 0.1, 1000000 // Mbit/s (0,1 – 1.000.000 = 1 Tbit/s)
-	case MetricOffline, MetricContainer, MetricReboot:
+	case MetricOffline, MetricContainer, MetricReboot, MetricAVOff, MetricFirewallOff, MetricWUFailed:
 		return 0, 0
-	case MetricDiskForecast, MetricSecUpdatesAge:
+	case MetricDiskForecast, MetricSecUpdatesAge, MetricRebootRequired, MetricAVSigAge:
 		return 1, 365
+	case MetricAuthFailed:
+		return 1, 1000000
 	}
 	return 1, 100
 }
@@ -75,6 +88,12 @@ func DefaultRules() []store.ServerAlert {
 		{Metric: MetricDiskForecast, Threshold: 7, Minutes: 1, Active: true},
 		{Metric: MetricDiskFast, Threshold: 5, Minutes: 60, Active: true},
 		{Metric: MetricSecUpdatesAge, Threshold: 7, Minutes: 1, Active: true},
+		{Metric: MetricRebootRequired, Threshold: 3, Minutes: 1, Active: false},
+		{Metric: MetricAuthFailed, Threshold: 200, Minutes: 60, Active: false},
+		{Metric: MetricAVSigAge, Threshold: 3, Minutes: 1, Active: true},
+		{Metric: MetricAVOff, Minutes: 1, Active: true},
+		{Metric: MetricFirewallOff, Minutes: 1, Active: false},
+		{Metric: MetricWUFailed, Minutes: 1, Active: true},
 	}
 }
 
@@ -330,7 +349,8 @@ func (s *Service) evaluate(ctx context.Context, p store.Probe, host *metrics.Hos
 			continue
 		case MetricReboot:
 			continue // yeniden başlatma Ingest'te açılış zamanından tespit edilir
-		case MetricSecUpdatesAge:
+		}
+		if SecurityMetric(a.Metric) {
 			continue // güvenlik raporu ve saatlik denetimle (security.go)
 		}
 		if !a.Active {
@@ -596,7 +616,7 @@ func diskRule(m string) bool {
 
 // alertMountFiring tetiklenmiş kuralın olaydaki bölümü (disk) ya da kuralın bölümü.
 func alertMountFiring(ctx context.Context, s *Service, a *store.ServerAlert) string {
-	if (diskRule(a.Metric) || a.Metric == MetricSecUpdatesAge) && a.Mount == "" {
+	if (diskRule(a.Metric) || SecurityMetric(a.Metric)) && a.Mount == "" {
 		if m, err := s.store.OpenServerAlertMount(ctx, a.ID); err == nil {
 			return m
 		}
@@ -610,7 +630,7 @@ func alertMountFiring(ctx context.Context, s *Service, a *store.ServerAlert) str
 // sunucuda olay kapanır ama bildirim gitmez.
 func (s *Service) resolve(ctx context.Context, p store.Probe, host *metrics.Host, a *store.ServerAlert, v float64, now time.Time, detail func(*notify.Event)) {
 	mount := a.Mount
-	if (diskRule(a.Metric) || a.Metric == MetricContainer || a.Metric == MetricSecUpdatesAge) && mount == "" {
+	if (diskRule(a.Metric) || a.Metric == MetricContainer || SecurityMetric(a.Metric)) && mount == "" {
 		var err error
 		if mount, err = s.store.OpenServerAlertMount(ctx, a.ID); err != nil {
 			s.log.Error("sunucu uyarısının bölümü okunamadı", "sunucu", p.Name, "hata", err)

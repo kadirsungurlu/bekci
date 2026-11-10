@@ -74,7 +74,11 @@ func MetricValue(lang, metric string, v float64) string {
 		return Decimal(lang, v, 2)
 	case "temp":
 		return fmt.Sprintf("%.0f °C", v)
-	case "cert", "disk_forecast", "sec_updates_age":
+	case "auth_failed", "wu_failed":
+		return fmt.Sprintf("%.0f", v)
+	case "av_off", "firewall_off":
+		return "" // eşiksiz; değer yok
+	case "cert", "disk_forecast", "sec_updates_age", "reboot_required", "av_signature_age":
 		// "yaklaşık 0 gün sonra" yerine en az 1 gün yazılır.
 		if metric == "disk_forecast" {
 			v = max(v, 1)
