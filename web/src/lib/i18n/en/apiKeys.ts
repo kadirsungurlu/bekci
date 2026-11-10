@@ -3,7 +3,7 @@ import type tr from '../tr/apiKeys';
 
 export default {
   title: 'API keys',
-  intro: 'For accessing the API from your scripts and tools such as Prometheus. Example:',
+  intro: 'For accessing the API from your own programs and tools such as Prometheus. Example:',
   newKey: 'New key',
   showAll: "All users' keys",
   empty: 'No API keys yet.',
@@ -29,14 +29,14 @@ export default {
   noExpiry: 'Never',
   revoke: 'Revoke',
   revokeTitle: 'Revoke key',
-  revokeMessage: '“{name}” — Revoke this key? Scripts that use it will stop working.',
+  revokeMessage: '“{name}” — Revoke this key? Tools that use it will stop working.',
   revoked: 'Key revoked',
   form: {
     title: 'New API key',
     readyTitle: 'Your key is ready',
-    errName: 'Give the key a name (e.g. “Grafana” or “backup script”).',
+    errName: 'Give the key a name (e.g. “Grafana” or “backup job”).',
     errExpires: 'Expiry date must be in the future.',
-    namePlaceholder: 'e.g. Grafana, backup script',
+    namePlaceholder: 'e.g. Grafana, backup job',
     optional: '(optional)',
     access: 'Access',
     readHelp: 'Reads only: servers, disk forecasts, inventory, server events, certificates, monitor states and incidents. It cannot reach write, settings, user or notification endpoints. Leave the expiry date empty for a key that never expires.',

@@ -1,0 +1,4 @@
+# Pro ek dosyaları (bekci-pro birlestir.sh kopyalar); depoya girmez.
+*
+!.gitignore
+!.gitkeep

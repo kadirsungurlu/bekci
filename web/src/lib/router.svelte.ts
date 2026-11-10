@@ -1,7 +1,7 @@
 // Küçük hash yönlendirici: #/, #/monitors/new, #/monitors/:id, #/monitors/:id/edit,
 // #/incidents[/:id], #/notifications, #/status-pages[/new|/:id|/:id/preview],
 // #/maintenance[/new|/:id], #/servers[/:id], #/settings[/:tab], #/more,
-// #/scripts[/runs[/:id]|/settings], #/pro/:id (Pro sayfaları, lib/pro.svelte.ts)
+// #/pro/:id[/<alt yol>] (Pro sayfaları, lib/pro.svelte.ts; alt yol sayfaya `yol` olarak geçer)
 //
 // Herkese açık durum sayfası hash değil gerçek yol kullanır (/durum/<kısa-ad>);
 // bkz. publicSlugFromPath.
@@ -28,11 +28,7 @@ export type Route =
   | { name: 'server'; id: number }
   | { name: 'more' }
   | { name: 'topology' }
-  | { name: 'scripts' }
-  | { name: 'script-runs' }
-  | { name: 'script-run'; id: string }
-  | { name: 'script-settings' }
-  | { name: 'pro'; id: string }
+  | { name: 'pro'; id: string; yol: string }
   | { name: 'notfound' };
 
 const SETTINGS_TABS: Record<string, SettingsTab> = {
@@ -66,13 +62,8 @@ export function parse(path: string): Route {
   if (clean === '/more') return { name: 'more' };
   if (clean === '/topology') return { name: 'topology' };
   if (clean === '/servers') return { name: 'servers' };
-  if (clean === '/scripts') return { name: 'scripts' };
-  if (clean === '/scripts/runs') return { name: 'script-runs' };
-  if (clean === '/scripts/settings') return { name: 'script-settings' };
-  let m = clean.match(/^\/scripts\/runs\/([0-9a-f]{32})$/);
-  if (m) return { name: 'script-run', id: m[1] };
-  m = clean.match(/^\/pro\/([a-z0-9-]+)$/);
-  if (m) return { name: 'pro', id: m[1] };
+  let m = clean.match(/^\/pro\/([a-z0-9-]+)(?:\/([a-z0-9][a-z0-9/_-]*))?$/);
+  if (m) return { name: 'pro', id: m[1], yol: m[2] ?? '' };
   m = clean.match(/^\/settings(?:\/([a-z]+))?$/);
   if (m) {
     const tab = SETTINGS_TABS[m[1] ?? ''];

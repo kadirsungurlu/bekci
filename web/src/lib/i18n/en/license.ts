@@ -125,5 +125,7 @@ export default {
     raporlarDesc: 'Scheduled SLA and PDF reports.',
     musteriler: 'Customers',
     musterilerDesc: 'Customer accounts: each customer sees only their own monitors and servers.',
+    betikler: 'Scripts',
+    betiklerDesc: 'Run signed scripts on servers with approval and a tamper-evident log, plus run history and trust settings.',
   },
 } satisfies Shape<typeof tr>;

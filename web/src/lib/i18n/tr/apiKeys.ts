@@ -1,7 +1,7 @@
 // Ayarlar › Hesabım › API anahtarları (ApiKeys.svelte).
 export default {
   title: 'API anahtarları',
-  intro: 'Betiklerinizden ve Prometheus gibi araçlardan API’ye erişmek için. Örnek:',
+  intro: 'Kendi programlarınızdan ve Prometheus gibi araçlardan API’ye erişmek için. Örnek:',
   newKey: 'Yeni anahtar',
   showAll: 'Tüm kullanıcıların anahtarları',
   empty: 'Henüz API anahtarı yok.',
@@ -27,7 +27,7 @@ export default {
   noExpiry: 'Süresiz',
   revoke: 'İptal et',
   revokeTitle: 'Anahtarı iptal et',
-  revokeMessage: '“{name}” — Bu anahtar iptal edilsin mi? Onu kullanan betikler çalışmayı durdurur.',
+  revokeMessage: '“{name}” — Bu anahtar iptal edilsin mi? Onu kullanan araçlar çalışmayı durdurur.',
   revoked: 'Anahtar iptal edildi',
   form: {
     title: 'Yeni API anahtarı',

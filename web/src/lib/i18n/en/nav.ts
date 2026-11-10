@@ -5,7 +5,6 @@ export default {
   mainMenu: 'Main menu',
   monitors: 'Monitors',
   servers: 'Servers',
-  scripts: 'Scripts',
   incidents: 'Incidents',
   statusPages: 'Status pages',
   statusPagesShort: 'Pages',
@@ -50,7 +49,6 @@ export default {
   notFoundTitle: 'Page not found',
   notFoundText: "The page you're looking for doesn't exist.",
   moreItems: {
-    scriptsDesc: 'Signed scripts and run history',
     topologyDesc: 'Monitors, probes, servers and channels on one live map',
     statusPagesDesc: 'Public status pages for your customers',
     maintenanceDesc: 'Mute notifications during planned maintenance',

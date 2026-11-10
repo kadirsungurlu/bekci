@@ -26,7 +26,6 @@ import audit from './audit';
 import tags from './tags';
 import overview from './overview';
 import topology from './topology';
-import scripts from './scripts';
 import license from './license';
 
 import type { Shape } from '../types';
@@ -58,7 +57,6 @@ const en = {
   tags,
   overview,
   topology,
-  scripts,
   license,
 } satisfies Shape<typeof tr>;
 

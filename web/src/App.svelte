@@ -30,10 +30,6 @@
   import IncidentDetail from './pages/IncidentDetail.svelte';
   import Notifications from './pages/Notifications.svelte';
   import Settings from './pages/Settings.svelte';
-  import Scripts from './pages/Scripts.svelte';
-  import ScriptRuns from './pages/ScriptRuns.svelte';
-  import ScriptRunDetail from './pages/ScriptRunDetail.svelte';
-  import ScriptSettings from './pages/ScriptSettings.svelte';
   import StatusPages from './pages/StatusPages.svelte';
   import StatusPageEditor from './pages/StatusPageEditor.svelte';
   import MaintenanceList from './pages/MaintenanceList.svelte';
@@ -222,28 +218,20 @@
     icon: 'settings',
     match: ['settings'],
   };
-  const NAV_SCRIPTS: NavItem = {
-    href: '#/scripts',
-    get label() {
-      return t('nav.scripts');
-    },
-    icon: 'terminal',
-    match: ['scripts', 'script-runs', 'script-run', 'script-settings'],
-  };
   const NAV_MORE: NavItem = {
     href: '#/more',
     get label() {
       return t('nav.more');
     },
     icon: 'menu',
-    match: ['more', 'pro', 'topology', 'maintenance', 'maint-new', 'maint-edit', 'notifications', 'settings', 'pages', 'page-new', 'page-edit', 'scripts', 'script-runs', 'script-run', 'script-settings'],
+    match: ['more', 'pro', 'topology', 'maintenance', 'maint-new', 'maint-edit', 'notifications', 'settings', 'pages', 'page-new', 'page-edit'],
   };
 
   // İzleyici bildirim kanallarını ve durum sayfalarını yönetemez; yalnızca seçili
   // monitörleri gören (müşteri) izleyici Sunucular'ı kendisine sunucu atanmışsa görür.
   const nav = $derived<NavItem[]>(
     session.isAdmin
-      ? [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_TOPOLOGY, NAV_SCRIPTS, NAV_PAGES, NAV_MAINT, NAV_NOTIF, NAV_SETTINGS]
+      ? [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_TOPOLOGY, NAV_PAGES, NAV_MAINT, NAV_NOTIF, NAV_SETTINGS]
       : session.canEdit
       ? [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_TOPOLOGY, NAV_PAGES, NAV_MAINT, NAV_NOTIF, NAV_SETTINGS]
       : session.restricted
@@ -309,11 +297,6 @@
       case 'maint-new':
       case 'maint-edit':
         return t('nav.titles.maintenanceWindows');
-      case 'scripts':
-      case 'script-runs':
-      case 'script-run':
-      case 'script-settings':
-        return t('nav.scripts');
       case 'settings':
         return t('nav.settings');
       case 'servers':
@@ -476,7 +459,7 @@
     <main class="main">
       <div
         class="content"
-        class:wide={route.name === 'list' || route.name === 'topology' || route.name === 'servers' || route.name === 'page-edit' || route.name === 'page-new' || route.name === 'scripts' || route.name === 'script-runs' || route.name === 'script-run' || route.name === 'script-settings'}
+        class:wide={route.name === 'list' || route.name === 'topology' || route.name === 'servers' || route.name === 'page-edit' || route.name === 'page-new' || (route.name === 'pro' && !!proMenuItem(route.id)?.genis)}
         class:form-page={route.name === 'new' || route.name === 'edit' || route.name === 'maint-new' || route.name === 'maint-edit'}
       >
         {#if session.isAdmin}<UpdateBanner />{/if}
@@ -485,16 +468,6 @@
           {@render forbidden()}
         {:else if (route.name === 'servers' || route.name === 'server') && !session.canSeeServers}
           {@render noServers()}
-        {:else if route.name.startsWith('script') && !session.isAdmin}
-          {@render forbidden()}
-        {:else if route.name === 'scripts'}
-          <Scripts />
-        {:else if route.name === 'script-runs'}
-          <ScriptRuns />
-        {:else if route.name === 'script-run'}
-          {#key route.id}<ScriptRunDetail id={route.id} />{/key}
-        {:else if route.name === 'script-settings'}
-          <ScriptSettings />
         {:else if route.name === 'servers'}
           <ServerList />
         {:else if route.name === 'server'}
@@ -532,7 +505,7 @@
         {:else if route.name === 'topology'}
           <Topology />
         {:else if route.name === 'pro'}
-          {#key route.id}<ProPage id={route.id} />{/key}
+          {#key route.id}<ProPage id={route.id} yol={route.yol} />{/key}
         {:else}
           <div class="card empty">
             <h3>{t('nav.notFoundTitle')}</h3>

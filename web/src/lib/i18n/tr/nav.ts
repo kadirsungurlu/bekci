@@ -3,7 +3,6 @@ export default {
   mainMenu: 'Ana menü',
   monitors: 'Monitörler',
   servers: 'Sunucular',
-  scripts: 'Betikler',
   incidents: 'Olaylar',
   statusPages: 'Durum sayfaları',
   statusPagesShort: 'Sayfalar',
@@ -49,7 +48,6 @@ export default {
   notFoundTitle: 'Sayfa bulunamadı',
   notFoundText: 'Aradığınız sayfa mevcut değil.',
   moreItems: {
-    scriptsDesc: 'İmzalı betikler ve çalıştırma geçmişi',
     topologyDesc: 'Monitörler, kontrol noktaları, sunucular ve kanallar tek şemada',
     statusPagesDesc: 'Müşterilerinize açık durum sayfaları',
     maintenanceDesc: 'Planlı bakımlarda bildirimleri sustur',

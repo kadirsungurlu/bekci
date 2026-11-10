@@ -1200,14 +1200,6 @@ input[type='search'].input::-webkit-search-decoration {
   }
 }
 
-/* Betik sayfaları: dokunmatikte düğmeler en az 44 px (kod kopyalama, satır işlemleri). */
-@media (max-width: 900px), (pointer: coarse) {
-  .sbody .btn,
-  .page-head.shead .btn {
-    min-height: 44px;
-  }
-}
-
 /* Paket yüklenirken topoloji iskeleti (public/boot.js); JS gerektirmeyen ilk boyama. */
 #boot { display: none; }
 .boot-topo #boot { display: flex; position: fixed; inset: 0; z-index: 2000; background: var(--bg); }

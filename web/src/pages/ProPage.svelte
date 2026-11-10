@@ -1,5 +1,5 @@
 <script lang="ts">
-  // #/pro/<id>: modül var + lisans açık -> sayfa; Pro derlemesi + modül var ama lisans yok -> sayfa
+  // #/pro/<id>[/<alt yol>]: alt yol sayfaya `yol` olarak geçer. Modül var + lisans açık -> sayfa; Pro derlemesi + modül var ama lisans yok -> sayfa
   // salt okunur uyarısıyla (sunucu değiştiren istekleri 402 pro_lisans ile reddeder); aksi -> ProLocked.
   import type { Component } from 'svelte';
   import Icon from '../components/Icon.svelte';
@@ -9,7 +9,7 @@
   import { roleRank, session } from '../lib/session.svelte';
   import ProLocked from './ProLocked.svelte';
 
-  let { id }: { id: string } = $props();
+  let { id, yol = '' }: { id: string; yol?: string } = $props();
 
   const item = $derived(proMenuItem(id));
   const allowed = $derived(!!item && roleRank(session.role) >= roleRank(item.rol));
@@ -18,7 +18,7 @@
   const readOnly = $derived(!!item && hasModule && !open && !!license.state?.pro_derleme);
   const show = $derived(open || readOnly);
 
-  let Page = $state.raw<Component | null>(null);
+  let Page = $state.raw<Component<{ yol?: string }> | null>(null);
   let loadError = $state('');
 
   $effect(() => {
@@ -64,7 +64,7 @@
   {#if loadError}
     <div class="alert error">{t('license.pro.loadFailed')}: {loadError}</div>
   {:else if Page}
-    <Page />
+    <Page {yol} />
   {:else}
     <div class="center"><span class="spinner"></span></div>
   {/if}

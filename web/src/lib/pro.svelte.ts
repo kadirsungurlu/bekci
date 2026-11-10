@@ -58,15 +58,17 @@ export function proAcik(ozellik: string): boolean {
 }
 
 export interface ProMenuItem {
-  /** Adres `#/pro/<id>` ve sayfa dosyası `pro/sayfalar/<id>.svelte`. */
+  /** Adres `#/pro/<id>[/<alt yol>]` ve sayfa dosyası `pro/sayfalar/<id>.svelte`. */
   id: string;
   /** Lisans özellik bayrağı (internal/lisans). */
   ozellik: string;
   ikon: IconName;
   /** Ad ve açıklama: license.pages.<metin> / <metin>Desc. */
-  metin: 'filoGuvenlik' | 'denetimler' | 'raporlar' | 'musteriler';
+  metin: 'filoGuvenlik' | 'denetimler' | 'raporlar' | 'musteriler' | 'betikler';
   /** Menüyü görebilecek en düşük rol. */
   rol: Role;
+  /** Geniş içerik alanı (tablolu sayfalar). */
+  genis?: boolean;
 }
 
 export const PRO_MENU: readonly ProMenuItem[] = [
@@ -74,9 +76,10 @@ export const PRO_MENU: readonly ProMenuItem[] = [
   { id: 'denetimler', ozellik: 'hosting_denetim', ikon: 'check-square', metin: 'denetimler', rol: 'admin' },
   { id: 'raporlar', ozellik: 'rapor', ikon: 'file', metin: 'raporlar', rol: 'editor' },
   { id: 'musteriler', ozellik: 'musteri', ikon: 'users', metin: 'musteriler', rol: 'admin' },
+  { id: 'betikler', ozellik: 'betik', ikon: 'terminal', metin: 'betikler', rol: 'admin', genis: true },
 ];
 
-type PageModule = { default: Component };
+type PageModule = { default: Component<{ yol?: string }> };
 const MODULES = import.meta.glob<PageModule>('../pro/sayfalar/*.svelte');
 
 function pagePath(id: string) {
@@ -89,7 +92,7 @@ export function proSayfaVar(id: string): boolean {
 }
 
 /** Sayfa modülünü tembel yükler; yoksa null. */
-export async function proSayfaYukle(id: string): Promise<Component | null> {
+export async function proSayfaYukle(id: string): Promise<Component<{ yol?: string }> | null> {
   const load = MODULES[pagePath(id)];
   if (!load) return null;
   const m = await load();
