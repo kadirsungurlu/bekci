@@ -1535,7 +1535,35 @@ export interface ServerSecuritySummary {
   oldest_security?: number;
 }
 
-export type SecNoteCode = "unsupported" | "no_host" | "failed" | "no_manager" | "cache_missing" | "locked" | "no_errata";
+export type SecNoteCode = "unsupported" | "no_host" | "failed" | "no_manager" | "cache_missing" | "locked" | "no_errata" | "no_source" | "no_tool";
+
+export interface SecSession {
+  user: string;
+  tty?: string;
+  from?: string;
+  /** Giriş zamanı (unix sn). */
+  since?: number;
+  kind: "ssh" | "tty" | "rdp" | string;
+  state?: string;
+}
+
+export interface SecFirewall {
+  active: boolean;
+  backend?: "firewalld" | "ufw" | "nftables" | "iptables-legacy" | string;
+  rules: number;
+  policy?: "accept" | "drop" | "reject" | string;
+}
+
+/** Panelde toplanan SSH giriş özeti. */
+export interface SecAuthView {
+  /** Son 7 gün, yalnız boş olmayan saatler (hour: saat başı unix sn). */
+  hours: { hour: number; failed: number; accepted: number }[];
+  failed_24h: number;
+  accepted_24h: number;
+  failed_7d: number;
+  top_ips_24h: { ip: string; count: number }[];
+  top_ips_7d: { ip: string; count: number }[];
+}
 
 export interface SecUpdates {
   manager: "apt" | "dnf" | "yum" | "zypper" | "wu" | string;
@@ -1570,11 +1598,20 @@ export interface SecPackage {
 export interface ServerSecurity {
   /** 0: ajan hiç rapor göndermedi. */
   received_at: number;
-  report: { time: number; updates?: SecUpdates | null; reboot?: SecReboot | null } | null;
+  report: {
+    time: number;
+    updates?: SecUpdates | null;
+    reboot?: SecReboot | null;
+    auth?: { source: string } | null;
+    /** null: toplanamadı; []: oturum yok. */
+    sessions?: SecSession[] | null;
+    firewall?: SecFirewall | null;
+  } | null;
+  auth: SecAuthView;
   reboot_since?: number;
   /** Sıra: güvenlik önce, en eski önce. */
   packages: SecPackage[] | null;
-  notes: { updates?: SecNoteCode | string; reboot?: SecNoteCode | string } | null;
+  notes: { updates?: SecNoteCode | string; reboot?: SecNoteCode | string; auth?: string; sessions?: string; firewall?: string } | null;
   /** Rapor aralığı (sn); 0 = bu sunucuda kapalı. */
   interval: number;
   /** sec_updates_age eşiği (gün); kural kapalıysa yok. */

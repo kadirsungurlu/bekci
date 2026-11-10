@@ -173,7 +173,7 @@ CVE/ciddiyet süzgeci), CSV/PDF, haftalık özet e-postası.
 - Sınırlar: eklenti başına 50 metrik, ad `^[a-zA-Z0-9_.\-]{1,64}$`, NaN/Inf atılır, ileti 512 karakter.
 - Eşikler: eklentinin kendi durumu esastır; panelde metrik başına ek eşik kuralı tanımlanabilir (B.5).
 
-### B.3 Şema (migration 52, `store/checks.go`)
+### B.3 Şema (migration 53, `store/checks.go`; 52 = 732 sec_auth tabloları)
 - `check_state(server_id, name, source:plugin|builtin, kind, version, status, message, last_run, last_ok, duration_ms, PK(server_id,name))`.
 - `check_samples(server_id, name, metric, t, value)`: Timescale'de hypertable (1 gün parça, 7 gün sonra sıkıştırma, 30 gün saklama) +
   `check_hourly` sürekli özet (avg/min/max, 365 gün); düz PG'de tablo + saatlik özet işi `cleanup.go` içinde; SQLite: yazılmaz (G8).

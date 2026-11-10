@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { api, type SecPackage, type ServerSecurity } from '../lib/api';
-  import { fmtDate, fmtRelative, nowSec } from '../lib/format';
+  import { fmtDate, fmtRelative, fmtTime, nowSec } from '../lib/format';
   import { t, tOr } from '../lib/i18n';
   import { fmtDays } from '../lib/servers.svelte';
   import Icon from './Icon.svelte';
@@ -68,6 +68,24 @@
     return v === 'critical' ? 'down' : v === 'important' ? 'pending' : 'paused';
   };
   const waitText = (p: SecPackage) => (waitDays(p) < 1 ? t('servers.security.pkgs.today') : fmtDays(waitDays(p)));
+  // SSH girişleri: son 24 saatin saat kovaları (boş saatler 0).
+  const auth = $derived(data?.auth ?? null);
+  const hours24 = $derived.by(() => {
+    const cur = now - (now % 3600);
+    const m = new Map((auth?.hours ?? []).map((h) => [h.hour, h]));
+    return Array.from({ length: 24 }, (_, i) => {
+      const hour = cur - (23 - i) * 3600;
+      return { hour, failed: m.get(hour)?.failed ?? 0, accepted: m.get(hour)?.accepted ?? 0 };
+    });
+  });
+  const maxFailed = $derived(Math.max(1, ...hours24.map((h) => h.failed)));
+  let ipRange = $state<'24' | '7d'>('24');
+  const ips = $derived((ipRange === '24' ? auth?.top_ips_24h : auth?.top_ips_7d) ?? []);
+  const sessions = $derived(data?.report?.sessions ?? null);
+  const fw = $derived(data?.report?.firewall ?? null);
+  const authSource = $derived(data?.report?.auth?.source ?? '');
+  const noteClass = (c: string | undefined) => (c === 'failed' ? 'warning' : 'info');
+
   const pkgOver = (p: SecPackage) => p.security && !!data?.age_threshold && waitDays(p) >= data.age_threshold;
 </script>
 
@@ -169,6 +187,124 @@
         {/if}
       {/if}
     </section>
+
+    <section class="card sc">
+      <div class="sh">
+        <h2 class="card-title"><Icon name="key" size={16} /> {t('servers.security.auth.title')}</h2>
+      </div>
+      {#if notes.auth}
+        <div class="alert {noteClass(notes.auth)} note"><Icon name="info" size={16} /><span>{noteText(notes.auth)}</span></div>
+      {/if}
+      {#if auth}
+        <div class="nums">
+          <div class="nb">
+            <span class="nv" class:c-pending={auth.failed_24h > 0}>{auth.failed_24h}</span>
+            <span class="nl">{t('servers.security.auth.failed24')}</span>
+          </div>
+          <div class="nb">
+            <span class="nv">{auth.accepted_24h}</span>
+            <span class="nl">{t('servers.security.auth.accepted24')}</span>
+          </div>
+        </div>
+        <svg class="bars" viewBox="0 0 240 48" preserveAspectRatio="none" role="img" aria-label={t('servers.security.auth.chart')}>
+          {#each hours24 as h, i (h.hour)}
+            {@const bh = h.failed ? Math.max(2, (h.failed / maxFailed) * 46) : 1}
+            <rect x={i * 10 + 1} y={48 - bh} width="8" height={bh} class:on={h.failed > 0}>
+              <title>{t('servers.security.auth.hourTip', { h: fmtTime(h.hour), f: h.failed, a: h.accepted })}</title>
+            </rect>
+          {/each}
+        </svg>
+        <div class="axis muted small"><span>{fmtTime(hours24[0].hour)}</span><span>{fmtTime(hours24[23].hour)}</span></div>
+        {#if auth.failed_24h === 0}
+          <p class="line ok"><Icon name="check-circle" size={14} /> {t('servers.security.auth.none')}</p>
+        {/if}
+        <dl class="meta">
+          <dt>{t('servers.security.auth.source')}</dt>
+          <dd>{authSource ? tOr(`servers.security.auth.sources.${authSource}`, authSource) : t('servers.security.updates.unknown')}</dd>
+        </dl>
+        {#if auth.failed_7d > auth.failed_24h}<p class="muted small line">{t('servers.security.auth.failed7d', { n: auth.failed_7d })}</p>{/if}
+      {/if}
+    </section>
+
+    <section class="card sc">
+      <div class="sh">
+        <h2 class="card-title"><Icon name="shield" size={16} /> {t('servers.security.fw.title')}</h2>
+      </div>
+      {#if notes.firewall}
+        <div class="alert {noteClass(notes.firewall)} note"><Icon name="info" size={16} /><span>{noteText(notes.firewall)}</span></div>
+      {/if}
+      {#if fw}
+        <div class="rb">
+          {#if fw.active}<span class="pill up">{t('servers.security.fw.active')}</span>{:else}<span class="pill pending">{t('servers.security.fw.inactive')}</span>{/if}
+        </div>
+        {#if !fw.active}<p class="muted small line">{t('servers.security.fw.inactiveHint')}</p>{/if}
+        <dl class="meta">
+          <dt>{t('servers.security.fw.backend')}</dt>
+          <dd>{fw.backend || '—'}</dd>
+          <dt>{t('servers.security.fw.rules')}</dt>
+          <dd>{fw.rules}</dd>
+          {#if fw.policy}
+            <dt>{t('servers.security.fw.policy')}</dt>
+            <dd>{tOr(`servers.security.fw.policies.${fw.policy}`, fw.policy)}</dd>
+          {/if}
+        </dl>
+      {/if}
+    </section>
+  </div>
+
+  <div class="two">
+    <section class="card block">
+      <div class="tools">
+        <h2 class="card-title ttl">{t('servers.security.auth.ipsTitle')}</h2>
+        <div class="seg" role="group" aria-label={t('servers.security.auth.ipsTitle')}>
+          <button aria-pressed={ipRange === '24'} class:active={ipRange === '24'} onclick={() => (ipRange = '24')}>{t('servers.security.auth.range24')}</button>
+          <button aria-pressed={ipRange === '7d'} class:active={ipRange === '7d'} onclick={() => (ipRange = '7d')}>{t('servers.security.auth.range7d')}</button>
+        </div>
+      </div>
+      {#if ips.length === 0}
+        <p class="muted small">{t('servers.security.auth.noIPs')}</p>
+      {:else}
+        <table class="table">
+          <thead><tr><th>{t('servers.security.auth.colIP')}</th><th class="num">{t('servers.security.auth.colCount')}</th></tr></thead>
+          <tbody>
+            {#each ips as x (x.ip)}
+              <tr><td class="mono-name">{x.ip}</td><td class="num">{x.count}</td></tr>
+            {/each}
+          </tbody>
+        </table>
+      {/if}
+    </section>
+
+    <section class="card block">
+      <div class="tools"><h2 class="card-title ttl">{t('servers.security.sessions.title')}</h2></div>
+      {#if notes.sessions}
+        <div class="alert {noteClass(notes.sessions)} note"><Icon name="info" size={16} /><span>{noteText(notes.sessions)}</span></div>
+      {/if}
+      {#if sessions && sessions.length === 0}
+        <p class="muted small">{t('servers.security.sessions.none')}</p>
+      {:else if sessions}
+        <table class="table responsive">
+          <thead>
+            <tr>
+              <th>{t('servers.security.sessions.colUser')}</th>
+              <th>{t('servers.security.sessions.colTTY')}</th>
+              <th>{t('servers.security.sessions.colFrom')}</th>
+              <th>{t('servers.security.sessions.colSince')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each sessions as x, i (i)}
+              <tr>
+                <td data-label={t('servers.security.sessions.colUser')}><span class="mono-name">{x.user}</span> <span class="muted small">{tOr(`servers.security.sessions.kinds.${x.kind}`, x.kind)}</span></td>
+                <td data-label={t('servers.security.sessions.colTTY')}>{x.tty || '—'}</td>
+                <td data-label={t('servers.security.sessions.colFrom')}>{x.from || t('servers.security.sessions.local')}</td>
+                <td data-label={t('servers.security.sessions.colSince')} title={x.since ? fmtDate(x.since) : ''}>{x.since ? fmtRelative(x.since, now) : '—'}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {/if}
+    </section>
   </div>
 
   {#if pkgs.length}
@@ -236,6 +372,32 @@
   }
   .sc {
     min-width: 0;
+  }
+  .two {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .two .block {
+    min-width: 0;
+  }
+  .bars {
+    display: block;
+    width: 100%;
+    height: 56px;
+    margin-top: 6px;
+  }
+  .bars rect {
+    fill: var(--border);
+  }
+  .bars rect.on {
+    fill: var(--chart-2);
+  }
+  .axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2px;
   }
   .sh {
     display: flex;
