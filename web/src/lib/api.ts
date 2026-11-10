@@ -1539,6 +1539,14 @@ export interface ServerSecuritySummary {
   reboot_since?: number;
   /** En eski bekleyen güvenlik paketinin first_seen'i (unix sn). */
   oldest_security?: number;
+  /** Güvenlik duvarı: -1 bilinmiyor, 0 kapalı, 1 açık. */
+  fw_active?: number;
+  /** Defender: -1 yok/bilinmiyor, 0 sorunlu, 1 sağlam. */
+  av_ok?: number;
+  /** Kayıt anındaki imza yaşı (saat; -1 bilinmiyor). */
+  av_sig_age_h?: number;
+  /** Paket dizininin son tazelenmesi (unix sn). */
+  index_time?: number;
 }
 
 export type SecNoteCode = "unsupported" | "no_host" | "failed" | "no_manager" | "cache_missing" | "locked" | "no_errata" | "no_source" | "no_tool" | "no_defender";

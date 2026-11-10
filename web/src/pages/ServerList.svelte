@@ -24,13 +24,30 @@
   import UsageBar from '../components/UsageBar.svelte';
   import Sparkline from '../components/Sparkline.svelte';
   import ServerSetupModal from '../components/ServerSetupModal.svelte';
-  import Icon from '../components/Icon.svelte';
+  import Icon, { type IconName } from '../components/Icon.svelte';
   import UplinkBadge from '../components/UplinkBadge.svelte';
 
   onMount(() => servers.ensure());
 
-  const active = $derived(servers.sorted.filter((s) => !isInactive(s)));
-  const inactive = $derived(servers.sorted.filter(isInactive));
+  // Filo güvenlik şeridi (736): sayılar liste özetinden (görünür sunucular),
+  // tıklanınca liste o sunuculara süzülür. Aynı veri GET /api/security/summary'de.
+  type SecFilter = 'updates' | 'reboot' | 'firewall' | 'av';
+  const secMatch: Record<SecFilter, (s: ServerView) => boolean> = {
+    updates: (s) => (s.security?.upd_security ?? 0) > 0,
+    reboot: (s) => !!s.security?.reboot_required,
+    firewall: (s) => s.security?.fw_active === 0,
+    av: (s) => s.security?.av_ok === 0 || (s.security?.av_sig_age_h ?? -1) > 72,
+  };
+  const SEC_ICON: Record<SecFilter, IconName> = { updates: 'shield', reboot: 'rotate-ccw', firewall: 'alert', av: 'alert' };
+  let secFilter = $state<SecFilter | null>(null);
+  const secCounts = $derived(
+    (Object.keys(secMatch) as SecFilter[])
+      .map((k) => ({ k, n: servers.list.filter(secMatch[k]).length }))
+      .filter((x) => x.n > 0 || x.k === secFilter),
+  );
+  const shown = $derived(secFilter ? servers.sorted.filter(secMatch[secFilter]) : servers.sorted);
+  const active = $derived(shown.filter((s) => !isInactive(s)));
+  const inactive = $derived(shown.filter(isInactive));
   const counts = $derived.by(() => {
     let online = 0,
       offline = 0,
@@ -202,6 +219,26 @@
     {/if}
   </div>
 {:else}
+  {#if secCounts.length}
+    <div class="fleet" role="group" aria-label={t('servers.security.fleet.label')}>
+      <span class="fl-lbl"><Icon name="shield" size={14} /> {t('servers.security.fleet.label')}</span>
+      {#each secCounts as c (c.k)}
+        <button
+          class="fl-item"
+          class:on={secFilter === c.k}
+          aria-pressed={secFilter === c.k}
+          title={t('servers.security.fleet.filterTitle')}
+          onclick={() => (secFilter = secFilter === c.k ? null : c.k)}
+        >
+          <Icon name={SEC_ICON[c.k]} size={13} />{t(`servers.security.fleet.${c.k}`, { count: c.n })}
+        </button>
+      {/each}
+      {#if secFilter}<button class="fl-clear" onclick={() => (secFilter = null)}><Icon name="x" size={12} /> {t('servers.security.fleet.clear')}</button>{/if}
+    </div>
+  {/if}
+  {#if secFilter && !shown.length}
+    <div class="card empty"><p>{t('servers.security.fleet.empty')}</p></div>
+  {/if}
   {#if active.length}
     <div class="card list">
       <div class="lhead" aria-hidden="true">
@@ -233,6 +270,8 @@
                 {#if s.in_maintenance}<span class="badge maintenance fire" title={t('servers.inMaintenanceHint')}><Icon name="wrench" size={11} /> {t('servers.inMaintenance')}</span>{/if}
                 {#if (s.security?.upd_security ?? 0) > 0}<span class="badge pending fire" title={t('servers.security.badgeSecTitle', { n: s.security!.upd_security })}><Icon name="shield" size={11} /> {t('servers.security.badgeSec', { n: s.security!.upd_security })}</span>{/if}
                 {#if s.security?.reboot_required}<span class="badge pending fire" title={t('servers.security.badgeRebootTitle')}><Icon name="rotate-ccw" size={11} /> {t('servers.security.badgeReboot')}</span>{/if}
+                {#if s.security?.fw_active === 0}<span class="badge pending fire" title={t('servers.security.badgeFwTitle')}><Icon name="alert" size={11} /> {t('servers.security.badgeFw')}</span>{/if}
+                {#if secMatch.av(s)}<span class="badge pending fire" title={t('servers.security.badgeAvTitle')}><Icon name="shield" size={11} /> {t('servers.security.badgeAv')}</span>{/if}
                 <UplinkBadge name={s.uplink_name} ip={s.oob_ip} uplink={s.uplink} since={s.uplink_since} ifaceMissing={s.oob_iface_missing} focus={false} />
               </div>
               {#if s.state === 'offline'}
@@ -387,6 +426,55 @@
     gap: 6px 18px;
     flex-wrap: wrap;
     min-width: 0;
+  }
+  .fleet {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 14px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--pending);
+    border-radius: var(--radius);
+    background: var(--card);
+    font-size: 0.86rem;
+  }
+  .fl-lbl {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-2);
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .fl-item,
+  .fl-clear {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+  }
+  .fl-item :global(svg) {
+    color: var(--pending);
+  }
+  .fl-item:hover,
+  .fl-clear:hover {
+    border-color: var(--text-2);
+  }
+  .fl-item.on {
+    border-color: var(--pending);
+    background: var(--pending-soft);
+  }
+  .fl-clear {
+    color: var(--text-2);
+    border-style: dashed;
   }
   .sum {
     display: flex;
