@@ -83,6 +83,13 @@
   const ips = $derived((ipRange === '24' ? auth?.top_ips_24h : auth?.top_ips_7d) ?? []);
   const sessions = $derived(data?.report?.sessions ?? null);
   const fw = $derived(data?.report?.firewall ?? null);
+  const av = $derived(data?.report?.av ?? null);
+  const avOK = $derived(!!av && av.service && av.enabled && av.realtime);
+  const sigHours = $derived(av?.sig_updated ? Math.max(0, Math.floor((now - av.sig_updated) / 3600)) : -1);
+  const sigText = (h: number) => (h < 48 ? t('servers.security.av.hours', { n: h }) : fmtDays(h / 24));
+  const scanText = (d: number) =>
+    d < 0 ? t('servers.security.av.never') : d === 0 ? t('servers.security.av.today') : t('servers.security.av.daysAgo', { n: d });
+  const onOff = (b: boolean) => t(b ? 'servers.security.av.on' : 'servers.security.av.off');
   const authSource = $derived(data?.report?.auth?.source ?? '');
   const noteClass = (c: string | undefined) => (c === 'failed' ? 'warning' : 'info');
 
@@ -188,6 +195,7 @@
       {/if}
     </section>
 
+    {#if notes.auth !== 'unsupported'}
     <section class="card sc">
       <div class="sh">
         <h2 class="card-title"><Icon name="key" size={16} /> {t('servers.security.auth.title')}</h2>
@@ -225,6 +233,7 @@
         {#if auth.failed_7d > auth.failed_24h}<p class="muted small line">{t('servers.security.auth.failed7d', { n: auth.failed_7d })}</p>{/if}
       {/if}
     </section>
+    {/if}
 
     <section class="card sc">
       <div class="sh">
@@ -237,19 +246,73 @@
         <div class="rb">
           {#if fw.active}<span class="pill up">{t('servers.security.fw.active')}</span>{:else}<span class="pill pending">{t('servers.security.fw.inactive')}</span>{/if}
         </div>
-        {#if !fw.active}<p class="muted small line">{t('servers.security.fw.inactiveHint')}</p>{/if}
-        <dl class="meta">
-          <dt>{t('servers.security.fw.backend')}</dt>
-          <dd>{fw.backend || '—'}</dd>
-          <dt>{t('servers.security.fw.rules')}</dt>
-          <dd>{fw.rules}</dd>
-          {#if fw.policy}
-            <dt>{t('servers.security.fw.policy')}</dt>
-            <dd>{tOr(`servers.security.fw.policies.${fw.policy}`, fw.policy)}</dd>
-          {/if}
-        </dl>
+        {#if fw.profiles?.length}
+          {#if !fw.active}<p class="muted small line">{t('servers.security.fw.inactiveHintWin')}</p>{/if}
+          <ul class="prof" aria-label={t('servers.security.fw.profilesTitle')}>
+            {#each fw.profiles as p (p.name)}
+              <li>
+                <span class="pn">{tOr(`servers.security.fw.profiles.${p.name}`, p.name)}</span>
+                {#if p.connected}<span class="muted small">{t('servers.security.fw.connected')}</span>{/if}
+                <span class="pill {p.enabled && p.inbound !== 'allow' ? 'up' : 'pending'}">
+                  {p.enabled ? (p.inbound === 'allow' ? t('servers.security.fw.inboundAllow') : t('servers.security.fw.profileOn')) : t('servers.security.fw.profileOff')}
+                </span>
+              </li>
+            {/each}
+          </ul>
+        {:else}
+          {#if !fw.active}<p class="muted small line">{t('servers.security.fw.inactiveHint')}</p>{/if}
+          <dl class="meta">
+            <dt>{t('servers.security.fw.backend')}</dt>
+            <dd>{fw.backend || '—'}</dd>
+            <dt>{t('servers.security.fw.rules')}</dt>
+            <dd>{fw.rules}</dd>
+            {#if fw.policy}
+              <dt>{t('servers.security.fw.policy')}</dt>
+              <dd>{tOr(`servers.security.fw.policies.${fw.policy}`, fw.policy)}</dd>
+            {/if}
+          </dl>
+        {/if}
       {/if}
     </section>
+
+    {#if av || notes.av}
+      <section class="card sc">
+        <div class="sh">
+          <h2 class="card-title"><Icon name="shield" size={16} /> {t('servers.security.av.title')}</h2>
+          {#if av}<span class="muted small">{tOr(`servers.security.av.products.${av.product}`, av.product)}</span>{/if}
+        </div>
+        {#if notes.av}
+          <div class="alert {noteClass(notes.av)} note"><Icon name="info" size={16} /><span>{noteText(notes.av)}</span></div>
+        {/if}
+        {#if av}
+          <div class="rb">
+            {#if avOK}<span class="pill up">{t('servers.security.av.ok')}</span>{:else}<span class="pill down">{t('servers.security.av.problem')}</span>{/if}
+            {#if av.active_threats > 0}<span class="pill down">{t('servers.security.av.activeThreats')}: {av.active_threats}</span>{/if}
+          </div>
+          {#if !avOK}<p class="muted small line">{t('servers.security.av.problemHint')}</p>{/if}
+          <dl class="meta">
+            <dt>{t('servers.security.av.realtime')}</dt>
+            <dd class:c-pending={!av.realtime}>{onOff(av.realtime)}</dd>
+            <dt>{t('servers.security.av.service')}</dt>
+            <dd class:c-pending={!av.service || !av.enabled}>{onOff(av.service && av.enabled)}</dd>
+            <dt>{t('servers.security.av.sigAge')}</dt>
+            <dd class:c-pending={sigHours >= 72} title={av.sig_updated ? fmtDate(av.sig_updated) : ''}>{sigHours < 0 ? t('servers.security.updates.unknown') : sigText(sigHours)}</dd>
+            {#if av.sig_version}
+              <dt>{t('servers.security.av.sigVersion')}</dt>
+              <dd class="mono-name">{av.sig_version}</dd>
+            {/if}
+            <dt>{t('servers.security.av.quickScan')}</dt>
+            <dd>{scanText(av.quick_age_d)}</dd>
+            <dt>{t('servers.security.av.fullScan')}</dt>
+            <dd>{scanText(av.full_age_d)}</dd>
+            <dt>{t('servers.security.av.threats30')}</dt>
+            <dd class:c-pending={av.threats_30d > 0}>{av.threats_30d}</dd>
+            <dt>{t('servers.security.av.tamper')}</dt>
+            <dd>{onOff(av.tamper)}</dd>
+          </dl>
+        {/if}
+      </section>
+    {/if}
   </div>
 
   <div class="two">
@@ -295,7 +358,7 @@
           <tbody>
             {#each sessions as x, i (i)}
               <tr>
-                <td data-label={t('servers.security.sessions.colUser')}><span class="mono-name">{x.user}</span> <span class="muted small">{tOr(`servers.security.sessions.kinds.${x.kind}`, x.kind)}</span></td>
+                <td data-label={t('servers.security.sessions.colUser')}><span class="mono-name">{x.user}</span> <span class="muted small">{tOr(`servers.security.sessions.kinds.${x.kind}`, x.kind)}</span>{#if x.state && x.state !== 'Active'} <span class="pill pending">{tOr(`servers.security.sessions.states.${x.state}`, x.state)}</span>{/if}</td>
                 <td data-label={t('servers.security.sessions.colTTY')}>{x.tty || '—'}</td>
                 <td data-label={t('servers.security.sessions.colFrom')}>{x.from || t('servers.security.sessions.local')}</td>
                 <td data-label={t('servers.security.sessions.colSince')} title={x.since ? fmtDate(x.since) : ''}>{x.since ? fmtRelative(x.since, now) : '—'}</td>
@@ -457,6 +520,25 @@
     margin: 0;
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+  .prof {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+  }
+  .prof li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+  }
+  .prof .pn {
+    min-width: 80px;
+  }
+  .prof .pill {
+    margin-left: auto;
   }
   .rb {
     display: flex;

@@ -219,3 +219,52 @@ func TestSecurityMigration51(t *testing.T) {
 		t.Fatalf("tablolar: %v", err)
 	}
 }
+
+// 733: Defender durumu av_ok / av_sig_age_h sütunlarına, profiller rapora yazılır;
+// bölüm gelmezse korunur, no_defender notuyla silinir.
+func TestSaveSecurityDefender(t *testing.T) {
+	s := openTest(t)
+	ctx := context.Background()
+	id := secServer(t, s, "win")
+	cols := func() (ok, age int) {
+		t.Helper()
+		if err := s.db.QueryRowContext(ctx, `SELECT av_ok, av_sig_age_h FROM sec_state WHERE server_id = ?`, id).Scan(&ok, &age); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	av := &metrics.SecAV{Product: metrics.AVDefender, Service: true, Enabled: true, Realtime: true, SigUpdated: 100000 - 7*3600}
+	fw := &metrics.SecFirewall{Backend: metrics.FirewallWindows, Active: true,
+		Profiles: []metrics.SecFwProfile{{Name: metrics.FwProfileDomain, Enabled: true, Inbound: "block", Connected: true}}}
+	if _, err := s.SaveSecurity(ctx, id, 100000, metrics.Security{AV: av, Firewall: fw}, "a"); err != nil {
+		t.Fatal(err)
+	}
+	if ok, age := cols(); ok != 1 || age != 7 {
+		t.Fatalf("ilk: %d %d", ok, age)
+	}
+	// Bölümsüz rapor: korunur.
+	if _, err := s.SaveSecurity(ctx, id, 100100, metrics.Security{}, "b"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.LoadSecurity(ctx, id)
+	if got.Report.AV == nil || !got.Report.AV.Realtime || got.Report.Firewall == nil || len(got.Report.Firewall.Profiles) != 1 {
+		t.Fatalf("korunmadı: %+v", got.Report)
+	}
+	off := *av
+	off.Realtime, off.SigUpdated = false, 0
+	if _, err := s.SaveSecurity(ctx, id, 100200, metrics.Security{AV: &off}, "c"); err != nil {
+		t.Fatal(err)
+	}
+	if ok, age := cols(); ok != 0 || age != -1 {
+		t.Fatalf("kapalı: %d %d", ok, age)
+	}
+	if _, err := s.SaveSecurity(ctx, id, 100300, metrics.Security{Notes: map[string]string{metrics.SecSectionAV: metrics.NoteNoDefender}}, "d"); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := cols(); ok != -1 {
+		t.Fatalf("no_defender: %d", ok)
+	}
+	if got, _ = s.LoadSecurity(ctx, id); got.Report.AV != nil || got.Notes[metrics.SecSectionAV] != metrics.NoteNoDefender {
+		t.Fatalf("no_defender rapor: %+v %v", got.Report.AV, got.Notes)
+	}
+}

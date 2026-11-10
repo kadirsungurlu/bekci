@@ -131,6 +131,17 @@ func (s *Store) SaveSecurity(ctx context.Context, serverID, now int64, rep metri
 		if stored.Firewall == nil {
 			stored.Firewall = prev.Firewall
 		}
+		// Defender kaldırıldıysa (no_defender) eski durum korunmaz.
+		if stored.AV == nil && rep.Notes[metrics.SecSectionAV] != metrics.NoteNoDefender {
+			stored.AV = prev.AV
+		}
+		avOK, avAge := -1, int64(-1)
+		if a := stored.AV; a != nil {
+			avOK = boolInt(a.OK())
+			if a.SigUpdated > 0 {
+				avAge = max(now-a.SigUpdated, 0) / 3600
+			}
+		}
 		fw := -1
 		if f := stored.Firewall; f != nil {
 			fw = boolInt(f.Active)
@@ -156,13 +167,13 @@ func (s *Store) SaveSecurity(ctx context.Context, serverID, now int64, rep metri
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO sec_state (server_id, report, hash, received_at, upd_manager, upd_total, upd_security, upd_checked, reboot_required, reboot_since, fw_active)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO sec_state (server_id, report, hash, received_at, upd_manager, upd_total, upd_security, upd_checked, reboot_required, reboot_since, fw_active, av_ok, av_sig_age_h)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (server_id) DO UPDATE SET report = excluded.report, hash = excluded.hash, received_at = excluded.received_at,
 				upd_manager = excluded.upd_manager, upd_total = excluded.upd_total, upd_security = excluded.upd_security,
 				upd_checked = excluded.upd_checked, reboot_required = excluded.reboot_required, reboot_since = excluded.reboot_since,
-				fw_active = excluded.fw_active`,
-			serverID, string(b), hash, now, manager, total, secCount, checked, reboot, since, fw); err != nil {
+				fw_active = excluded.fw_active, av_ok = excluded.av_ok, av_sig_age_h = excluded.av_sig_age_h`,
+			serverID, string(b), hash, now, manager, total, secCount, checked, reboot, since, fw, avOK, avAge); err != nil {
 			return err
 		}
 		if rep.Auth != nil {

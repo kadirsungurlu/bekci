@@ -1535,7 +1535,7 @@ export interface ServerSecuritySummary {
   oldest_security?: number;
 }
 
-export type SecNoteCode = "unsupported" | "no_host" | "failed" | "no_manager" | "cache_missing" | "locked" | "no_errata" | "no_source" | "no_tool";
+export type SecNoteCode = "unsupported" | "no_host" | "failed" | "no_manager" | "cache_missing" | "locked" | "no_errata" | "no_source" | "no_tool" | "no_defender";
 
 export interface SecSession {
   user: string;
@@ -1552,6 +1552,31 @@ export interface SecFirewall {
   backend?: "firewalld" | "ufw" | "nftables" | "iptables-legacy" | string;
   rules: number;
   policy?: "accept" | "drop" | "reject" | string;
+  /** Windows profilleri (733). */
+  profiles?: SecFwProfile[];
+}
+
+export interface SecFwProfile {
+  name: "domain" | "private" | "public" | string;
+  enabled: boolean;
+  inbound?: "allow" | "block" | string;
+  connected?: boolean;
+}
+
+/** Windows Defender durumu (733). Yaşlar -1: hiç / bilinmiyor. */
+export interface SecAV {
+  product: string;
+  service: boolean;
+  enabled: boolean;
+  realtime: boolean;
+  /** İmzaların son güncellenmesi (unix sn; 0 bilinmiyor). */
+  sig_updated: number;
+  sig_version?: string;
+  quick_age_d: number;
+  full_age_d: number;
+  threats_30d: number;
+  active_threats: number;
+  tamper: boolean;
 }
 
 /** Panelde toplanan SSH giriş özeti. */
@@ -1606,12 +1631,13 @@ export interface ServerSecurity {
     /** null: toplanamadı; []: oturum yok. */
     sessions?: SecSession[] | null;
     firewall?: SecFirewall | null;
+    av?: SecAV | null;
   } | null;
   auth: SecAuthView;
   reboot_since?: number;
   /** Sıra: güvenlik önce, en eski önce. */
   packages: SecPackage[] | null;
-  notes: { updates?: SecNoteCode | string; reboot?: SecNoteCode | string; auth?: string; sessions?: string; firewall?: string } | null;
+  notes: { updates?: SecNoteCode | string; reboot?: SecNoteCode | string; auth?: string; sessions?: string; firewall?: string; av?: string } | null;
   /** Rapor aralığı (sn); 0 = bu sunucuda kapalı. */
   interval: number;
   /** sec_updates_age eşiği (gün); kural kapalıysa yok. */
