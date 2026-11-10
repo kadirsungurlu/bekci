@@ -2263,7 +2263,6 @@ export const api = {
   // Kontrol noktaları
   probes: () => get<Probe[]>("/api/probes"),
   mesh: () => get<MeshMatrix>("/api/mesh"),
-  topology: () => get<Topology>("/api/topology?view=summary"),
   createProbe: (name: string) => post<ProbeSetup>("/api/probes", { name }),
   /** Takip edilecek sunucu ekler (kontrol noktalarından ayrı kayıt). */
   createServer: (name: string) => post<ProbeSetup>("/api/servers", { name }),
@@ -2455,145 +2454,9 @@ export interface MeshLink {
   last_ok_at?: number;
 }
 
-/** Canlı topoloji (GET /api/topology): sayfanın tüm verisi tek yanıtta, kullanıcının yetkisine göre süzülmüş. */
-export type TopoLocationStatus = "up" | "down" | "retrying" | "waiting" | "unknown";
-export type TopoMonitorState = "up" | "partial" | "down" | "pending" | "paused" | "maintenance";
-
-export interface TopoLocation {
-  /** 0: ana sunucu (panel). */
-  probe_id: number;
-  name: string;
-  /** unknown: sonuç gelmiyor; oob: ajan ikinci hatta, sonucu karara katılmıyor. */
-  status: TopoLocationStatus;
-  oob?: boolean;
-  last_check_at: number;
-  ping_ms: number;
-}
-
 export interface ServerSuggestion {
   host: string;
   matches: { server_id: number; name: string; match: "ip" | "hostname" | "name" | "dns"; value: string }[];
-}
-
-export interface TopoLastIncident {
-  id: number;
-  kind: string;
-  started_at: number;
-  /** 0: açık. */
-  resolved_at: number;
-  cause: string;
-  acked: boolean;
-}
-
-export interface TopoMonitor {
-  id: number;
-  name: string;
-  type: string;
-  state: TopoMonitorState;
-  last_check_at: number;
-  ping_ms: number;
-  /** ?view=summary yanıtında yok. */
-  locations?: TopoLocation[];
-  /** Denetleyen noktalar: 0 ana sunucu (Topology.local_name). */
-  loc_ids?: number[];
-  /** loc_ids alt kümeleri; ikisinde olmayan nokta son sonucu ok. */
-  loc_bad?: number[];
-  loc_off?: number[];
-  /** Kesintideyken hata metni. */
-  message?: string;
-  since?: number;
-  /** Son 30 değer, eskiden yeniye: ms; -1 ölçüm yok, -2 kesinti. */
-  series?: number[];
-  last_incident?: TopoLastIncident;
-  /** Yalnız düzenleyici ve üstü: Topology.tags kimlikleri. */
-  tags?: number[];
-  /** Yalnız yönetici: Topology.customers kimlikleri. */
-  customers?: number[];
-  /** Yalnız düzenleyici ve üstü: Topology.channels kimlikleri (doğrudan + etiket). */
-  channels?: number[];
-  server_id?: number;
-}
-
-export interface TopoProbe {
-  id: number;
-  name: string;
-  online: boolean;
-  region?: string;
-  code?: string;
-  /** Yalnız yönetici. */
-  provider?: string;
-  /** Yalnız yönetici: panel RTT (ms), hat (primary | oob), mesh eşleri, sürüm. */
-  panel_rtt_ms?: number;
-  late?: boolean;
-  uplink?: string;
-  oob_name?: string;
-  peers?: number;
-  peers_up?: number;
-  version?: string;
-  last_seen_at: number;
-}
-
-export interface TopoServer {
-  id: number;
-  name: string;
-  state: string;
-  role?: string;
-  region?: string;
-  customers?: number[];
-  channels?: number[];
-  /** Açık olayın metni ve başlangıcı. */
-  alert?: string;
-  alert_since?: number;
-  cpu?: number;
-  mem?: number;
-  disk?: number;
-  /** Eşiği aşılan ölçütler. */
-  firing: string[];
-  version: string;
-  metrics_at: number;
-  last_seen_at: number;
-}
-
-export interface TopoChannel {
-  id: number;
-  name: string;
-  type: string;
-  active: boolean;
-  /** Son gönderim; yok: henüz gönderilmedi. */
-  last_send?: { at: number; ok: boolean; error?: string };
-  sent_24h?: number;
-  failed_24h?: number;
-}
-
-export interface TopoIncident {
-  id: number;
-  kind: string;
-  monitor_id?: number;
-  monitor_name?: string;
-  server_id?: number;
-  server_name?: string;
-  started_at: number;
-  cause: string;
-  acked: boolean;
-}
-
-export interface Topology {
-  now: number;
-  admin: boolean;
-  stats: { probes_online: number; probes_total: number; results_per_sec?: number; open_incidents: number };
-  monitors: TopoMonitor[];
-  probes: TopoProbe[];
-  /** Yalnız yönetici. */
-  mesh?: MeshMatrix;
-  servers: TopoServer[];
-  /** Yalnız düzenleyici ve üstü. */
-  channels?: TopoChannel[];
-  incidents: TopoIncident[];
-  tags: { id: number; name: string; color: string }[];
-  /** Yerel kontrolü yapan ana sunucunun görünen adı (konum 0). */
-  local_name?: string;
-  /** Yalnız yönetici. */
-  customers?: { id: number; name: string }[];
 }
 
 // ---- Lisans (docs/LISANS-TASARIM.md "API") ----

@@ -64,7 +64,7 @@ export interface ProMenuItem {
   ozellik: string;
   ikon: IconName;
   /** Ad ve açıklama: license.pages.<metin> / <metin>Desc. */
-  metin: 'filoGuvenlik' | 'denetimler' | 'raporlar' | 'musteriler' | 'betikler';
+  metin: 'topoloji' | 'filoGuvenlik' | 'denetimler' | 'raporlar' | 'musteriler' | 'betikler';
   /** Menüyü görebilecek en düşük rol. */
   rol: Role;
   /** Geniş içerik alanı (tablolu sayfalar). */
@@ -72,6 +72,8 @@ export interface ProMenuItem {
 }
 
 export const PRO_MENU: readonly ProMenuItem[] = [
+  // Eski #/topology adresi buraya yönlenir (router). Veri sunucuda role göre süzülür.
+  { id: 'topoloji', ozellik: 'topoloji', ikon: 'network', metin: 'topoloji', rol: 'viewer', genis: true },
   { id: 'filo-guvenlik', ozellik: 'filo_guvenlik', ikon: 'shield-check', metin: 'filoGuvenlik', rol: 'admin' },
   { id: 'denetimler', ozellik: 'hosting_denetim', ikon: 'check-square', metin: 'denetimler', rol: 'admin' },
   { id: 'raporlar', ozellik: 'rapor', ikon: 'file', metin: 'raporlar', rol: 'editor' },

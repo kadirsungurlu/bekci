@@ -17,7 +17,7 @@ Pro henüz sitede duyurulmaz.
 | Güvenlik | Sunucu başına güvenlik ÖZETİ (sayılar + uyarı): güncellemeler, yeniden başlatma, SSH/oturum, güvenlik duvarı, Defender | Filo güvenlik görünümü ve raporu, panelden toplu güncelleme ve planlı yeniden başlatma |
 | Denetimler | Özel metrik eklentisi (Nagios/JSON), denetim altyapısı, inode/zombi | Hosting servis denetimleri: posta kuyruğu, MSSQL, MySQL, web sunucu durumu, yedek/klasör, Windows görev/sertifika, bağlantı noktası/süreç |
 | Otomasyon | — | Betik çalıştırma: panel uçları, sayfalar, imza aracı ve ajan yürütücüsü (7306 ile taşındı) |
-| Görünüm | Panel, olaylar, sunucu sayfaları | Canlı topoloji (açık depodan taşınacak: .sira 7308) , çoklu panel görünümü |
+| Görünüm | Panel, olaylar, sunucu sayfaları | Canlı topoloji (7308 ile taşındı), çoklu panel görünümü |
 | Hesaplar | Kullanıcılar, roller, 2FA, OIDC, API anahtarları (salt okunur dahil) | Müşteri hesapları (çok kiracılı), SAML/SCIM |
 | Raporlar | /metrics, rozetler | Zamanlı SLA/PDF raporları |
 | İşletim | Yedekleme/içe aktarma, işlem kaydı | İşlem kaydını dışa aktarma, iki panelli HA |
@@ -37,6 +37,11 @@ Pro henüz sitede duyurulmaz.
 - Betik çalıştırmanın tamamı Pro'da (7306): panel uçları, kayıt zinciri, imza aracı (bekci-imza), ajan
   yürütücüsü (betikajan) ve arayüz. Açık depoda yalnız genel eklenti noktaları ve kilitli menü kalır.
   Ücretsiz eklenti zamanlayıcı (739) betikajan'a dayanamaz; kendi dar yürütücüsüyle yapılır ya da Pro'ya geçer.
+- Canlı topolojinin tamamı Pro'da (7308): GET /api/topology (bekci-pro `ic/internal/api/topology.go`),
+  sayfa `#/pro/topoloji` (eski `#/topology` bağlantısı oraya gider) ve e2e. Bayrak `topoloji`; saklanan Pro
+  verisi olmayan salt görünüm olduğundan lisans yoksa GET de 402 `pro_lisans` döner (salt okunur kuralının
+  istisnası). Mesh matrisi ve şeması (GET /api/mesh, Ayarlar > Kontrol noktaları, mesh olay kartı) ve
+  topolojinin beslendiği veri (monitör-sunucu bağı, kanal gönderim sayaçları, nokta etiketleri) ücretsizde kalır.
 
 ## Derin eklentiler (Pro örtüsü)
 Go `internal` kuralı yüzünden Pro modülü açık deponun iç paketlerini içe alamaz. Pro deposunda

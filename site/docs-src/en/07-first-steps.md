@@ -172,6 +172,8 @@ Limitations: the panel must be opened over **HTTPS**. On **iPhone and iPad** (iO
 
 ## Live topology {#topology}
 
+**Live topology** is a Pro feature (license; the old **#/topology** link opens the Pro page, and without a license the page shows as locked). In the free edition the connection matrix and diagram between check locations stay under **Settings > Check locations**.
+
 The **Live topology** page shows monitors, check locations, servers and notification channels on one screen. It updates over a live stream and falls back to short polling if the stream drops.
 
 - **Problem board:** the items in trouble right now are listed at the top.

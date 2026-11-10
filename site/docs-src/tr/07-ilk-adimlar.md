@@ -169,6 +169,8 @@ Sınırlamalar: panel **HTTPS** ile açılmalı. **iPhone ve iPad**'de (iOS 16.4
 
 ## Canlı topoloji {#topoloji}
 
+**Canlı topoloji** Pro özelliğidir (lisans; eski **#/topology** bağlantısı Pro sayfasına gider, lisans yoksa sayfa kilitli görünür). Ücretsiz sürümde kontrol noktaları arasındaki bağlantı matrisi ve şeması **Ayarlar > Kontrol noktaları** sayfasında kalır.
+
 **Canlı topoloji** sayfası monitörleri, kontrol noktalarını, sunucuları ve bildirim kanallarını tek ekranda gösterir. Sayfa canlı akışla güncellenir; akış koparsa kısa aralıklarla yoklamaya geçer.
 
 - **Sorun çizelgesi:** Üstte o an sorunlu olan öğeleri görürsünüz.

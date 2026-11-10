@@ -35,7 +35,6 @@
   import MaintenanceList from './pages/MaintenanceList.svelte';
   import MaintenanceForm from './pages/MaintenanceForm.svelte';
   import More from './pages/More.svelte';
-  import Topology from './pages/Topology.svelte';
   import ServerList from './pages/ServerList.svelte';
   import ServerDetail from './pages/ServerDetail.svelte';
 
@@ -175,14 +174,6 @@
     icon: 'zap',
     match: ['incidents', 'incident'],
   };
-  const NAV_TOPOLOGY: NavItem = {
-    href: '#/topology',
-    get label() {
-      return t('nav.topology');
-    },
-    icon: 'network',
-    match: ['topology'],
-  };
   const NAV_PAGES: NavItem = {
     href: '#/status-pages',
     get label() {
@@ -224,26 +215,26 @@
       return t('nav.more');
     },
     icon: 'menu',
-    match: ['more', 'pro', 'topology', 'maintenance', 'maint-new', 'maint-edit', 'notifications', 'settings', 'pages', 'page-new', 'page-edit'],
+    match: ['more', 'pro', 'maintenance', 'maint-new', 'maint-edit', 'notifications', 'settings', 'pages', 'page-new', 'page-edit'],
   };
 
   // İzleyici bildirim kanallarını ve durum sayfalarını yönetemez; yalnızca seçili
   // monitörleri gören (müşteri) izleyici Sunucular'ı kendisine sunucu atanmışsa görür.
   const nav = $derived<NavItem[]>(
     session.isAdmin
-      ? [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_TOPOLOGY, NAV_PAGES, NAV_MAINT, NAV_NOTIF, NAV_SETTINGS]
+      ? [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_PAGES, NAV_MAINT, NAV_NOTIF, NAV_SETTINGS]
       : session.canEdit
-      ? [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_TOPOLOGY, NAV_PAGES, NAV_MAINT, NAV_NOTIF, NAV_SETTINGS]
+      ? [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_PAGES, NAV_MAINT, NAV_NOTIF, NAV_SETTINGS]
       : session.restricted
         ? session.canSeeServers
-          ? [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_TOPOLOGY, NAV_MAINT, NAV_SETTINGS]
-          : [NAV_MONITORS, NAV_INCIDENTS, NAV_TOPOLOGY, NAV_MAINT, NAV_SETTINGS]
-        : [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_TOPOLOGY, NAV_MAINT, NAV_SETTINGS],
+          ? [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_MAINT, NAV_SETTINGS]
+          : [NAV_MONITORS, NAV_INCIDENTS, NAV_MAINT, NAV_SETTINGS]
+        : [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_MAINT, NAV_SETTINGS],
   );
   // Mobil sekme çubuğu en fazla 4 öğe: az kullanılanlar "Daha fazla" altında.
   const tabs = $derived<NavItem[]>(
     session.restricted && !session.canSeeServers
-      ? [NAV_MONITORS, NAV_INCIDENTS, NAV_TOPOLOGY, NAV_MORE]
+      ? [NAV_MONITORS, NAV_INCIDENTS, NAV_MORE]
       : [NAV_MONITORS, NAV_SERVERS, NAV_INCIDENTS, NAV_MORE],
   );
 
@@ -305,8 +296,6 @@
         return servers.byId(route.id)?.name ?? t('nav.titles.server');
       case 'more':
         return t('nav.more');
-      case 'topology':
-        return t('nav.topology');
       case 'pro': {
         const it = proMenuItem(route.id);
         return it ? t(`license.pages.${it.metin}`) : t('nav.titles.notFound');
@@ -459,7 +448,7 @@
     <main class="main">
       <div
         class="content"
-        class:wide={route.name === 'list' || route.name === 'topology' || route.name === 'servers' || route.name === 'page-edit' || route.name === 'page-new' || (route.name === 'pro' && !!proMenuItem(route.id)?.genis)}
+        class:wide={route.name === 'list' || route.name === 'servers' || route.name === 'page-edit' || route.name === 'page-new' || (route.name === 'pro' && !!proMenuItem(route.id)?.genis)}
         class:form-page={route.name === 'new' || route.name === 'edit' || route.name === 'maint-new' || route.name === 'maint-edit'}
       >
         {#if session.isAdmin}<UpdateBanner />{/if}
@@ -502,8 +491,6 @@
           <Settings tab={route.tab} />
         {:else if route.name === 'more'}
           <More onLogout={logout} />
-        {:else if route.name === 'topology'}
-          <Topology />
         {:else if route.name === 'pro'}
           {#key route.id}<ProPage id={route.id} yol={route.yol} />{/key}
         {:else}

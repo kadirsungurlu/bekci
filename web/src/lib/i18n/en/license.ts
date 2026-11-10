@@ -125,6 +125,8 @@ export default {
     raporlarDesc: 'Scheduled SLA and PDF reports.',
     musteriler: 'Customers',
     musterilerDesc: 'Customer accounts: each customer sees only their own monitors and servers.',
+    topoloji: 'Live topology',
+    topolojiDesc: 'Servers, check locations, channels and monitors with their relations on one live screen.',
     betikler: 'Scripts',
     betiklerDesc: 'Run signed scripts on servers with approval and a tamper-evident log, plus run history and trust settings.',
   },

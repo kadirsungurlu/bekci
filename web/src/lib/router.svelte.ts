@@ -27,7 +27,6 @@ export type Route =
   | { name: 'servers' }
   | { name: 'server'; id: number }
   | { name: 'more' }
-  | { name: 'topology' }
   | { name: 'pro'; id: string; yol: string }
   | { name: 'notfound' };
 
@@ -60,7 +59,8 @@ export function parse(path: string): Route {
   if (clean === '/maintenance') return { name: 'maintenance' };
   if (clean === '/maintenance/new') return { name: 'maint-new' };
   if (clean === '/more') return { name: 'more' };
-  if (clean === '/topology') return { name: 'topology' };
+  // Canlı topoloji Pro'ya taşındı; eski bağlantılar Pro sayfasına gider.
+  if (clean === '/topology') return { name: 'pro', id: 'topoloji', yol: '' };
   if (clean === '/servers') return { name: 'servers' };
   let m = clean.match(/^\/pro\/([a-z0-9-]+)(?:\/([a-z0-9][a-z0-9/_-]*))?$/);
   if (m) return { name: 'pro', id: m[1], yol: m[2] ?? '' };

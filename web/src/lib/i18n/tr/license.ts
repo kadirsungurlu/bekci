@@ -123,6 +123,8 @@ export default {
     raporlarDesc: 'Zamanlanmış SLA ve PDF raporları.',
     musteriler: 'Müşteriler',
     musterilerDesc: 'Müşteri hesapları: her müşteri yalnız kendi monitör ve sunucularını görür.',
+    topoloji: 'Canlı topoloji',
+    topolojiDesc: 'Sunucular, kontrol noktaları, kanallar ve monitörler arasındaki ilişkiler tek ekranda, canlı.',
     betikler: 'Betikler',
     betiklerDesc: 'İmzalı betikleri sunucularda onaylı ve kayıt altında çalıştırma, çalıştırma geçmişi ve güven ayarları.',
   },
