@@ -186,6 +186,10 @@ CVE/ciddiyet süzgeci), CSV/PDF, haftalık özet e-postası.
   `status` 1 = ok / 0 = critical, `msg` = ileti (yaygın eklenti yazım alışkanlığı; şema bizimdir).
 - Sınırlar: eklenti başına 50 metrik, ad `^[a-zA-Z0-9_.\-]{1,64}$`, NaN/Inf atılır, ileti 512 karakter.
 - Eşikler: eklentinin kendi durumu esastır; panelde metrik başına ek eşik kuralı tanımlanabilir (B.5).
+- Uygulama notları (738, `internal/eklenti`): bayt katları 1024 tabanlı (KB/kB/KiB ... TB); tanınmayan düzgün birim aynen kalır;
+  Nagios etiketi ada çevrilir (izinsiz karakter `_`, 64'te kesilir), JSON adı çevrilmez (kurala uymayan atılır); yinelenen ad, `U`,
+  NaN/Inf ve 50 üstü atılır, sayısı `dropped`; geçersiz eşik yalnız eşiği düşürür; JSON metrikleri ada göre sıralı; 64 KiB üstü Nagios
+  son satır sonunda kesilir (`truncated`), JSON reddedilir (unknown). Eşikler `Result` içinde taban birimde, Nagios metni olarak yazılır.
 
 ### B.3 Şema (migration 53, `store/checks.go`; 52 = 732 sec_auth tabloları)
 - `check_state(server_id, name, source:plugin|builtin, kind, version, status, message, last_run, last_ok, duration_ms, PK(server_id,name))`.
