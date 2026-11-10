@@ -14,7 +14,7 @@ import (
 func TestReadScopeAllows(t *testing.T) {
 	yes := []string{"/api/servers", "/api/servers/7", "/api/servers/7/inventory", "/api/servers/7/timeline",
 		"/api/servers/7/stats", "/api/servers/7/events", "/api/servers/7/incidents", "/api/monitors", "/api/monitors/3",
-		"/api/incidents", "/api/incidents/9", "/api/certs", "/api/server-events", "/api/summary"}
+		"/api/incidents", "/api/incidents/9", "/api/certs", "/api/server-events", "/api/summary", "/api/security/summary", "/api/servers/7/security"}
 	no := []string{"/api/api-keys", "/api/users", "/api/settings", "/api/export", "/api/audit", "/api/notifications",
 		"/api/events", "/metrics", "/api/badge/1/status", "/api/servers/7/", "/api/servers/x", "/api/monitors/3/beats",
 		"/api/servers/7/inventory/certs/ab", "/api/topology", "/api/mesh", "/api/probes"}

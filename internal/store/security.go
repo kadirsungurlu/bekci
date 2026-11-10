@@ -93,6 +93,10 @@ type SecSummary struct {
 	RebootRequired bool  `json:"reboot_required"`
 	RebootSince    int64 `json:"reboot_since,omitempty"`
 	OldestSecurity int64 `json:"oldest_security,omitempty"` // en eski bekleyen güvenlik paketinin first_seen'i
+	FwActive       int   `json:"fw_active"`                 // -1 bilinmiyor, 0 kapalı, 1 açık
+	AvOK           int   `json:"av_ok"`                     // -1 bilinmiyor (Defender yok), 0 sorunlu, 1 sağlam
+	AvSigAgeH      int   `json:"av_sig_age_h"`              // kayıt anındaki imza yaşı (saat; -1 bilinmiyor)
+	IndexTime      int64 `json:"index_time,omitempty"`      // paket dizininin son tazelenmesi (unix sn; 0 bilinmiyor)
 }
 
 // ServerSecurity sunucunun saklanan güvenlik durumu (GET /api/servers/{id}/security).
@@ -370,7 +374,8 @@ func (s *Store) SecAuthFailedSince(ctx context.Context, serverID, from int64) (i
 func (s *Store) SecSummaries(ctx context.Context) (map[int64]SecSummary, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT st.server_id, st.upd_total, st.upd_security, st.reboot_required, st.reboot_since,
-			COALESCE((SELECT MIN(p.first_seen) FROM sec_pkgs p WHERE p.server_id = st.server_id AND p.security = 1), 0)
+			COALESCE((SELECT MIN(p.first_seen) FROM sec_pkgs p WHERE p.server_id = st.server_id AND p.security = 1), 0),
+			st.fw_active, st.av_ok, st.av_sig_age_h, st.report
 		FROM sec_state st`)
 	if err != nil {
 		return nil, err
@@ -381,8 +386,19 @@ func (s *Store) SecSummaries(ctx context.Context) (map[int64]SecSummary, error) 
 		var id int64
 		var v SecSummary
 		var reboot int
-		if err := rows.Scan(&id, &v.UpdTotal, &v.UpdSecurity, &reboot, &v.RebootSince, &v.OldestSecurity); err != nil {
+		var report string
+		if err := rows.Scan(&id, &v.UpdTotal, &v.UpdSecurity, &reboot, &v.RebootSince, &v.OldestSecurity,
+			&v.FwActive, &v.AvOK, &v.AvSigAgeH, &report); err != nil {
 			return nil, err
+		}
+		// Rapor paket listesi olmadan saklanır (küçük); yalnız dizin zamanı okunur.
+		var rep struct {
+			Updates *struct {
+				IndexTime int64 `json:"index_time"`
+			} `json:"updates"`
+		}
+		if json.Unmarshal([]byte(report), &rep) == nil && rep.Updates != nil {
+			v.IndexTime = rep.Updates.IndexTime
 		}
 		v.RebootRequired = reboot == 1
 		out[id] = v

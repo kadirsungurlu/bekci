@@ -1336,6 +1336,18 @@ paths:
         - { name: days, in: query, description: "Yalnız bu kadar gün içinde bitenler", schema: { type: integer } }
         - { name: ignored, in: query, description: "1: yoksayılanlar da gelsin", schema: { type: string } }
       responses: { "200": { description: "{certs[] (server_id, server, days_left dahil)}" } }
+  /api/security/summary:
+    get:
+      tags: [servers]
+      summary: Filo güvenlik özeti (görünür sunucular; salt okunur anahtarla da)
+      description: "Her grup {count, servers[{id, name, ...}]}. security_updates (count, oldest), reboot (since), firewall_off, av_problem (av_ok, sig_age_h; 72 saatten eski imza), stale_index (index_time; 7 günden eski paket dizini)."
+      responses: { "200": { description: "{servers, reporting, security_updates, reboot, firewall_off, av_problem, stale_index}" } }
+  /api/servers/{id}/security:
+    get:
+      tags: [servers]
+      summary: Sunucunun güvenlik durumu (güncellemeler, yeniden başlatma, oturum, güvenlik duvarı, Defender)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "200": { description: "{received_at, report, packages[] (first_seen), notes, ...}" } }
   /api/servers/{id}/incidents:
     get: { tags: [servers], summary: Sunucunun olayları, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Incident" } } } } } } }
   /api/servers/{id}/alerts:

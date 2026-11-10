@@ -19,16 +19,17 @@ import (
 
 // readScopeExact tam eşleşen yollar.
 var readScopeExact = map[string]bool{
-	"/api/summary":       true,
-	"/api/servers":       true,
-	"/api/monitors":      true,
-	"/api/incidents":     true,
-	"/api/certs":         true,
-	"/api/server-events": true,
+	"/api/summary":          true,
+	"/api/servers":          true,
+	"/api/monitors":         true,
+	"/api/incidents":        true,
+	"/api/certs":            true,
+	"/api/server-events":    true,
+	"/api/security/summary": true,
 }
 
 // readScopeRe kimlik içeren yollar.
-var readScopeRe = regexp.MustCompile(`^/api/(servers/[0-9]+(/(stats|timeline|events|inventory|incidents))?|monitors/[0-9]+|incidents/[0-9]+)$`)
+var readScopeRe = regexp.MustCompile(`^/api/(servers/[0-9]+(/(stats|timeline|events|inventory|incidents|security))?|monitors/[0-9]+|incidents/[0-9]+)$`)
 
 func readScopeAllows(method, path string) bool {
 	if method != http.MethodGet && method != http.MethodHead {
