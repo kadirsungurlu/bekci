@@ -29,6 +29,7 @@ const (
 	SecSectionSessions = "sessions"
 	SecSectionFirewall = "firewall"
 	SecSectionAV       = "av" // 733: Windows Defender
+	SecSectionWU       = "wu" // 734: Windows Update geçmişi
 )
 
 // SSH/oturum/güvenlik duvarı sınırları (iş 732).
@@ -37,6 +38,15 @@ const (
 	MaxSecAuthUsers = 5  // denenen kullanıcı adı
 	MaxSecAuthHours = 48 // saat kovası (ajan uzun süre gönderemezse eskileri birleşir)
 	MaxSecSessions  = 50
+	MaxSecLocked    = 50 // rapordaki kilitlenme kaydı (Windows 4740)
+	MaxSecWUFailed  = 20 // başarısız güncelleme listesi
+)
+
+// Giriş kaynakları (SecAuth.Source).
+const (
+	AuthSourceJournal  = "journal"
+	AuthSourceFile     = "file"
+	AuthSourceEventLog = "eventlog" // Windows Security günlüğü (4625/4740, iş 734)
 )
 
 // Güvenlik bölümüne özgü not kodları (genel kodlar: NoteUnsupported,
@@ -146,6 +156,30 @@ type SecAuth struct {
 	Hours    []SecAuthHour `json:"hours,omitempty"`
 	TopIPs   []SecCount    `json:"top_ips,omitempty"`
 	TopUsers []SecCount    `json:"top_users,omitempty"`
+	// Locked kilitlenen hesaplar (Windows 4740; panel her birini zaman
+	// çizelgesine account_locked olarak yazar). Linux'ta boş.
+	Locked []SecLock `json:"locked,omitempty"`
+}
+
+// SecLock kilitlenen hesap (Windows olay 4740).
+type SecLock struct {
+	User   string `json:"user"`
+	Time   int64  `json:"time"`             // unix sn
+	Source string `json:"source,omitempty"` // kilidi tetikleyen bilgisayar (CallerComputerName)
+}
+
+// SecWU Windows Update geçmişi (734): son 30 günde başarısız/yarıda kalan kurulumlar.
+type SecWU struct {
+	Failed30d int         `json:"failed_30d"`
+	Failed    []SecWUFail `json:"failed,omitempty"` // en yeni önce, en çok MaxSecWUFailed
+}
+
+// SecWUFail başarısız güncelleme kaydı (IUpdateHistoryEntry).
+type SecWUFail struct {
+	KB    string `json:"kb,omitempty"`
+	Title string `json:"title"`
+	Time  int64  `json:"time"` // unix sn
+	Code  int    `json:"code"` // OperationResultCode: 4 başarısız, 5 yarıda kaldı
 }
 
 // SecSession oturum açmış kullanıcı.
@@ -199,7 +233,7 @@ func (a SecAV) OK() bool { return a.Service && a.Enabled && a.Realtime }
 
 // HasAuthDelta raporda gönderilmemiş SSH giriş farkı var mı (değişmese de gönderilir).
 func (s Security) HasAuthDelta() bool {
-	return s.Auth != nil && (s.Auth.Failed > 0 || s.Auth.Accepted > 0)
+	return s.Auth != nil && (s.Auth.Failed > 0 || s.Auth.Accepted > 0 || len(s.Auth.Locked) > 0)
 }
 
 // Security ajanın güvenlik raporu. Bölüm toplanamazsa nil kalır ve nedeni
@@ -212,6 +246,7 @@ type Security struct {
 	Sessions []SecSession      `json:"sessions"`           // 732: null toplanamadı, [] oturum yok
 	Firewall *SecFirewall      `json:"firewall,omitempty"` // 732 (Windows profilleri 733)
 	AV       *SecAV            `json:"av,omitempty"`       // 733: Windows Defender
+	WU       *SecWU            `json:"wu,omitempty"`       // 734: Windows Update geçmişi
 	Notes    map[string]string `json:"notes,omitempty"`
 }
 
@@ -309,6 +344,36 @@ func (s *Security) sanitize732() {
 		}
 		a.TopIPs = topCounts(a.TopIPs, MaxSecAuthIPs)
 		a.TopUsers = topCounts(a.TopUsers, MaxSecAuthUsers)
+		a.Locked = slices.DeleteFunc(a.Locked, func(l SecLock) bool { return l.User == "" || l.Time <= 0 })
+		for i := range a.Locked {
+			l := &a.Locked[i]
+			l.User, l.Source = invClip(l.User), invClip(l.Source)
+		}
+		slices.SortFunc(a.Locked, func(x, y SecLock) int {
+			if x.Time != y.Time {
+				return int(x.Time - y.Time)
+			}
+			return strings.Compare(x.User, y.User)
+		})
+		a.Locked = slices.Compact(a.Locked)
+		if len(a.Locked) > MaxSecLocked {
+			a.Locked = a.Locked[len(a.Locked)-MaxSecLocked:]
+		}
+		if len(a.Locked) == 0 {
+			a.Locked = nil
+		}
+	}
+	if w := s.WU; w != nil {
+		w.Failed = slices.DeleteFunc(w.Failed, func(f SecWUFail) bool { return f.Title == "" && f.KB == "" })
+		for i := range w.Failed {
+			f := &w.Failed[i]
+			f.KB, f.Title, f.Time = invClip(f.KB), invClip(f.Title), max(f.Time, 0)
+		}
+		slices.SortFunc(w.Failed, func(x, y SecWUFail) int { return int(y.Time - x.Time) })
+		if len(w.Failed) > MaxSecWUFailed {
+			w.Failed = w.Failed[:MaxSecWUFailed]
+		}
+		w.Failed30d = max(w.Failed30d, len(w.Failed))
 	}
 	if s.Sessions != nil {
 		if len(s.Sessions) > MaxSecSessions {
