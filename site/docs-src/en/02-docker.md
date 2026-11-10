@@ -45,6 +45,7 @@ Copy the whole command below and run it on your server:
 docker run -d --name bekci --restart unless-stopped \
   -p 8080:8080 \
   -v bekci-data:/data \
+  -v /etc/machine-id:/run/bekci-host/machine-id:ro \
   kadirsungurlu/bekci:latest
 ```
 
@@ -57,6 +58,7 @@ What each part does:
 | `--restart unless-stopped` | Start again automatically after a server reboot or a crash. |
 | `-p 8080:8080` | Forward the server's port 8080 to Bekci. |
 | `-v bekci-data:/data` | Store the data in a Docker volume named `bekci-data`; it survives even if you delete the container. |
+| `-v /etc/machine-id:...:ro` | Gives the host machine ID read-only. Only needed for a device-bound (lifetime) Pro licence; Bekci runs without it. Restoring a backup on another server does not carry this ID. |
 | `kadirsungurlu/bekci:latest` | The Bekci image on Docker Hub (amd64 and arm64). |
 
 > [!CHECK]
@@ -105,6 +107,7 @@ docker stop bekci && docker rm bekci
 docker run -d --name bekci --restart unless-stopped \
   -p 8080:8080 \
   -v bekci-data:/data \
+  -v /etc/machine-id:/run/bekci-host/machine-id:ro \
   -e BASE_URL=http://⟦SERVER-IP⟧:8080 \
   -e TZ=Europe/Istanbul \
   kadirsungurlu/bekci:latest

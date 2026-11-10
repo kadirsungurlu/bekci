@@ -45,6 +45,7 @@ Aşağıdaki komutun tamamını kopyalayıp sunucunuzda çalıştırın:
 docker run -d --name bekci --restart unless-stopped \
   -p 8080:8080 \
   -v bekci-data:/data \
+  -v /etc/machine-id:/run/bekci-host/machine-id:ro \
   kadirsungurlu/bekci:latest
 ```
 
@@ -57,6 +58,7 @@ Komutun parçaları ne işe yarar:
 | `--restart unless-stopped` | Sunucu yeniden başlarsa ya da Bekci çökerse otomatik yeniden başlasın. |
 | `-p 8080:8080` | Sunucunun 8080 portunu Bekci'ye yönlendirir. |
 | `-v bekci-data:/data` | Veriler `bekci-data` adlı Docker biriminde saklanır; konteyneri silseniz de kaybolmaz. |
+| `-v /etc/machine-id:...:ro` | Sunucunun makine kimliğini salt okunur verir. Yalnız Pro cihaza bağlı (ömür boyu) lisans için gerekir; yoksa da Bekci çalışır. Yedeği başka sunucuya dönmek bu kimliği taşımaz. |
 | `kadirsungurlu/bekci:latest` | Docker Hub'daki Bekci imajı (amd64 ve arm64). |
 
 > [!CHECK]
@@ -105,6 +107,7 @@ docker stop bekci && docker rm bekci
 docker run -d --name bekci --restart unless-stopped \
   -p 8080:8080 \
   -v bekci-data:/data \
+  -v /etc/machine-id:/run/bekci-host/machine-id:ro \
   -e BASE_URL=http://⟦SUNUCU-IP⟧:8080 \
   -e TZ=Europe/Istanbul \
   kadirsungurlu/bekci:latest
