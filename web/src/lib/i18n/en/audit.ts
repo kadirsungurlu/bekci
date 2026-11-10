@@ -88,6 +88,13 @@ export default {
       update: 'Settings updated',
       oidc: 'SSO settings changed',
     },
+    license: {
+      set: 'License key entered',
+      lease: 'Offline lease uploaded',
+      remove: 'License removed',
+      refresh: 'License checked',
+      warning: 'License warning',
+    },
     apikey: {
       create: 'API key created',
       revoke: 'API key revoked',
@@ -150,6 +157,7 @@ export default {
     monitor: 'Monitor',
     notification: 'Notification',
     settings: 'Settings',
+    license: 'License',
     apikey: 'API key',
     status_page: 'Status page',
     announcement: 'Announcement',

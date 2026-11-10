@@ -86,6 +86,13 @@ export default {
       update: 'Ayarlar güncellendi',
       oidc: 'SSO ayarları değişti',
     },
+    license: {
+      set: 'Lisans anahtarı girildi',
+      lease: 'Çevrimdışı kira yüklendi',
+      remove: 'Lisans kaldırıldı',
+      refresh: 'Lisans denetlendi',
+      warning: 'Lisans uyarısı',
+    },
     apikey: {
       create: 'API anahtarı oluşturuldu',
       revoke: 'API anahtarı iptal edildi',
@@ -148,6 +155,7 @@ export default {
     monitor: 'Monitör',
     notification: 'Bildirim',
     settings: 'Ayarlar',
+    license: 'Lisans',
     apikey: 'API anahtarı',
     status_page: 'Durum sayfası',
     announcement: 'Duyuru',
