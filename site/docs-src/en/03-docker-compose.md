@@ -65,7 +65,6 @@ services:
     volumes:
       - bekci-data:/data   # backups and temporary files
       # Device identity for a device-bound Pro license; works without them too.
-      - /sys/class/dmi/id/product_uuid:/run/bekci-host/product_uuid:ro
       - /etc/machine-id:/run/bekci-host/machine-id:ro
     depends_on:
       db:
@@ -111,7 +110,6 @@ services:
     volumes:
       - bekci-data:/data
       # Device identity for a device-bound Pro license; works without them too.
-      - /sys/class/dmi/id/product_uuid:/run/bekci-host/product_uuid:ro
       - /etc/machine-id:/run/bekci-host/machine-id:ro
 volumes:
   bekci-data:

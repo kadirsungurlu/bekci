@@ -220,9 +220,17 @@ func RegisterMigrationDialect(version int, sqlite, postgres string) {
 	pgMigrations[version] = postgres
 }
 
+// ProMigrationStart Pro modülünün (kanca.Migration) migration numaralarının
+// başlangıcı. Bu ve sonrası çekirdek sürüm sırasına girmez: pro_migrations
+// tablosunda tek tek izlenir (Pro'dan açık sürüme dönmek şemayı "yeni" saymaz).
+const ProMigrationStart = 1000
+
 func latestMigration() int {
 	n := 0
 	for v := range migrations {
+		if v >= ProMigrationStart {
+			continue
+		}
 		n = max(n, v)
 	}
 	return n
@@ -296,6 +304,9 @@ func (s *Store) migrate(ctx context.Context) error {
 		if err := s.applyMigration(ctx, v, true); err != nil {
 			return err
 		}
+	}
+	if err := s.applyProMigrations(ctx); err != nil {
+		return err
 	}
 	// Migration kilidi tutulurken: TimescaleDB algılama ve dönüşüm.
 	return s.ensureTimescale(ctx)
@@ -514,4 +525,38 @@ func splitStatements(ddl string) []string {
 		out = append(out, st)
 	}
 	return out
+}
+
+// applyProMigrations ProMigrationStart ve sonrasındaki (Pro) migration'lardan
+// uygulanmamış olanları sırayla uygular; uygulananlar pro_migrations'a yazılır.
+func (s *Store) applyProMigrations(ctx context.Context) error {
+	var pro []int
+	for v := range migrations {
+		if v >= ProMigrationStart {
+			pro = append(pro, v)
+		}
+	}
+	if len(pro) == 0 {
+		return nil
+	}
+	sort.Ints(pro)
+	if _, err := s.db.ExecContext(ctx, "CREATE TABLE IF NOT EXISTS pro_migrations (version BIGINT NOT NULL PRIMARY KEY)"); err != nil {
+		return err
+	}
+	for _, v := range pro {
+		var n int
+		if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM pro_migrations WHERE version = ?", v).Scan(&n); err != nil {
+			return err
+		}
+		if n > 0 {
+			continue
+		}
+		if err := s.applyMigration(ctx, v, false); err != nil {
+			return fmt.Errorf("pro migration %d: %w", v, err)
+		}
+		if _, err := s.db.ExecContext(ctx, "INSERT INTO pro_migrations (version) VALUES (?)", v); err != nil {
+			return err
+		}
+	}
+	return nil
 }

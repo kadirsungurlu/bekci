@@ -65,7 +65,6 @@ services:
     volumes:
       - bekci-data:/data   # yedekler ve geçici dosyalar
       # Pro cihaza bağlı lisans için; yoksa da çalışır.
-      - /sys/class/dmi/id/product_uuid:/run/bekci-host/product_uuid:ro
       - /etc/machine-id:/run/bekci-host/machine-id:ro
     depends_on:
       db:
@@ -111,7 +110,6 @@ services:
     volumes:
       - bekci-data:/data
       # Pro cihaza bağlı lisans için; yoksa da çalışır.
-      - /sys/class/dmi/id/product_uuid:/run/bekci-host/product_uuid:ro
       - /etc/machine-id:/run/bekci-host/machine-id:ro
 volumes:
   bekci-data:

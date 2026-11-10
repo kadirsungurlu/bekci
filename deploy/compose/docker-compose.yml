@@ -70,7 +70,6 @@ services:
     volumes:
       - bekci-data:/data
       # Pro cihaza bağlı lisans için; yoksa da çalışır.
-      - /sys/class/dmi/id/product_uuid:/run/bekci-host/product_uuid:ro
       - /etc/machine-id:/run/bekci-host/machine-id:ro
     # Dışarıya doğrudan açılmaz; yalnızca Caddy üzerinden erişilir.
     expose:
