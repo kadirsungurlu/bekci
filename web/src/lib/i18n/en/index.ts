@@ -27,6 +27,7 @@ import tags from './tags';
 import overview from './overview';
 import topology from './topology';
 import scripts from './scripts';
+import license from './license';
 
 import type { Shape } from '../types';
 import type tr from '../tr';
@@ -58,6 +59,7 @@ const en = {
   overview,
   topology,
   scripts,
+  license,
 } satisfies Shape<typeof tr>;
 
 export default en;

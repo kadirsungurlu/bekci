@@ -64,6 +64,9 @@ services:
       DATABASE_URL: postgres://bekci:⟦A-STRONG-PASSWORD⟧@db:5432/bekci?sslmode=disable
     volumes:
       - bekci-data:/data   # backups and temporary files
+      # Device identity for a device-bound Pro license; works without them too.
+      - /sys/class/dmi/id/product_uuid:/run/bekci-host/product_uuid:ro
+      - /etc/machine-id:/run/bekci-host/machine-id:ro
     depends_on:
       db:
         condition: service_healthy
@@ -107,6 +110,9 @@ services:
       TZ: Europe/Istanbul
     volumes:
       - bekci-data:/data
+      # Device identity for a device-bound Pro license; works without them too.
+      - /sys/class/dmi/id/product_uuid:/run/bekci-host/product_uuid:ro
+      - /etc/machine-id:/run/bekci-host/machine-id:ro
 volumes:
   bekci-data:
 ```

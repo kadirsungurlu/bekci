@@ -126,7 +126,7 @@ func sigPath(dir, goos, arch string) string {
 func sign(args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("imzala", flag.ContinueOnError)
 	keyFile := fs.String("anahtar", "", "özel anahtar (PKCS#8 PEM) dosyası")
-	version := fs.String("surum", "", "imzalanan sürüm (main.version ile aynı)")
+	version := fs.String("surum", "", "imzalanan sürüm (uygulama.version ile aynı)")
 	dir := fs.String("cikti", "", ".sig dosyalarının yazılacağı klasör")
 	if err := fs.Parse(args); err != nil {
 		return err

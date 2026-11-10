@@ -2,9 +2,10 @@
   import LangSwitch from '../components/LangSwitch.svelte';
   import ThemeToggle from '../components/ThemeToggle.svelte';
   // Mobil "Daha fazla" menüsü: sekme çubuğuna sığmayan bölümler.
-  import { ROLE_LABELS, session } from '../lib/session.svelte';
+  import { ROLE_LABELS, roleRank, session } from '../lib/session.svelte';
   import Icon, { type IconName } from '../components/Icon.svelte';
   import { t } from '../lib/i18n';
+  import { PRO_MENU, proAcik, proSayfaVar } from '../lib/pro.svelte';
 
   let { onLogout }: { onLogout: () => void } = $props();
 
@@ -27,9 +28,18 @@
       out.push({ href: '#/settings/probes', label: t('nav.moreItems.probes'), desc: t('nav.moreItems.probesDesc'), icon: 'map-pin' });
       out.push({ href: '#/settings/backup', label: t('nav.moreItems.backup'), desc: t('nav.moreItems.backupDesc'), icon: 'archive' });
       out.push({ href: '#/settings/audit', label: t('nav.moreItems.audit'), desc: t('nav.moreItems.auditDesc'), icon: 'list' });
+      out.push({ href: '#/settings/license', label: t('nav.moreItems.license'), desc: t('nav.moreItems.licenseDesc'), icon: 'key' });
     }
     return out;
   });
+
+  // Pro grubu: kilitliyken soluk + kilit ikonu (dokununca ProLocked açıklaması).
+  const proItems = $derived(
+    PRO_MENU.filter((m) => roleRank(session.role) >= roleRank(m.rol)).map((m) => ({
+      ...m,
+      locked: !(proSayfaVar(m.id) && proAcik(m.ozellik)),
+    })),
+  );
 </script>
 
 <div class="page-head">
@@ -48,6 +58,22 @@
     </a>
   {/each}
 </div>
+
+{#if proItems.length}
+  <h2 class="grp">{t('nav.pro')}</h2>
+  <div class="card list" data-testid="more-pro">
+    {#each proItems as it (it.id)}
+      <a class="item" class:locked={it.locked} href="#/pro/{it.id}" title={it.locked ? t('nav.proLocked') : undefined}>
+        <span class="ic"><Icon name={it.ikon} size={18} /></span>
+        <span class="t">
+          <span class="l">{t(`license.pages.${it.metin}`)}</span>
+          <span class="d">{it.locked ? t('nav.proLocked') : t(`license.pages.${it.metin}Desc`)}</span>
+        </span>
+        <Icon name={it.locked ? 'lock' : 'chevron-right'} size={16} />
+      </a>
+    {/each}
+  </div>
+{/if}
 
 <div class="card me">
   <span class="ic"><Icon name="user" size={18} /></span>
@@ -126,6 +152,22 @@
   }
   .d {
     font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .grp {
+    margin: 18px 4px 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .item.locked .l,
+  .item.locked .ic {
+    opacity: 0.6;
+  }
+  .item.locked .ic {
+    background: var(--card-2);
     color: var(--muted);
   }
   .me {

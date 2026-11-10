@@ -2796,3 +2796,86 @@ export const scriptsApi = {
     put<Ok>("/api/scripts/control/channels", { channel_ids, code }),
   chain: () => get<ScriptChain>("/api/scripts/chain"),
 };
+
+// ---- Lisans (docs/LISANS-TASARIM.md "API") ----
+
+/** Lisansın geldiği yer: yok | deneme (ilk 30 gün) | lisans. */
+export type LicenseSource = "yok" | "deneme" | "lisans";
+
+export type LicenseKind = "" | "abonelik" | "omur_cevrimici" | "omur_cevrimdisi";
+
+/** Kapalı/kısıtlı olma nedeni (lisans.Degerlendir). */
+export type LicenseReason =
+  | ""
+  | "saat_geri"
+  | "pro_degil"
+  | "deneme_bitti"
+  | "cihaz_yok"
+  | "cihaz"
+  | "guncelleme_bitis"
+  | "kira_yok"
+  | "kira_uyusmaz"
+  | "kira_bitti"
+  | "suresi_doldu";
+
+/** Şerit uyarısı (öncelik sunucuda seçilir). */
+export type LicenseWarning =
+  | ""
+  | "saat_geri"
+  | "suresi_doldu"
+  | "kira_bitti"
+  | "sunucu_ulasilamiyor"
+  | "bitis_1"
+  | "bitis_7"
+  | "bitis_14"
+  | "deneme";
+
+/** Zaman alanları RFC3339 metni ("" = yok); sayı gelirse Unix saniyesi sayılır. */
+export type LicenseTime = string | number | null;
+
+/** GET /api/license (her oturum). */
+export interface LicenseState {
+  pro_derleme: boolean;
+  etkin: boolean;
+  kaynak: LicenseSource;
+  neden: LicenseReason | string;
+  /** Açık özellik bayrakları; ["*"] = hepsi. */
+  ozellikler: string[] | null;
+  tur: LicenseKind | string;
+  bitis: LicenseTime;
+  kalan_gun: number | null;
+  uyari: LicenseWarning | string;
+}
+
+/** GET /api/license/detail (yönetici). */
+export interface LicenseDetail extends LicenseState {
+  panel_id: string;
+  cihaz_id: string;
+  cihaz_hata: string;
+  musteri: string;
+  lisans_kimlik: string;
+  kira_bitis: LicenseTime;
+  cevrimdisi: boolean;
+  son_basari: LicenseTime;
+  son_deneme: LicenseTime;
+  son_hata: string;
+  deneme_bitis: LicenseTime;
+  derleme: string;
+  sunucu_adresi: string;
+  gonderilen_veri: string[] | null;
+}
+
+/**
+ * Lisans uçları. Hata kodları ApiError.code içinde: PUT 400 lisans_gecersiz|cihaz_yok|cihaz,
+ * 409 sunucu kodu (iptal|bilinmeyen|cihaz|panel_sinir|tasima_sinir), 502 sunucu_ulasilamiyor.
+ */
+export const licenseApi = {
+  getLicense: () => get<LicenseState>("/api/license"),
+  getLicenseDetail: () => get<LicenseDetail>("/api/license/detail"),
+  putLicense: (anahtar: string) =>
+    put<LicenseDetail>("/api/license", { anahtar }),
+  postLicenseLease: (kira: string) =>
+    post<LicenseDetail>("/api/license/lease", { kira }),
+  refreshLicense: () => post<LicenseDetail>("/api/license/refresh", {}),
+  deleteLicense: () => del<LicenseDetail>("/api/license"),
+};

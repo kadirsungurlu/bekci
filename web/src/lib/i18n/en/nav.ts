@@ -14,6 +14,8 @@ export default {
   settings: 'Settings',
   more: 'More',
   topology: 'Live topology',
+  pro: 'Pro',
+  proLocked: 'Locked: comes with Bekci Pro',
   myAccount: 'My account',
   titles: {
     newMonitor: 'New monitor',
@@ -68,5 +70,7 @@ export default {
     backupDesc: 'Back up, restore; migrate from another monitoring tool',
     audit: 'Audit log',
     auditDesc: 'Who did what, and when',
+    license: 'License',
+    licenseDesc: 'Pro license, trial and identifiers',
   },
 } satisfies Shape<typeof tr>;

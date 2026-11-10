@@ -5,7 +5,7 @@
   import { live } from './lib/live.svelte';
   import { servers } from './lib/servers.svelte';
   import { publicSlugFromPath, router } from './lib/router.svelte';
-  import { ROLE_LABELS, session } from './lib/session.svelte';
+  import { ROLE_LABELS, roleRank, session } from './lib/session.svelte';
   import { toast } from './lib/ui.svelte';
   import { pwa, stripAppManifest } from './lib/pwa.svelte';
   import { isThemePref, theme } from './lib/theme.svelte';
@@ -14,6 +14,9 @@
   import { APP_NAME } from './lib/brand';
   import Icon, { type IconName } from './components/Icon.svelte';
   import UpdateBanner from './components/UpdateBanner.svelte';
+  import LicenseBanner from './components/LicenseBanner.svelte';
+  import ProPage from './pages/ProPage.svelte';
+  import { license, PRO_MENU, proAcik, proMenuItem, proSayfaVar } from './lib/pro.svelte';
   import Toasts from './components/Toasts.svelte';
   import ConfirmDialog from './components/ConfirmDialog.svelte';
   import Tooltip from './components/Tooltip.svelte';
@@ -233,7 +236,7 @@
       return t('nav.more');
     },
     icon: 'menu',
-    match: ['more', 'topology', 'maintenance', 'maint-new', 'maint-edit', 'notifications', 'settings', 'pages', 'page-new', 'page-edit', 'scripts', 'script-runs', 'script-run', 'script-settings'],
+    match: ['more', 'pro', 'topology', 'maintenance', 'maint-new', 'maint-edit', 'notifications', 'settings', 'pages', 'page-new', 'page-edit', 'scripts', 'script-runs', 'script-run', 'script-settings'],
   };
 
   // İzleyici bildirim kanallarını ve durum sayfalarını yönetemez; yalnızca seçili
@@ -261,6 +264,23 @@
   $effect(() => {
     if (phase === 'app' && session.user && session.canSeeServers) untrack(() => servers.ensure());
   });
+
+  // Lisans durumu: oturum açıkken bir kez + 10 dakikada bir (lib/pro.svelte.ts).
+  const signedIn = $derived(phase === 'app' && !!session.user);
+  $effect(() => {
+    if (signedIn) {
+      untrack(() => license.start());
+      return () => license.stop();
+    }
+  });
+
+  // Kenar çubuğundaki Pro grubu: kilitliyken soluk + kilit ikonu.
+  const proNav = $derived(
+    PRO_MENU.filter((m) => roleRank(session.role) >= roleRank(m.rol)).map((m) => ({
+      ...m,
+      locked: !(proSayfaVar(m.id) && proAcik(m.ozellik)),
+    })),
+  );
 
   const route = $derived(router.route);
   const downCount = $derived(live.monitors.reduce((n, m) => n + (m.active && m.status === 0 ? 1 : 0), 0));
@@ -304,6 +324,10 @@
         return t('nav.more');
       case 'topology':
         return t('nav.topology');
+      case 'pro': {
+        const it = proMenuItem(route.id);
+        return it ? t(`license.pages.${it.metin}`) : t('nav.titles.notFound');
+      }
       default:
         return t('nav.titles.notFound');
     }
@@ -397,6 +421,24 @@
           </a>
         {/each}
       </nav>
+      {#if proNav.length}
+        <nav class="pro-nav" aria-label={t('nav.pro')} data-testid="nav-pro">
+          <span class="grp">{t('nav.pro')}</span>
+          {#each proNav as p (p.id)}
+            <a
+              href="#/pro/{p.id}"
+              class:locked={p.locked}
+              class:active={route.name === 'pro' && route.id === p.id}
+              aria-current={route.name === 'pro' && route.id === p.id ? 'page' : undefined}
+              title={p.locked ? t('nav.proLocked') : undefined}
+            >
+              <Icon name={p.ikon} size={17} />
+              <span>{t(`license.pages.${p.metin}`)}</span>
+              {#if p.locked}<span class="lk" aria-label={t('license.pro.locked')}><Icon name="lock" size={13} /></span>{/if}
+            </a>
+          {/each}
+        </nav>
+      {/if}
       <div class="side-foot">
         {#if !live.connected && live.loaded}
           <div class="offline" title={t('nav.offlineTip')}><Icon name="wifi-off" size={15} /> <span>{t('nav.offline')}</span></div>
@@ -438,6 +480,7 @@
         class:form-page={route.name === 'new' || route.name === 'edit' || route.name === 'maint-new' || route.name === 'maint-edit'}
       >
         {#if session.isAdmin}<UpdateBanner />{/if}
+        <LicenseBanner />
         {#if editorOnly && !session.canEdit}
           {@render forbidden()}
         {:else if (route.name === 'servers' || route.name === 'server') && !session.canSeeServers}
@@ -488,6 +531,8 @@
           <More onLogout={logout} />
         {:else if route.name === 'topology'}
           <Topology />
+        {:else if route.name === 'pro'}
+          {#key route.id}<ProPage id={route.id} />{/key}
         {:else}
           <div class="card empty">
             <h3>{t('nav.notFoundTitle')}</h3>
@@ -608,6 +653,33 @@
   }
   .sidebar nav a.active :global(svg) {
     color: var(--up);
+  }
+  .pro-nav {
+    margin-top: 18px;
+    gap: 1px;
+  }
+  .pro-nav .grp {
+    padding: 0 12px 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .sidebar .pro-nav a {
+    padding: 7px 12px;
+    font-size: 0.88rem;
+  }
+  .sidebar .pro-nav a.locked {
+    color: var(--muted);
+  }
+  .sidebar .pro-nav a.locked > :global(svg) {
+    opacity: 0.6;
+  }
+  .lk {
+    margin-left: auto;
+    display: inline-flex;
+    color: var(--muted);
   }
   .count {
     margin-left: auto;

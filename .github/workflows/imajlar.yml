@@ -147,7 +147,7 @@ jobs:
         run: |
           set -euo pipefail
           # Sürüm şeridi testi için sürüm 1.5.0 ve sahte sürüm sunucusu (guncelleme.mjs açar).
-          go build -ldflags "-X main.version=1.5.0" -o "$RUNNER_TEMP/uptime" ./cmd/uptime
+          go build -ldflags "-X github.com/kadirsungurlu/bekci/uygulama.version=1.5.0" -o "$RUNNER_TEMP/uptime" ./cmd/uptime
           ADDR=127.0.0.1:8080 DATA_DIR="$RUNNER_TEMP/e2e-data" UPDATE_CHECK_URL=http://127.0.0.1:8099 "$RUNNER_TEMP/uptime" > "$RUNNER_TEMP/panel.log" 2>&1 &
           for _ in $(seq 1 60); do curl -sf http://127.0.0.1:8080/healthz >/dev/null && exit 0; sleep 1; done
           cat "$RUNNER_TEMP/panel.log"; exit 1

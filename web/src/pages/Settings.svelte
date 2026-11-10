@@ -11,6 +11,7 @@
   import Probes from './settings/Probes.svelte';
   import Backup from './settings/Backup.svelte';
   import Login from './settings/Login.svelte';
+  import License from './settings/License.svelte';
 
   let { tab }: { tab: SettingsTab } = $props();
 
@@ -25,6 +26,7 @@
     { key: 'probes', href: '#/settings/probes', icon: 'map-pin', need: 'admin' },
     { key: 'backup', href: '#/settings/backup', icon: 'archive', need: 'admin' },
     { key: 'audit', href: '#/settings/audit', icon: 'list', need: 'admin' },
+    { key: 'license', href: '#/settings/license', icon: 'key', need: 'admin' },
   ];
 
   const can = (need: 'viewer' | 'editor' | 'admin') => need === 'viewer' || (need === 'editor' ? session.canEdit : session.isAdmin);
@@ -80,6 +82,8 @@
   <Backup />
 {:else if tab === 'audit'}
   <Audit />
+{:else if tab === 'license'}
+  <License />
 {/if}
 
 <style>

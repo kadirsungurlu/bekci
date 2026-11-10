@@ -12,6 +12,8 @@ export default {
   settings: 'Ayarlar',
   more: 'Daha fazla',
   topology: 'Canlı topoloji',
+  pro: 'Pro',
+  proLocked: 'Kilitli: Bekci Pro ile gelir',
   myAccount: 'Hesabım',
   titles: {
     newMonitor: 'Yeni monitör',
@@ -67,5 +69,7 @@ export default {
     backupDesc: 'Yedek al, geri yükle; başka bir izleme aracından taşı',
     audit: 'İşlem kaydı',
     auditDesc: 'Kim ne zaman ne yaptı',
+    license: 'Lisans',
+    licenseDesc: 'Pro lisansı, deneme ve kimlikler',
   },
 };

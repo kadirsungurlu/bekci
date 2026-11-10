@@ -11,6 +11,7 @@ export default {
     probes: 'Kontrol noktaları',
     backup: 'Yedekle / Geri yükle',
     audit: 'İşlem kaydı',
+    license: 'Lisans',
   },
   forbiddenTitle: 'Bu bölüm için yetkiniz yok',
   forbiddenText:

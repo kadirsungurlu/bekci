@@ -13,6 +13,7 @@ export default {
     probes: 'Check locations',
     backup: 'Backup / Restore',
     audit: 'Audit log',
+    license: 'License',
   },
   forbiddenTitle: "You don't have access to this section",
   forbiddenText:

@@ -185,6 +185,10 @@ func (s *Store) releaseLock() {
 // Postgres veritabanının PostgreSQL olup olmadığı.
 func (s *Store) Postgres() bool { return s.postgres }
 
+// SQLDB alttaki *sql.DB (Pro başlangıç kancaları, kanca.Panel.DB). Sorgular
+// sürücünün yer tutucusunu doğrudan kullanır (PostgreSQL: $1, SQLite: ?).
+func (s *Store) SQLDB() *sql.DB { return s.db.db }
+
 // Ping veritabanının erişilebilir olduğunu doğrular (healthz için).
 func (s *Store) Ping(ctx context.Context) error { return s.db.db.PingContext(ctx) }
 

@@ -31,7 +31,7 @@ ARG TARGETARCH
 # (internal/agentupdate). Kendi anahtarınızla imzalayan çatallar için.
 ARG AGENT_SIGNING_PUBKEY=
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH:-$(go env GOARCH)} go build -trimpath \
-      -ldflags "-s -w -X main.version=${VERSION:-$(echo ${SOURCE_COMMIT} | cut -c1-7)}${AGENT_SIGNING_PUBKEY:+ -X github.com/kadirsungurlu/bekci/internal/agentupdate.PublicKeyBase64=$AGENT_SIGNING_PUBKEY}" \
+      -ldflags "-s -w -X github.com/kadirsungurlu/bekci/internal/lisans.DerlemeZamani=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X github.com/kadirsungurlu/bekci/uygulama.version=${VERSION:-$(echo ${SOURCE_COMMIT} | cut -c1-7)}${AGENT_SIGNING_PUBKEY:+ -X github.com/kadirsungurlu/bekci/internal/agentupdate.PublicKeyBase64=$AGENT_SIGNING_PUBKEY}" \
       -o /out/uptime ./cmd/uptime
 # Başka platformların ajan programları (aynı sürüm): sunucular panelden
 # indirir (GET /api/probe/binary?os=…&arch=…). İmajın kendi platformu atlanır
@@ -43,7 +43,7 @@ RUN mkdir -p /out/agents && self=${TARGETOS}/${TARGETARCH:-$(go env GOARCH)} && 
       [ "$p" = "$self" ] && continue; \
       os=${p%/*}; arch=${p#*/}; ext=; [ "$os" = windows ] && ext=.exe; \
       CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \
-        -ldflags "-s -w -X main.version=${VERSION:-$(echo ${SOURCE_COMMIT} | cut -c1-7)}${AGENT_SIGNING_PUBKEY:+ -X github.com/kadirsungurlu/bekci/internal/agentupdate.PublicKeyBase64=$AGENT_SIGNING_PUBKEY}" \
+        -ldflags "-s -w -X github.com/kadirsungurlu/bekci/internal/lisans.DerlemeZamani=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X github.com/kadirsungurlu/bekci/uygulama.version=${VERSION:-$(echo ${SOURCE_COMMIT} | cut -c1-7)}${AGENT_SIGNING_PUBKEY:+ -X github.com/kadirsungurlu/bekci/internal/agentupdate.PublicKeyBase64=$AGENT_SIGNING_PUBKEY}" \
         -o /out/agents/uptime-$os-$arch$ext ./cmd/uptime || exit 1; \
     done
 # Ajan programlarının imzası (otomatik güncelleme; internal/agentupdate):
@@ -67,17 +67,21 @@ RUN --mount=type=secret,id=agent_signing_key \
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 # postgresql18-client: gece yedeği (pg_dump) dış veritabanında da çalışsın.
 # Ana sürüm compose'daki veritabanıyla aynı (18).
-RUN apk add --no-cache ca-certificates postgresql18-client \
+RUN apk add --no-cache ca-certificates postgresql18-client su-exec \
     && adduser -D -H -u 1000 uptime \
     && mkdir -p /data \
     && chown uptime:uptime /data
 COPY --from=build /out/uptime /usr/local/bin/uptime
 COPY --from=build /out/agents/ /usr/local/share/uptime/agents/
+COPY --chmod=0755 deploy/giris.sh /usr/local/bin/giris.sh
 
 # Ping yetkisiz (UDP tabanlı ICMP) çalışır; Docker'ın varsayılan
 # net.ipv4.ping_group_range ayarı buna izin verir, root gerekmez.
-USER uptime
+# USER yok: giriş betiği (deploy/giris.sh) root başlarsa yalnız cihaz kimliği
+# dosyalarını (Pro cihaza bağlı lisans) /run/bekci/cihaz altına kopyalar ve
+# su-exec ile uptime kullanıcısına düşer; program hiçbir zaman root çalışmaz.
 ENV ADDR=:8080 \
+    BEKCI_CIHAZ_DIZIN=/run/bekci/cihaz \
     DATA_DIR=/data \
     TZ=Europe/Istanbul
 VOLUME ["/data"]
@@ -86,4 +90,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --start-interval=2s --retries=3 \
     CMD [ "$ADDR" = "-" ] || [ -e /tmp/uptime-bekliyor ] || wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1
 
-ENTRYPOINT ["uptime"]
+ENTRYPOINT ["/usr/local/bin/giris.sh"]

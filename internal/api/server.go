@@ -87,6 +87,8 @@ type Server struct {
 	// (AGENT_DIR; uptime-<os>-<arch>[.exe]). GET /api/probe/binary?os=…&arch=…
 	// buradan sunar.
 	AgentDir string
+	// proOzellik lisansta Pro özelliği açık mı (nil: hepsi kapalı; kanca.go).
+	proOzellik func(string) bool
 }
 
 // DefaultAgentDir Docker imajında ajan programlarının bulunduğu klasör.

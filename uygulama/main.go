@@ -1,0 +1,351 @@
+// Uptime: Go ile yazılmış, sade arayüzlü uptime izleme sistemi.
+//
+// Ortam değişkenleri:
+//
+//	ADDR                   dinlenecek adres (varsayılan :8080)
+//	DATA_DIR               SQLite veritabanı ve yedeklerin klasörü (varsayılan ./data)
+//	DATABASE_URL           verilirse PostgreSQL kullanılır (postgres://kullanıcı:şifre@sunucu:5432/vt);
+//	                       boşsa SQLite (kullanımdan kalkıyor)
+//	DB_TIMESCALE           auto | off (off: eklenti olsa da düz PostgreSQL yolu)
+//	SQLITE_IGNORE          1: veri klasöründe SQLite varken boş PostgreSQL ile açılmaya izin verir
+//	BASE_URL               bildirimlerdeki bağlantılar için dış adres, ör. https://bekci.alanadi.com
+//	                       (durum sayfası özel alan adı bu adresle aynı olamaz)
+//	LOG_LEVEL              debug | info | warn | error (varsayılan info)
+//	MAX_CONCURRENT_CHECKS  aynı anda en fazla kontrol sayısı (varsayılan 50)
+//	BEAT_BATCH_MS          kontrol sonuçlarını bu pencerede biriktirip tek işlemde yazar (varsayılan 250; 0 = her sonuç ayrı işlem)
+//	READ_CACHE_SEC         Timescale kipinde tüm monitörleri tarayan özet okumalarını paylaşma süresi (varsayılan 15; 0 = kapalı)
+//	TZ                     saat dilimi (günlük özetler ve yedek saati için)
+//	PROBE_IMAGE            kontrol noktası kurulum komutunda kullanılacak Docker imajı; boşsa (varsayılan)
+//	                       komut herkese açık alpine imajıyla programı bu sunucudan indirir
+//	AGENT_DIR              diğer platformların ajan programları (uptime-windows-amd64.exe …);
+//	                       varsayılan /usr/local/share/uptime/agents (Docker imajında hazır)
+//
+// Uzak kontrol noktası modu (veritabanı kullanmaz; bkz. probe.go):
+//
+//	uptime probe            PROBE_SERVER ve PROBE_TOKEN ortam değişkenleriyle
+//	uptime service install  (Windows, Yönetici) ajanı Windows hizmeti olarak kurar/günceller;
+//	                        PROBE_SERVER ve PROBE_TOKEN ortamdan okunur (bkz. service_windows.go)
+//	uptime service uninstall
+//	uptime version          sürümü yazar
+//
+// Veritabanı taşıma (panel durdurulmuşken; bkz. migrate.go):
+//
+//	uptime migrate [--from dosya] [--to adres] [--dry-run] [--restart]
+//	  SQLite verisini DATABASE_URL'deki boş PostgreSQL/TimescaleDB'ye kopyalar
+//
+// Şifre sıfırlama (giriş yapılamadığında, container içinde):
+//
+//	uptime sifre-sifirla <kullanıcı-adı> [--2fa-kapat]
+//	  yeni şifre standart girdiden okunur; --2fa-kapat iki adımlı doğrulamayı
+//	  da kapatır (telefon ve kurtarma kodları kaybolduysa)
+package uygulama
+
+import (
+	"bufio"
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync/atomic"
+	"syscall"
+	"time"
+	_ "time/tzdata" // imajda tzdata olmasa da TZ çalışsın
+
+	"github.com/kadirsungurlu/bekci/internal/agentupdate"
+	"github.com/kadirsungurlu/bekci/internal/api"
+	"github.com/kadirsungurlu/bekci/internal/brand"
+	"github.com/kadirsungurlu/bekci/internal/check"
+	"github.com/kadirsungurlu/bekci/internal/engine"
+	"github.com/kadirsungurlu/bekci/internal/notify"
+	"github.com/kadirsungurlu/bekci/internal/rdap"
+	"github.com/kadirsungurlu/bekci/internal/stats"
+	"github.com/kadirsungurlu/bekci/internal/store"
+	"github.com/kadirsungurlu/bekci/kanca"
+	"github.com/kadirsungurlu/bekci/web"
+	"golang.org/x/crypto/bcrypt"
+)
+
+// version derlemede -ldflags "-X github.com/kadirsungurlu/bekci/uygulama.version=..." ile verilir.
+var version = "dev"
+
+func env(key, def string) string {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		return v
+	}
+	return def
+}
+
+// Main programın giriş noktası (cmd/uptime ve bekci-pro derlemesi çağırır).
+func Main() {
+	if err := run(); err != nil {
+		if errors.Is(err, agentupdate.ErrRestart) {
+			// Ajan güncellendi: gözetmen (Docker, systemd) yeni programı başlatır.
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(agentupdate.ExitCode)
+		}
+		fmt.Fprintln(os.Stderr, "hata:", err)
+		os.Exit(1)
+	}
+}
+
+// newLogger LOG_LEVEL düzeyinde metin günlüğü.
+func newLogger(w io.Writer) *slog.Logger {
+	var level slog.Level
+	if err := level.UnmarshalText([]byte(env("LOG_LEVEL", "info"))); err != nil {
+		level = slog.LevelInfo
+	}
+	return slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: level}))
+}
+
+func run() error {
+	log := newLogger(os.Stdout)
+	check.SetVersion(version) // kontrol isteklerinin User-Agent'ı
+	// Veritabanı gerektirmeyen komutlar.
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "probe":
+			return runProbe(log)
+		case "service":
+			return runServiceCommand(os.Args[2:])
+		case "betik":
+			return runBetik(os.Args[2:])
+		case "version", "surum":
+			fmt.Println(version)
+			return nil
+		case "migrate":
+			return runMigrate(log, os.Args[2:])
+		}
+	}
+
+	dataDir := env("DATA_DIR", "./data")
+	if err := os.MkdirAll(dataDir, 0o750); err != nil {
+		return fmt.Errorf("veri klasörü oluşturulamadı: %w", err)
+	}
+	target, dbDesc := filepath.Join(dataDir, "uptime.db"), "SQLite"
+	if u := env("DATABASE_URL", ""); u != "" {
+		if !store.IsPostgresDSN(u) {
+			return errors.New("DATABASE_URL postgres:// veya postgresql:// ile başlamalı")
+		}
+		target, dbDesc = u, "PostgreSQL "+redactDSN(u)
+	}
+	// Dolu SQLite varken boş PostgreSQL ile açılmak eski veriyi kaybolmuş
+	// gösterirdi (yeni compose eski birimle başlatılınca).
+	if len(os.Args) <= 1 && store.IsPostgresDSN(target) && env("SQLITE_IGNORE", "") == "" {
+		if err := store.CheckSQLiteLeftover(context.Background(), target, filepath.Join(dataDir, "uptime.db")); err != nil {
+			return err
+		}
+	}
+	// Sunucu modunda tek örnek kilidi alınır: SQLite dosyasına flock,
+	// PostgreSQL'de süreç boyunca tutulan danışma kilidi (Coolify yeni
+	// konteyneri eskisi kapanmadan başlatır; iki motor çift bildirim gönderirdi).
+	// Komutlar (sifre-sifirla vb.) çalışan sunucunun yanında kullanıldığı için
+	// kilit almaz.
+	serverMode := len(os.Args) <= 1
+	lockWait, _ := strconv.Atoi(env("UPTIME_LOCK_WAIT", "600"))
+	beatBatch, err := strconv.Atoi(env("BEAT_BATCH_MS", "250"))
+	if err != nil || beatBatch < 0 || beatBatch > 5000 {
+		beatBatch = 250
+	}
+	st, err := store.OpenWith(target, time.Local, store.Options{
+		Log:          log,
+		BackupDir:    filepath.Join(dataDir, "backups"),
+		InstanceLock: serverMode,
+		LockWait:     time.Duration(lockWait) * time.Second,
+		StandbyFile:  filepath.Join(os.TempDir(), "uptime-bekliyor"),
+		BeatBatch:    time.Duration(beatBatch) * time.Millisecond,
+		ReadCache:    envSeconds("READ_CACHE_SEC", 15),
+		TimescaleOff: strings.EqualFold(env("DB_TIMESCALE", "auto"), "off"),
+	})
+	if err != nil {
+		return fmt.Errorf("veritabanı açılamadı: %w", err)
+	}
+	defer st.Close()
+	log.Info("veritabanı", "tür", dbDesc, "kip", st.DBMode())
+	if st.DBMode() == store.DBModeSQLite && serverMode {
+		log.Warn("SQLite kullanımdan kalkıyor ve sonraki büyük sürümde kaldırılacak; PostgreSQL + TimescaleDB'ye geçin: uptime migrate (bkz. belgeler: Veritabanı)")
+	}
+
+	if len(os.Args) > 1 {
+		return runCommand(st, os.Args[1:])
+	}
+
+	maxChecks, _ := strconv.Atoi(env("MAX_CONCURRENT_CHECKS", "50"))
+	baseURL := strings.TrimRight(env("BASE_URL", ""), "/")
+	check.SetInfoURL(baseURL) // kontrol isteklerinin User-Agent'ında panelin adresi
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// Pro izleyicilerinin lisans sorusu (kanca.IzleyiciTuru): kontrol motoru
+	// başlamadan atanır, cevabı api sunucusu kurulunca verir (o zamana dek kapalı).
+	var proSrv atomic.Pointer[api.Server]
+	kanca.OzellikAcik = func(ad string) bool {
+		srv := proSrv.Load()
+		return srv != nil && srv.ProAcik(ad)
+	}
+
+	hub := engine.NewHub()
+	dispatcher := notify.NewDispatcher(st, log)
+	dispatcher.SetBaseURL(baseURL)
+	eng := engine.New(st, dispatcher, hub, log, engine.Config{MaxConcurrent: maxChecks, BaseURL: baseURL})
+	eng.SetDomainLookup(rdap.New()) // alan adı bitiş uyarısı (günde bir RDAP sorgusu; yalnızca ana sunucu)
+	if err := eng.Start(ctx); err != nil {
+		return fmt.Errorf("kontrol motoru başlatılamadı: %w", err)
+	}
+	// Ertelenmiş bildirimler (gecikme, sessiz saat) ve eskalasyon taraması.
+	dispatcher.Run(ctx)
+	maint := stats.NewMaintenance(st, log, dataDir, time.Local)
+	if st.Postgres() {
+		maint.SetPostgresDump(target)
+	}
+	go maint.Run(ctx)
+
+	apiServer := api.New(st, eng, hub, dispatcher, log, web.Dist(), version)
+	apiServer.BaseURL = baseURL
+	proSrv.Store(apiServer)
+	kancaBaslat(ctx, apiServer.KancaPanel(), log)
+	// Yeni sürüm denetimi: UPDATE_CHECK=off ile kapanır (çevrimdışı kurulum).
+	apiServer.ConfigureUpdateCheck(env("UPDATE_CHECK_URL", ""), api.UpdateCheckOffEnv(env("UPDATE_CHECK", "")))
+	go apiServer.RunUpdateCheck(ctx)
+	go apiServer.RunScripts(ctx, dataDir)
+	if env("TRUSTED_PROXY", "") == "" {
+		// Varsayılan geriye dönük uyumlu kalır (Coolify/Traefik gibi aynı
+		// makinedeki vekiller özel ağdan bağlanır); yine de kurulumun farkında
+		// olması için açılışta bir kez uyarılır. Ters vekilsiz, doğrudan
+		// yayınlanan (-p 8080:8080) kurulumda Docker NAT yüzünden herkes özel
+		// adresten görünür ve X-Forwarded-For ile istemci adresi uydurulabilir.
+		log.Warn("TRUSTED_PROXY ayarlı değil: tüm özel ağ adreslerinden gelen X-Forwarded-For başlığına güveniliyor; " +
+			"ters vekilin bulunduğu Docker ağını TRUSTED_PROXY ile verin (ör. 172.18.0.0/16; ağı öğrenmek için: docker network inspect bekci_default -f '{{(index .IPAM.Config 0).Subnet}}'), vekilsiz kurulumda 127.0.0.1/32 verin")
+	}
+	apiServer.ProbeImage = env("PROBE_IMAGE", "")
+	if d := env("AGENT_DIR", ""); d != "" {
+		apiServer.AgentDir = d
+	}
+	// Sunucu takibi: çevrimdışı ajan taraması (30 sn'de bir) ve bildirim bağlantıları.
+	serverMon := apiServer.Servers()
+	serverMon.SetBaseURL(baseURL)
+	if err := serverMon.ReloadMaintenance(ctx); err != nil {
+		log.Error("sunucu bakım pencereleri yüklenemedi", "hata", err)
+	}
+	serverMon.Start(ctx)
+	srv := &http.Server{
+		Addr:              env("ADDR", ":8080"),
+		Handler:           apiServer.Handler(),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second, // SSE bağlantısı kendi süresini kaldırır
+		IdleTimeout:       120 * time.Second,
+		// Kapanışta açık SSE bağlantıları da sonlansın.
+		BaseContext: func(net.Listener) context.Context { return ctx },
+	}
+	errCh := make(chan error, 1)
+	go func() {
+		log.Info(brand.Name+" başladı", "sürüm", version, "adres", srv.Addr, "veri", dataDir, "saat_dilimi", time.Local.String())
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+	case err := <-errCh:
+		return err
+	}
+	log.Info("kapanıyor")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	srv.Shutdown(shutdownCtx)
+	eng.Wait()
+	serverMon.Wait()
+	dispatcher.Stop() // bekleyen yeniden denemeler kapanışı geciktirmesin
+	dispatcher.Wait(10 * time.Second)
+	log.Info("kapandı")
+	return nil
+}
+
+func runCommand(st *store.Store, args []string) error {
+	switch args[0] {
+	case "sifre-sifirla":
+		usage := errors.New("kullanım: uptime sifre-sifirla <kullanıcı-adı> [--2fa-kapat]")
+		var names []string
+		disable2FA := false
+		for _, a := range args[1:] {
+			switch {
+			case a == "--2fa-kapat":
+				disable2FA = true
+			case strings.HasPrefix(a, "-"):
+				return usage
+			default:
+				names = append(names, a)
+			}
+		}
+		if len(names) != 1 {
+			return usage
+		}
+		name := names[0]
+		ctx := context.Background()
+		u, err := st.UserByName(ctx, name)
+		if err != nil {
+			return fmt.Errorf("kullanıcı bulunamadı: %s", name)
+		}
+		fmt.Fprint(os.Stderr, "Yeni şifre: ")
+		line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		pw := strings.TrimRight(line, "\r\n")
+		if len([]rune(pw)) < 8 || len(pw) > 72 {
+			return errors.New("şifre 8-72 karakter olmalı")
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(pw), 12)
+		if err != nil {
+			return err
+		}
+		if err := st.UpdatePassword(ctx, u.ID, string(hash)); err != nil {
+			return err
+		}
+		// Acil sıfırlama genelde erişim şüphesiyle yapılır: açık oturumlar kapanır.
+		if err := st.DeleteUserSessions(ctx, u.ID); err != nil {
+			return err
+		}
+		fmt.Fprintln(os.Stderr, "Şifre değiştirildi, tüm oturumlar kapatıldı.")
+		switch {
+		case disable2FA && u.TwoFactorEnabled:
+			if err := st.DisableTwoFactor(ctx, u.ID); err != nil {
+				return err
+			}
+			fmt.Fprintln(os.Stderr, "İki adımlı doğrulama kapatıldı.")
+		case u.TwoFactorEnabled:
+			fmt.Fprintln(os.Stderr, "Not: iki adımlı doğrulama açık; kapatmak için komutu --2fa-kapat ile çalıştırın.")
+		}
+		return nil
+	}
+	return fmt.Errorf("bilinmeyen komut: %s", args[0])
+}
+
+// redactDSN loglarda bağlantı adresindeki şifreyi gizler.
+func redactDSN(dsn string) string {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return "(adres okunamadı)"
+	}
+	if _, ok := u.User.Password(); ok {
+		u.User = url.UserPassword(u.User.Username(), "***")
+	}
+	return u.Redacted()
+}
+
+// envSeconds tam saniye ortam değişkeni; geçersizse varsayılan.
+func envSeconds(key string, def int) time.Duration {
+	n, err := strconv.Atoi(env(key, ""))
+	if err != nil {
+		n = def
+	}
+	return time.Duration(n) * time.Second
+}

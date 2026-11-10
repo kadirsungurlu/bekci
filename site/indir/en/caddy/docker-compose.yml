@@ -34,6 +34,9 @@ services:
       TRUSTED_PROXY: ${TRUSTED_PROXY:-}
     volumes:
       - bekci-data:/data
+      # Device identity for a device-bound Pro license; works without them too.
+      - /sys/class/dmi/id/product_uuid:/run/bekci-host/product_uuid:ro
+      - /etc/machine-id:/run/bekci-host/machine-id:ro
     # Not published directly; only reachable through Caddy.
     expose:
       - "8080"

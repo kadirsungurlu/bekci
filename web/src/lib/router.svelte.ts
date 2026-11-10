@@ -1,12 +1,12 @@
 // Küçük hash yönlendirici: #/, #/monitors/new, #/monitors/:id, #/monitors/:id/edit,
 // #/incidents[/:id], #/notifications, #/status-pages[/new|/:id|/:id/preview],
 // #/maintenance[/new|/:id], #/servers[/:id], #/settings[/:tab], #/more,
-// #/scripts[/runs[/:id]|/settings]
+// #/scripts[/runs[/:id]|/settings], #/pro/:id (Pro sayfaları, lib/pro.svelte.ts)
 //
 // Herkese açık durum sayfası hash değil gerçek yol kullanır (/durum/<kısa-ad>);
 // bkz. publicSlugFromPath.
 
-export type SettingsTab = 'account' | 'users' | 'general' | 'login' | 'tags' | 'probes' | 'backup' | 'audit';
+export type SettingsTab = 'account' | 'users' | 'general' | 'login' | 'tags' | 'probes' | 'backup' | 'audit' | 'license';
 
 export type Route =
   | { name: 'list' }
@@ -32,6 +32,7 @@ export type Route =
   | { name: 'script-runs' }
   | { name: 'script-run'; id: string }
   | { name: 'script-settings' }
+  | { name: 'pro'; id: string }
   | { name: 'notfound' };
 
 const SETTINGS_TABS: Record<string, SettingsTab> = {
@@ -44,6 +45,7 @@ const SETTINGS_TABS: Record<string, SettingsTab> = {
   backup: 'backup',
   audit: 'audit',
   login: 'login',
+  license: 'license',
 };
 
 function currentPath(): string {
@@ -69,6 +71,8 @@ export function parse(path: string): Route {
   if (clean === '/scripts/settings') return { name: 'script-settings' };
   let m = clean.match(/^\/scripts\/runs\/([0-9a-f]{32})$/);
   if (m) return { name: 'script-run', id: m[1] };
+  m = clean.match(/^\/pro\/([a-z0-9-]+)$/);
+  if (m) return { name: 'pro', id: m[1] };
   m = clean.match(/^\/settings(?:\/([a-z]+))?$/);
   if (m) {
     const tab = SETTINGS_TABS[m[1] ?? ''];

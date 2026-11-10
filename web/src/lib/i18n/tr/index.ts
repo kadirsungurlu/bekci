@@ -27,6 +27,7 @@ import tags from './tags';
 import overview from './overview';
 import topology from './topology';
 import scripts from './scripts';
+import license from './license';
 
 const tr = {
   common,
@@ -55,6 +56,7 @@ const tr = {
   overview,
   topology,
   scripts,
+  license,
 };
 
 export default tr;

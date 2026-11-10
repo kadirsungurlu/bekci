@@ -64,6 +64,9 @@ services:
       DATABASE_URL: postgres://bekci:⟦GUCLU-BIR-PAROLA⟧@db:5432/bekci?sslmode=disable
     volumes:
       - bekci-data:/data   # yedekler ve geçici dosyalar
+      # Pro cihaza bağlı lisans için; yoksa da çalışır.
+      - /sys/class/dmi/id/product_uuid:/run/bekci-host/product_uuid:ro
+      - /etc/machine-id:/run/bekci-host/machine-id:ro
     depends_on:
       db:
         condition: service_healthy
@@ -107,6 +110,9 @@ services:
       TZ: Europe/Istanbul
     volumes:
       - bekci-data:/data
+      # Pro cihaza bağlı lisans için; yoksa da çalışır.
+      - /sys/class/dmi/id/product_uuid:/run/bekci-host/product_uuid:ro
+      - /etc/machine-id:/run/bekci-host/machine-id:ro
 volumes:
   bekci-data:
 ```
