@@ -262,6 +262,11 @@ func (s *Server) pushTo(ctx context.Context, subs []store.PushSubscription, ev n
 	if notify.IsProblemStart(ev.Kind) || ev.Kind == notify.KindReminder {
 		opt.TTL, opt.Urgency = pushTTLProblem, "high"
 	}
+	return s.pushSend(ctx, keys, subs, payload, opt)
+}
+
+// pushSend hazır yükü aboneliklere gönderir (pushTo ve sistem bildirimleri).
+func (s *Server) pushSend(ctx context.Context, keys webpush.Keys, subs []store.PushSubscription, payload []byte, opt webpush.Options) (sent, failed int) {
 	if strings.HasPrefix(s.BaseURL, "https://") {
 		opt.Subject = s.BaseURL
 	}

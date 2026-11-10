@@ -85,6 +85,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 | Güvenlik: güncellemeler, yeniden başlatma (731) | tel metrics/security.go (Security, Sanitize, Hash), ajan metrics/security_collect.go + security_parse.go (apt/dnf/yum/zypper, reboot; testdata/sec/) + security_{linux,windows,other}.go; probe/security.go (security_interval 900, SECURITY=0 kapatır); store/security.go (migration 51: sec_state, sec_pkgs first_seen; SaveSecurity -> SecurityChange, SecSummaries); servers/security.go (IngestSecurity, CheckSecurity saatlik, kural sec_updates_age gün, konu = en eski paket; çizelge sec_updates_new/installed, reboot_required/cleared); api/security.go (POST /api/probe/security, GET /api/servers/{id}/security), liste/ayrıntıda View.security; web components/ServerSecurity, ServerDetail Güvenlik sekmesi, ServerList rozetleri. Sonraki: 732 SSH/oturum/güvenlik duvarı, 733-734 Windows, 735 diğer kurallar, 736 filo şeridi |
 | Topoloji ilişkileri | monitör-sunucu bağı monitors.server_id (store/topology.go migration 50: ayrıca probes.role/region/provider/code, channel_last_send.error, channel_send_hourly; SetChannelSend, ChannelSendCounts, LastMonitorIncidents); api/monitor_server.go (doğrulama, POST /api/monitors/server-suggestion, tam eşleşme, mergeProbeLabels); api/topology.go (errgroup ile paralel okuma, ?view=summary, gzip, causeOf izleyici temizliği, summarizeLocations); engine/pinghist.go (son 30 değer bellekte); web MonitorForm "Çalıştığı sunucu", Probes ve ServerSettingsModal üst bilgi; ölçüm docs/TOPOLOJI-OLCEK.md, internal/api/topology_perf_test.go (BEKCI_PERF_TOPO) |
 | Mesh topoloji şeması | web components/MeshDiagram.svelte (elle SVG, lib/meshlayout.ts yerleşimi, ipucu + klavye odağı; MeshMatrix kartında ve IncidentDetail mesh kartında); GET /api/mesh links (yönlü: rtt_ms, loss_streak, last_ok_at; api/mesh_view.go meshLinkViews); olay kaydı nodes + ab/ba (api/incidents_mesh.go); i18n probes.topo; Tooltip focusin |
+| Lisans (Pro) | sözleşme docs/LISANS-TASARIM.md; lisans/ (saf: biçim, Degerlendir, cihaz, istemci); kanca/ + api/kanca.go (Pro rota kapısı 402 pro_lisans, KancaPanel); store/license.go (settings lisans.* yardımcıları, LisansHazirla: panel_id UUID v4 + kurulum, en_ileri yalnız ileri; migration yok); internal/lisansyonet (Yonetici: Durum/Acik, AnahtarKoy/KiraKoy/Yenile/Sil, Calistir: 24 sa yenileme, hata sonrası 1 sa, 10 dk en_ileri + UyariDenetle, uyari_seviye bir kez); api/license.go (GET /api/license, /detail, PUT, POST lease/refresh, DELETE; SetLisans: SetProOzellik + yönetici bildirimi e-posta/web push/işlem kaydı, kanca Bildir aynı yoldan); uygulama/main.go kurulum (kanca.OzellikAcik = Yonetici.Acik); testler api/license_test.go (sahte lisans sunucusu, LISANS_URL, BEKCI_CIHAZ_DIZIN); web settings/License, components/LicenseBanner |
 
 <!-- OTOMATIK: scripts/harita.sh -->
 
@@ -100,6 +101,7 @@ incidents.go: GET /api/incidents/{id} | GET /api/servers/{id}/incidents
 incidents_ack.go: POST /api/incidents/{id}/ack | DELETE /api/incidents/{id}/ack | POST /api/incidents/{id}/snooze | DELETE /api/incidents/{id}/snooze
 incidents_manual.go: POST /api/incidents | PUT /api/incidents/{id} | DELETE /api/incidents/{id} | POST /api/incidents/{id}/updates | DELETE /api/incidents/{id}/updates/{uid}
 inventory.go: GET /api/servers/{id}/inventory | PUT /api/servers/{id}/inventory/certs/{fingerprint} | POST /api/probe/inventory
+license.go: GET /api/license | GET /api/license/detail | PUT /api/license | POST /api/license/lease | POST /api/license/refresh | DELETE /api/license
 maintenance.go: GET /api/maintenance | POST /api/maintenance | GET /api/maintenance/{id} | PUT /api/maintenance/{id} | DELETE /api/maintenance/{id} | POST /api/maintenance/{id}/pause | POST /api/maintenance/{id}/resume | POST /api/maintenance/{id}/end
 mesh_view.go: GET /api/mesh
 metrics.go: GET /metrics
@@ -139,14 +141,14 @@ server_events.go 47: apikeys.go 48: scripts.go 49: scripts.go 50: topology.go 51
 
 ### Arayüz sayfaları / bileşenler / i18n ad alanları
 ```
-pages: Announcements Auth ForcePassword IncidentDetail Incidents MaintenanceForm MaintenanceList MonitorDetail MonitorForm MonitorList More Notifications PublicStatus ScriptRunDetail ScriptRuns ScriptSettings Scripts ServerDetail ServerList Settings StatusPageEditor StatusPages Topology
-pages/settings: Account ApiKeys Audit Backup General Login Probes Tags TwoFactor UserForm Users
+pages: Announcements Auth ForcePassword IncidentDetail Incidents MaintenanceForm MaintenanceList MonitorDetail MonitorForm MonitorList More Notifications ProLocked ProPage PublicStatus ScriptRunDetail ScriptRuns ScriptSettings Scripts ServerDetail ServerList Settings StatusPageEditor StatusPages Topology
+pages/settings: Account ApiKeys Audit Backup General License Login Probes Tags TwoFactor UserForm Users
 components: AgentAutoUpdate AgentVersion AlertRulesEditor BadgeBuilder BulkEditModal CodeModal ConfigFields ConfirmDialog ConnectionDetails 
 ContainerTable CopyButton DateTimeField DomainStatus FilePick Icon ImportResult IncidentAck IncidentEditModal IncidentTable IncidentUpdates 
-LangSwitch LineChart MeshDiagram MeshMatrix Modal MonitorMenu MonitorPicker MonitorRow NotificationForm OobFields PagePreviewPanel 
-PageSubscribers PageThumb Pager PingChart PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu 
-ScriptFilters ScriptRunModal ScriptVersionModal ScriptsShell ServerInventory ServerPicker ServerSecurity ServerSettingsModal 
-ServerSetupModal ServerTimeline Sessions Sparkline StateMark StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker 
-ThemeToggle Toasts Tooltip TopoColumn TopoDock TopoProblems TopoRow TypeBadge UpdateBanner UplinkBadge UptimeBars UsageBar
-i18n: account ale.ts apiKeys audit auth backup common incide.ts maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles scri.ts servers settings status tags topology users
+LangSwitch LicenseBanner LineChart MeshDiagram MeshMatrix Modal MonitorMenu MonitorPicker MonitorRow NotificationForm OobFields 
+PagePreviewPanel PageSubscribers PageThumb Pager PingChart PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal 
+RecoveryCodes RowMenu ScriptFilters ScriptRunModal ScriptVersionModal ScriptsShell ServerInventory ServerPicker ServerSecurity 
+ServerSettingsModal ServerSetupModal ServerTimeline Sessions Sparkline StateMark StatusIcon StatusView SubscribePanel TagChip TagDialog 
+TagRulePicker ThemeToggle Toasts Tooltip TopoColumn TopoDock TopoProblems TopoRow TypeBadge UpdateBanner UplinkBadge UptimeBars UsageBar
+i18n: account ale.ts apiKeys audit auth backup common incide.ts license maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles scri.ts servers settings status tags topology users
 ```

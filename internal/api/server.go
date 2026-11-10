@@ -5,6 +5,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"github.com/kadirsungurlu/bekci/internal/lisansyonet"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -89,6 +90,8 @@ type Server struct {
 	AgentDir string
 	// proOzellik lisansta Pro özelliği açık mı (nil: hepsi kapalı; kanca.go).
 	proOzellik func(string) bool
+	// lisans lisans servisi (nil: lisans uçları 503, Pro kapalı; license.go).
+	lisans *lisansyonet.Yonetici
 }
 
 // DefaultAgentDir Docker imajında ajan programlarının bulunduğu klasör.

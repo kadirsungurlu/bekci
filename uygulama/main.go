@@ -55,7 +55,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"syscall"
 	"time"
 	_ "time/tzdata" // imajda tzdata olmasa da TZ çalışsın
@@ -65,6 +64,7 @@ import (
 	"github.com/kadirsungurlu/bekci/internal/brand"
 	"github.com/kadirsungurlu/bekci/internal/check"
 	"github.com/kadirsungurlu/bekci/internal/engine"
+	"github.com/kadirsungurlu/bekci/internal/lisansyonet"
 	"github.com/kadirsungurlu/bekci/internal/notify"
 	"github.com/kadirsungurlu/bekci/internal/rdap"
 	"github.com/kadirsungurlu/bekci/internal/stats"
@@ -185,13 +185,14 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// Pro izleyicilerinin lisans sorusu (kanca.IzleyiciTuru): kontrol motoru
-	// başlamadan atanır, cevabı api sunucusu kurulunca verir (o zamana dek kapalı).
-	var proSrv atomic.Pointer[api.Server]
-	kanca.OzellikAcik = func(ad string) bool {
-		srv := proSrv.Load()
-		return srv != nil && srv.ProAcik(ad)
+	// Lisans servisi (docs/LISANS-TASARIM.md): panel kimliği/kurulum zamanı ilk
+	// açılışta oluşur. Pro izleyicilerinin lisans sorusu (kanca.IzleyiciTuru)
+	// kontrol motoru başlamadan bu servise bağlanır; api de aynı servisi kullanır.
+	lisansY := lisansyonet.Yeni(st, log, version)
+	if err := lisansY.Hazirla(ctx); err != nil {
+		return fmt.Errorf("lisans ayarları hazırlanamadı: %w", err)
 	}
+	kanca.OzellikAcik = lisansY.Acik
 
 	hub := engine.NewHub()
 	dispatcher := notify.NewDispatcher(st, log)
@@ -211,7 +212,8 @@ func run() error {
 
 	apiServer := api.New(st, eng, hub, dispatcher, log, web.Dist(), version)
 	apiServer.BaseURL = baseURL
-	proSrv.Store(apiServer)
+	apiServer.SetLisans(lisansY)
+	go lisansY.Calistir(ctx)
 	kancaBaslat(ctx, apiServer.KancaPanel(), log)
 	// Yeni sürüm denetimi: UPDATE_CHECK=off ile kapanır (çevrimdışı kurulum).
 	apiServer.ConfigureUpdateCheck(env("UPDATE_CHECK_URL", ""), api.UpdateCheckOffEnv(env("UPDATE_CHECK", "")))

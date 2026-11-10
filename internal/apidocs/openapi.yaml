@@ -117,6 +117,37 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/OK" }
   schemas:
+    LicenseState:
+      type: object
+      properties:
+        pro_derleme: { type: boolean }
+        etkin: { type: boolean }
+        kaynak: { type: string, enum: [yok, deneme, lisans] }
+        neden: { type: string, description: "saat_geri|pro_degil|deneme_bitti|cihaz_yok|cihaz|guncelleme_bitis|kira_yok|kira_uyusmaz|kira_bitti|suresi_doldu" }
+        ozellikler: { type: array, items: { type: string }, description: '["*"] = hepsi' }
+        tur: { type: string, description: "abonelik|omur_cevrimici|omur_cevrimdisi" }
+        bitis: { type: string, description: RFC3339 }
+        kalan_gun: { type: [integer, "null"] }
+        uyari: { type: string, description: "saat_geri|suresi_doldu|kira_bitti|sunucu_ulasilamiyor|bitis_1|bitis_7|bitis_14|deneme" }
+    LicenseDetail:
+      allOf:
+        - $ref: "#/components/schemas/LicenseState"
+        - type: object
+          properties:
+            panel_id: { type: string }
+            cihaz_id: { type: string }
+            cihaz_hata: { type: string }
+            musteri: { type: string }
+            lisans_kimlik: { type: string }
+            kira_bitis: { type: string }
+            cevrimdisi: { type: boolean }
+            son_basari: { type: string }
+            son_deneme: { type: string }
+            son_hata: { type: string }
+            deneme_bitis: { type: string }
+            derleme: { type: string }
+            sunucu_adresi: { type: string }
+            gonderilen_veri: { type: array, items: { type: string } }
     Error:
       type: object
       properties:
@@ -1287,6 +1318,50 @@ paths:
       summary: Yeni sürüm şeridini bu kullanıcı için verilen sürümde kapat
       requestBody: { content: { application/json: { schema: { type: object, properties: { version: { type: string } } } } } }
       responses: { "200": { description: Sürüm durumu } }
+  /api/license:
+    get:
+      tags: [settings]
+      summary: "Pro lisans durumu (oturum): şerit ve kilitli menüler. Zamanlar RFC3339 (\"\" = yok)"
+      responses:
+        "200":
+          description: Lisans durumu
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LicenseState" }
+    put:
+      tags: [settings]
+      summary: "Lisans anahtarı gir (yönetici). Ömür boyu çevrimdışı anahtar hemen kaydedilir; diğerleri lisans sunucusundan ilk kira alınınca. Hata code: lisans_gecersiz|cihaz_yok|cihaz (400), sunucu reddi kodu iptal|bilinmeyen|cihaz|panel_sinir|tasima_sinir (409), sunucu_ulasilamiyor|kira_gecersiz (502)"
+      requestBody: { content: { application/json: { schema: { type: object, required: [anahtar], properties: { anahtar: { type: string, description: "BEKCI-L1.…" } } } } } }
+      responses:
+        "200": { description: Lisans ayrıntısı, content: { application/json: { schema: { $ref: "#/components/schemas/LicenseDetail" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [settings]
+      summary: Lisans anahtarını ve kirayı sil (yönetici)
+      responses: { "200": { description: Lisans ayrıntısı, content: { application/json: { schema: { $ref: "#/components/schemas/LicenseDetail" } } } } }
+  /api/license/detail:
+    get:
+      tags: [settings]
+      summary: "Lisans ayrıntısı (yönetici): kimlikler, kira, yenileme kayıtları, lisans sunucusuna giden alanlar"
+      responses: { "200": { description: Lisans ayrıntısı, content: { application/json: { schema: { $ref: "#/components/schemas/LicenseDetail" } } } } }
+  /api/license/lease:
+    post:
+      tags: [settings]
+      summary: "Elle (çevrimdışı) kira yükle (yönetici); saklı anahtar ve bu panelle eşleşmeli, değilse 400 kira_gecersiz"
+      requestBody: { content: { application/json: { schema: { type: object, required: [kira], properties: { kira: { type: string, description: "BEKCI-K1.…" } } } } } }
+      responses:
+        "200": { description: Lisans ayrıntısı, content: { application/json: { schema: { $ref: "#/components/schemas/LicenseDetail" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/license/refresh:
+    post:
+      tags: [settings]
+      summary: "Kirayı şimdi yenile (yönetici). Çevrimdışı anahtar/kirada sunucuya gidilmez. Hata: 409 sunucu reddi, 502 sunucu_ulasilamiyor"
+      responses:
+        "200": { description: Lisans ayrıntısı, content: { application/json: { schema: { $ref: "#/components/schemas/LicenseDetail" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
   /api/tls/ask:
     get:
       tags: [status-pages]

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/kadirsungurlu/bekci/kanca"
@@ -65,11 +64,4 @@ func (s *Server) KancaPanel() *kanca.Panel {
 		Ozellik: s.proAcik,
 		Bildir:  s.kancaBildir,
 	}
-}
-
-// kancaBildir Pro kodunun sistem bildirimi. Şimdilik yalnız günlüğe yazar;
-// yönetici kanallarına gönderim lisans bağlantısıyla birlikte eklenecek.
-func (s *Server) kancaBildir(_ context.Context, konu, metin string) error {
-	s.log.Warn("pro bildirimi", "konu", konu, "metin", metin)
-	return nil
 }

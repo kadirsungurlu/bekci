@@ -103,6 +103,12 @@ var auditEN = map[string]string{
 	"devre dışı":        "disabled",
 	"sahibi: %s":        "owner: %s",
 	"2FA kurtarma kodu": "2FA recovery code",
+	// Lisans (license.*).
+	"tür: %s":        "type: %s",
+	"kimlik: %s":     "id: %s",
+	"geçerlilik: %s": "valid until: %s",
+	"ret: %s":        "rejected: %s",
+	"uyarı: %s":      "warning: %s",
 	// Kontrol noktaları ve sunucular.
 	"etkinleştirildi":             "enabled",
 	"devre dışı bırakıldı":        "disabled",
