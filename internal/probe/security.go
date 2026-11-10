@@ -14,6 +14,22 @@ type SecurityCollector interface {
 	Security(ctx context.Context) metrics.Security
 }
 
+// SecurityAcker isteğe bağlı: panel raporu aldıktan (2xx) ya da kalıcı olarak
+// reddettikten (4xx) sonra çağrılır; toplayıcı gönderilen SSH giriş farkını
+// birikimden düşer (iş 732).
+type SecurityAcker interface {
+	AckSecurity(rep metrics.Security)
+}
+
+// securityHash SSH sayıları hariç özet: fark yalnız varken gönderimi tetikler,
+// gönderimden sonraki sıfır fark yeniden gönderim sebebi olmaz.
+func securityHash(rep metrics.Security) string {
+	if rep.Auth != nil {
+		rep.Auth = &metrics.SecAuth{Source: rep.Auth.Source}
+	}
+	return rep.Hash()
+}
+
 const (
 	// securityResendTicks değişmese de rapor bu kadar turda bir gönderilir.
 	securityResendTicks = 12
@@ -77,9 +93,9 @@ func (c *Client) securityLoop(ctx context.Context, sc SecurityCollector) {
 				return
 			}
 			timer.Reset(interval)
-			h := rep.Hash()
+			h := securityHash(rep)
 			idle++
-			if h == sent && idle < securityResendTicks {
+			if h == sent && idle < securityResendTicks && !rep.HasAuthDelta() {
 				continue
 			}
 			status, err := c.call(ctx, http.MethodPost, "/api/probe/security", rep, nil)
@@ -91,17 +107,25 @@ func (c *Client) securityLoop(ctx context.Context, sc SecurityCollector) {
 			case status >= 200 && status < 300:
 				c.reachable("security")
 				sent, idle, lastBad = h, 0, 0
+				ackSecurity(sc, rep)
 			case status == http.StatusTooManyRequests || status >= 500:
 				c.unreachable("security", httpStatusErr(status))
 			default:
 				// 404 (uç yok), 413 vb.: aynı gövdeyi tekrar denemek düzeltmez.
 				c.reachable("security")
 				sent, idle = h, 0
+				ackSecurity(sc, rep) // aynı fark yeniden denenmez; yoksa birikim sınırsız büyür
 				if status != lastBad {
 					lastBad = status
 					c.log.Warn("güvenlik raporu kabul edilmedi", "durum", status)
 				}
 			}
 		}
+	}
+}
+
+func ackSecurity(sc SecurityCollector, rep metrics.Security) {
+	if a, ok := sc.(SecurityAcker); ok {
+		a.AckSecurity(rep)
 	}
 }

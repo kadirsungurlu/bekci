@@ -1,0 +1,12 @@
+Nov 10 08:00:01 rhel9 sshd[3001]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.200  user=root
+Nov 10 08:00:03 rhel9 sshd[3001]: Failed password for root from 192.0.2.200 port 60000 ssh2
+Nov 10 08:00:05 rhel9 sshd[3001]: Failed password for root from 192.0.2.200 port 60000 ssh2
+Nov 10 08:00:06 rhel9 sshd[3001]: PAM 1 more authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.200  user=root
+Nov 10 08:10:00 rhel9 sshd[3002]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.201  user=oracle
+Nov 10 08:10:02 rhel9 sshd[3002]: Connection closed by authenticating user oracle 192.0.2.201 port 60010 [preauth]
+Nov 10 08:20:00 rhel9 sshd[3003]: Invalid user guest from 192.0.2.202 port 60020
+Nov 10 08:20:01 rhel9 sshd[3003]: pam_unix(sshd:auth): check pass; user unknown
+Nov 10 08:20:01 rhel9 sshd[3003]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.202
+Nov 10 08:20:03 rhel9 sshd[3003]: Failed password for invalid user guest from 192.0.2.202 port 60020 ssh2
+Nov 10 08:30:00 rhel9 sshd-session[3004]: Accepted publickey for admin from 192.0.2.1 port 60030 ssh2: RSA SHA256:Zx9yW8vU7tS6rQ5pO4nM3lK2jI1hG0fE9dC8bA7z6y5
+Nov 10 08:30:00 rhel9 sshd-session[3004]: pam_unix(sshd:session): session opened for user admin(uid=1000) by admin(uid=0)

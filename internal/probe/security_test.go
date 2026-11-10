@@ -97,3 +97,50 @@ func TestSecurity404Backoff(t *testing.T) {
 		t.Fatalf("404 sonrası %d istek", n)
 	}
 }
+
+// fakeAuthSecurity SSH farkı biriktiren sahte toplayıcı (SecurityAcker).
+type fakeAuthSecurity struct {
+	fakeCollector
+	pending atomic.Int32
+	acks    atomic.Int32
+}
+
+func (f *fakeAuthSecurity) Security(context.Context) metrics.Security {
+	return metrics.Security{Time: time.Now().UnixMilli(),
+		Updates: &metrics.SecUpdates{Manager: metrics.ManagerApt, Packages: []metrics.SecPkg{}},
+		Auth:    &metrics.SecAuth{Source: "journal", Failed: int(f.pending.Load())}}
+}
+
+func (f *fakeAuthSecurity) AckSecurity(rep metrics.Security) {
+	f.acks.Add(1)
+	f.pending.Add(-int32(rep.Auth.Failed))
+}
+
+// SSH farkı varken özet aynı olsa da gönderilir; 2xx ve 4xx sonrası Ack çağrılır,
+// sıfır fark yeniden gönderim sebebi olmaz.
+func TestSecurityAuthDeltaAck(t *testing.T) {
+	for _, status := range []int{http.StatusNoContent, http.StatusUnprocessableEntity} {
+		srv, posts := secPanel(t, 1, status)
+		f := &fakeAuthSecurity{}
+		c, err := New(Config{Server: srv.URL, Token: "upr_test", AllowInsecure: true, Unit: 100 * time.Microsecond, Metrics: f})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() { c.Run(ctx); close(done) }()
+		waitUntil(t, func() bool { return posts.Load() >= 1 })
+		f.pending.Store(4)
+		waitUntil(t, func() bool { return posts.Load() >= 2 && f.pending.Load() == 0 })
+		n := posts.Load()
+		time.Sleep(70 * time.Millisecond) // ~2 tur, fark yok
+		if m := posts.Load(); m != n {
+			t.Fatalf("durum %d: fark yokken gönderildi: %d -> %d", status, n, m)
+		}
+		if f.acks.Load() < 2 {
+			t.Fatalf("durum %d: Ack çağrılmadı (%d)", status, f.acks.Load())
+		}
+		cancel()
+		<-done
+	}
+}

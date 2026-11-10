@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"strings"
+	"syscall"
 )
 
 // osSecUpdates bulunan paket yöneticisiyle bekleyen güncellemeleri sorgular.
@@ -202,4 +203,15 @@ func kernelRelease() string {
 		return ""
 	}
 	return strings.TrimSpace(string(b))
+}
+
+// secExtrasSupported SSH girişleri, oturumlar ve güvenlik duvarı (732) toplanır.
+const secExtrasSupported = true
+
+// fileInode günlük dosyasının inode'u (döndürme algılaması).
+func fileInode(fi os.FileInfo) uint64 {
+	if st, ok := fi.Sys().(*syscall.Stat_t); ok {
+		return st.Ino
+	}
+	return 0
 }

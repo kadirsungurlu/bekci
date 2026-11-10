@@ -1,0 +1,7 @@
+Name=kadir
+Timestamp=Mon 2026-11-09 18:33:00 UTC
+TTY=tty2
+Remote=no
+RemoteHost=
+Type=wayland
+Class=user

@@ -1,0 +1,7 @@
+Name=root
+Timestamp=Thu 2026-10-08 09:24:43 +03
+TTY=pts/0
+Remote=yes
+RemoteHost=203.0.113.77
+Type=tty
+Class=user

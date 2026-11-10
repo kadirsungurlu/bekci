@@ -4,6 +4,7 @@ package metrics
 
 import (
 	"context"
+	"os"
 
 	"golang.org/x/sys/windows/registry"
 )
@@ -30,3 +31,9 @@ func osSecReboot(context.Context, secEnv) (*SecReboot, string) {
 	}
 	return &SecReboot{}, ""
 }
+
+// secExtrasSupported SSH girişleri, oturumlar ve güvenlik duvarı (732) yalnız
+// Linux'ta; Windows oturum/Defender/güvenlik duvarı 733'te.
+const secExtrasSupported = false
+
+func fileInode(os.FileInfo) uint64 { return 0 }

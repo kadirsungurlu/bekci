@@ -1,0 +1,7 @@
+Name=root
+Timestamp=Thu 2026-10-08 09:24:43 +03
+TTY=
+Remote=no
+RemoteHost=
+Type=unspecified
+Class=manager-early

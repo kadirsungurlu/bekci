@@ -1,0 +1,11 @@
+-P INPUT ACCEPT
+-P FORWARD DROP
+-P OUTPUT ACCEPT
+-N DOCKER
+-N f2b-sshd
+-A INPUT -p tcp -m multiport --dports 22 -j f2b-sshd
+-A INPUT -i lo -j ACCEPT
+-A FORWARD -j DOCKER
+-A DOCKER -j DROP
+-A f2b-sshd -s 203.0.113.5/32 -j REJECT --reject-with icmp-port-unreachable
+-A f2b-sshd -j RETURN

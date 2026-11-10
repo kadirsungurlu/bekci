@@ -1,0 +1,5 @@
+2026-11-10T09:57:58.123456+03:00 deb12 sshd[2001]: Failed password for root from 2001:db8::5 port 40000 ssh2
+2026-11-10T09:58:01.000001+03:00 deb12 sshd[2001]: Failed password for root from 2001:db8::5 port 40000 ssh2
+2026-11-10T09:58:03.5+03:00 deb12 sshd[2002]: Accepted password for ali from 10.0.0.2 port 50000 ssh2
+2026-11-10T10:30:00.000000+03:00 deb12 systemd[1]: Started session-4.scope - Session 4 of User ali.
+2026-11-10T10:31:00.000000+03:00 deb12 sshd[2003]: Connection closed by authenticating user root 2001:db8::5 port 40010 [preauth]

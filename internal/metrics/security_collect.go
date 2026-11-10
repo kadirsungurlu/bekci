@@ -16,6 +16,7 @@ import (
 // Güvenlik raporu toplayıcısı (iş 731, docs/GUVENLIK-EKLENTI-730.md §A.1, §A.3).
 // İşletim sistemine bağlı bölümler security_linux.go, security_windows.go,
 // security_other.go'da (osSecUpdates, osSecReboot); ayrıştırıcılar security_parse.go.
+// SSH girişleri, oturumlar ve güvenlik duvarı (732): security_auth.go.
 
 const (
 	secUpdatesTTL = time.Hour        // paket sorgusu en çok saatte bir (önbellekli)
@@ -29,6 +30,7 @@ type secEnv struct {
 	container bool   // konteynerde: host'un paket yöneticisi ve araçları çalıştırılamaz
 	run       func(ctx context.Context, timeout time.Duration, name string, args ...string) cmdResult
 	look      func(name string) bool // komut PATH'te var mı
+	alive     func(pid int) bool     // süreç yaşıyor mu (utmp süzgeci)
 }
 
 // cmdResult komut sonucu. Missing: komut bulunamadı; Err: başlatılamadı ya da
@@ -60,6 +62,7 @@ func (c *Collector) Security(ctx context.Context) Security {
 		container: c.opts.InContainer() || (c.src == nil && c.reason != ""),
 		run:       runCmd,
 		look:      func(n string) bool { _, err := exec.LookPath(n); return err == nil },
+		alive:     procAlive,
 	}
 	var code string
 	s.Updates, code = c.securityUpdates(ctx, e, now)
@@ -70,6 +73,7 @@ func (c *Collector) Security(ctx context.Context) Security {
 	if code != "" {
 		s.Notes[SecSectionReboot] = code
 	}
+	c.securityExtras(ctx, e, now, &s)
 	s.Sanitize()
 	if len(s.Notes) == 0 {
 		s.Notes = nil

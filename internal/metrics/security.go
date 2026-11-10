@@ -23,8 +23,19 @@ const (
 
 // Güvenlik bölüm adları (Security.Notes anahtarı).
 const (
-	SecSectionUpdates = "updates"
-	SecSectionReboot  = "reboot"
+	SecSectionUpdates  = "updates"
+	SecSectionReboot   = "reboot"
+	SecSectionAuth     = "auth"
+	SecSectionSessions = "sessions"
+	SecSectionFirewall = "firewall"
+)
+
+// SSH/oturum/güvenlik duvarı sınırları (iş 732).
+const (
+	MaxSecAuthIPs   = 20 // rapordaki IP sayısı (panel gün başına ilk 20'yi saklar)
+	MaxSecAuthUsers = 5  // denenen kullanıcı adı
+	MaxSecAuthHours = 48 // saat kovası (ajan uzun süre gönderemezse eskileri birleşir)
+	MaxSecSessions  = 50
 )
 
 // Güvenlik bölümüne özgü not kodları (genel kodlar: NoteUnsupported,
@@ -34,6 +45,23 @@ const (
 	NoteCacheMissing = "cache_missing" // dnf/yum önbelleği yok (-C ile sorgu yapılamadı)
 	NoteLocked       = "locked"        // paket yöneticisi kilitli (zypper), sonraki turda yeniden
 	NoteNoErrata     = "no_errata"     // dağıtım güvenlik bilgisi vermiyor (CentOS 7): Security = -1
+	NoteNoSource     = "no_source"     // SSH günlüğü yok (journal da auth.log/secure da okunamadı)
+	NoteNoTool       = "no_tool"       // güvenlik duvarı aracı yok (firewalld/ufw/nft/iptables-legacy)
+)
+
+// Güvenlik duvarı arka uçları (SecFirewall.Backend).
+const (
+	FirewallFirewalld = "firewalld"
+	FirewallUfw       = "ufw"
+	FirewallNft       = "nftables"
+	FirewallIptables  = "iptables-legacy"
+)
+
+// Oturum türleri (SecSession.Kind).
+const (
+	SessionSSH = "ssh"
+	SessionTTY = "tty"
+	SessionRDP = "rdp" // 733
 )
 
 // Paket yöneticileri (SecUpdates.Manager).
@@ -81,13 +109,65 @@ type SecReboot struct {
 	Packages []string `json:"packages,omitempty"` // gerekçe paketleri (reboot-required.pkgs, needs-restarting)
 }
 
+// SecAuthHour bir saatlik giriş sayıları (Hour: saat başı, unix sn).
+type SecAuthHour struct {
+	Hour     int64 `json:"hour"`
+	Failed   int   `json:"failed"`
+	Accepted int   `json:"accepted"`
+}
+
+// SecCount ad (IP ya da kullanıcı) başına sayı.
+type SecCount struct {
+	Key   string `json:"key"`
+	Count int    `json:"count"`
+}
+
+// SecAuth son başarılı gönderimden bu yana SSH giriş FARKI (birikimli değil):
+// ajan panel kabul edene kadar biriktirir, kabulden sonra sıfırlar. Panel
+// saatleri sec_auth_hourly'ye, IP'leri alış gününe göre sec_auth_ip_daily'ye ekler.
+type SecAuth struct {
+	Source   string        `json:"source"` // journal | file
+	Failed   int           `json:"failed"`
+	Accepted int           `json:"accepted"`
+	Invalid  int           `json:"invalid"` // var olmayan kullanıcıyla denemeler (Failed'ın parçası)
+	Hours    []SecAuthHour `json:"hours,omitempty"`
+	TopIPs   []SecCount    `json:"top_ips,omitempty"`
+	TopUsers []SecCount    `json:"top_users,omitempty"`
+}
+
+// SecSession oturum açmış kullanıcı.
+type SecSession struct {
+	User  string `json:"user"`
+	TTY   string `json:"tty,omitempty"`
+	From  string `json:"from,omitempty"`  // uzak adres (yerel oturumda boş)
+	Since int64  `json:"since,omitempty"` // giriş zamanı (unix sn)
+	Kind  string `json:"kind"`            // ssh | tty | rdp
+	State string `json:"state,omitempty"` // Windows: Active | Disconnected
+}
+
+// SecFirewall güvenlik duvarı durumu (yalnız gelen yön: INPUT).
+type SecFirewall struct {
+	Active  bool   `json:"active"`
+	Backend string `json:"backend,omitempty"` // firewalld | ufw | nftables | iptables-legacy
+	Rules   int    `json:"rules"`             // INPUT zincirlerindeki kural sayısı (firewalld/ufw'de nft/iptables'tan; bilinmiyorsa 0)
+	Policy  string `json:"policy,omitempty"`  // INPUT varsayılan politikası (accept | drop | reject)
+}
+
+// HasAuthDelta raporda gönderilmemiş SSH giriş farkı var mı (değişmese de gönderilir).
+func (s Security) HasAuthDelta() bool {
+	return s.Auth != nil && (s.Auth.Failed > 0 || s.Auth.Accepted > 0)
+}
+
 // Security ajanın güvenlik raporu. Bölüm toplanamazsa nil kalır ve nedeni
 // Notes'a yazılır; panel o bölümün önceki durumunu korur.
 type Security struct {
-	Time    int64             `json:"time"` // ajan saati (unix ms)
-	Updates *SecUpdates       `json:"updates,omitempty"`
-	Reboot  *SecReboot        `json:"reboot,omitempty"`
-	Notes   map[string]string `json:"notes,omitempty"`
+	Time     int64             `json:"time"` // ajan saati (unix ms)
+	Updates  *SecUpdates       `json:"updates,omitempty"`
+	Reboot   *SecReboot        `json:"reboot,omitempty"`
+	Auth     *SecAuth          `json:"auth,omitempty"`     // 732: fark, bkz. SecAuth
+	Sessions []SecSession      `json:"sessions"`           // 732: null toplanamadı, [] oturum yok
+	Firewall *SecFirewall      `json:"firewall,omitempty"` // 732
+	Notes    map[string]string `json:"notes,omitempty"`
 }
 
 // Sanitize alanları sınırlar ve sıralar; panel güvenilmeyen girdide, ajan da
@@ -141,6 +221,7 @@ func (s *Security) Sanitize() {
 			r.Reason, r.Packages = "", nil
 		}
 	}
+	s.sanitize732()
 	if len(s.Notes) > 20 {
 		s.Notes = nil
 	}
@@ -163,4 +244,74 @@ func (s Security) Hash() string {
 	b, _ := json.Marshal(s)
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
+}
+
+// sanitize732 SSH, oturum ve güvenlik duvarı bölümlerini sınırlar.
+func (s *Security) sanitize732() {
+	if a := s.Auth; a != nil {
+		a.Source = invClip(a.Source)
+		a.Failed, a.Accepted = max(a.Failed, 0), max(a.Accepted, 0)
+		a.Invalid = min(max(a.Invalid, 0), a.Failed)
+		a.Hours = slices.DeleteFunc(a.Hours, func(h SecAuthHour) bool {
+			return h.Hour <= 0 || h.Failed < 0 || h.Accepted < 0 || (h.Failed == 0 && h.Accepted == 0)
+		})
+		for i := range a.Hours {
+			a.Hours[i].Hour -= a.Hours[i].Hour % 3600
+		}
+		slices.SortFunc(a.Hours, func(x, y SecAuthHour) int { return int(x.Hour - y.Hour) })
+		if len(a.Hours) > MaxSecAuthHours {
+			a.Hours = a.Hours[len(a.Hours)-MaxSecAuthHours:]
+		}
+		a.TopIPs = topCounts(a.TopIPs, MaxSecAuthIPs)
+		a.TopUsers = topCounts(a.TopUsers, MaxSecAuthUsers)
+	}
+	if s.Sessions != nil {
+		if len(s.Sessions) > MaxSecSessions {
+			s.Sessions = s.Sessions[:MaxSecSessions]
+		}
+		for i := range s.Sessions {
+			x := &s.Sessions[i]
+			x.User, x.TTY, x.From, x.Kind, x.State = invClip(x.User), invClip(x.TTY), invClip(x.From), invClip(x.Kind), invClip(x.State)
+			x.Since = max(x.Since, 0)
+		}
+		s.Sessions = slices.DeleteFunc(s.Sessions, func(x SecSession) bool { return x.User == "" })
+		slices.SortFunc(s.Sessions, func(a, b SecSession) int {
+			if c := strings.Compare(a.User, b.User); c != 0 {
+				return c
+			}
+			return strings.Compare(a.TTY, b.TTY)
+		})
+	}
+	if f := s.Firewall; f != nil {
+		f.Backend, f.Policy = invClip(f.Backend), invClip(f.Policy)
+		f.Rules = max(f.Rules, 0)
+	}
+}
+
+// topCounts boş/sıfır kayıtları atar, aynı anahtarları birleştirir, sayıya göre
+// azalan (eşitte anahtar) sıralar ve ilk n'yi bırakır.
+func topCounts(in []SecCount, n int) []SecCount {
+	m := map[string]int{}
+	for _, c := range in {
+		if k := invClip(c.Key); k != "" && c.Count > 0 {
+			m[k] += c.Count
+		}
+	}
+	out := make([]SecCount, 0, len(m))
+	for k, v := range m {
+		out = append(out, SecCount{Key: k, Count: v})
+	}
+	slices.SortFunc(out, func(a, b SecCount) int {
+		if a.Count != b.Count {
+			return b.Count - a.Count
+		}
+		return strings.Compare(a.Key, b.Key)
+	})
+	if len(out) > n {
+		out = out[:n]
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

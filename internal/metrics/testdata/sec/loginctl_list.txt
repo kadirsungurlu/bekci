@@ -1,0 +1,3 @@
+      1    0 root  -     7309 user          pts/0 no  -
+      2    0 root  -     7319 manager-early -     no  -
+     c3 1000 kadir seat0 1200 user          tty2  no  -

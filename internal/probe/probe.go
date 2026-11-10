@@ -339,7 +339,7 @@ func New(cfg Config) (*Client, error) {
 		cfg.Version = "dev"
 	}
 	if cfg.Metrics == nil && !cfg.NoMetrics {
-		cfg.Metrics = metrics.NewCollector(metrics.Options{Log: cfg.Log})
+		cfg.Metrics = metrics.NewCollector(metrics.Options{Log: cfg.Log, StateDir: cfg.StateDir})
 	}
 	jobsHTTP := cfg.HTTPClient
 	if jobsHTTP.Timeout > 0 && jobsHTTP.Timeout < jobsTimeout {

@@ -1,0 +1,19 @@
+Nov  9 08:00:00 web1 sshd[900]: Failed password for root from 198.51.100.9 port 22001 ssh2
+Nov 10 09:57:58 web1 sshd[1001]: Invalid user admin from 203.0.113.5 port 50122
+Nov 10 09:58:00 web1 sshd[1001]: pam_unix(sshd:auth): check pass; user unknown
+Nov 10 09:58:00 web1 sshd[1001]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.5
+Nov 10 09:58:02 web1 sshd[1001]: Failed password for invalid user admin from 203.0.113.5 port 50122 ssh2
+Nov 10 09:58:05 web1 sshd[1001]: Failed password for invalid user admin from 203.0.113.5 port 50122 ssh2
+Nov 10 09:58:06 web1 sshd[1001]: Connection closed by invalid user admin 203.0.113.5 port 50122 [preauth]
+Nov 10 10:01:11 web1 sshd[1002]: Failed password for root from 198.51.100.7 port 41000 ssh2
+Nov 10 10:01:13 web1 sshd[1002]: message repeated 2 times: [ Failed password for root from 198.51.100.7 port 41000 ssh2]
+Nov 10 10:01:15 web1 sshd[1002]: error: maximum authentication attempts exceeded for root from 198.51.100.7 port 41000 ssh2 [preauth]
+Nov 10 10:01:15 web1 sshd[1002]: Disconnecting authenticating user root 198.51.100.7 port 41000: Too many authentication failures [preauth]
+Nov 10 10:05:00 web1 sshd[1003]: Invalid user test from 203.0.113.5 port 50200
+Nov 10 10:05:01 web1 sshd[1003]: Connection closed by invalid user test 203.0.113.5 port 50200 [preauth]
+Nov 10 10:06:30 web1 sshd[1006]: Failed password for invalid user oracle from 203.0.113.5 port 50300 ssh2
+Nov 10 10:10:00 web1 sshd[1004]: Accepted publickey for deploy from 192.0.2.10 port 52000 ssh2: ED25519 SHA256:q2bS0d6VJ3Zb7Xc1n2m3k4l5p6o7i8u9y0t1r2e3w4
+Nov 10 10:10:00 web1 sshd[1004]: pam_unix(sshd:session): session opened for user deploy(uid=1000) by (uid=0)
+Nov 10 10:12:00 web1 CRON[1100]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+Nov 10 10:15:00 web1 sshd[1005]: Failed publickey for git from scanner.example.net port 3333 ssh2
+Nov 10 10:20:00 web1 sudo:   deploy : TTY=pts/0 ; PWD=/home/deploy ; USER=root ; COMMAND=/usr/bin/true

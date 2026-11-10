@@ -24,6 +24,7 @@ type Options struct {
 	DockerSocket  string              // "" → DOCKER_HOST veya /var/run/docker.sock; "-" → Docker kapalı
 	DockerTimeout time.Duration       // Docker sorgularının toplam süresi (varsayılan 5 sn)
 	Now           func() time.Time
+	StateDir      string // güvenlik raporu durumu (uptime.sec.json); "" yalnız bellekte
 	Log           *slog.Logger
 }
 
@@ -47,7 +48,8 @@ type Collector struct {
 	tlsMu    sync.Mutex
 	tlsCache map[string]tlsCached // envanter: port başına son TLS sonucu
 
-	sec secCache // güvenlik: bekleyen güncellemeler önbelleği (security_collect.go)
+	sec  secCache     // güvenlik: bekleyen güncellemeler önbelleği (security_collect.go)
+	auth secAuthState // güvenlik: SSH giriş farkı ve günlük konumu (security_auth.go)
 }
 
 // source işletim sisteminden ham değerleri okur (Linux'ta gopsutil ve
