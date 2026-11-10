@@ -49,9 +49,10 @@ func (s *Server) probeSecurity(w http.ResponseWriter, r *http.Request) {
 // bekliyor" uyarısını aynı eşikle boyar) + raporlama aralığı.
 type securityView struct {
 	store.ServerSecurity
-	Interval     int     `json:"interval"`
-	AgeThreshold float64 `json:"age_threshold,omitempty"` // sec_updates_age eşiği (gün; kural yoksa/kapalıysa 0)
-	Now          int64   `json:"now"`
+	Interval     int               `json:"interval"`
+	Auth         store.SecAuthView `json:"auth"`
+	AgeThreshold float64           `json:"age_threshold,omitempty"` // sec_updates_age eşiği (gün; kural yoksa/kapalıysa 0)
+	Now          int64             `json:"now"`
 }
 
 func (s *Server) getSecurity(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +71,10 @@ func (s *Server) getSecurity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := securityView{ServerSecurity: sec, Interval: servers.SecurityIntervalFor(p), Now: s.now().Unix()}
+	if out.Auth, err = s.store.LoadSecAuth(r.Context(), id, out.Now); err != nil {
+		s.dbError(w, err)
+		return
+	}
 	rules, err := s.store.ServerAlerts(r.Context(), id)
 	if err != nil {
 		s.dbError(w, err)

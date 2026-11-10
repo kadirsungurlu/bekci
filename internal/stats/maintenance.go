@@ -133,6 +133,9 @@ func (m *Maintenance) pruneServerStats(ctx context.Context, now time.Time) {
 	if err := m.store.PruneTimelineEvents(ctx, now.Unix()); err != nil {
 		m.log.Error("eski sunucu olayları silinemedi", "hata", err)
 	}
+	if err := m.store.PruneSecAuth(ctx, now.Unix()); err != nil {
+		m.log.Error("eski SSH giriş sayıları silinemedi", "hata", err)
+	}
 }
 
 // backup bugünün yedeği yoksa alır ve en yeni keep adet yedeği tutar.

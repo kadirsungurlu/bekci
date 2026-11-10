@@ -101,6 +101,9 @@ func (s *Store) SaveSecurity(ctx context.Context, serverID, now int64, rep metri
 		u.Packages = nil
 		stored.Updates = &u
 	}
+	if rep.Auth != nil { // fark tablolara gider; raporda yalnız kaynak kalır
+		stored.Auth = &metrics.SecAuth{Source: rep.Auth.Source}
+	}
 	err := s.tx(ctx, func(tx *Tx) error {
 		var prevReport string
 		var prevReboot, prevSince int64
@@ -118,6 +121,19 @@ func (s *Store) SaveSecurity(ctx context.Context, serverID, now int64, rep metri
 		}
 		if stored.Reboot == nil {
 			stored.Reboot = prev.Reboot
+		}
+		if stored.Auth == nil {
+			stored.Auth = prev.Auth
+		}
+		if stored.Sessions == nil {
+			stored.Sessions = prev.Sessions
+		}
+		if stored.Firewall == nil {
+			stored.Firewall = prev.Firewall
+		}
+		fw := -1
+		if f := stored.Firewall; f != nil {
+			fw = boolInt(f.Active)
 		}
 		reboot, since := int64(0), int64(0)
 		if stored.Reboot != nil && stored.Reboot.Required {
@@ -140,13 +156,19 @@ func (s *Store) SaveSecurity(ctx context.Context, serverID, now int64, rep metri
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO sec_state (server_id, report, hash, received_at, upd_manager, upd_total, upd_security, upd_checked, reboot_required, reboot_since)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO sec_state (server_id, report, hash, received_at, upd_manager, upd_total, upd_security, upd_checked, reboot_required, reboot_since, fw_active)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (server_id) DO UPDATE SET report = excluded.report, hash = excluded.hash, received_at = excluded.received_at,
 				upd_manager = excluded.upd_manager, upd_total = excluded.upd_total, upd_security = excluded.upd_security,
-				upd_checked = excluded.upd_checked, reboot_required = excluded.reboot_required, reboot_since = excluded.reboot_since`,
-			serverID, string(b), hash, now, manager, total, secCount, checked, reboot, since); err != nil {
+				upd_checked = excluded.upd_checked, reboot_required = excluded.reboot_required, reboot_since = excluded.reboot_since,
+				fw_active = excluded.fw_active`,
+			serverID, string(b), hash, now, manager, total, secCount, checked, reboot, since, fw); err != nil {
 			return err
+		}
+		if rep.Auth != nil {
+			if err := saveSecAuth(ctx, tx, serverID, now, rep.Auth); err != nil {
+				return err
+			}
 		}
 		if rep.Updates == nil {
 			return nil
