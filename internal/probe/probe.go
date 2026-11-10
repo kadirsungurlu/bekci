@@ -93,6 +93,10 @@ type Config struct {
 	// Extension isteğe bağlı ajan eklentisi (Pro: betik yürütücü); nil = yok (başlık da gitmez).
 	// Varsayılan kapalıdır, açma yalnız sunucuda yerel komutla olur.
 	Extension AgentExtension
+	// Checks özel metrik eklentisi zamanlayıcısı (730 §B, iş 739; açık derlemede
+	// de vardır). nil: yok. İş listesindeki `checks` alanı Handle'a gider;
+	// alan yoksa (eski panel) hiçbir eklenti çalışmaz.
+	Checks CheckRunner
 
 	// Mesh kancaları (heartbeat.go); hepsi isteğe bağlı.
 	// MeshSource kalp atışına eklenen eş ölçümleri ve dinleme portu (nil: yok).
@@ -182,6 +186,8 @@ type jobsResponse struct {
 	Update *agentupdate.Offer `json:"update"`
 	// ExtensionJobs eklenti işleri (Pro betik); yok (eski/açık sunucu, kapalı) = hiçbir şey olmaz.
 	ExtensionJobs json.RawMessage `json:"script_jobs"`
+	// Checks eklenti/denetim listesi (730 B.4); yok (eski panel) = hiçbiri çalışmaz.
+	Checks json.RawMessage `json:"checks"`
 }
 
 // AgentExtension ajan istemcisine takılan isteğe bağlı eklenti (Pro derlemesinde
@@ -195,6 +201,14 @@ type AgentExtension interface {
 	Handle(json.RawMessage)
 	SetPanelSecure(bool)
 	// Run eklenti döngüsü; post panele JSON gönderir (yol, gövde) -> HTTP durumu.
+	Run(ctx context.Context, post func(ctx context.Context, path string, body any) (int, error))
+}
+
+// CheckRunner eklenti/denetim zamanlayıcısı (eklentiajan.Scheduler).
+type CheckRunner interface {
+	// Handle iş listesindeki `checks` alanı (yoksa boş; boş = hepsi kapalı).
+	Handle(json.RawMessage)
+	// Run döngü; post panele JSON gönderir (yol, gövde) -> HTTP durumu.
 	Run(ctx context.Context, post func(ctx context.Context, path string, body any) (int, error))
 }
 
@@ -387,6 +401,10 @@ func (c *Client) Run(ctx context.Context) error {
 		wg.Add(1)
 		go func() { defer wg.Done(); c.cfg.Extension.Run(ctx, c.postJSON) }()
 	}
+	if c.cfg.Checks != nil {
+		wg.Add(1)
+		go func() { defer wg.Done(); c.cfg.Checks.Run(ctx, c.postJSON) }()
+	}
 	if c.cfg.NoMetrics {
 		c.log.Info("sunucu metrikleri bu ajanda kapalı (METRICS=0)")
 	} else {
@@ -451,6 +469,7 @@ func (c *Client) jobsLoop(ctx context.Context) {
 			c.setMetricsInterval(0)
 			c.setInventoryInterval(0)
 			c.setSecurityInterval(0)
+			c.stopChecks()
 			c.jobsVersion, c.haveJobs = 0, false // liste artık uygulanmıyor: sonraki yanıt hemen gelsin
 			wait = c.cfg.MaxBackoff
 		case errors.Is(err, ErrForbidden):
@@ -460,6 +479,7 @@ func (c *Client) jobsLoop(ctx context.Context) {
 			c.setMetricsInterval(0)
 			c.setInventoryInterval(0)
 			c.setSecurityInterval(0)
+			c.stopChecks()
 			c.jobsVersion, c.haveJobs = 0, false
 			wait = c.cfg.MaxBackoff
 		case err != nil:
@@ -513,6 +533,9 @@ func (c *Client) pollJobs(ctx context.Context) (time.Duration, error) {
 	c.apply(ctx, resp.Jobs)
 	if c.cfg.Extension != nil {
 		c.cfg.Extension.Handle(resp.ExtensionJobs)
+	}
+	if c.cfg.Checks != nil {
+		c.cfg.Checks.Handle(resp.Checks)
 	}
 	c.setMetricsInterval(resp.MetricsInterval)
 	c.setInventoryInterval(resp.InventoryInterval)
@@ -1039,6 +1062,13 @@ func (c *Client) setHeaders(req *http.Request, hasBody bool) {
 	}
 	if hasBody {
 		req.Header.Set("Content-Type", "application/json")
+	}
+}
+
+// stopChecks eklentileri durdurur (geçersiz token, devre dışı ajan).
+func (c *Client) stopChecks() {
+	if c.cfg.Checks != nil {
+		c.cfg.Checks.Handle(nil)
 	}
 }
 

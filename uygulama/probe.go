@@ -3,6 +3,7 @@ package uygulama
 import (
 	"context"
 	"errors"
+	"github.com/kadirsungurlu/bekci/internal/eklentiajan"
 	"io"
 	"log/slog"
 	"net/http"
@@ -100,6 +101,7 @@ func probeMain(ctx context.Context, log *slog.Logger) error {
 		Updater:       updater,
 		UpdateReport:  report,
 		Extension:     newAgentExtension(log),
+		Checks:        newCheckRunner(log),
 	})
 	if err != nil {
 		return err
@@ -137,4 +139,14 @@ func probeStateDir() string {
 		exe = real
 	}
 	return filepath.Dir(exe)
+}
+
+// newCheckRunner özel metrik eklentisi zamanlayıcısı (739). PLUGINS=0 kapatır;
+// Linux + systemd >= 254 değilse zamanlayıcı yine kurulur, öğeleri "platform"
+// koduyla reddeder (panel nedenini gösterir).
+func newCheckRunner(log *slog.Logger) probe.CheckRunner {
+	if slices.Contains([]string{"0", "false", "off", "no"}, strings.ToLower(env("PLUGINS", "1"))) {
+		return nil
+	}
+	return eklentiajan.NewScheduler(log)
 }

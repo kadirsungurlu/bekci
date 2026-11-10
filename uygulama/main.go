@@ -45,6 +45,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/kadirsungurlu/bekci/internal/eklentiajan"
 	"io"
 	"log/slog"
 	"net"
@@ -111,6 +112,10 @@ func run() error {
 	check.SetVersion(version) // kontrol isteklerinin User-Agent'ı
 	// Veritabanı gerektirmeyen komutlar.
 	if len(os.Args) > 1 {
+		// Eklenti iğnesi açık derlemede de vardır; Pro'nun `betik` komutundan önce.
+		if os.Args[1] == "betik" && len(os.Args) > 2 && os.Args[2] == "eklenti" {
+			return eklentiajan.Komut(os.Args[3:], os.Stdout)
+		}
 		if f, ok := ekKomutlar[os.Args[1]]; ok {
 			return f(os.Args[2:])
 		}

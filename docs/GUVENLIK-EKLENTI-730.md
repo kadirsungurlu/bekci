@@ -176,6 +176,24 @@ CVE/ciddiyet süzgeci), CSV/PDF, haftalık özet e-postası.
   özet makbuzu (çalışma sayısı, son sonuç) zincire girer.
 - D9: çıktı vekilde görünür; sır basan eklenti imzalanmaz (belgede uyarı).
 - Platform: Linux + systemd >= 254 (D5). Windows'ta `betik` alt komutu "desteklenmiyor" der.
+- Uygulama notları (739, `internal/eklentiajan`, AÇIK depo): betikajan Pro'ya taşındığı için (7306) eklenti kendi dar yürütücüsüyle
+  yazıldı; 680 zarfını (`bekci-script-v1`, tür `manifest`) kendisi doğrular, Pro koduna dayanmaz. Manifest alanları 680 adlarıyla:
+  `schema, id, version, sha256 (gövde), interpreter=sh, mode=periodic, class=metric, run_as, platforms, interval_min/max, timeout_sec,
+  output, network, not_before, not_after` (hepsi zorunlu; `name` yerine 680'deki `id`). 680 alanları (approval, groups...) bu
+  ayrıştırıcıda, `mode/class/interval_*` Pro `betik.ParseManifest`'te reddedilir: biri diğerinin yerine geçemez.
+  Güven kökü `/etc/bekci/eklenti.json` (root, 0600; `trust` anahtarları + `pins`), betik.json'dan ayrı. CLI (açık derlemede de):
+  `uptime betik eklenti izin <ad> <sha256>` (gövde özeti), `kapat <ad>`, `anahtar <base64>`, `liste` (kayıt zinciri denetimi).
+  Karar her çalıştırmadan önce yeniden verilir (iğne kaldırılınca, süre dolunca bir sonraki tur çalışmaz). Red kodları sonuçta
+  `error`: signature, manifest, name, body, not_pinned, pin_mismatch, expired, not_yet_valid, interval, disabled, platform.
+  Kafes: yukarıdakilere ek `NoNewPrivileges`, `ProtectKernel*`, `ProtectControlGroups`, `MemorySwapMax=0`, `PrivatePIDs` (systemd >= 257),
+  `InaccessiblePaths` (ajan env, /etc/bekci, betik/eklenti kayıtları), `User=nobody`. Ölçüm (systemd 257): CPUQuota=20% altında birim
+  kurulumu ~7 sn sürüyor ve RuntimeMaxSec kurulumu da sayıyor; bu yüzden süre kafes içinde `timeout -k 5 <timeout_sec>` ile uygulanır
+  (124/137 = timeout), RuntimeMaxSec yalnız yedek (timeout + 65 sn). Eklentiler sırayla (aynı anda tek birim) çalışır.
+  Panel tel sözleşmesi (741 bunu uygular): jobs yanıtı `checks:[{name, source:"plugin", interval, manifest:<zarf JSON>, body:<base64>}]`;
+  alan yoksa hiçbir eklenti çalışmaz, öğe listeden çıkınca kapanır. Sonuç `POST /api/probe/checks` `{"results":[{name, source, version,
+  t (ms), duration_ms, status, message, metrics, dropped, truncated, error, stderr}]}` en çok 20'lik parti; kuyruk 200, 404'te 10 dk,
+  hata/5xx/429'da 1 dk bekler. Kayıt: açık derlemede yerel zincirli `/var/log/bekci-eklenti/kayit.jsonl` (ac, kapat, surum, izin,
+  igne_k, ozet; her çalıştırma girmez); `Scheduler.Kayit` arayüzü Pro'da betikkayit'e bağlanabilir. Ajan ortamı `PLUGINS=0` kapatır.
 
 ### B.2 Çıktı biçimleri (kendi ayrıştırıcımız, `internal/eklenti`)
 - **Nagios:** dönüş kodu 0/1/2/3 = ok/warning/critical/unknown; diğer kod, zaman aşımı, sinyal = unknown. İlk satır `METİN | perfdata`,

@@ -36,7 +36,8 @@ Pro henüz sitede duyurulmaz.
 - Kuyruk işlerinde `TARAF: ücretsiz/pro` notu bu tabloya göre; pro olanların kodu bekci-pro'ya.
 - Betik çalıştırmanın tamamı Pro'da (7306): panel uçları, kayıt zinciri, imza aracı (bekci-imza), ajan
   yürütücüsü (betikajan) ve arayüz. Açık depoda yalnız genel eklenti noktaları ve kilitli menü kalır.
-  Ücretsiz eklenti zamanlayıcı (739) betikajan'a dayanamaz; kendi dar yürütücüsüyle yapılır ya da Pro'ya geçer.
+  Ücretsiz eklenti zamanlayıcı (739) betikajan'a dayanmaz: açık depoda kendi dar yürütücüsüyle yazıldı
+  (`internal/eklentiajan`; zarfı kendisi doğrular, iğne/kafes/zamanlayıcı/CLI `uptime betik eklenti`).
 - Canlı topolojinin tamamı Pro'da (7308): GET /api/topology (bekci-pro `ic/internal/api/topology.go`),
   sayfa `#/pro/topoloji` (eski `#/topology` bağlantısı oraya gider) ve e2e. Bayrak `topoloji`; saklanan Pro
   verisi olmayan salt görünüm olduğundan lisans yoksa GET de 402 `pro_lisans` döner (salt okunur kuralının
