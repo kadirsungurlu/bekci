@@ -237,7 +237,7 @@ Sertifikanın bitmesine 14, 7 ve 1 gün kala olay açılır ve sunucunun bildiri
 | Değişken | Varsayılan | Görevi |
 |---|---|---|
 | `INVENTORY` | `1` | `0` envanteri bu ajanda kapatır. |
-| `SECURITY` | `1` | `0` bekleyen güncelleme ve yeniden başlatma raporunu bu ajanda kapatır. |
+| `SECURITY` | `1` | `0` güvenlik raporunu (bkz. [Güvenlik](#guvenlik)) bu ajanda kapatır. |
 | `PROBE_CERT_DIRS` | boş | Ek sertifika klasörleri (`:` ile ayrılır). |
 | `PROBE_TLS_SCAN` | `on` | `off` dinleyen portlara bağlanmayı kapatır. |
 | `PROBE_TLS_SNI` | boş | Port taramasında denenecek alan adları (virgülle ayrılır). |
@@ -258,6 +258,61 @@ OOM için ajan `/proc/vmstat` sayacını izler; süreç adını `/dev/kmsg` sat�
 - **Hızlı disk dolumu:** bir bölüm son 60 dakikada 5 puan ya da daha çok dolarsa uyarır. Artış eşiğin %60'ının altına inince kapanır.
 
 Eski panel `events` alanını yok sayar; eski ajan olay göndermez, envanterden gelen olaylar ve tahmin yine çalışır.
+
+## Güvenlik {#guvenlik}
+
+Sunucu sayfasındaki **Güvenlik** sekmesi ajanın 15 dakikada bir gönderdiği güvenlik raporunu gösterir: bekleyen güncellemeler, yeniden başlatma gereksinimi, başarısız giriş denemeleri, açık oturumlar, güvenlik duvarı ve Windows'ta Defender. Rapor değişince hemen, değişmese de 3 saatte bir gönderilir; başarısız giriş varsa her turda kısa bir rapor gider. Ajan bunun için ek bir paket kurmaz, sistemin kendi araçlarını kullanır. Kendi güvenlik raporunu bu ajanda kapatmak için `SECURITY=0` verin (bkz. [envanter değişkenleri](#envanter)).
+
+**Sunucular** listesinin üstündeki **Filo güvenliği** şeridi güvenlik güncellemesi bekleyen, yeniden başlatma bekleyen, güvenlik duvarı kapalı ve Defender sorunu olan sunucuları sayar; bir öğeye basınca liste yalnız o sunuculara süzülür. Satırlardaki küçük rozetler aynı durumu sunucu başına gösterir. Aynı özet salt okunur API anahtarıyla `GET /api/security/summary` adresinden de alınır (bkz. [salt okunur erişim](/docs/entegrasyonlar/#salt-okunur)).
+
+### Ne nereden okunur {#guvenlik-kaynaklar}
+
+| Sistem | Güncellemeler | Yeniden başlatma | Başarısız giriş | Güvenlik duvarı |
+|---|---|---|---|---|
+| Debian / Ubuntu | apt benzetimi (indirmez, kurmaz); güvenlik = `-security` deposu, Ubuntu Pro ESM dahil | `/run/reboot-required` ve paket listesi | SSH: journal, yoksa `/var/log/auth.log` | ufw, nftables, iptables |
+| RHEL / Alma / Rocky / Fedora | `dnf` önbellekten; güvenlik ve ciddiyet errata bilgisinden | `dnf needs-restarting -r` | SSH: journal, yoksa `/var/log/secure` | firewalld, nftables, iptables |
+| CentOS 7 (yum) | `yum` önbellekten; dağıtım errata vermediği için güvenlik sayısı "bilinmiyor" | `needs-restarting -r` | SSH: journal, yoksa `/var/log/secure` | firewalld, iptables |
+| SUSE / openSUSE | `zypper` (depo tazelemeden); güvenlik yamaları ayrı | `zypper needs-rebooting` | SSH: journal | firewalld, nftables |
+| Windows Server | Windows Update'in son taraması (ağa çıkmaz); KB, başlık, ciddiyet, son 30 günde başarısız kurulumlar | bekleyen yeniden başlatma kaydı | Security günlüğü 4625; kilitlenen hesap 4740 | profil başına (Etki alanı, Özel, Genel) |
+
+Araç bulunamazsa yeniden başlatma için kurulu en yeni çekirdek çalışan çekirdekle karşılaştırılır. Paket listesi en çok 500 satırdır; toplam sayı ayrıca tutulur. Bir paketin "kaç gündür beklediği" panelin onu ilk gördüğü andan hesaplanır. Oturumlar Linux'ta `utmp`'den (SSH ve yerel terminal), Windows'ta Uzak Masaüstü oturumlarından okunur. Windows'ta Defender kartı gerçek zamanlı korumayı, imza yaşını, son taramaları, son 30 günün tehditlerini ve kurcalama korumasını gösterir; üçüncü taraf antivirüs kullanan sunucuda kart "Microsoft Defender bulunamadı" der.
+
+> [!NOTE] Ajan yalnız okur
+> Ajan yalnızca okur: paket kurmaz, depo dizinini kendisi tazelemez, güvenlik duvarı kuralı değiştirmez. Debian ve Ubuntu'da dizini sistemin `apt-daily` zamanlayıcısı, RHEL ailesinde `dnf-makecache.timer` tazeler. Dizin eskiyse sekmede "paket listesi N gün önce yenilenmiş" uyarısı görünür; `dnf` önbelleği hiç yoksa güncelleme sayısı yerine "paket listesi hiç indirilmemiş" notu çıkar.
+
+### Yetki {#guvenlik-yetki}
+
+Doğrudan (systemd) kurulumda ajan root olarak çalışır ve tüm bölümleri okur. Root olmayan bir kullanıcıyla çalıştırdıysanız:
+
+- apt ve dnf güncelleme sayıları yetki gerektirmez; `zypper` root ister (kilit meşgulse bir sonraki turda yeniden dener).
+- SSH günlüğü için kullanıcı `systemd-journal` (journal) ya da `adm` (`/var/log/auth.log`) grubunda olmalıdır; okunamazsa kart "SSH günlüğü okunamadı" der.
+- ufw, nftables ve iptables kurallarını okumak root ister; sorgu başarısız olursa kart son bilinen durumu "son sorgu başarısız oldu" notuyla gösterir.
+
+Windows'ta ajan hizmeti LocalSystem olarak kurulur; Security günlüğünü (4625/4740) okumak için bu gereklidir. Hizmeti başka bir hesapla çalıştırırsanız başarısız giriş kartında "son sorgu başarısız oldu" notu görünür, diğer bölümler çalışır.
+
+### Docker ajanı {#guvenlik-docker}
+
+Konteyner içindeki ajan host'un paket yöneticisini, journal'ı ve güvenlik duvarını çalıştıramaz. Bu yüzden Docker ile kurulan ajanda güncellemeler, başarısız girişler, oturumlar ve güvenlik duvarı gönderilmez; sekme bu bölümlerde "ajan konteynerde çalışıyor" notunu gösterir. Host'un kök dosya sistemi `HOST_ROOT` ile bağlıysa yalnız yeniden başlatma işareti (`/run/reboot-required`) okunur. Güvenlik sekmesinin tamamı için ajanı **Doğrudan (systemd)** yöntemiyle kurun.
+
+### Sağlayıcı güvenlik duvarı {#guvenlik-saglayici}
+
+Ajan yalnız sunucunun kendi güvenlik duvarını görür: gelen yönde (INPUT) engelleyen bir kural ya da varsayılan "drop/reject" politikası varsa **Açık** sayılır. Docker'ın kendi zincirleri sayılmaz. Bulut sağlayıcısının güvenlik grubu ya da ağ güvenlik duvarı (Hetzner Cloud Firewall, AWS Security Group vb.) sunucunun içinden görünmez; trafiği orada süzüyorsanız kart "Gelen trafik süzülmüyor" diyebilir. Bu nedenle **Güvenlik duvarı kapalı** kuralı varsayılan olarak kapalıdır; yalnız sunucu içi güvenlik duvarı kullandığınız sunucularda açın. Windows'ta karar sunucunun bağlı olduğu ağ profiline göre verilir; grup ilkesiyle gelen ayarlar yerine yerel ayar okunur.
+
+### Güvenlik kuralları {#guvenlik-kurallari}
+
+Kurallar sunucunun **Uyarı kuralları** bölümünde **Güvenlik** grubundadır; her biri açılıp kapatılır, eşikleri değiştirilir. Olaylar sunucunun bildirim kanallarına gider ve çözülünce kendiliğinden kapanır.
+
+| Kural | Varsayılan | Ne zaman açılır |
+|---|---|---|
+| Bekleyen güvenlik güncellemesi | açık, 7 gün | En eski bekleyen güvenlik paketi eşikten uzun süredir kurulmadı. |
+| Bekleyen yeniden başlatma | kapalı, 3 gün | Sunucu bu kadar gündür yeniden başlatılmayı bekliyor. |
+| Başarısız oturum açma | kapalı, 60 dk'da 200 | SSH (Windows'ta 4625) başarısız deneme sayısı eşiği aştı; olayda en çok deneyen adres yazar. |
+| Antivirüs imza yaşı | açık, 3 gün | Yalnız Defender olan sunucuda. |
+| Antivirüs kapalı | açık | Gerçek zamanlı koruma ya da Defender kapalı. |
+| Güvenlik duvarı kapalı | kapalı | Bkz. [sağlayıcı güvenlik duvarı](#guvenlik-saglayici). |
+| Başarısız Windows güncellemesi | açık | Son 30 günde başarısız güncelleme kurulumu var. |
+
+Sunucunun **Olaylar** sekmesine ayrıca şunlar yazılır: yeni güvenlik güncellemesi, güncellemelerin kurulması, yeniden başlatma gerekti/gerekmiyor, güvenlik duvarı ya da antivirüs durumunun değişmesi ve Windows'ta kilitlenen her hesap (4740).
 
 ## Güncelleme {#guncelleme}
 

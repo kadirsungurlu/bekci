@@ -184,6 +184,9 @@ jobs:
       - name: Salt okunur API anahtarı uçtan uca
         working-directory: web/e2e
         run: node apikeys.mjs
+      - name: Güvenlik sekmesi ve filo şeridi uçtan uca
+        working-directory: web/e2e
+        run: node guvenlik.mjs
       - name: Panel günlüğü
         if: failure()
         run: tail -n 80 "$RUNNER_TEMP/panel.log" || true

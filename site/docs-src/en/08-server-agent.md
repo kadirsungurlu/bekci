@@ -237,7 +237,7 @@ An incident opens and the server's notification channels are alerted 14, 7 and 1
 | Variable | Default | Purpose |
 |---|---|---|
 | `INVENTORY` | `1` | `0` turns the inventory off on this agent. |
-| `SECURITY` | `1` | `0` turns the pending updates and reboot report off on this agent. |
+| `SECURITY` | `1` | `0` turns the security report (see [Security](#security)) off on this agent. |
 | `PROBE_CERT_DIRS` | empty | Extra certificate folders (separated by `:`). |
 | `PROBE_TLS_SCAN` | `on` | `off` stops connecting to listening ports. |
 | `PROBE_TLS_SNI` | empty | Domain names to try when scanning ports (comma separated). |
@@ -258,6 +258,61 @@ Two alert rules are on by default for every server; change the thresholds in the
 - **Rapid disk growth:** alerts when a partition grows by 5 points or more within 60 minutes. It closes when the rise falls under 60% of the threshold.
 
 Older panels ignore the `events` field; older agents send no events, but inventory-based events and the forecast still work.
+
+## Security {#security}
+
+The **Security** tab on the server page shows the security report the agent sends every 15 minutes: pending updates, whether a reboot is required, failed login attempts, open sessions, the firewall and, on Windows, Defender. The report is sent as soon as it changes and every 3 hours otherwise; if there were failed logins, a short report goes out every round. The agent installs nothing extra for this and uses the system's own tools. To turn the security report off on one agent, set `SECURITY=0` (see [inventory variables](#inventory)).
+
+The **Fleet security** strip above the **Servers** list counts servers awaiting security updates, awaiting a reboot, with the firewall off and with a Defender problem; clicking an item filters the list to those servers. Small badges on each row show the same per server. The same summary is available with a read-only API key at `GET /api/security/summary` (see [read-only access](/en/docs/integrations/#read-only)).
+
+### What is read from where {#security-sources}
+
+| System | Updates | Reboot | Failed logins | Firewall |
+|---|---|---|---|---|
+| Debian / Ubuntu | apt simulation (no download, no install); security = `-security` repository, Ubuntu Pro ESM included | `/run/reboot-required` and its package list | SSH: journal, otherwise `/var/log/auth.log` | ufw, nftables, iptables |
+| RHEL / Alma / Rocky / Fedora | `dnf` from cache; security and severity from errata | `dnf needs-restarting -r` | SSH: journal, otherwise `/var/log/secure` | firewalld, nftables, iptables |
+| CentOS 7 (yum) | `yum` from cache; the distribution publishes no errata, so the security count is "unknown" | `needs-restarting -r` | SSH: journal, otherwise `/var/log/secure` | firewalld, iptables |
+| SUSE / openSUSE | `zypper` (without refreshing repositories); security patches separately | `zypper needs-rebooting` | SSH: journal | firewalld, nftables |
+| Windows Server | Windows Update's last scan (no network access); KB, title, severity, failed installs in the last 30 days | pending reboot registry keys | Security log 4625; locked-out account 4740 | per profile (Domain, Private, Public) |
+
+If no tool is available, the newest installed kernel is compared with the running one to decide on a reboot. The package list holds at most 500 rows; the total is kept separately. How many days a package "has been waiting" is counted from when the panel first saw it. Sessions are read from `utmp` on Linux (SSH and local terminal) and from Remote Desktop sessions on Windows. On Windows the Defender card shows real-time protection, signature age, last scans, threats in the last 30 days and tamper protection; on a server with third-party antivirus the card says "Microsoft Defender not found".
+
+> [!NOTE] The agent only reads
+> The agent only reads: it does not install packages, does not refresh the package index itself and does not change firewall rules. On Debian and Ubuntu the index is refreshed by the system's `apt-daily` timer, on the RHEL family by `dnf-makecache.timer`. If the index is old, the tab shows "the package index was refreshed N days ago"; if there is no `dnf` cache at all, a "package index has never been downloaded" note appears instead of the update count.
+
+### Permissions {#security-permissions}
+
+With the direct (systemd) install the agent runs as root and reads every section. If you run it as a non-root user:
+
+- apt and dnf update counts need no privileges; `zypper` needs root (if its lock is busy, it retries next round).
+- For the SSH log the user must be in the `systemd-journal` (journal) or `adm` (`/var/log/auth.log`) group; if it cannot be read, the card says the SSH log could not be read.
+- Reading ufw, nftables and iptables rules needs root; if the query fails, the card shows the last known state with a "last query failed" note.
+
+On Windows the agent service is installed as LocalSystem, which is required to read the Security log (4625/4740). If you run the service under another account, the failed-login card shows a "last query failed" note; the other sections keep working.
+
+### Docker agent {#security-docker}
+
+An agent inside a container cannot run the host's package manager, journal or firewall tools. So an agent installed with Docker does not send updates, failed logins, sessions or the firewall; the tab shows an "agent runs in a container" note for those sections. If the host root file system is mounted with `HOST_ROOT`, only the reboot marker (`/run/reboot-required`) is read. For the full Security tab, install the agent with the **Direct (systemd)** method.
+
+### Provider firewall {#security-provider}
+
+The agent only sees the server's own firewall: it counts as **On** if there is a blocking rule or a default "drop/reject" policy in the incoming (INPUT) direction. Docker's own chains are not counted. A cloud provider's security group or network firewall (Hetzner Cloud Firewall, AWS Security Group etc.) is not visible from inside the server; if you filter traffic there, the card may say "Incoming traffic is not filtered". That is why the **Firewall off** rule is off by default; turn it on only for servers that use a firewall on the server itself. On Windows the decision follows the network profile the server is connected to; the local setting is read rather than settings that come from group policy.
+
+### Security rules {#security-rules}
+
+The rules are in the **Security** group of the server's **Alert rules** section; each can be turned on or off and its threshold changed. Incidents go to the server's notification channels and close on their own when resolved.
+
+| Rule | Default | Opens when |
+|---|---|---|
+| Pending security update | on, 7 days | The oldest pending security package has not been installed for longer than the threshold. |
+| Pending reboot | off, 3 days | The server has been waiting for a reboot this many days. |
+| Failed logins | off, 200 in 60 min | Failed SSH (4625 on Windows) attempts exceed the threshold; the incident names the address with the most attempts. |
+| Antivirus signature age | on, 3 days | Only on servers with Defender. |
+| Antivirus off | on | Real-time protection or Defender is off. |
+| Firewall off | off | See [provider firewall](#security-provider). |
+| Failed Windows update | on | A failed update install in the last 30 days. |
+
+The server's **Events** tab also records: new security updates, updates being installed, reboot required / no longer required, firewall or antivirus state changes and, on Windows, every locked-out account (4740).
 
 ## Updating {#update}
 
