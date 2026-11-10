@@ -87,6 +87,12 @@ Ajan zaten `yusufpapurcu/wmi` + `go-ole` (dolaylı) ve `x/sys/windows` içeriyor
   Active/Disconnected, başlangıç). `query session` çıktısı yerel dile bağlı olduğu için kullanılmaz.
 - **Güvenlik duvarı profilleri:** WMI `root\StandardCimv2` `MSFT_NetFirewallProfile`: Domain/Private/Public `Enabled`,
   `DefaultInboundAction`. `active` = ağın bağlı olduğu profil açık.
+- **Uygulama notu (733, 2026-11-10):** tel alanı `av.sig_age_h` yerine `av.sig_updated` (unix sn): yaş her saat değişip özeti
+  boşuna değiştirmesin; panel yaşı hesaplar (`sec_state.av_sig_age_h` alış anındaki yaş). Profil `Enabled` 2 (ayarlanmamış) = açık,
+  `DefaultInboundAction` 0 = engelle; gelen varsayılanı "izin" olan profil süzmüyor sayılır. Bağlı profil `MSFT_NetConnectionProfile`
+  `NetworkCategory`; bilinmiyorsa tüm profiller. WMI sınıfı yerel ilke deposunu okur (GPO ile birleşmiş etkin durum değil). Kural sayısı
+  Windows'ta sayılmaz. Oturum: `Console` = tty, diğerleri rdp; `Disconnected` durum rozetiyle. WMI sorgusu 20 sn sınırlı, askıda kalan
+  varken yenisi başlamaz (`internal/metrics/security_windows.go`); eşleme saf işlevleri `security_win_map.go`.
 
 ### A.3 Ajan tarafı yapı
 - `internal/metrics/security.go` (ortak tipler, `Sanitize`, `Hash`), `security_linux.go`, `security_windows.go`, `security_other.go` (boş).
