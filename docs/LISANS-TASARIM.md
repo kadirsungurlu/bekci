@@ -1,6 +1,6 @@
 # Lisans ve kira tasarımı (7305; sunucu tarafı 7307)
 
-Bu belge sözleşmedir: `internal/lisans`, `internal/api/license*.go`, `web` Lisans ekranı, bekci-pro anahtar
+Bu belge sözleşmedir: `lisans`, `internal/api/license*.go`, `web` Lisans ekranı, bekci-pro anahtar
 üreticisi ve lisans sunucusu (lisans.bekci.app, 7307) buna uyar.
 
 ## Kavramlar
@@ -21,7 +21,7 @@ Bu belge sözleşmedir: `internal/lisans`, `internal/api/license*.go`, `web` Lis
 ## Biçim
 
 İkisi de `ÖNEK.<base64url(JSON)>.<base64url(imza)>` (dolgusuz base64url). İmza Ed25519, imzalanan bayt dizisi
-`ÖNEK.` + JSON parçasının base64url metni (ASCII). Açık anahtarlar `internal/lisans/acik_anahtar.go`'da gömülü
+`ÖNEK.` + JSON parçasının base64url metni (ASCII). Açık anahtarlar `lisans/acik_anahtar.go`'da gömülü
 (birden çok olabilir: anahtar döndürme). Gizli anahtar yalnız `/root/.config/bekci/lisans-imza.key` (base64 32
 bayt tohum, 600), hiçbir depoya girmez. Bilinmeyen JSON alanı reddedilmez (ileri uyum), `v` > 1 reddedilir.
 
@@ -77,7 +77,7 @@ kurulum zamanı, Pro derlemesi mi. Sıra:
    → `kira_bitti`; abonelikte `simdi >= lisans_bitis` → `suresi_doldu`; derleme zamanı `lisans_bitis`'ten
    sonraysa → `suresi_doldu`; kiradaki `guncelleme_bitis` 4. madde gibi.
 7. Derleme zamanı bilinmiyorsa (geliştirme derlemesi) derleme denetimleri atlanır; Pro imajı her zaman
-   `-X github.com/kadirsungurlu/bekci/internal/lisans.DerlemeZamani=<RFC3339>` ile derlenir.
+   `-X github.com/kadirsungurlu/bekci/lisans.DerlemeZamani=<RFC3339>` ile derlenir.
 
 Çıktı `Durum`: `etkin, kaynak (yok|deneme|lisans), neden, ozellikler, tur, musteri, bitis (abonelikte
 lisans_bitis), kira_bitis, kalan_gun, uyari`. Uyarı önceliği: `saat_geri` > `suresi_doldu|kira_bitti` >
@@ -120,4 +120,4 @@ bekci-pro `internal/` içe alamaz; bu yüzden `github.com/kadirsungurlu/bekci/ka
 - `kanca.AjanKomutu(ad, ozellik, fn)` — ajan tarafı komut kaydı (iş listesinde `pro_jobs`).
 - `kanca.ProDerleme()` — Pro modülü kendini işaretler (`lisans.ProDerleme = true`).
 Arayüz: `web/src/pro/sayfalar/*.svelte` (açık depoda boş; bekci-pro derlemesi kopyalar) `import.meta.glob` ile
-yüklenir; menü listesi `web/src/lib/pro.ts`.
+yüklenir; menü listesi `web/src/lib/pro.svelte.ts`.

@@ -22,7 +22,7 @@ Pro henüz sitede duyurulmaz.
 | Raporlar | /metrics, rozetler | Zamanlı SLA/PDF raporları |
 | İşletim | Yedekleme/içe aktarma, işlem kaydı | İşlem kaydını dışa aktarma, iki panelli HA |
 
-## Özellik bayrakları (`internal/lisans`)
+## Özellik bayrakları (`lisans`)
 
 `betik`, `toplu_guncelleme`, `filo_guvenlik`, `hosting_denetim`, `topoloji`, `musteri`, `rapor`, `marka`,
 `saml`, `nobet`, `ha`, `coklu_panel`, `denetim_disa`. Anahtardaki `ozellikler` listesi `["*"]` ise hepsi.

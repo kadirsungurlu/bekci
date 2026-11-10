@@ -17,7 +17,7 @@ var AcikAnahtarlar = []ed25519.PublicKey{
 }
 
 // DerlemeZamani Pro imajında ldflags ile verilir:
-// -X github.com/kadirsungurlu/bekci/internal/lisans.DerlemeZamani=<RFC3339>
+// -X github.com/kadirsungurlu/bekci/lisans.DerlemeZamani=<RFC3339>
 var DerlemeZamani string
 
 // ProDerleme, Pro modülü kendini işaretleyince (kanca.ProDerleme) true olur.
