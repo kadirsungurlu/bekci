@@ -1457,6 +1457,12 @@ export type ServerMetric =
   | "disk_forecast"
   | "disk_fast"
   | "sec_updates_age"
+  | "reboot_required"
+  | "auth_failed"
+  | "av_signature_age"
+  | "av_off"
+  | "firewall_off"
+  | "wu_failed"
   | "cert";
 /** Sunucu uyarı seviyesi (eski kurallarda boş = kritik). */
 export type AlertLevel = "warning" | "critical";

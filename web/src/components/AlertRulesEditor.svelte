@@ -4,7 +4,7 @@
   import { onMount, untrack } from 'svelte';
   import { guardUnsaved } from '../lib/forms';
   import { api, errorMessage, type AlertRule, type AlertRuleInput, type ServerMetric } from '../lib/api';
-  import { METRICS, METRIC_ORDER, UNIT_LABELS, fmtMetric, metricLabel, thresholdless } from '../lib/servers.svelte';
+  import { METRICS, METRIC_ORDER, SECURITY_METRICS, UNIT_LABELS, fmtMetric, metricLabel, minutesUnused, thresholdless } from '../lib/servers.svelte';
   import { fmtRelative } from '../lib/format';
   import { intlLocale, t } from '../lib/i18n';
   import { clock, toast } from '../lib/ui.svelte';
@@ -127,8 +127,8 @@
     r.mount = m === 'disk' ? (freeMount ?? '') : m === 'container' ? (freeContainer ?? '') : '';
     if (thresholdless(m)) r.threshold = 0;
     r.warn = 0;
-    if (m === 'reboot' || m === 'disk_forecast' || m === 'sec_updates_age') r.minutes = 1;
-    if (m === 'disk_fast') r.minutes = info.minutes;
+    if (minutesUnused(m)) r.minutes = 1;
+    if (m === 'disk_fast' || m === 'auth_failed') r.minutes = info.minutes;
   }
 
   // Hatalı alan (kutuyu kırmızı çizmek için) ve mesajı.
@@ -136,7 +136,9 @@
   function rowError(r: Row): RowError {
     const info = METRICS[r.metric];
     const min = Number(r.minutes);
-    if (r.metric !== 'reboot' && r.metric !== 'disk_forecast' && r.metric !== 'sec_updates_age' && (!Number.isInteger(min) || min < 1 || min > 60)) return { field: 'minutes', msg: t('alerts.err.minutes') };
+    if (r.metric === 'auth_failed') {
+      if (!Number.isInteger(min) || min < 60 || min > 1440) return { field: 'minutes', msg: t('alerts.err.authMinutes') };
+    } else if (!minutesUnused(r.metric) && (!Number.isInteger(min) || min < 1 || min > 60)) return { field: 'minutes', msg: t('alerts.err.minutes') };
     if (rows.some((o) => o !== r && ruleKey(o) === ruleKey(r))) {
       return {
         field: 'dup',
@@ -182,7 +184,7 @@
         mount: r.metric === 'disk' || r.metric === 'container' ? r.mount : '',
         threshold: thresholdless(r.metric) ? 0 : Number(r.threshold),
         warn_threshold: thresholdless(r.metric) ? 0 : Number(r.warn) || 0,
-        minutes: r.metric === 'reboot' || r.metric === 'disk_forecast' || r.metric === 'sec_updates_age' ? 1 : Number(r.minutes),
+        minutes: minutesUnused(r.metric) ? 1 : Number(r.minutes),
         active: r.active,
       }));
       const saved = await api.putServerAlerts(serverId, body);
@@ -210,10 +212,17 @@
     if (r.metric === 'container') return t('alerts.sentContainer', { n: r.minutes, name: r.mount || t('alerts.anyContainer') });
     if (r.metric === 'disk_forecast') return t('alerts.sentForecast', { n: r.threshold });
     if (r.metric === 'sec_updates_age') return t('alerts.sentSecAge', { n: r.threshold });
+    if (r.metric === 'reboot_required') return t('alerts.sentRebootReq', { n: r.threshold });
+    if (r.metric === 'auth_failed') return t('alerts.sentAuth', { n: r.minutes, v: fmtMetric(r.metric, r.threshold) });
+    if (r.metric === 'av_signature_age') return t('alerts.sentAvSig', { n: r.threshold });
+    if (r.metric === 'av_off') return t('alerts.sentAvOff');
+    if (r.metric === 'firewall_off') return t('alerts.sentFwOff');
+    if (r.metric === 'wu_failed') return t('alerts.sentWuFailed');
     if (r.metric === 'disk_fast') return t('alerts.sentFast', { n: r.minutes, v: fmtMetric(r.metric, r.threshold) });
     const s = t('alerts.sentOver', { n: r.minutes, v: fmtMetric(r.metric, r.threshold) });
     return r.warn_threshold ? `${s} · ${t('alerts.sentWarn', { v: fmtMetric(r.metric, r.warn_threshold) })}` : s;
   }
+  const GENERAL = METRIC_ORDER.filter((m) => !SECURITY_METRICS.includes(m));
   const levelBadge = (r: AlertRule) => (r.level === 'warning' ? t('servers.levels.warning') : r.level === 'critical' && r.warn_threshold ? t('servers.levels.critical') : '');
 </script>
 
@@ -251,8 +260,12 @@
             value={r.metric}
             onchange={(e) => changeMetric(r, (e.currentTarget as HTMLSelectElement).value as ServerMetric)}
           >
-            {#each METRIC_ORDER as m (m)}
-              <option value={m} disabled={m !== r.metric && !free.includes(m)}>{metricLabel(m)}</option>
+            {#each [GENERAL, SECURITY_METRICS] as group, gi (gi)}
+              <optgroup label={gi === 0 ? t('alerts.groupGeneral') : t('alerts.groupSecurity')}>
+                {#each group as m (m)}
+                  <option value={m} disabled={m !== r.metric && !free.includes(m)}>{metricLabel(m)}</option>
+                {/each}
+              </optgroup>
             {/each}
           </select>
           {#if r.metric === 'disk'}
@@ -294,7 +307,7 @@
               />
               {#if info.unit !== 'pct'}<span class="u">{UNIT_LABELS[info.unit]}</span>{/if}
             </label>
-            {#if r.metric !== 'disk_forecast' && r.metric !== 'disk_fast' && r.metric !== 'sec_updates_age'}
+            {#if r.metric !== 'disk_forecast' && r.metric !== 'disk_fast' && !SECURITY_METRICS.includes(r.metric)}
             <label class="unitbox warnbox" class:wide={info.unit === 'load' || info.unit === 'net'} title={t('alerts.warnTitle')}>
               <span class="u pre wl">{t('alerts.warnShort')}</span>
               {#if info.unit === 'pct'}<span class="u pre">%</span>{/if}
@@ -317,8 +330,8 @@
           {/if}
           {#if r.metric === 'disk_forecast'}
             <span class="rs reboot-note">{t('alerts.sentForecast', { n: r.threshold })}</span>
-          {:else if r.metric === 'sec_updates_age'}
-            <span class="rs reboot-note">{t('alerts.sentSecAge', { n: r.threshold })}</span>
+          {:else if minutesUnused(r.metric) && r.metric !== 'reboot'}
+            <span class="rs reboot-note">{sentence(r)}</span>
           {:else if r.metric !== 'reboot'}
             <label class="unitbox">
               <input
@@ -326,13 +339,13 @@
                 class:invalid={err?.field === 'minutes'}
                 type="number"
                 inputmode="numeric"
-                min="1"
-                max="60"
-                step="1"
+                min={r.metric === 'auth_failed' ? 60 : 1}
+                max={r.metric === 'auth_failed' ? 1440 : 60}
+                step={r.metric === 'auth_failed' ? 60 : 1}
                 bind:value={r.minutes}
                 aria-label={t('alerts.aria.minutes', { ctx })}
               />
-              <span class="u">{r.metric === 'offline' ? t('alerts.unitNoData') : r.metric === 'container' ? t('alerts.unitNotRunning') : r.metric === 'disk_fast' ? t('alerts.unitWindow') : t('alerts.unitAvg')}</span>
+              <span class="u">{r.metric === 'offline' ? t('alerts.unitNoData') : r.metric === 'container' ? t('alerts.unitNotRunning') : r.metric === 'disk_fast' ? t('alerts.unitWindow') : r.metric === 'auth_failed' ? t('alerts.unitAuthWindow') : t('alerts.unitAvg')}</span>
             </label>
           {:else}
             <span class="rs reboot-note">{t('alerts.sentReboot')}</span>

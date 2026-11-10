@@ -9,7 +9,7 @@
   let { id }: { id: number } = $props();
 
   // Sorunlar süzgeci: yalnızca dikkat isteyen olay türleri.
-  const PROBLEMS = ['oom', 'reboot', 'service_failed', 'service_stopped', 'container_stopped', 'container_restarted', 'alert', 'sec_updates_new', 'reboot_required', 'account_locked'];
+  const PROBLEMS = ['oom', 'reboot', 'service_failed', 'service_stopped', 'container_stopped', 'container_restarted', 'alert', 'sec_updates_new', 'reboot_required', 'account_locked', 'firewall_changed', 'av_changed'];
   const KNOWN = new Set([
     ...PROBLEMS,
     'service_recovered',
@@ -60,6 +60,8 @@
     if (e.kind === 'sec_updates_new' || e.kind === 'sec_updates_installed') {
       return t(`servers.timeline.kinds.${e.kind}`, { n: Number(d.count ?? 0) });
     }
+    if (e.kind === 'firewall_changed') return t(d.active ? 'servers.timeline.kinds.firewall_on' : 'servers.timeline.kinds.firewall_off');
+    if (e.kind === 'av_changed') return t(d.ok ? 'servers.timeline.kinds.av_on' : 'servers.timeline.kinds.av_off');
     if (e.kind === 'oom' && !e.subject) return t('servers.timeline.kinds.oomUnknown');
     return KNOWN.has(e.kind) ? t(`servers.timeline.kinds.${e.kind}` as TKey, { subject: e.subject }) : e.kind;
   }
@@ -96,6 +98,10 @@
         const rest = Number(d.count ?? l.length) - l.length;
         return l.join(', ') + (rest > 0 ? ` ${t('servers.timeline.morePkgs', { n: rest })}` : '');
       }
+      case 'firewall_changed':
+        return String(d.backend ?? '');
+      case 'av_changed':
+        return e.subject ?? '';
       case 'account_locked':
         return d.source ? t('servers.timeline.lockSource', { src: String(d.source) }) : '';
     }

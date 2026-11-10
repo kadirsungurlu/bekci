@@ -3,13 +3,13 @@
 
 import { api, errorMessage, type ServerMetric, type ServerState, type ServerStats, type ProbeEvent, type ServerView, type StatsPoint } from './api';
 import { collator, fmtDec, fmtPctInt, fmtTemp } from './format';
-import { t } from './i18n';
+import { intlLocale, t } from './i18n';
 import { live } from './live.svelte';
 import { session } from './session.svelte';
 
 // Metrikler -----------------------------------------------------------------------------
 
-export type MetricUnit = 'pct' | 'load' | 'temp' | 'net' | 'days' | 'none';
+export type MetricUnit = 'pct' | 'load' | 'temp' | 'net' | 'days' | 'count' | 'none';
 
 export interface MetricInfo {
   label: string;
@@ -56,13 +56,24 @@ export const METRICS: Record<ServerMetric, MetricInfo> = {
   disk_forecast: metric('disk_forecast', 'days', 7, 1, 1, 365, 1),
   disk_fast: metric('disk_fast', 'pct', 5, 60, 1, 100, 1),
   sec_updates_age: metric('sec_updates_age', 'days', 7, 1, 1, 365, 1),
+  reboot_required: metric('reboot_required', 'days', 3, 1, 1, 365, 1),
+  auth_failed: metric('auth_failed', 'count', 200, 60, 1, 1000000, 1),
+  av_signature_age: metric('av_signature_age', 'days', 3, 1, 1, 365, 1),
+  av_off: metric('av_off', 'none', 0, 1, 0, 0, 1),
+  firewall_off: metric('firewall_off', 'none', 0, 1, 0, 0, 1),
+  wu_failed: metric('wu_failed', 'none', 0, 1, 0, 0, 1),
   cert: metric('cert', 'none', 0, 0, 0, 0, 1),
 };
 
-export const METRIC_ORDER: ServerMetric[] = ['offline', 'cpu', 'mem', 'disk', 'swap', 'load', 'temp', 'net', 'container', 'reboot', 'disk_forecast', 'disk_fast', 'sec_updates_age'];
+/** Güvenlik grubu (kural editöründe ayrı başlık altında). */
+export const SECURITY_METRICS: ServerMetric[] = ['sec_updates_age', 'reboot_required', 'auth_failed', 'av_signature_age', 'av_off', 'firewall_off', 'wu_failed'];
+export const METRIC_ORDER: ServerMetric[] = ['offline', 'cpu', 'mem', 'disk', 'swap', 'load', 'temp', 'net', 'container', 'reboot', 'disk_forecast', 'disk_fast', ...SECURITY_METRICS];
+/** Süre alanı kullanılmayan kurallar (kayıtta 1). */
+export const minutesUnused = (m: ServerMetric) => m === 'reboot' || m === 'disk_forecast' || (SECURITY_METRICS.includes(m) && m !== 'auth_failed');
 
-/** Eşik kullanmayan metrikler (offline, container, reboot). */
-export const thresholdless = (m: ServerMetric) => m === 'offline' || m === 'container' || m === 'reboot';
+/** Eşik kullanmayan metrikler (offline, container, reboot, eşiksiz güvenlik kuralları). */
+export const thresholdless = (m: ServerMetric) =>
+  m === 'offline' || m === 'container' || m === 'reboot' || m === 'av_off' || m === 'firewall_off' || m === 'wu_failed';
 
 export const metricLabel = (m: ServerMetric) => METRICS[m]?.label ?? m;
 
@@ -77,6 +88,9 @@ export const UNIT_LABELS: Record<MetricUnit, string> = {
   },
   get net() {
     return t('servers.units.net');
+  },
+  get count() {
+    return t('servers.units.count');
   },
   none: '',
 };
@@ -100,6 +114,8 @@ export function fmtMetric(m: ServerMetric, v: number): string {
       return fmtTemp(v);
     case 'days':
       return fmtDays(v);
+    case 'count':
+      return t('servers.fmt.count', { n: Math.round(v).toLocaleString(intlLocale()) });
     case 'net':
       return v >= 1000 ? t('servers.fmt.gbit', { v: fmtDec(v / 1000, 2) }) : t('servers.fmt.mbit', { v: Math.round(v) });
     default:
