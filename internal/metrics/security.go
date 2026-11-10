@@ -28,6 +28,7 @@ const (
 	SecSectionAuth     = "auth"
 	SecSectionSessions = "sessions"
 	SecSectionFirewall = "firewall"
+	SecSectionAV       = "av" // 733: Windows Defender
 )
 
 // SSH/oturum/güvenlik duvarı sınırları (iş 732).
@@ -47,6 +48,7 @@ const (
 	NoteNoErrata     = "no_errata"     // dağıtım güvenlik bilgisi vermiyor (CentOS 7): Security = -1
 	NoteNoSource     = "no_source"     // SSH günlüğü yok (journal da auth.log/secure da okunamadı)
 	NoteNoTool       = "no_tool"       // güvenlik duvarı aracı yok (firewalld/ufw/nft/iptables-legacy)
+	NoteNoDefender   = "no_defender"   // Windows: Defender WMI ad alanı/sınıfı yok (üçüncü taraf AV ya da kaldırılmış)
 )
 
 // Güvenlik duvarı arka uçları (SecFirewall.Backend).
@@ -55,7 +57,18 @@ const (
 	FirewallUfw       = "ufw"
 	FirewallNft       = "nftables"
 	FirewallIptables  = "iptables-legacy"
+	FirewallWindows   = "windows" // Windows Defender Güvenlik Duvarı (733)
 )
+
+// Windows güvenlik duvarı profilleri (SecFwProfile.Name).
+const (
+	FwProfileDomain  = "domain"
+	FwProfilePrivate = "private"
+	FwProfilePublic  = "public"
+)
+
+// AV ürünleri (SecAV.Product).
+const AVDefender = "defender"
 
 // Oturum türleri (SecSession.Kind).
 const (
@@ -151,7 +164,38 @@ type SecFirewall struct {
 	Backend string `json:"backend,omitempty"` // firewalld | ufw | nftables | iptables-legacy
 	Rules   int    `json:"rules"`             // INPUT zincirlerindeki kural sayısı (firewalld/ufw'de nft/iptables'tan; bilinmiyorsa 0)
 	Policy  string `json:"policy,omitempty"`  // INPUT varsayılan politikası (accept | drop | reject)
+	// Profiles Windows profilleri (733); Linux'ta boş. Active = bağlı ağın
+	// profilleri açık (bağlantı bilinmiyorsa tümü açık).
+	Profiles []SecFwProfile `json:"profiles,omitempty"`
 }
+
+// SecFwProfile Windows güvenlik duvarı profili.
+type SecFwProfile struct {
+	Name      string `json:"name"`              // domain | private | public
+	Enabled   bool   `json:"enabled"`           // profil açık
+	Inbound   string `json:"inbound,omitempty"` // varsayılan gelen eylemi: allow | block ("" ayarlanmamış = block)
+	Connected bool   `json:"connected,omitempty"`
+}
+
+// SecAV virüs koruması (733: Windows Defender, WMI MSFT_MpComputerStatus).
+// Yaşlar -1: bilinmiyor ya da hiç yapılmadı. İmza zamanı yaş yerine mutlak
+// gönderilir (yaş her saat değişir, özet boşuna değişmesin); panel yaşı hesaplar.
+type SecAV struct {
+	Product       string `json:"product"`     // defender
+	Service       bool   `json:"service"`     // AMServiceEnabled
+	Enabled       bool   `json:"enabled"`     // AntivirusEnabled
+	Realtime      bool   `json:"realtime"`    // RealTimeProtectionEnabled
+	SigUpdated    int64  `json:"sig_updated"` // imzaların son güncellenmesi (unix sn; 0 bilinmiyor)
+	SigVersion    string `json:"sig_version,omitempty"`
+	QuickAgeD     int    `json:"quick_age_d"`    // son hızlı taramadan bu yana gün (-1 hiç)
+	FullAgeD      int    `json:"full_age_d"`     // son tam taramadan bu yana gün (-1 hiç)
+	Threats30d    int    `json:"threats_30d"`    // son 30 günde algılanan tehdit
+	ActiveThreats int    `json:"active_threats"` // hâlâ etkin tehdit
+	Tamper        bool   `json:"tamper"`         // kurcalama koruması (IsTamperProtected)
+}
+
+// OK gerçek zamanlı koruma ve AV açık mı (panel av_ok sütunu, av_off kuralı).
+func (a SecAV) OK() bool { return a.Service && a.Enabled && a.Realtime }
 
 // HasAuthDelta raporda gönderilmemiş SSH giriş farkı var mı (değişmese de gönderilir).
 func (s Security) HasAuthDelta() bool {
@@ -166,7 +210,8 @@ type Security struct {
 	Reboot   *SecReboot        `json:"reboot,omitempty"`
 	Auth     *SecAuth          `json:"auth,omitempty"`     // 732: fark, bkz. SecAuth
 	Sessions []SecSession      `json:"sessions"`           // 732: null toplanamadı, [] oturum yok
-	Firewall *SecFirewall      `json:"firewall,omitempty"` // 732
+	Firewall *SecFirewall      `json:"firewall,omitempty"` // 732 (Windows profilleri 733)
+	AV       *SecAV            `json:"av,omitempty"`       // 733: Windows Defender
 	Notes    map[string]string `json:"notes,omitempty"`
 }
 
@@ -285,6 +330,22 @@ func (s *Security) sanitize732() {
 	if f := s.Firewall; f != nil {
 		f.Backend, f.Policy = invClip(f.Backend), invClip(f.Policy)
 		f.Rules = max(f.Rules, 0)
+		if len(f.Profiles) > 8 {
+			f.Profiles = f.Profiles[:8]
+		}
+		for i := range f.Profiles {
+			p := &f.Profiles[i]
+			p.Name, p.Inbound = invClip(p.Name), invClip(p.Inbound)
+		}
+		f.Profiles = slices.DeleteFunc(f.Profiles, func(p SecFwProfile) bool { return p.Name == "" })
+		slices.SortFunc(f.Profiles, func(a, b SecFwProfile) int { return fwProfileOrder(a.Name) - fwProfileOrder(b.Name) })
+		f.Profiles = slices.CompactFunc(f.Profiles, func(a, b SecFwProfile) bool { return a.Name == b.Name })
+	}
+	if a := s.AV; a != nil {
+		a.Product, a.SigVersion = invClip(a.Product), invClip(a.SigVersion)
+		a.SigUpdated = max(a.SigUpdated, 0)
+		a.QuickAgeD, a.FullAgeD = max(a.QuickAgeD, -1), max(a.FullAgeD, -1)
+		a.Threats30d, a.ActiveThreats = max(a.Threats30d, 0), max(a.ActiveThreats, 0)
 	}
 }
 
@@ -314,4 +375,17 @@ func topCounts(in []SecCount, n int) []SecCount {
 		return nil
 	}
 	return out
+}
+
+// fwProfileOrder profil sırası: etki alanı, özel, ortak, sonra diğerleri.
+func fwProfileOrder(n string) int {
+	switch n {
+	case FwProfileDomain:
+		return 0
+	case FwProfilePrivate:
+		return 1
+	case FwProfilePublic:
+		return 2
+	}
+	return 3
 }

@@ -215,3 +215,6 @@ func fileInode(fi os.FileInfo) uint64 {
 	}
 	return 0
 }
+
+// osSecExtras Linux'ta kullanılmaz (secExtrasSupported).
+func osSecExtras(context.Context, secEnv, *Security) bool { return false }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -469,15 +470,15 @@ func TestSecuritySessionsAndFirewallFlow(t *testing.T) {
 	}
 	all := map[string]bool{"firewall-cmd": true, "nft": true}
 	got, note := fw(all, map[string]cmdResult{"firewall-cmd --state": {Out: "running\n"}, "nft -j": {Out: secFixture(t, "nft_firewalld.json")}})
-	if note != "" || *got != (SecFirewall{Active: true, Backend: FirewallFirewalld, Rules: 7, Policy: "accept"}) {
+	if note != "" || !reflect.DeepEqual(*got, SecFirewall{Active: true, Backend: FirewallFirewalld, Rules: 7, Policy: "accept"}) {
 		t.Fatalf("firewalld: %+v %q", got, note)
 	}
 	got, _ = fw(all, map[string]cmdResult{"firewall-cmd --state": {Out: "not running\n", Code: 252}, "nft -j": {Out: secFixture(t, "nft_docker_only.json")}})
-	if *got != (SecFirewall{Active: false, Backend: FirewallNft, Policy: "accept"}) {
+	if !reflect.DeepEqual(*got, SecFirewall{Active: false, Backend: FirewallNft, Policy: "accept"}) {
 		t.Fatalf("yalnız docker: %+v", got)
 	}
 	got, _ = fw(map[string]bool{"iptables-legacy": true}, map[string]cmdResult{"iptables-legacy -S": {Out: secFixture(t, "iptables_legacy_drop.txt")}})
-	if *got != (SecFirewall{Active: true, Backend: FirewallIptables, Rules: 4, Policy: "accept"}) {
+	if !reflect.DeepEqual(*got, SecFirewall{Active: true, Backend: FirewallIptables, Rules: 4, Policy: "accept"}) {
 		t.Fatalf("iptables-legacy: %+v", got)
 	}
 	if got, note = fw(nil, nil); got != nil || note != NoteNoTool {

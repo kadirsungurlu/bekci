@@ -17,3 +17,6 @@ func osSecReboot(context.Context, secEnv) (*SecReboot, string) { return nil, Not
 const secExtrasSupported = false
 
 func fileInode(os.FileInfo) uint64 { return 0 }
+
+// osSecExtras diğer sistemlerde yok.
+func osSecExtras(context.Context, secEnv, *Security) bool { return false }

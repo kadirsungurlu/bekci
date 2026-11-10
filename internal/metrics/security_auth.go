@@ -57,6 +57,9 @@ type secAuthState struct {
 // securityExtras SSH, oturum ve güvenlik duvarı bölümlerini doldurur.
 func (c *Collector) securityExtras(ctx context.Context, e secEnv, now time.Time, s *Security) {
 	if !secExtrasSupported {
+		if osSecExtras(ctx, e, s) {
+			return
+		}
 		s.Notes[SecSectionAuth] = NoteUnsupported
 		s.Notes[SecSectionSessions] = NoteUnsupported
 		s.Notes[SecSectionFirewall] = NoteUnsupported
