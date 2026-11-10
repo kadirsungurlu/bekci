@@ -118,8 +118,6 @@ probes.go: GET /api/probes | POST /api/probes | PUT /api/probes/{id} | DELETE /a
 probes_mesh.go: POST /api/probe/mesh | GET /api/probe/mesh/peers
 public_feed.go: GET /api/public/pages/{slug}/feed.xml | GET /durum/{slug}/feed.xml
 quick.go: POST /api/monitors/{id}/clone | POST /api/monitors/{id}/reset-stats | POST /api/monitors/{id}/push-token | PUT /api/monitors/{id}/notifications | POST /api/monitors/bulk | POST /api/status-pages/{id}/monitors
-scripts.go: GET /api/scripts | GET /api/scripts/hosts | GET /api/scripts/keys | GET /api/scripts/runs | GET /api/scripts/runs/{run} | GET /api/scripts/chain | GET /api/scripts/export | GET /api/scripts/lib/{id}/{version} | POST /api/scripts/control/stop | POST /api/scripts/runs/{run}/cancel | POST /api/scripts/runs/{run}/reject | POST /api/scripts | POST /api/scripts/revokes | POST /api/scripts/keys | DELETE /api/scripts/keys/{id} | POST /api/scripts/hosts/{id}/approve | POST /api/scripts/runs | POST /api/scripts/runs/{run}/approve | POST /api/scripts/runs/{run}/ticket | POST /api/scripts/control/resume | PUT /api/scripts/control/channels
-scripts_probe.go: POST /api/probe/script-result
 security.go: GET /api/servers/{id}/security | POST /api/probe/security
 server.go: GET /healthz | GET /api/push/{token} | POST /api/push/{token} | GET /api/auth/state | POST /api/auth/setup | POST /api/auth/login | POST /api/auth/logout | POST /api/auth/password | PUT /api/auth/preferences | GET /api/summary | GET /api/monitors | POST /api/monitors | GET /api/monitors/{id} | PUT /api/monitors/{id} | DELETE /api/monitors/{id} | POST /api/monitors/{id}/pause | POST /api/monitors/{id}/resume | GET /api/monitors/{id}/series | GET /api/monitors/{id}/beats | GET /api/monitors/{id}/incidents | GET /api/incidents | GET /api/notifications | POST /api/notifications | PUT /api/notifications/{id} | DELETE /api/notifications/{id} | POST /api/notifications/test | POST /api/notifications/{id}/samples | GET /api/settings | PUT /api/settings | GET /api/events | GET /api/users | POST /api/users | PUT /api/users/{id} | DELETE /api/users/{id} | POST /api/users/{id}/password | GET /api/audit | GET /api/audit/facets | /api/ | /
 servers.go: GET /api/servers | POST /api/servers | GET /api/servers/{id} | GET /api/servers/{id}/stats | GET /api/servers/{id}/timeline | GET /api/servers/{id}/events | PUT /api/servers/{id}/alerts | PUT /api/servers/{id}/notifications | POST /api/probe/metrics
@@ -140,19 +138,19 @@ webpush.go: GET /api/webpush/vapid | GET /api/webpush/subscriptions | POST /api/
 pages_period.go 25: incident_manual.go 26: servers_ext.go 27: beats_recent.go 28: domain.go 29: incident_ack.go 30: tag_rules.go 31: 
 auth_ext.go 32: webpush.go 33: auth_ext.go 34: sessions.go 35: probes_update.go 36: subscribers.go 37: subscribers.go 38: updates.go 39: 
 incident_kinds.go 40: mesh.go 41: probes_oob.go 42: channel_sends.go 43: timescale.go 44: server_metrics.go 45: inventory.go 46: 
-server_events.go 47: apikeys.go 48: scripts.go 49: scripts.go 50: topology.go 51: security.go
+server_events.go 47: apikeys.go 50: topology.go 51: security.go
 ```
 
 ### Arayüz sayfaları / bileşenler / i18n ad alanları
 ```
-pages: Announcements Auth ForcePassword IncidentDetail Incidents MaintenanceForm MaintenanceList MonitorDetail MonitorForm MonitorList More Notifications ProLocked ProPage PublicStatus ScriptRunDetail ScriptRuns ScriptSettings Scripts ServerDetail ServerList Settings StatusPageEditor StatusPages Topology
+pages: Announcements Auth ForcePassword IncidentDetail Incidents MaintenanceForm MaintenanceList MonitorDetail MonitorForm MonitorList More Notifications ProLocked ProPage PublicStatus ServerDetail ServerList Settings StatusPageEditor StatusPages Topology
 pages/settings: Account ApiKeys Audit Backup General License Login Probes Tags TwoFactor UserForm Users
-components: AgentAutoUpdate AgentVersion AlertRulesEditor BadgeBuilder BulkEditModal CodeModal ConfigFields ConfirmDialog ConnectionDetails 
+components: AgentAutoUpdate AgentVersion AlertRulesEditor BadgeBuilder BulkEditModal ConfigFields ConfirmDialog ConnectionDetails 
 ContainerTable CopyButton DateTimeField DomainStatus FilePick Icon ImportResult IncidentAck IncidentEditModal IncidentTable IncidentUpdates 
 LangSwitch LicenseBanner LineChart MeshDiagram MeshMatrix Modal MonitorMenu MonitorPicker MonitorRow NotificationForm OobFields 
 PagePreviewPanel PageSubscribers PageThumb Pager PingChart PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal 
-RecoveryCodes RowMenu ScriptFilters ScriptRunModal ScriptVersionModal ScriptsShell ServerInventory ServerPicker ServerSecurity 
-ServerSettingsModal ServerSetupModal ServerTimeline Sessions Sparkline StateMark StatusIcon StatusView SubscribePanel TagChip TagDialog 
-TagRulePicker ThemeToggle Toasts Tooltip TopoColumn TopoDock TopoProblems TopoRow TypeBadge UpdateBanner UplinkBadge UptimeBars UsageBar
-i18n: account ale.ts apiKeys audit auth backup common incide.ts license maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles scri.ts servers settings status tags topology users
+RecoveryCodes RowMenu ServerInventory ServerPicker ServerSecurity ServerSettingsModal ServerSetupModal ServerTimeline Sessions Sparkline 
+StateMark StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker ThemeToggle Toasts Tooltip TopoColumn TopoDock TopoProblems 
+TopoRow TypeBadge UpdateBanner UplinkBadge UptimeBars UsageBar
+i18n: account ale.ts apiKeys audit auth backup common incide.ts license maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles servers settings status tags topology users
 ```
