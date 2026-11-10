@@ -169,6 +169,7 @@ func (s *Service) Start(ctx context.Context) {
 				s.CheckOffline(ctx)
 			case <-certs.C:
 				s.CheckCerts(ctx)
+				s.CheckSecurity(ctx)
 			}
 		}
 	}()

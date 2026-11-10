@@ -268,6 +268,10 @@ func (e Event) serverTitle() string {
 		return i18n.T(l, "notify.server.disk_forecast", e.MonitorName, e.Mount, FormatMetric(l, e.Metric, e.Value))
 	case e.Metric == "disk_forecast":
 		return i18n.T(l, "notify.server.disk_forecast_ok", e.MonitorName, e.Mount, FormatMetric(l, e.Metric, e.Value))
+	case e.Metric == "sec_updates_age" && e.Kind == KindServerAlert:
+		return i18n.T(l, "notify.server.sec_updates_age", e.MonitorName, FormatMetric(l, e.Metric, e.Value), e.Mount)
+	case e.Metric == "sec_updates_age":
+		return i18n.T(l, "notify.server.sec_updates_age_ok", e.MonitorName)
 	case e.Metric == "disk_fast" && e.Kind == KindServerAlert:
 		return i18n.T(l, "notify.server.disk_fast", e.MonitorName, e.Mount, e.Minutes, FormatMetric(l, e.Metric, e.Value))
 	case e.Metric == "disk_fast":

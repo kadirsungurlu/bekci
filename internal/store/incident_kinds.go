@@ -471,6 +471,9 @@ func ServerIncidentCause(lang, kind string, d ServerIncidentData) string {
 	if d.Metric == "disk_forecast" {
 		return i18n.T(lang, "incident.server.disk_forecast", d.Mount, i18n.MetricValue(lang, d.Metric, d.Last), i18n.MetricValue(lang, d.Metric, d.Threshold))
 	}
+	if d.Metric == "sec_updates_age" {
+		return i18n.T(lang, "incident.server.sec_updates_age", i18n.MetricValue(lang, d.Metric, d.Last), d.Mount, i18n.MetricValue(lang, d.Metric, d.Threshold))
+	}
 	if d.Metric == "disk_fast" {
 		return i18n.T(lang, "incident.server.disk_fast", d.Mount, d.Minutes, i18n.MetricValue(lang, d.Metric, d.Value), i18n.MetricValue(lang, d.Metric, d.Threshold))
 	}

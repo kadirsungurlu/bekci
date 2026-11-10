@@ -29,7 +29,7 @@ const (
 )
 
 // Metrics geçerli uyarı metrikleri (arayüzdeki sırayla).
-var Metrics = []string{MetricOffline, MetricCPU, MetricMem, MetricDisk, MetricSwap, MetricLoad, MetricTemp, MetricNet, MetricContainer, MetricReboot, MetricDiskForecast, MetricDiskFast}
+var Metrics = []string{MetricOffline, MetricCPU, MetricMem, MetricDisk, MetricSwap, MetricLoad, MetricTemp, MetricNet, MetricContainer, MetricReboot, MetricDiskForecast, MetricDiskFast, MetricSecUpdatesAge}
 
 // ValidMetric metriğin geçerli olup olmadığını söyler.
 func ValidMetric(m string) bool {
@@ -57,7 +57,7 @@ func ThresholdRange(metric string) (lo, hi float64) {
 		return 0.1, 1000000 // Mbit/s (0,1 – 1.000.000 = 1 Tbit/s)
 	case MetricOffline, MetricContainer, MetricReboot:
 		return 0, 0
-	case MetricDiskForecast:
+	case MetricDiskForecast, MetricSecUpdatesAge:
 		return 1, 365
 	}
 	return 1, 100
@@ -74,6 +74,7 @@ func DefaultRules() []store.ServerAlert {
 		{Metric: MetricReboot, Minutes: 1, Active: true},
 		{Metric: MetricDiskForecast, Threshold: 7, Minutes: 1, Active: true},
 		{Metric: MetricDiskFast, Threshold: 5, Minutes: 60, Active: true},
+		{Metric: MetricSecUpdatesAge, Threshold: 7, Minutes: 1, Active: true},
 	}
 }
 
@@ -329,6 +330,8 @@ func (s *Service) evaluate(ctx context.Context, p store.Probe, host *metrics.Hos
 			continue
 		case MetricReboot:
 			continue // yeniden başlatma Ingest'te açılış zamanından tespit edilir
+		case MetricSecUpdatesAge:
+			continue // güvenlik raporu ve saatlik denetimle (security.go)
 		}
 		if !a.Active {
 			continue
@@ -593,7 +596,7 @@ func diskRule(m string) bool {
 
 // alertMountFiring tetiklenmiş kuralın olaydaki bölümü (disk) ya da kuralın bölümü.
 func alertMountFiring(ctx context.Context, s *Service, a *store.ServerAlert) string {
-	if diskRule(a.Metric) && a.Mount == "" {
+	if (diskRule(a.Metric) || a.Metric == MetricSecUpdatesAge) && a.Mount == "" {
 		if m, err := s.store.OpenServerAlertMount(ctx, a.ID); err == nil {
 			return m
 		}
@@ -607,7 +610,7 @@ func alertMountFiring(ctx context.Context, s *Service, a *store.ServerAlert) str
 // sunucuda olay kapanır ama bildirim gitmez.
 func (s *Service) resolve(ctx context.Context, p store.Probe, host *metrics.Host, a *store.ServerAlert, v float64, now time.Time, detail func(*notify.Event)) {
 	mount := a.Mount
-	if (diskRule(a.Metric) || a.Metric == MetricContainer) && mount == "" {
+	if (diskRule(a.Metric) || a.Metric == MetricContainer || a.Metric == MetricSecUpdatesAge) && mount == "" {
 		var err error
 		if mount, err = s.store.OpenServerAlertMount(ctx, a.ID); err != nil {
 			s.log.Error("sunucu uyarısının bölümü okunamadı", "sunucu", p.Name, "hata", err)

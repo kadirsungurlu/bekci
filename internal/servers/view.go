@@ -68,6 +68,8 @@ type View struct {
 	TempMax        *float64       `json:"temp_max"`
 	Firing         []string       `json:"firing"`
 	DiskForecast   []DiskForecast `json:"disk_forecast"`
+	// Security güvenlik özeti (yalnız liste; ajan rapor göndermediyse yok).
+	Security *store.SecSummary `json:"security,omitempty"`
 	// IP kilidi yalnızca yöneticiye gösterilir: API katmanı yönetici olmayan
 	// kullanıcıya giden liste/detay yanıtında ve canlı akıştaki "server"
 	// olayında bu alanları atar (HideIPLock, api.viewerEvent).

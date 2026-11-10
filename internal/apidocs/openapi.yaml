@@ -1407,6 +1407,13 @@ paths:
       description: "collected_at 0 ise ajan henüz envanter göndermemiştir (eski ajan). notes: bölüm -> toplanamama nedeni (unsupported, no_systemd, no_docker, no_host, failed)."
       parameters: [{ $ref: "#/components/parameters/id" }]
       responses: { "200": { description: "{collected_at, notes, services[], containers[], ports[], certs[], disks[]}" } }
+  /api/servers/{id}/security:
+    get:
+      tags: [servers]
+      summary: Sunucu güvenlik durumu (bekleyen güncellemeler, yeniden başlatma gerekli)
+      description: "received_at 0 ise ajan henüz rapor göndermemiştir (eski ajan). packages[].first_seen panelin paketi ilk gördüğü an; 'X gündür bekliyor' bundan hesaplanır. report.updates.security -1: dağıtım güvenlik bilgisi vermiyor. notes: bölüm (updates, reboot) -> neden (unsupported, no_host, failed, no_manager, cache_missing, locked, no_errata). age_threshold: sec_updates_age kuralının eşiği (gün; kapalıysa yok)."
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "200": { description: "{received_at, report{time, updates{manager,total,security,index_time,checked_at,truncated}, reboot{required,reason,packages[]}}, reboot_since, packages[{name,current,new,security,severity,esm,first_seen}], notes, interval, age_threshold, now}" } }
   /api/servers/{id}/inventory/certs/{fingerprint}:
     put:
       tags: [servers]

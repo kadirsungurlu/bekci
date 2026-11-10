@@ -1331,6 +1331,8 @@ func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 		"metrics_interval": servers.IntervalFor(p),
 		// Envanter toplama aralığı (sn); 0: gönderme. Eski ajan alanı yok sayar.
 		"inventory_interval": servers.InventoryIntervalFor(p),
+		// Güvenlik raporu aralığı (sn); 0: gönderme. Eski ajan alanı yok sayar.
+		"security_interval": servers.SecurityIntervalFor(p),
 		// Sunucunun saati (unix ms): ajan kontrol ızgarasını buna göre kurar,
 		// iki makinenin saati farklı olsa da kontroller aynı anda yapılır.
 		"server_time": time.Now().UnixMilli(),

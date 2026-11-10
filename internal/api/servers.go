@@ -83,9 +83,17 @@ func (s *Server) listServers(w http.ResponseWriter, r *http.Request) {
 	}
 	admin := isPageAdmin(userFrom(r))
 	lang := responseLang(w)
+	sec, err := s.store.SecSummaries(r.Context())
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
 	out := make([]servers.View, len(probes))
 	for i, p := range probes {
 		out[i] = s.servers.View(r.Context(), p, rules[p.ID], false)
+		if v, ok := sec[p.ID]; ok {
+			out[i].Security = &v
+		}
 		out[i].Localize(lang)
 		if !admin {
 			out[i].HideIPLock() // sabitlenmiş IP yalnızca yöneticiye
@@ -130,6 +138,11 @@ func (s *Server) getServer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	v := s.servers.View(r.Context(), p, rules, true)
+	if sec, err := s.store.SecSummaries(r.Context()); err == nil {
+		if x, ok := sec[id]; ok {
+			v.Security = &x
+		}
+	}
 	v.Localize(responseLang(w))
 	if !isPageAdmin(userFrom(r)) {
 		v.HideIPLock() // sabitlenmiş IP yalnızca yöneticiye
@@ -282,7 +295,7 @@ func validateAlerts(in []alertInput) ([]store.ServerAlert, error) {
 	for _, a := range in {
 		a.Metric = strings.TrimSpace(a.Metric)
 		if !servers.ValidMetric(a.Metric) {
-			return nil, errors.New("Metrik cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast veya disk_fast olmalı")
+			return nil, errors.New("Metrik cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast, disk_fast veya sec_updates_age olmalı")
 		}
 		a.Mount = strings.TrimSpace(a.Mount)
 		switch {
@@ -306,10 +319,10 @@ func validateAlerts(in []alertInput) ([]store.ServerAlert, error) {
 		} else {
 			seen[key] = true
 		}
-		if a.Metric == servers.MetricReboot || a.Metric == servers.MetricDiskForecast {
+		if a.Metric == servers.MetricReboot || a.Metric == servers.MetricDiskForecast || a.Metric == servers.MetricSecUpdatesAge {
 			a.Minutes = 1 // kullanılmaz
 		}
-		if a.Metric == servers.MetricDiskForecast || a.Metric == servers.MetricDiskFast {
+		if a.Metric == servers.MetricDiskForecast || a.Metric == servers.MetricDiskFast || a.Metric == servers.MetricSecUpdatesAge {
 			a.WarnThreshold = 0 // hep "uyarı" seviyesinde; tek eşik
 		}
 		if a.Minutes < 1 || a.Minutes > 60 {
