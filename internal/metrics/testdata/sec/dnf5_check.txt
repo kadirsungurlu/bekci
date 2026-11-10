@@ -1,0 +1,4 @@
+curl.x86_64                  8.11.1-4.fc42  updates
+libcurl.x86_64               8.11.1-4.fc42  updates
+openssl-libs.x86_64          1:3.2.4-2.fc42 updates
+tzdata.noarch                2026b-1.fc42   updates

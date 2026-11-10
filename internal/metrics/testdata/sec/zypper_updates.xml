@@ -1,0 +1,14 @@
+<?xml version='1.0'?>
+<stream>
+<message type="info">Loading repository data...</message>
+<message type="warning">Repository &apos;Main Update Repository&apos; metadata expired since 2025-08-30 08:17:31 UTC.</message>
+<message type="info">Reading installed packages...</message>
+<update-status version="0.6">
+<update-list>
+<update kind="package" name="aaa_base" edition="84.87+git20180409.04c9dae-150300.10.23.1" arch="x86_64" edition-old="84.87+git20180409.04c9dae-150300.10.20.1"><summary>openSUSE Base Package</summary><description>Configuration files.</description><license/><source url="http://download.opensuse.org/update/leap/15.5/sle/" alias="repo-sle-update"/></update>
+<update kind="package" name="curl" edition="8.0.1-150400.5.59.1" arch="x86_64" edition-old="8.0.1-150400.5.50.1"><summary>A Tool for Transferring Data from URLs</summary><description>curl</description><license/><source url="http://download.opensuse.org/update/leap/15.5/sle/" alias="repo-sle-update"/></update>
+<update kind="package" name="libcurl4" edition="8.0.1-150400.5.59.1" arch="x86_64" edition-old="8.0.1-150400.5.50.1"><summary>Library for transferring data from URLs</summary><description>libcurl</description><license/><source url="http://download.opensuse.org/update/leap/15.5/sle/" alias="repo-sle-update"/></update>
+<update kind="package" name="libopenssl1_1" edition="1.1.1l-150500.17.37.1" arch="x86_64" edition-old="1.1.1l-150500.17.34.1"><summary>Secure Sockets and Transport Layer Security</summary><description>openssl</description><license/><source url="http://download.opensuse.org/update/leap/15.5/sle/" alias="repo-sle-update"/></update>
+</update-list>
+</update-status>
+</stream>

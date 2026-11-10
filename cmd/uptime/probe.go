@@ -93,6 +93,7 @@ func probeMain(ctx context.Context, log *slog.Logger) error {
 		MaxConcurrent: maxChecks,
 		NoMetrics:     slices.Contains([]string{"0", "false", "off", "no"}, strings.ToLower(env("METRICS", "1"))),
 		NoInventory:   slices.Contains([]string{"0", "false", "off", "no"}, strings.ToLower(env("INVENTORY", "1"))),
+		NoSecurity:    slices.Contains([]string{"0", "false", "off", "no"}, strings.ToLower(env("SECURITY", "1"))),
 		StateDir:      probeStateDir(),
 		OOBIface:      env("PROBE_OOB_IFACE", ""),
 		AllowInsecure: slices.Contains([]string{"1", "true", "on", "yes"}, strings.ToLower(env("PROBE_ALLOW_INSECURE", ""))),

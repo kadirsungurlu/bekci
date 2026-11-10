@@ -237,6 +237,7 @@ Sertifikanın bitmesine 14, 7 ve 1 gün kala olay açılır ve sunucunun bildiri
 | Değişken | Varsayılan | Görevi |
 |---|---|---|
 | `INVENTORY` | `1` | `0` envanteri bu ajanda kapatır. |
+| `SECURITY` | `1` | `0` bekleyen güncelleme ve yeniden başlatma raporunu bu ajanda kapatır. |
 | `PROBE_CERT_DIRS` | boş | Ek sertifika klasörleri (`:` ile ayrılır). |
 | `PROBE_TLS_SCAN` | `on` | `off` dinleyen portlara bağlanmayı kapatır. |
 | `PROBE_TLS_SNI` | boş | Port taramasında denenecek alan adları (virgülle ayrılır). |

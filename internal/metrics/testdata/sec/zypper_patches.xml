@@ -1,0 +1,14 @@
+<?xml version='1.0'?>
+<stream>
+<message type="info">Loading repository data...</message>
+<message type="info">Reading installed packages...</message>
+<update-status version="0.6">
+<update-list>
+<update kind="patch" name="openSUSE-SLE-15.5-2024-3420" edition="1" arch="noarch" status="needed" category="recommended" severity="moderate" pkgmanager="true" restart="false" interactive="false"><summary>Recommended update for libzypp, zypper</summary><description>stack</description><license/><source url="http://download.opensuse.org/update/leap/15.5/sle/" alias="repo-sle-update"/></update>
+<update kind="patch" name="openSUSE-SLE-15.5-2024-3826" edition="1" arch="noarch" status="needed" category="security" severity="important" pkgmanager="false" restart="false" interactive="false"><summary>Security update for curl</summary><description>CVE-2024-9681</description><license/><source url="http://download.opensuse.org/update/leap/15.5/sle/" alias="repo-sle-update"/></update>
+</update-list>
+<blocked-update-list>
+<update kind="patch" name="openSUSE-SLE-15.5-2024-4012" edition="1" arch="noarch" status="needed" category="security" severity="moderate" pkgmanager="false" restart="false" interactive="false"><summary>Security update for openssl-1_1</summary><description>CVE</description><license/><source url="http://download.opensuse.org/update/leap/15.5/sle/" alias="repo-sle-update"/></update>
+</blocked-update-list>
+</update-status>
+</stream>

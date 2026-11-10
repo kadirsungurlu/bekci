@@ -76,6 +76,7 @@ type Config struct {
 	MaxBackoff    time.Duration    // tekrar denemeler arası en uzun bekleme (varsayılan 60 birim)
 	NoMetrics     bool             // sunucu metrikleri hiç toplanmaz (METRICS=0), ana sunucu istese de
 	NoInventory   bool             // sunucu envanteri hiç toplanmaz (INVENTORY=0), ana sunucu istese de
+	NoSecurity    bool             // güvenlik raporu (güncellemeler, yeniden başlatma) hiç toplanmaz (SECURITY=0)
 	AllowInsecure bool             // true değilse http:// ana sunucu reddedilir (yalnızca PROBE_ALLOW_INSECURE=1)
 	Metrics       MetricsCollector // varsayılan metrics.NewCollector
 	HTTPClient    *http.Client
@@ -170,11 +171,14 @@ type jobsResponse struct {
 	MetricsInterval int    `json:"metrics_interval"` // sn; 0 veya alan yok (eski sunucu) = metrik gönderilmez
 	// InventoryInterval envanterin toplanma aralığı (sn); 0 veya alan yok
 	// (eski sunucu) = envanter toplanmaz.
-	InventoryInterval int        `json:"inventory_interval"`
-	ServerTime        int64      `json:"server_time"` // unix ms; 0 veya alan yok (eski sunucu) = saat farkı bilinmez
-	UserAgent         string     `json:"user_agent"`  // kontrol isteklerinin User-Agent'ı; boş (eski sunucu) = ajanın varsayılanı
-	Jobs              []Job      `json:"jobs"`
-	OOB               *OOBConfig `json:"oob"` // yok (eski sunucu) = OOB ayarı değişmez
+	InventoryInterval int `json:"inventory_interval"`
+	// SecurityInterval güvenlik raporunun toplanma aralığı (sn); 0 veya alan
+	// yok (eski sunucu) = rapor toplanmaz.
+	SecurityInterval int        `json:"security_interval"`
+	ServerTime       int64      `json:"server_time"` // unix ms; 0 veya alan yok (eski sunucu) = saat farkı bilinmez
+	UserAgent        string     `json:"user_agent"`  // kontrol isteklerinin User-Agent'ı; boş (eski sunucu) = ajanın varsayılanı
+	Jobs             []Job      `json:"jobs"`
+	OOB              *OOBConfig `json:"oob"` // yok (eski sunucu) = OOB ayarı değişmez
 	// Update imzalı güncelleme teklifi; yok (eski sunucu, güncel ajan, kapalı) = güncelleme yok.
 	Update *agentupdate.Offer `json:"update"`
 	// Scripts betik işleri; yok (eski sunucu, betik kapalı) = hiçbir şey olmaz.
@@ -225,6 +229,7 @@ type Client struct {
 	flushNow    chan struct{} // yeni işin ilk sonucu: FlushEvery beklenmeden gönder
 	metricsIv   chan int      // iş listesindeki son metrics_interval (yalnızca en yenisi bekler)
 	inventoryIv chan int      // iş listesindeki son inventory_interval (yalnızca en yenisi bekler)
+	securityIv  chan int      // iş listesindeki son security_interval (yalnızca en yenisi bekler)
 	metricsBad  int           // son reddedilen metrik gönderiminin durumu (log tekrarını önler; yalnızca metricsLoop)
 
 	// Kendini güncelleme (yalnızca jobsLoop goroutine'inde):
@@ -344,7 +349,7 @@ func New(cfg Config) (*Client, error) {
 	return &Client{
 		cfg: cfg, base: u, log: cfg.Log, sem: make(chan struct{}, cfg.MaxConcurrent),
 		tasks: map[int64]*task{}, unknown: map[string]bool{}, reach: map[string]bool{},
-		metricsIv: make(chan int, 1), inventoryIv: make(chan int, 1), jobsHTTP: jobsHTTP, flushNow: make(chan struct{}, 1),
+		metricsIv: make(chan int, 1), inventoryIv: make(chan int, 1), securityIv: make(chan int, 1), jobsHTTP: jobsHTTP, flushNow: make(chan struct{}, 1),
 		restart: make(chan struct{}), updateReport: cfg.UpdateReport, updateRefused: map[string]time.Time{},
 		up: up,
 	}, nil
@@ -387,6 +392,10 @@ func (c *Client) Run(ctx context.Context) error {
 	if ic, ok := c.cfg.Metrics.(InventoryCollector); ok && !c.cfg.NoMetrics && !c.cfg.NoInventory {
 		wg.Add(1)
 		go func() { defer wg.Done(); c.inventoryLoop(ctx, ic) }()
+	}
+	if sc, ok := c.cfg.Metrics.(SecurityCollector); ok && !c.cfg.NoMetrics && !c.cfg.NoSecurity {
+		wg.Add(1)
+		go func() { defer wg.Done(); c.securityLoop(ctx, sc) }()
 	}
 	wg.Wait()
 	c.stopAll()
@@ -437,6 +446,7 @@ func (c *Client) jobsLoop(ctx context.Context) {
 			c.clearBuffer()
 			c.setMetricsInterval(0)
 			c.setInventoryInterval(0)
+			c.setSecurityInterval(0)
 			c.jobsVersion, c.haveJobs = 0, false // liste artık uygulanmıyor: sonraki yanıt hemen gelsin
 			wait = c.cfg.MaxBackoff
 		case errors.Is(err, ErrForbidden):
@@ -445,6 +455,7 @@ func (c *Client) jobsLoop(ctx context.Context) {
 			c.stopAll()
 			c.setMetricsInterval(0)
 			c.setInventoryInterval(0)
+			c.setSecurityInterval(0)
 			c.jobsVersion, c.haveJobs = 0, false
 			wait = c.cfg.MaxBackoff
 		case err != nil:
@@ -501,6 +512,7 @@ func (c *Client) pollJobs(ctx context.Context) (time.Duration, error) {
 	}
 	c.setMetricsInterval(resp.MetricsInterval)
 	c.setInventoryInterval(resp.InventoryInterval)
+	c.setSecurityInterval(resp.SecurityInterval)
 	if resp.Version != nil {
 		c.jobsVersion = *resp.Version
 	} else {

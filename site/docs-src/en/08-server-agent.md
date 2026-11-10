@@ -237,6 +237,7 @@ An incident opens and the server's notification channels are alerted 14, 7 and 1
 | Variable | Default | Purpose |
 |---|---|---|
 | `INVENTORY` | `1` | `0` turns the inventory off on this agent. |
+| `SECURITY` | `1` | `0` turns the pending updates and reboot report off on this agent. |
 | `PROBE_CERT_DIRS` | empty | Extra certificate folders (separated by `:`). |
 | `PROBE_TLS_SCAN` | `on` | `off` stops connecting to listening ports. |
 | `PROBE_TLS_SNI` | empty | Domain names to try when scanning ports (comma separated). |

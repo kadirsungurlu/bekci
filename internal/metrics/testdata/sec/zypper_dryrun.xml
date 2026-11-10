@@ -1,0 +1,18 @@
+<?xml version='1.0'?>
+<stream>
+<message type="info">Loading repository data...</message>
+<install-summary download-size="4007964" space-usage-diff="8587" packages-to-change="3" need-restart="0" need-reboot="0">
+<to-upgrade>
+<solvable type="package" name="curl" edition="8.0.1-150400.5.59.1" arch="x86_64" repository="repo-sle-update" edition-old="8.0.1-150400.5.50.1" arch-old="x86_64" summary="A Tool for Transferring Data from URLs">
+<description>curl</description></solvable>
+<solvable type="package" name="libcurl4" edition="8.0.1-150400.5.59.1" arch="x86_64" repository="repo-sle-update" edition-old="8.0.1-150400.5.50.1" arch-old="x86_64" summary="Library">
+<description>libcurl</description></solvable>
+<solvable type="package" name="libopenssl1_1" edition="1.1.1l-150500.17.37.1" arch="x86_64" repository="repo-sle-update" edition-old="1.1.1l-150500.17.34.1" arch-old="x86_64" summary="openssl">
+<description>openssl</description></solvable>
+</to-upgrade>
+<to-install>
+<solvable type="patch" name="openSUSE-SLE-15.5-2024-3826" edition="1" arch="noarch" repository="repo-sle-update" summary="Security update for curl">
+<description>CVE-2024-9681</description></solvable>
+</to-install>
+</install-summary>
+</stream>

@@ -1,0 +1,13 @@
+RLBA-2024:9438  bugfix         alternatives-1.24-1.el9_5.1.x86_64
+RLBA-2024:9407  bugfix         audit-libs-3.1.5-1.el9.x86_64
+RLBA-2024:2519  bugfix         bash-5.1.8-9.el9.x86_64
+RLBA-2024:9384  bugfix         binutils-2.35.2-54.el9.x86_64
+RLSA-2025:23343 Moderate/Sec.  binutils-2.35.2-67.el9_7.1.x86_64
+RLBA-2024:9384  bugfix         binutils-gold-2.35.2-54.el9.x86_64
+RLSA-2025:23343 Moderate/Sec.  binutils-gold-2.35.2-67.el9_7.1.x86_64
+RLSA-2025:0925  Moderate/Sec.  bzip2-libs-1.0.8-10.el9_5.x86_64
+RLBA-2024:5691  bugfix         ca-certificates-2024.2.69_v8.0.303-91.4.el9_4.noarch
+RLSA-2026:88459 Critical/Sec.  ca-certificates-2026.2.92_v9.0.319-90.3.el9_8.noarch
+RLBA-2024:9420  bugfix         coreutils-single-8.32-36.el9.x86_64
+RLSA-2026:66403 Moderate/Sec.  coreutils-single-8.32-41.el9_8.1.x86_64
+RLSA-2026:9999  Important/Sec. binutils-2.35.2-72.el9.x86_64

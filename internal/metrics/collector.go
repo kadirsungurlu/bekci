@@ -46,6 +46,8 @@ type Collector struct {
 
 	tlsMu    sync.Mutex
 	tlsCache map[string]tlsCached // envanter: port başına son TLS sonucu
+
+	sec secCache // güvenlik: bekleyen güncellemeler önbelleği (security_collect.go)
 }
 
 // source işletim sisteminden ham değerleri okur (Linux'ta gopsutil ve
