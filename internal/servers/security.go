@@ -22,6 +22,8 @@ const (
 	EventSecUpdatesInstalled = "sec_updates_installed"
 	EventRebootRequired      = "reboot_required"
 	EventRebootCleared       = "reboot_cleared"
+	// EventAccountLocked kilitlenen hesap (Windows 4740); konu kullanıcı adı.
+	EventAccountLocked = "account_locked"
 
 	maxSecEventPkgs = 20
 )
@@ -47,6 +49,10 @@ func (s *Service) IngestSecurity(ctx context.Context, p store.Probe, rep metrics
 		return err
 	}
 	s.timeline(ctx, securityChanges(p.ID, ch, now.Unix())...)
+	if rep.Auth != nil && len(rep.Auth.Locked) > 0 {
+		// PK (probe_id,time,kind,subject) yeniden gönderimi yinelemez.
+		s.timeline(ctx, lockedEvents(p.ID, rep.Auth.Locked)...)
+	}
 	s.evalMu.Lock()
 	defer s.evalMu.Unlock()
 	return s.evalSecurity(ctx, p, now)
@@ -75,6 +81,22 @@ func securityChanges(id int64, ch store.SecurityChange, t int64) []store.Timelin
 	}
 	if ch.RebootCleared {
 		out = append(out, timelineEvent(id, t, EventRebootCleared, "", store.EventInfo, nil))
+	}
+	return out
+}
+
+// lockedEvents kilitlenen hesapları zaman çizelgesi olaylarına çevirir.
+func lockedEvents(id int64, locked []metrics.SecLock) []store.TimelineEvent {
+	out := make([]store.TimelineEvent, 0, len(locked))
+	for _, l := range locked {
+		if l.User == "" || l.Time <= 0 {
+			continue
+		}
+		var d map[string]any
+		if l.Source != "" {
+			d = map[string]any{"source": l.Source}
+		}
+		out = append(out, timelineEvent(id, l.Time, EventAccountLocked, l.User, store.EventWarning, d))
 	}
 	return out
 }

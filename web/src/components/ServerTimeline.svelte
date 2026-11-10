@@ -9,7 +9,7 @@
   let { id }: { id: number } = $props();
 
   // Sorunlar süzgeci: yalnızca dikkat isteyen olay türleri.
-  const PROBLEMS = ['oom', 'reboot', 'service_failed', 'service_stopped', 'container_stopped', 'container_restarted', 'alert', 'sec_updates_new', 'reboot_required'];
+  const PROBLEMS = ['oom', 'reboot', 'service_failed', 'service_stopped', 'container_stopped', 'container_restarted', 'alert', 'sec_updates_new', 'reboot_required', 'account_locked'];
   const KNOWN = new Set([
     ...PROBLEMS,
     'service_recovered',
@@ -96,6 +96,8 @@
         const rest = Number(d.count ?? l.length) - l.length;
         return l.join(', ') + (rest > 0 ? ` ${t('servers.timeline.morePkgs', { n: rest })}` : '');
       }
+      case 'account_locked':
+        return d.source ? t('servers.timeline.lockSource', { src: String(d.source) }) : '';
     }
     return '';
   }

@@ -131,6 +131,9 @@ func (s *Store) SaveSecurity(ctx context.Context, serverID, now int64, rep metri
 		if stored.Firewall == nil {
 			stored.Firewall = prev.Firewall
 		}
+		if stored.WU == nil {
+			stored.WU = prev.WU
+		}
 		// Defender kaldırıldıysa (no_defender) eski durum korunmaz.
 		if stored.AV == nil && rep.Notes[metrics.SecSectionAV] != metrics.NoteNoDefender {
 			stored.AV = prev.AV

@@ -57,7 +57,7 @@
     pkgs.filter((p) => {
       if (onlySec && !p.security) return false;
       const s = q.trim().toLocaleLowerCase();
-      return !s || p.name.toLocaleLowerCase().includes(s);
+      return !s || p.name.toLocaleLowerCase().includes(s) || (isWU && p.new.toLocaleLowerCase().includes(s));
     }),
   );
 
@@ -91,7 +91,16 @@
     d < 0 ? t('servers.security.av.never') : d === 0 ? t('servers.security.av.today') : t('servers.security.av.daysAgo', { n: d });
   const onOff = (b: boolean) => t(b ? 'servers.security.av.on' : 'servers.security.av.off');
   const authSource = $derived(data?.report?.auth?.source ?? '');
+  // Windows Update (734): paket adı KB numarası, "yeni" sütunu güncelleme başlığı.
+  const isWU = $derived(upd?.manager === 'wu');
+  const wu = $derived(data?.report?.wu ?? null);
+  const wuFailed = $derived((wu?.failed ?? []).slice(0, 5));
+  // Windows: giriş kaynağı Security günlüğü (4625); başarılı giriş sayılmaz.
+  const isWin = $derived(authSource === 'eventlog' || isWU || !!av || !!fw?.profiles?.length);
   const noteClass = (c: string | undefined) => (c === 'failed' ? 'warning' : 'info');
+
+  const colName = $derived(isWU ? t('servers.security.pkgs.colKB') : t('servers.security.pkgs.colName'));
+  const colNew = $derived(isWU ? t('servers.security.pkgs.colTitle') : t('servers.security.pkgs.colNew'));
 
   const pkgOver = (p: SecPackage) => p.security && !!data?.age_threshold && waitDays(p) >= data.age_threshold;
 </script>
@@ -151,15 +160,34 @@
           <p class="line ok"><Icon name="check-circle" size={14} /> {t('servers.security.updates.none')}</p>
         {/if}
         <dl class="meta">
-          <dt>{t('servers.security.updates.manager')}</dt>
-          <dd>{upd.manager || '—'}</dd>
-          <dt>{t('servers.security.updates.index')}</dt>
-          <dd>{upd.index_time ? fmtRelative(upd.index_time, now) : t('servers.security.updates.unknown')}</dd>
+          <dt>{isWU ? t('servers.security.updates.source') : t('servers.security.updates.manager')}</dt>
+          <dd>{isWU ? 'Windows Update' : upd.manager || '—'}</dd>
+          {#if !isWU}
+            <dt>{t('servers.security.updates.index')}</dt>
+            <dd>{upd.index_time ? fmtRelative(upd.index_time, now) : t('servers.security.updates.unknown')}</dd>
+          {/if}
           <dt>{t('servers.security.updates.checked')}</dt>
           <dd>{upd.checked_at ? fmtRelative(Math.floor(upd.checked_at / 1000), now) : t('servers.security.updates.unknown')}</dd>
         </dl>
-        {#if indexAge > INDEX_STALE_DAYS}
+        {#if !isWU && indexAge > INDEX_STALE_DAYS}
           <p class="muted small line">{t('servers.security.updates.indexOld', { d: fmtDays(indexAge) })}</p>
+        {/if}
+      {/if}
+      {#if notes.wu}
+        <div class="alert {noteClass(notes.wu)} note"><Icon name="info" size={16} /><span>{noteText(notes.wu)}</span></div>
+      {/if}
+      {#if wu && wu.failed_30d > 0}
+        <p class="line c-pending"><Icon name="alert" size={14} /> {t('servers.security.wu.failed30', { n: wu.failed_30d })}</p>
+        {#if wuFailed.length}
+          <ul class="wuf" aria-label={t('servers.security.wu.failedList')}>
+            {#each wuFailed as f, i (i)}
+              <li>
+                {#if f.kb}<span class="mono-name">{f.kb}</span>{/if}
+                <span class="wt" title={f.title}>{f.title}</span>
+                <span class="muted small" title={fmtDate(f.time)}>{fmtRelative(f.time, now)}{f.code === 5 ? ` · ${t('servers.security.wu.aborted')}` : ''}</span>
+              </li>
+            {/each}
+          </ul>
         {/if}
       {/if}
     </section>
@@ -198,7 +226,7 @@
     {#if notes.auth !== 'unsupported'}
     <section class="card sc">
       <div class="sh">
-        <h2 class="card-title"><Icon name="key" size={16} /> {t('servers.security.auth.title')}</h2>
+        <h2 class="card-title"><Icon name="key" size={16} /> {isWin ? t('servers.security.auth.titleWin') : t('servers.security.auth.title')}</h2>
       </div>
       {#if notes.auth}
         <div class="alert {noteClass(notes.auth)} note"><Icon name="info" size={16} /><span>{noteText(notes.auth)}</span></div>
@@ -209,16 +237,18 @@
             <span class="nv" class:c-pending={auth.failed_24h > 0}>{auth.failed_24h}</span>
             <span class="nl">{t('servers.security.auth.failed24')}</span>
           </div>
-          <div class="nb">
-            <span class="nv">{auth.accepted_24h}</span>
-            <span class="nl">{t('servers.security.auth.accepted24')}</span>
-          </div>
+          {#if !isWin}
+            <div class="nb">
+              <span class="nv">{auth.accepted_24h}</span>
+              <span class="nl">{t('servers.security.auth.accepted24')}</span>
+            </div>
+          {/if}
         </div>
         <svg class="bars" viewBox="0 0 240 48" preserveAspectRatio="none" role="img" aria-label={t('servers.security.auth.chart')}>
           {#each hours24 as h, i (h.hour)}
             {@const bh = h.failed ? Math.max(2, (h.failed / maxFailed) * 46) : 1}
             <rect x={i * 10 + 1} y={48 - bh} width="8" height={bh} class:on={h.failed > 0}>
-              <title>{t('servers.security.auth.hourTip', { h: fmtTime(h.hour), f: h.failed, a: h.accepted })}</title>
+              <title>{isWin ? t('servers.security.auth.hourTipWin', { h: fmtTime(h.hour), f: h.failed }) : t('servers.security.auth.hourTip', { h: fmtTime(h.hour), f: h.failed, a: h.accepted })}</title>
             </rect>
           {/each}
         </svg>
@@ -373,10 +403,10 @@
   {#if pkgs.length}
     <section class="card block">
       <div class="tools">
-        <h2 class="card-title ttl">{t('servers.security.pkgs.title')}</h2>
+        <h2 class="card-title ttl">{isWU ? t('servers.security.pkgs.titleWU') : t('servers.security.pkgs.title')}</h2>
         <div class="search">
           <Icon name="search" size={15} />
-          <input class="input" type="search" bind:value={q} placeholder={t('servers.security.pkgs.search')} aria-label={t('servers.security.pkgs.search')} />
+          <input class="input" type="search" bind:value={q} placeholder={isWU ? t('servers.security.pkgs.searchWU') : t('servers.security.pkgs.search')} aria-label={isWU ? t('servers.security.pkgs.searchWU') : t('servers.security.pkgs.search')} />
         </div>
         <div class="seg" role="group" aria-label={t('servers.security.pkgs.title')}>
           <button aria-pressed={!onlySec} class:active={!onlySec} onclick={() => (onlySec = false)}>{t('servers.security.pkgs.all')} <span class="cnt">{pkgs.length}</span></button>
@@ -396,9 +426,9 @@
         <table class="table responsive">
           <thead>
             <tr>
-              <th>{t('servers.security.pkgs.colName')}</th>
-              <th>{t('servers.security.pkgs.colCurrent')}</th>
-              <th>{t('servers.security.pkgs.colNew')}</th>
+              <th>{colName}</th>
+              {#if !isWU}<th>{t('servers.security.pkgs.colCurrent')}</th>{/if}
+              <th>{colNew}</th>
               <th>{t('servers.security.pkgs.colKind')}</th>
               <th class="num">{t('servers.security.pkgs.colWait')}</th>
             </tr>
@@ -406,9 +436,9 @@
           <tbody>
             {#each shown as p (p.name)}
               <tr>
-                <td data-label={t('servers.security.pkgs.colName')}><span class="mono-name">{p.name}</span></td>
-                <td data-label={t('servers.security.pkgs.colCurrent')} class="ver">{p.current || '—'}</td>
-                <td data-label={t('servers.security.pkgs.colNew')} class="ver">{p.new}</td>
+                <td data-label={colName}><span class="mono-name">{p.name}</span></td>
+                {#if !isWU}<td data-label={t('servers.security.pkgs.colCurrent')} class="ver">{p.current || '—'}</td>{/if}
+                <td data-label={colNew} class:ver={!isWU}>{p.new}</td>
                 <td data-label={t('servers.security.pkgs.colKind')}>
                   <span class="tags">
                     {#if p.security}<span class="pill pending sm">{t('servers.security.pkgs.sec')}</span>{:else}<span class="muted small">{t('servers.security.pkgs.regular')}</span>{/if}
@@ -561,6 +591,28 @@
     background: var(--input);
     font-size: 0.8rem;
     overflow-wrap: anywhere;
+  }
+  .wuf {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+  }
+  .wuf li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 8px;
+    font-size: 0.82rem;
+    min-width: 0;
+  }
+  .wuf .wt {
+    flex: 1 1 160px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .tools {
     display: flex;

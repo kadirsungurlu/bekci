@@ -243,3 +243,25 @@ func TestSecUpdatesAgeText(t *testing.T) {
 		}
 	}
 }
+
+func TestLockedEvents(t *testing.T) {
+	got := lockedEvents(7, []metrics.SecLock{
+		{User: "admin", Time: 1000, Source: "WS01"},
+		{User: "bob", Time: 2000},
+		{User: "", Time: 3000},
+	})
+	if len(got) != 2 {
+		t.Fatalf("olay sayısı %d, beklenen 2", len(got))
+	}
+	a := got[0]
+	if a.ProbeID != 7 || a.Time != 1000 || a.Kind != EventAccountLocked || a.Subject != "admin" || a.Level != store.EventWarning {
+		t.Fatalf("beklenmeyen olay: %+v", a)
+	}
+	var d map[string]any
+	if err := json.Unmarshal(a.Data, &d); err != nil || d["source"] != "WS01" {
+		t.Fatalf("kaynak verisi: %s %v", a.Data, err)
+	}
+	if got[1].Subject != "bob" || got[1].Data != nil {
+		t.Fatalf("kaynaksız olayda veri olmamalı: %+v", got[1])
+	}
+}

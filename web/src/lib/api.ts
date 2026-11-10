@@ -1619,6 +1619,23 @@ export interface SecPackage {
   first_seen: number;
 }
 
+/** Windows Update başarısız kurulum kaydı (734). */
+export interface SecWUFail {
+  kb?: string;
+  title: string;
+  /** unix sn */
+  time: number;
+  /** OperationResultCode: 4 başarısız, 5 yarıda kaldı. */
+  code: number;
+}
+
+/** Windows Update geçmişi: son 30 günde başarısız kurulumlar (734). */
+export interface SecWU {
+  failed_30d: number;
+  /** En yeni önce. */
+  failed?: SecWUFail[];
+}
+
 /** GET /api/servers/{id}/security */
 export interface ServerSecurity {
   /** 0: ajan hiç rapor göndermedi. */
@@ -1627,17 +1644,20 @@ export interface ServerSecurity {
     time: number;
     updates?: SecUpdates | null;
     reboot?: SecReboot | null;
-    auth?: { source: string } | null;
+    /** source: "journal" | "file" | "eventlog" (Windows, 734). */
+    auth?: { source: "eventlog" | string } | null;
     /** null: toplanamadı; []: oturum yok. */
     sessions?: SecSession[] | null;
     firewall?: SecFirewall | null;
     av?: SecAV | null;
+    /** Windows Update geçmişi (734). */
+    wu?: SecWU | null;
   } | null;
   auth: SecAuthView;
   reboot_since?: number;
   /** Sıra: güvenlik önce, en eski önce. */
   packages: SecPackage[] | null;
-  notes: { updates?: SecNoteCode | string; reboot?: SecNoteCode | string; auth?: string; sessions?: string; firewall?: string; av?: string } | null;
+  notes: { updates?: SecNoteCode | string; reboot?: SecNoteCode | string; auth?: string; sessions?: string; firewall?: string; av?: string; wu?: string } | null;
   /** Rapor aralığı (sn); 0 = bu sunucuda kapalı. */
   interval: number;
   /** sec_updates_age eşiği (gün); kural kapalıysa yok. */
