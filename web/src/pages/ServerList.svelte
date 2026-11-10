@@ -231,6 +231,8 @@
                 <span class="name">{s.name}</span>
                 {#each fl as l (l)}<span class="badge pending fire" title={t('servers.list.firingTitle', { metric: l })}><Icon name="alert" size={11} /> {l}</span>{/each}
                 {#if s.in_maintenance}<span class="badge maintenance fire" title={t('servers.inMaintenanceHint')}><Icon name="wrench" size={11} /> {t('servers.inMaintenance')}</span>{/if}
+                {#if (s.security?.upd_security ?? 0) > 0}<span class="badge pending fire" title={t('servers.security.badgeSecTitle', { n: s.security!.upd_security })}><Icon name="shield" size={11} /> {t('servers.security.badgeSec', { n: s.security!.upd_security })}</span>{/if}
+                {#if s.security?.reboot_required}<span class="badge pending fire" title={t('servers.security.badgeRebootTitle')}><Icon name="rotate-ccw" size={11} /> {t('servers.security.badgeReboot')}</span>{/if}
                 <UplinkBadge name={s.uplink_name} ip={s.oob_ip} uplink={s.uplink} since={s.uplink_since} ifaceMissing={s.oob_iface_missing} focus={false} />
               </div>
               {#if s.state === 'offline'}

@@ -23,6 +23,7 @@ export default {
   sentOver: 'if the {n}-min average is {v} or higher',
   sentWarn: 'warning at {v}',
   sentForecast: 'Alert if full within {n} days',
+  sentSecAge: 'Alert if not installed for {n} days',
   sentFast: 'If it grows by {v} or more within {n} min',
   unitWindow: 'window',
   sentReboot: 'Notify when the boot time changes',

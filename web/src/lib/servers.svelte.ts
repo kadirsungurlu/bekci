@@ -55,10 +55,11 @@ export const METRICS: Record<ServerMetric, MetricInfo> = {
   reboot: metric('reboot', 'none', 0, 1, 0, 0, 1),
   disk_forecast: metric('disk_forecast', 'days', 7, 1, 1, 365, 1),
   disk_fast: metric('disk_fast', 'pct', 5, 60, 1, 100, 1),
+  sec_updates_age: metric('sec_updates_age', 'days', 7, 1, 1, 365, 1),
   cert: metric('cert', 'none', 0, 0, 0, 0, 1),
 };
 
-export const METRIC_ORDER: ServerMetric[] = ['offline', 'cpu', 'mem', 'disk', 'swap', 'load', 'temp', 'net', 'container', 'reboot', 'disk_forecast', 'disk_fast'];
+export const METRIC_ORDER: ServerMetric[] = ['offline', 'cpu', 'mem', 'disk', 'swap', 'load', 'temp', 'net', 'container', 'reboot', 'disk_forecast', 'disk_fast', 'sec_updates_age'];
 
 /** Eşik kullanmayan metrikler (offline, container, reboot). */
 export const thresholdless = (m: ServerMetric) => m === 'offline' || m === 'container' || m === 'reboot';

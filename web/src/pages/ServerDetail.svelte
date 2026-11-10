@@ -16,6 +16,7 @@
     type StatsSeries,
   } from '../lib/api';
   import ServerInventory from '../components/ServerInventory.svelte';
+  import ServerSecurity from '../components/ServerSecurity.svelte';
   import ServerTimeline from '../components/ServerTimeline.svelte';
   import { live } from '../lib/live.svelte';
   import { session } from '../lib/session.svelte';
@@ -337,7 +338,7 @@
   const lvl = (v: number | null) => ({ ok: '', warn: 'c-pending', danger: 'c-down' })[usageLevel(v)];
 
   const TONE_ICON = { up: 'server', warn: 'alert', down: 'server', muted: 'server' } as const;
-  let pageTab = $state<'overview' | 'inventory' | 'timeline'>('overview');
+  let pageTab = $state<'overview' | 'inventory' | 'security' | 'timeline'>('overview');
   const fullText = (d: number) => (d < 1 ? t('servers.detail.disks.fullSoon') : t('servers.detail.disks.fullIn', { d: fmtDays(d) }));
   const forecastOf = (mount: string) => view?.disk_forecast?.find((f) => f.mount === mount) ?? null;
   const PILL = { up: 'up', warn: 'pending', down: 'down', muted: 'paused' } as const;
@@ -372,6 +373,9 @@
           <span class="pill {PILL[tone]}">{view.state === 'online' && view.firing?.length ? t('servers.detail.alerting') : STATE_LABELS[view.state]}</span>
           {#if view.in_maintenance}
             <span class="pill maintenance maint-pill" title={t('servers.inMaintenanceHint')}><Icon name="wrench" size={12} /> {t('servers.inMaintenance')}</span>
+          {/if}
+          {#if view.security?.reboot_required}
+            <button class="pill pending maint-pill rb-pill" title={t('servers.security.badgeRebootTitle')} onclick={() => (pageTab = 'security')}><Icon name="rotate-ccw" size={12} /> {t('servers.security.badgeRebootTitle')}</button>
           {/if}
           <UplinkBadge name={view.uplink_name} ip={view.oob_ip} uplink={view.uplink} since={view.uplink_since} ifaceMissing={view.oob_iface_missing} large />
           {#if view.metrics_at}
@@ -417,7 +421,7 @@
               ? tParts('servers.detail.firingOffline')
               : tParts('servers.detail.firingOver', {
                   threshold: fmtMetric(r.metric, r.threshold),
-                  avg: r.metric === 'disk_forecast' ? '' : r.metric === 'disk_fast' ? t('servers.detail.firingWindow', { n: r.minutes }) : r.minutes ? t('servers.detail.firingAvg', { n: r.minutes }) : '',
+                  avg: r.metric === 'disk_forecast' || r.metric === 'sec_updates_age' ? '' : r.metric === 'disk_fast' ? t('servers.detail.firingWindow', { n: r.minutes }) : r.minutes ? t('servers.detail.firingAvg', { n: r.minutes }) : '',
                 })}
           {#each parts as p, j (j)}{#if p.slot === 'metric'}<b>{metricLabel(r.metric)}{r.mount ? ` (${r.mount})` : ''}</b>{:else}{p.text}{/if}{/each}
           {#if r.fired_at}<span class="muted"> · {fmtRelative(r.fired_at, now)}</span>{/if}
@@ -429,11 +433,14 @@
   <div class="ptabs" role="tablist" aria-label={t('servers.inventory.pageTabs')}>
     <button role="tab" aria-selected={pageTab === 'overview'} class:active={pageTab === 'overview'} onclick={() => (pageTab = 'overview')}>{t('servers.inventory.tabOverview')}</button>
     <button role="tab" aria-selected={pageTab === 'inventory'} class:active={pageTab === 'inventory'} onclick={() => (pageTab = 'inventory')}>{t('servers.inventory.title')}</button>
+    <button role="tab" aria-selected={pageTab === 'security'} class:active={pageTab === 'security'} onclick={() => (pageTab = 'security')}>{t('servers.security.tab')}</button>
     <button role="tab" aria-selected={pageTab === 'timeline'} class:active={pageTab === 'timeline'} onclick={() => (pageTab = 'timeline')}>{t('servers.timeline.title')}</button>
   </div>
 
   {#if pageTab === 'inventory'}
     <ServerInventory {id} disks={st?.disks ?? []} />
+  {:else if pageTab === 'security'}
+    <ServerSecurity {id} />
   {:else if pageTab === 'timeline'}
     <ServerTimeline {id} />
   {:else}
@@ -1139,6 +1146,13 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
+  }
+  .rb-pill {
+    border: none;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
   }
   .bar {
     display: flex;

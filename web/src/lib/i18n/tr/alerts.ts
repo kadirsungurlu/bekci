@@ -22,6 +22,7 @@ export default {
   sentOver: '{n} dk ortalaması {v} veya üzerindeyse',
   sentWarn: 'uyarı {v}',
   sentForecast: '{n} gün içinde dolacaksa uyar',
+  sentSecAge: '{n} gündür kurulmadıysa uyar',
   sentFast: '{n} dk içinde {v} veya daha fazla dolarsa',
   unitWindow: 'içinde',
   sentReboot: 'Açılış zamanı değişince bildir',

@@ -1456,6 +1456,7 @@ export type ServerMetric =
   | "reboot"
   | "disk_forecast"
   | "disk_fast"
+  | "sec_updates_age"
   | "cert";
 /** Sunucu uyarı seviyesi (eski kurallarda boş = kritik). */
 export type AlertLevel = "warning" | "critical";
@@ -1478,7 +1479,7 @@ export interface TimelineEvent {
   kind: string;
   subject: string;
   level: "info" | "warning" | "error";
-  data: Record<string, string | number> | null;
+  data: Record<string, string | number | string[]> | null;
 }
 
 export interface ServerView extends ProbeLabels {
@@ -1519,6 +1520,66 @@ export interface ServerView extends ProbeLabels {
   /** Yalnızca yöneticiye. */
   oob_ip?: string;
   oob_iface_missing?: boolean;
+  /** Güncelleme / yeniden başlatma özeti (ajan güvenlik raporu gönderdiyse). */
+  security?: ServerSecuritySummary;
+}
+
+/** Liste ve ayrıntıdaki güvenlik özeti. upd_security -1: dağıtım güvenlik bilgisi vermiyor. */
+export interface ServerSecuritySummary {
+  upd_total: number;
+  upd_security: number;
+  reboot_required: boolean;
+  /** Panelin yeniden başlatma gereğini ilk gördüğü an (unix sn). */
+  reboot_since?: number;
+  /** En eski bekleyen güvenlik paketinin first_seen'i (unix sn). */
+  oldest_security?: number;
+}
+
+export type SecNoteCode = "unsupported" | "no_host" | "failed" | "no_manager" | "cache_missing" | "locked" | "no_errata";
+
+export interface SecUpdates {
+  manager: "apt" | "dnf" | "yum" | "zypper" | "wu" | string;
+  total: number;
+  /** -1: dağıtım güvenlik bilgisi vermiyor. */
+  security: number;
+  /** Paket dizininin son tazelenmesi (unix sn; 0 bilinmiyor). */
+  index_time?: number;
+  /** Son gerçek sorgu (unix ms). */
+  checked_at?: number;
+  truncated?: boolean;
+}
+
+export interface SecReboot {
+  required: boolean;
+  reason?: "file" | "tool" | "kernel" | "registry" | string;
+  packages?: string[];
+}
+
+export interface SecPackage {
+  name: string;
+  current?: string;
+  new: string;
+  security: boolean;
+  severity?: string;
+  esm?: boolean;
+  /** Panelin paketi ilk gördüğü an (unix sn). */
+  first_seen: number;
+}
+
+/** GET /api/servers/{id}/security */
+export interface ServerSecurity {
+  /** 0: ajan hiç rapor göndermedi. */
+  received_at: number;
+  report: { time: number; updates?: SecUpdates | null; reboot?: SecReboot | null } | null;
+  reboot_since?: number;
+  /** Sıra: güvenlik önce, en eski önce. */
+  packages: SecPackage[] | null;
+  notes: { updates?: SecNoteCode | string; reboot?: SecNoteCode | string } | null;
+  /** Rapor aralığı (sn); 0 = bu sunucuda kapalı. */
+  interval: number;
+  /** sec_updates_age eşiği (gün); kural kapalıysa yok. */
+  age_threshold?: number;
+  now: number;
 }
 
 export interface AlertRule {
@@ -2261,6 +2322,7 @@ export const api = {
   getServerStats: (id: number, range: StatsRange) =>
     get<StatsSeries>(`/api/servers/${id}/stats?range=${range}`),
   getServerInventory: (id: number) => get<ServerInventory>(`/api/servers/${id}/inventory`),
+  getServerSecurity: (id: number) => get<ServerSecurity>(`/api/servers/${id}/security`),
   setInventoryCertIgnored: (id: number, fingerprint: string, ignored: boolean) =>
     put<void>(`/api/servers/${id}/inventory/certs/${encodeURIComponent(fingerprint)}`, { ignored }),
   getServerTimeline: (id: number, q: { before?: number; limit?: number; kinds?: string[] } = {}) => {

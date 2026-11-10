@@ -9,7 +9,7 @@
   let { id }: { id: number } = $props();
 
   // Sorunlar süzgeci: yalnızca dikkat isteyen olay türleri.
-  const PROBLEMS = ['oom', 'reboot', 'service_failed', 'service_stopped', 'container_stopped', 'container_restarted', 'alert'];
+  const PROBLEMS = ['oom', 'reboot', 'service_failed', 'service_stopped', 'container_stopped', 'container_restarted', 'alert', 'sec_updates_new', 'reboot_required'];
   const KNOWN = new Set([
     ...PROBLEMS,
     'service_recovered',
@@ -20,6 +20,8 @@
     'port_opened',
     'port_closed',
     'alert_resolved',
+    'sec_updates_installed',
+    'reboot_cleared',
   ]);
   const PAGE = 50;
 
@@ -55,6 +57,9 @@
       const name = metricLabel(d.metric as ServerMetric) + (d.mount ? ` (${d.mount})` : '');
       return t(e.kind === 'alert' ? 'servers.timeline.kinds.alert' : 'servers.timeline.kinds.alert_resolved', { name });
     }
+    if (e.kind === 'sec_updates_new' || e.kind === 'sec_updates_installed') {
+      return t(`servers.timeline.kinds.${e.kind}`, { n: Number(d.count ?? 0) });
+    }
     if (e.kind === 'oom' && !e.subject) return t('servers.timeline.kinds.oomUnknown');
     return KNOWN.has(e.kind) ? t(`servers.timeline.kinds.${e.kind}` as TKey, { subject: e.subject }) : e.kind;
   }
@@ -85,6 +90,12 @@
       case 'port_opened':
       case 'port_closed':
         return String(d.process ?? '');
+      case 'sec_updates_new':
+      case 'sec_updates_installed': {
+        const l = Array.isArray(d.packages) ? d.packages : [];
+        const rest = Number(d.count ?? l.length) - l.length;
+        return l.join(', ') + (rest > 0 ? ` ${t('servers.timeline.morePkgs', { n: rest })}` : '');
+      }
     }
     return '';
   }
