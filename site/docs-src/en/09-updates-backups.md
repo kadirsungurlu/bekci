@@ -33,7 +33,6 @@ Two-part tags such as `1.0` follow the latest patch of that series (e.g. once `1
 - **Monitor to server link:** the [Runs on server](/en/docs/first-steps/#runs-on-server) field in the monitor form.
 - **Metadata fields:** check locations and servers accept role, region, provider and code.
 - **Channel delivery counters:** last send, last error and hourly send count.
-- **[Script execution](/en/docs/script-execution/):** off by default; signed scripts, approval flow, tamper-evident log, emergency stop.
 - **Upgrading:** the database schema moves from 47 to 50 in seconds. Take a backup first; PostgreSQL gets no automatic migration backup. Older agents keep working with the new panel. Once the schema is upgraded, 1.7.0 will not start; to go back, restore the pre-upgrade dump, then use the old tag.
 
 Earlier versions: [releases on GitHub](https://github.com/kadirsungurlu/bekci/releases).

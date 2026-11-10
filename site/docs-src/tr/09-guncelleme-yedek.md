@@ -33,7 +33,6 @@ Bekci imajları Docker Hub'da [`kadirsungurlu/bekci`](https://hub.docker.com/r/k
 - **Monitör ile sunucu bağı:** monitör formunda [Çalıştığı sunucu](/docs/ilk-adimlar/#calistigi-sunucu) alanı.
 - **Üst bilgi alanları:** kontrol noktalarına ve sunuculara rol, bölge, sağlayıcı ve kod yazılabilir.
 - **Kanal teslim sayaçları:** son gönderim, son hata ve saatlik gönderim sayısı.
-- **[Betik çalıştırma](/docs/betik-calistirma/):** varsayılan kapalı; imzalı betikler, onay akışı, kurcalamayı belli eden kayıt, acil durdurma.
 - **Yükseltme:** veritabanı şeması 47'den 50'ye geçer, işlem saniyeler sürer. Önce yedek alın; PostgreSQL'de otomatik migration yedeği alınmaz. Eski ajan yeni panelle çalışır. Şema yükseldikten sonra 1.7.0 açılmaz; geri dönmek için yükseltme öncesi dökümü geri yükleyin, sonra eski etiketi kullanın.
 
 Önceki sürümler: [GitHub'daki sürümler](https://github.com/kadirsungurlu/bekci/releases).

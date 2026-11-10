@@ -68,7 +68,7 @@ Yüzdelik (p95) bugün hiçbir yerde hesaplanmıyor; SLA/rapor ucu yok (uptime y
 | `server_disk_metrics` | 1 gün | 3 gün sonra, segmentby (probe_id, mount) | 30 gün | mount, device, fs, total, used |
 | `server_container_metrics` | 1 gün | 3 gün sonra, segmentby (probe_id, name) | 14 gün | name, container_id, cpu, mem, net_*, state, restart_count |
 | `server_events` | 7 gün | 30 gün sonra | 365 gün | kind, subject, message, data JSON; yalnız ekleme |
-| `script_runs` | 30 gün | 90 gün sonra | 365 gün | yalnız ekleme olay akışı, hash zinciri, bölüm sütunu ekleme anı (`docs/BETIK-GUVENLIK-680.md` §8-9); çıktı `script_run_outputs` normal tabloda, kısaltılmış, 90 gün |
+| `script_runs` | 30 gün | 90 gün sonra | 365 gün | yalnız ekleme olay akışı, hash zinciri, bölüm sütunu ekleme anı (Pro deposunda `docs/BETIK-GUVENLIK-680.md` §8-9); çıktı `script_run_outputs` normal tabloda, kısaltılmış, 90 gün |
 
 Parça aralığı gerekçesi: Timescale önerisi "en yeni parçalar + dizinleri RAM'in ~%25'ine sığsın". 10.000 monitör x 30 sn x 5 konum
 = 144 M satır/gün x ~170 B = ~24 GB/gün sıkıştırılmamış: o ölçekte `heartbeats` parça aralığı **6 saat** olmalı.
@@ -112,7 +112,7 @@ Parça aralığı gerekçesi: Timescale önerisi "en yeni parçalar + dizinleri 
 - Envanter (ajanın topladığı; son durum + değişim olayı): `inv_services`, `inv_containers` (ad, imaj, durum, restart_count),
   `inv_ports` (proto, adres, port, süreç), `inv_certs` (kaynak: dosya/port, CN/SAN, not_after), `inv_disks` (mount, device, fs, total).
   Her tablo `(server_id, anahtar)` benzersiz, `first_seen`, `last_seen`; değişiklik `server_events`'e yazılır (zaman serisi).
-- `scripts` (betik kütüphanesi: imzalı zarf + gövde; satır değişmez), çalıştırma kaydı `script_runs` hypertable. Ayrıntı `docs/BETIK-GUVENLIK-680.md` §9.
+- `scripts` (betik kütüphanesi: imzalı zarf + gövde; satır değişmez), çalıştırma kaydı `script_runs` hypertable. Ayrıntı Pro deposunda `docs/BETIK-GUVENLIK-680.md` §9.
 - Tahmin: `server_disk_1h` üzerinde `regr_slope(used, bucket)` son 7 ve 30 gün -> "X gün sonra dolar"; hızlı dolum
   son 1 sa ham `server_disk_metrics`'ten. Düz PG/SQLite'ta aynı SQL Go özet tablosundan (eşdeğer fonksiyon PG'de var; SQLite'ta Go içinde).
 
