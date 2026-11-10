@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/url"
 	"regexp"
-	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -145,8 +144,8 @@ func (d *Dispatcher) Notify(ev Event) {
 		defer cancel()
 		var channels []store.Notification
 		var err error
-		if ev.Kind == KindScript {
-			channels, err = d.scriptChannels(ctx, ev.ProbeID)
+		if ek, ok := extKinds[ev.Kind]; ok && ek.Channels != nil {
+			channels, err = ek.Channels(ctx, d.store, ev)
 		} else if ev.Kind == KindMesh || ev.Kind == KindMeshResolved {
 			channels, err = d.meshChannels(ctx, ev.MeshProbes)
 		} else if ev.ProbeID != 0 {
@@ -204,29 +203,6 @@ func (d *Dispatcher) Notify(ev Event) {
 		}
 		inner.Wait()
 	}()
-}
-
-// scriptChannels betik ayarında seçilen kanallar; seçim yoksa sunucunun kanalları,
-// sunucusuz olayda (acil durdurma, çapa) tüm kanallar.
-func (d *Dispatcher) scriptChannels(ctx context.Context, probeID int64) ([]store.Notification, error) {
-	ctl, err := d.store.ScriptControlState(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if len(ctl.ChannelIDs) == 0 && probeID != 0 {
-		return d.store.NotificationsForProbe(ctx, probeID)
-	}
-	all, err := d.store.ListNotifications(ctx)
-	if err != nil || len(ctl.ChannelIDs) == 0 {
-		return all, err
-	}
-	out := all[:0]
-	for _, ch := range all {
-		if slices.Contains(ctl.ChannelIDs, ch.ID) {
-			out = append(out, ch)
-		}
-	}
-	return out, nil
 }
 
 // withDelivered olayın sorun bildirimini almış ama listede olmayan kanalları

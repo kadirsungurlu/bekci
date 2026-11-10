@@ -159,8 +159,10 @@ func (s *Store) ensureTimescale(ctx context.Context) error {
 	if err := s.tsServerMetrics(cctx, ext, license == "timescale"); err != nil {
 		return fmt.Errorf("TimescaleDB sunucu metrikleri: %w", err)
 	}
-	if err := s.tsScriptRuns(cctx, ext, license == "timescale"); err != nil {
-		return fmt.Errorf("TimescaleDB betik kaydı: %w", err)
+	for _, f := range tsExtras {
+		if err := f(s, cctx, ext, license == "timescale"); err != nil {
+			return err
+		}
 	}
 	s.mode = DBModeTimescaleApache
 	if license != "timescale" {
@@ -411,3 +413,7 @@ func (s *Store) tsDropOnce(ctx context.Context, q string, t int64) (int64, error
 	}
 	return n, rows.Err()
 }
+
+// tsExtras eklentilerin TimescaleDB dönüşümleri (Pro: betik kaydı); ensureTimescale
+// çekirdek dönüşümlerden sonra sırayla çağırır. full: sıkıştırma/sürekli özet var.
+var tsExtras []func(s *Store, ctx context.Context, ext string, full bool) error

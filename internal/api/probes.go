@@ -1346,10 +1346,8 @@ func (s *Server) probeJobs(w http.ResponseWriter, r *http.Request) {
 	if offer := s.updateOffer(p); offer != nil {
 		out["update"] = offer
 	}
-	// Betik işleri (scripts_probe.go): yalnız yeni ve betiği açık ajana.
-	if sj := s.scriptJobsFor(ctx, r, p); sj != nil {
-		out["script_jobs"] = sj
-	}
+	// Eklenti işleri (eklenti.go; Pro betik çalıştırma "script_jobs").
+	s.addProbeJobExtras(ctx, r, p, out)
 	writeJSON(w, http.StatusOK, out)
 }
 

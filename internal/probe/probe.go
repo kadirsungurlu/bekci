@@ -12,7 +12,7 @@
 //	POST /api/probe/metrics  ← metrics.Sample: {"time": ms, "host": {...}, "stats": {...}} veya {"time": ms, "unavailable": "neden"}
 //	POST /api/probe/update   ← agentupdate.Report: {"status": "started|failed|rolled_back", "version": "1.3.1", "error": "..."}
 //	GET  /api/probe/binary?os=&arch= → ajan programı (güncelleme; imzalı bildirimle doğrulanır)
-//	POST /api/probe/script-result ← betik olayı (docs/BETIK-SOZLESME.md; iş listesinde "script_jobs")
+//	POST <eklenti yolu>           ← eklenti olayı (Pro: betik; iş listesinde "script_jobs")
 //
 // Her istek X-Probe-Version (çalışan sürüm) ve X-Probe-Platform ("linux/amd64";
 // güncelleme ajan tarafında kapalıysa ";off" ya da ";readonly" sonekiyle)
@@ -57,7 +57,6 @@ import (
 	"time"
 
 	"github.com/kadirsungurlu/bekci/internal/agentupdate"
-	"github.com/kadirsungurlu/bekci/internal/betik"
 	"github.com/kadirsungurlu/bekci/internal/check"
 	"github.com/kadirsungurlu/bekci/internal/metrics"
 	"github.com/kadirsungurlu/bekci/internal/schedule"
@@ -91,9 +90,9 @@ type Config struct {
 	// UpdateReport açılışta Updater.Startup'ın verdiği, panele iletilecek
 	// durum (önceki güncelleme geri alındı vb.); ilk başarılı yoklamadan sonra gönderilir.
 	UpdateReport *agentupdate.Report
-	// Scripts betik çalıştırmanın ajan tarafı; nil = hiç yok (başlık da gitmez).
+	// Extension isteğe bağlı ajan eklentisi (Pro: betik yürütücü); nil = yok (başlık da gitmez).
 	// Varsayılan kapalıdır, açma yalnız sunucuda yerel komutla olur.
-	Scripts ScriptAgent
+	Extension AgentExtension
 
 	// Mesh kancaları (heartbeat.go); hepsi isteğe bağlı.
 	// MeshSource kalp atışına eklenen eş ölçümleri ve dinleme portu (nil: yok).
@@ -181,17 +180,22 @@ type jobsResponse struct {
 	OOB              *OOBConfig `json:"oob"` // yok (eski sunucu) = OOB ayarı değişmez
 	// Update imzalı güncelleme teklifi; yok (eski sunucu, güncel ajan, kapalı) = güncelleme yok.
 	Update *agentupdate.Offer `json:"update"`
-	// Scripts betik işleri; yok (eski sunucu, betik kapalı) = hiçbir şey olmaz.
-	Scripts *betik.JobList `json:"script_jobs"`
+	// ExtensionJobs eklenti işleri (Pro betik); yok (eski/açık sunucu, kapalı) = hiçbir şey olmaz.
+	ExtensionJobs json.RawMessage `json:"script_jobs"`
 }
 
-// ScriptAgent betik tarafının (betikajan.Agent) ajan istemcisine görünen yüzü.
-type ScriptAgent interface {
-	Capability() (value, key string)
+// AgentExtension ajan istemcisine takılan isteğe bağlı eklenti (Pro derlemesinde
+// betik yürütücü). Açık derlemede yoktur.
+type AgentExtension interface {
+	// Headers her isteğe eklentinin yetenek başlıklarını ekler.
+	Headers(http.Header)
+	// Busy eklenti iş yürütüyor mu (kendi kendine güncelleme bekler).
 	Busy() bool
-	Handle(*betik.JobList)
+	// Handle iş listesindeki eklenti alanı (boşsa da çağrılır).
+	Handle(json.RawMessage)
 	SetPanelSecure(bool)
-	Run(context.Context, betik.SendFunc)
+	// Run eklenti döngüsü; post panele JSON gönderir (yol, gövde) -> HTTP durumu.
+	Run(ctx context.Context, post func(ctx context.Context, path string, body any) (int, error))
 }
 
 // jobsTimeout iş listesi isteğinin en kısa HTTP zaman aşımı: sunucu isteği
@@ -343,8 +347,8 @@ func New(cfg Config) (*Client, error) {
 		jc.Timeout = jobsTimeout
 		jobsHTTP = &jc
 	}
-	if cfg.Scripts != nil {
-		cfg.Scripts.SetPanelSecure(u.Scheme == "https" && !cfg.AllowInsecure)
+	if cfg.Extension != nil {
+		cfg.Extension.SetPanelSecure(u.Scheme == "https" && !cfg.AllowInsecure)
 	}
 	return &Client{
 		cfg: cfg, base: u, log: cfg.Log, sem: make(chan struct{}, cfg.MaxConcurrent),
@@ -379,9 +383,9 @@ func (c *Client) Run(ctx context.Context) error {
 	go func() { defer wg.Done(); c.jobsLoop(ctx) }()
 	go func() { defer wg.Done(); c.flushLoop(ctx) }()
 	go func() { defer wg.Done(); c.heartbeatLoop(ctx) }()
-	if c.cfg.Scripts != nil {
+	if c.cfg.Extension != nil {
 		wg.Add(1)
-		go func() { defer wg.Done(); c.cfg.Scripts.Run(ctx, c.sendScriptEvent) }()
+		go func() { defer wg.Done(); c.cfg.Extension.Run(ctx, c.postJSON) }()
 	}
 	if c.cfg.NoMetrics {
 		c.log.Info("sunucu metrikleri bu ajanda kapalı (METRICS=0)")
@@ -507,8 +511,8 @@ func (c *Client) pollJobs(ctx context.Context) (time.Duration, error) {
 		c.skewMs.Store(resp.ServerTime - time.Now().UnixMilli())
 	}
 	c.apply(ctx, resp.Jobs)
-	if c.cfg.Scripts != nil {
-		c.cfg.Scripts.Handle(resp.Scripts)
+	if c.cfg.Extension != nil {
+		c.cfg.Extension.Handle(resp.ExtensionJobs)
 	}
 	c.setMetricsInterval(resp.MetricsInterval)
 	c.setInventoryInterval(resp.InventoryInterval)
@@ -1030,22 +1034,18 @@ func (c *Client) setHeaders(req *http.Request, hasBody bool) {
 	}
 	req.Header.Set("User-Agent", "uptime-probe/"+c.cfg.Version)
 	c.up.headers(req.Header)
-	if c.cfg.Scripts != nil {
-		v, key := c.cfg.Scripts.Capability()
-		req.Header.Set(betik.HeaderCapability, v)
-		if key != "" {
-			req.Header.Set(betik.HeaderAgentKey, key)
-		}
+	if c.cfg.Extension != nil {
+		c.cfg.Extension.Headers(req.Header)
 	}
 	if hasBody {
 		req.Header.Set("Content-Type", "application/json")
 	}
 }
 
-// sendScriptEvent betik olayını panele iletir (eski panel 404 döner, olay
-// ajanın kuyruğunda bekler).
-func (c *Client) sendScriptEvent(ctx context.Context, ev *betik.Event) (int, error) {
-	return c.call(ctx, http.MethodPost, "/api/probe/script-result", ev, nil)
+// postJSON eklenti olayını panele iletir (eski panel 404 döner, olay eklentinin
+// kuyruğunda bekler).
+func (c *Client) postJSON(ctx context.Context, path string, body any) (int, error) {
+	return c.call(ctx, http.MethodPost, path, body, nil)
 }
 
 // retryAfter Retry-After başlığındaki saniye; bozuk/negatifse 0, en fazla

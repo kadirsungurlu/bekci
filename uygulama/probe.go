@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/kadirsungurlu/bekci/internal/agentupdate"
-	"github.com/kadirsungurlu/bekci/internal/betikajan"
 	"github.com/kadirsungurlu/bekci/internal/probe"
 )
 
@@ -100,7 +99,7 @@ func probeMain(ctx context.Context, log *slog.Logger) error {
 		Log:           log,
 		Updater:       updater,
 		UpdateReport:  report,
-		Scripts:       betikajan.New(betikajan.Options{Log: log}),
+		Extension:     newAgentExtension(log),
 	})
 	if err != nil {
 		return err

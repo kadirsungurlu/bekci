@@ -111,13 +111,14 @@ func run() error {
 	check.SetVersion(version) // kontrol isteklerinin User-Agent'ı
 	// Veritabanı gerektirmeyen komutlar.
 	if len(os.Args) > 1 {
+		if f, ok := ekKomutlar[os.Args[1]]; ok {
+			return f(os.Args[2:])
+		}
 		switch os.Args[1] {
 		case "probe":
 			return runProbe(log)
 		case "service":
 			return runServiceCommand(os.Args[2:])
-		case "betik":
-			return runBetik(os.Args[2:])
 		case "version", "surum":
 			fmt.Println(version)
 			return nil
@@ -218,7 +219,7 @@ func run() error {
 	// Yeni sürüm denetimi: UPDATE_CHECK=off ile kapanır (çevrimdışı kurulum).
 	apiServer.ConfigureUpdateCheck(env("UPDATE_CHECK_URL", ""), api.UpdateCheckOffEnv(env("UPDATE_CHECK", "")))
 	go apiServer.RunUpdateCheck(ctx)
-	go apiServer.RunScripts(ctx, dataDir)
+	apiServer.RunExtensions(ctx, dataDir)
 	if env("TRUSTED_PROXY", "") == "" {
 		// Varsayılan geriye dönük uyumlu kalır (Coolify/Traefik gibi aynı
 		// makinedeki vekiller özel ağdan bağlanır); yine de kurulumun farkında
