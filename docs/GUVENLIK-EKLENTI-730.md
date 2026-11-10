@@ -93,6 +93,14 @@ Ajan zaten `yusufpapurcu/wmi` + `go-ole` (dolaylı) ve `x/sys/windows` içeriyor
   `NetworkCategory`; bilinmiyorsa tüm profiller. WMI sınıfı yerel ilke deposunu okur (GPO ile birleşmiş etkin durum değil). Kural sayısı
   Windows'ta sayılmaz. Oturum: `Console` = tty, diğerleri rdp; `Disconnected` durum rozetiyle. WMI sorgusu 20 sn sınırlı, askıda kalan
   varken yenisi başlamaz (`internal/metrics/security_windows.go`); eşleme saf işlevleri `security_win_map.go`.
+- **Uygulama notu (734, 2026-11-10):** WU `internal/metrics/security_win_wu.go` (COM, kilitli iş parçacığı, 3 dk sınır, askıdaki
+  varken yenisi yok; önbellek 6 sa `secUpdatesTTLWin`). Paket: `name` = KB (yoksa başlık), `new` = başlık, `severity` = MsrcSeverity;
+  güvenlik = ciddiyet dolu ya da kategori kimliği `0FA1201D-...6441` (dilden bağımsız). Dizin tazeliği `AutoUpdate.Results.LastSearchSuccessDate`.
+  Geçmiş: `QueryHistory` son 200, kurulum işleminde ResultCode 4/5, son 30 gün -> tel `wu{failed_30d, failed[{kb,title,time,code}]}`.
+  4625/4740 `security_win_evt.go` (wevtapi): her turda önce en yeni kayıt kimliği (ters sorgu); imleç yoksa ya da günlük temizlenmişse
+  son 24 sa, tur sonunda imleç = en yeni kayıt (durum dosyası `event_record`). 4740 `TargetDomainName` = tetikleyen bilgisayar.
+  Kilitlenmeler `auth.locked[]` (fark birikimiyle aynı onay akışı) -> panel her birini `account_locked` olayı (zaman = kilit anı).
+  Saf ayrıştırıcılar `security_win_parse.go`, örnekler `testdata/sec/evt_*.xml` (kendi ürettiğimiz).
 
 ### A.3 Ajan tarafı yapı
 - `internal/metrics/security.go` (ortak tipler, `Sanitize`, `Hash`), `security_linux.go`, `security_windows.go`, `security_other.go` (boş).

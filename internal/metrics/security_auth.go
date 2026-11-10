@@ -38,6 +38,7 @@ type authFilePos struct {
 type secStateDisk struct {
 	JournalCursor string      `json:"journal_cursor"`
 	File          authFilePos `json:"file"`
+	EventRecord   uint64      `json:"event_record,omitempty"` // Windows Security günlüğü: son okunan EventRecordID (734)
 	Pending       *authAgg    `json:"pending,omitempty"`
 }
 
@@ -48,6 +49,7 @@ type secAuthState struct {
 	cursor    string
 	since     time.Time // imleç yokken bir önceki boş turun zamanı
 	file      authFilePos
+	evtRecord uint64 // Windows: son okunan EventRecordID
 	source    string
 	pending   *authAgg // onaylanmamış toplam fark
 	sending   *authAgg // son Security() anındaki kopya (AckSecurity düşer)
@@ -58,6 +60,12 @@ type secAuthState struct {
 func (c *Collector) securityExtras(ctx context.Context, e secEnv, now time.Time, s *Security) {
 	if !secExtrasSupported {
 		if osSecExtras(ctx, e, s) {
+			if winEventLog {
+				var code string
+				if s.Auth, code = c.securityAuth(ctx, e, now, s.Time); code != "" {
+					s.Notes[SecSectionAuth] = code
+				}
+			}
 			return
 		}
 		s.Notes[SecSectionAuth] = NoteUnsupported
@@ -111,11 +119,19 @@ func (c *Collector) securityAuth(ctx context.Context, e secEnv, now time.Time, r
 	if st.pending == nil {
 		st.pending = &authAgg{}
 	}
-	before := st.cursor + "|" + strconv.FormatInt(st.file.Offset, 10) + "|" + strconv.FormatUint(st.file.Inode, 10)
-	added := st.pending.Failed + st.pending.Accepted
-	source, note := c.readAuth(ctx, e, now)
-	if before != st.cursor+"|"+strconv.FormatInt(st.file.Offset, 10)+"|"+strconv.FormatUint(st.file.Inode, 10) ||
-		added != st.pending.Failed+st.pending.Accepted {
+	pos := func() string {
+		return st.cursor + "|" + strconv.FormatInt(st.file.Offset, 10) + "|" + strconv.FormatUint(st.file.Inode, 10) +
+			"|" + strconv.FormatUint(st.evtRecord, 10)
+	}
+	before := pos()
+	added := st.pending.Failed + st.pending.Accepted + len(st.pending.Locked)
+	var source, note string
+	if winEventLog {
+		source, note = c.readEventLog(ctx, now)
+	} else {
+		source, note = c.readAuth(ctx, e, now)
+	}
+	if before != pos() || added != st.pending.Failed+st.pending.Accepted+len(st.pending.Locked) {
 		c.saveSecState()
 	}
 	if source != "" {
@@ -255,7 +271,7 @@ func (c *Collector) loadSecState() {
 		return
 	}
 	st := &c.auth
-	st.cursor, st.file, st.pending = d.JournalCursor, d.File, d.Pending
+	st.cursor, st.file, st.pending, st.evtRecord = d.JournalCursor, d.File, d.Pending, d.EventRecord
 	if p := st.pending; p != nil && (p.Failed < 0 || p.Accepted < 0 || p.Invalid < 0) {
 		st.pending = nil
 	}
@@ -268,7 +284,7 @@ func (c *Collector) saveSecState() {
 		return
 	}
 	st := &c.auth
-	d := secStateDisk{JournalCursor: st.cursor, File: st.file}
+	d := secStateDisk{JournalCursor: st.cursor, File: st.file, EventRecord: st.evtRecord}
 	if !st.pending.empty() {
 		d.Pending = st.pending
 	}

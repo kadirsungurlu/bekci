@@ -167,6 +167,7 @@ type authAgg struct {
 	Hours    map[int64]authHour `json:"hours,omitempty"`
 	IPs      map[string]int     `json:"ips,omitempty"`
 	Users    map[string]int     `json:"users,omitempty"`
+	Locked   []SecLock          `json:"locked,omitempty"` // Windows 4740 (gönderilene dek, en çok MaxSecLocked)
 }
 
 func (a *authAgg) hour(t time.Time) int64 {
@@ -220,14 +221,23 @@ func (a *authAgg) addAccepted(t time.Time, n int) {
 	a.Accepted += n
 }
 
-func (a *authAgg) empty() bool { return a == nil || (a.Failed == 0 && a.Accepted == 0) }
+// addLocked kilitlenmeyi ekler; liste doluysa yenisi atılır (sub önden düşer).
+func (a *authAgg) addLocked(l SecLock) {
+	if len(a.Locked) < MaxSecLocked {
+		a.Locked = append(a.Locked, l)
+	}
+}
+
+func (a *authAgg) empty() bool {
+	return a == nil || (a.Failed == 0 && a.Accepted == 0 && len(a.Locked) == 0)
+}
 
 func (a *authAgg) clone() *authAgg {
 	if a == nil {
 		return &authAgg{}
 	}
 	return &authAgg{Failed: a.Failed, Accepted: a.Accepted, Invalid: a.Invalid,
-		Hours: maps.Clone(a.Hours), IPs: maps.Clone(a.IPs), Users: maps.Clone(a.Users)}
+		Hours: maps.Clone(a.Hours), IPs: maps.Clone(a.IPs), Users: maps.Clone(a.Users), Locked: slices.Clone(a.Locked)}
 }
 
 // sub gönderilip kabul edilen kopyayı düşer (sıfıra iner, eksiye düşmez).
@@ -238,6 +248,10 @@ func (a *authAgg) sub(o *authAgg) {
 	}
 	a.Failed = max(a.Failed-o.Failed, 0)
 	a.Accepted = max(a.Accepted-o.Accepted, 0)
+	a.Locked = slices.Clone(a.Locked[min(len(o.Locked), len(a.Locked)):])
+	if len(a.Locked) == 0 {
+		a.Locked = nil
+	}
 	a.Invalid = max(a.Invalid-o.Invalid, 0)
 	for h, x := range o.Hours {
 		k := h
@@ -315,6 +329,7 @@ func (a *authAgg) ToAuth(source string) *SecAuth {
 	}
 	out.TopIPs = topOf(a.IPs, MaxSecAuthIPs)
 	out.TopUsers = topOf(a.Users, MaxSecAuthUsers)
+	out.Locked = slices.Clone(a.Locked)
 	return out
 }
 

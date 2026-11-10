@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -19,9 +20,10 @@ import (
 // SSH girişleri, oturumlar ve güvenlik duvarı (732): security_auth.go.
 
 const (
-	secUpdatesTTL = time.Hour        // paket sorgusu en çok saatte bir (önbellekli)
-	secCmdTimeout = 20 * time.Second // komut başına
-	secPkgTimeout = 60 * time.Second // paket yöneticisi sorgusu
+	secUpdatesTTL    = time.Hour        // paket sorgusu en çok saatte bir (önbellekli)
+	secUpdatesTTLWin = 6 * time.Hour    // Windows Update sorgusu (734)
+	secCmdTimeout    = 20 * time.Second // komut başına
+	secPkgTimeout    = 60 * time.Second // paket yöneticisi sorgusu
 )
 
 // secEnv işletim sistemine bağlı bölümlere verilen ortam (testte sahtesi).
@@ -90,7 +92,11 @@ func (c *Collector) securityUpdates(ctx context.Context, e secEnv, now time.Time
 	sc := &c.sec
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
-	if sc.at.IsZero() || now.Sub(sc.at) >= secUpdatesTTL || now.Before(sc.at) {
+	ttl := secUpdatesTTL
+	if runtime.GOOS == "windows" {
+		ttl = secUpdatesTTLWin
+	}
+	if sc.at.IsZero() || now.Sub(sc.at) >= ttl || now.Before(sc.at) {
 		upd, note := osSecUpdates(ctx, e)
 		if ctx.Err() != nil && upd == nil {
 			return nil, NoteFailed

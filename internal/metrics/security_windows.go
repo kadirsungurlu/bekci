@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"slices"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -16,11 +17,21 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-// Windows'ta bekleyen güncellemeler Windows Update ile (iş 734) gelecek; şimdilik
-// yalnız yeniden başlatma gereksinimi kayıt defterinden okunur.
-func osSecUpdates(context.Context, secEnv) (*SecUpdates, string) {
-	return nil, NoteUnsupported
+// osSecUpdates Windows Update (iş 734): COM Microsoft.Update.Session, çevrimdışı
+// arama (WU hizmetinin son taramasını kullanır, ağa çıkmaz). Sonuç toplayıcıda
+// secUpdatesTTLWin boyunca önbellekli; başarısız güncelleme geçmişi de aynı
+// sorguda alınır ve osSecExtras'ta rapora eklenir.
+func osSecUpdates(ctx context.Context, _ secEnv) (*SecUpdates, string) {
+	upd, wu, err := wuQuery(ctx)
+	if err != nil {
+		return nil, NoteFailed
+	}
+	wuLast.Store(wu)
+	return upd, ""
 }
+
+// wuLast son başarılı sorgunun başarısız güncelleme geçmişi.
+var wuLast atomic.Pointer[SecWU]
 
 // rebootKeys varlığı yeniden başlatma bekliyor demek olan anahtarlar.
 var rebootKeys = []string{
@@ -40,7 +51,7 @@ func osSecReboot(context.Context, secEnv) (*SecReboot, string) {
 }
 
 // secExtrasSupported SSH girişleri (732) yalnız Linux'ta; Windows'ta oturum,
-// güvenlik duvarı ve Defender osSecExtras ile (733), 4625/4740 734'te.
+// güvenlik duvarı ve Defender osSecExtras ile (733), 4625/4740 readEventLog ile (734).
 const secExtrasSupported = false
 
 const (
@@ -51,7 +62,13 @@ const (
 // osSecExtras Windows: RDP/konsol oturumları (WTS), güvenlik duvarı profilleri
 // ve Defender (WMI). PowerShell çağrılmaz.
 func osSecExtras(ctx context.Context, _ secEnv, s *Security) bool {
-	s.Notes[SecSectionAuth] = NoteUnsupported // 4625/4740: iş 734
+	if w := wuLast.Load(); w != nil {
+		c := *w
+		c.Failed = slices.Clone(w.Failed)
+		s.WU = &c
+	} else if s.Notes[SecSectionUpdates] != "" {
+		s.Notes[SecSectionWU] = s.Notes[SecSectionUpdates]
+	}
 	var code string
 	if s.Sessions, code = winSessions(); code != "" {
 		s.Notes[SecSectionSessions] = code
