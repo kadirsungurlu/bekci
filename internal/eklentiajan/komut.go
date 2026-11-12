@@ -12,7 +12,10 @@ const usage = `kullanım: uptime betik eklenti <komut>
   izin <ad> <sha256>   eklenti gövdesini yerel olarak iğneler (yalnız bu içerik çalışır)
   kapat <ad>           iğneyi kaldırır; eklenti bir sonraki turda çalışmaz
   anahtar <base64>     güvenilen yayın anahtarı ekler (Ed25519 açık anahtar)
-  liste                anahtarları, iğneleri ve kayıt zincirinin durumunu gösterir`
+  liste                anahtarları, iğneleri ve kayıt zincirinin durumunu gösterir
+  anahtar-uret <dosya> imza anahtarı üretir (özel anahtar dosyaya, açık anahtar ekrana)
+  imzala <anahtar> <manifest.json> <govde.sh>
+                       manifesti imzalar (sha256 gövdeden doldurulur), zarfı ekrana yazar`
 
 // Komut `uptime betik eklenti ...` alt komutu. Yalnız Linux, yalnız root.
 func Komut(args []string, out io.Writer) error {
@@ -20,6 +23,10 @@ func Komut(args []string, out io.Writer) error {
 }
 
 func komut(p Paths, args []string, out io.Writer, root bool) error {
+	// İmzalama yayıncının kendi makinesinde çalışır: root ve Linux gerekmez.
+	if len(args) > 0 && (args[0] == "anahtar-uret" || args[0] == "imzala") {
+		return imzaKomut(args, out)
+	}
 	if runtime.GOOS != "linux" {
 		return errors.New("eklenti yalnız Linux ajanında desteklenir")
 	}
