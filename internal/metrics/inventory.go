@@ -75,7 +75,8 @@ type InvPort struct {
 	Cmd     string `json:"cmd,omitempty"`
 }
 
-// InvCert bir SSL sertifikası: Source "file" ise Location dosya yolu, "port" ise adres:port.
+// InvCert bir SSL sertifikası: Source "file" ise Location dosya yolu, "port" ise adres:port,
+// "store" ise Windows deposu "LocalMachine\<depo>\<SHA-1>" (+ kullanım yerleri, inventory_wincert.go).
 type InvCert struct {
 	Source      string   `json:"source"`
 	Location    string   `json:"location"`

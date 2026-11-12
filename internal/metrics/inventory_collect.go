@@ -70,6 +70,7 @@ func (c *Collector) Inventory(ctx context.Context) Inventory {
 		note(InvCerts, NoteNoHost) // konteynerin kendi dosyaları host'unki değil
 	} else {
 		inv.Certs = append(c.localCerts(ctx), c.portCerts(ctx, inv.Ports)...)
+		inv.Certs = append(inv.Certs, windowsCerts(ctx)...) // Windows sertifika deposu (751)
 	}
 
 	inv.Sanitize()

@@ -218,3 +218,26 @@ func TestShortLivedCertNoAlarm(t *testing.T) {
 		t.Error("başlangıcı bilinmeyen sertifika susturulmamalı")
 	}
 }
+
+// Windows sertifika deposu kaydı (source "store", 751) Linux dosya
+// sertifikası gibi inv_certs'e yazılır ve sertifika uyarısına düşer.
+func TestWindowsStoreCertAlert(t *testing.T) {
+	e := newTestEnv(t)
+	e.send(cpu(1))
+	e.notif.take()
+	c := metrics.InvCert{Source: "store", Location: `LocalMachine\WebHosting\ABCDEF (IIS 0.0.0.0:443)`, Subject: "iis.example",
+		NotAfter: e.clock.Add(5 * 24 * time.Hour).Unix(), Fingerprint: strings.Repeat("ab", 32)}
+	e.inv(c)
+	n := e.notif.take()
+	if len(n) != 1 || n[0].Kind != notify.KindServerAlert || n[0].Metric != "cert" || n[0].Threshold != 7 {
+		t.Fatalf("uyarı: %+v", n)
+	}
+	list, err := e.st.ServerCerts(context.Background(), e.getProbe().ID)
+	if err != nil || len(list) != 1 || list[0].Source != "store" || list[0].Location != c.Location {
+		t.Fatalf("inv_certs: %+v %v", list, err)
+	}
+	d := store.ParseServerIncidentData(e.serverIncidents()[0].Data)
+	if d.Metric != "cert" || d.Mount != "iis.example" {
+		t.Fatalf("olay: %+v", d)
+	}
+}
