@@ -308,6 +308,7 @@ Sorgular sabittir (panelden SQL gelmez).
   -> `metrics.InvCert`; IIS bağlantısı `HTTP_SERVICE_CONFIG_SSL` (httpapi) ile ip:port eşlemesi, MSSQL sertifikası kayıt defteri
   `SuperSocketNetLib\Certificate` parmak izi. Böylece mevcut `inv_certs` + sertifika uyarıları (`server_cert_days`) Windows'ta da çalışır;
   Windows envanterinde servisler/portlar `Notes` ile "unsupported" (ayrı iş).
+- Uygulama (751): `win_task` Pro `hosting_denetim` (görev kararı; bekci-pro `ic/internal/hosting/wintask*.go`): parametre `path` (`\Klasör\Görev`; `\` ile biterse klasördeki görevler, alt klasör yok, gizliler dahil); COM `Schedule.Service`; sonuç kodu eşleme `gorevSonuc` (0, 0x41300-0x41305, 0x41325 başarısız değil; 0x41306, 0x8004131F, 0x800710E0, çıkış kodları başarısız); metrikler `tasks`, `failed`, `disabled`, `age_h`, `next_h`, tek görevde `last_result`; başarısız -> critical, görev/klasör yok -> critical, hepsi devre dışı -> warning; kural `age_h` >= 26 pasif. Sertifika deposu ÜCRETSİZ, açık depo `internal/metrics/inventory_wincert*.go`: kaynak `store`, konum `LocalMachine\<depo>\<SHA-1>` + kullanım (`IIS ip:port`, `IIS ad:port` SNI, `MSSQL <örnek>`); bağlı olmayanlardan yalnız sunucu sertifikaları (CA ve EKU'su sunucu kimliği içermeyenler elenir); iki depodaki aynı sertifika bir kez.
 - Ücret: hepsi ücretsiz.
 
 ## E. Alınmayanlar
