@@ -296,7 +296,7 @@ func validateAlerts(in []alertInput) ([]store.ServerAlert, error) {
 	for _, a := range in {
 		a.Metric = strings.TrimSpace(a.Metric)
 		if !servers.ValidMetric(a.Metric) {
-			return nil, errors.New("Metrik cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast, disk_fast, sec_updates_age, reboot_required, auth_failed, av_signature_age, av_off, firewall_off veya wu_failed olmalı")
+			return nil, errors.New("Metrik cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast, disk_fast, inode, zombies, sec_updates_age, reboot_required, auth_failed, av_signature_age, av_off, firewall_off veya wu_failed olmalı")
 		}
 		a.Mount = strings.TrimSpace(a.Mount)
 		switch {

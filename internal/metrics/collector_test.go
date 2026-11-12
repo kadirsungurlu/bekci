@@ -34,9 +34,9 @@ func (f *fakeSource) load(context.Context) (float64, float64, float64, error) {
 }
 func (f *fakeSource) memory(context.Context) (memStat, error) { return f.mem, nil }
 func (f *fakeSource) mounts(context.Context) ([]mount, error) { return f.mnts, nil }
-func (f *fakeSource) usage(m mount) (uint64, uint64, bool) {
+func (f *fakeSource) usage(m mount) diskUsage {
 	s, ok := f.sizes[m.Point]
-	return s[0], s[1], ok
+	return diskUsage{total: s[0], used: s[1], ok: ok}
 }
 func (f *fakeSource) diskIO(context.Context) (map[string]ioCounter, error) { return clone(f.disk), nil }
 func (f *fakeSource) netIO(context.Context) (map[string]ioCounter, error)  { return clone(f.net), nil }

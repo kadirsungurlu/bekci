@@ -57,7 +57,7 @@ func TestSelectDisksWindows(t *testing.T) {
 		}
 	}
 	sizes := map[string][2]uint64{"C:": {100, 60}, "D:": {200, 50}, `C:\mnt\d`: {200, 50}, `C:\mnt\yedek`: {300, 30}}
-	got := selectDisks(ms, func(m mount) (uint64, uint64, bool) { s, ok := sizes[m.Point]; return s[0], s[1], ok })
+	got := selectDisks(ms, func(m mount) diskUsage { s, ok := sizes[m.Point]; return diskUsage{total: s[0], used: s[1], ok: ok} })
 	want := []Disk{
 		{Mount: "C:", Device: "", FS: "NTFS", Total: 100, Used: 60},
 		{Mount: `C:\mnt\yedek`, Device: "Yedek", FS: "ReFS", Total: 300, Used: 30},

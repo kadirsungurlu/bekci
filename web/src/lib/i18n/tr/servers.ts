@@ -133,6 +133,8 @@ export default {
     container: { label: 'Konteyner', desc: 'Seçilen (ya da herhangi bir bilinen) Docker konteyneri bu süre boyunca çalışmıyorsa (durmuş / yeniden başlıyor / listeden düşmüş)' },
     disk_forecast: { label: 'Disk dolma tahmini', desc: 'Son günlerin büyüme hızına göre en erken dolacak bölüm bu kadar gün içinde dolacaksa uyarır' },
     disk_fast: { label: 'Hızlı disk dolumu', desc: 'Bir bölüm seçilen süre içinde bu kadar puan dolarsa uyarır' },
+    inode: { label: 'Inode doluluğu', desc: 'En dolu bölümün inode (dosya sayısı) doluluğu; disk boşken de yeni dosya yazılamayabilir (yalnız Linux)' },
+    zombies: { label: 'Zombi süreç', desc: 'Durumu Z olan (ana süreci tarafından toplanmamış) süreç sayısı (yalnız Linux)' },
     sec_updates_age: { label: 'Bekleyen güvenlik güncellemesi', desc: 'En eski güvenlik güncellemesi bu kadar gündür kurulmadıysa uyarır' },
     reboot_required: { label: 'Bekleyen yeniden başlatma', desc: 'Sunucu bu kadar gündür yeniden başlatılmayı bekliyorsa uyarır (çekirdek ya da kütüphane güncellemesi)' },
     auth_failed: { label: 'Başarısız oturum açma', desc: 'Seçilen pencerede (saatlik) başarısız SSH / Windows oturum açma sayısı bu kadar ya da üstündeyse uyarır' },
@@ -617,6 +619,8 @@ export default {
       device: 'Aygıt',
       usage: 'Doluluk',
       free: 'Boş',
+      inode: 'Inode',
+      inodeTitle: '{u} / {t} inode kullanılıyor',
     },
     containers: {
       title: 'Konteynerler',

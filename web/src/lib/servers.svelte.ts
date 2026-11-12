@@ -55,6 +55,8 @@ export const METRICS: Record<ServerMetric, MetricInfo> = {
   reboot: metric('reboot', 'none', 0, 1, 0, 0, 1),
   disk_forecast: metric('disk_forecast', 'days', 7, 1, 1, 365, 1),
   disk_fast: metric('disk_fast', 'pct', 5, 60, 1, 100, 1),
+  inode: metric('inode', 'pct', 90, 5, 1, 100, 1),
+  zombies: metric('zombies', 'count', 50, 10, 1, 100000, 1),
   sec_updates_age: metric('sec_updates_age', 'days', 7, 1, 1, 365, 1),
   reboot_required: metric('reboot_required', 'days', 3, 1, 1, 365, 1),
   auth_failed: metric('auth_failed', 'count', 200, 60, 1, 1000000, 1),
@@ -67,7 +69,7 @@ export const METRICS: Record<ServerMetric, MetricInfo> = {
 
 /** Güvenlik grubu (kural editöründe ayrı başlık altında). */
 export const SECURITY_METRICS: ServerMetric[] = ['sec_updates_age', 'reboot_required', 'auth_failed', 'av_signature_age', 'av_off', 'firewall_off', 'wu_failed'];
-export const METRIC_ORDER: ServerMetric[] = ['offline', 'cpu', 'mem', 'disk', 'swap', 'load', 'temp', 'net', 'container', 'reboot', 'disk_forecast', 'disk_fast', ...SECURITY_METRICS];
+export const METRIC_ORDER: ServerMetric[] = ['offline', 'cpu', 'mem', 'disk', 'swap', 'load', 'temp', 'net', 'container', 'reboot', 'disk_forecast', 'disk_fast', 'inode', 'zombies', ...SECURITY_METRICS];
 /** Süre alanı kullanılmayan kurallar (kayıtta 1). */
 export const minutesUnused = (m: ServerMetric) => m === 'reboot' || m === 'disk_forecast' || (SECURITY_METRICS.includes(m) && m !== 'auth_failed');
 

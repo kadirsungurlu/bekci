@@ -80,7 +80,7 @@ func MetricValue(lang, metric string, v float64) string {
 		return Decimal(lang, v, 2)
 	case "temp":
 		return fmt.Sprintf("%.0f °C", v)
-	case "auth_failed", "wu_failed":
+	case "auth_failed", "wu_failed", "zombies":
 		return fmt.Sprintf("%.0f", v)
 	case "av_off", "firewall_off":
 		return "" // eşiksiz; değer yok

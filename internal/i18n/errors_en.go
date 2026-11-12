@@ -372,7 +372,7 @@ var errorsEN = map[string]string{
 	"En fazla %d monitör seçilebilir":                                 "You can select at most %d monitors",
 	"En az bir monitör ya da sunucu seçin veya tüm monitörleri seçin": "Select at least one monitor or server, or select all monitors",
 	"En fazla %d sunucu seçilebilir":                                  "You can select at most %d servers",
-	"Metrik cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast, disk_fast, sec_updates_age, reboot_required, auth_failed, av_signature_age, av_off, firewall_off veya wu_failed olmalı": "Metric must be cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast, disk_fast, sec_updates_age, reboot_required, auth_failed, av_signature_age, av_off, firewall_off or wu_failed",
+	"Metrik cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast, disk_fast, inode, zombies, sec_updates_age, reboot_required, auth_failed, av_signature_age, av_off, firewall_off veya wu_failed olmalı": "Metric must be cpu, mem, swap, disk, load, temp, net, offline, container, reboot, disk_forecast, disk_fast, inode, zombies, sec_updates_age, reboot_required, auth_failed, av_signature_age, av_off, firewall_off or wu_failed",
 	"Başarısız giriş penceresi 60-1440 dakika olmalı":                 "Failed login window must be 60-1440 minutes",
 	"Konteyner adı harf, rakam, alt çizgi, nokta ve tireden oluşmalı": "Container name may contain letters, digits, underscores, dots and hyphens",
 	"%s konteyneri için birden fazla kural olamaz":                    "There can't be more than one rule for container %s",

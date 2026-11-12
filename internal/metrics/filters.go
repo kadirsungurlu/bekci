@@ -108,10 +108,17 @@ func skipMount(m mount) bool {
 	return false
 }
 
+// diskUsage bir bölümün doluluğu; inodes 0 ise inode bilgisi yok.
+type diskUsage struct {
+	total, used        uint64
+	inodes, inodesUsed uint64
+	ok                 bool
+}
+
 // selectDisks gerçek dosya sistemlerini seçer: sanal/ağ/konteyner bağlamaları
 // atlanır, aynı aygıt birden çok yere bağlıysa (bind) en kısa yol kalır,
 // boyutu 0 olanlar ve görünmeyenler düşer. "/" başta, gerisi yola göre sıralıdır.
-func selectDisks(ms []mount, usage func(mount) (total, used uint64, ok bool)) []Disk {
+func selectDisks(ms []mount, usage func(mount) diskUsage) []Disk {
 	best := map[string]mount{}
 	for _, m := range ms {
 		if skipMount(m) {
@@ -128,11 +135,15 @@ func selectDisks(ms []mount, usage func(mount) (total, used uint64, ok bool)) []
 	}
 	var out []Disk
 	for _, m := range best {
-		total, used, ok := usage(m)
-		if !ok || total == 0 {
+		u := usage(m)
+		if !u.ok || u.total == 0 {
 			continue
 		}
-		out = append(out, Disk{Mount: m.Point, Device: m.Source, FS: m.FS, Total: total, Used: min(used, total)})
+		d := Disk{Mount: m.Point, Device: m.Source, FS: m.FS, Total: u.total, Used: min(u.used, u.total)}
+		if u.inodes > 0 { // btrfs/xfs dinamik inode, FAT, Windows: 0 -> alan yok
+			d.Inodes, d.InodesUsed = u.inodes, min(u.inodesUsed, u.inodes)
+		}
+		out = append(out, d)
 	}
 	slices.SortFunc(out, func(a, b Disk) int {
 		if (a.Mount == "/") != (b.Mount == "/") {

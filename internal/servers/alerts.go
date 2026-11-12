@@ -26,10 +26,14 @@ const (
 	// Hızlı dolum: eşik puan (%), Minutes pencere.
 	MetricDiskForecast = "disk_forecast"
 	MetricDiskFast     = "disk_fast"
+	// Inode doluluğu % (en dolu bölüm) ve zombi süreç sayısı (730 §D). Eski
+	// ajan ve Windows bu alanları göndermez: değer yoksa kural değerlendirilmez.
+	MetricInode   = "inode"
+	MetricZombies = "zombies"
 )
 
 // Metrics geçerli uyarı metrikleri (arayüzdeki sırayla).
-var Metrics = []string{MetricOffline, MetricCPU, MetricMem, MetricDisk, MetricSwap, MetricLoad, MetricTemp, MetricNet, MetricContainer, MetricReboot, MetricDiskForecast, MetricDiskFast, MetricSecUpdatesAge,
+var Metrics = []string{MetricOffline, MetricCPU, MetricMem, MetricDisk, MetricSwap, MetricLoad, MetricTemp, MetricNet, MetricContainer, MetricReboot, MetricDiskForecast, MetricDiskFast, MetricInode, MetricZombies, MetricSecUpdatesAge,
 	MetricRebootRequired, MetricAuthFailed, MetricAVSigAge, MetricAVOff, MetricFirewallOff, MetricWUFailed}
 
 // ValidMetric metriğin geçerli olup olmadığını söyler.
@@ -72,6 +76,8 @@ func ThresholdRange(metric string) (lo, hi float64) {
 		return 1, 365
 	case MetricAuthFailed:
 		return 1, 1000000
+	case MetricZombies:
+		return 1, 100000
 	}
 	return 1, 100
 }
@@ -87,6 +93,8 @@ func DefaultRules() []store.ServerAlert {
 		{Metric: MetricReboot, Minutes: 1, Active: true},
 		{Metric: MetricDiskForecast, Threshold: 7, Minutes: 1, Active: true},
 		{Metric: MetricDiskFast, Threshold: 5, Minutes: 60, Active: true},
+		{Metric: MetricInode, Threshold: 90, Minutes: 5, Active: true},
+		{Metric: MetricZombies, Threshold: 50, Minutes: 10, Active: false},
 		{Metric: MetricSecUpdatesAge, Threshold: 7, Minutes: 1, Active: true},
 		{Metric: MetricRebootRequired, Threshold: 3, Minutes: 1, Active: false},
 		{Metric: MetricAuthFailed, Threshold: 200, Minutes: 60, Active: false},
@@ -106,6 +114,11 @@ type point struct {
 	hasTemp                    bool
 	disks                      map[string]float64 // bölüm → doluluk %
 	fullest                    string             // en dolu bölüm
+	inode                      float64            // en yüksek inode doluluğu %
+	hasInode                   bool               // en az bir bölümde inode bilgisi var
+	fullestInode               string             // inode'u en dolu bölüm
+	zombies                    float64
+	hasZombies                 bool // ajan zombi sayısını gönderiyor
 	// containers ad → durum ("running", "exited", "restarting"…; eski ajan: running).
 	// docker: ajan Docker'a erişiyor (false ise konteyner kuralı değerlendirilmez).
 	containers map[string]string
@@ -134,7 +147,13 @@ func pointOf(t int64, st *metrics.Stats, host *metrics.Host) point {
 			if v > best {
 				best, p.fullest = v, d.Mount
 			}
+			if iv, ok := d.InodePct(); ok && (!p.hasInode || iv > p.inode) {
+				p.inode, p.hasInode, p.fullestInode = iv, true, d.Mount
+			}
 		}
+	}
+	if st.Zombies != nil {
+		p.zombies, p.hasZombies = float64(*st.Zombies), true
 	}
 	if len(st.Containers) > 0 {
 		p.containers = make(map[string]string, len(st.Containers))
@@ -171,6 +190,10 @@ func (p point) value(metric, mount string) (float64, bool) {
 		return p.net, true
 	case MetricTemp:
 		return p.temp, p.hasTemp
+	case MetricInode:
+		return p.inode, p.hasInode
+	case MetricZombies:
+		return p.zombies, p.hasZombies
 	}
 	return 0, false
 }
@@ -520,6 +543,9 @@ func (s *Service) CheckOffline(ctx context.Context) {
 // alertMount disk uyarısının ilgili olduğu bölüm: kuraldaki bölüm, yoksa son
 // örnekteki en dolu bölüm.
 func alertMount(h []point, a *store.ServerAlert) string {
+	if a.Metric == MetricInode && len(h) > 0 {
+		return h[len(h)-1].fullestInode
+	}
 	if a.Metric != MetricDisk {
 		return ""
 	}
@@ -611,7 +637,7 @@ func (s *Service) changeLevel(ctx context.Context, p store.Probe, host *metrics.
 
 // diskRule olayda bölüm taşıyan disk kuralları.
 func diskRule(m string) bool {
-	return m == MetricDisk || m == MetricDiskForecast || m == MetricDiskFast
+	return m == MetricDisk || m == MetricDiskForecast || m == MetricDiskFast || m == MetricInode
 }
 
 // alertMountFiring tetiklenmiş kuralın olaydaki bölümü (disk) ya da kuralın bölümü.

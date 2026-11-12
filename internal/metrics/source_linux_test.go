@@ -71,12 +71,17 @@ func TestUsageOK(t *testing.T) {
 			fs.Blocks = 100
 			fs.Bfree = 30
 			fs.Bavail = 20
+			fs.Files = 1000
+			fs.Ffree = 100
 			return nil
 		},
 	}
-	total, used, ok := s.usage(mount{Point: "/data", FS: "ext4", Dev: "8:1"})
-	if !ok || used != 70*4096 || total != 70*4096+20*4096 {
-		t.Fatalf("usage: total=%d used=%d ok=%v", total, used, ok)
+	u := s.usage(mount{Point: "/data", FS: "ext4", Dev: "8:1"})
+	if !u.ok || u.used != 70*4096 || u.total != 70*4096+20*4096 {
+		t.Fatalf("usage: %+v", u)
+	}
+	if u.inodes != 1000 || u.inodesUsed != 900 {
+		t.Fatalf("inode: %+v", u)
 	}
 }
 
@@ -165,5 +170,61 @@ func TestSystemSourceNetFilterHostPaths(t *testing.T) {
 	}
 	if !f.keepDisk("sda") || f.keepDisk("sda1") {
 		t.Error("disk süzgeci")
+	}
+}
+
+// TestInodeSelect: inode bilgisi diske geçer; Files=0 (btrfs) ise alan boş kalır.
+func TestInodeSelect(t *testing.T) {
+	s := &systemSource{
+		diskTimeout: 2 * time.Second,
+		stat:        syscall.Stat,
+		statfs: func(p string, fs *syscall.Statfs_t) error {
+			fs.Bsize, fs.Blocks, fs.Bfree, fs.Bavail = 1, 100, 50, 50
+			if p == "/" {
+				fs.Files, fs.Ffree = 200, 20
+			}
+			return nil
+		},
+	}
+	ms := []mount{
+		{Dev: "8:1", Root: "/", Point: "/", FS: "ext4", Source: "/dev/sda1"},
+		{Dev: "8:2", Root: "/", Point: "/data", FS: "btrfs", Source: "/dev/sdb1"},
+	}
+	got := selectDisks(ms, s.usage)
+	if len(got) != 2 {
+		t.Fatalf("diskler: %+v", got)
+	}
+	if v, ok := got[0].InodePct(); !ok || v != 90 {
+		t.Fatalf("/ inode %v %v", v, ok)
+	}
+	if _, ok := got[1].InodePct(); ok || got[1].Inodes != 0 {
+		t.Fatalf("btrfs inode boş olmalı: %+v", got[1])
+	}
+}
+
+// TestZombies: sahte /proc altında yalnız durum Z olanlar sayılır; komut
+// adında boşluk ve parantez durumu bozmaz.
+func TestZombies(t *testing.T) {
+	dir := t.TempDir()
+	write := func(pid, stat string) {
+		if err := os.MkdirAll(filepath.Join(dir, pid), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, pid, "stat"), []byte(stat), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("1", "1 (systemd) S 0 1 1 0")
+	write("20", "20 (php-fpm) Z 1 20 20 0")
+	write("21", "21 (a b) Z) Z 1 21 21 0")
+	write("22", "22 (x) R 1 22 22 0")
+	write("self", "99 (y) Z 1")
+	if err := os.MkdirAll(filepath.Join(dir, "30"), 0o755); err != nil { // stat yok: atlanır
+		t.Fatal(err)
+	}
+	s := &systemSource{proc: dir}
+	n, err := s.zombies()
+	if err != nil || n != 2 {
+		t.Fatalf("zombi = %d, %v; 2 bekleniyordu", n, err)
 	}
 }

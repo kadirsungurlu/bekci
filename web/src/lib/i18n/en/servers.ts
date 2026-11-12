@@ -134,6 +134,8 @@ export default {
     container: { label: 'Container', desc: 'When the selected (or any known) Docker container is not running for this long (stopped / restarting / gone from the list)' },
     disk_forecast: { label: 'Disk full forecast', desc: 'Alerts when, at the recent growth rate, the first partition will be full within this many days' },
     disk_fast: { label: 'Rapid disk growth', desc: 'Alerts when a partition grows by this many points within the selected time' },
+    inode: { label: 'Inode usage', desc: 'Inode (file count) usage of the fullest partition; new files can fail even with free space (Linux only)' },
+    zombies: { label: 'Zombie processes', desc: 'Number of processes in state Z (not reaped by their parent) (Linux only)' },
     sec_updates_age: { label: 'Pending security update', desc: 'Alerts when the oldest security update has not been installed for this many days' },
     reboot_required: { label: 'Pending reboot', desc: 'Alerts when the server has been waiting for a reboot for this many days (kernel or library update)' },
     auth_failed: { label: 'Failed logins', desc: 'Alerts when failed SSH / Windows logins in the chosen window (hourly) reach this count' },
@@ -618,6 +620,8 @@ export default {
       device: 'Device',
       usage: 'Usage',
       free: 'Free',
+      inode: 'Inodes',
+      inodeTitle: '{u} / {t} inodes used',
     },
     containers: {
       title: 'Containers',

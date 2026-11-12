@@ -4,6 +4,7 @@ package metrics
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -169,11 +170,6 @@ func (s *systemSource) mounts(context.Context) ([]mount, error) {
 	return parseMountinfo(string(b), s.root), nil
 }
 
-type diskUsage struct {
-	total, used uint64
-	ok          bool
-}
-
 // usage bölümün doluluğu. Total, df'teki gibi kullanılan + kullanılabilir
 // alandır (root'a ayrılan pay hariç), böylece Used/Total df'teki Use% ile aynı olur.
 // Konteynerde HOST_ROOT altındaki yol başka bir aygıta çıkıyorsa (bağlama
@@ -189,12 +185,12 @@ type diskUsage struct {
 // Önceki sorgusu hâlâ dönmemiş bağlama sonraki toplamalarda hiç sorgulanmaz
 // (bilinmiyor sayılır): askıdaki bağlama başına en fazla bir goroutine olur,
 // toplamalar boyunca birikmez. Sorgu dönünce bağlama yeniden ölçülür.
-func (s *systemSource) usage(m mount) (total, used uint64, ok bool) {
+func (s *systemSource) usage(m mount) diskUsage {
 	key := s.root + m.Point
 	s.mu.Lock()
 	if s.inflight[key] {
 		s.mu.Unlock()
-		return 0, 0, false
+		return diskUsage{}
 	}
 	if s.inflight == nil {
 		s.inflight = map[string]bool{}
@@ -207,35 +203,39 @@ func (s *systemSource) usage(m mount) (total, used uint64, ok bool) {
 			delete(s.inflight, key)
 			s.mu.Unlock()
 		}()
-		t, u, k := s.usageBlocking(m)
-		return diskUsage{total: t, used: u, ok: k}
+		return s.usageBlocking(m)
 	})
 	if timedOut {
-		return 0, 0, false
+		return diskUsage{}
 	}
-	return r.total, r.used, r.ok
+	return r
 }
 
 // usageBlocking usage'ın syscall yapan çekirdeğidir (goroutine içinde çağrılır).
-func (s *systemSource) usageBlocking(m mount) (total, used uint64, ok bool) {
+// Inode: Files toplam, Ffree boş (df -i gibi; dinamik inode'lu btrfs 0 verir).
+func (s *systemSource) usageBlocking(m mount) diskUsage {
 	p := s.root + m.Point
 	if s.root != "" && m.Point != "/" && m.FS != "btrfs" {
 		var st syscall.Stat_t
 		if s.stat(p, &st) != nil {
-			return 0, 0, false
+			return diskUsage{}
 		}
 		dev := strconv.FormatUint(uint64(unix.Major(uint64(st.Dev))), 10) + ":" + strconv.FormatUint(uint64(unix.Minor(uint64(st.Dev))), 10)
 		if dev != m.Dev {
-			return 0, 0, false
+			return diskUsage{}
 		}
 	}
 	var fs syscall.Statfs_t
 	if s.statfs(p, &fs) != nil {
-		return 0, 0, false
+		return diskUsage{}
 	}
 	bs := uint64(fs.Bsize)
-	used = (fs.Blocks - fs.Bfree) * bs
-	return used + fs.Bavail*bs, used, true
+	used := (fs.Blocks - fs.Bfree) * bs
+	u := diskUsage{total: used + fs.Bavail*bs, used: used, ok: true}
+	if fs.Files > 0 && fs.Ffree <= fs.Files {
+		u.inodes, u.inodesUsed = fs.Files, fs.Files-fs.Ffree
+	}
+	return u
 }
 
 // diskIO /proc/diskstats'tan okunan/yazılan baytlar (sektör her zaman 512 bayt).
@@ -283,4 +283,38 @@ func (s *systemSource) temps(ctx context.Context) ([]Temp, error) {
 		out = append(out, Temp{Name: t.SensorKey, C: t.Temperature})
 	}
 	return out, err
+}
+
+// zombies /proc/<pid>/stat durum alanı Z olan süreçleri sayar. Durum, komut
+// adındaki boşluk ve parantezlerden etkilenmemek için son ")" sonrasından
+// okunur. Okunamayan (bu arada biten) süreç atlanır.
+func (s *systemSource) zombies() (int, error) {
+	ents, err := os.ReadDir(s.proc)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, e := range ents {
+		name := e.Name()
+		if name == "" || name[0] < '0' || name[0] > '9' {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(s.proc, name, "stat"))
+		if err != nil {
+			continue
+		}
+		if zombieStat(b) {
+			n++
+		}
+	}
+	return n, nil
+}
+
+// zombieStat /proc/<pid>/stat içeriğinde durum Z mi.
+func zombieStat(b []byte) bool {
+	i := bytes.LastIndexByte(b, ')')
+	if i < 0 || i+2 >= len(b) {
+		return false
+	}
+	return b[i+2] == 'Z'
 }

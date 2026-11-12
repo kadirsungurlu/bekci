@@ -34,6 +34,7 @@
     fmtTemp,
     fmtUptime,
     nowSec,
+    fmtNum,
   } from '../lib/format';
   import { t, tParts } from '../lib/i18n';
   import { guardUnsaved } from '../lib/forms';
@@ -341,6 +342,7 @@
   const TONE_ICON = { up: 'server', warn: 'alert', down: 'server', muted: 'server' } as const;
   let pageTab = $state<'overview' | 'inventory' | 'security' | 'checks' | 'timeline'>('overview');
   const fullText = (d: number) => (d < 1 ? t('servers.detail.disks.fullSoon') : t('servers.detail.disks.fullIn', { d: fmtDays(d) }));
+  const hasInodes = $derived(disks.some((d) => !!d.inodes));
   const forecastOf = (mount: string) => view?.disk_forecast?.find((f) => f.mount === mount) ?? null;
   const PILL = { up: 'up', warn: 'pending', down: 'down', muted: 'paused' } as const;
 </script>
@@ -647,6 +649,7 @@
             <th>{t('servers.detail.disks.device')}</th>
             <th class="w-bar">{t('servers.detail.disks.usage')}</th>
             <th>{t('servers.detail.disks.free')}</th>
+            {#if hasInodes}<th>{t('servers.detail.disks.inode')}</th>{/if}
             <th>{t('servers.detail.disks.forecast')}</th>
           </tr>
         </thead>
@@ -659,6 +662,16 @@
                 <UsageBar value={d.total ? (100 * d.used) / d.total : null} detail="{fmtBytes(d.used)} / {fmtBytes(d.total)}" />
               </td>
               <td data-label={t('servers.detail.disks.free')} class="nowrap">{fmtBytes(d.total - d.used)}</td>
+              {#if hasInodes}
+                <td data-label={t('servers.detail.disks.inode')} class="nowrap">
+                  {#if d.inodes}
+                    {@const ip = (100 * (d.inodes_used ?? 0)) / d.inodes}
+                    <span class:c-down={ip >= 90} class:c-pending={ip >= 80 && ip < 90} title={t('servers.detail.disks.inodeTitle', { u: fmtNum(d.inodes_used ?? 0), t: fmtNum(d.inodes) })}>{fmtPctInt(ip)}</span>
+                  {:else}
+                    <span class="muted">-</span>
+                  {/if}
+                </td>
+              {/if}
               <td data-label={t('servers.detail.disks.forecast')} class="fc">
                 {#if forecastOf(d.mount)?.status === 'growing' && forecastOf(d.mount)?.days != null}
                   {@const fc = forecastOf(d.mount)!}

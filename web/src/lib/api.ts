@@ -1399,6 +1399,9 @@ export interface DiskInfo {
   fs: string;
   total: number;
   used: number;
+  /** Inode toplamı ve kullanılanı (Linux; eski ajan, Windows, btrfs: yok). */
+  inodes?: number;
+  inodes_used?: number;
 }
 
 export interface TempInfo {
@@ -1434,6 +1437,8 @@ export interface ServerStats {
   net_rx_bps: number;
   net_tx_bps: number;
   uptime: number;
+  /** Zombi süreç sayısı (Linux; eski ajan ve Windows: yok). */
+  zombies?: number;
   disks?: DiskInfo[] | null;
   temps?: TempInfo[] | null;
   containers?: ContainerInfo[] | null;
@@ -1456,6 +1461,8 @@ export type ServerMetric =
   | "reboot"
   | "disk_forecast"
   | "disk_fast"
+  | "inode"
+  | "zombies"
   | "sec_updates_age"
   | "reboot_required"
   | "auth_failed"

@@ -202,12 +202,12 @@ func volumeInfo(root string) (guid, label string) {
 }
 
 // usage GetDiskFreeSpaceEx: Total toplam boyut, Used toplam - boş.
-func (s *systemSource) usage(m mount) (total, used uint64, ok bool) {
+func (s *systemSource) usage(m mount) diskUsage {
 	u, err := disk.Usage(m.Point + `\`)
 	if err != nil || u.Total == 0 {
-		return 0, 0, false
+		return diskUsage{}
 	}
-	return u.Total, u.Used, true
+	return diskUsage{total: u.Total, used: u.Used, ok: true}
 }
 
 // diskIO sabit sürücülerin okunan/yazılan baytları (IOCTL_DISK_PERFORMANCE).

@@ -301,6 +301,7 @@ Sorgular sabittir (panelden SQL gelmez).
 - **Süreç var mı / sayısı** (`process`): ad (çalıştırılabilir taban adı) ya da komut satırı içerir; en az/en çok sayı; Linux `/proc`,
   Windows mevcut gopsutil.
 - **Zombi süreçler**: `/proc/*/stat` durum Z sayısı metrik örneğine eklenir; uyarı `zombies` (sayı, 50 varsayılan, pasif).
+- Uygulama (750, ücretsiz): ajan `metrics.Disk.Inodes/InodesUsed` (statfs Files/Ffree; Files 0 olan btrfs/Windows'ta alan yok) ve `Stats.Zombies` (*int, Linux `/proc/<pid>/stat` son `)` sonrası durum); `servers/alerts.go` `inode` (en dolu bölüm, olayda bölüm) ve `zombies`; alan yoksa değer yok, kural değerlendirilmez. Varsayılanlar `DefaultRules` + migration 56 (`store/sys_alerts.go`): inode 90 % 5 dk etkin, zombies 50 10 dk pasif. Arayüz: disk tablosunda Inode sütunu (en az bir bölümde bilgi varsa). Test `servers/sysmetrics_test.go`, `metrics/source_linux_test.go` TestInodeSelect/TestZombies.
 - **Windows Zamanlanmış Görev** (`win_task`): COM `Schedule.Service` -> görev yolu ya da klasör; `LastRunTime`, `LastTaskResult`
   (0 = başarılı, 0x41301 çalışıyor, 0x41303 hiç çalışmadı), `NextRunTime`, `State`. Kural: sonuç != 0, son çalışma > X sa.
 - **Windows sertifika deposu**: denetim değil, **Windows envanterinin ilk bölümü** olur: `CertOpenStore` LocalMachine `My` + `WebHosting`

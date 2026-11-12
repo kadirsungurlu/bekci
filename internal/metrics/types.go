@@ -81,6 +81,10 @@ type Stats struct {
 
 	Uptime int64 `json:"uptime"` // saniye
 
+	// Zombies durumu Z olan süreç sayısı (Linux /proc). nil: bilinmiyor (eski
+	// ajan, Windows); 0 geçerli değerdir.
+	Zombies *int `json:"zombies,omitempty"`
+
 	Disks      []Disk      `json:"disks,omitempty"`
 	Temps      []Temp      `json:"temps,omitempty"`
 	Containers []Container `json:"containers,omitempty"`
@@ -93,6 +97,18 @@ type Disk struct {
 	FS     string `json:"fs"`     // "ext4"
 	Total  uint64 `json:"total"`
 	Used   uint64 `json:"used"`
+	// Inode sayıları (Linux statfs Files/Ffree). Eski ajanda, Windows'ta ve
+	// dinamik inode'lu dosya sistemlerinde boş: inode kuralı değerlendirilmez.
+	Inodes     uint64 `json:"inodes,omitempty"`
+	InodesUsed uint64 `json:"inodes_used,omitempty"`
+}
+
+// InodePct bölümün inode doluluğu %; bilgi yoksa ok=false.
+func (d Disk) InodePct() (float64, bool) {
+	if d.Inodes == 0 {
+		return 0, false
+	}
+	return 100 * float64(d.InodesUsed) / float64(d.Inodes), true
 }
 
 // Temp bir sıcaklık sensörü (°C).
@@ -182,6 +198,10 @@ func (s *Sample) Sanitize() {
 	}
 	st.MemUsed, st.SwapUsed = min(st.MemUsed, st.MemTotal), min(st.SwapUsed, st.SwapTotal)
 	st.Uptime = max(st.Uptime, 0)
+	if st.Zombies != nil && *st.Zombies < 0 {
+		z := 0
+		st.Zombies = &z
+	}
 	if len(st.Disks) > MaxDisks {
 		st.Disks = st.Disks[:MaxDisks]
 	}
@@ -189,6 +209,7 @@ func (s *Sample) Sanitize() {
 		d := &st.Disks[i]
 		d.Mount, d.Device, d.FS = clip(d.Mount), clip(d.Device), clip(d.FS)
 		d.Used = min(d.Used, d.Total)
+		d.InodesUsed = min(d.InodesUsed, d.Inodes)
 	}
 	if len(st.Temps) > MaxTemps {
 		st.Temps = st.Temps[:MaxTemps]

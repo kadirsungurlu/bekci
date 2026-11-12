@@ -60,10 +60,16 @@ type source interface {
 	load(ctx context.Context) (l1, l5, l15 float64, err error)
 	memory(ctx context.Context) (memStat, error)
 	mounts(ctx context.Context) ([]mount, error)              // host yollarıyla bağlama listesi
-	usage(m mount) (total, used uint64, ok bool)              // ok=false: bölüm görünmüyor
+	usage(m mount) diskUsage                                  // ok=false: bölüm görünmüyor
 	diskIO(ctx context.Context) (map[string]ioCounter, error) // aygıt → okunan/yazılan bayt
 	netIO(ctx context.Context) (map[string]ioCounter, error)  // arayüz → alınan/gönderilen bayt
 	temps(ctx context.Context) ([]Temp, error)
+}
+
+// zombieSource zombi (Z) süreç sayısını sayabilen kaynak (Linux). Yoksa
+// örnekte alan boş kalır ve panel zombies kuralını değerlendirmez.
+type zombieSource interface {
+	zombies() (int, error)
 }
 
 // ioFilter G/Ç anahtarlarını kendisi süzen kaynak (Windows: diskler sürücü
@@ -191,6 +197,11 @@ func (c *Collector) Collect(ctx context.Context) (Sample, bool) {
 	}
 	if ts, err := c.src.temps(ctx); err == nil || len(ts) > 0 {
 		st.Temps = filterTemps(ts)
+	}
+	if z, ok := c.src.(zombieSource); ok {
+		if n, err := z.zombies(); err == nil {
+			st.Zombies = &n
+		}
 	}
 	st.Containers, host.Docker = c.containers(ctx, host.Threads, host.MemTotal)
 	if e, ok := c.src.(eventSource); ok {

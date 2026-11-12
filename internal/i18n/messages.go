@@ -175,6 +175,8 @@ var messages = map[string]Msg{
 	"metric.cert":                       {"SSL sertifikası", "SSL certificate"},
 	"metric.disk_forecast":              {"Disk dolma tahmini", "Disk full forecast"},
 	"metric.disk_fast":                  {"Hızlı disk dolumu", "Rapid disk growth"},
+	"metric.inode":                      {"Inode doluluğu", "Inode usage"},
+	"metric.zombies":                    {"Zombi süreç", "Zombie processes"},
 	"metric.check":                      {"Denetim", "Check"},
 	"notify.server.check":               {"%s: %s denetimi %s", "%s: check %s is %s"},
 	"notify.server.check_metric":        {"%s: %s eşiği aştı (%s)", "%s: %s crossed its threshold (%s)"},
