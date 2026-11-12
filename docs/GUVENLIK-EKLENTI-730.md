@@ -352,4 +352,4 @@ Sıra bağımlılığı: 731 -> 732..737 (A); 738 -> 739 -> 741 -> 742 (B); 743 
 | 749 | Bağlantı noktası + süreç | takılan NFS zaman aşımı testi, süreç sayısı |
 | 750 | inode + zombi (metrik örneği + uyarı) | disk tablosunda inode %, iki kural |
 | 751 | Windows zamanlanmış görev + sertifika deposu (Windows envanteri) | Windows sertifikaları mevcut sertifika uyarısına düşer |
-| 752 | Filo güvenlik raporu (ücretli adayı, bayrak arkasında) | paket x sunucu, CSV; bayrak kapalıyken görünmez |
+| 752 | Filo güvenlik raporu (ücretli adayı, bayrak arkasında) | paket x sunucu, CSV; bayrak kapalıyken görünmez  Uygulandı (2026-11-13, bekci-pro): ortam bayrağı `BEKCI_FILO_RAPOR=1` (kapalıyken rota kaydedilmez, 404); Pro Filo güvenliği sayfasında "Paket raporu" sekmesi; süzgeç ciddiyet (yalnız güvenlik / en az Low..Critical) + paket adı; CSV paket x sunucu satırı. PDF ve haftalık e-posta yok. |
