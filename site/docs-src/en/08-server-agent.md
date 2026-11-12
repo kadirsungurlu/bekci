@@ -314,6 +314,8 @@ The rules are in the **Security** group of the server's **Alert rules** section;
 
 The server's **Events** tab also records: new security updates, updates being installed, reboot required / no longer required, firewall or antivirus state changes and, on Windows, every locked-out account (4740).
 
+For extra checks such as RAID state, disk health or your own application metrics, see [plugins](/en/docs/plugins/).
+
 ## Updating {#update}
 
 Agents installed with Bekci 1.4.0 or later **update themselves**: when you upgrade Bekci, server agents and check locations switch to the same version within seconds. An agent installs the program from the panel only if the **project signature** verifies. The signature's public key is built into the agent, and the private key is only used by the official release build. So even if the server running your panel is compromised, no unsigned or modified program lands on your servers, and agents can't be downgraded.

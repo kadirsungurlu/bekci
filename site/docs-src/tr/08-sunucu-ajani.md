@@ -314,6 +314,8 @@ Kurallar sunucunun **Uyarı kuralları** bölümünde **Güvenlik** grubundadır
 
 Sunucunun **Olaylar** sekmesine ayrıca şunlar yazılır: yeni güvenlik güncellemesi, güncellemelerin kurulması, yeniden başlatma gerekti/gerekmiyor, güvenlik duvarı ya da antivirüs durumunun değişmesi ve Windows'ta kilitlenen her hesap (4740).
 
+RAID durumu, disk sağlığı ya da kendi uygulama ölçümleriniz gibi ek denetimler için bkz. [eklentiler](/docs/eklentiler/).
+
 ## Güncelleme {#guncelleme}
 
 Bekci 1.4.0 ve sonrasında kurulan ajanlar **kendini günceller**: Bekci'yi yeni bir sürüme yükselttiğinizde sunucu ajanları ve kontrol noktaları birkaç saniye içinde aynı sürüme geçer. Ajan, panelden gelen programı yalnızca **projenin imzası** doğrulanırsa kurar. İmzanın açık anahtarı ajanın içine gömülüdür; özel anahtar yalnızca resmi sürüm derlemesinde kullanılır. Bu yüzden panelinizin bulunduğu sunucu ele geçirilse bile sunucularınıza imzasız ya da değiştirilmiş bir program inmez ve ajan eski bir sürüme döndürülemez.
