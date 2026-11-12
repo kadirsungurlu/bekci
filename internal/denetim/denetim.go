@@ -123,6 +123,8 @@ type Kural struct {
 	Threshold float64 `json:"threshold"`
 	Minutes   int     `json:"minutes"`
 	Below     bool    `json:"below,omitempty"`
+	// Pasif kural kurulur ama etkin değildir (kullanıcı açar).
+	Pasif bool `json:"passive,omitempty"`
 }
 
 // Credential türün kimlik parametresi var mı?

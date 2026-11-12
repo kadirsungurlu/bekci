@@ -338,7 +338,7 @@ func (s *Server) putCheck(w http.ResponseWriter, r *http.Request) {
 			// Türün varsayılan kuralları + kritik durum kuralı (EnsureCheckStatusRule ile aynı).
 			in.Rules = []checkRuleInput{{Threshold: store.CheckStatusCritical, Minutes: 1}}
 			for _, k := range tur.Kurallar {
-				in.Rules = append(in.Rules, checkRuleInput{Metric: k.Metric, Threshold: k.Threshold, Minutes: k.Minutes, Below: k.Below})
+				in.Rules = append(in.Rules, checkRuleInput{Metric: k.Metric, Threshold: k.Threshold, Minutes: k.Minutes, Below: k.Below, Active: new(!k.Pasif)})
 			}
 		}
 		s.saveCheck(w, r, p, id, name, cfg, in, detail)

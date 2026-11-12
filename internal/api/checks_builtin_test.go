@@ -17,7 +17,7 @@ func init() {
 	denetim.Kaydet(denetim.Tur{Kind: "protest", Ozellik: "hosting", Interval: denetim.Aralik{Min: 60, Max: 3600, Default: 120},
 		Calistir: func(context.Context, denetim.Girdi) eklenti.Result { return eklenti.Result{Status: eklenti.OK} }})
 	denetim.Kaydet(denetim.Tur{Kind: "kuralli", Interval: denetim.Aralik{Min: 60, Max: 3600, Default: 120},
-		Kurallar: []denetim.Kural{{Metric: "total", Threshold: 500, Minutes: 15}, {Metric: "free", Threshold: 5, Minutes: 5, Below: true}},
+		Kurallar: []denetim.Kural{{Metric: "total", Threshold: 500, Minutes: 15}, {Metric: "free", Threshold: 5, Minutes: 5, Below: true}, {Metric: "slow", Threshold: 10, Minutes: 5, Pasif: true}},
 		Calistir: func(context.Context, denetim.Girdi) eklenti.Result { return eklenti.Result{Status: eklenti.OK} }})
 }
 
@@ -36,7 +36,7 @@ func TestChecksBuiltinDefaultRules(t *testing.T) {
 	for _, r := range out.Rules {
 		got[r.Mount] = r
 	}
-	if len(got) != 3 || got["k1"].Threshold != store.CheckStatusCritical || got["k1/total"].Threshold != 500 ||
+	if len(got) != 4 || got["k1/slow"].Active || got["k1"].Threshold != store.CheckStatusCritical || got["k1/total"].Threshold != 500 ||
 		got["k1/total"].Minutes != 15 || !got["k1/free"].Below || !got["k1/total"].Active {
 		t.Fatalf("varsayılan kurallar: %+v", out.Rules)
 	}
