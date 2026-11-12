@@ -26,6 +26,7 @@ var internalRoutes = map[string]string{
 	"POST /api/probe/metrics":             "sunucu ajanı protokolü",
 	"POST /api/probe/inventory":           "sunucu ajanı protokolü",
 	"POST /api/probe/security":            "sunucu ajanı protokolü",
+	"POST /api/probe/checks":              "sunucu ajanı protokolü (denetim sonuçları)",
 	"GET /api/probe/binary":               "ajan programı indirme (panel)",
 	"POST /api/probe/update":              "ajan güncelleme durumu protokolü",
 	"POST /api/probe/mesh":                "ajan kalp atışı / mesh protokolü",

@@ -1305,6 +1305,31 @@ paths:
       parameters: [{ $ref: "#/components/parameters/id" }, { name: fingerprint, in: path, required: true, schema: { type: string } }]
       requestBody: { content: { application/json: { schema: { type: object, properties: { ignored: { type: boolean } } } } } }
       responses: { "204": { description: Kaydedildi }, "404": { description: Sertifika bulunamadı } }
+  /api/servers/{id}/checks:
+    get:
+      tags: [servers]
+      summary: Sunucunun denetimleri (eklenti ve yerleşik denetim sonuçları, kurallar)
+      description: "checks[]: name, source (plugin|builtin), status (ok|warning|critical|unknown), message, error (red kodu, timeout, exec), metrics[], last_run, last_ok, status_since, unknown_streak, enabled, interval, has_manifest. rules[]: metric=check; mount '<ad>' durum kuralı (threshold bit maskesi 1 warning, 2 critical, 4 unknown), '<ad>/<metrik>' eşik kuralı (below: küçük değer kötü). samples false: SQLite, metrik geçmişi tutulmaz."
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses: { "200": { description: "{checks[], rules[], max, samples, now}" } }
+  /api/servers/{id}/checks/{name}/series:
+    get:
+      tags: [servers]
+      summary: Denetim metriğinin geçmişi (PostgreSQL; 2 günden uzun aralık saatlik özet)
+      parameters:
+        - { $ref: "#/components/parameters/id" }
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: metric, in: query, required: true, schema: { type: string } }
+        - { name: range, in: query, description: "1h, 6h, 24h (varsayılan), 2d, 7d, 30d, 90d, 365d", schema: { type: string } }
+      responses: { "200": { description: "{metric, unit, range, hourly, points[{t, avg, min, max}]}" } }
+  /api/servers/{id}/checks/{name}:
+    put:
+      tags: [servers]
+      summary: Denetimi aç/kapat, aralık, imzalı manifest ve kurallar (yönetici, işlem kaydına yazılır)
+      description: "manifest: imzalı zarf (JSON; \"\" kaldırır), body ile birlikte (base64, sha256 manifestle aynı). İmza ajanda yerel iğneyle doğrulanır. interval manifestin interval_min..interval_max aralığında (manifestsiz 60-86400). rules verilirse denetimin kuralları bununla değişir (en çok 11)."
+      parameters: [{ $ref: "#/components/parameters/id" }, { name: name, in: path, required: true, schema: { type: string } }]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { enabled: { type: boolean }, interval: { type: integer }, manifest: { type: object, additionalProperties: true }, body: { type: string }, rules: { type: array, items: { type: object, properties: { metric: { type: string }, threshold: { type: number }, warn_threshold: { type: number }, minutes: { type: integer }, below: { type: boolean }, active: { type: boolean } } } } } } } } }
+      responses: { "200": { description: "{check, rules[]}" }, "400": { description: Geçersiz }, "409": { description: Sunucu başına denetim sınırı dolu } }
   /api/servers/{id}/events:
     get: { tags: [servers], summary: Uyarı olayları, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: "{events[]}" } } }
   /api/servers/{id}/timeline:
@@ -1342,12 +1367,6 @@ paths:
       summary: Filo güvenlik özeti (görünür sunucular; salt okunur anahtarla da)
       description: "Her grup {count, servers[{id, name, ...}]}. security_updates (count, oldest), reboot (since), firewall_off, av_problem (av_ok, sig_age_h; 72 saatten eski imza), stale_index (index_time; 7 günden eski paket dizini)."
       responses: { "200": { description: "{servers, reporting, security_updates, reboot, firewall_off, av_problem, stale_index}" } }
-  /api/servers/{id}/security:
-    get:
-      tags: [servers]
-      summary: Sunucunun güvenlik durumu (güncellemeler, yeniden başlatma, oturum, güvenlik duvarı, Defender)
-      parameters: [{ $ref: "#/components/parameters/id" }]
-      responses: { "200": { description: "{received_at, report, packages[] (first_seen), notes, ...}" } }
   /api/servers/{id}/incidents:
     get: { tags: [servers], summary: Sunucunun olayları, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: Liste, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Incident" } } } } } } }
   /api/servers/{id}/alerts:
