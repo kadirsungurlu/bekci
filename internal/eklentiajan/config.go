@@ -16,6 +16,7 @@ import (
 type Paths struct {
 	Config string // /etc/bekci/eklenti.json (root 600): güvenilen anahtarlar + iğneler
 	LogDir string // /var/log/bekci-eklenti: kayıt zinciri
+	Kimlik string // yerleşik denetim kimlik.d (boş = denetim.KimlikDir)
 }
 
 // DefaultPaths üretim yolları.

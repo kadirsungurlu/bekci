@@ -7,17 +7,20 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
+	"runtime"
 	"slices"
 	"sync"
 	"time"
 
+	"github.com/kadirsungurlu/bekci/internal/denetim"
 	"github.com/kadirsungurlu/bekci/internal/eklenti"
 )
 
 // Result panele giden tek sonuç (POST /api/probe/checks, B.4).
 type Result struct {
 	Name       string `json:"name"`
-	Source     string `json:"source"` // plugin
+	Source     string `json:"source"` // plugin | builtin
+	Kind       string `json:"kind,omitempty"`
 	Version    int64  `json:"version,omitempty"`
 	T          int64  `json:"t"` // unix ms (bitiş)
 	DurationMs int64  `json:"duration_ms"`
@@ -53,6 +56,7 @@ type Scheduler struct {
 	Kayit Kayitci  // nil: kayıt yok
 	Log   *slog.Logger
 	Now   func() time.Time
+	GOOS  string // test; boş = runtime.GOOS
 
 	mu        sync.Mutex
 	items     map[string]Item
@@ -103,7 +107,7 @@ func (s *Scheduler) kaydet(o Olay) {
 }
 
 // Handle jobs yanıtındaki `checks` alanı. Alan yoksa (eski panel) hiçbir
-// eklenti çalışmaz (G4); yalnız source=plugin öğeleri alınır.
+// eklenti çalışmaz (G4); source=plugin ve source=builtin öğeleri alınır.
 func (s *Scheduler) Handle(raw json.RawMessage) {
 	var list []Item
 	if len(raw) > 0 {
@@ -118,7 +122,7 @@ func (s *Scheduler) Handle(raw json.RawMessage) {
 	s.ensure()
 	fresh := map[string]Item{}
 	for _, it := range list {
-		if it.Source != "plugin" || !IsID(it.Name) || len(fresh) >= MaxPlugins {
+		if (it.Source != "plugin" && it.Source != "builtin") || !IsID(it.Name) || len(fresh) >= MaxPlugins {
 			continue
 		}
 		if _, dup := fresh[it.Name]; !dup {
@@ -140,7 +144,7 @@ func (s *Scheduler) Handle(raw json.RawMessage) {
 		case !had:
 			s.next[name] = now.Add(time.Duration(rand.Int64N(int64(min(firstSpread, iv)))))
 			olaylar = append(olaylar, Olay{Tur: OlayAc, ID: name, Ayrinti: map[string]any{"aralik": it.Interval}})
-		case old.Interval != it.Interval:
+		case old.Interval != it.Interval || old.Kind != it.Kind || string(old.Params) != string(it.Params):
 			s.next[name] = minTime(s.next[name], now.Add(iv))
 		}
 	}
@@ -227,8 +231,12 @@ func (s *Scheduler) RunDue(ctx context.Context) {
 	}
 }
 
-// RunOne öğeyi yerel güven köküne göre doğrular ve kafeste çalıştırır.
+// RunOne öğeyi yerel güven köküne göre doğrular ve kafeste çalıştırır;
+// yerleşik denetim ajan sürecinde çalışır (runBuiltin).
 func (s *Scheduler) RunOne(ctx context.Context, it Item) Result {
+	if it.Source == "builtin" {
+		return s.runBuiltin(ctx, it)
+	}
 	start := s.now()
 	res := Result{Name: it.Name, Source: "plugin"}
 	plan, err := s.decide(it, start)
@@ -276,6 +284,44 @@ func (s *Scheduler) RunOne(ctx context.Context, it Item) Result {
 	}
 	s.count(it.Name, string(res.Status), false)
 	return res
+}
+
+// runBuiltin yerleşik denetimi çalıştırır (743): tür kaydı, parametre
+// doğrulaması, kimlik.d ve hedef kuralı denetim paketindedir. systemd kafesi
+// gerekmez (sabit Go kodu, kabuk yok); zaman aşımı türündür.
+func (s *Scheduler) runBuiltin(ctx context.Context, it Item) Result {
+	start := s.now()
+	res := Result{Name: it.Name, Source: "builtin", Kind: it.Kind}
+	tur, ok := denetim.Bul(it.Kind)
+	var code string
+	if !ok {
+		res.Result = eklenti.Result{Status: eklenti.Unknown, Metrics: []eklenti.Metric{},
+			Message: "ajan bu denetim türünü tanımıyor: " + it.Kind + " (ajanı güncelleyin)"}
+		code = denetim.HataKind
+	} else {
+		dir := s.Paths.Kimlik
+		if dir == "" {
+			dir = denetim.KimlikDir()
+		}
+		res.Result, code = tur.Yurut(ctx, it.Params, dir, s.goos())
+	}
+	end := s.now()
+	res.T, res.DurationMs, res.Error = end.UnixMilli(), end.Sub(start).Milliseconds(), code
+	if code != "" {
+		s.note(it.Name, code, errors.New(res.Message))
+		s.count(it.Name, "", true)
+	} else {
+		s.note(it.Name, "", nil)
+		s.count(it.Name, string(res.Status), false)
+	}
+	return res
+}
+
+func (s *Scheduler) goos() string {
+	if s.GOOS != "" {
+		return s.GOOS
+	}
+	return runtime.GOOS
 }
 
 func (s *Scheduler) decide(it Item, now time.Time) (*Plan, error) {

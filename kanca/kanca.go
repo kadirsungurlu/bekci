@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/kadirsungurlu/bekci/internal/check"
+	"github.com/kadirsungurlu/bekci/internal/denetim"
 	"github.com/kadirsungurlu/bekci/internal/store"
 )
 
@@ -141,6 +142,21 @@ func (l *lisansliChecker) CertExpiryEnabled(cfg json.RawMessage) bool {
 	}
 	return true
 }
+
+// DenetimTuru Pro yerleşik sunucu denetimi türü kaydeder (730 §C, iş 743;
+// init içinde). Tür hem panelde (form şeması, doğrulama) hem ajanda
+// (Calistir) kullanılır. ozellik lisans özelliğidir: lisansta yoksa panel
+// türü kilitli gösterir, kaydetmeyi 402 ile reddeder ve iş listesine koymaz.
+func DenetimTuru(ozellik string, t denetim.Tur) {
+	if strings.TrimSpace(ozellik) == "" {
+		panic("kanca.DenetimTuru: Pro türü lisans özelliği ister")
+	}
+	t.Ozellik = ozellik
+	denetim.Kaydet(t)
+}
+
+// DenetimAcik tür lisansla kullanılabilir mi (ücretsiz tür hep açık)?
+func DenetimAcik(t denetim.Tur) bool { return !t.Pro() || ozellikAcik(t.Ozellik) }
 
 // AjanKomutuTanim ajan tarafında çalışan Pro komutu.
 type AjanKomutuTanim struct {

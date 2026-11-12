@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kadirsungurlu/bekci/internal/eklenti"
 )
 
 func readOlaylar(t *testing.T, dir string) []Olay {
@@ -53,11 +55,11 @@ func TestZamanlayiciAkis(t *testing.T) {
 	if ex.calls.Load() != 0 {
 		t.Fatal("alan yokken çalıştı")
 	}
-	builtin := Item{Name: "noop", Source: "builtin", Interval: 60}
+	builtin := Item{Name: "noop", Source: "builtin", Kind: "noop", Interval: 60}
 	s.Handle(mustJSON([]Item{it, builtin}))
 	now = now.Add(firstSpread)
 	s.RunDue(ctx)
-	if ex.calls.Load() != 1 || len(s.Queue()) != 1 {
+	if ex.calls.Load() != 1 || len(s.Queue()) != 2 { // yerleşik Exec kullanmaz
 		t.Fatalf("ilk tur: çağrı %d kuyruk %d", ex.calls.Load(), len(s.Queue()))
 	}
 	now = now.Add(299 * time.Second)
@@ -202,5 +204,37 @@ func TestSystemdArgs(t *testing.T) {
 	a = strings.Join((&Systemd{}).Args(Spec{Unit: "u.service", RunAs: "root", Network: true, Timeout: time.Second}), " ")
 	if strings.Contains(a, "PrivateNetwork") || strings.Contains(a, "User=") || strings.Contains(a, "PrivatePIDs") {
 		t.Fatalf("root+ağ: %s", a)
+	}
+}
+
+// Yerleşik denetim (743): kafes/Exec gerekmez; bilinmeyen tür, kimlik izni
+// ve loopback dışı hedef kodlu hata olarak panele gider.
+func TestYerlesik(t *testing.T) {
+	kd := filepath.Join(t.TempDir(), "kimlik.d")
+	if err := os.Mkdir(kd, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(kd, "acik.json"), []byte(`{"user":"a"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := &Scheduler{Paths: Paths{Kimlik: kd}, GOOS: "linux"} // Exec nil: eklentiler RedPlatform
+	ctx := context.Background()
+	cases := []struct {
+		it     Item
+		status eklenti.Status
+		code   string
+		msg    string
+	}{
+		{Item{Name: "a", Source: "builtin", Kind: "noop", Params: json.RawMessage(`{"status":"critical","value":3}`)}, eklenti.Critical, "", "noop"},
+		{Item{Name: "b", Source: "builtin", Kind: "yok"}, eklenti.Unknown, "kind", "tanımıyor"},
+		{Item{Name: "c", Source: "builtin", Kind: "noop", Params: json.RawMessage(`{"credential":"acik"}`)}, eklenti.Unknown, "credential", "kimlik"},
+		{Item{Name: "d", Source: "builtin", Kind: "noop", Params: json.RawMessage(`{"target":"192.0.2.10:3306"}`)}, eklenti.Unknown, "target", "loopback"},
+		{Item{Name: "e", Source: "builtin", Kind: "noop", Params: json.RawMessage(`{"bilinmeyen":1}`)}, eklenti.Unknown, "params", "bilinmeyen"},
+	}
+	for _, c := range cases {
+		r := s.RunOne(ctx, c.it)
+		if r.Source != "builtin" || r.Kind != c.it.Kind || r.Status != c.status || r.Error != c.code || !strings.Contains(r.Message, c.msg) || r.T == 0 {
+			t.Errorf("%s: %+v", c.it.Name, r)
+		}
 	}
 }

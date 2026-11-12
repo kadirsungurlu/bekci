@@ -16,6 +16,9 @@ type Item struct {
 	Interval int             `json:"interval"` // sn
 	Manifest json.RawMessage `json:"manifest"` // imzalı zarf (680 §5)
 	Body     string          `json:"body"`     // base64 gövde
+	// Yerleşik denetim (source=builtin, 743): tür ve parametreler.
+	Kind   string          `json:"kind,omitempty"`
+	Params json.RawMessage `json:"params,omitempty"`
 }
 
 // Red kodları: panele `error` alanında gider, arayüz metne çevirir.
