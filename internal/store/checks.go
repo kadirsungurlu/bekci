@@ -29,6 +29,9 @@ import (
 )
 
 func init() {
+	// 55 (743): yerleşik denetim parametreleri (doğrulanmış JSON nesnesi;
+	// kimlik içeriği değil yalnız kimlik dosyasının adı).
+	RegisterMigration(55, `ALTER TABLE check_state ADD COLUMN params TEXT NOT NULL DEFAULT ''`)
 	RegisterMigration(54, `
 CREATE TABLE check_state (
 	server_id      INTEGER NOT NULL REFERENCES probes(id) ON DELETE CASCADE,
@@ -112,19 +115,23 @@ type CheckState struct {
 	Enabled       bool            `json:"enabled"`
 	Interval      int             `json:"interval"`
 	HasManifest   bool            `json:"has_manifest"`
+	Params        json.RawMessage `json:"params,omitempty"` // yerleşik denetim
 	UpdatedAt     int64           `json:"updated_at"`
 }
 
 const checkCols = `name, source, kind, version, status, message, error, stderr, metrics, dropped, truncated,
-	last_run, last_ok, duration_ms, status_since, unknown_streak, enabled, interval_sec, manifest <> '', updated_at`
+	last_run, last_ok, duration_ms, status_since, unknown_streak, enabled, interval_sec, manifest <> '', updated_at, params`
 
 func scanCheck(sc scanner) (CheckState, error) {
 	var c CheckState
-	var metrics string
+	var metrics, params string
 	var trunc, enabled int
 	err := sc.Scan(&c.Name, &c.Source, &c.Kind, &c.Version, &c.Status, &c.Message, &c.Error, &c.Stderr, &metrics,
 		&c.Dropped, &trunc, &c.LastRun, &c.LastOK, &c.DurationMs, &c.StatusSince, &c.UnknownStreak, &enabled,
-		&c.Interval, &c.HasManifest, &c.UpdatedAt)
+		&c.Interval, &c.HasManifest, &c.UpdatedAt, &params)
+	if params != "" && json.Valid([]byte(params)) {
+		c.Params = json.RawMessage(params)
+	}
 	c.Metrics = json.RawMessage(metrics)
 	if !json.Valid(c.Metrics) {
 		c.Metrics = json.RawMessage("[]")
@@ -278,7 +285,9 @@ func (s *Store) writeCheckSamples(ctx context.Context, serverID int64, name stri
 
 // CheckConfig panelin denetim yapılandırması (nil alan değişmez).
 type CheckConfig struct {
-	Source   string // yeni kayıtta; boş = plugin
+	Source   string  // yeni kayıtta; boş = plugin
+	Kind     string  // yeni kayıtta (builtin türü)
+	Params   *string // yerleşik denetim parametreleri (doğrulanmış JSON)
 	Enabled  *bool
 	Interval *int
 	Manifest *string // imzalı zarf JSON ("" kaldırır)
@@ -304,8 +313,8 @@ func (s *Store) SetCheckConfig(ctx context.Context, serverID int64, name string,
 			if src == "" {
 				src = "plugin"
 			}
-			if _, err := tx.ExecContext(ctx, "INSERT INTO check_state (server_id, name, source, updated_at) VALUES (?, ?, ?, ?)",
-				serverID, name, src, now); err != nil {
+			if _, err := tx.ExecContext(ctx, "INSERT INTO check_state (server_id, name, source, kind, updated_at) VALUES (?, ?, ?, ?, ?)",
+				serverID, name, src, c.Kind, now); err != nil {
 				return err
 			}
 			created = true
@@ -326,6 +335,9 @@ func (s *Store) SetCheckConfig(ctx context.Context, serverID int64, name string,
 		if c.Body != nil {
 			set, args = append(set, "body = ?"), append(args, *c.Body)
 		}
+		if c.Params != nil {
+			set, args = append(set, "params = ?"), append(args, *c.Params)
+		}
 		if c.Version != nil {
 			set, args = append(set, "version = ?"), append(args, *c.Version)
 		}
@@ -343,11 +355,13 @@ type CheckJob struct {
 	Interval int             `json:"interval"`
 	Manifest json.RawMessage `json:"manifest,omitempty"`
 	Body     string          `json:"body,omitempty"`
+	Kind     string          `json:"kind,omitempty"`   // builtin
+	Params   json.RawMessage `json:"params,omitempty"` // builtin
 }
 
 // CheckJobs ajana gidecek etkin denetimler (eklentide manifest zorunlu).
 func (s *Store) CheckJobs(ctx context.Context, serverID int64) ([]CheckJob, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT name, source, interval_sec, manifest, body FROM check_state
+	rows, err := s.db.QueryContext(ctx, `SELECT name, source, interval_sec, manifest, body, kind, params FROM check_state
 		WHERE server_id = ? AND enabled = 1 AND (source <> 'plugin' OR manifest <> '') ORDER BY name`, serverID)
 	if err != nil {
 		return nil, err
@@ -356,9 +370,12 @@ func (s *Store) CheckJobs(ctx context.Context, serverID int64) ([]CheckJob, erro
 	out := []CheckJob{}
 	for rows.Next() {
 		var j CheckJob
-		var man string
-		if err := rows.Scan(&j.Name, &j.Source, &j.Interval, &man, &j.Body); err != nil {
+		var man, params string
+		if err := rows.Scan(&j.Name, &j.Source, &j.Interval, &man, &j.Body, &j.Kind, &params); err != nil {
 			return nil, err
+		}
+		if params != "" {
+			j.Params = json.RawMessage(params)
 		}
 		if man != "" {
 			j.Manifest = json.RawMessage(man)

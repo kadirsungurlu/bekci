@@ -3,10 +3,11 @@
   // durumu, iletisi, son çalışması, metrik kıvılcımları; metriğe tıklanınca
   // LineChart. Yönetici eklenti yükler / düzenler (CheckEditModal).
   import { onDestroy, onMount } from 'svelte';
-  import { api, type CheckMetric, type CheckSeries, type ServerCheck, type ServerChecks } from '../lib/api';
+  import { api, type CheckKind, type CheckMetric, type CheckSeries, type ServerCheck, type ServerChecks } from '../lib/api';
   import { fmtBytes, fmtDec, fmtInterval, fmtRelative, nowSec, type StatusKind } from '../lib/format';
   import { i18n, t, tOr } from '../lib/i18n';
   import { session } from '../lib/session.svelte';
+  import CheckAddModal from './CheckAddModal.svelte';
   import CheckEditModal from './CheckEditModal.svelte';
   import Icon from './Icon.svelte';
   import LineChart from './LineChart.svelte';
@@ -28,6 +29,9 @@
   let series = $state<CheckSeries | null>(null);
   let editOpen = $state(false);
   let editing = $state<ServerCheck | null>(null);
+  let addOpen = $state(false);
+  let paramsOf = $state<ServerCheck | null>(null);
+  let kinds = $state<CheckKind[]>([]);
 
   const key = (c: string, m: string) => `${c}/${m}`;
 
@@ -77,6 +81,10 @@
   let timer: ReturnType<typeof setInterval>;
   onMount(() => {
     load();
+    api
+      .getCheckKinds()
+      .then((r) => (kinds = r.kinds ?? []))
+      .catch(() => {});
     timer = setInterval(() => {
       if (!document.hidden) {
         load();
@@ -135,6 +143,18 @@
     sel = sel?.check === c.name && sel.metric === m.name ? null : { check: c.name, metric: m.name };
   }
 
+  // Yerleşik denetimde tür etiketi (kind -> label, geçerli dil).
+  function kindLabel(c: ServerCheck): string {
+    const k = kinds.find((x) => x.kind === c.kind);
+    if (!k) return c.kind ?? '';
+    return (i18n.locale === 'en' ? k.label.en || k.label.tr : k.label.tr || k.label.en) || k.kind;
+  }
+
+  function openAdd(c: ServerCheck | null) {
+    paramsOf = c;
+    addOpen = true;
+  }
+
   function openEdit(c: ServerCheck | null) {
     editing = c;
     editOpen = true;
@@ -147,7 +167,8 @@
     <a class="small" href={docsUrl} target="_blank" rel="noopener noreferrer">{t('servers.checks.docs')}</a>
     <div class="spacer"></div>
     {#if session.isAdmin}
-      <button class="btn primary sm" onclick={() => openEdit(null)} disabled={!!data && checks.length >= data.max}><Icon name="plus" size={14} /> {t('servers.checks.add')}</button>
+      <button class="btn sm" onclick={() => openEdit(null)} disabled={!!data && checks.length >= data.max}><Icon name="plus" size={14} /> {t('servers.checks.add')}</button>
+      <button class="btn primary sm" onclick={() => openAdd(null)} disabled={!!data && checks.length >= data.max}><Icon name="plus" size={14} /> {t('servers.checks.addBuiltin')}</button>
     {/if}
   </div>
 
@@ -171,6 +192,7 @@
               <code class="name">{c.name}</code>
               <span class="badge {c.enabled ? badgeOf(c.status) : 'paused'}">{statusText(c)}</span>
               <span class="badge paused">{t(`servers.checks.source.${c.source}`)}</span>
+              {#if c.source === 'builtin' && c.kind}<span class="muted small">{kindLabel(c)}</span>{/if}
               {#if c.version}<span class="muted small">v{c.version}</span>{/if}
               {#if firing(c)}<span class="badge down"><Icon name="alert" size={12} /> {t('servers.checks.ruleFiring')}</span>{/if}
             </div>
@@ -188,7 +210,12 @@
             </div>
           </div>
           {#if session.isAdmin}
-            <button class="btn sm" onclick={() => openEdit(c)}><Icon name="edit" size={14} /> {t('common.edit')}</button>
+            <div class="acts">
+              {#if c.source === 'builtin'}
+                <button class="btn sm" onclick={() => openAdd(c)}>{t('servers.checks.builtin.editParams')}</button>
+              {/if}
+              <button class="btn sm" onclick={() => openEdit(c)}><Icon name="edit" size={14} /> {t('common.edit')}</button>
+            </div>
           {/if}
         </div>
 
@@ -238,6 +265,7 @@
 </div>
 
 {#if session.isAdmin}
+  <CheckAddModal bind:open={addOpen} serverId={id} check={paramsOf} taken={checks.map((c) => c.name)} onsaved={load} />
   <CheckEditModal bind:open={editOpen} serverId={id} check={editing} rules={data?.rules ?? []} onsaved={load} />
 {/if}
 
@@ -247,6 +275,12 @@
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
+  }
+  .acts {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
   .empty {
     padding: 28px 24px;

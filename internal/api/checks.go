@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/kadirsungurlu/bekci/internal/denetim"
 	"github.com/kadirsungurlu/bekci/internal/eklenti"
 	"github.com/kadirsungurlu/bekci/internal/eklentiajan"
 	"github.com/kadirsungurlu/bekci/internal/servers"
@@ -26,6 +27,7 @@ func init() {
 		mux.Handle("GET /api/servers/{id}/checks", s.auth(s.serversOnly(s.listChecks)))
 		mux.Handle("GET /api/servers/{id}/checks/{name}/series", s.auth(s.serversOnly(s.checkSeries)))
 		mux.Handle("PUT /api/servers/{id}/checks/{name}", s.admin(s.putCheck))
+		mux.Handle("GET /api/check-kinds", s.auth(s.checkKinds))
 	})
 }
 
@@ -70,7 +72,39 @@ func (s *Server) checksFor(r *http.Request, p store.Probe) ([]store.CheckJob, er
 	if p.Kind != store.ProbeKindServer || !p.Active {
 		return []store.CheckJob{}, nil
 	}
-	return s.store.CheckJobs(r.Context(), p.ID)
+	jobs, err := s.store.CheckJobs(r.Context(), p.ID)
+	if err != nil {
+		return nil, err
+	}
+	// Yerleşik: panelin tanımadığı (Pro modülü yok) ya da lisansı kapalı
+	// türler gitmez; ajan öğe listeden çıkınca durdurur.
+	out := jobs[:0]
+	for _, j := range jobs {
+		if j.Source == "builtin" {
+			if t, ok := denetim.Bul(j.Kind); !ok || !s.denetimAcik(t) {
+				continue
+			}
+		}
+		out = append(out, j)
+	}
+	return out, nil
+}
+
+func (s *Server) denetimAcik(t denetim.Tur) bool { return !t.Pro() || s.proAcik(t.Ozellik) }
+
+// checkKindView GET /api/check-kinds öğesi (form şeması, 743).
+type checkKindView struct {
+	denetim.Tur
+	Pro    bool `json:"pro"`
+	Locked bool `json:"locked"`
+}
+
+func (s *Server) checkKinds(w http.ResponseWriter, r *http.Request) {
+	out := []checkKindView{}
+	for _, t := range denetim.Turler() {
+		out = append(out, checkKindView{Tur: t, Pro: t.Pro(), Locked: !s.denetimAcik(t)})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"kinds": out})
 }
 
 func (s *Server) listChecks(w http.ResponseWriter, r *http.Request) {
@@ -164,6 +198,8 @@ type checkInput struct {
 	Manifest json.RawMessage  `json:"manifest"` // imzalı zarf; null değişmez, "" kaldırır
 	Body     *string          `json:"body"`     // base64 gövde (manifestle birlikte)
 	Rules    []checkRuleInput `json:"rules"`    // nil: kurallar değişmez
+	Kind     *string          `json:"kind"`     // yerleşik denetim türü (yalnız oluştururken)
+	Params   json.RawMessage  `json:"params"`   // yerleşik denetim parametreleri
 }
 
 func validateCheckRules(name string, in []checkRuleInput) ([]store.ServerAlert, error) {
@@ -230,6 +266,77 @@ func (s *Server) putCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	cfg := store.CheckConfig{Enabled: in.Enabled}
 	var detail []string
+	// Yerleşik denetim (743): tür kaydından şema, aralık ve lisans.
+	var tur *denetim.Tur
+	cur, err := s.store.GetCheck(r.Context(), id, name)
+	exists := err == nil
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		s.dbError(w, err)
+		return
+	}
+	switch {
+	case exists && cur.Source == "builtin":
+		if in.Kind != nil && *in.Kind != cur.Kind {
+			writeError(w, http.StatusBadRequest, "Denetim türü değiştirilemez; yeni ad ile ekleyin")
+			return
+		}
+		t, ok := denetim.Bul(cur.Kind)
+		if !ok {
+			writeError(w, http.StatusBadRequest, "Bu panel denetim türünü tanımıyor: "+cur.Kind)
+			return
+		}
+		tur = &t
+	case in.Kind != nil && exists:
+		writeError(w, http.StatusBadRequest, "Bu ad bir eklentiye ait; yerleşik denetim için başka ad seçin")
+		return
+	case in.Kind != nil:
+		t, ok := denetim.Bul(*in.Kind)
+		if !ok {
+			writeError(w, http.StatusBadRequest, "Bilinmeyen denetim türü")
+			return
+		}
+		tur = &t
+		cfg.Source, cfg.Kind = "builtin", t.Kind
+		detail = append(detail, "tür "+t.Kind)
+	case len(in.Params) > 0 && string(in.Params) != "null":
+		writeError(w, http.StatusBadRequest, "Parametreler yalnız yerleşik denetimde kullanılır")
+		return
+	}
+	if tur != nil {
+		if !s.denetimAcik(*tur) && (in.Enabled == nil || *in.Enabled) {
+			writeJSON(w, http.StatusPaymentRequired, map[string]string{
+				"error": "Bu denetim türü için Pro lisansı gerekli", "code": "pro_lisans"})
+			return
+		}
+		if len(in.Manifest) > 0 && string(in.Manifest) != "null" || in.Body != nil {
+			writeError(w, http.StatusBadRequest, "Yerleşik denetime manifest yüklenmez")
+			return
+		}
+		if (len(in.Params) > 0 && string(in.Params) != "null") || !exists {
+			params, err := tur.Dogrula(in.Params)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "Parametre hatası: "+err.Error())
+				return
+			}
+			b, _ := json.Marshal(params)
+			ps := string(b)
+			cfg.Params = &ps
+			detail = append(detail, "parametreler")
+		}
+		if in.Interval != nil {
+			if *in.Interval < tur.Interval.Min || *in.Interval > tur.Interval.Max {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("Aralık %d-%d saniye olmalı", tur.Interval.Min, tur.Interval.Max))
+				return
+			}
+			cfg.Interval = in.Interval
+			detail = append(detail, fmt.Sprintf("aralık %d sn", *in.Interval))
+		} else if !exists {
+			d := tur.Interval.Default
+			cfg.Interval = &d
+		}
+		s.saveCheck(w, r, p, id, name, cfg, in, detail)
+		return
+	}
 	// Manifest: kayıtlı ya da yeni. İmza ajanda doğrulanır; burada biçim, ad,
 	// gövde özeti ve aralık sınırları erken denetlenir.
 	var man *eklentiajan.Manifest
@@ -301,6 +408,13 @@ func (s *Server) putCheck(w http.ResponseWriter, r *http.Request) {
 			cfg.Interval = &lo
 		}
 	}
+	s.saveCheck(w, r, p, id, name, cfg, in, detail)
+}
+
+// saveCheck yapılandırmayı ve kuralları yazar, işlem kaydı ve yayın yapar.
+func (s *Server) saveCheck(w http.ResponseWriter, r *http.Request, p store.Probe, id int64, name string,
+	cfg store.CheckConfig, in checkInput, detail []string) {
+	var err error
 	var rules []store.ServerAlert
 	if in.Rules != nil {
 		if rules, err = validateCheckRules(name, in.Rules); err != nil {

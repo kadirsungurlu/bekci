@@ -141,6 +141,7 @@
 
 <Modal bind:open title={check ? t('servers.checks.edit.title', { name: check.name }) : t('servers.checks.edit.addTitle')} width={560}>
   <form id="chk-edit" class="stack" onsubmit={save} novalidate>
+    {#if check?.source !== 'builtin'}
     <fieldset class="stack">
       {#if check}<legend>{t('servers.checks.edit.newVersion')}</legend>{/if}
       <div class="field">
@@ -153,6 +154,7 @@
         <FilePick id="chk-body" accept=".sh,text/plain,text/x-sh" bind:file={bodyFile} />
       </div>
     </fieldset>
+    {/if}
     <label class="check">
       <input type="checkbox" bind:checked={enabled} />
       <span>{t('servers.checks.edit.enabled')}</span>

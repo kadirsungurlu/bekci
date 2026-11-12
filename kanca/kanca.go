@@ -155,9 +155,6 @@ func DenetimTuru(ozellik string, t denetim.Tur) {
 	denetim.Kaydet(t)
 }
 
-// DenetimAcik tür lisansla kullanılabilir mi (ücretsiz tür hep açık)?
-func DenetimAcik(t denetim.Tur) bool { return !t.Pro() || ozellikAcik(t.Ozellik) }
-
 // AjanKomutuTanim ajan tarafında çalışan Pro komutu.
 type AjanKomutuTanim struct {
 	Ad       string

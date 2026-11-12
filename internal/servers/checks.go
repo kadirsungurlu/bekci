@@ -81,7 +81,7 @@ func sanitizeCheck(in CheckReport, now time.Time) (store.CheckResult, bool) {
 		t = now
 	}
 	out := store.CheckResult{
-		Name: in.Name, Source: in.Source, Version: max(in.Version, 0), T: t.Unix(),
+		Name: in.Name, Source: in.Source, Kind: cut(in.Kind, 32), Version: max(in.Version, 0), T: t.Unix(),
 		DurationMs: min(max(in.DurationMs, 0), 3600_000), Status: string(st),
 		Message: cut(in.Message, eklenti.MaxMessage), Error: cut(in.Error, maxCheckErr),
 		Stderr: cutBytes(in.Stderr, maxCheckStderr), Dropped: max(in.Dropped, 0), Truncated: in.Truncated,

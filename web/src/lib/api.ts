@@ -1683,6 +1683,36 @@ export interface ServerCheck {
   interval: number;
   has_manifest: boolean;
   updated_at: number;
+  /** Yerleşik denetimin parametreleri. */
+  params?: Record<string, unknown>;
+}
+
+export type LocText = { tr: string; en: string };
+
+/** Yerleşik denetim parametresi (GET /api/check-kinds). */
+export interface CheckParam {
+  name: string;
+  type: 'string' | 'int' | 'bool' | 'select' | 'target' | 'url' | 'socket' | 'credential';
+  required?: boolean;
+  default?: string | number | boolean;
+  options?: { value: string; label: LocText }[];
+  min?: number;
+  max?: number;
+  label: LocText;
+  help?: LocText;
+}
+
+/** Yerleşik denetim türü; locked: Pro ve lisans yok. platforms boş = hepsi. */
+export interface CheckKind {
+  kind: string;
+  pro: boolean;
+  locked: boolean;
+  platforms: string[];
+  interval: { min: number; max: number; default: number };
+  credential: boolean;
+  label: LocText;
+  help: LocText;
+  params: CheckParam[];
 }
 
 /** GET /api/servers/{id}/checks; rules: metric=check, mount '<ad>' ya da '<ad>/<metrik>'. */
@@ -1736,6 +1766,9 @@ export interface CheckInput {
   manifest?: unknown;
   body?: string;
   rules?: CheckRuleInput[];
+  /** Yalnız oluştururken: yerleşik denetim türü. */
+  kind?: string;
+  params?: Record<string, string | number | boolean>;
 }
 
 /** GET /api/servers/{id}/security */
@@ -2513,6 +2546,7 @@ export const api = {
     get<CheckSeries>(
       `/api/servers/${id}/checks/${encodeURIComponent(name)}/series?metric=${encodeURIComponent(metric)}&range=${range}`,
     ),
+  getCheckKinds: () => get<{ kinds: CheckKind[] | null }>('/api/check-kinds'),
   putServerCheck: (id: number, name: string, input: CheckInput) =>
     put<unknown>(`/api/servers/${id}/checks/${encodeURIComponent(name)}`, input),
   setInventoryCertIgnored: (id: number, fingerprint: string, ignored: boolean) =>
