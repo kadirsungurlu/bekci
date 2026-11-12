@@ -280,6 +280,7 @@ Sorgular sabittir (panelden SQL gelmez).
 - LiteSpeed / OpenLiteSpeed: `/tmp/lshttpd/.rtreport*` dosyası (root): PLAINCONN/SSLCONN/MAXCONN, REQ_PROCESSING, REQ_PER_SEC.
 - URL yalnız loopback (`http://127.0.0.1/server-status?auto` vb.); zaman aşımı 5 sn. Windows IIS bu kuyrukta yok (perf sayaçları ayrı iş).
 - Varsayılan kurallar: Apache doluluk > 90% 5 dk, nginx düşürülen > 0, LiteSpeed bağlantı % > 90.
+- Uygulama (747, Pro `hosting_denetim`): üç ayrı tür `apache` / `nginx` / `litespeed` (yalnız Linux). Apache doluluk = BusyWorkers / scoreboard uzunluğu (`busy_pct`), istek/sn Total Accesses farkı / Uptime farkı; ?auto URL'ye kendiliğinden eklenir. nginx `dropped` = bu turda artan (accepts - handled), kural eşik 1 (>=) 1 dk; istek/sn duvar saati farkıyla. LiteSpeed tüm `.rtreport*` dosyaları toplanır, `conn_pct` = max(düz/MAXCONN, SSL/MAXSSL_CONN); rapor 2 dk'dan eskiyse critical. HTTP: vekil yok, yönlendirme izlenmez (3xx unknown), 401/403/404 unknown, 5xx ve bağlanamama critical; isteğe bağlı kimlik dosyası temel kimlik doğrulama.
 
 ### C.5 Ücret
 Ücretsiz (hosting kitlesinin asıl çekim noktası).
