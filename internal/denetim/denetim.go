@@ -107,9 +107,22 @@ type Tur struct {
 	Label     Metin         `json:"label"`
 	Help      Metin         `json:"help"`
 	Params    []Param       `json:"params"`
+	// Kurallar denetim eklenince panelin kurduğu varsayılan metrik eşik
+	// kuralları (durum kuralı her zaman ayrıca kurulur). Kullanıcı sonra
+	// düzenler ya da kapatır.
+	Kurallar []Kural `json:"rules,omitempty"`
 	// Calistir ajan tarafında çalışır; ctx zaman aşımı taşır. Dönen sonuç
 	// panele aynen gider (eklenti.Result sınırları ajan tarafında uygulanır).
 	Calistir func(ctx context.Context, g Girdi) eklenti.Result `json:"-"`
+}
+
+// Kural varsayılan metrik eşik kuralı: Metric > Threshold (Below ise <)
+// Minutes dakika sürerse olay.
+type Kural struct {
+	Metric    string  `json:"metric"`
+	Threshold float64 `json:"threshold"`
+	Minutes   int     `json:"minutes"`
+	Below     bool    `json:"below,omitempty"`
 }
 
 // Credential türün kimlik parametresi var mı?
@@ -166,6 +179,11 @@ func Kaydet(t Tur) {
 	}
 	if cred > 1 {
 		panic(fmt.Sprintf("denetim.Kaydet: %q birden çok kimlik parametresi", t.Kind))
+	}
+	for _, k := range t.Kurallar {
+		if !eklenti.ValidName(k.Metric) || k.Minutes < 1 || k.Minutes > 1440 || math.IsNaN(k.Threshold) || math.IsInf(k.Threshold, 0) {
+			panic(fmt.Sprintf("denetim.Kaydet: %q varsayılan kuralı %q hatalı", t.Kind, k.Metric))
+		}
 	}
 	if t.Platforms == nil {
 		t.Platforms = []string{}

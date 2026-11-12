@@ -16,6 +16,39 @@ import (
 func init() {
 	denetim.Kaydet(denetim.Tur{Kind: "protest", Ozellik: "hosting", Interval: denetim.Aralik{Min: 60, Max: 3600, Default: 120},
 		Calistir: func(context.Context, denetim.Girdi) eklenti.Result { return eklenti.Result{Status: eklenti.OK} }})
+	denetim.Kaydet(denetim.Tur{Kind: "kuralli", Interval: denetim.Aralik{Min: 60, Max: 3600, Default: 120},
+		Kurallar: []denetim.Kural{{Metric: "total", Threshold: 500, Minutes: 15}, {Metric: "free", Threshold: 5, Minutes: 5, Below: true}},
+		Calistir: func(context.Context, denetim.Girdi) eklenti.Result { return eklenti.Result{Status: eklenti.OK} }})
+}
+
+// Türün varsayılan kuralları (744): oluştururken kural verilmezse durum
+// kuralı + türün eşikleri kurulur; kural verilirse onlar esas.
+func TestChecksBuiltinDefaultRules(t *testing.T) {
+	f := newServersEnv(t)
+	var sv serverSetup
+	f.env.mustDo("POST", "/api/servers", map[string]any{"name": "mail-1"}, &sv, 201)
+	base := "/api/servers/" + itoa(sv.Probe.ID) + "/checks"
+	var out struct {
+		Rules []store.ServerAlert `json:"rules"`
+	}
+	f.env.mustDo("PUT", base+"/k1", map[string]any{"kind": "kuralli"}, &out, 200)
+	got := map[string]store.ServerAlert{}
+	for _, r := range out.Rules {
+		got[r.Mount] = r
+	}
+	if len(got) != 3 || got["k1"].Threshold != store.CheckStatusCritical || got["k1/total"].Threshold != 500 ||
+		got["k1/total"].Minutes != 15 || !got["k1/free"].Below || !got["k1/total"].Active {
+		t.Fatalf("varsayılan kurallar: %+v", out.Rules)
+	}
+	f.env.mustDo("PUT", base+"/k2", map[string]any{"kind": "kuralli", "rules": []map[string]any{{"threshold": 6, "minutes": 2}}}, &out, 200)
+	if len(out.Rules) != 1 || out.Rules[0].Mount != "k2" {
+		t.Fatalf("verilen kurallar: %+v", out.Rules)
+	}
+	// Var olan denetimi güncellemek kuralları yeniden kurmaz.
+	f.env.mustDo("PUT", base+"/k2", map[string]any{"interval": 300}, &out, 200)
+	if len(out.Rules) != 1 {
+		t.Fatalf("güncelleme: %+v", out.Rules)
+	}
 }
 
 // Yerleşik denetim (743): tür listesi, form doğrulaması, jobs, ajan
