@@ -292,6 +292,7 @@ Sorgular sabittir (panelden SQL gelmez).
   boyut düşüşü > %50. Yalnız `stat`; içerik okunmaz.
 - **Klasör boyutu ve dosya sayısı** (`dir_size`): aynı dosya sistemi içinde yürüme, en çok 1 milyon kayıt / 60 sn (aşılırsa `partial`),
   varsayılan 3600 sn aralık.
+- Uygulama (748, Pro `hosting_denetim`, görev kararı; §D "ücretsiz" notunun yerine): `backup_file` ve `dir_size` (Linux+Windows, bekci-pro `ic/internal/hosting/dosya*.go`). `backup_file` metrikleri `age_h`, `size` (B), `count`, `size_drop_pct` (en yeni ile ikinci en yeni eşleşen dosya karşılaştırılır; ajan belleği yok, tek dosyada metrik yazılmaz); eşleşme yoksa ya da klasör yoksa critical, izin hatası unknown; desen yalnız dosya adı. `dir_size` metrikleri `size`, `files`, `dirs`, `partial`, `errors`; sınır aşılınca warning. Yürüme sembolik bağları izlemez; Linux'ta aygıt numarası farklı klasöre inilmez, Windows'ta bağlama noktası/bağlantı (yeniden ayrıştırma) atlanır. Varsayılan kurallar `age_h` > 26, `size_drop_pct` > 50 (1 dk). Kabul `ic/internal/servers/pro_dosya748_test.go`.
 - **NFS/CIFS bağlantı noktası** (`mount`, Linux): `/proc/self/mountinfo`'da yol + beklenen tür (nfs, nfs4, cifs, smb3). Takılı kalma:
   `statfs` ayrı goroutine'de 5 sn zaman aşımıyla; aşarsa critical "yanıt vermiyor" (ajan bloklanmaz, takılan goroutine sayısı 1 ile sınırlı).
 - **inode doluluğu**: denetim değil, mevcut disk örneğine eklenir (`statfs` Files/Ffree, Linux); yeni uyarı metriği `inode` (%, 90 varsayılan,
