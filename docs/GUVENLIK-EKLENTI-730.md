@@ -264,6 +264,8 @@ Sorgular sabittir (panelden SQL gelmez).
 - Express: arabellek havuzu üst sınırı (1410 MB) sabit bilgi olarak gösterilir; "4 GB Express sunucuda 30 sn zaman aşımı" olayı tam olarak
   PLE düşüşü + bellek bekleyen sorgu + 30 sn+ istek üçlüsüyle görünür olur; ayrıntı kartında "Express bellek sınırına dayandı" ipucu.
 - Varsayılan kurallar: PLE < 300 10 dk (uyarı), bellek bekleyen sorgu > 0 5 dk, THREADPOOL bekleme > 0, 30 sn+ istek > 0 5 dk.
+  Uygulama (746): kurallar `>=` eşikle karşılaştırır, "> 0" eşik 1 olarak kurulur; metrik adları `ple`, `memory_grants_pending`,
+  `threadpool_wait_ms_per_min`, `semaphore_wait_ms_per_min`, `long_requests`, `blocked_requests`, `work_queue`, bellek MB'leri.
 
 ### C.3 MySQL / MariaDB (Linux + Windows; sürücü var)
 - Yerel soket otomatik (`/var/run/mysqld/mysqld.sock`, `/var/lib/mysql/mysql.sock`, `/tmp/mysql.sock`) ya da `127.0.0.1:3306`;
