@@ -91,7 +91,7 @@
   const docsUrl = $derived(i18n.locale === 'en' ? 'https://bekci.app/en/docs/plugins/' : 'https://bekci.app/docs/eklentiler/');
 
   const kindOf = (c: ServerCheck): StatusKind =>
-    !c.enabled ? 'paused' : c.status === 'ok' ? 'up' : c.status === 'critical' ? 'down' : c.status === 'warning' ? 'pending' : 'paused';
+    !c.enabled ? 'paused' : c.status === 'ok' ? 'up' : c.status === 'critical' ? 'down' : c.status === 'warning' || c.status === 'unknown' ? 'pending' : 'paused';
   const badgeOf = (s: string) => (s === 'ok' ? 'up' : s === 'critical' ? 'down' : s === 'warning' ? 'pending' : 'paused');
   const statusText = (c: ServerCheck) => (!c.enabled ? t('servers.checks.disabled') : t(`servers.checks.status.${c.status || 'none'}`));
   const toneOf = (c: ServerCheck) => (c.status === 'critical' ? 'down' : c.status === 'warning' ? 'warn' : 'accent');
@@ -118,9 +118,10 @@
       d.sort((a, b) => a - b);
       iv = Math.max(60, d[Math.floor(d.length / 2)]);
     }
+    // Veri aralıktan kısaysa eksen ilk örnekten başlar (yeni eklenti tek kenara sıkışmasın).
     return {
       times: pts.map((p) => p.t),
-      from: now - span,
+      from: Math.max(now - span, pts[0].t - 5 * iv),
       to: now,
       interval: iv,
       series: [{ label: series.metric, color: 'var(--chart-1)', values: pts.map((p) => p.avg), fill: true }],
@@ -381,7 +382,7 @@
       flex-wrap: wrap;
     }
     .metrics {
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
     }
   }
 </style>
