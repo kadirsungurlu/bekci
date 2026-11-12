@@ -17,6 +17,7 @@
   } from '../lib/api';
   import ServerInventory from '../components/ServerInventory.svelte';
   import ServerSecurity from '../components/ServerSecurity.svelte';
+  import ServerChecks from '../components/ServerChecks.svelte';
   import ServerTimeline from '../components/ServerTimeline.svelte';
   import { live } from '../lib/live.svelte';
   import { session } from '../lib/session.svelte';
@@ -338,7 +339,7 @@
   const lvl = (v: number | null) => ({ ok: '', warn: 'c-pending', danger: 'c-down' })[usageLevel(v)];
 
   const TONE_ICON = { up: 'server', warn: 'alert', down: 'server', muted: 'server' } as const;
-  let pageTab = $state<'overview' | 'inventory' | 'security' | 'timeline'>('overview');
+  let pageTab = $state<'overview' | 'inventory' | 'security' | 'checks' | 'timeline'>('overview');
   const fullText = (d: number) => (d < 1 ? t('servers.detail.disks.fullSoon') : t('servers.detail.disks.fullIn', { d: fmtDays(d) }));
   const forecastOf = (mount: string) => view?.disk_forecast?.find((f) => f.mount === mount) ?? null;
   const PILL = { up: 'up', warn: 'pending', down: 'down', muted: 'paused' } as const;
@@ -434,6 +435,7 @@
     <button role="tab" aria-selected={pageTab === 'overview'} class:active={pageTab === 'overview'} onclick={() => (pageTab = 'overview')}>{t('servers.inventory.tabOverview')}</button>
     <button role="tab" aria-selected={pageTab === 'inventory'} class:active={pageTab === 'inventory'} onclick={() => (pageTab = 'inventory')}>{t('servers.inventory.title')}</button>
     <button role="tab" aria-selected={pageTab === 'security'} class:active={pageTab === 'security'} onclick={() => (pageTab = 'security')}>{t('servers.security.tab')}</button>
+    <button role="tab" aria-selected={pageTab === 'checks'} class:active={pageTab === 'checks'} onclick={() => (pageTab = 'checks')}>{t('servers.checks.tab')}</button>
     <button role="tab" aria-selected={pageTab === 'timeline'} class:active={pageTab === 'timeline'} onclick={() => (pageTab = 'timeline')}>{t('servers.timeline.title')}</button>
   </div>
 
@@ -441,6 +443,8 @@
     <ServerInventory {id} disks={st?.disks ?? []} />
   {:else if pageTab === 'security'}
     <ServerSecurity {id} />
+  {:else if pageTab === 'checks'}
+    <ServerChecks {id} />
   {:else if pageTab === 'timeline'}
     <ServerTimeline {id} />
   {:else}

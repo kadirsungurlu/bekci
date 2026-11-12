@@ -1650,6 +1650,94 @@ export interface SecWU {
   failed?: SecWUFail[];
 }
 
+/** Denetim metriği (eklenti çıktısı, taban birimde). */
+export interface CheckMetric {
+  name: string;
+  value: number;
+  unit?: string;
+  warn?: unknown;
+  crit?: unknown;
+  min?: number;
+  max?: number;
+}
+
+/** Denetim durumu (eklenti ya da yerleşik). status "" = henüz çalışmadı. */
+export interface ServerCheck {
+  name: string;
+  source: 'plugin' | 'builtin';
+  kind?: string;
+  version: number;
+  status: '' | 'ok' | 'warning' | 'critical' | 'unknown';
+  message: string;
+  error?: string;
+  stderr?: string;
+  metrics: CheckMetric[] | null;
+  dropped?: number;
+  truncated?: boolean;
+  last_run: number;
+  last_ok: number;
+  duration_ms: number;
+  status_since: number;
+  unknown_streak: number;
+  enabled: boolean;
+  interval: number;
+  has_manifest: boolean;
+  updated_at: number;
+}
+
+/** GET /api/servers/{id}/checks; rules: metric=check, mount '<ad>' ya da '<ad>/<metrik>'. */
+export interface ServerChecks {
+  checks: ServerCheck[];
+  rules: ServerAlertRule[];
+  max: number;
+  samples: boolean;
+  now: number;
+}
+
+export interface ServerAlertRule {
+  id: number;
+  metric: string;
+  threshold: number;
+  warn_threshold: number;
+  minutes: number;
+  mount: string;
+  active: boolean;
+  firing: boolean;
+  below?: boolean;
+}
+
+export interface CheckPoint {
+  t: number;
+  avg: number;
+  min: number;
+  max: number;
+}
+
+export interface CheckSeries {
+  metric: string;
+  unit: string;
+  range: string;
+  hourly: boolean;
+  points: CheckPoint[];
+}
+
+export interface CheckRuleInput {
+  metric: string;
+  threshold: number;
+  warn_threshold: number;
+  minutes: number;
+  below: boolean;
+  active: boolean;
+}
+
+export interface CheckInput {
+  enabled?: boolean;
+  interval?: number;
+  manifest?: unknown;
+  body?: string;
+  rules?: CheckRuleInput[];
+}
+
 /** GET /api/servers/{id}/security */
 export interface ServerSecurity {
   /** 0: ajan hiç rapor göndermedi. */
@@ -2420,6 +2508,13 @@ export const api = {
     get<StatsSeries>(`/api/servers/${id}/stats?range=${range}`),
   getServerInventory: (id: number) => get<ServerInventory>(`/api/servers/${id}/inventory`),
   getServerSecurity: (id: number) => get<ServerSecurity>(`/api/servers/${id}/security`),
+  getServerChecks: (id: number) => get<ServerChecks>(`/api/servers/${id}/checks`),
+  getCheckSeries: (id: number, name: string, metric: string, range: string) =>
+    get<CheckSeries>(
+      `/api/servers/${id}/checks/${encodeURIComponent(name)}/series?metric=${encodeURIComponent(metric)}&range=${range}`,
+    ),
+  putServerCheck: (id: number, name: string, input: CheckInput) =>
+    put<unknown>(`/api/servers/${id}/checks/${encodeURIComponent(name)}`, input),
   setInventoryCertIgnored: (id: number, fingerprint: string, ignored: boolean) =>
     put<void>(`/api/servers/${id}/inventory/certs/${encodeURIComponent(fingerprint)}`, { ignored }),
   getServerTimeline: (id: number, q: { before?: number; limit?: number; kinds?: string[] } = {}) => {
