@@ -346,9 +346,9 @@ func (s *Scheduler) note(name, code string, err error) {
 		return
 	}
 	if err != nil {
-		s.log().Warn("eklenti reddedildi", "ad", name, "hata", err)
+		s.log().Warn("eklenti/denetim reddedildi", "ad", name, "hata", err)
 	} else {
-		s.log().Info("eklenti çalışıyor", "ad", name)
+		s.log().Info("eklenti/denetim çalışıyor", "ad", name)
 	}
 }
 

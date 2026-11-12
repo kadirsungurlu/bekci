@@ -113,7 +113,7 @@
             : p.type === 'socket'
               ? t('servers.checks.builtin.socketHint')
               : '';
-    return [own, extra].filter(Boolean).join(' ');
+    return own || extra; // türün kendi yardımı varsa genel ipucu yinelenmez
   }
 
   // Parametre nesnesi: int sayı, bool boolean, diğerleri string; boş opsiyoneller gönderilmez.

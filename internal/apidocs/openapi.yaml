@@ -1325,11 +1325,16 @@ paths:
   /api/servers/{id}/checks/{name}:
     put:
       tags: [servers]
-      summary: Denetimi aç/kapat, aralık, imzalı manifest ve kurallar (yönetici, işlem kaydına yazılır)
-      description: "manifest: imzalı zarf (JSON; \"\" kaldırır), body ile birlikte (base64, sha256 manifestle aynı). İmza ajanda yerel iğneyle doğrulanır. interval manifestin interval_min..interval_max aralığında (manifestsiz 60-86400). rules verilirse denetimin kuralları bununla değişir (en çok 11)."
+      summary: Denetimi ekle/aç/kapat, aralık, imzalı manifest, yerleşik tür parametreleri ve kurallar (yönetici, işlem kaydına yazılır)
+      description: "Yerleşik denetim: kind (GET /api/check-kinds; oluşturduktan sonra değişmez) + params (tür şeması; hedef yalnız loopback, başkası ajanda kimlik dosyasının hosts listesinde olmalı; kimlik içeriği panele gelmez). Pro türü lisanssızsa 402 pro_lisans (yalnız kapatma serbest). manifest: imzalı zarf (JSON; \"\" kaldırır), body ile birlikte (base64, sha256 manifestle aynı). İmza ajanda yerel iğneyle doğrulanır. interval manifestin interval_min..interval_max aralığında (manifestsiz 60-86400). rules verilirse denetimin kuralları bununla değişir (en çok 11)."
       parameters: [{ $ref: "#/components/parameters/id" }, { name: name, in: path, required: true, schema: { type: string } }]
-      requestBody: { content: { application/json: { schema: { type: object, properties: { enabled: { type: boolean }, interval: { type: integer }, manifest: { type: object, additionalProperties: true }, body: { type: string }, rules: { type: array, items: { type: object, properties: { metric: { type: string }, threshold: { type: number }, warn_threshold: { type: number }, minutes: { type: integer }, below: { type: boolean }, active: { type: boolean } } } } } } } } }
-      responses: { "200": { description: "{check, rules[]}" }, "400": { description: Geçersiz }, "409": { description: Sunucu başına denetim sınırı dolu } }
+      requestBody: { content: { application/json: { schema: { type: object, properties: { kind: { type: string }, params: { type: object, additionalProperties: true }, enabled: { type: boolean }, interval: { type: integer }, manifest: { type: object, additionalProperties: true }, body: { type: string }, rules: { type: array, items: { type: object, properties: { metric: { type: string }, threshold: { type: number }, warn_threshold: { type: number }, minutes: { type: integer }, below: { type: boolean }, active: { type: boolean } } } } } } } } }
+      responses: { "200": { description: "{check, rules[]}" }, "400": { description: Geçersiz }, "402": { description: Pro lisansı gerekli }, "409": { description: Sunucu başına denetim sınırı dolu } }
+  /api/check-kinds:
+    get:
+      tags: [servers]
+      summary: Yerleşik denetim türleri ve parametre şemaları (TR+EN etiket, pro, locked)
+      responses: { "200": { description: "{kinds[{kind, platforms, interval{min,max,default}, label, help, params[{name,type,required,default,options,min,max,label,help}], pro, locked}]}" } }
   /api/servers/{id}/events:
     get: { tags: [servers], summary: Uyarı olayları, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: "{events[]}" } } }
   /api/servers/{id}/timeline:

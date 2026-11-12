@@ -90,6 +90,7 @@ alttaki otomatik bölüm `sh scripts/harita.sh` ile yenilenir (elle düzenleme).
 | Eklenti çıktı ayrıştırıcı (738) | internal/eklenti (saf): eklenti.go ortak Result/Metric/Status (G3, sınırlar), aralik.go Nagios aralığı (Range, Alert, birim çarpanı), nagios.go dönüş kodu + perfdata (çok satır), json.go bizim şema + düz biçim; tablolu + fuzz testleri eklenti_test.go |
 | Eklenti ajan tarafı (739, ücretsiz) | internal/eklentiajan: manifest.go (680 zarfı doğrulama, katı periyodik manifest mode/class/interval_*), config.go (/etc/bekci/eklenti.json trust+pins, root/izin denetimi), karar.go (Decide + red kodları), yurut.go (systemd-run kafesi, timeout(1) içeride), zamanlayici.go (Scheduler: jobs `checks` Handle, sırayla çalıştırma, kuyruk, POST /api/probe/checks, günlük özet), kayit.go (zincirli kayit.jsonl), komut.go (`uptime betik eklenti izin/kapat/anahtar/liste`, uygulama/main.go'da Pro komutlarından önce); probe Config.Checks (CheckRunner), jobsResponse.Checks; uygulama/probe.go newCheckRunner (PLUGINS=0); testler saldiri_test.go, systemd_test.go (BEKCI_TEST_SYSTEMD=1); Pro'da betik_test TestParseManifestEklentiRed; tasarım notu GUVENLIK-EKLENTI-730 B.1 |
 | Denetim sonuçları (741, ücretsiz) | store/checks.go (migration 54: check_state (durum + yapılandırma), check_samples Timescale hypertable + check_hourly cagg; düz PG tablo + Go saatlik özet ve budama; SQLite örnek yok; server_alerts.below); servers/checks.go (IngestChecks, durum kuralı mount '<ad>' bit maskesi 1/2/4, '<ad>/<metrik>' eşik + below, olay kind=server_alert metric=check, çizelge check_unknown); api/checks.go (POST /api/probe/checks, GET /api/servers/{id}/checks, GET .../checks/{name}/series, PUT .../checks/{name} yönetici + işlem kaydı; jobs yanıtında checks); testler store/checks_test.go (Timescale + düz PG), servers/checks_test.go, api/checks_test.go; arayüz (B.6): web components/ServerChecks (ServerDetail Denetimler sekmesi: durum, ileti, son çalışma, kıvılcım, LineChart 24h/7d/30d) + CheckEditModal (yönetici: zarf + gövde yükleme, aç/kapat, aralık, durum + metrik kuralları), i18n servers.checks |
+| Yerleşik denetimler (743, ücretsiz altyapı) | internal/denetim (tür kaydı Kaydet/Bul/Turler, parametre şeması + Dogrula, Hazirla, Yurut zaman aşımı + panik; hedef.go loopback/soket; kimlik.go + kimlik_{unix,windows}.go: /etc/bekci/kimlik.d veya %ProgramData%\Bekci\kimlik.d, root 600 / SYSTEM+Administrators ACL değilse red; noop.go test türü); Pro türleri kanca.DenetimTuru(ozellik, tur) ile (744-749, 751 bekci-pro); ajan eklentiajan/zamanlayici.go runBuiltin (source=builtin, Item.Kind/Params, Paths.Kimlik); store/checks.go migration 55 check_state.params, CheckJob kind/params; api/checks.go GET /api/check-kinds, putCheck builtin dalı (kind değişmez, Pro kilidi 402, saveCheck ortak kuyruk), checksFor kilitli/bilinmeyen türü ajana göndermez; test api/checks_builtin_test.go, denetim/denetim_test.go, eklentiajan TestYerlesik; web components/CheckAddModal (tür seçimi, dinamik parametreler), ServerChecks "Denetim ekle", i18n servers.checks.builtin |
 | Eklenti yazma, örnekler (B.6, ücretsiz) | imzalama `uptime betik eklenti anahtar-uret|imzala` (internal/eklentiajan/imza_komut.go: sha256 ve 90 gün süre doldurur); örnekler scripts/eklentiler/ (mdadm Nagios, smart JSON; MDSTAT ezilebilir); belge site/docs-src/tr/16-eklentiler.md, en/16-plugins.md |
 | Lisans (Pro) | sözleşme docs/LISANS-TASARIM.md; lisans/ (saf: biçim, Degerlendir, cihaz, istemci); kanca/ + api/kanca.go (Pro rota kapısı 402 pro_lisans, KancaPanel); store/license.go (settings lisans.* yardımcıları, LisansHazirla: panel_id UUID v4 + kurulum, en_ileri yalnız ileri; migration yok); internal/lisansyonet (Yonetici: Durum/Acik, AnahtarKoy/KiraKoy/Yenile/Sil, Calistir: 24 sa yenileme, hata sonrası 1 sa, 10 dk en_ileri + UyariDenetle, uyari_seviye bir kez); api/license.go (GET /api/license, /detail, PUT, POST lease/refresh, DELETE; SetLisans: SetProOzellik + yönetici bildirimi e-posta/web push/işlem kaydı, kanca Bildir aynı yoldan); uygulama/main.go kurulum (kanca.OzellikAcik = Yonetici.Acik); testler api/license_test.go (sahte lisans sunucusu, LISANS_URL, BEKCI_CIHAZ_DIZIN); web settings/License, components/LicenseBanner |
 
@@ -102,7 +103,7 @@ apikeys.go: GET /api/api-keys | POST /api/api-keys | DELETE /api/api-keys/{id}
 apikeys_read.go: GET /api/certs | GET /api/server-events
 backup.go: GET /api/export | POST /api/export | POST /api/import | POST /api/import/uptime-kuma | POST /api/import/uptimerobot
 badges.go: GET /api/badge/{id}/{kind}
-checks.go: POST /api/probe/checks | GET /api/servers/{id}/checks | GET /api/servers/{id}/checks/{name}/series | PUT /api/servers/{id}/checks/{name}
+checks.go: POST /api/probe/checks | GET /api/servers/{id}/checks | GET /api/servers/{id}/checks/{name}/series | PUT /api/servers/{id}/checks/{name} | GET /api/check-kinds
 domains.go: GET /api/tls/ask | GET /api/status-pages/{id}/domain
 incidents.go: GET /api/incidents/{id} | GET /api/servers/{id}/incidents
 incidents_ack.go: POST /api/incidents/{id}/ack | DELETE /api/incidents/{id}/ack | POST /api/incidents/{id}/snooze | DELETE /api/incidents/{id}/snooze
@@ -141,19 +142,19 @@ webpush.go: GET /api/webpush/vapid | GET /api/webpush/subscriptions | POST /api/
 pages_period.go 25: incident_manual.go 26: servers_ext.go 27: beats_recent.go 28: domain.go 29: incident_ack.go 30: tag_rules.go 31: 
 auth_ext.go 32: webpush.go 33: auth_ext.go 34: sessions.go 35: probes_update.go 36: subscribers.go 37: subscribers.go 38: updates.go 39: 
 incident_kinds.go 40: mesh.go 41: probes_oob.go 42: channel_sends.go 43: timescale.go 44: server_metrics.go 45: inventory.go 46: 
-server_events.go 47: apikeys.go 50: topology.go 51: security.go 52: security_auth.go 53: security.go 54: checks.go
+server_events.go 47: apikeys.go 50: topology.go 51: security.go 52: security_auth.go 53: security.go 54: checks.go 55: checks.go
 ```
 
 ### Arayüz sayfaları / bileşenler / i18n ad alanları
 ```
 pages: Announcements Auth ForcePassword IncidentDetail Incidents MaintenanceForm MaintenanceList MonitorDetail MonitorForm MonitorList More Notifications ProLocked ProPage PublicStatus ServerDetail ServerList Settings StatusPageEditor StatusPages
 pages/settings: Account ApiKeys Audit Backup General License Login Probes Tags TwoFactor UserForm Users
-components: AgentAutoUpdate AgentVersion AlertRulesEditor BadgeBuilder BulkEditModal ConfigFields ConfirmDialog ConnectionDetails 
-ContainerTable CopyButton DateTimeField DomainStatus FilePick Icon ImportResult IncidentAck IncidentEditModal IncidentTable IncidentUpdates 
-LangSwitch LicenseBanner LineChart MeshDiagram MeshMatrix Modal MonitorMenu MonitorPicker MonitorRow NotificationForm OobFields 
-PagePreviewPanel PageSubscribers PageThumb Pager PingChart PushDevices QuickMaintModal QuickNotifyModal QuickPageModal QuickTagsModal 
-RecoveryCodes RowMenu ServerInventory ServerPicker ServerSecurity ServerSettingsModal ServerSetupModal ServerTimeline Sessions Sparkline 
-StateMark StatusIcon StatusView SubscribePanel TagChip TagDialog TagRulePicker ThemeToggle Toasts Tooltip TypeBadge UpdateBanner 
-UplinkBadge UptimeBars UsageBar
+components: AgentAutoUpdate AgentVersion AlertRulesEditor BadgeBuilder BulkEditModal CheckAddModal CheckEditModal ConfigFields 
+ConfirmDialog ConnectionDetails ContainerTable CopyButton DateTimeField DomainStatus FilePick Icon ImportResult IncidentAck 
+IncidentEditModal IncidentTable IncidentUpdates LangSwitch LicenseBanner LineChart MeshDiagram MeshMatrix Modal MonitorMenu MonitorPicker 
+MonitorRow NotificationForm OobFields PagePreviewPanel PageSubscribers PageThumb Pager PingChart PushDevices QuickMaintModal 
+QuickNotifyModal QuickPageModal QuickTagsModal RecoveryCodes RowMenu ServerChecks ServerInventory ServerPicker ServerSecurity 
+ServerSettingsModal ServerSetupModal ServerTimeline Sessions Sparkline StateMark StatusIcon StatusView SubscribePanel TagChip TagDialog 
+TagRulePicker ThemeToggle Toasts Tooltip TypeBadge UpdateBanner UplinkBadge UptimeBars UsageBar
 i18n: account ale.ts apiKeys audit auth backup common incide.ts license maintenance monitorTypes monitors nav notifications notifyTypes overview pages probes pub roles servers settings status tags topology users
 ```

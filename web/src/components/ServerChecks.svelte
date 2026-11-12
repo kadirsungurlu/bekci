@@ -415,6 +415,13 @@
     .top {
       flex-wrap: wrap;
     }
+    .top .title {
+      flex: 1 1 calc(100% - 42px);
+    }
+    .top .acts {
+      margin-left: 42px;
+      justify-content: flex-start;
+    }
     .metrics {
       grid-template-columns: 1fr;
     }
