@@ -14,6 +14,7 @@ import (
 
 	"github.com/kadirsungurlu/bekci/internal/denetim"
 	"github.com/kadirsungurlu/bekci/internal/eklenti"
+	"github.com/kadirsungurlu/bekci/internal/metrics"
 )
 
 // Result panele giden tek sonuç (POST /api/probe/checks, B.4).
@@ -57,6 +58,8 @@ type Scheduler struct {
 	Log   *slog.Logger
 	Now   func() time.Time
 	GOOS  string // test; boş = runtime.GOOS
+	// Container: ajan kapsayıcıda (Docker ajanı); YalnizSunucu türler reddedilir.
+	Container bool
 
 	mu        sync.Mutex
 	items     map[string]Item
@@ -73,7 +76,7 @@ type Scheduler struct {
 // NewScheduler üretim zamanlayıcısı (Linux + systemd >= 254 değilse Exec nil).
 func NewScheduler(log *slog.Logger) *Scheduler {
 	p := DefaultPaths()
-	s := &Scheduler{Paths: p, Kayit: &DosyaKayit{Dir: p.LogDir}, Log: log}
+	s := &Scheduler{Paths: p, Kayit: &DosyaKayit{Dir: p.LogDir}, Log: log, Container: metrics.DetectContainer()}
 	if e := NewSystemd(); e != nil {
 		s.Exec = e
 	}
@@ -298,6 +301,11 @@ func (s *Scheduler) runBuiltin(ctx context.Context, it Item) Result {
 		res.Result = eklenti.Result{Status: eklenti.Unknown, Metrics: []eklenti.Metric{},
 			Message: "ajan bu denetim türünü tanımıyor: " + it.Kind + " (ajanı güncelleyin)"}
 		code = denetim.HataKind
+	} else if s.Container && tur.YalnizSunucu {
+		res.Result = eklenti.Result{Status: eklenti.Unknown, Metrics: []eklenti.Metric{},
+			Message: "Docker ajanı sunucunun dosyalarını ve programlarını göremez; bu denetim için ajanı systemd hizmeti olarak kurun / " +
+				"not available in the Docker agent: install the agent as a systemd service"}
+		code = denetim.HataPlatform
 	} else {
 		dir := s.Paths.Kimlik
 		if dir == "" {

@@ -282,7 +282,9 @@ If no tool is available, the newest installed kernel is compared with the runnin
 
 ### Permissions {#security-permissions}
 
-With the direct (systemd) install the agent runs as root and reads every section. If you run it as a non-root user:
+With the direct (systemd) install the agent runs as root, but the service unit limits its capabilities: `CapabilityBoundingSet=CAP_NET_RAW CAP_DAC_READ_SEARCH`. `CAP_NET_RAW` is for ping; `CAP_DAC_READ_SEARCH` lets the agent **only read** folders owned by other users (mail queue, backup folders, credential files); it grants no write or configuration rights. On older installs without this line the mail queue check reports "queue folder not readable": change the line in `/etc/systemd/system/uptime-agent.service` as above and run `systemctl daemon-reload && systemctl restart uptime-agent`, or take the install command from the panel again.
+
+Reading firewall rules (ufw, nftables, iptables) needs `CAP_NET_ADMIN` in the kernel; the unit does not grant it, so the firewall card shows "last query failed". If you run the agent as a non-root user:
 
 - apt and dnf update counts need no privileges; `zypper` needs root (if its lock is busy, it retries next round).
 - For the SSH log the user must be in the `systemd-journal` (journal) or `adm` (`/var/log/auth.log`) group; if it cannot be read, the card says the SSH log could not be read.

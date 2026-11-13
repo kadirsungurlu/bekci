@@ -111,6 +111,10 @@ type Tur struct {
 	// kuralları (durum kuralı her zaman ayrıca kurulur). Kullanıcı sonra
 	// düzenler ya da kapatır.
 	Kurallar []Kural `json:"rules,omitempty"`
+	// YalnizSunucu: tür sunucunun dosyalarını ya da programlarını kullanır
+	// (posta kuyruğu, yedek klasörü, bağlantı noktası...). Kapsayıcıda (Docker
+	// ajanı) çalışan ajan bunları göremez; tür orada açık bir iletiyle reddedilir.
+	YalnizSunucu bool `json:"host_only,omitempty"`
 	// Calistir ajan tarafında çalışır; ctx zaman aşımı taşır. Dönen sonuç
 	// panele aynen gider (eklenti.Result sınırları ajan tarafında uygulanır).
 	Calistir func(ctx context.Context, g Girdi) eklenti.Result `json:"-"`

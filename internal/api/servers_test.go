@@ -142,6 +142,7 @@ func TestServersAPI(t *testing.T) {
 	}
 	if !strings.Contains(cp.Systemd, "/etc/systemd/system/uptime-agent.service") || !strings.Contains(cp.Systemd, "EnvironmentFile=/etc/uptime-agent.env") || !strings.Contains(cp.Systemd, "install -m 600 /dev/null /etc/uptime-agent.env") ||
 		!strings.Contains(cp.Systemd, "sha256sum -c -") || !strings.Contains(cp.Systemd, "NoNewPrivileges=yes") ||
+		!strings.Contains(cp.Systemd, "CapabilityBoundingSet=CAP_NET_RAW CAP_DAC_READ_SEARCH\n") ||
 		!strings.Contains(cp.Systemd, "systemctl enable uptime-agent") || !strings.Contains(cp.Systemd, "curl") || !strings.Contains(cp.Systemd, "wget") {
 		t.Fatalf("systemd komutu: %s", cp.Systemd)
 	}

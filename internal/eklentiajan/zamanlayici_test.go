@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kadirsungurlu/bekci/internal/denetim"
 	"github.com/kadirsungurlu/bekci/internal/eklenti"
 )
 
@@ -236,5 +237,29 @@ func TestYerlesik(t *testing.T) {
 		if r.Source != "builtin" || r.Kind != c.it.Kind || r.Status != c.status || r.Error != c.code || !strings.Contains(r.Message, c.msg) || r.T == 0 {
 			t.Errorf("%s: %+v", c.it.Name, r)
 		}
+	}
+}
+
+// Docker ajanında sunucu dosyası/programı isteyen tür açık iletiyle reddedilir
+// (VM kabulü: yedek denetimi kapsayıcının dosya sisteminde "folder not found"
+// diyordu).
+func TestYerlesikKapsayici(t *testing.T) {
+	denetim.Kaydet(denetim.Tur{Kind: "test_sunucu", YalnizSunucu: true,
+		Interval: denetim.Aralik{Min: 60, Max: 600, Default: 60},
+		Calistir: func(context.Context, denetim.Girdi) eklenti.Result {
+			return eklenti.Result{Status: eklenti.OK, Metrics: []eklenti.Metric{}}
+		}})
+	ctx := context.Background()
+	it := Item{Name: "y", Source: "builtin", Kind: "test_sunucu"}
+	s := &Scheduler{GOOS: "linux", Container: true}
+	if r := s.RunOne(ctx, it); r.Status != eklenti.Unknown || r.Error != denetim.HataPlatform || !strings.Contains(r.Message, "systemd") {
+		t.Fatalf("kapsayıcı: %+v", r)
+	}
+	if r := s.RunOne(ctx, Item{Name: "n", Source: "builtin", Kind: "noop", Params: json.RawMessage(`{}`)}); r.Status != eklenti.OK {
+		t.Fatalf("noop kapsayıcıda çalışmalı: %+v", r)
+	}
+	s.Container = false
+	if r := s.RunOne(ctx, it); r.Status != eklenti.OK {
+		t.Fatalf("sunucuda: %+v", r)
 	}
 }

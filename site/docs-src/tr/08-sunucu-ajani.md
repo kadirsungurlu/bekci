@@ -282,7 +282,9 @@ Araç bulunamazsa yeniden başlatma için kurulu en yeni çekirdek çalışan ç
 
 ### Yetki {#guvenlik-yetki}
 
-Doğrudan (systemd) kurulumda ajan root olarak çalışır ve tüm bölümleri okur. Root olmayan bir kullanıcıyla çalıştırdıysanız:
+Doğrudan (systemd) kurulumda ajan root olarak çalışır, ama hizmet birimi yetkilerini sınırlar: `CapabilityBoundingSet=CAP_NET_RAW CAP_DAC_READ_SEARCH`. `CAP_NET_RAW` ping içindir; `CAP_DAC_READ_SEARCH` ajanın başka kullanıcılara ait klasörleri **yalnız okumasını** sağlar (posta kuyruğu, yedek klasörü, kimlik dosyaları); yazma ve ayar değiştirme yetkisi vermez. Bu satırı içermeyen eski kurulumlarda posta kuyruğu denetimi "kuyruk klasörü okunamadı" der: `/etc/systemd/system/uptime-agent.service` dosyasında satırı yukarıdaki gibi değiştirip `systemctl daemon-reload && systemctl restart uptime-agent` çalıştırın ya da kurulum komutunu panelden yeniden alın.
+
+Güvenlik duvarı kurallarını (ufw, nftables, iptables) okumak çekirdekte `CAP_NET_ADMIN` ister; birim bu yetkiyi vermediği için güvenlik duvarı kartı "son sorgu başarısız oldu" der. Root olmayan bir kullanıcıyla çalıştırdıysanız:
 
 - apt ve dnf güncelleme sayıları yetki gerektirmez; `zypper` root ister (kilit meşgulse bir sonraki turda yeniden dener).
 - SSH günlüğü için kullanıcı `systemd-journal` (journal) ya da `adm` (`/var/log/auth.log`) grubunda olmalıdır; okunamazsa kart "SSH günlüğü okunamadı" der.

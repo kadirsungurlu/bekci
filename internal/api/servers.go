@@ -553,7 +553,7 @@ func (s *Server) serverSetupCommands(server, token string) (dockerAgent, systemd
 		"[Unit]", "Description="+brand.Name+" agent", "After=network-online.target", "Wants=network-online.target", "",
 		"[Service]", "EnvironmentFile="+agentEnvPath,
 		"ExecStart=/usr/local/bin/uptime probe", "Restart=always", "RestartSec=10",
-		"NoNewPrivileges=yes", "PrivateTmp=yes", "MemoryMax=256M", "CapabilityBoundingSet=CAP_NET_RAW", "",
+		"NoNewPrivileges=yes", "PrivateTmp=yes", "MemoryMax=256M", "CapabilityBoundingSet=CAP_NET_RAW CAP_DAC_READ_SEARCH", "",
 		"[Install]", "WantedBy=multi-user.target",
 		"UPTIME_UNIT",
 		"systemctl daemon-reload",
