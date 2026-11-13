@@ -35,11 +35,22 @@ func imzaKomut(args []string, out io.Writer) error {
 			return err
 		}
 		out.Write(append(zarf, '\n'))
-		fmt.Fprintf(os.Stderr, "gövde sha256: %s\najanda: uptime betik eklenti izin <ad> %s\n", sha, sha)
+		fmt.Fprintf(os.Stderr, "gövde sha256: %s\najanda: uptime betik eklenti izin %s %s\n", sha, manifestID(args[2]), sha)
 	default:
 		return errors.New(usage)
 	}
 	return nil
+}
+
+// manifestID izin komutu için manifestteki id (okunamazsa "<ad>").
+func manifestID(path string) string {
+	var m struct {
+		ID string `json:"id"`
+	}
+	if b, err := os.ReadFile(path); err == nil && json.Unmarshal(b, &m) == nil && IsID(m.ID) {
+		return m.ID
+	}
+	return "<ad>"
 }
 
 // AnahtarUret yeni Ed25519 anahtarı üretir, tohumu base64 olarak dosyaya

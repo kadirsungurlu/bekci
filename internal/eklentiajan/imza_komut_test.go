@@ -72,3 +72,17 @@ func mustRead(t *testing.T, p string) []byte {
 	}
 	return b
 }
+
+// VM kabulü: imzala çıktısındaki izin komutu doğrudan kopyalanabilmeli.
+func TestManifestID(t *testing.T) {
+	d := t.TempDir()
+	p := filepath.Join(d, "m.json")
+	os.WriteFile(p, []byte(`{"schema":1,"id":"mdadm"}`), 0o600)
+	if got := manifestID(p); got != "mdadm" {
+		t.Fatalf("id: %q", got)
+	}
+	os.WriteFile(p, []byte(`{"id":"../x"}`), 0o600)
+	if got := manifestID(p); got != "<ad>" {
+		t.Fatalf("geçersiz id: %q", got)
+	}
+}
