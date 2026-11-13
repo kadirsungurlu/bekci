@@ -372,6 +372,8 @@ func (s *Service) evaluate(ctx context.Context, p store.Probe, host *metrics.Hos
 			continue
 		case MetricReboot:
 			continue // yeniden başlatma Ingest'te açılış zamanından tespit edilir
+		case MetricCheck:
+			continue // denetim sonucuyla (checks.go evalCheck); metrik örneğinde değeri yok
 		}
 		if SecurityMetric(a.Metric) {
 			continue // güvenlik raporu ve saatlik denetimle (security.go)

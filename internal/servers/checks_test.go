@@ -154,3 +154,21 @@ func TestCheckMetricBelow(t *testing.T) {
 		t.Fatalf("kurallar: %+v", got)
 	}
 }
+
+// Metrik örnekleri açık denetim olayını kapatmamalı (VM kabulü: evaluate
+// denetim kuralını metrik sanıp "değer yok" diye kapatıyor, sonraki denetim
+// sonucu yeniden açıyordu).
+func TestCheckIncidentSurvivesMetrics(t *testing.T) {
+	e := newTestEnv(t)
+	e.check("yedek", eklenti.Critical)
+	e.takeOne(notify.KindServerAlert, "yedek", store.LevelCritical)
+	for i := 0; i < 15; i++ {
+		e.send(cpu(5))
+	}
+	e.check("yedek", eklenti.Critical)
+	e.expectQuiet("metrik örnekleri denetim olayını kapatmamalı")
+	list := e.serverIncidents()
+	if len(list) != 1 || list[0].ResolvedAt != 0 {
+		t.Fatalf("olay: %+v", list)
+	}
+}
